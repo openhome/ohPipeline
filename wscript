@@ -20,6 +20,7 @@ def options(opt):
     opt.load('msvc')
     opt.load('compiler_cxx')
     opt.load('compiler_c')
+    opt.add_option('--with-default-fpm', action='store_true', default=False)
     opt.add_option('--ohnet-include-dir', action='store', default=None)
     opt.add_option('--ohnet-lib-dir', action='store', default=None)
     opt.add_option('--testharness-dir', action='store', default=os.path.join('dependencies', 'AnyPlatform', 'testharness'))
@@ -116,7 +117,9 @@ def configure(conf):
 
     # Setup Mad (mp3) lib options
     fixed_point_model = 'FPM_INTEL'
-    if conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Core-armv5', 'Core-armv6']:
+    if conf.options.with_default_fpm:
+        fixed_point_model = 'FPM_DEFAULT'
+    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Core-armv5', 'Core-armv6']:
         fixed_point_model = 'FPM_ARM'
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
