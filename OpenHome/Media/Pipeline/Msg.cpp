@@ -1577,9 +1577,31 @@ void DecodedStreamInfo::Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TU
     iSeekable = aSeekable;
     iLive = aLive;
     iAnalogBypass = aAnalogBypass;
+    iDsd = false;
     iMultiroom = aMultiroom;
     iProfile = aProfile;
     iStreamHandler = aStreamHandler;
+}
+
+void DecodedStreamInfo::SetDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler)
+{
+    iStreamId = aStreamId;
+    iBitRate = aBitRate;
+    iTrackLength = aTrackLength;
+    iDsd = true;
+    iStreamHandler = aStreamHandler;
+    // FIXME - following hard-coded to enable testing without full Pipeline support for DSD
+    iBitDepth = 16;
+    iSampleRate = 48000;
+    iNumChannels = 2;
+    iCodecName.Replace("DSD");
+    iSampleStart = 0;
+    iLossless = true;
+    iSeekable = false;
+    iLive = false;
+    iAnalogBypass = false;
+    iMultiroom = Media::Multiroom::Forbidden;
+    iProfile = SpeakerProfile();
 }
 
 
@@ -1602,6 +1624,11 @@ void MsgDecodedStream::Initialise(TUint aStreamId, TUint aBitRate, TUint aBitDep
                                   const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler)
 {
     iStreamInfo.Set(aStreamId, aBitRate, aBitDepth, aSampleRate, aNumChannels, aCodecName, aTrackLength, aSampleStart, aLossless, aSeekable, aLive, aAnalogBypass, aMultiroom, aProfile, aStreamHandler);
+}
+
+void MsgDecodedStream::InitialiseDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler)
+{
+    iStreamInfo.SetDsd(aStreamId, aBitRate, aTrackLength, aStreamHandler);
 }
 
 void MsgDecodedStream::Clear()
@@ -2074,12 +2101,12 @@ const Media::Ramp& MsgPlayable::Ramp() const
     return iRamp;
 }
 
-void MsgPlayable::Read(IPcmProcessor& aProcessor)
+void MsgPlayable::Read(IPcmProcessor& aProcessor, TBool aApplyRamp)
 {
     aProcessor.BeginBlock();
     MsgPlayable* playable = this;
     while (playable != nullptr) {
-        playable->ReadBlock(aProcessor);
+        playable->ReadBlock(aProcessor, aApplyRamp);
         playable = playable->iNextPlayable;
     }
     aProcessor.EndBlock();
@@ -2190,13 +2217,16 @@ Brn MsgPlayablePcm::ApplyAttenuation(Brn aData)
     }
 }
 
-void MsgPlayablePcm::ReadBlock(IPcmProcessor& aProcessor)
+void MsgPlayablePcm::ReadBlock(IPcmProcessor& aProcessor, TBool aApplyRamp)
 {
-    Brn audioBuf = ApplyAttenuation(Brn(iAudioData->Ptr(iOffset), iSize));
+    Brn audioBuf(iAudioData->Ptr(iOffset), iSize);
+    if (aApplyRamp) {
+        audioBuf.Set(ApplyAttenuation(audioBuf));
+    }
 
     const TUint numChannels = iNumChannels;
     const TUint bitDepth = iBitDepth;
-    if (iRamp.IsEnabled()) {
+    if (iRamp.IsEnabled() && aApplyRamp) {
         Bws<256> rampedBuf;
         RampApplicator ra(iRamp);
         const TUint numSamples = ra.Start(audioBuf, bitDepth, numChannels);
@@ -2290,7 +2320,7 @@ void MsgPlayableSilence::Initialise(TUint aSizeBytes, TUint aSampleRate, TUint a
     iNumChannels = aNumChannels;
 }
 
-void MsgPlayableSilence::ReadBlock(IPcmProcessor& aProcessor)
+void MsgPlayableSilence::ReadBlock(IPcmProcessor& aProcessor, TBool /*aApplyRamp*/)
 {
     static const TByte silence[DecodedAudio::kMaxBytes] = { 0 };
     TUint remainingBytes = iSize;
@@ -3180,21 +3210,52 @@ MsgWait* MsgFactory::CreateMsgWait()
     return iAllocatorMsgWait.Allocate();
 }
 
-MsgDecodedStream* MsgFactory::CreateMsgDecodedStream(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler)
+MsgDecodedStream* MsgFactory::CreateMsgDecodedStream(TUint aStreamId, TUint aBitRate,
+                                                     TUint aBitDepth, TUint aSampleRate, TUint aNumChannels,
+                                                     const Brx& aCodecName, TUint64 aTrackLength,
+                                                     TUint64 aSampleStart, TBool aLossless, TBool aSeekable,
+                                                     TBool aLive, TBool aAnalogBypass,
+                                                     Media::Multiroom aMultiroom, const SpeakerProfile& aProfile,
+                                                     IStreamHandler* aStreamHandler)
 {
     MsgDecodedStream* msg = iAllocatorMsgDecodedStream.Allocate();
     msg->Initialise(aStreamId, aBitRate, aBitDepth, aSampleRate, aNumChannels, aCodecName, aTrackLength, aSampleStart, aLossless, aSeekable, aLive, aAnalogBypass, aMultiroom, aProfile, aStreamHandler);
     return msg;
 }
 
+MsgDecodedStream* MsgFactory::CreateMsgDecodedStreamDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler)
+{
+    MsgDecodedStream* msg = iAllocatorMsgDecodedStream.Allocate();
+    msg->InitialiseDsd(aStreamId, aBitRate, aTrackLength, aStreamHandler);
+    return msg;
+}
+
 MsgDecodedStream* MsgFactory::CreateMsgDecodedStream(MsgDecodedStream* aMsg, IStreamHandler* aStreamHandler)
 {
     auto stream = aMsg->StreamInfo();
+    MsgDecodedStream* msg = nullptr;
+    if (stream.Dsd()) {
+        msg = CreateMsgDecodedStreamDsd(stream.StreamId(), stream.BitRate(), stream.TrackLength(), aStreamHandler);
+    }
+    else {
+        msg = CreateMsgDecodedStream(stream.StreamId(), stream.BitRate(), stream.BitDepth(),
+            stream.SampleRate(), stream.NumChannels(), stream.CodecName(),
+            stream.TrackLength(), stream.SampleStart(), stream.Lossless(),
+            stream.Seekable(), stream.Live(), stream.AnalogBypass(),
+            stream.Multiroom(), stream.Profile(), aStreamHandler);
+    }
+    return msg;
+}
+
+MsgDecodedStream* MsgFactory::CreateMsgDecodedStream(MsgDecodedStream* aMsg, TUint64 aSampleStart)
+{
+    auto stream = aMsg->StreamInfo();
+    ASSERT(!stream.Dsd());
     auto msg = CreateMsgDecodedStream(stream.StreamId(), stream.BitRate(), stream.BitDepth(),
         stream.SampleRate(), stream.NumChannels(), stream.CodecName(),
-        stream.TrackLength(), stream.SampleStart(), stream.Lossless(),
+        stream.TrackLength(), aSampleStart, stream.Lossless(),
         stream.Seekable(), stream.Live(), stream.AnalogBypass(),
-        stream.Multiroom(), stream.Profile(), aStreamHandler);
+        stream.Multiroom(), stream.Profile(), stream.StreamHandler());
     return msg;
 }
 

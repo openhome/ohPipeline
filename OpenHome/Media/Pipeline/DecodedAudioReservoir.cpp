@@ -289,11 +289,7 @@ Msg* DecodedAudioReservoir::ProcessMsgOut(MsgAudioPcm* aMsg)
     if (iDiscardJiffies == 0) {
         auto s = iDecodedStream->StreamInfo();
         const TUint64 sampleStart = (aMsg->TrackOffset() + aMsg->Jiffies()) / Jiffies::PerSample(s.SampleRate());
-        auto stream = iMsgFactory.CreateMsgDecodedStream(s.StreamId(), s.BitRate(), s.BitDepth(), s.SampleRate(),
-                                                         s.NumChannels(), s.CodecName(), s.TrackLength(),
-                                                         sampleStart, s.Lossless(), s.Seekable(), s.Live(),
-                                                         s.AnalogBypass(), s.Multiroom(), s.Profile(),
-                                                         s.StreamHandler());
+        auto stream = iMsgFactory.CreateMsgDecodedStream(iDecodedStream, sampleStart);
         EnqueueAtHead(stream);
 
         ret = iMsgFactory.CreateMsgFlush(iPostDiscardFlush);

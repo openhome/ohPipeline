@@ -322,10 +322,7 @@ MsgDecodedStream* VariableDelayBase::UpdateDecodedStream(TUint64 aTrackOffset)
 {
     auto s = iDecodedStream->StreamInfo();
     const auto sampleStart = Jiffies::ToSamples(aTrackOffset, s.SampleRate());
-    auto stream = iMsgFactory.CreateMsgDecodedStream(s.StreamId(), s.BitRate(), s.BitDepth(), s.SampleRate(),
-        s.NumChannels(), s.CodecName(), s.TrackLength(),
-        sampleStart, s.Lossless(), s.Seekable(), s.Live(),
-        s.AnalogBypass(), s.Multiroom(), s.Profile(), s.StreamHandler());
+    auto stream = iMsgFactory.CreateMsgDecodedStream(iDecodedStream, sampleStart);
     iDecodedStream->RemoveRef();
     iDecodedStream = stream;
     iDecodedStream->AddRef();

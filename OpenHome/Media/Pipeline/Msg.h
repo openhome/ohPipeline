@@ -612,12 +612,14 @@ public:
     TBool Seekable() const { return iSeekable; }
     TBool Live() const { return iLive; }
     TBool AnalogBypass() const { return iAnalogBypass; }
+    TBool Dsd() const { return iDsd;}
     Media::Multiroom Multiroom() const { return iMultiroom; }
     const SpeakerProfile& Profile() const { return iProfile; }
     IStreamHandler* StreamHandler() const { return iStreamHandler;}
 private:
     DecodedStreamInfo();
     void Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
+    void SetDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler);
 private:
     TUint iStreamId;
     TUint iBitRate;
@@ -631,6 +633,7 @@ private:
     TBool iSeekable;
     TBool iLive;
     TBool iAnalogBypass;
+    TBool iDsd;
     Media::Multiroom iMultiroom;
     SpeakerProfile iProfile;
     IStreamHandler* iStreamHandler;
@@ -647,6 +650,7 @@ public:
     const DecodedStreamInfo& StreamInfo() const;
 private:
     void Initialise(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
+    void InitialiseDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler); // FIXME - quick hack to enable DSD testing
 private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
@@ -789,7 +793,7 @@ public:
      *                             time if requested by the processor (say because it'll insert
      *                             padding around each sample) or if a ramp is being applied.
      */
-    void Read(IPcmProcessor& aProcessor);
+    void Read(IPcmProcessor& aProcessor, TBool aApplyRamp = true);
 protected:
     MsgPlayable(AllocatorBase& aAllocator);
     void Initialise(TUint aSizeBytes, TUint aSampleRate, TUint aBitDepth,
@@ -804,7 +808,7 @@ private:
     TUint MsgJiffies() const;
     virtual MsgPlayable* Allocate() = 0;
     virtual void SplitCompleted(MsgPlayable& aRemaining);
-    virtual void ReadBlock(IPcmProcessor& aProcessor) = 0;
+    virtual void ReadBlock(IPcmProcessor& aProcessor, TBool aApplyRamp) = 0;
 protected:
     MsgPlayable* iNextPlayable;
     TUint iSize; // Bytes
@@ -828,7 +832,7 @@ private:
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
     void SplitCompleted(MsgPlayable& aRemaining) override;
-    void ReadBlock(IPcmProcessor& aProcessor) override;
+    void ReadBlock(IPcmProcessor& aProcessor, TBool aApplyRamp) override;
 private: // from Msg
     void Clear() override;
 private:
@@ -850,7 +854,7 @@ private:
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
     void SplitCompleted(MsgPlayable& aRemaining) override;
-    void ReadBlock(IPcmProcessor& aProcessor) override;
+    void ReadBlock(IPcmProcessor& aProcessor, TBool aApplyRamp) override;
 };
 
 /**
@@ -1609,7 +1613,9 @@ public:
     MsgFlush* CreateMsgFlush(TUint aId);
     MsgWait* CreateMsgWait();
     MsgDecodedStream* CreateMsgDecodedStream(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
+    MsgDecodedStream* CreateMsgDecodedStreamDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler);
     MsgDecodedStream* CreateMsgDecodedStream(MsgDecodedStream* aMsg, IStreamHandler* aStreamHandler);
+    MsgDecodedStream* CreateMsgDecodedStream(MsgDecodedStream* aMsg, TUint64 aSampleStart);
     MsgBitRate* CreateMsgBitRate(TUint aBitRate);
     MsgAudioPcm* CreateMsgAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset);
     MsgAudioPcm* CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset); // aAudio must contain big endian pcm data

@@ -30,6 +30,7 @@ PreDriver::PreDriver(IPipelineElementUpstream& aUpstreamElement)
     , iSilenceSinceLastPcm(0)
     , iSilenceSincePcm(false)
     , iModeHasPullableClock(false)
+    , iDsd(false)
     , iQuit(false)
 {
 }
@@ -88,9 +89,10 @@ Msg* PreDriver::ProcessMsg(MsgStreamInterrupted* aMsg)
 Msg* PreDriver::ProcessMsg(MsgDecodedStream* aMsg)
 {
     const DecodedStreamInfo& stream = aMsg->StreamInfo();
-    if (stream.SampleRate()  == iSampleRate &&
-        stream.BitDepth()    == iBitDepth   &&
-        stream.NumChannels() == iNumChannels) {
+    if (stream.SampleRate()  == iSampleRate  &&
+        stream.BitDepth()    == iBitDepth    &&
+        stream.NumChannels() == iNumChannels &&
+        stream.Dsd()         == iDsd) {
         // no change in format.  Discard this msg
         aMsg->RemoveRef();
         return nullptr;
@@ -98,6 +100,7 @@ Msg* PreDriver::ProcessMsg(MsgDecodedStream* aMsg)
     iSampleRate = stream.SampleRate();
     iBitDepth = stream.BitDepth();
     iNumChannels = stream.NumChannels();
+    iDsd = stream.Dsd();
 
     return aMsg;
 }

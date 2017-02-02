@@ -217,11 +217,7 @@ Msg* Seeker::ProcessMsg(MsgAudioPcm* aMsg)
         iQueue.EnqueueAtHead(aMsg);
         const DecodedStreamInfo& info = iMsgStream->StreamInfo();
         const TUint64 numSamples = iStreamPosJiffies / Jiffies::PerSample(info.SampleRate());
-        return iMsgFactory.CreateMsgDecodedStream(info.StreamId(), info.BitRate(), info.BitDepth(),
-            info.SampleRate(), info.NumChannels(), info.CodecName(),
-            info.TrackLength(), numSamples, info.Lossless(),
-            info.Seekable(), info.Live(), info.AnalogBypass(),
-            info.Multiroom(), info.Profile(), info.StreamHandler());
+        return iMsgFactory.CreateMsgDecodedStream(iMsgStream, numSamples);
     }
 
     iStreamPosJiffies = aMsg->TrackOffset() + aMsg->Jiffies();

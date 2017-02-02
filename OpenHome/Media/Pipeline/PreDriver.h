@@ -40,6 +40,7 @@ private:
     TUint64 iSilenceSinceLastPcm;
     TBool iSilenceSincePcm;
     TBool iModeHasPullableClock;
+    TBool iDsd;
     TBool iQuit;
 };
 
