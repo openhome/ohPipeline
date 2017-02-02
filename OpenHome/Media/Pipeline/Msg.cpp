@@ -1583,7 +1583,7 @@ void DecodedStreamInfo::Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TU
     iStreamHandler = aStreamHandler;
 }
 
-void DecodedStreamInfo::SetDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler)
+void DecodedStreamInfo::SetDsd(TUint aStreamId, TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler)
 {
     iStreamId = aStreamId;
     iBitRate = aBitRate;
@@ -1592,7 +1592,7 @@ void DecodedStreamInfo::SetDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLe
     iStreamHandler = aStreamHandler;
     // FIXME - following hard-coded to enable testing without full Pipeline support for DSD
     iBitDepth = 16;
-    iSampleRate = 48000;
+    iSampleRate = aSampleRate;
     iNumChannels = 2;
     iCodecName.Replace("DSD");
     iSampleStart = 0;
@@ -1626,9 +1626,9 @@ void MsgDecodedStream::Initialise(TUint aStreamId, TUint aBitRate, TUint aBitDep
     iStreamInfo.Set(aStreamId, aBitRate, aBitDepth, aSampleRate, aNumChannels, aCodecName, aTrackLength, aSampleStart, aLossless, aSeekable, aLive, aAnalogBypass, aMultiroom, aProfile, aStreamHandler);
 }
 
-void MsgDecodedStream::InitialiseDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler)
+void MsgDecodedStream::InitialiseDsd(TUint aStreamId, TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler)
 {
-    iStreamInfo.SetDsd(aStreamId, aBitRate, aTrackLength, aStreamHandler);
+    iStreamInfo.SetDsd(aStreamId, aBitRate, aSampleRate, aTrackLength, aStreamHandler);
 }
 
 void MsgDecodedStream::Clear()
@@ -3223,10 +3223,10 @@ MsgDecodedStream* MsgFactory::CreateMsgDecodedStream(TUint aStreamId, TUint aBit
     return msg;
 }
 
-MsgDecodedStream* MsgFactory::CreateMsgDecodedStreamDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler)
+MsgDecodedStream* MsgFactory::CreateMsgDecodedStreamDsd(TUint aStreamId, TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler)
 {
     MsgDecodedStream* msg = iAllocatorMsgDecodedStream.Allocate();
-    msg->InitialiseDsd(aStreamId, aBitRate, aTrackLength, aStreamHandler);
+    msg->InitialiseDsd(aStreamId, aBitRate, aSampleRate, aTrackLength, aStreamHandler);
     return msg;
 }
 
@@ -3235,7 +3235,7 @@ MsgDecodedStream* MsgFactory::CreateMsgDecodedStream(MsgDecodedStream* aMsg, ISt
     auto stream = aMsg->StreamInfo();
     MsgDecodedStream* msg = nullptr;
     if (stream.Dsd()) {
-        msg = CreateMsgDecodedStreamDsd(stream.StreamId(), stream.BitRate(), stream.TrackLength(), aStreamHandler);
+        msg = CreateMsgDecodedStreamDsd(stream.StreamId(), stream.BitRate(), stream.SampleRate(), stream.TrackLength(), aStreamHandler);
     }
     else {
         msg = CreateMsgDecodedStream(stream.StreamId(), stream.BitRate(), stream.BitDepth(),

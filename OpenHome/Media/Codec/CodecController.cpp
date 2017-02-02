@@ -668,6 +668,51 @@ void CodecController::OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint
     iMaxOutputBytes = maxSamples * (aBitDepth/8) * aNumChannels;
 }
 
+
+/*
+    MsgDecodedStream* CreateMsgDecodedStreamDsd(TUint aStreamId,
+                                                TUint aBitRate,
+                                                TUint aSampleRate,
+                                                TUint64 aTrackLength,
+                                                IStreamHandler* aStreamHandler);
+*/
+
+void CodecController::OutputDecodedStreamDsd(TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength)
+{
+    if (!Jiffies::IsValidSampleRate(aSampleRate)) {
+        THROW(CodecStreamFeatureUnsupported);
+    }
+
+/*
+    if (!iRawPcm && aNumChannels > 2) {
+        Log::Print("ERROR: encoded stream with %u channels cannot be played\n", aNumChannels);
+        THROW(CodecStreamFeatureUnsupported);
+    }
+*/
+    MsgDecodedStream* msg = iMsgFactory.CreateMsgDecodedStreamDsd(iStreamId, aBitRate, aSampleRate, aTrackLength, this);
+
+    iLock.Wait();
+    iChannels = 2;
+    iSampleRate = aSampleRate;
+    iBitDepth = 1;
+    const TBool queue = !iSeekInProgress;
+    if (iSeekInProgress) {
+        if (iPostSeekStreamInfo != nullptr) {
+            iPostSeekStreamInfo->RemoveRef();
+        }
+        iPostSeekStreamInfo = msg;
+    }
+    iLock.Signal();
+    if (queue) {
+        Queue(msg);
+    }
+
+    const TUint maxSamples = Jiffies::ToSamples(iMaxOutputJiffies, aSampleRate);
+
+    iMaxOutputBytes = maxSamples * iChannels * (iBitDepth/8);
+}
+
+
 void CodecController::OutputDelay(TUint aJiffies)
 {
     MsgDelay* msg = iMsgFactory.CreateMsgDelay(aJiffies);

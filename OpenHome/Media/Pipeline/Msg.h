@@ -108,7 +108,7 @@ enum class AudioDataEndian
 
 class AudioData : public Allocated
 {
-public: 
+public:
     static const TUint kMaxBytes = 7680; // max of 2ms/10ch/96/32 and 5ms/2ch/192/24 (latter for Songcast, supporting earliest receiver)
 public:
     AudioData(AllocatorBase& aAllocator);
@@ -619,7 +619,7 @@ public:
 private:
     DecodedStreamInfo();
     void Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
-    void SetDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler);
+    void SetDsd(TUint aStreamId, TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler);
 private:
     TUint iStreamId;
     TUint iBitRate;
@@ -650,7 +650,7 @@ public:
     const DecodedStreamInfo& StreamInfo() const;
 private:
     void Initialise(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
-    void InitialiseDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler); // FIXME - quick hack to enable DSD testing
+    void InitialiseDsd(TUint aStreamId, TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler); // FIXME - quick hack to enable DSD testing
 private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
@@ -1613,7 +1613,7 @@ public:
     MsgFlush* CreateMsgFlush(TUint aId);
     MsgWait* CreateMsgWait();
     MsgDecodedStream* CreateMsgDecodedStream(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
-    MsgDecodedStream* CreateMsgDecodedStreamDsd(TUint aStreamId, TUint aBitRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler);
+    MsgDecodedStream* CreateMsgDecodedStreamDsd(TUint aStreamId, TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength, IStreamHandler* aStreamHandler);
     MsgDecodedStream* CreateMsgDecodedStream(MsgDecodedStream* aMsg, IStreamHandler* aStreamHandler);
     MsgDecodedStream* CreateMsgDecodedStream(MsgDecodedStream* aMsg, TUint64 aSampleStart);
     MsgBitRate* CreateMsgBitRate(TUint aBitRate);

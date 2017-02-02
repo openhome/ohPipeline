@@ -124,6 +124,10 @@ public:
     virtual void OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels,
                                      const Brx& aCodecName, TUint64 aLength, TUint64 aSampleStart, TBool aLossless,
                                      SpeakerProfile aProfile, TBool aAnalogBypass = false) = 0;
+
+    virtual void OutputDecodedStreamDsd(TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength)  = 0;
+
+
     /**
      * Notify the pipeline of a change in delay (latency).
      *
@@ -233,7 +237,7 @@ private:
     TUint64 iStartSample;
     BwsCodecName iCodecName;
 };
-    
+
 /**
  * Base class for all codecs.
  *
@@ -349,6 +353,7 @@ private: // ICodecController
     TUint64 StreamLength() const override;
     TUint64 StreamPos() const override;
     void OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, SpeakerProfile aProfile, TBool aAnalogBypass) override;
+    void OutputDecodedStreamDsd(TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength) override;
     void OutputDelay(TUint aJiffies) override;
     TUint64 OutputAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset) override;
     TUint64 OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset) override;

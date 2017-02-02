@@ -85,7 +85,7 @@ def configure(conf):
         'thirdparty/libogg/include',
         ]
 
-    # Setup FLAC lib options 
+    # Setup FLAC lib options
     conf.env.DEFINES_FLAC = ['VERSION=\"1.2.1\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG']
     conf.env.INCLUDES_FLAC = [
         'thirdparty/flac-1.2.1/src/libFLAC/include',
@@ -406,6 +406,12 @@ def build(bld):
             use=['OHNET', 'ohMediaPlayer'],
             target='SourceUpnpAv')
 
+    # Dsd
+    bld.stlib(
+            source=['OpenHome/Media/Codec/Dsd.cpp'],
+            use=['OHNET'],
+            target='CodecDsd')
+
     # Wav
     bld.stlib(
             source=['OpenHome/Media/Codec/Wav.cpp'],
@@ -695,7 +701,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecDsd', 'CodecPcm', 'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
