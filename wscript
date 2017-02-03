@@ -1049,6 +1049,7 @@ def bundle(ctx):
                  'CodecMp3',
                  'CodecVorbis',
                  'CodecWav',
+                 'CodecDsd',
                  'CodecPcm',
                  'libOgg',
                  'WebAppFramework',
