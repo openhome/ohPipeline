@@ -273,7 +273,7 @@ void CodecDsd::ProcessMetadataChunk()
 
 void CodecDsd::SendMsgDecodedStream()
 {
-    iController->OutputDecodedStreamDsd(iBitRate, iSampleRate, iTrackLengthJiffies);
+    iController->OutputDecodedStreamDsd(iBitRate, iBitDepth, iSampleRate, iChannelCount, iTrackLengthJiffies);
 }
 
 

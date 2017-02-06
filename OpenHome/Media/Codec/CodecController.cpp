@@ -677,7 +677,11 @@ void CodecController::OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint
                                                 IStreamHandler* aStreamHandler);
 */
 
-void CodecController::OutputDecodedStreamDsd(TUint aBitRate, TUint aSampleRate, TUint64 aTrackLength)
+void CodecController::OutputDecodedStreamDsd(   TUint aBitRate,
+                                                TUint aBitDepth,
+                                                TUint aSampleRate,
+                                                TUint aNumChannels,
+                                                TUint64 aTrackLength)
 {
     if (!Jiffies::IsValidSampleRate(aSampleRate)) {
         THROW(CodecStreamFeatureUnsupported);
@@ -692,9 +696,9 @@ void CodecController::OutputDecodedStreamDsd(TUint aBitRate, TUint aSampleRate, 
     MsgDecodedStream* msg = iMsgFactory.CreateMsgDecodedStreamDsd(iStreamId, aBitRate, aSampleRate, aTrackLength, this);
 
     iLock.Wait();
-    iChannels = 2;
+    iChannels = aNumChannels;
     iSampleRate = aSampleRate;
-    iBitDepth = 16;
+    iBitDepth = aBitDepth;
     const TBool queue = !iSeekInProgress;
     if (iSeekInProgress) {
         if (iPostSeekStreamInfo != nullptr) {
