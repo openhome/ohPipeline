@@ -44,7 +44,7 @@ private:
     TUint iSampleRate;
     TUint iBitDepth;
     TUint64 iAudioBytesTotal;
-    TUint iAudioBytesRemaining;
+    TUint64 iAudioBytesRemaining;
     TUint64 iFileSize;
     TUint iBitRate;
     TUint64 iTrackStart;
@@ -110,14 +110,14 @@ void CodecDsd::Process()
     else
     {
         if (iAudioBytesRemaining == 0)
-        {  // check for end of file unless continuous streaming - ie iFileSize == 0
+        {  // check for end of file
             THROW(CodecStreamEnded);
         }
 
         iController->ReadNextMsg(iReadBuf);
 
         TUint bufBytes = iReadBuf.Bytes();
-        bufBytes = std::min(bufBytes, iAudioBytesRemaining);
+        bufBytes = std::min(bufBytes, (TUint)iAudioBytesRemaining);
         Brn split = iReadBuf.Split(bufBytes);
         iReadBuf.SetBytes(bufBytes);
 
@@ -182,19 +182,6 @@ void CodecDsd::ProcessHeader()
     ProcessMetadataChunk();
 }
 
-
-TBool CodecDsd::ReadChunkId(const Brx& aId)
-{
-    iReadBuf.SetBytes(0);
-    iController->Read(iReadBuf, 4);
-    if (iReadBuf.Bytes() < 4)
-    {
-        THROW(CodecStreamEnded); // could be a network error
-    }
-
-    return (iReadBuf == aId);
-}
-
 void CodecDsd::ProcessDsdChunk()
 {
     //We shouldn't be in the wav codec unless this says 'DSD '
@@ -245,7 +232,6 @@ void CodecDsd::ProcessFmtChunk()
     iBitDepth = Converter::LeUint32At(iReadBuf, 32);
     iSampleCount = LeUint64At(iReadBuf, 36);
     iBlockSizePerChannel = Converter::LeUint32At(iReadBuf, 44);
-    iBitRate = iSampleRate * iBitDepth;
     //reserved = Converter::LeUint32At(iReadBuf, 48);
 
     if (!StreamIsValid())
@@ -253,29 +239,13 @@ void CodecDsd::ProcessFmtChunk()
         THROW(CodecStreamCorrupt);
     }
 
-//    iTrackStart += fmtChunkBytes + 8;
+    // now fake some values to get it through "PCM" stream validation in pipeline:
+    iBitDepth = 16;
+    iSampleRate /= iBitDepth;
+    iSampleCount /= iBitDepth;
+
+    iBitRate = iSampleRate * iBitDepth;
 }
-
-TBool CodecDsd::StreamIsValid() const
-{
-    if (iFileSize == 0)
-    {
-        return false;
-    }
-
-    if ( (iBitDepth!=1) || (iChannelCount != 2) || (iSampleRate == 0) )
-    {
-        return false;
-    }
-
-    if (iBlockSizePerChannel!=4096)
-    {
-        return false;
-    }
-
-    return true;
-}
-
 
 void CodecDsd::ProcessDataChunk()
 {
@@ -291,6 +261,7 @@ void CodecDsd::ProcessDataChunk()
     }
 
     iAudioBytesTotal = (TUint32)LeUint64At(iReadBuf, 4)-12;
+    iAudioBytesRemaining = iAudioBytesTotal;
 
     iTrackLengthJiffies = (iSampleCount * Jiffies::kPerSecond) / iSampleRate;
 }
@@ -311,4 +282,39 @@ TUint64 CodecDsd::LeUint64At(Brx& aBuf, TUint aOffset)
     TUint64 val = Converter::LeUint32At(aBuf, aOffset);
     val += ((TUint64)Converter::LeUint32At(aBuf, aOffset+4))<<32;
     return val;
+}
+
+
+
+
+TBool CodecDsd::ReadChunkId(const Brx& aId)
+{
+    iReadBuf.SetBytes(0);
+    iController->Read(iReadBuf, 4);
+    if (iReadBuf.Bytes() < 4)
+    {
+        THROW(CodecStreamEnded); // could be a network error
+    }
+
+    return (iReadBuf == aId);
+}
+
+TBool CodecDsd::StreamIsValid() const
+{
+    if (iFileSize == 0)
+    {
+        return false;
+    }
+
+    if ( (iBitDepth!=1) || (iChannelCount != 2) || (iSampleRate == 0) )
+    {
+        return false;
+    }
+
+    if (iBlockSizePerChannel!=4096)
+    {
+        return false;
+    }
+
+    return true;
 }

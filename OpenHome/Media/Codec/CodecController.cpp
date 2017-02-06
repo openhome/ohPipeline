@@ -694,7 +694,7 @@ void CodecController::OutputDecodedStreamDsd(TUint aBitRate, TUint aSampleRate, 
     iLock.Wait();
     iChannels = 2;
     iSampleRate = aSampleRate;
-    iBitDepth = 1;
+    iBitDepth = 16;
     const TBool queue = !iSeekInProgress;
     if (iSeekInProgress) {
         if (iPostSeekStreamInfo != nullptr) {
