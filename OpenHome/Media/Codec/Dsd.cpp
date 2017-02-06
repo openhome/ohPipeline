@@ -156,7 +156,8 @@ TBool CodecDsd::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
 
 TBool CodecDsd::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
-    if (aStreamInfo.RawPcm())
+
+	if (aStreamInfo.RawPcm())
     {
         return false;
     }
@@ -241,8 +242,8 @@ void CodecDsd::ProcessFmtChunk()
 
     // now fake some values to get it through "PCM" stream validation in pipeline:
     iBitDepth = 16;
-    iSampleRate /= iBitDepth;
-    iSampleCount /= iBitDepth;
+    iSampleRate /= (iBitDepth*2);
+    iSampleCount /= (iBitDepth*2);
 
     iBitRate = iSampleRate * iBitDepth;
 }
