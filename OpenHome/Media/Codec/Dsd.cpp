@@ -101,20 +101,30 @@ void CodecDsd::StreamInitialise()
 
 void CodecDsd::Process()
 {
-    if (iAudioBytesRemaining == 0) {  // check for end of file unless continuous streaming - ie iFileSize == 0
-        THROW(CodecStreamEnded);
+    if (iChannelCount == 0)
+    {
+        ProcessHeader();
+        SendMsgDecodedStream();
+        iReadBuf.SetBytes(0);
     }
+    else
+    {
+        if (iAudioBytesRemaining == 0)
+        {  // check for end of file unless continuous streaming - ie iFileSize == 0
+            THROW(CodecStreamEnded);
+        }
 
-    iController->ReadNextMsg(iReadBuf);
+        iController->ReadNextMsg(iReadBuf);
 
-    TUint bufBytes = iReadBuf.Bytes();
-    bufBytes = std::min(bufBytes, iAudioBytesRemaining);
-    Brn split = iReadBuf.Split(bufBytes);
-    iReadBuf.SetBytes(bufBytes);
+        TUint bufBytes = iReadBuf.Bytes();
+        bufBytes = std::min(bufBytes, iAudioBytesRemaining);
+        Brn split = iReadBuf.Split(bufBytes);
+        iReadBuf.SetBytes(bufBytes);
 
-    iTrackOffset += iController->OutputAudioPcm(iReadBuf, iChannelCount, iSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
-    iAudioBytesRemaining -= iReadBuf.Bytes();
-    iReadBuf.Replace(split);
+        iTrackOffset += iController->OutputAudioPcm(iReadBuf, iChannelCount, iSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
+        iAudioBytesRemaining -= iReadBuf.Bytes();
+        iReadBuf.Replace(split);
+    }
 }
 
 TBool CodecDsd::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
