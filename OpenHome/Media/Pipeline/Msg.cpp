@@ -364,6 +364,8 @@ TUint Jiffies::PerSample(TUint aSampleRate)
         return kJiffies176400;
     case 192000:
         return kJiffies192000;
+    case 352800:
+        return kJiffies352800;
     default:
         LOG(kError, "JiffiesPerSample - invalid sample rate: %u\n", aSampleRate);
         THROW(SampleRateInvalid);
@@ -414,6 +416,7 @@ TUint Jiffies::SongcastTicksPerSecond(TUint aSampleRate)
     case 44100:
     case 88200:
     case 176400:
+    case 352800:
         return kSongcastTicksPerSec44k;
 
     case 8000:
@@ -1591,7 +1594,7 @@ void DecodedStreamInfo::SetDsd(TUint aStreamId, TUint aBitRate, TUint aSampleRat
     iDsd = true;
     iStreamHandler = aStreamHandler;
     // FIXME - following hard-coded to enable testing without full Pipeline support for DSD
-    iBitDepth = 16;
+    iBitDepth = 24;
     iSampleRate = aSampleRate;
     iNumChannels = 2;
     iCodecName.Replace("DSD");

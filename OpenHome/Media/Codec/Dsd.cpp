@@ -37,9 +37,14 @@ private:
     static TUint64 LeUint64At(Brx& aBuf, TUint aOffset);
     void SendMsgDecodedStream();
     TBool StreamIsValid() const;
+    void ReinterleaveToOutputBuffer();
+    void CheckReinterleave();
+    void ShowBufLeader() const;
 
 private:
     Bws<DecodedAudio::kMaxBytes + 40> iReadBuf; // +40 to accommodate a fragment of a following (10ch, 32-bit) sample
+    Bws<2*4096> iInputBuffer;
+    Bws<3*4096> iOutputBuffer; // allow for expansion to 24bits
     TUint iChannelCount;
     TUint iSampleRate;
     TUint iBitDepth;
@@ -55,6 +60,7 @@ private:
     TUint iFormatId;
     TUint iChannelType;
     TUint64 iSampleCount;
+    TBool iInitialAudio;
 };
 
 } // namespace Codec
@@ -76,11 +82,48 @@ CodecDsd::CodecDsd(IMimeTypeList& aMimeTypeList)
     aMimeTypeList.Add("audio/dsd");
     aMimeTypeList.Add("audio/x-dsd");
     aMimeTypeList.Add("audio/x-dsf");
+
+    iOutputBuffer.SetBytes(iOutputBuffer.MaxBytes());
+    iOutputBuffer.FillZ();
+
+    CheckReinterleave();
 }
 
 CodecDsd::~CodecDsd()
 {
 
+}
+
+void CodecDsd::CheckReinterleave()
+{
+    Log::Print("DSD CheckReinterleave:\n");
+    iInputBuffer.SetBytes(0);
+    // left
+    for (TUint i = 0 ; i < 4096 ; ++i) {
+        iInputBuffer.Append((TByte)(i&0x7f));
+    }
+    // right
+    for (TUint i = 0 ; i < 4096 ; ++i) {
+        iInputBuffer.Append((TByte)((i&0x7f) | 0x80));
+    }
+
+    ReinterleaveToOutputBuffer();
+    ShowBufLeader();
+}
+
+void CodecDsd::ShowBufLeader() const
+{
+    Log::Print("LF: ");
+    Log::PrintHex(iInputBuffer.Split(0, 20));
+    Log::Print("\n");
+
+    Log::Print("RF: ");
+    Log::PrintHex(iInputBuffer.Split(4096, 20));
+    Log::Print("\n");
+
+    Log::Print("OP: ");
+    Log::PrintHex(iOutputBuffer.Split(0, 60));
+    Log::Print("\n");
 }
 
 void CodecDsd::StreamInitialise()
@@ -97,6 +140,28 @@ void CodecDsd::StreamInitialise()
     iTrackStart = 0;
     iTrackOffset = 0;
     iReadBuf.SetBytes(0);
+
+    iInitialAudio = true;
+}
+
+void CodecDsd::ReinterleaveToOutputBuffer()
+{
+    const TByte* lPtr = iInputBuffer.Ptr();
+    const TByte* rPtr = lPtr + 4096;
+    TByte* oPtr = const_cast<TByte*>(iOutputBuffer.Ptr());
+
+    for (TUint i = 0 ; i < 2048 ; ++i) {
+        // pack left channel
+        oPtr[1] = lPtr[1];
+        oPtr[2] = lPtr[0];
+        // pack right channel
+        oPtr[4] = rPtr[1];
+        oPtr[5] = rPtr[0];
+        // advance i/o ptrs
+        oPtr += 6;
+        lPtr += 2;
+        rPtr += 2;
+    }
 }
 
 void CodecDsd::Process()
@@ -104,6 +169,24 @@ void CodecDsd::Process()
     if (iChannelCount == 0)
     {
         ProcessHeader();
+
+        Log::Print("DSD:\n");
+        Log::Print("  iChannelCount = %u\n", iChannelCount);
+        Log::Print("  iSampleRate = %u\n", iSampleRate);
+        Log::Print("  iBitDepth = %u\n", iBitDepth);
+        Log::Print("  iAudioBytesTotal = %llu\n", iAudioBytesTotal);
+        Log::Print("  iAudioBytesRemaining = %llu\n", iAudioBytesRemaining);
+        Log::Print("  iFileSize = %llu\n", iFileSize);
+        Log::Print("  iBitRate = %u\n", iBitRate);
+        Log::Print("  iTrackStart = %llu\n", iTrackStart);
+        Log::Print("  iTrackOffset = %llu\n", iTrackOffset);
+        Log::Print("  iTrackLengthJiffies = %llu\n", iTrackLengthJiffies);
+        Log::Print("  iBlockSizePerChannel = %u\n", iBlockSizePerChannel);
+        Log::Print("  iFormatVersion = %u\n", iFormatVersion);
+        Log::Print("  iFormatId = %u\n", iFormatId);
+        Log::Print("  iChannelType = %u\n", iChannelType);
+        Log::Print("  iSampleCount = %llu\n", iSampleCount);
+
         SendMsgDecodedStream();
         iReadBuf.SetBytes(0);
     }
@@ -114,16 +197,18 @@ void CodecDsd::Process()
             THROW(CodecStreamEnded);
         }
 
-        iController->ReadNextMsg(iReadBuf);
+        iInputBuffer.SetBytes(0);
+        iController->Read(iInputBuffer, iInputBuffer.MaxBytes());
 
-        TUint bufBytes = iReadBuf.Bytes();
-        bufBytes = std::min(bufBytes, (TUint)iAudioBytesRemaining);
-        Brn split = iReadBuf.Split(bufBytes);
-        iReadBuf.SetBytes(bufBytes);
+        ReinterleaveToOutputBuffer();
 
-        iTrackOffset += iController->OutputAudioPcm(iReadBuf, iChannelCount, iSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
-        iAudioBytesRemaining -= iReadBuf.Bytes();
-        iReadBuf.Replace(split);
+        if (iInitialAudio) {
+            ShowBufLeader();
+            iInitialAudio = false;
+        }
+
+        iTrackOffset += iController->OutputAudioPcm(iOutputBuffer, iChannelCount, iSampleRate, iBitDepth, AudioDataEndian::Big, iTrackOffset);
+        iAudioBytesRemaining -= iInputBuffer.Bytes();
     }
 }
 
@@ -181,6 +266,7 @@ void CodecDsd::ProcessHeader()
     ProcessFmtChunk();
     ProcessDataChunk();
     ProcessMetadataChunk();
+
 }
 
 void CodecDsd::ProcessDsdChunk()
@@ -241,11 +327,11 @@ void CodecDsd::ProcessFmtChunk()
     }
 
     // now fake some values to get it through "PCM" stream validation in pipeline:
-    iBitDepth = 16;
-    iSampleRate /= (iBitDepth*2);
-    iSampleCount /= (iBitDepth*2);
+    iBitDepth = 24;
+    iSampleRate /= 16;
+    iSampleCount /= 16;
 
-    iBitRate = iSampleRate * iBitDepth;
+    iBitRate = iSampleRate * 16;
 }
 
 void CodecDsd::ProcessDataChunk()

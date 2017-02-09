@@ -186,6 +186,7 @@ private:
     static const TUint kJiffies96000  = kPerSecond / 96000;
     static const TUint kJiffies176400 = kPerSecond / 176400;
     static const TUint kJiffies192000 = kPerSecond / 192000;
+    static const TUint kJiffies352800 = kPerSecond / 352800;
 
     static const TUint kSongcastTicksPerSec44k = 44100 * 256;
     static const TUint kSongcastTicksPerSec48k = 48000 * 256;
