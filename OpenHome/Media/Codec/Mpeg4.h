@@ -30,7 +30,7 @@ public:
     virtual TUint Channels() const = 0;
     virtual TUint BitDepth() const = 0;
     virtual TUint64 Duration() const = 0;
-    virtual const Brx& StreamDescriptor() const = 0;
+    virtual TUint StreamDescriptorBytes() const = 0;
     virtual ~IMpeg4InfoReadable() {}
 };
 
@@ -38,7 +38,6 @@ class IMpeg4InfoWritable
 {
 public:
     static const TUint kCodecBytes = 4;
-    static const TUint kMaxStreamDescriptorBytes = 50;  // Empirically chosen; can be increased.
 public:
     virtual void SetCodec(const Brx& aCodec) = 0;
     virtual void SetSampleRate(TUint aSampleRate) = 0;
@@ -46,7 +45,7 @@ public:
     virtual void SetChannels(TUint aChannels) = 0;
     virtual void SetBitDepth(TUint aBitDepth) = 0;
     virtual void SetDuration(TUint64 aDuration) = 0;
-    virtual void SetStreamDescriptor(const Brx& aDescriptor) = 0;
+    virtual void SetStreamDescriptorBytes(TUint aBytes) = 0;
     virtual ~IMpeg4InfoWritable() {}
 };
 
@@ -54,7 +53,7 @@ class Mpeg4Info : public IMpeg4InfoReadable, public IMpeg4InfoWritable
 {
 public:
     Mpeg4Info();
-    Mpeg4Info(const Brx& aCodec, TUint aSampleRate, TUint aTimescale, TUint aChannels, TUint aBitDepth, TUint64 aDuration, const Brx& aStreamDescriptor);
+    Mpeg4Info(const Brx& aCodec, TUint aSampleRate, TUint aTimescale, TUint aChannels, TUint aBitDepth, TUint64 aDuration, TUint aStreamDescriptorBytes);
     TBool Initialised() const;
     void Clear();
 public: // from IMpeg4InfoReadable
@@ -64,7 +63,7 @@ public: // from IMpeg4InfoReadable
     TUint Channels() const override;
     TUint BitDepth() const override;
     TUint64 Duration() const override;
-    const Brx& StreamDescriptor() const override;
+    TUint StreamDescriptorBytes() const override;
 public: // from IMpeg4InfoWritable
     void SetCodec(const Brx& aCodec) override;
     void SetSampleRate(TUint aSampleRate) override;
@@ -72,7 +71,7 @@ public: // from IMpeg4InfoWritable
     void SetChannels(TUint aChannels) override;
     void SetBitDepth(TUint aBitDepth) override;
     void SetDuration(TUint64 aDuration) override;
-    void SetStreamDescriptor(const Brx& aDescriptor) override;
+    void SetStreamDescriptorBytes(TUint aBytes) override;
 private:
     Bws<kCodecBytes> iCodec;    // FIXME - not really good enough for recognition; MP3 can also be contained in mp4a
     TUint iSampleRate;
@@ -80,7 +79,7 @@ private:
     TUint iChannels;
     TUint iBitDepth;
     TUint64 iDuration;
-    Bws<kMaxStreamDescriptorBytes> iStreamDescriptor;
+    TUint iStreamDescBytes;
 };
 
 class Mpeg4InfoReader : public INonCopyable
@@ -95,7 +94,13 @@ private:
 class Mpeg4InfoWriter : public INonCopyable
 {
 public:
-    static const TUint kMaxBytes = Mpeg4Info::kCodecBytes+4+4+4+4+8+4+Mpeg4Info::kMaxStreamDescriptorBytes;
+    static const TUint kMaxBytes = Mpeg4Info::kCodecBytes +
+                                   4 +    // sampler rate
+                                   4 +    // timescale
+                                   4 +    // channels
+                                   4 +    // bitdepth
+                                   8 +    // duration
+                                   4;     // stream descriptor length
 public:
     Mpeg4InfoWriter(const IMpeg4InfoReadable& aInfo);
     void Write(IWriter& aWriter) const;
