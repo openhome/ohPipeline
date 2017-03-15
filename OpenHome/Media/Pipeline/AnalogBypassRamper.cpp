@@ -28,7 +28,8 @@ AnalogBypassRamper::AnalogBypassRamper(MsgFactory& aMsgFactory, IPipelineElement
     , iMsgHalt(nullptr)
     , iHalting(false)
     , iHalted(false)
-    , iAnalogBypassEnabled(false)
+//    , iAnalogBypassEnabled(false)
+    , iAnalogBypassEnabled(true)
 {
 }
 
@@ -74,7 +75,8 @@ Msg* AnalogBypassRamper::ProcessMsg(MsgHalt* aMsg)
 
 Msg* AnalogBypassRamper::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    iAnalogBypassEnabled = aMsg->StreamInfo().AnalogBypass();
+    //iAnalogBypassEnabled = aMsg->StreamInfo().AnalogBypass();
+    iAnalogBypassEnabled = true;
     return aMsg;
 }
 
