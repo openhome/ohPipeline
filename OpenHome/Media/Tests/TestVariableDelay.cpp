@@ -250,7 +250,12 @@ Msg* SuiteVariableDelay::Pull()
     case EMsgDecodedStream:
         return iMsgFactory->CreateMsgDecodedStream(iNextStreamId++, 0, 8, 44100, 2, Brx::Empty(), 0, iNextStreamSampleStart, false, false, false, false, Multiroom::Allowed, kProfile, this);
     case EMsgMode:
-        return iMsgFactory->CreateMsgMode(kMode, iNextModeSupportsLatency, ModeClockPullers(iNextModeClockPuller), false, false, false, false);
+    {
+        ModeInfo info;
+        info.SetSupportsLatency(iNextModeSupportsLatency);
+        ModeTransportControls transportControls;
+        return iMsgFactory->CreateMsgMode(kMode, info, ModeClockPullers(iNextModeClockPuller), transportControls);
+    }
     case EMsgTrack:
     {
         Track* track = iTrackFactory->CreateTrack(Brx::Empty(), Brx::Empty());

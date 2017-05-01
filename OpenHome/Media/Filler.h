@@ -2,6 +2,7 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Functor.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Protocol/Protocol.h>
@@ -24,11 +25,16 @@ class UriProvider
 public:
     virtual ~UriProvider();
     const Brx& Mode() const;
-    TBool SupportsLatency() const;
-    TBool SupportsNext() const;
-    TBool SupportsPrev() const;
-    TBool SupportsRepeat() const;
-    TBool SupportsRandom() const;
+    const Media::ModeInfo& ModeInfo() const;
+    const Media::ModeTransportControls& ModeTransportControls() const;
+
+    void SetTransportPlay(Functor aPlay);
+    void SetTransportPause(Functor aPause);
+    void SetTransportStop(Functor aStop);
+    void SetTransportNext(Functor aNext);
+    void SetTransportPrev(Functor aPrev);
+    void SetTransportSeek(FunctorGeneric<TUint> aSeek);
+
     virtual ModeClockPullers ClockPullers();
     virtual TBool IsValid(TUint aTrackId) const;
     virtual void Begin(TUint aTrackId) = 0;
@@ -51,11 +57,8 @@ protected:
                 Repeat aRepeatSupported, Random aRandomSupported);
 private:
     BwsMode iMode;
-    TBool iSupportsLatency;
-    TBool iSupportsNext;
-    TBool iSupportsPrev;
-    TBool iSupportsRepeat;
-    TBool iSupportsRandom;
+    Media::ModeInfo iModeInfo;
+    Media::ModeTransportControls iTransportControls;
 };
 
 class Filler : private Thread, public IPipelineElementDownstream, private IMsgProcessor

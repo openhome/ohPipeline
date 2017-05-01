@@ -5,6 +5,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/Seeker.h> // for Seeker exceptions
 #include <OpenHome/Media/Pipeline/Pipeline.h> // for PipelineStreamNotPausable
+#include <OpenHome/PowerManager.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -21,20 +22,19 @@ static const TUint kSeekFailureCode = 804;
 static const Brn kSeekFailureMsg("Seek failed");
 
 const TUint ProviderTransport::kModesGranularity = 1024;
-const TUint ProviderTransport::kRepeatOff    = 0;
-const TUint ProviderTransport::kRepeatOnAll  = 1;
-const TUint ProviderTransport::kShuffleOff   = 0;
-const TUint ProviderTransport::kShuffleOnAll = 1;
 
 ProviderTransport::ProviderTransport(Net::DvDevice& aDevice,
                                      PipelineManager& aPipeline,
+                                     IPowerManager& aPowerManager,
                                      ITransportActivator& aTransportActivator,
                                      ITransportRepeatRandom& aTransportRepeatRandom)
     : DvProviderAvOpenhomeOrgTransport1(aDevice)
-    , iLock("PTPR")
+    , iLock("PTR1")
     , iPipeline(aPipeline)
+    , iPowerManager(aPowerManager)
     , iTransportActivator(aTransportActivator)
     , iTransportRepeatRandom(aTransportRepeatRandom)
+    , iLockTransportControls("PTR2")
     , iTransportState(EPipelineStopped)
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
     , iModes(kModesGranularity)
@@ -97,8 +97,14 @@ void ProviderTransport::NotifyPipelineState(EPipelineState aState)
     (void)SetPropertyTransportState(state);
 }
 
-void ProviderTransport::NotifyMode(const Brx& /*aMode*/, const Media::ModeInfo& aInfo)
+void ProviderTransport::NotifyMode(const Brx& /*aMode*/,
+                                   const Media::ModeInfo& aInfo,
+                                   const Media::ModeTransportControls& aTransportControls)
 {
+    {
+        AutoMutex _(iLockTransportControls);
+        iTransportControls = aTransportControls;
+    }
     PropertiesLock();
     (void)SetPropertyCanSkipNext(aInfo.SupportsNext());
     (void)SetPropertyCanSkipPrevious(aInfo.SupportsPrev());
@@ -142,12 +148,12 @@ void ProviderTransport::NotifyModeAdded(const Brx& aMode)
 
 void ProviderTransport::TransportRepeatChanged(TBool aRepeat)
 {
-    (void)SetPropertyRepeat(aRepeat? kRepeatOnAll : kRepeatOff);
+    (void)SetPropertyRepeat(aRepeat);
 }
 
 void ProviderTransport::TransportRandomChanged(TBool aRandom)
 {
-    (void)SetPropertyShuffle(aRandom? kShuffleOnAll : kShuffleOff);
+    (void)SetPropertyShuffle(aRandom);
 }
 
 void ProviderTransport::PlayAs(IDvInvocation& aInvocation, const Brx& aMode, const Brx& aCommand)
@@ -162,18 +168,37 @@ void ProviderTransport::PlayAs(IDvInvocation& aInvocation, const Brx& aMode, con
 
 void ProviderTransport::Play(IDvInvocation& aInvocation)
 {
-    iPipeline.Play();
+    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    {
+        AutoMutex _(iLockTransportControls);
+        auto f = iTransportControls.Play();
+        if (f) {
+            f();
+        }
+        else {
+            iPipeline.Play();
+        }
+    }
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }
 
 void ProviderTransport::Pause(IDvInvocation& aInvocation)
 {
-    try {
-        iPipeline.Pause();
-    }
-    catch (PipelineStreamNotPausable&) {
-        aInvocation.Error(kCodeNotSupportedByStream, kMsgNotSupportedByStream);
+    {
+        AutoMutex _(iLockTransportControls);
+        auto f = iTransportControls.Pause();
+        if (f) {
+            f();
+        }
+        else {
+            try {
+                iPipeline.Pause();
+            }
+            catch (PipelineStreamNotPausable&) {
+                aInvocation.Error(kCodeNotSupportedByStream, kMsgNotSupportedByStream);
+            }
+        }
     }
     aInvocation.StartResponse();
     aInvocation.EndResponse();
@@ -181,37 +206,64 @@ void ProviderTransport::Pause(IDvInvocation& aInvocation)
 
 void ProviderTransport::Stop(IDvInvocation& aInvocation)
 {
-    iPipeline.Stop();
+    {
+        AutoMutex _(iLockTransportControls);
+        auto f = iTransportControls.Stop();
+        if (f) {
+            f();
+        }
+        else {
+            iPipeline.Stop();
+        }
+    }
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }
 
 void ProviderTransport::SkipNext(IDvInvocation& aInvocation)
 {
-    AutoMutex _(iLock);
-    iPipeline.Next();
+    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    {
+        AutoMutex _(iLockTransportControls);
+        auto f = iTransportControls.Next();
+        if (f) {
+            f();
+        }
+        else {
+            iPipeline.Next();
+        }
+    }
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }
 
 void ProviderTransport::SkipPrevious(IDvInvocation& aInvocation)
 {
-    AutoMutex _(iLock);
-    iPipeline.Prev();
+    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    {
+        AutoMutex _(iLockTransportControls);
+        auto f = iTransportControls.Prev();
+        if (f) {
+            f();
+        }
+        else {
+            iPipeline.Prev();
+        }
+    }
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }
 
-void ProviderTransport::SetRepeat(IDvInvocation& aInvocation, TUint aRepeat)
+void ProviderTransport::SetRepeat(IDvInvocation& aInvocation, TBool aRepeat)
 {
-    iTransportRepeatRandom.SetRepeat(aRepeat != kRepeatOff);
+    iTransportRepeatRandom.SetRepeat(aRepeat);
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }
 
-void ProviderTransport::SetShuffle(IDvInvocation& aInvocation, TUint aShuffle)
+void ProviderTransport::SetShuffle(IDvInvocation& aInvocation, TBool aShuffle)
 {
-    iTransportRepeatRandom.SetRandom(aShuffle != kShuffleOff);
+    iTransportRepeatRandom.SetRandom(aShuffle);
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }
@@ -219,20 +271,31 @@ void ProviderTransport::SetShuffle(IDvInvocation& aInvocation, TUint aShuffle)
 void ProviderTransport::SeekSecondAbsolute(IDvInvocation& aInvocation,
                                             TUint aStreamId, TUint aSecondAbsolute)
 {
-    try {
-        iPipeline.Seek(aStreamId, aSecondAbsolute);
-    }
-    catch (SeekStreamInvalid&) {
-        aInvocation.Error(kCodeBadStreamId, kMsgBadStreamId);
-    }
-    catch (SeekAlreadyInProgress&) {
-        aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
-    }
-    catch (SeekStreamNotSeekable&) {
-        aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
-    }
-    catch (SeekPosInvalid&) {
-        aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
+    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    {
+        AutoMutex _(iLockTransportControls);
+        auto f = iTransportControls.Seek();
+        if (f) {
+            f(aSecondAbsolute);
+        }
+        else {
+            try {
+                iPipeline.Seek(aStreamId, aSecondAbsolute);
+                iPipeline.Play();
+            }
+            catch (SeekStreamInvalid&) {
+                aInvocation.Error(kCodeBadStreamId, kMsgBadStreamId);
+            }
+            catch (SeekAlreadyInProgress&) {
+                aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
+            }
+            catch (SeekStreamNotSeekable&) {
+                aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
+            }
+            catch (SeekPosInvalid&) {
+                aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
+            }
+        }
     }
     aInvocation.StartResponse();
     aInvocation.EndResponse();
@@ -316,20 +379,20 @@ void ProviderTransport::StreamId(IDvInvocation& aInvocation, IDvInvocationRespon
     aInvocation.EndResponse();
 }
 
-void ProviderTransport::Repeat(IDvInvocation& aInvocation, IDvInvocationResponseUint& aRepeat)
+void ProviderTransport::Repeat(IDvInvocation& aInvocation, IDvInvocationResponseBool& aRepeat)
 {
     AutoMutex _(iLock);
-    TUint repeat;
+    TBool repeat;
     GetPropertyRepeat(repeat);
     aInvocation.StartResponse();
     aRepeat.Write(repeat);
     aInvocation.EndResponse();
 }
 
-void ProviderTransport::Shuffle(IDvInvocation& aInvocation, IDvInvocationResponseUint& aRandom)
+void ProviderTransport::Shuffle(IDvInvocation& aInvocation, IDvInvocationResponseBool& aRandom)
 {
     AutoMutex _(iLock);
-    TUint shuffle;
+    TBool shuffle;
     GetPropertyShuffle(shuffle);
     aInvocation.StartResponse();
     aRandom.Write(shuffle);

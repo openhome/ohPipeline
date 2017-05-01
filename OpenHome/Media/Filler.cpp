@@ -18,29 +18,44 @@ const Brx& UriProvider::Mode() const
     return iMode;
 }
 
-TBool UriProvider::SupportsLatency() const
+const Media::ModeInfo& UriProvider::ModeInfo() const
 {
-    return iSupportsLatency;
+    return iModeInfo;
 }
 
-TBool UriProvider::SupportsNext() const
+const Media::ModeTransportControls& UriProvider::ModeTransportControls() const
 {
-    return iSupportsNext;
+    return iTransportControls;
 }
 
-TBool UriProvider::SupportsPrev() const
+void UriProvider::SetTransportPlay(Functor aPlay)
 {
-    return iSupportsPrev;
+    iTransportControls.SetPlay(aPlay);
 }
 
-TBool UriProvider::SupportsRepeat() const
+void UriProvider::SetTransportPause(Functor aPause)
 {
-    return iSupportsRepeat;
+    iTransportControls.SetPause(aPause);
 }
 
-TBool UriProvider::SupportsRandom() const
+void UriProvider::SetTransportStop(Functor aStop)
 {
-    return iSupportsRandom;
+    iTransportControls.SetStop(aStop);
+}
+
+void UriProvider::SetTransportNext(Functor aNext)
+{
+    iTransportControls.SetNext(aNext);
+}
+
+void UriProvider::SetTransportPrev(Functor aPrev)
+{
+    iTransportControls.SetPrev(aPrev);
+}
+
+void UriProvider::SetTransportSeek(FunctorGeneric<TUint> aSeek)
+{
+    iTransportControls.SetSeek(aSeek);
 }
 
 ModeClockPullers UriProvider::ClockPullers()
@@ -66,12 +81,12 @@ UriProvider::UriProvider(const TChar* aMode, Latency aLatency,
                          Next aNextSupported, Prev aPrevSupported,
                          Repeat aRepeatSupported, Random aRandomSupported)
     : iMode(aMode)
-    , iSupportsLatency(aLatency == Latency::Supported)
-    , iSupportsNext(aNextSupported == Next::Supported)
-    , iSupportsPrev(aPrevSupported == Prev::Supported)
-    , iSupportsRepeat(aRepeatSupported == Repeat::Supported)
-    , iSupportsRandom(aRandomSupported == Random::Supported)
 {
+    iModeInfo.SetSupportsLatency(aLatency == Latency::Supported);
+    iModeInfo.SetSupportsNextPrev(aNextSupported == Next::Supported,
+                                  aPrevSupported == Prev::Supported);
+    iModeInfo.SetSupportsRepeatRandom(aRepeatSupported == Repeat::Supported,
+                                      aRandomSupported == Random::Supported);
 }
 
 UriProvider::~UriProvider()
@@ -335,7 +350,9 @@ void Filler::Run()
                 iChangedMode = true;
                 iStopped = true;
                 iLock.Signal();
-                iPipeline.Push(iMsgFactory.CreateMsgMode(Brn("null"), false, ModeClockPullers(), false, false, false, false));
+                ModeInfo info;
+                ModeTransportControls transportControls;
+                iPipeline.Push(iMsgFactory.CreateMsgMode(Brn("null"), info, ModeClockPullers(), transportControls));
                 iPipeline.Push(iMsgFactory.CreateMsgTrack(*iNullTrack));
                 iPipelineIdTracker.AddStream(iNullTrack->Id(), NullTrackStreamHandler::kNullTrackStreamId, false /* play later */);
                 iPipeline.Push(iMsgFactory.CreateMsgEncodedStream(Brx::Empty(), Brx::Empty(), 0, 0, NullTrackStreamHandler::kNullTrackStreamId, false /* not seekable */, true /* live */, Multiroom::Forbidden, &iNullTrackStreamHandler));
@@ -347,11 +364,12 @@ void Filler::Run()
                 iUriStreamer->Interrupt(false);
                 iLock.Wait();
                 if (iChangedMode) {
-                    const TBool supportsLatency = iActiveUriProvider->SupportsLatency();
-                    iPipeline.Push(iMsgFactory.CreateMsgMode(iActiveUriProvider->Mode(), supportsLatency, iActiveUriProvider->ClockPullers(),
-                                                             iActiveUriProvider->SupportsNext(), iActiveUriProvider->SupportsPrev(),
-                                                             iActiveUriProvider->SupportsRepeat(), iActiveUriProvider->SupportsRandom()));
-                    if (!supportsLatency) {
+                    const auto& modeInfo = iActiveUriProvider->ModeInfo();
+                    iPipeline.Push(iMsgFactory.CreateMsgMode(iActiveUriProvider->Mode(),
+                                                             modeInfo,
+                                                             iActiveUriProvider->ClockPullers(),
+                                                             iActiveUriProvider->ModeTransportControls()));
+                    if (!modeInfo.SupportsLatency()) {
                         iPipeline.Push(iMsgFactory.CreateMsgDelay(iDefaultDelay));
                     }
                     iChangedMode = false;

@@ -891,22 +891,6 @@ void Track::Clear()
 
 // ModeInfo
 
-ModeInfo::ModeInfo()
-{
-    Clear();
-}
-
-void ModeInfo::Set(TBool aSupportsLatency,
-                   TBool aSupportsNext, TBool aSupportsPrev,
-                   TBool aSupportsRepeat, TBool aSupportsRandom)
-{
-    iSupportsLatency = aSupportsLatency;
-    iSupportsNext    = aSupportsNext;
-    iSupportsPrev    = aSupportsPrev;
-    iSupportsRepeat  = aSupportsRepeat;
-    iSupportsRandom  = aSupportsRandom;
-}
-
 void ModeInfo::Clear()
 {
     iSupportsLatency = false;
@@ -948,6 +932,23 @@ IClockPuller* ModeClockPullers::PipelineBuffer() const
 }
 
 
+// ModeTransportControls
+
+ModeTransportControls::ModeTransportControls()
+{
+}
+
+void ModeTransportControls::Clear()
+{
+    iPlay  = Functor();
+    iPause = Functor();
+    iStop  = Functor();
+    iNext  = Functor();
+    iPrev  = Functor();
+    iSeek  = FunctorGeneric<TUint>();
+}
+
+
 // MsgMode
 
 MsgMode::MsgMode(AllocatorBase& aAllocator)
@@ -970,13 +971,19 @@ const ModeClockPullers& MsgMode::ClockPullers() const
     return iClockPullers;
 }
 
-void MsgMode::Initialise(const Brx& aMode, TBool aSupportsLatency, ModeClockPullers aClockPullers,
-                         TBool aSupportsNext, TBool aSupportsPrev,
-                         TBool aSupportsRepeat, TBool aSupportsRandom)
+const ModeTransportControls& MsgMode::TransportControls() const
+{
+    return iTransportControls;
+}
+
+void MsgMode::Initialise(const Brx& aMode, const ModeInfo& aInfo,
+                         ModeClockPullers aClockPullers,
+                         const ModeTransportControls& aTransportControls)
 {
     iMode.Replace(aMode);
-    iInfo.Set(aSupportsLatency, aSupportsNext, aSupportsPrev, aSupportsRepeat, aSupportsRandom);
+    iInfo = aInfo;
     iClockPullers = aClockPullers;
+    iTransportControls = aTransportControls;
 }
 
 void MsgMode::Clear()
@@ -984,6 +991,7 @@ void MsgMode::Clear()
     iMode.Replace(Brx::Empty());
     iInfo.Clear();
     iClockPullers = ModeClockPullers();
+    iTransportControls.Clear();
 }
 
 Msg* MsgMode::Process(IMsgProcessor& aProcessor)
@@ -3134,11 +3142,21 @@ MsgFactory::MsgFactory(IInfoAggregator& aInfoAggregator, const MsgFactoryInitPar
 {
 }
 
-MsgMode* MsgFactory::CreateMsgMode(const Brx& aMode, TBool aSupportsLatency, ModeClockPullers aClockPullers, TBool aSupportsNext, TBool aSupportsPrev, TBool aSupportsRepeat, TBool aSupportsRandom)
+MsgMode* MsgFactory::CreateMsgMode(const Brx& aMode, const ModeInfo& aInfo,
+                                   ModeClockPullers aClockPullers,
+                                   const ModeTransportControls& aTransportControls)
 {
     MsgMode* msg = iAllocatorMsgMode.Allocate();
-    msg->Initialise(aMode, aSupportsLatency, aClockPullers, aSupportsNext, aSupportsPrev, aSupportsRepeat, aSupportsRandom);
+    msg->Initialise(aMode, aInfo, aClockPullers, aTransportControls);
     return msg;
+}
+
+MsgMode* MsgFactory::CreateMsgMode(const Brx& aMode)
+{
+    ModeInfo info;
+    ModeClockPullers clockPullers;
+    ModeTransportControls transportControls;
+    return CreateMsgMode(aMode, info, clockPullers, transportControls);
 }
 
 MsgTrack* MsgFactory::CreateMsgTrack(Media::Track& aTrack, TBool aStartOfStream)

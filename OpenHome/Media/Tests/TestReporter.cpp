@@ -37,7 +37,8 @@ public:
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // from IPipelinePropertyObserver
-    void NotifyMode(const Brx& aMode, const ModeInfo& aInfo) override;
+    void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,
+                    const ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
@@ -345,7 +346,7 @@ Msg* SuiteReporter::Pull()
         return iMsgFactory->CreateMsgDecodedStream(0, kBitRate, kBitDepth, kSampleRate, kNumChannels, Brn(kCodecName), kTrackLength, sampleStart, kLossless, false, false, false, Multiroom::Allowed, kProfile, nullptr);
     }
     case EMsgMode:
-        return iMsgFactory->CreateMsgMode(Brn(kMode), true, ModeClockPullers(), true, false, false, false);
+        return iMsgFactory->CreateMsgMode(Brn(kMode));
     case EMsgTrack:
     {
         Track* track = iTrackFactory->CreateTrack(Brn(kTrackUri), Brx::Empty());
@@ -380,7 +381,9 @@ MsgAudio* SuiteReporter::CreateAudio()
     return audio;
 }
 
-void SuiteReporter::NotifyMode(const Brx& aMode, const ModeInfo& /*aInfo*/)
+void SuiteReporter::NotifyMode(const Brx& aMode,
+                               const ModeInfo& /*aInfo*/,
+                               const ModeTransportControls& /*aTransportControls*/)
 {
     iModeUpdates++;
     iMode.Replace(aMode);
