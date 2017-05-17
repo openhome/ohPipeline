@@ -532,7 +532,8 @@ void SuiteStopper::TestMsgsPassWhilePlaying()
     PullNext(EMsgBitRate);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());
     PullNext(EMsgHalt);
-    iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2)); // not passed on
+    iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2));
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
     PullNext(EMsgWait);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgQuit());
@@ -782,6 +783,7 @@ void SuiteStopper::TestStopFromPlay()
     iPendingMsgs.push_back(CreateAudio());
     iPendingMsgs.push_back(CreateSilence(Jiffies::kPerMs * 3));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2));
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
     PullNext(EMsgWait);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgQuit());
@@ -852,6 +854,7 @@ void SuiteStopper::TestPlayNoFlushes()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgDrain(Functor()));
     PullNext(EMsgDrain);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2));
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
     PullNext(EMsgWait);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgQuit());
