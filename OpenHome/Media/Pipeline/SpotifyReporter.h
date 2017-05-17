@@ -12,6 +12,7 @@ class ISpotifyReporter
 {
 public:
     virtual TUint64 SubSamples() const = 0;
+    virtual void Flush(TUint aFlushId) = 0; // Do not increment subsample count until aFlushId passes.
     virtual ~ISpotifyReporter() {}
 };
 
@@ -95,6 +96,7 @@ public: // from IPipelineElementUpstream
     Msg* Pull() override;
 public: // from ISpotifyReporter
     TUint64 SubSamples() const override;
+    void Flush(TUint aFlushId) override;
 public: // from ISpotifyTrackObserver
     void TrackChanged(Media::ISpotifyMetadata* aMetadata) override;
     void TrackOffsetChanged(TUint aOffsetMs) override;
@@ -104,6 +106,7 @@ private: // PipelineElement
     Msg* ProcessMsg(MsgTrack* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgFlush* aMsg) override;
 private:
     void ClearDecodedStream();
     void UpdateDecodedStream(MsgDecodedStream& aMsg);
@@ -122,6 +125,7 @@ private:
     TUint64 iSubSamples;
     TBool iInterceptMode;
     TBool iPipelineTrackSeen;
+    TUint iPendingFlushId;
     mutable Mutex iLock;
 };
 

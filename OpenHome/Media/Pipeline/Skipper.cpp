@@ -164,9 +164,7 @@ Msg* Skipper::ProcessMsg(MsgFlush* aMsg)
     if (iTargetFlushId != MsgFlush::kIdInvalid && iTargetFlushId == aMsg->Id()) {
         ASSERT(iState == eFlushing);
         iState = eStarting;
-        aMsg->RemoveRef();
         iTargetFlushId = MsgFlush::kIdInvalid;
-        return nullptr;
     }
     return aMsg;
 }

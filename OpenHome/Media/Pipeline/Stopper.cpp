@@ -303,8 +303,7 @@ Msg* Stopper::ProcessMsg(MsgHalt* aMsg)
 
 Msg* Stopper::ProcessMsg(MsgFlush* aMsg)
 {
-    aMsg->RemoveRef();
-    return nullptr;
+    return aMsg;
 }
 
 Msg* Stopper::ProcessMsg(MsgWait* aMsg)

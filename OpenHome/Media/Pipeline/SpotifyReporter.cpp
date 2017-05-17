@@ -180,6 +180,7 @@ const TUint SpotifyReporter::kSupportedMsgTypes =   eMode
                                                   | eMetatext
                                                   | eStreamInterrupted
                                                   | eHalt
+                                                  | eFlush
                                                   | eWait
                                                   | eDecodedStream
                                                   | eBitRate
@@ -201,6 +202,7 @@ SpotifyReporter::SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, Msg
     , iSubSamples(0)
     , iInterceptMode(false)
     , iPipelineTrackSeen(false)
+    , iPendingFlushId(MsgFlush::kIdInvalid)
     , iLock("SARL")
 {
 }
@@ -324,6 +326,12 @@ TUint64 SpotifyReporter::SubSamples() const
     return iSubSamples;
 }
 
+void SpotifyReporter::Flush(TUint aFlushId)
+{
+    AutoMutex _(iLock);
+    iPendingFlushId = aFlushId;
+}
+
 void SpotifyReporter::TrackChanged(Media::ISpotifyMetadata* aMetadata)
 {
     AutoMutex _(iLock);
@@ -421,11 +429,26 @@ Msg* SpotifyReporter::ProcessMsg(MsgAudioPcm* aMsg)
     const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
     TUint samples = aMsg->Jiffies()/Jiffies::PerSample(info.SampleRate());
 
-    // iLock held in ::Pull() method to protect iSubSamples.
-    TUint64 subSamplesPrev = iSubSamples;
-    iSubSamples += samples*info.NumChannels();
+    if (iPendingFlushId == MsgFlush::kIdInvalid) {
+        // iLock held in ::Pull() method to protect iSubSamples.
+        TUint64 subSamplesPrev = iSubSamples;
+        iSubSamples += samples*info.NumChannels();
 
-    ASSERT(iSubSamples >= subSamplesPrev); // Overflow not handled.
+        ASSERT(iSubSamples >= subSamplesPrev); // Overflow not handled.
+    }
+    return aMsg;
+}
+
+Msg* SpotifyReporter::ProcessMsg(MsgFlush* aMsg)
+{
+    if (!iInterceptMode) {
+        return aMsg;
+    }
+
+    // iLock already held in ::Pull() method.
+    if (aMsg->Id() >= iPendingFlushId) {
+        iPendingFlushId = MsgFlush::kIdInvalid;
+    }
     return aMsg;
 }
 

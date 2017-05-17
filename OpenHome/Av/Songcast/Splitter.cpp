@@ -85,10 +85,9 @@ Msg* Splitter::ProcessMsg(MsgHalt* aMsg)
     return aMsg;
 }
 
-Msg* Splitter::ProcessMsg(MsgFlush* /*aMsg*/)
+Msg* Splitter::ProcessMsg(MsgFlush* aMsg)
 {
-    ASSERTS(); // don't expect to see MsgFlush at this stage of the pipeline
-    return nullptr;
+    return aMsg;
 }
 
 Msg* Splitter::ProcessMsg(MsgWait* aMsg)
@@ -196,10 +195,10 @@ Msg* Splitter::MsgCloner::ProcessMsg(MsgHalt* aMsg)
     return aMsg;
 }
 
-Msg* Splitter::MsgCloner::ProcessMsg(MsgFlush* /*aMsg*/)
+Msg* Splitter::MsgCloner::ProcessMsg(MsgFlush* aMsg)
 {
-    ASSERTS();
-    return nullptr;
+    aMsg->AddRef();
+    return aMsg;
 }
 
 Msg* Splitter::MsgCloner::ProcessMsg(MsgWait* aMsg)
