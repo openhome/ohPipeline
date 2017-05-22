@@ -1579,7 +1579,7 @@ void DecodedStreamInfo::Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TU
     iLossless = aLossless;
     iSeekable = aSeekable;
     iLive = aLive;
-    //iAnalogBypass = aAnalogBypass;
+    iAnalogBypass = aAnalogBypass;
     iAnalogBypass = true;  // to force the use of the Dac volume control (Dsd demo)
     iDsd = false;
     iMultiroom = aMultiroom;
