@@ -759,7 +759,7 @@ public:
 public: // from MsgAudio
     MsgAudio* Clone() override;
 private:
-    void Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels, Allocator<MsgPlayableSilence>& aAllocatorPlayable);
+    void Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels, Allocator<MsgPlayableSilence>& aAllocatorPlayable, TBool aDsd = false);
 private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
@@ -767,6 +767,7 @@ private: // from Msg
     Msg* Process(IMsgProcessor& aProcessor) override;
 private:
     Allocator<MsgPlayableSilence>* iAllocatorPlayable;
+    TBool iDsd;
 };
 
 class IPcmProcessor;
@@ -851,11 +852,14 @@ public:
 private:
     void Initialise(TUint aSizeBytes, TUint aSampleRate, TUint aBitDepth,
                     TUint aNumChannels, const Media::Ramp& aRamp,
-                    Optional<IPipelineBufferObserver> aPipelineBufferObserver);
+                    Optional<IPipelineBufferObserver> aPipelineBufferObserver, 
+                    TBool aDsd = false);
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
     void SplitCompleted(MsgPlayable& aRemaining) override;
     void ReadBlock(IPcmProcessor& aProcessor, TBool aApplyRamp) override;
+private:
+    TBool iDsd;    
 };
 
 /**
@@ -1620,7 +1624,7 @@ public:
     MsgBitRate* CreateMsgBitRate(TUint aBitRate);
     MsgAudioPcm* CreateMsgAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset);
     MsgAudioPcm* CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset); // aAudio must contain big endian pcm data
-    MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels);
+    MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels, TBool aDsd = false);
     MsgQuit* CreateMsgQuit();
 private:
     EncodedAudio* CreateEncodedAudio(const Brx& aData);
