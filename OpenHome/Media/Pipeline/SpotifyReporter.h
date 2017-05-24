@@ -40,7 +40,7 @@ class ISpotifyTrackObserver
 public:
     virtual void TrackChanged(Media::ISpotifyMetadata* aMetadata) = 0;
     virtual void TrackOffsetChanged(TUint aOffsetMs) = 0;
-    virtual void FlushTrackState() = 0;
+    //virtual void FlushTrackState() = 0;
     virtual ~ISpotifyTrackObserver() {}
 };
 
@@ -100,7 +100,7 @@ public: // from ISpotifyReporter
 public: // from ISpotifyTrackObserver
     void TrackChanged(Media::ISpotifyMetadata* aMetadata) override;
     void TrackOffsetChanged(TUint aOffsetMs) override;
-    void FlushTrackState() override;
+    //void FlushTrackState() override;
 private: // PipelineElement
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgTrack* aMsg) override;
@@ -125,6 +125,7 @@ private:
     TUint64 iSubSamples;
     TBool iInterceptMode;
     TBool iPipelineTrackSeen;
+    TBool iGeneratedTrackPending;
     TUint iPendingFlushId;
     mutable Mutex iLock;
 };

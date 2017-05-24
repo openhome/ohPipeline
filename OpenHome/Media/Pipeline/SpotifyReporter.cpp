@@ -202,6 +202,7 @@ SpotifyReporter::SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, Msg
     , iSubSamples(0)
     , iInterceptMode(false)
     , iPipelineTrackSeen(false)
+    , iGeneratedTrackPending(false)
     , iPendingFlushId(MsgFlush::kIdInvalid)
     , iLock("SARL")
 {
@@ -261,7 +262,8 @@ Msg* SpotifyReporter::Pull()
                 if (iPipelineTrackSeen && iDecodedStream != nullptr) {
                     // If new metadata is available, generate a new MsgTrack
                     // with that metadata.
-                    if (iMetadata != nullptr) {
+                    if (iGeneratedTrackPending && iMetadata != nullptr) {
+                        iGeneratedTrackPending = false;
                         const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
                         const TUint bitDepth = info.BitDepth();
                         const TUint channels = info.NumChannels();
@@ -271,8 +273,10 @@ Msg* SpotifyReporter::Pull()
                         WriterBuffer writerBuffer(metadata);
                         SpotifyDidlLiteWriter metadataWriter(iTrackUri, *iMetadata);
                         metadataWriter.Write(writerBuffer, bitDepth, channels, sampleRate);
-                        iMetadata->Destroy();
-                        iMetadata = nullptr;
+                        // Keep metadata cached here, in case pipeline restarts
+                        // (e.g., source has switched away from Spotify and
+                        // back again) but Spotify is still on same track, so
+                        // hasn't evented out new metadata.
                         Track* track = iTrackFactory.CreateTrack(iTrackUri, metadata);
 
                         const TBool startOfStream = false;  // Report false as don't want downstream elements to re-enter any stream detection mode.
@@ -356,17 +360,17 @@ void SpotifyReporter::TrackOffsetChanged(TUint aOffsetMs)
     iMsgDecodedStreamPending = true;
 }
 
-void SpotifyReporter::FlushTrackState()
-{
-    AutoMutex _(iLock);
-    iTrackUri.SetBytes(0);
-    if (iMetadata != nullptr) {
-        iMetadata->Destroy();
-        iMetadata = nullptr;
-    }
-    iStartOffset.SetMs(0);
-    iTrackDurationMs = 0;
-}
+//void SpotifyReporter::FlushTrackState()
+//{
+//    AutoMutex _(iLock);
+//    iTrackUri.SetBytes(0);
+//    if (iMetadata != nullptr) {
+//        iMetadata->Destroy();
+//        iMetadata = nullptr;
+//    }
+//    iStartOffset.SetMs(0);
+//    iTrackDurationMs = 0;
+//}
 
 Msg* SpotifyReporter::ProcessMsg(MsgMode* aMsg)
 {
@@ -399,6 +403,7 @@ Msg* SpotifyReporter::ProcessMsg(MsgTrack* aMsg)
 
     iTrackUri.Replace(aMsg->Track().Uri()); // Cache URI for reuse in out-of-band MsgTracks.
     iPipelineTrackSeen = true;              // Only matters when in iInterceptMode. Ensures in-band MsgTrack is output before any are generated from out-of-band notifications.
+    iGeneratedTrackPending = true;
     return aMsg;
 }
 
