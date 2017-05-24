@@ -170,6 +170,23 @@ TUint64 StartOffset::OffsetSample(TUint aSampleRate) const
     return (static_cast<TUint64>(iOffsetMs)*aSampleRate)/1000;
 }
 
+TUint StartOffset::OffsetMs() const
+{
+    return iOffsetMs;
+}
+
+TUint StartOffset::AbsoluteDiff(TUint aOffsetMs) const
+{
+    TUint offsetDiff = 0;
+    if (iOffsetMs >= aOffsetMs) {
+        offsetDiff = iOffsetMs - aOffsetMs;
+    }
+    else {
+        offsetDiff = aOffsetMs - iOffsetMs;
+    }
+    return offsetDiff;
+}
+
 
 // SpotifyReporter
 
@@ -188,6 +205,7 @@ const TUint SpotifyReporter::kSupportedMsgTypes =   eMode
                                                   | eSilence
                                                   | eQuit;
 
+const TUint SpotifyReporter::kTrackOffsetChangeThresholdMs = 2000;
 const Brn SpotifyReporter::kInterceptMode("Spotify");
 
 SpotifyReporter::SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, MsgFactory& aMsgFactory, TrackFactory& aTrackFactory)
@@ -356,9 +374,20 @@ void SpotifyReporter::TrackChanged(Media::ISpotifyMetadata* aMetadata)
 void SpotifyReporter::TrackOffsetChanged(TUint aOffsetMs)
 {
     AutoMutex _(iLock);
-    iStartOffset.SetMs(aOffsetMs);
     // Must output new MsgDecodedStream to update start offset.
     iMsgDecodedStreamPending = true;
+    iStartOffset.SetMs(aOffsetMs);
+}
+
+void SpotifyReporter::TrackPosition(TUint aPositionMs)
+{
+    AutoMutex _(iLock);
+    const TUint offsetDiffAbs = iStartOffset.AbsoluteDiff(aPositionMs);
+    if (offsetDiffAbs > kTrackOffsetChangeThresholdMs) {
+        // Must output new MsgDecodedStream to update start offset.
+        iMsgDecodedStreamPending = true;
+    }
+    iStartOffset.SetMs(aPositionMs);
 }
 
 //void SpotifyReporter::FlushTrackState()
