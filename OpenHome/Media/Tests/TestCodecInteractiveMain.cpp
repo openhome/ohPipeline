@@ -720,7 +720,7 @@ int CDECL main(int aArgc, char* aArgv[])
     MsgFactory* msgFactory = new MsgFactory(*infoAggregator, init);
 
     Semaphore* sem = new Semaphore("TCIS", 0);
-    FileSystemAnsii fileSystem;
+    FileSystemAnsi fileSystem;
     ElementFileReader fileReader(fileSystem, *trackFactory, *msgFactory);
     ElementFileWriter fileWriter(fileSystem, *sem, optionWav.Value());
     Decoder* decoder = new Decoder(*msgFactory, fileReader, fileWriter, fileReader);

@@ -7,7 +7,7 @@
 EXCEPTION(ResourceInvalid);
 
 namespace OpenHome {
-    class FileAnsii;
+    class FileAnsi;
     class IWriter;
 namespace Web {
 

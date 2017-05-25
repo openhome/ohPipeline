@@ -7,7 +7,7 @@
 #include <OpenHome/Web/ConfigUi/ConfigUi.h>
 
 namespace OpenHome {
-    class FileAnsii;
+    class FileAnsi;
 namespace Web {
 
 /**
@@ -23,7 +23,7 @@ public: // from ResourceHandlerBase
     void SetResource(const Brx& aResourceTail) override;
     void Clear() override;
 private:
-    OpenHome::FileAnsii* iFile;
+    OpenHome::FileAnsi* iFile;
 };
 
 class LanguageResourceFileReader : public ILanguageResourceReader
