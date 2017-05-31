@@ -101,7 +101,9 @@ Msg* Skipper::ProcessMsg(MsgTrack* aMsg)
 Msg* Skipper::ProcessMsg(MsgDrain* aMsg)
 {
     iRunning = false;
-    iState = eStarting;
+    if (iState == eRunning) {
+        iState = eStarting;
+    }
     return aMsg;
 }
 
