@@ -271,7 +271,7 @@ void CodecDsd::ProcessHeader()
 
 void CodecDsd::ProcessDsdChunk()
 {
-    //We shouldn't be in the wav codec unless this says 'DSD '
+    //We shouldn't be in the dsd codec unless this says 'DSD '
     //This isn't a track corrupt issue as it was previously checked by Recognise
     ASSERT(ReadChunkId(Brn("DSD ")));
 

@@ -1580,7 +1580,6 @@ void DecodedStreamInfo::Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TU
     iSeekable = aSeekable;
     iLive = aLive;
     iAnalogBypass = aAnalogBypass;
-    iAnalogBypass = true;  // to force the use of the Dac volume control (Dsd demo)
     iDsd = false;
     iMultiroom = aMultiroom;
     iProfile = aProfile;
@@ -3316,6 +3315,8 @@ EncodedAudio* MsgFactory::CreateEncodedAudio(const Brx& aData)
 
 DecodedAudio* MsgFactory::CreateDecodedAudio(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian)
 {
+    //Log::Print("MsgFactory::CreateDecodedAudio  aData.Bytes()=%d  \n", aData.Bytes());
+
     DecodedAudio* decodedAudio = static_cast<DecodedAudio*>(iAllocatorAudioData.Allocate());
     decodedAudio->Construct(aData, aBitDepth, aEndian);
     return decodedAudio;
