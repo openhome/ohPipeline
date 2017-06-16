@@ -25,6 +25,7 @@ public:
     static CodecBase* NewVorbis(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewWav(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewDsd(IMimeTypeList& aMimeTypeList);
+    static CodecBase* NewDsdDff(IMimeTypeList& aMimeTypeList);
 };
 
 } // namespace Codec

@@ -411,6 +411,11 @@ def build(bld):
             source=['OpenHome/Media/Codec/Dsd.cpp'],
             use=['OHNET'],
             target='CodecDsd')
+    # DsdDff
+    bld.stlib(
+            source=['OpenHome/Media/Codec/DsdDff.cpp'],
+            use=['OHNET'],
+            target='CodecDsdDff')
 
     # Wav
     bld.stlib(
@@ -701,7 +706,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecDsd', 'CodecPcm', 'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecDsd', 'CodecDsdDff', 'CodecPcm', 'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
@@ -1050,6 +1055,7 @@ def bundle(ctx):
                  'CodecVorbis',
                  'CodecWav',
                  'CodecDsd',
+                 'CodecDsdDff',
                  'CodecPcm',
                  'libOgg',
                  'WebAppFramework',
