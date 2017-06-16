@@ -56,12 +56,7 @@ private:
     TUint64 iTrackStart;
     TUint64 iTrackOffset;
     TUint64 iTrackLengthJiffies;
-    TUint iBlockSizePerChannel;
-    TUint iFormatVersion;
-    TUint iFormatId;
-    TUint iChannelType;
     TUint64 iSampleCount;
-    TBool iInitialAudio;
 };
 
 } // namespace Codec
@@ -251,7 +246,7 @@ void CodecDsdDff::StreamInitialise()
     Log::Print("  iTrackLengthJiffies = %llu\n", iTrackLengthJiffies);
     //Log::Print("  iFormatVersion = %u\n", iFormatVersion);
     //Log::Print("  iFormatId = %u\n", iFormatId);
-    Log::Print("  iChannelType = %u\n", iChannelType);
+    //Log::Print("  iChannelType = %u\n", iChannelType);
     Log::Print("  iSampleCount = %llu\n", iSampleCount);
 
     // now fake some values to get it through "PCM" stream validation in pipeline:
@@ -304,7 +299,7 @@ void CodecDsdDff::TransferToOutputBuffer()
     }
 }
 
-TBool CodecDsdDff::TrySeek(TUint aStreamId, TUint64 aSample)
+TBool CodecDsdDff::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
 {
     return false;
 }
