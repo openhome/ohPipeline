@@ -42,7 +42,6 @@ private:
     void TransferToOutputBuffer();
 
     static TUint64 BeUint64At(Brx& aBuf, TUint aOffset);
-    static TUint8 ReverseBits8(TUint8 aData);
 
 private:
     Bws<kInputBufMaxBytes> iInputBuf; 
@@ -144,7 +143,7 @@ void CodecDsdDff::ProcessFverChunk()
     {
         THROW(CodecStreamCorrupt);
     }
-    iController->Read(iInputBuf, chunkBytes); // read version string
+    iController->Read(iInputBuf, (TUint)chunkBytes); // read version string
 }
 
 
@@ -168,7 +167,7 @@ void CodecDsdDff::ProcessPropChunk()
     while(bytesRead<propChunkBytes)
     {
         TUint64 localChunkDataBytes = ReadChunkHeader(); // reads 12 bytes
-        iController->Read(iInputBuf, localChunkDataBytes);
+        iController->Read(iInputBuf, (TUint)localChunkDataBytes);
 
         bytesRead += 12+localChunkDataBytes;
         
@@ -293,12 +292,12 @@ void CodecDsdDff::TransferToOutputBuffer()
     for (TUint i = 0 ; i < loopCount ; ++i) {
         // pack left channel
         oPtr[0] = 0;
-        oPtr[1] = ReverseBits8(inPtr[2]);
-        oPtr[2] = ReverseBits8(inPtr[0]);
+        oPtr[1] = inPtr[0];
+        oPtr[2] = inPtr[2];
         // pack right channel
         oPtr[3] = 0;
-        oPtr[4] = ReverseBits8(inPtr[3]);
-        oPtr[5] = ReverseBits8(inPtr[1]);
+        oPtr[4] = inPtr[1];
+        oPtr[5] = inPtr[3];
         // advance i/o ptrs
         oPtr += 6;
         inPtr += 4;
@@ -345,13 +344,6 @@ TUint64 CodecDsdDff::ReadChunkHeader()
     return dataByteCount;
 }
 
-
-TUint8 CodecDsdDff::ReverseBits8(TUint8 aData)
-{
-    aData = (((aData & 0xaa) >> 1) | ((aData & 0x55) << 1));
-    aData = (((aData & 0xcc) >> 2) | ((aData & 0x33) << 2));
-    return((aData >> 4) | (aData << 4));
-}
 
 TUint64 CodecDsdDff::BeUint64At(Brx& aBuf, TUint aOffset)
 {

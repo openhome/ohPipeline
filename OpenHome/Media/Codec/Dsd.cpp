@@ -156,12 +156,12 @@ void CodecDsd::ReinterleaveToOutputBuffer()
     for (TUint i = 0 ; i < loopCount ; ++i) {
         // pack left channel
         oPtr[0] = 0;
-        oPtr[1] = ReverseBits8(lPtr[1]);
-        oPtr[2] = ReverseBits8(lPtr[0]);
+        oPtr[1] = ReverseBits8(lPtr[0]);
+        oPtr[2] = ReverseBits8(lPtr[1]);
         // pack right channel
         oPtr[3] = 0;
-        oPtr[4] = ReverseBits8(rPtr[1]);
-        oPtr[5] = ReverseBits8(rPtr[0]);
+        oPtr[4] = ReverseBits8(rPtr[0]);
+        oPtr[5] = ReverseBits8(rPtr[1]);
         // advance i/o ptrs
         oPtr += 6;
         lPtr += 2;
@@ -341,12 +341,11 @@ TUint64 CodecDsd::LeUint64At(Brx& aBuf, TUint aOffset)
 
 TUint8 CodecDsd::ReverseBits8(TUint8 aData)
 {
-    return aData;
-/*
+    //return aData;
+
     aData = (((aData & 0xaa) >> 1) | ((aData & 0x55) << 1));
     aData = (((aData & 0xcc) >> 2) | ((aData & 0x33) << 2));
     return((aData >> 4) | (aData << 4));
-*/
 }
 
 
