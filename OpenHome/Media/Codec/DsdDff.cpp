@@ -78,7 +78,6 @@ CodecDsdDff::CodecDsdDff(IMimeTypeList& aMimeTypeList)
 {
     aMimeTypeList.Add("audio/dff");
     aMimeTypeList.Add("audio/x-dff");
-    aMimeTypeList.Add("audio/x-dff");
     iOutputBuf.SetBytes(iOutputBuf.MaxBytes());
 }
 
