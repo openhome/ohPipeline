@@ -2,6 +2,7 @@
 #include <OpenHome/Private/SuiteUnitTest.h>
 #include <OpenHome/Json.h>
 #include <OpenHome/Private/Ascii.h>
+#include <functional>
 
 using namespace OpenHome;
 using namespace OpenHome::TestFramework;
@@ -130,6 +131,7 @@ private:
     void TestStringArray();
     void TestObjectArray();
     void TestArrayArray();
+    void TestEmptyArray();
     void TestArrayInObject();
 };
 
@@ -895,6 +897,7 @@ SuiteParserJsonArray::SuiteParserJsonArray()
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestStringArray), "TestStringArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestObjectArray), "TestObjectArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestArrayArray), "TestArrayArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestEmptyArray), "TestEmptyArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestArrayInObject), "TestArrayInObject");
 }
 
@@ -1009,6 +1012,35 @@ void SuiteParserJsonArray::TestArrayArray()
     TEST_THROWS(parser.NextObject(), JsonWrongType);
     TEST(parser.NextArray() == Brn("[3,4,5]"));
     TEST_THROWS(parser.NextArray(), JsonArrayEnumerationComplete);
+}
+
+void SuiteParserJsonArray::TestEmptyArray()
+{
+    // You might not have seen much of this.
+    // We create a lambda object that, when invoked,
+    // creates a JsonParserArray on an empty array,
+    // then checks that aFunc throws JsonArrayEnumerationComplete
+    // when called.
+    auto check = [](std::function<void(JsonParserArray&)> aFunc) -> bool {
+        try {
+            auto parser = JsonParserArray::Create(Brn("[]"));
+            aFunc(parser);
+        }
+        catch (JsonArrayEnumerationComplete&) {
+            return true;
+        }
+        return false;
+    };
+
+    // It is easy to see from this list that we've covered
+    // all of JsonParserArray::Next* methods.
+
+    TEST(check(&JsonParserArray::NextBool));
+    TEST(check(&JsonParserArray::NextInt));
+    TEST(check(&JsonParserArray::NextString));
+    TEST(check(&JsonParserArray::NextStringEscaped));
+    TEST(check(&JsonParserArray::NextArray));
+    TEST(check(&JsonParserArray::NextObject));
 }
 
 void SuiteParserJsonArray::TestArrayInObject()
