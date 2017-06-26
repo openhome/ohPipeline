@@ -125,6 +125,7 @@ public: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
 private:
+
     void TestIdentifyType();
     void TestIntArray();
     void TestBoolArray();
@@ -1016,31 +1017,42 @@ void SuiteParserJsonArray::TestArrayArray()
 
 void SuiteParserJsonArray::TestEmptyArray()
 {
-    // You might not have seen much of this.
-    // We create a lambda object that, when invoked,
-    // creates a JsonParserArray on an empty array,
-    // then checks that aFunc throws JsonArrayEnumerationComplete
-    // when called.
-    auto check = [](std::function<void(JsonParserArray&)> aFunc) -> bool {
-        try {
-            auto parser = JsonParserArray::Create(Brn("[]"));
-            aFunc(parser);
-        }
-        catch (JsonArrayEnumerationComplete&) {
-            return true;
-        }
-        return false;
-    };
-
-    // It is easy to see from this list that we've covered
-    // all of JsonParserArray::Next* methods.
-
-    TEST(check(&JsonParserArray::NextBool));
-    TEST(check(&JsonParserArray::NextInt));
-    TEST(check(&JsonParserArray::NextString));
-    TEST(check(&JsonParserArray::NextStringEscaped));
-    TEST(check(&JsonParserArray::NextArray));
-    TEST(check(&JsonParserArray::NextObject));
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextBool(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextInt(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextString(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextStringEscaped(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextArray(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextObject(),
+            JsonArrayEnumerationComplete);
+    }
 }
 
 void SuiteParserJsonArray::TestArrayInObject()
