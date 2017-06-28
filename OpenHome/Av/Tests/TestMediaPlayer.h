@@ -43,6 +43,7 @@ namespace Media {
 namespace Configuration {
     class ConfigRamStore;
     class ConfigManager;
+    class StoreFileWriterBinary;
 }
 namespace Web {
     class ConfigAppBase;
@@ -105,7 +106,7 @@ private:
     static const TUint kUiSendQueueSize = 100;
 public:
     TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
-                    const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
+                    const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent, const TChar* aStoreFile,
                     TUint aMinWebUiResourceThreads=kMinWebUiResourceThreads, TUint aMaxWebUiTabs=kMaxWebUiTabs, TUint aUiSendQueueSize=kUiSendQueueSize);
     virtual ~TestMediaPlayer();
     void SetPullableClock(Media::IPullableClock& aPullableClock);
@@ -166,6 +167,7 @@ private:
     Av::FriendlyNameAttributeUpdater* iFnUpdaterUpnpAv;
     RamStore* iRamStore;
     Configuration::ConfigRamStore* iConfigRamStore;
+    Configuration::StoreFileWriterBinary* iStoreFileWriter;
     TUint iMinWebUiResourceThreads;
     TUint iMaxWebUiTabs;
     TUint iUiSendQueueSize;
@@ -188,6 +190,7 @@ public:
     const TestFramework::OptionString& Qobuz() const;
     const TestFramework::OptionString& UserAgent() const;
     const TestFramework::OptionBool& ClockPull() const;
+    const TestFramework::OptionString& StoreFile() const;
 private:
     TestFramework::OptionParser iParser;
     TestFramework::OptionString iOptionRoom;
@@ -201,6 +204,7 @@ private:
     TestFramework::OptionString iOptionQobuz;
     TestFramework::OptionString iOptionUserAgent;
     TestFramework::OptionBool iOptionClockPull;
+    TestFramework::OptionString iOptionStoreFile;
 };
 
 // Not very nice, but only to allow reusable test functions.
