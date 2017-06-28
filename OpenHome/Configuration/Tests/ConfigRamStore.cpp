@@ -276,7 +276,6 @@ void StoreFileReaderJson::Read(IStoreReadWrite& aStore)
     }
     catch (FileOpenError&) {
         Log::Print("StoreFileReaderJson::Read Unable to open config file: %s. Assuming this is the first run, and a store file does not yet exist.\n", iFilePath);
-        ASSERTS();
     }
     catch (FileReadError&) {
         Log::Print("StoreFileReaderJson::Read Error reading config file: %s\n", iFilePath);
@@ -310,6 +309,7 @@ void StoreFileWriterJson::StoreChanged(IStoreVisitable& aVisitable)
     }
     catch (FileOpenError&) {
         Log::Print("StoreFileWriterJson::StoreChanged Unable to open config file: %s\n", iFilePath);
+        ASSERTS();
     }
     catch (FileWriteError&) {
         Log::Print("StoreFileWriterJson::StoreChanged Caught FileWriteError while writing to %s.\n", iFilePath);
