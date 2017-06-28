@@ -284,6 +284,9 @@ void JsonParser::Parse(const Brx& aJson, TBool aUnescapeInPlace)
                 }
                 escapeChar = false;
             }
+            else {
+                escapeChar = false;
+            }
             break;
         case ArrayEnd:
             if (ch == '[') {
