@@ -910,7 +910,7 @@ void SuiteStoreInt::TestValueNotWrittenToStoreWhenToggled()
     TInt alt = 1234;
     iStoreInt->Set(val);
     iStoreInt->Write();
-    const TUint writeCount = iStore->WriteCount();
+    const TUint64 writeCount = iStore->WriteCount();
     TEST(writeCount == 1);
     iStoreInt->Set(alt);
     iStoreInt->Set(val);
@@ -1069,7 +1069,7 @@ void SuiteStoreText::TestValueNotWrittenToStoreWhenToggled()
     Bws<kMaxLength> alt("bar");
     iStoreText->Set(val);
     iStoreText->Write();
-    const TUint writeCount = iStore->WriteCount();
+    const TUint64 writeCount = iStore->WriteCount();
     TEST(writeCount == 1);
     iStoreText->Set(alt);
     iStoreText->Set(val);

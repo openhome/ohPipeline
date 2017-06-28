@@ -95,7 +95,7 @@ private:
     Mutex iLockObservers;
 };
 
-class StorePrinter : public IStoreVisitor
+class StorePrinter : public IStoreVisitor, private INonCopyable
 {
 public:
     StorePrinter(IStoreVisitable& aVisitable);
