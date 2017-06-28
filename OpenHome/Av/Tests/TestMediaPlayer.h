@@ -43,7 +43,7 @@ namespace Media {
 namespace Configuration {
     class ConfigRamStore;
     class ConfigManager;
-    class StoreFileWriterBinary;
+    class StoreFileWriterJson;
 }
 namespace Web {
     class ConfigAppBase;
@@ -167,7 +167,7 @@ private:
     Av::FriendlyNameAttributeUpdater* iFnUpdaterUpnpAv;
     RamStore* iRamStore;
     Configuration::ConfigRamStore* iConfigRamStore;
-    Configuration::StoreFileWriterBinary* iStoreFileWriter;
+    Configuration::StoreFileWriterJson* iStoreFileWriter;
     TUint iMinWebUiResourceThreads;
     TUint iMaxWebUiTabs;
     TUint iUiSendQueueSize;

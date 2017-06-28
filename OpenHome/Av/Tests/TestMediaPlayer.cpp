@@ -182,10 +182,10 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     // create a read/write store using the new config framework
     iConfigRamStore = new ConfigRamStore();
     if (Brn(aStoreFile).Bytes() > 0) {
-        StoreFileReaderBinary storeFileReader(aStoreFile);
+        StoreFileReaderJson storeFileReader(aStoreFile);
         storeFileReader.Read(*iConfigRamStore);
 
-        iStoreFileWriter = new StoreFileWriterBinary(aStoreFile);
+        iStoreFileWriter = new StoreFileWriterJson(aStoreFile);
         iConfigRamStore->AddStoreObserver(*iStoreFileWriter);
     }
     else {
