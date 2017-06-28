@@ -331,6 +331,7 @@ void StoreFileWriterJson::StoreChanged(IStoreVisitable& aVisitable)
 
 void StoreFileWriterJson::Visit(const Brx& aKey, const Brx& aValue)
 {
+    ASSERT(aKey.Bytes() > 0);
     // Any exceptions thrown from here should be caught by ::StoreChanged().
     auto jsonObj = iWriterJsonArray->CreateObject();
     jsonObj.WriteString(kKeyKey, aKey);
@@ -401,6 +402,9 @@ void StoreFileReaderBinary::Read(IStoreReadWrite& aStore)
 
             // Try read value.
             if (bytesRemaining >= valueBytes) {
+                // Value may be empty (i.e., be 0 bytes in length).
+                // However, this block of code handles that, as Brns can have
+                // Set() called with a length of 0.
                 value.Set(inputBuf.Ptr()+offset, valueBytes);
 
                 bytesRemaining -= value.Bytes();
@@ -461,10 +465,14 @@ void StoreFileWriterBinary::StoreChanged(IStoreVisitable& aVisitable)
 
 void StoreFileWriterBinary::Visit(const Brx& aKey, const Brx& aValue)
 {
+    ASSERT(aKey.Bytes() > 0);
     // Any exceptions thrown from here should be caught by ::StoreChanged().
     WriterBinary writerBinary(iFileStream);
     writerBinary.WriteUint32Be(aKey.Bytes());
     writerBinary.Write(aKey);
     writerBinary.WriteUint32Be(aValue.Bytes());
-    writerBinary.Write(aValue);
+    if (aValue.Bytes() > 0) {
+        // Can only write values of non-zero length to files.
+        writerBinary.Write(aValue);
+    }
 }
