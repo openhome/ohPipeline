@@ -7,6 +7,8 @@ ds =   {'NetAux'  : 'Net Aux',
         'Radio'   : 'Radio',
         'Receiver': 'Songcast',
         'Spotify' : 'Spotify',
-        'UpnpAv'  : 'UPnP AV'}
+        'UpnpAv'  : 'UPnP AV',
+        'Scd'     : 'Scd' }
 
-kSrcByType = { 'SoftPlayer' : ds }
+kSrcByType = { 'SoftPlayer' : ds,
+               'Unknown'    : ds }
