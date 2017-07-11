@@ -600,6 +600,7 @@ def build(bld):
         source=[
             'OpenHome/Web/ResourceHandler.cpp',
             'OpenHome/Web/WebAppFramework.cpp',
+            'OpenHome/Web/SimpleHttpServer.cpp',
         ],
         use=['ohNetCore', 'OHNET', 'OHMEDIAPLAYER', 'PLATFORM', 'WebUiStatic'],
         target='WebAppFramework')
@@ -995,6 +996,11 @@ def build(bld):
             source=['OpenHome/Web/Tests/TestWebAppFrameworkInteractive.cpp'],
             use=['OHNET', 'PLATFORM', 'WebAppFramework', 'ohMediaPlayer', 'ConfigUi'],
             target='TestWebAppFrameworkInteractive',
+            install_path=None)
+    bld.program(
+            source=['OpenHome/Web/Tests/TestSimpleHttpServerInteractive.cpp'],
+            use=['OHNET', 'PLATFORM', 'WebAppFramework', 'ohMediaPlayer', 'ConfigUi'],
+            target='TestSimpleHttpServerInteractive',
             install_path=None)
     bld.program(
             source=['OpenHome/Web/ConfigUi/Tests/TestConfigUiInteractive.cpp'],

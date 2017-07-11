@@ -1,0 +1,72 @@
+[
+    {
+        "archive-filename": "../hardware/hardware-${name}-${version}.tar.gz",
+        "dest": "dependencies/AnyPlatform/${name}/",
+        "name": "Exakt2Bitstreams",
+        "notes": [],
+        "type": "internal",
+        "version": "4.215.35704"
+    },
+    {
+        "archive-filename": "../hardware/hardware-${name}-${version}.tar.gz",
+        "dest": "dependencies/AnyPlatform/${name}/",
+        "name": "Exakt2FallbackBitstreams",
+        "notes": ["Further fix for potential unrecoverable error if power was removed during fallback reprogramming"],
+        "type": "internal",
+        "version": "4.217.35716"
+    },
+    {
+        "archive-filename": "../hardware/hardware-${name}-${version}.tar.gz",
+        "dest": "dependencies/AnyPlatform/${name}/",
+        "name": "ExaktBitstreams",
+        "notes": [],
+        "type": "internal",
+        "version": "4.149.35466"
+    },
+    {
+        "archive-filename": "../hardware/hardware-${name}-${version}.tar.gz",
+        "dest": "dependencies/AnyPlatform/${name}/",
+        "name": "ExaktFallbackBitstreams",
+        "notes": [],
+        "type": "internal",
+        "version": "4.105.35311"
+    },
+    {
+        "archive-filename": "../hardware/hardware-${name}-${version}.tar.gz",
+        "dest": "dependencies/AnyPlatform/${name}/",
+        "name": "ExaktSpeakerDesigns",
+        "notes": [],
+        "type": "internal",
+        "version": "4.136.35436"
+    },
+    {
+        "archive-filename": "../hardware/hardware-${name}-${version}.tar.gz",
+        "dest": "dependencies/AnyPlatform/${name}/",
+        "name": "ExaktSpeakerMetrics",
+        "notes": [],
+        "type": "internal",
+        "version": "4.66.35109"
+    },
+    {
+        "archive-filename": "../ReprogExakt/ReprogExakt-${version}-Mac-x86-Release.tar.gz",
+        "dest": "dependencies/AnyPlatform/${name}/",
+        "name": "ReprogExaktMac",
+        "type": "internal",
+        "version": "0.1.835"
+    },
+    {
+        "archive-filename": "../ReprogExakt/ReprogExakt-${version}-Windows-x86-Release.tar.gz",
+        "dest": "dependencies/AnyPlatform/${name}/",
+        "name": "ReprogExaktWin",
+        "type": "internal",
+        "version": "0.1.835"
+    },
+    {
+        "archive-filename": "${name}-${version}-AnyPlatform-Release.tar.gz",
+        "dest": "dependencies/AnyPlatform/${name}/",
+        "name": "ossExaktEngine",
+        "notes": [],
+        "type": "internal",
+        "version": "0.1.1017"
+    }
+]
