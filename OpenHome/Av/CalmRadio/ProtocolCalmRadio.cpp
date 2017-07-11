@@ -160,6 +160,7 @@ ProtocolStreamResult ProtocolCalmRadio::Stream(const Brx& aUri)
     iNextFlushId = MsgFlush::kIdInvalid;
     iCalm->Interrupt(false);
     iUri.Replace(aUri);
+    iUriBase.Replace(Brx::Empty());
     iReaderIcy->Reset();
 
     if (iUri.Scheme() != Brn("calmradio")) {
