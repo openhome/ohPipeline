@@ -30,7 +30,7 @@ using namespace OpenHome::Net;
 
 // SimpleHttpSession
 
-SimpleHttpSession::SimpleHttpSession(DvStack& aDvStack, TIpAddress aInterface, TUint aPort, IResourceManager& aResourceManager)
+SimpleHttpSession::SimpleHttpSession(DvStack& aDvStack, TIpAddress aInterface, TUint aPort, Web::IResourceManager& aResourceManager)
     : iDvStack(aDvStack)
     , iInterface(aInterface)
     , iPort(aPort)
@@ -296,7 +296,7 @@ void SimpleHttpSession::WriteResourceEnd()
 
 const Brn SimpleHttpServer::kResourcePrefix("SimpleHttpServer");
 
-SimpleHttpServer::SimpleHttpServer(DvStack& aDvStack, IResourceManager& aResourceManager, TUint aPort)
+SimpleHttpServer::SimpleHttpServer(DvStack& aDvStack, Web::IResourceManager& aResourceManager, TUint aPort)
     : DviServer(aDvStack)
     , iDvStack(aDvStack)
     , iEnv(aDvStack.Env())

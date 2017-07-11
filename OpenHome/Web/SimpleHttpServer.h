@@ -26,7 +26,7 @@ namespace Web {
 class SimpleHttpSession : public SocketTcpSession, private Net::IResourceWriter
 {
 public:
-    SimpleHttpSession(Net::DvStack& aDvStack, TIpAddress aInterface, TUint aPort, IResourceManager& aResourceManager);
+    SimpleHttpSession(Net::DvStack& aDvStack, TIpAddress aInterface, TUint aPort, Web::IResourceManager& aResourceManager);
     ~SimpleHttpSession();
     void StartSession();
 private:
@@ -50,7 +50,7 @@ private:
     Net::DvStack& iDvStack;
     TIpAddress iInterface;
     TUint iPort;
-    IResourceManager& iResourceManager;
+    Web::IResourceManager& iResourceManager;
     TBool iStarted;
     Srx* iReadBuffer;
     ReaderUntil* iReaderUntil;
@@ -87,7 +87,7 @@ public:
     static const TUint kServerThreads = 1;
     static const OpenHome::Brn kResourcePrefix;
 public:
-    SimpleHttpServer(Net::DvStack& aDvStack, IResourceManager& iResourceManager, TUint aPort = 0);
+    SimpleHttpServer(Net::DvStack& aDvStack, Web::IResourceManager& iResourceManager, TUint aPort = 0);
     ~SimpleHttpServer();
     void Start();
 protected: // from DviServer
@@ -101,7 +101,7 @@ private:
     Environment& iEnv;
     SocketTcpServer* iServer;
     TUint iPort;
-    IResourceManager& iResourceManager;
+    Web::IResourceManager& iResourceManager;
     TBool iStarted;
     TUint iAdapterListenerId;
     std::vector<std::reference_wrapper<SimpleHttpSession>> iSessions;
