@@ -384,6 +384,6 @@ SocketTcpServer* SimpleHttpServer::CreateServer(const NetworkAdapter& aNif)
     return server;
 }
 
-void SimpleHttpServer::NotifyServerDeleted(TIpAddress aInterface)
+void SimpleHttpServer::NotifyServerDeleted(TIpAddress /*aInterface*/)
 {
 }
