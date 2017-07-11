@@ -21,14 +21,12 @@
 namespace OpenHome {
     class NetworkAdapter;
 
-using namespace OpenHome::Net;
-
 namespace Web {
 
 class SimpleHttpSession : public SocketTcpSession, private Net::IResourceWriter
 {
 public:
-    SimpleHttpSession(DvStack& aDvStack, TIpAddress aInterface, TUint aPort, IResourceManager& aResourceManager);
+    SimpleHttpSession(Net::DvStack& aDvStack, TIpAddress aInterface, TUint aPort, IResourceManager& aResourceManager);
     ~SimpleHttpSession();
     void StartSession();
 private:
@@ -49,7 +47,7 @@ private:
     static const TUint kReadTimeoutMs = 5 * 1000;
     static const TUint kMaxRequestPathBytes = 256;
 private:
-    DvStack& iDvStack;
+    Net::DvStack& iDvStack;
     TIpAddress iInterface;
     TUint iPort;
     IResourceManager& iResourceManager;
@@ -66,30 +64,30 @@ private:
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
     HttpHeaderConnection iHeaderConnection;
     HttpHeaderExpect iHeaderExpect;
-    HeaderSid iHeaderSid;
-    HeaderTimeout iHeaderTimeout;
-    HeaderNt iHeaderNt;
+    Net::HeaderSid iHeaderSid;
+    Net::HeaderTimeout iHeaderTimeout;
+    Net::HeaderNt iHeaderNt;
     HttpHeaderUserAgent iHeaderUserAgent;
     const HttpStatus* iErrorStatus;
     TBool iResponseStarted;
     TBool iResponseEnded;
     Bws<kMaxRequestBytes> iSoapRequest;
     Bws<kMaxRequestPathBytes> iMappedRequestUri;
-    DviDevice* iInvocationDevice;
-    DviService* iInvocationService;
+    Net::DviDevice* iInvocationDevice;
+    Net::DviService* iInvocationService;
     mutable Bws<128> iResourceUriPrefix;
     TBool iResourceWriterHeadersOnly;
     Semaphore iShutdownSem;
 };
 
 
-class SimpleHttpServer : public DviServer
+class SimpleHttpServer : public Net::DviServer
 {
 public:
     static const TUint kServerThreads = 1;
     static const OpenHome::Brn kResourcePrefix;
 public:
-    SimpleHttpServer(DvStack& aDvStack, IResourceManager& iResourceManager, TUint aPort = 0);
+    SimpleHttpServer(Net::DvStack& aDvStack, IResourceManager& iResourceManager, TUint aPort = 0);
     ~SimpleHttpServer();
     void Start();
 protected: // from DviServer
@@ -99,7 +97,7 @@ private:
     void CurrentAdapterChanged();
     void AddSessions(const NetworkAdapter& aNif);
 private:
-    DvStack& iDvStack;
+    Net::DvStack& iDvStack;
     Environment& iEnv;
     SocketTcpServer* iServer;
     TUint iPort;
