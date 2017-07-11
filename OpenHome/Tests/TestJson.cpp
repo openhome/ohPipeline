@@ -16,6 +16,7 @@ private: // from Suite
     void Test() override;
 private:
     void EncodeChar(TByte aChar, const TChar* aEncoded);
+    void EncodeUni(TByte aChar);
 private: // from IWriter
     void Write(TByte aValue) override;
     void Write(const Brx& aBuffer) override;
@@ -154,19 +155,10 @@ void SuiteJsonEncode::Test()
     EncodeChar('\r', "\\r");
     EncodeChar('\t', "\\t");
     for (TUint i=0; i<32; i++) {
-        iEncoded.SetBytes(0);
-        TByte b = (TByte)i;
-        Bws<1> ch(&b, 1);
-        Json::Escape(*this, ch);
-        TEST(iEncoded.Bytes() > 1);
-        if (iEncoded.Bytes() > 2) {
-            Brn start(iEncoded.Ptr(), 2);
-            TEST(start == Brn("\\u"));
-            TEST(Ascii::UintHex(iEncoded.Split(2)) == i);
-        }
+        EncodeUni((TByte)i);
     }
-    // with very few exceptions, characters above 0x1F should not be encoded
-    for (TUint i=32; i<256; i++) {
+    // with very few exceptions, characters [0x20..0x7F] should not be encoded
+    for (TUint i=32; i<128; i++) {
         if (i == '\"' || i == '/' || i == '\\') {
             // ...the exceptions mentioned above
             continue;
@@ -177,6 +169,9 @@ void SuiteJsonEncode::Test()
         Json::Escape(*this, ch);
         TEST(iEncoded == ch);
     }
+    for (TUint i=128; i<256; i++) {
+        EncodeUni((TByte)i);
+    }
 }
 
 void SuiteJsonEncode::EncodeChar(TByte aChar, const TChar* aEncoded)
@@ -186,6 +181,19 @@ void SuiteJsonEncode::EncodeChar(TByte aChar, const TChar* aEncoded)
     Json::Escape(*this, ch);
     Brn expected(aEncoded);
     TEST(iEncoded == expected);
+}
+
+void SuiteJsonEncode::EncodeUni(TByte aChar)
+{
+    iEncoded.SetBytes(0);
+    Bws<1> ch(&aChar, 1);
+    Json::Escape(*this, ch);
+    TEST(iEncoded.Bytes() > 1);
+    if (iEncoded.Bytes() > 2) {
+        Brn start(iEncoded.Ptr(), 2);
+        TEST(start == Brn("\\u"));
+        TEST(Ascii::UintHex(iEncoded.Split(2)) == aChar);
+    }
 }
 
 void SuiteJsonEncode::Write(TByte aValue)

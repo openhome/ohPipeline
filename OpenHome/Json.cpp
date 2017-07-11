@@ -58,7 +58,7 @@ void Json::Escape(IWriter& aWriter, const Brx& aValue)
             aWriter.Write(kEscapedTab);
             break;
         default:
-            if (ch > 0x1F) {
+            if (ch > 0x1F && ch < 0x80) {
                 aWriter.Write(ch);
             }
             else {
