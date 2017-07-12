@@ -60,6 +60,8 @@ tidalPwd  = config.Get( 'tidal.password' )
 qobuzId   = config.Get( 'qobuz.id' ) + ':' + config.Get( 'qobuz.secret' )
 qobuzUser = config.Get( 'qobuz.user' )
 qobuzPwd  = config.Get( 'qobuz.password' )
+crUser    = config.Get( 'calmradio.user' )
+crPwd     = config.Get( 'calmradio.password' )
 
 tests = [
     # UPnP compliance
@@ -92,6 +94,9 @@ tests = [
     # Qobuz
     [ 'TestQobuzPlayTracks',          'local', 'none',  8,       'off',   'off',       120,         qobuzId,     qobuzUser, qobuzPwd ],
     [ 'TestQobuzDropout',             'local', 'none',  'none',  1800,    'unicast',   20,          qobuzId,     qobuzUser, qobuzPwd ],
+
+    # Calm Radio
+    ['TestCalmRadioPlayChannels',     'local', 'none',  8,       20,      crUser,      crPwd                                         ],
 
     # Airplay
     [ 'TestAirplayFunctions',         'local'                                                                                        ],
