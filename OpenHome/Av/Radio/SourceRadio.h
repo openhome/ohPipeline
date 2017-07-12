@@ -68,7 +68,7 @@ private: // from IPresetDatabaseObserver
     void PresetDatabaseChanged() override;
 private:
     void FetchLocked(const Brx& aUri, const Brx& aMetaData);
-    void SourceRadio::NextPrev(TBool aNext);
+    void NextPrev(TBool aNext);
 private: // from IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
