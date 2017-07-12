@@ -16,6 +16,7 @@
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Optional.h>
+#include <OpenHome/Debug-ohMediaPlayer.h>
 
 #include <limits.h>
 #include <memory>
@@ -79,6 +80,8 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceRadio::Play));
     iUriProvider->SetTransportPause(MakeFunctor(*this, &SourceRadio::Pause));
     iUriProvider->SetTransportStop(MakeFunctor(*this, &SourceRadio::Stop));
+    iUriProvider->SetTransportNext(MakeFunctor(*this, &SourceRadio::Next));
+    iUriProvider->SetTransportPrev(MakeFunctor(*this, &SourceRadio::Prev));
     aMediaPlayer.Add(iUriProvider);
 
     iProviderRadio = new ProviderRadio(aMediaPlayer.Device(), *this, *iPresetDatabase);
@@ -248,6 +251,47 @@ void SourceRadio::Stop()
     if (IsActive()) {
         iPipeline.Stop();
     }
+}
+
+void SourceRadio::Next()
+{
+    NextPrev(true);
+}
+
+void SourceRadio::Prev()
+{
+    NextPrev(false);
+}
+
+void SourceRadio::NextPrev(TBool aNext)
+{
+    const TChar* func = aNext? "Next" : "Prev";
+    if (!IsActive()) {
+        return;
+    }
+    AutoMutex _(iLock);
+    const TUint presetNum = iStorePresetNumber->Get();
+    if (presetNum == IPresetDatabaseReader::kPresetIdNone) {
+        LOG(kMedia, "SourceRadio::%s - no preset selected so nothing to move relative to\n", func);
+    }
+    TUint id = iPresetDatabase->GetPresetId(presetNum);
+    const auto track = aNext? iPresetDatabase->NextTrackRef(id) :
+                              iPresetDatabase->PrevTrackRef(id);
+    if (track == nullptr) {
+        LOG(kMedia, "SourceRadio::%s - at end of preset list (and no current support for Repeat mode)\n", func);
+        return;
+    }
+    if (iTrack != nullptr) {
+        iTrack->RemoveRef();
+    }
+    iTrack = track;
+    iUriProvider->SetTrack(iTrack);
+    iProviderRadio->NotifyPresetInfo(id, iTrack->Uri(), iTrack->MetaData());
+    iStorePresetNumber->Set(iPresetDatabase->GetPresetNumber(id));
+
+    iPipeline.RemoveAll();
+    iPipeline.Begin(iUriProvider->Mode(), iTrack->Id());
+    DoPlay();
 }
 
 void SourceRadio::SeekAbsolute(TUint aSeconds)

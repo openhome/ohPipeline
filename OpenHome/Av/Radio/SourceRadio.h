@@ -29,6 +29,8 @@ public:
     virtual void Play() = 0;
     virtual void Pause() = 0;
     virtual void Stop() = 0;
+    virtual void Next() = 0;
+    virtual void Prev() = 0;
     virtual void SeekAbsolute(TUint aSeconds) = 0;
     virtual void SeekRelative(TInt aSeconds) = 0;
 };
@@ -58,12 +60,15 @@ private: // from ISourceRadio
     void Play() override;
     void Pause() override;
     void Stop() override;
+    void Next() override;
+    void Prev() override;
     void SeekAbsolute(TUint aSeconds) override;
     void SeekRelative(TInt aSeconds) override;
 private: // from IPresetDatabaseObserver
     void PresetDatabaseChanged() override;
 private:
     void FetchLocked(const Brx& aUri, const Brx& aMetaData);
+    void SourceRadio::NextPrev(TBool aNext);
 private: // from IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,

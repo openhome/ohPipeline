@@ -18,6 +18,7 @@ public:
     UriProviderRadio(Media::TrackFactory& aTrackFactory, IPresetDatabaseReaderTrack& aDbReader);
     ~UriProviderRadio();
     Media::Track* SetTrack(const Brx& aUri, const Brx& aMetaData);
+    void SetTrack(Media::Track* aTrack);
 protected: // from UriProvider
     void Begin(TUint aTrackId) override;
     void BeginLater(TUint aTrackId) override;

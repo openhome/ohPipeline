@@ -212,7 +212,7 @@ Media::Track* PresetDatabase::TrackRefById(TUint aId)
     return nullptr;
 }
 
-Media::Track* PresetDatabase::NextTrackRef(TUint aId)
+Media::Track* PresetDatabase::NextTrackRef(TUint& aId)
 {
     AutoMutex _(iLock);
     for (TUint i=0; i<kMaxPresets; i++) {
@@ -221,16 +221,19 @@ Media::Track* PresetDatabase::NextTrackRef(TUint aId)
             for (TUint j=i+1; j<kMaxPresets; j++) {
                 const Preset& preset2 = iPresets[j];
                 if (!preset2.IsEmpty()) {
+                    aId = preset2.Id();
                     return iTrackFactory.CreateTrack(preset2.Uri(), preset2.MetaData());
                 }
             }
+            aId = kPresetIdNone;
             return nullptr;
         }
     }
+    aId = kPresetIdNone;
     return nullptr;
 }
 
-Media::Track* PresetDatabase::PrevTrackRef(TUint aId)
+Media::Track* PresetDatabase::PrevTrackRef(TUint& aId)
 {
     AutoMutex _(iLock);
     for (TUint i=0; i<kMaxPresets; i++) {
@@ -239,12 +242,15 @@ Media::Track* PresetDatabase::PrevTrackRef(TUint aId)
             for (TInt j=i-1; j>=0; j--) {
                 const Preset& preset2 = iPresets[j];
                 if (!preset2.IsEmpty()) {
+                    aId = preset2.Id();
                     return iTrackFactory.CreateTrack(preset2.Uri(), preset2.MetaData());
                 }
             }
+            aId = kPresetIdNone;
             return nullptr;
         }
     }
+    aId = kPresetIdNone;
     return nullptr;
 }
 
