@@ -893,11 +893,13 @@ void Track::Clear()
 
 void ModeInfo::Clear()
 {
-    iSupportsLatency = false;
-    iSupportsNext    = false;
-    iSupportsPrev    = false;
-    iSupportsRepeat  = false;
-    iSupportsRandom  = false;
+    iSupportsLatency     = false;
+    iSupportsNext        = false;
+    iSupportsPrev        = false;
+    iSupportsRepeat      = false;
+    iSupportsRandom      = false;
+    iRampPauseResumeLong = true;
+    iRampSkipLong        = false;
 }
 
 

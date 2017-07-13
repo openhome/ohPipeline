@@ -9,13 +9,16 @@
 using namespace OpenHome;
 using namespace OpenHome::Media;
 
-Skipper::Skipper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, TUint aRampDuration)
+Skipper::Skipper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement,
+                 TUint aRampJiffiesLong, TUint aRampJiffiesShort)
     : iFlusher(aUpstreamElement, "Skipper")
     , iMsgFactory(aMsgFactory)
     , iLock("SKP1")
     , iBlocker("SKP2")
     , iState(eStarting)
-    , iRampDuration(aRampDuration)
+    , iRampJiffiesLong(aRampJiffiesLong)
+    , iRampJiffiesShort(aRampJiffiesShort)
+    , iRampJiffies(aRampJiffiesLong)
     , iRemainingRampSize(0)
     , iCurrentRampValue(Ramp::kMax)
     , iTargetFlushId(MsgFlush::kIdInvalid)
@@ -85,6 +88,8 @@ Msg* Skipper::Pull()
 Msg* Skipper::ProcessMsg(MsgMode* aMsg)
 {
     iStreamId = IPipelineIdProvider::kStreamIdInvalid;
+    iRampJiffies = aMsg->Info().RampPauseResumeLong()?
+                        iRampJiffiesLong : iRampJiffiesShort;
     return aMsg;
 }
 
@@ -303,7 +308,7 @@ TBool Skipper::TryRemoveCurrentStream(TBool aRampDown)
     }
     else if (iState == eRunning) {
         iState = eRamping;
-        iRemainingRampSize = iRampDuration;
+        iRemainingRampSize = iRampJiffies;
         iCurrentRampValue = Ramp::kMax;
     }
     return (state != iState);

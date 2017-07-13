@@ -159,7 +159,8 @@ DummyUriProvider::DummyUriProvider(TrackFactory& aTrackFactory)
     : UriProvider("Dummy",
                   Latency::NotSupported,
                   Next::NotSupported, Prev::NotSupported,
-                  Repeat::NotSupported, Random::NotSupported)
+                  Repeat::NotSupported, Random::NotSupported,
+                  RampPauseResume::Long, RampSkip::Short)
     , iTrackFactory(aTrackFactory)
     , iIndex(-1)
     , iPendingIndex(-1)

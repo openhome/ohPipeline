@@ -22,7 +22,9 @@ UriProviderRadio::UriProviderRadio(TrackFactory& aTrackFactory,
                   Next::Supported,
                   Prev::Supported,
                   Repeat::NotSupported,
-                  Random::NotSupported)
+                  Random::NotSupported,
+                  RampPauseResume::Long,
+                  RampSkip::Short)
     , iLock("UPRD")
     , iTrackFactory(aTrackFactory)
     , iDbReader(aDbReader)

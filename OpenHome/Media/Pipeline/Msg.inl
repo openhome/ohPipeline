@@ -71,6 +71,11 @@ inline void ModeInfo::SetSupportsRepeatRandom(TBool aSupportsRepeat, TBool aSupp
     iSupportsRepeat  = aSupportsRepeat;
     iSupportsRandom  = aSupportsRandom;
 }
+inline void ModeInfo::SetRampDurations(TBool aPauseResume, TBool aSkip)
+{
+    iRampPauseResumeLong = aPauseResume;
+    iRampSkipLong        = aSkip;
+}
 inline TBool ModeInfo::SupportsLatency() const
 {
     return iSupportsLatency;
@@ -90,6 +95,14 @@ inline TBool ModeInfo::SupportsRepeat() const
 inline TBool ModeInfo::SupportsRandom() const
 {
     return iSupportsRandom;
+}
+inline TBool ModeInfo::RampPauseResumeLong() const
+{
+    return iRampPauseResumeLong;
+}
+inline TBool ModeInfo::RampSkipLong() const
+{
+    return iRampSkipLong;
 }
 
 

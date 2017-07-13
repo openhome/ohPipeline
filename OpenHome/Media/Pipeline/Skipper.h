@@ -21,7 +21,8 @@ class Skipper : public IPipelineElementUpstream, private IMsgProcessor, private 
 {
     friend class SuiteSkipper;
 public:
-    Skipper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, TUint aRampDuration);
+    Skipper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement,
+            TUint aRampJiffiesLong, TUint aRampJiffiesShort);
     virtual ~Skipper();
     void Block();
     void Unblock();
@@ -74,7 +75,9 @@ private:
     Mutex iLock;
     Mutex iBlocker;
     EState iState;
-    const TUint iRampDuration;
+    const TUint iRampJiffiesLong;
+    const TUint iRampJiffiesShort;
+    TUint iRampJiffies;
     TUint iRemainingRampSize;
     TUint iCurrentRampValue;
     MsgQueue iQueue; // empty unless we have to split a msg during a ramp

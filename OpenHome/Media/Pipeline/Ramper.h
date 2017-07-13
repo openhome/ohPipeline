@@ -18,11 +18,12 @@ class Ramper : public PipelineElement, public IPipelineElementUpstream, private 
 
     static const TUint kSupportedMsgTypes;
 public:
-    Ramper(IPipelineElementUpstream& aUpstreamElement, TUint aRampDuration);
+    Ramper(IPipelineElementUpstream& aUpstreamElement, TUint aRampJiffiesLong, TUint aRampJiffiesShort);
     virtual ~Ramper();
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // IMsgProcessor
+    Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgHalt* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
@@ -31,7 +32,9 @@ private:
     IPipelineElementUpstream& iUpstreamElement;
     TUint iStreamId;
     TBool iRamping;
-    const TUint iRampDuration;
+    const TUint iRampJiffiesLong;
+    const TUint iRampJiffiesShort;
+    TUint iRampJiffies;
     TUint iRemainingRampSize;
     TUint iCurrentRampValue;
     MsgQueueLite iQueue;

@@ -13,7 +13,8 @@ UriProviderSingleTrack::UriProviderSingleTrack(const TChar* aMode, TBool aSuppor
     : UriProvider(aMode,
                   aSupportsLatency? Latency::Supported : Latency::NotSupported,
                   Next::NotSupported, Prev::NotSupported,
-                  Repeat::NotSupported, Random::NotSupported)
+                  Repeat::NotSupported, Random::NotSupported,
+                  RampPauseResume::Long, RampSkip::Short)
     , iLock("UPST")
     , iTrackFactory(aTrackFactory)
     , iTrack(nullptr)

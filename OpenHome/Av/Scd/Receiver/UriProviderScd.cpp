@@ -16,7 +16,9 @@ UriProviderScd::UriProviderScd(TrackFactory& aTrackFactory)
                   Next::NotSupported,
                   Prev::NotSupported,
                   Repeat::NotSupported,
-                  Random::NotSupported)
+                  Random::NotSupported,
+                  RampPauseResume::Long,
+                  RampSkip::Short)
     , iTrackFactory(aTrackFactory)
     , iLock("upsd")
     , iTrack(nullptr)

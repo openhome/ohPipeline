@@ -327,7 +327,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     ATTACH_ELEMENT(iLoggerDecodedAudioReservoir,
                    new Logger(*iDecodedAudioReservoir, "Decoded Audio Reservoir"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iRamper, new Ramper(*upstream, aInitParams->RampLongJiffies()),
+    ATTACH_ELEMENT(iRamper, new Ramper(*upstream, aInitParams->RampLongJiffies(), aInitParams->RampShortJiffies()),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerRamper, new Logger(*iRamper, "Ramper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
@@ -351,7 +351,8 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorDelay1, new DecodedAudioValidator(*upstream, "VariableDelay1"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
-    ATTACH_ELEMENT(iSkipper, new Skipper(*iMsgFactory, *upstream, aInitParams->RampShortJiffies()),
+    ATTACH_ELEMENT(iSkipper, new Skipper(*iMsgFactory, *upstream,
+                                         aInitParams->RampLongJiffies(), aInitParams->RampShortJiffies()),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerSkipper, new Logger(*iSkipper, "Skipper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
@@ -371,7 +372,8 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorWaiter, new DecodedAudioValidator(*upstream, "Waiter"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
-    ATTACH_ELEMENT(iStopper, new Stopper(*iMsgFactory, *upstream, *this, *iEventThread, aInitParams->RampLongJiffies()),
+    ATTACH_ELEMENT(iStopper, new Stopper(*iMsgFactory, *upstream, *this, *iEventThread,
+                                         aInitParams->RampLongJiffies(), aInitParams->RampShortJiffies()),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     iStopper->SetStreamPlayObserver(aStreamPlayObserver);
     ATTACH_ELEMENT(iLoggerStopper, new Logger(*iStopper, "Stopper"),
