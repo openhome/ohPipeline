@@ -17,11 +17,11 @@ namespace Media {
 
 class SuiteRamper : public SuiteUnitTest, private IPipelineElementUpstream, private IMsgProcessor
 {
-    static const TUint kRampDurationLong = Jiffies::kPerMs * 50; // shorter than production code but this is assumed to not matter
-    static const TUint kRampDurationShort = Jiffies::kPerMs * 10;
-    static const TUint kExpectedFlushId = 5;
-    static const TUint kSampleRate = 44100;
-    static const TUint kNumChannels = 2;
+    static const TUint kRampDurationLong;
+    static const TUint kRampDurationShort;
+    static const TUint kExpectedFlushId;
+    static const TUint kSampleRate;
+    static const TUint kNumChannels;
     static const SpeakerProfile kProfile;
 public:
     SuiteRamper();
@@ -104,6 +104,11 @@ private:
 } // namespace OpenHome
 
 
+const TUint SuiteRamper::kRampDurationLong = Jiffies::kPerMs * 50; // shorter than production code but this is assumed to not matter
+const TUint SuiteRamper::kRampDurationShort = Jiffies::kPerMs * 10;
+const TUint SuiteRamper::kExpectedFlushId = 5;
+const TUint SuiteRamper::kSampleRate = 44100;
+const TUint SuiteRamper::kNumChannels = 2;
 const SpeakerProfile SuiteRamper::kProfile(2);
 
 SuiteRamper::SuiteRamper()
