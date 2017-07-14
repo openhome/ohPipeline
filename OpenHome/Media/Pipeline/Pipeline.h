@@ -47,6 +47,7 @@ public:
     void SetLongRamp(TUint aJiffies);
     void SetShortRamp(TUint aJiffies);
     void SetEmergencyRamp(TUint aJiffies);
+    void SetSenderMinLatency(TUint aJiffies);
     void SetThreadPriorityMax(TUint aPriority); // highest priority used by pipeline
     void SetThreadPriorities(TUint aStarvationRamper, TUint aCodec, TUint aEvent);
     void SetMaxLatency(TUint aJiffies);
@@ -61,6 +62,7 @@ public:
     TUint RampLongJiffies() const;
     TUint RampShortJiffies() const;
     TUint RampEmergencyJiffies() const;
+    TUint SenderMinLatency() const;
     TUint ThreadPriorityStarvationRamper() const;
     TUint ThreadPriorityCodec() const;
     TUint ThreadPriorityEvent() const;
@@ -78,6 +80,7 @@ private:
     TUint iRampLongJiffies;
     TUint iRampShortJiffies;
     TUint iRampEmergencyJiffies;
+    TUint iSenderMinLatency;
     TUint iThreadPriorityStarvationRamper;
     TUint iThreadPriorityCodec;
     TUint iThreadPriorityEvent;
@@ -93,6 +96,7 @@ private:
     static const TUint kLongRampDurationDefault         = Jiffies::kPerMs * 500;
     static const TUint kShortRampDurationDefault        = Jiffies::kPerMs * 50;
     static const TUint kEmergencyRampDurationDefault    = Jiffies::kPerMs * 20;
+    static const TUint kSenderMinLatency                = Jiffies::kPerMs * 150;
     static const TUint kThreadPriorityMax               = kPriorityHighest - 1;
     static const TUint kMaxLatencyDefault               = Jiffies::kPerMs * 2000;
     static const MuterImpl kMuterDefault                = MuterImpl::eRampSamples;
@@ -153,7 +157,6 @@ class Pipeline : public IPipelineElementDownstream
 {
     friend class SuitePipeline; // test code
 
-    static const TUint kSenderMinLatency        = Jiffies::kPerMs * 150;
     static const TUint kReceiverMaxLatency      = Jiffies::kPerSecond;
     static const TUint kReservoirCount          = 5; // Encoded + Decoded + (optional) Songcast sender + StarvationRamper + spare
     static const TUint kSongcastFrameJiffies    = Jiffies::kPerMs * 5; // effectively hard-coded by volkano1

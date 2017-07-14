@@ -56,6 +56,7 @@ PipelineInitParams::PipelineInitParams()
     , iRampLongJiffies(kLongRampDurationDefault)
     , iRampShortJiffies(kShortRampDurationDefault)
     , iRampEmergencyJiffies(kEmergencyRampDurationDefault)
+    , iSenderMinLatency(kSenderMinLatency)
     , iMaxLatencyJiffies(kMaxLatencyDefault)
     , iSupportElements(EPipelineSupportElementsAll)
     , iMuter(kMuterDefault)
@@ -105,6 +106,11 @@ void PipelineInitParams::SetShortRamp(TUint aJiffies)
 void PipelineInitParams::SetEmergencyRamp(TUint aJiffies)
 {
     iRampEmergencyJiffies = aJiffies;
+}
+
+void PipelineInitParams::SetSenderMinLatency(TUint aJiffies)
+{
+    iSenderMinLatency = aJiffies;
 }
 
 void PipelineInitParams::SetThreadPriorityMax(TUint aPriority)
@@ -176,6 +182,11 @@ TUint PipelineInitParams::RampEmergencyJiffies() const
     return iRampEmergencyJiffies;
 }
 
+TUint PipelineInitParams::SenderMinLatency() const
+{
+    return iSenderMinLatency;
+}
+
 TUint PipelineInitParams::ThreadPriorityStarvationRamper() const
 {
     return iThreadPriorityStarvationRamper;
@@ -242,7 +253,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     encodedAudioCount += kRewinderMaxMsgs; // this may only be required on platforms that don't guarantee priority based thread scheduling
     const TUint msgEncodedAudioCount = encodedAudioCount + 100; // +100 allows for Split()ing by Container and CodecController
     const TUint decodedReservoirSize = aInitParams->DecodedReservoirJiffies() + aInitParams->StarvationRamperMinJiffies();
-    const TUint decodedAudioCount = ((decodedReservoirSize + kSenderMinLatency) / DecodedAudioAggregator::kMaxJiffies) + 200; // +200 allows for songcast sender, some smaller msgs and some buffering in non-reservoir elements
+    const TUint decodedAudioCount = ((decodedReservoirSize + iInitParams->SenderMinLatency()) / DecodedAudioAggregator::kMaxJiffies) + 200; // +200 allows for songcast sender, some smaller msgs and some buffering in non-reservoir elements
     const TUint msgAudioPcmCount = decodedAudioCount + 100; // +100 allows for Split()ing in various elements
     const TUint msgHaltCount = perStreamMsgCount * 2; // worst case is tiny Vorbis track with embedded metatext in a single-track playlist with repeat
     MsgFactoryInitParams msgInit;
@@ -343,7 +354,8 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     ATTACH_ELEMENT(iVariableDelay1,
                    new VariableDelayLeft(*iMsgFactory, *upstream,
-                                         aInitParams->RampEmergencyJiffies(), kSenderMinLatency),
+                                         aInitParams->RampEmergencyJiffies(),
+                                         iInitParams->SenderMinLatency()),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerVariableDelay1, new Logger(*iVariableDelay1, "VariableDelay1"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
@@ -783,7 +795,7 @@ IPipelineElementUpstream& Pipeline::InsertElements(IPipelineElementUpstream& aTa
 
 TUint Pipeline::SenderMinLatencyMs() const
 {
-    return Jiffies::ToMs(kSenderMinLatency);
+    return Jiffies::ToMs(iInitParams->SenderMinLatency());
 }
 
 void Pipeline::GetThreadPriorityRange(TUint& aMin, TUint& aMax) const
