@@ -93,6 +93,7 @@ private:
     void TestWriteArray();
     void TestWriteObject();
     void TestWriteMixed();
+    void TestAutoWriteEnd();
 private:
     Bws<512> iBuf;
     WriterBuffer* iWriterBuf;
@@ -114,6 +115,7 @@ private:
     void TestWriteArray();
     void TestWriteObject();
     void TestWriteMixed();
+    void TestAutoWriteEnd();
 private:
     Bws<512> iBuf;
     WriterBuffer* iWriterBuf;
@@ -586,6 +588,7 @@ SuiteWriterJsonObject::SuiteWriterJsonObject()
     AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestWriteArray), "TestWriteArray");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestWriteObject), "TestWriteObject");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestWriteMixed), "TestWriteMixed");
+    AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestAutoWriteEnd), "TestAutoWriteEnd");
 }
 
 void SuiteWriterJsonObject::Setup()
@@ -787,6 +790,16 @@ void SuiteWriterJsonObject::TestWriteMixed()
     TEST(iBuf == Brn("{\"key1\":-128,\"key2\":\"str1\",\"key3\":false,\"key4\":[128,\"str2\",true],\"key5\":{\"key6\":256,\"key7\":\"str3\",\"key8\":true}}"));
 }
 
+void SuiteWriterJsonObject::TestAutoWriteEnd()
+{
+    {
+        WriterJsonObject jsonWriter(*iWriterBuf);
+        AutoWriterJson _(jsonWriter);
+        jsonWriter.WriteInt("key1", 256);
+    }
+    TEST(iBuf == Brn("{\"key1\":256}"));
+}
+
 
 // SuiteWriterJsonArray
 
@@ -801,6 +814,7 @@ SuiteWriterJsonArray::SuiteWriterJsonArray()
     AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestWriteArray), "TestWriteArray");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestWriteObject), "TestWriteObject");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestWriteMixed), "TestWriteMixed");
+    AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestAutoWriteEnd), "TestAutoWriteEnd");
 }
 
 void SuiteWriterJsonArray::Setup()
@@ -923,6 +937,16 @@ void SuiteWriterJsonArray::TestWriteMixed()
     jsonArray.WriteEnd();
 
     TEST(iBuf == Brn("[256,\"line1\\r\\nline2\",false,[256,\"str\",false],{\"key1\":256,\"key2\":\"str\",\"key3\":false}]"));
+}
+
+void SuiteWriterJsonArray::TestAutoWriteEnd()
+{
+    {
+        WriterJsonArray jsonArray(*iWriterBuf);
+        AutoWriterJson _(jsonArray);
+        jsonArray.WriteInt(256);
+    }
+    TEST(iBuf == Brn("[256]"));
 }
 
 

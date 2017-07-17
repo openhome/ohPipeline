@@ -1044,3 +1044,16 @@ void WriterJsonValueString::CheckStarted()
         iWriter->Write(WriterJson::kQuote);
     }
 }
+
+
+// AutoWriterJson
+
+AutoWriterJson::AutoWriterJson(IWriterJson& aWriterJson)
+    : iWriterJson(aWriterJson)
+{
+}
+
+AutoWriterJson::~AutoWriterJson()
+{
+    iWriterJson.WriteEnd();
+}

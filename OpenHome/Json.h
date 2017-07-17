@@ -120,10 +120,17 @@ public:
     static void WriteValueBool(IWriter& aWriter, TBool aValue);
 };
 
+class IWriterJson
+{
+public:
+    virtual void WriteEnd() = 0;
+    virtual ~IWriterJson() {}
+};
+
 class WriterJsonObject;
 class WriterJsonValueString;
 
-class WriterJsonArray : private INonCopyable
+class WriterJsonArray : public IWriterJson, private INonCopyable
 {
 public:
     enum class WriteOnEmpty
@@ -140,7 +147,8 @@ public:
     void WriteBool(TBool aValue);
     WriterJsonArray CreateArray(WriterJsonArray::WriteOnEmpty aWriteOnEmpty = WriterJsonArray::WriteOnEmpty::eNull);
     WriterJsonObject CreateObject();
-    void WriteEnd();
+public: // from IWriterJson
+    void WriteEnd() override;
 private:
     void WriteStartOrSeparator();
 private:
@@ -152,7 +160,7 @@ private:
     TBool iEnded;
 };
 
-class WriterJsonObject
+class WriterJsonObject : public IWriterJson
 {
     friend class WriterJsonArray;
 public:
@@ -178,7 +186,8 @@ public:
     WriterJsonObject CreateObject(const Brx& aKey);
     WriterJsonValueString CreateStringStreamed(const TChar* aKey);
     WriterJsonValueString CreateStringStreamed(const Brx& aKey);
-    void WriteEnd();
+public: // from IWriterJson
+    void WriteEnd() override;
 private:
     void Set(IWriter* aWriter);
     void CheckStarted();
@@ -191,14 +200,15 @@ private:
     TBool iWrittenFirstKey;
 };
 
-class WriterJsonValueString : public OpenHome::IWriter
+class WriterJsonValueString : public IWriter, public IWriterJson
 {
 public:
     WriterJsonValueString();
     WriterJsonValueString(IWriter& aWriter);
     void WriteEscaped(const Brx& aFragment);
-    void WriteEnd();
-public: // from OpenHome::IWriter
+public: // from IWriterJson
+    void WriteEnd() override;
+public: // from IWriter
     void Write(TByte aValue) override;
     void Write(const Brx& aBuffer) override;
     void WriteFlush() override;
@@ -208,6 +218,15 @@ private:
     IWriter* iWriter;
     TBool iStarted;
     TBool iEnded;
+};
+
+class AutoWriterJson : private INonCopyable
+{
+public:
+    AutoWriterJson(IWriterJson& aWriterJson);
+    ~AutoWriterJson();
+private:
+    IWriterJson& iWriterJson;
 };
 
 } // namespace OpenHome
