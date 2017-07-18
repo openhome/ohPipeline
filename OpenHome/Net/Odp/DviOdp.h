@@ -9,6 +9,7 @@
 #include <OpenHome/Json.h>
 
 #include <atomic>
+#include <map>
 
 namespace OpenHome {
     class IWriter;
@@ -66,7 +67,7 @@ private:
     std::map<Brn, Brn, BufferCmp> iSubscriptions;
     IWriter* iWriter;
     WriterJsonObject iWriterNotify;
-    WriterJsonObject iWriterProperties;
+    WriterJsonArray iWriterProperties;
     Timer* iRenewTimer;
     TUint iDuration;
 };
@@ -98,6 +99,7 @@ private:
     void ParseDeviceAndService(Brn& aDeviceAlias,
                                Brn& aServiceName,
                                TUint& aServiceVersion);
+    Brn Arg(const TChar* aName);
 private: // from IDviInvocation
     void Invoke() override;
     TUint Version() const override;
@@ -132,12 +134,13 @@ private:
     PropertyWriterFactoryOdp* iPropertyWriterFactory;
     IWriter* iWriter;
     JsonParser iParserReq;
-    JsonParser iParserArgs;
+    std::map<Brn, Brn, BufferCmp> iArgs;
     DviDevice* iDevice;
     DviService* iService;
     TUint iServiceVersion;
     WriterJsonObject iWriterResponse;
-    WriterJsonObject iWriterResponseArgs;
+    WriterJsonArray iWriterResponseArgs;
+    WriterJsonObject iWriterStringStreamedObj;
     WriterJsonValueString iWriterStringStreamed;
     TBool iResponseStarted;
     TBool iResponseEnded;

@@ -18,6 +18,7 @@
 #include <OpenHome/Net/Private/DviService.h>
 
 #include <atomic>
+#include <map>
 #include <limits.h>
 
 using namespace OpenHome;
@@ -122,7 +123,7 @@ IPropertyWriter* PropertyWriterFactoryOdp::ClaimWriter(const IDviSubscriptionUse
         iWriterNotify.Set(*iWriter);
         iWriterNotify.WriteString(Odp::kKeyType, Odp::kTypeNotify);
         iWriterNotify.WriteString(Odp::kKeySid, aSid);
-        iWriterProperties = iWriterNotify.CreateObject(Odp::kKeyProperties);
+        iWriterProperties = iWriterNotify.CreateArray(Odp::kKeyProperties);
     }
     catch (WriterError&) {
         iSession.WriteUnlock();
@@ -187,35 +188,54 @@ void PropertyWriterFactoryOdp::LogUserData(IWriter& aWriter, const IDviSubscript
 
 void PropertyWriterFactoryOdp::PropertyWriteString(const Brx& aName, const Brx& aValue)
 {
-    auto writerString = iWriterProperties.CreateStringStreamed(aName);
-    writerString.WriteEscaped(aValue);
-    writerString.WriteEnd();
+    auto writerObj = iWriterProperties.CreateObject();
+    AutoWriterJson _(writerObj);
+    {
+        writerObj.WriteString(Odp::kKeyName, aName);
+        auto writerString = writerObj.CreateStringStreamed(Odp::kKeyValue);
+        AutoWriterJson __(writerString);
+        writerString.WriteEscaped(aValue);
+    }
 }
 
 void PropertyWriterFactoryOdp::PropertyWriteInt(const Brx& aName, TInt aValue)
 {
     Bws<Ascii::kMaxIntStringBytes> valBuf;
     Ascii::AppendDec(valBuf, aValue);
-    iWriterProperties.WriteString(aName, valBuf);
+    auto writerObj = iWriterProperties.CreateObject();
+    AutoWriterJson _(writerObj);
+    writerObj.WriteString(Odp::kKeyName, aName);
+    writerObj.WriteString(Odp::kKeyValue, valBuf);
 }
 
 void PropertyWriterFactoryOdp::PropertyWriteUint(const Brx& aName, TUint aValue)
 {
     Bws<Ascii::kMaxUintStringBytes> valBuf;
     Ascii::AppendDec(valBuf, aValue);
-    iWriterProperties.WriteString(aName, valBuf);
+    auto writerObj = iWriterProperties.CreateObject();
+    AutoWriterJson _(writerObj);
+    writerObj.WriteString(Odp::kKeyName, aName);
+    writerObj.WriteString(Odp::kKeyValue, valBuf);
 }
 
 void PropertyWriterFactoryOdp::PropertyWriteBool(const Brx& aName, TBool aValue)
 {
-    iWriterProperties.WriteString(aName, aValue ? WriterJson::kBoolTrue : WriterJson::kBoolFalse);
+    auto writerObj = iWriterProperties.CreateObject();
+    AutoWriterJson _(writerObj);
+    writerObj.WriteString(Odp::kKeyName, aName);
+    writerObj.WriteString(Odp::kKeyValue, aValue ? WriterJson::kBoolTrue : WriterJson::kBoolFalse);
 }
 
 void PropertyWriterFactoryOdp::PropertyWriteBinary(const Brx& aName, const Brx& aValue)
 {
-    auto writerString = iWriterProperties.CreateStringStreamed(aName);
-    Converter::ToBase64(writerString, aValue);
-    writerString.WriteEnd();
+    auto writerObj = iWriterProperties.CreateObject();
+    AutoWriterJson _(writerObj);
+    {
+        writerObj.WriteString(Odp::kKeyName, aName);
+        auto writerString = writerObj.CreateStringStreamed(Odp::kKeyValue);
+        AutoWriterJson __(writerString);
+        Converter::ToBase64(writerString, aValue);
+    }
 }
 
 void PropertyWriterFactoryOdp::PropertyWriteEnd()
@@ -254,7 +274,7 @@ void DviOdp::Announce()
     try {
         WriterJsonObject writer(*iWriter);
         writer.WriteString(Odp::kKeyType, Odp::kTypeAnnouncement);
-        writer.WriteInt(Odp::kKeyProtocolVersion, 1);
+        writer.WriteInt(Odp::kKeyProtocolVersion, 2);
         auto writerDevices = writer.CreateArray(Odp::kKeyDevices);
         for (auto it=deviceMap.begin(); it!=deviceMap.end(); ++it) {
             auto device = it->second;
@@ -371,7 +391,20 @@ void DviOdp::Action()
         THROW(OdpError);
     }
     try {
-        iParserArgs.Parse(args);
+        iArgs.clear();
+        auto parserArgs = JsonParserArray::Create(args);
+        if (parserArgs.Type() != JsonParserArray::ValType::Null) {
+            try {
+                for (;;) {
+                    JsonParser parserArg;
+                    parserArg.Parse(parserArgs.NextObject());
+                    Brn argName = parserArg.String(Odp::kKeyName);
+                    Brn argVal = parserArg.String(Odp::kKeyValue);
+                    iArgs.insert(std::pair<Brn, Brn>(argName, argVal));
+                }
+            }
+            catch (JsonArrayEnumerationComplete&) {}
+        }
     }
     catch (JsonInvalid&) {
         LogParseErrorThrow("JsonInvalid", args);
@@ -381,6 +414,9 @@ void DviOdp::Action()
     }
     catch (JsonCorrupt&) {
         LogParseErrorThrow("JsonCorrupt", args);
+    }
+    catch (JsonKeyNotFound&) {
+        LogParseErrorThrow("JsonKeyNotFound", args);
     }
 
     iWriter = &iSession.WriteLock();
@@ -578,6 +614,21 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceAlias, Brn& aServiceName, TUint& 
     }
 }
 
+Brn DviOdp::Arg(const TChar* aName)
+{
+    /* Questionable reusing Json exceptions.  I'll justify it since its an implementation
+       detail that we've already parsed args out from json */
+    Brn name(aName);
+    const auto it = iArgs.find(name);
+    if (it == iArgs.end()) {
+        THROW(JsonKeyNotFound);
+    }
+    if (it->second == WriterJson::kNull) {
+        THROW(JsonValueNull);
+    }
+    return it->second;
+}
+
 void DviOdp::Invoke()
 {
     ASSERTS(); // FIXME - this seems inappropriate for IDviInvocation.  Can it be removed?
@@ -622,13 +673,13 @@ void DviOdp::InvocationReadStart()
 
 TBool DviOdp::InvocationReadBool(const TChar* aName)
 {
-    Brn buf = iParserArgs.String(aName);
+    Brn buf = Arg(aName);
     return Ascii::CaseInsensitiveEquals(buf, WriterJson::kBoolTrue);
 }
 
 void DviOdp::InvocationReadString(const TChar* aName, Brhz& aString)
 {
-    Brn buf = iParserArgs.String(aName);
+    Brn buf = Arg(aName);
     Bwn bufW(buf.Ptr(), buf.Bytes(), buf.Bytes());
     Json::Unescape(bufW);
     aString.Set(bufW);
@@ -636,19 +687,19 @@ void DviOdp::InvocationReadString(const TChar* aName, Brhz& aString)
 
 TInt DviOdp::InvocationReadInt(const TChar* aName)
 {
-    Brn buf = iParserArgs.String(aName);
+    Brn buf = Arg(aName);
     return Ascii::Int(buf);
 }
 
 TUint DviOdp::InvocationReadUint(const TChar* aName)
 {
-    Brn buf = iParserArgs.String(aName);
+    Brn buf = Arg(aName);
     return Ascii::Uint(buf);
 }
 
 void DviOdp::InvocationReadBinary(const TChar* aName, Brh& aData)
 {
-    Brn buf = iParserArgs.String(aName);
+    Brn buf = Arg(aName);
     Bwn bufW(buf.Ptr(), buf.Bytes(), buf.Bytes());
     Converter::FromBase64(bufW);
     aData.Set(bufW);
@@ -686,31 +737,46 @@ void DviOdp::InvocationWriteStart()
     iWriterResponse.WriteString(Odp::kKeyType, Odp::kTypeActionResponse);
     auto writerErr = iWriterResponse.CreateObject(Odp::kKeyError);
     writerErr.WriteEnd();
-    iWriterResponseArgs = iWriterResponse.CreateObject(Odp::kKeyArguments);
+    iWriterResponseArgs = iWriterResponse.CreateArray(Odp::kKeyArguments);
 }
 
 void DviOdp::InvocationWriteBool(const TChar* aName, TBool aValue)
 {
-    iWriterResponseArgs.WriteString(aName, aValue ? WriterJson::kBoolTrue : WriterJson::kBoolFalse);
+    auto writerObj = iWriterResponseArgs.CreateObject();
+    AutoWriterJson _(writerObj);
+    Brn argName(aName);
+    writerObj.WriteString(Odp::kKeyName, argName);
+    writerObj.WriteString(Odp::kKeyValue, aValue ? WriterJson::kBoolTrue : WriterJson::kBoolFalse);
 }
 
 void DviOdp::InvocationWriteInt(const TChar* aName, TInt aValue)
 {
     Bws<Ascii::kMaxIntStringBytes> valBuf;
     Ascii::AppendDec(valBuf, aValue);
-    iWriterResponseArgs.WriteString(aName, valBuf);
+    auto writerObj = iWriterResponseArgs.CreateObject();
+    AutoWriterJson _(writerObj);
+    Brn argName(aName);
+    writerObj.WriteString(Odp::kKeyName, argName);
+    writerObj.WriteString(Odp::kKeyValue, valBuf);
 }
 
 void DviOdp::InvocationWriteUint(const TChar* aName, TUint aValue)
 {
     Bws<Ascii::kMaxUintStringBytes> valBuf;
     Ascii::AppendDec(valBuf, aValue);
-    iWriterResponseArgs.WriteString(aName, valBuf);
+    auto writerObj = iWriterResponseArgs.CreateObject();
+    AutoWriterJson _(writerObj);
+    Brn argName(aName);
+    writerObj.WriteString(Odp::kKeyName, argName);
+    writerObj.WriteString(Odp::kKeyValue, valBuf);
 }
 
 void DviOdp::InvocationWriteBinaryStart(const TChar* aName)
 {
-    iWriterStringStreamed = iWriterResponseArgs.CreateStringStreamed(aName);
+    iWriterStringStreamedObj = iWriterResponseArgs.CreateObject();
+    Brn argName(aName);
+    iWriterStringStreamedObj.WriteString(Odp::kKeyName, argName);
+    iWriterStringStreamed = iWriterStringStreamedObj.CreateStringStreamed(Odp::kKeyValue);
 }
 
 void DviOdp::InvocationWriteBinary(TByte aValue)
@@ -727,11 +793,15 @@ void DviOdp::InvocationWriteBinary(const Brx& aValue)
 void DviOdp::InvocationWriteBinaryEnd(const TChar* /*aName*/)
 {
     iWriterStringStreamed.WriteEnd();
+    iWriterStringStreamedObj.WriteEnd();
 }
 
 void DviOdp::InvocationWriteStringStart(const TChar* aName)
 {
-    iWriterStringStreamed = iWriterResponseArgs.CreateStringStreamed(aName);
+    iWriterStringStreamedObj = iWriterResponseArgs.CreateObject();
+    Brn argName(aName);
+    iWriterStringStreamedObj.WriteString(Odp::kKeyName, argName);
+    iWriterStringStreamed = iWriterStringStreamedObj.CreateStringStreamed(Odp::kKeyValue);
 }
 
 void DviOdp::InvocationWriteString(TByte aValue)
@@ -748,6 +818,7 @@ void DviOdp::InvocationWriteString(const Brx& aValue)
 void DviOdp::InvocationWriteStringEnd(const TChar* /*aName*/)
 {
     iWriterStringStreamed.WriteEnd();
+    iWriterStringStreamedObj.WriteEnd();
 }
 
 void DviOdp::InvocationWriteEnd()

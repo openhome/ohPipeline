@@ -35,6 +35,7 @@ public:
     static const Brn kKeySid;
     static const Brn kKeyProperties;
     static const Brn kKeyName;
+    static const Brn kKeyValue;
     static const Brn kKeyVersion;
     static const Brn kKeyCode;
     static const Brn kKeyDescription;

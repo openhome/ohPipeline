@@ -130,7 +130,7 @@ public:
 class WriterJsonObject;
 class WriterJsonValueString;
 
-class WriterJsonArray : public IWriterJson, private INonCopyable
+class WriterJsonArray : public IWriterJson
 {
 public:
     enum class WriteOnEmpty
@@ -139,6 +139,7 @@ public:
         eEmptyArray     // "[]"
     };
 public:
+    WriterJsonArray();
     WriterJsonArray(IWriter& aWriter, WriteOnEmpty aWriteOnEmpty = WriteOnEmpty::eNull);
     WriterJsonArray(const WriterJsonArray& aWriter);
     void WriteInt(TInt aValue);
@@ -155,7 +156,7 @@ private:
     static const Brn kArrayStart;
     static const Brn kArrayEnd;
     IWriter* iWriter;
-    const WriteOnEmpty iWriteOnEmpty;
+    WriteOnEmpty iWriteOnEmpty;
     TBool iStarted;
     TBool iEnded;
 };

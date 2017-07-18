@@ -43,7 +43,7 @@ void CpiOdpInvocable::InvokeAction(Invocation& aInvocation)
     writerAction.WriteString(Odp::kKeyAction, aInvocation.Action().Name());
     auto args = aInvocation.InputArguments();
     if (args.size() > 0) {
-        auto writerArgs = writerAction.CreateObject(Odp::kKeyArguments);
+        auto writerArgs = writerAction.CreateArray(Odp::kKeyArguments);
         CpiOdpWriterArgs writerArgValues(writerArgs);
         for (auto it=args.begin(); it!=args.end(); ++it) {
             writerArgValues.Process(**it);
@@ -78,13 +78,24 @@ TBool CpiOdpInvocable::HandleOdpResponse(const JsonParser& aParser)
         }
     }
     else {
-        JsonParser argsParser;
-        argsParser.Parse(aParser.String(Odp::kKeyArguments));
+        auto argsParser = JsonParserArray::Create(aParser.String(Odp::kKeyArguments));
         CpiOdpOutputProcessor outputProcessor;
-        for (auto it=outArgs.begin(); it!=outArgs.end(); ++it) {
-            Brn val = argsParser.String((*it)->Parameter().Name());
-            (*it)->ProcessOutput(outputProcessor, val);
+        JsonParser argParser;
+        try {
+            for (;;) {
+                argParser.Reset();
+                argParser.Parse(argsParser.NextObject());
+                Brn argName = argParser.String(Odp::kKeyName);
+                Brn argVal = argParser.String(Odp::kKeyValue);
+                for (auto it=outArgs.begin(); it!=outArgs.end(); ++it) {
+                    if ((*it)->Parameter().Name() == argName) {
+                        (*it)->ProcessOutput(outputProcessor, argVal);
+                        break;
+                    }
+                }
+            }
         }
+        catch (JsonArrayEnumerationComplete&) {}
     }
     return true;
 }
@@ -92,8 +103,8 @@ TBool CpiOdpInvocable::HandleOdpResponse(const JsonParser& aParser)
 
 // CpiOdpWriterArgs
 
-CpiOdpWriterArgs::CpiOdpWriterArgs(WriterJsonObject& aWriterObject)
-    : iWriterObject(aWriterObject)
+CpiOdpWriterArgs::CpiOdpWriterArgs(WriterJsonArray& aWriter)
+    : iWriter(aWriter)
 {
 }
 
@@ -129,12 +140,18 @@ void CpiOdpWriterArgs::ProcessBool(TBool aVal)
 
 void CpiOdpWriterArgs::ProcessBinary(const Brx& aVal)
 {
-    iWriterObject.WriteBinary(iArg->Parameter().Name(), aVal);
+    auto writerObj = iWriter.CreateObject();
+    AutoWriterJson _(writerObj);
+    writerObj.WriteString(Odp::kKeyName, iArg->Parameter().Name());
+    writerObj.WriteBinary(Odp::kKeyValue, aVal);
 }
 
 void CpiOdpWriterArgs::WriteString(const Brx& aVal)
 {
-    iWriterObject.WriteString(iArg->Parameter().Name(), aVal);
+    auto writerObj = iWriter.CreateObject();
+    AutoWriterJson _(writerObj);
+    writerObj.WriteString(Odp::kKeyName, iArg->Parameter().Name());
+    writerObj.WriteString(Odp::kKeyValue, aVal);
 }
 
 

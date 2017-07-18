@@ -28,6 +28,7 @@ const Brn Odp::kKeyError("error");
 const Brn Odp::kKeySid("sid");
 const Brn Odp::kKeyProperties("properties");
 const Brn Odp::kKeyName("name");
+const Brn Odp::kKeyValue("value");
 const Brn Odp::kKeyVersion("version");
 const Brn Odp::kKeyCode("code");
 const Brn Odp::kKeyDescription("description");

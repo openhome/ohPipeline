@@ -159,21 +159,28 @@ void CpiDeviceOdp::HandleEventedUpdate(JsonParser& aParser)
         LOG2(kOdp, kError, "Odp: event from unknown subscription - %.*s\n", PBUF(sid));
         return;
     }
-    JsonParser parserProps;
-    parserProps.Parse(aParser.String(Odp::kKeyProperties));
+    Brn propsBuf = aParser.String(Odp::kKeyProperties);
+    auto parserProps = JsonParserArray::Create(propsBuf);
     subscription->UpdateSequenceNumber();
     IEventProcessor* processor = static_cast<IEventProcessor*>(subscription);
     processor->EventUpdateStart();
     CpiOdpOutputProcessor outputProcessor;
-    std::vector<Brn> props;
-    parserProps.GetKeys(props);
-    for (auto it=props.begin(); it!=props.end(); ++it) {
-        Brn propVal;
-        if (!parserProps.IsNull(*it)) {
-            propVal.Set(parserProps.String(*it));
+
+    try {
+        for (;;) {
+            JsonParser parserProp;
+            Brn obj(parserProps.NextObject());
+            parserProp.Parse(obj);
+            Brn propName = parserProp.String(Odp::kKeyName);
+            Brn propVal;
+            if (!parserProp.IsNull(Odp::kKeyValue)) {
+                propVal.Set(parserProp.String(Odp::kKeyValue));
+            }
+            processor->EventUpdate(propName, propVal, outputProcessor);
         }
-        processor->EventUpdate(*it, propVal, outputProcessor);
     }
+    catch (JsonArrayEnumerationComplete&) {}
+
     processor->EventUpdateEnd();
     subscription->Unlock();
     subscription->RemoveRef();

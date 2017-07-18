@@ -571,7 +571,7 @@ JsonParserArray::JsonParserArray(const Brx& aArray)
 
 void JsonParserArray::StartParse()
 {
-    if (iBuf == WriterJson::kNull) {
+    if (iBuf == WriterJson::kNull || iBuf.Bytes() == 0) {
         iType = ValType::Null;
         return;
     }
@@ -727,6 +727,14 @@ void WriterJson::WriteValueBool(IWriter& aWriter, TBool aValue)
 
 const Brn WriterJsonArray::kArrayStart("[");
 const Brn WriterJsonArray::kArrayEnd("]");
+
+WriterJsonArray::WriterJsonArray()
+    : iWriter(nullptr)
+    , iWriteOnEmpty(WriteOnEmpty::eNull)
+    , iStarted(false)
+    , iEnded(false)
+{
+}
 
 WriterJsonArray::WriterJsonArray(IWriter& aWriter, WriteOnEmpty aWriteOnEmpty)
     : iWriter(&aWriter)

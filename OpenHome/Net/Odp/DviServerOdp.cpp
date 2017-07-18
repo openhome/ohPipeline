@@ -46,6 +46,7 @@ DviSessionOdp::~DviSessionOdp()
 
 void DviSessionOdp::Run()
 {
+    //LogVerbose(true);
     iShutdownSem.Wait();
 
     try {

@@ -9,7 +9,7 @@
 
 namespace OpenHome {
     class IWriter;
-    class WriterJsonObject;
+    class WriterJsonArray;
     class JsonParser;
 namespace Net {
     class CpiSubscription;
@@ -52,7 +52,7 @@ class CpiOdpWriterArgs : private IInputArgumentProcessor
                        , private INonCopyable
 {
 public:
-    CpiOdpWriterArgs(WriterJsonObject& aWriterObject);
+    CpiOdpWriterArgs(WriterJsonArray& aWriter);
     void Process(Argument& aArg);
 private: // from IInputArgumentProcessor
     void ProcessString(const Brx& aVal) override;
@@ -63,7 +63,7 @@ private: // from IInputArgumentProcessor
 private:
     void WriteString(const Brx& aVal);
 private:
-    WriterJsonObject& iWriterObject;
+    WriterJsonArray& iWriter;
     Argument* iArg;
 };
 
