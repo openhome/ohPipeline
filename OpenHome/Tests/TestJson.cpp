@@ -60,6 +60,7 @@ private:
     void TestGetValidBool();
     void TestCorruptInput();
     void TestParseNull();
+    void TestParseUnicodeEscaped();
 private:
     JsonParser* iParser;
 };
@@ -267,7 +268,7 @@ SuiteJsonParser::SuiteJsonParser()
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetValidBool), "TestGetValidBool");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestCorruptInput), "TestCorruptInput");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseNull), "TestParseNull");
-
+    AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseUnicodeEscaped), "TestParseUnicodeEscaped");
 }
 
 void SuiteJsonParser::Setup()
@@ -496,6 +497,28 @@ void SuiteJsonParser::TestParseNull()
     TEST_THROWS(iParser->String("obj"), JsonValueNull);
     TEST_THROWS(iParser->String("str"), JsonValueNull);
     TEST(iParser->String("foo") == Brn("bar"));
+}
+
+void SuiteJsonParser::TestParseUnicodeEscaped()
+{
+    const Brn json("{\"key\":\"\\u0000\\u0000\\u0000U\"}");
+    iParser->Parse(json);
+
+    TEST(iParser->HasKey("key"));
+    TEST(!iParser->IsNull("key"));
+    TEST(iParser->String("key") == Brn("\\u0000\\u0000\\u0000U"));
+    iParser->Reset();
+
+    Bws<4> valueExpected;
+    WriterBuffer writerBuffer(valueExpected);
+    WriterBinary writerBinary(writerBuffer);
+    writerBinary.WriteUint32Be(85);
+
+    Bwh jsonWritable(json);
+    iParser->ParseAndUnescape(jsonWritable);
+    TEST(iParser->HasKey("key"));
+    TEST(!iParser->IsNull("key"));
+    TEST(iParser->String("key") == valueExpected);
 }
 
 

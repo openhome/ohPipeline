@@ -129,7 +129,7 @@ void RebootLogger::Reboot(const Brx& aReason)
 const Brn TestMediaPlayer::kSongcastSenderIconFileName("SongcastSenderIcon");
 
 TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
-                                 const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
+                                 const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent, const TChar* aStoreFile,
                                  TUint aMinWebUiResourceThreads, TUint aMaxWebUiTabs, TUint aUiSendQueueSize)
     : iPullableClock(nullptr)
     , iSemShutdown("TMPS", 0)
@@ -140,6 +140,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     , iUserAgent(aUserAgent)
     , iTxTimestamper(nullptr)
     , iRxTimestamper(nullptr)
+    , iStoreFileWriter(nullptr)
     , iMinWebUiResourceThreads(aMinWebUiResourceThreads)
     , iMaxWebUiTabs(aMaxWebUiTabs)
     , iUiSendQueueSize(aUiSendQueueSize)
@@ -181,6 +182,16 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
 
     // create a read/write store using the new config framework
     iConfigRamStore = new ConfigRamStore();
+    if (Brn(aStoreFile).Bytes() > 0) {
+        StoreFileReaderJson storeFileReader(aStoreFile);
+        storeFileReader.Read(*iConfigRamStore);
+
+        iStoreFileWriter = new StoreFileWriterJson(aStoreFile);
+        iConfigRamStore->AddStoreObserver(*iStoreFileWriter);
+    }
+    else {
+        Log::Print("No store file parameter specified - will not attempt to load store values from file, and changes to store values will not be persisted.\n");
+    }
 
     VolumeProfile volumeProfile;
     VolumeConsumer volumeInit;
@@ -234,6 +245,11 @@ TestMediaPlayer::~TestMediaPlayer()
     delete iDevice;
     delete iDeviceUpnpAv;
     delete iRamStore;
+    if (iStoreFileWriter != nullptr) {
+        // Store writer will not have been created if store file param not specified.
+        iConfigRamStore->RemoveStoreObserver(*iStoreFileWriter);
+        delete iStoreFileWriter;
+    }
     delete iConfigRamStore;
 }
 
@@ -289,7 +305,8 @@ void TestMediaPlayer::Run()
     iDevice->SetEnabled();
     iDeviceUpnpAv->SetEnabled();
 
-    iConfigRamStore->Print();
+    StorePrinter storePrinter(*iConfigRamStore);
+    storePrinter.Print();
 
     Log::Print("\nFull (software) media player\n");
     Log::Print("Intended to be controlled via a separate, standard CP (Kazoo etc.)\n");
@@ -301,7 +318,7 @@ void TestMediaPlayer::Run()
 
     //IPowerManager& powerManager = iMediaPlayer->PowerManager();
     //powerManager.PowerDown(); // FIXME - this should probably be replaced by a normal shutdown procedure
-    iConfigRamStore->Print();
+    storePrinter.Print();
 }
 
 void TestMediaPlayer::RunWithSemaphore()
@@ -320,13 +337,14 @@ void TestMediaPlayer::RunWithSemaphore()
     iDevice->SetEnabled();
     iDeviceUpnpAv->SetEnabled();
 
-    iConfigRamStore->Print();
+    StorePrinter storePrinter(*iConfigRamStore);
+    storePrinter.Print();
 
     iSemShutdown.Wait();    // FIXME - can Run() and RunWithSemaphore() be refactored out? only difference is how they wait for termination signal
 
     //IPowerManager& powerManager = iMediaPlayer->PowerManager();
     //powerManager.PowerDown(); // FIXME - this should probably be replaced by a normal shutdown procedure
-    iConfigRamStore->Print();
+    storePrinter.Print();
 }
 
 PipelineManager& TestMediaPlayer::Pipeline()

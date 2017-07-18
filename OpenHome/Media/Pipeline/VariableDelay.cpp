@@ -392,13 +392,11 @@ Msg* VariableDelayBase::ProcessMsg(MsgFlush* aMsg)
 {
     if (iTargetFlushId != MsgFlush::kIdInvalid && aMsg->Id() == iTargetFlushId) {
         LocalDelayApplied();
-        aMsg->RemoveRef();
         ASSERT(iStatus == ERampedDown);
         iStatus = ERampingUp;
         iRampDirection = Ramp::EUp;
         iCurrentRampValue = Ramp::kMin;
         iRemainingRampSize = iRampDuration;
-        return nullptr;
     }
     return aMsg;
 }
