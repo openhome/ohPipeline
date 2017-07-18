@@ -505,8 +505,8 @@ void SuiteSkipper::TestRampDurationTakenFromMode()
     expectedRampJiffies = kRampDurationShort;
     mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
     iPendingMsgs.push_back(mode);
-    PullNext();
-    TEST(iLastPulledMsg == EMsgHalt);
+    PullNext(EMsgHalt);
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(CreateTrack());
     iPendingMsgs.push_back(CreateEncodedStream());
     iPendingMsgs.push_back(CreateDecodedStream());
