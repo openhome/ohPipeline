@@ -105,6 +105,10 @@ Msg* Skipper::ProcessMsg(MsgTrack* aMsg)
 
 Msg* Skipper::ProcessMsg(MsgDrain* aMsg)
 {
+    iRunning = false;
+    if (iState == eRunning) {
+        iState = eStarting;
+    }
     return aMsg;
 }
 
@@ -169,9 +173,7 @@ Msg* Skipper::ProcessMsg(MsgFlush* aMsg)
     if (iTargetFlushId != MsgFlush::kIdInvalid && iTargetFlushId == aMsg->Id()) {
         ASSERT(iState == eFlushing);
         iState = eStarting;
-        aMsg->RemoveRef();
         iTargetFlushId = MsgFlush::kIdInvalid;
-        return nullptr;
     }
     return aMsg;
 }

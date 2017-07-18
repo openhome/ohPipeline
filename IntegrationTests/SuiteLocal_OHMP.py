@@ -97,6 +97,7 @@ tests = [
 
     # Calm Radio
     ['TestCalmRadioPlayChannels',     'local', 'none',  8,       20,      crUser,      crPwd                                         ],
+    ['TestCalmRadioDropout',          'local', 'none', 'none',   1800,    'none',      5,           crUser,      crPwd               ],
 
     # Airplay
     [ 'TestAirplayFunctions',         'local'                                                                                        ],

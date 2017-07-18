@@ -92,7 +92,7 @@
     {
         "name": "FunctionalTest",
         "type": "openhome",
-        "version": "0.0.899",
+        "version": "0.0.900",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "FunctionalTest-${version}.zip",

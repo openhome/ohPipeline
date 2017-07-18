@@ -505,8 +505,8 @@ void SuiteSkipper::TestRampDurationTakenFromMode()
     expectedRampJiffies = kRampDurationShort;
     mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
     iPendingMsgs.push_back(mode);
-    PullNext();
-    TEST(iLastPulledMsg == EMsgHalt);
+    PullNext(EMsgHalt);
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(CreateTrack());
     iPendingMsgs.push_back(CreateEncodedStream());
     iPendingMsgs.push_back(CreateDecodedStream());
@@ -598,8 +598,9 @@ void SuiteSkipper::TestRemoveStreamRampFewMsgsPassAfterRamp()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(kExpectedFlushId)); // should be consumed by Skipper
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(kExpectedFlushId+1));
     PullNext(EMsgHalt);
+    PullNext(EMsgFlush);
     PullNext(EMsgMetaText); // last Metatext pulled while flushing will be buffered and delivered later
-        PullNext(EMsgFlush);
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
     PullNext(EMsgWait);
     iPendingMsgs.push_back(CreateTrack());
@@ -651,6 +652,7 @@ void SuiteSkipper::TestRemoveStreamNoRampFewMsgsPass()
     PullNext(EMsgHalt);
     PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
+    PullNext(EMsgFlush);
     PullNext(EMsgWait);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgQuit());
     PullNext(EMsgQuit);
@@ -710,6 +712,7 @@ void SuiteSkipper::TestTryRemoveRampValidStream()
     PullNext(EMsgHalt);
     PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
+    PullNext(EMsgFlush);
     PullNext(EMsgWait);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgQuit());
     PullNext(EMsgQuit);
@@ -738,6 +741,7 @@ void SuiteSkipper::TestTryRemoveNoRampValidStream()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(kExpectedFlushId)); // should be consumed by Skipper
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(kExpectedFlushId+1));
     PullNext(EMsgHalt);
+    PullNext(EMsgFlush);
     PullNext(EMsgMetaText);
     PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
@@ -770,7 +774,8 @@ void SuiteSkipper::TestSilenceEndsRamp()
     iRamping = false;
     TEST(iJiffies < kRampDuration);
     iPendingMsgs.push_back(CreateAudio());
-    iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(kExpectedFlushId)); // should be consumed by Skipper
+    iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(kExpectedFlushId));
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(CreateEncodedStream());
     PullNext(EMsgEncodedStream);
 }

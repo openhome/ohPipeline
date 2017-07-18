@@ -883,6 +883,8 @@ void SuiteVariableDelayLeft::TestUpstreamDiscardWhenDelayReduced()
     TEST(iVariableDelay->iStatus == VariableDelayBase::ERampedDown);
     iNextGeneratedMsg = EMsgFlush;
     PullNext();
+    TEST(iLastMsg == EMsgFlush);
+    PullNext();
     TEST(iLastMsg == EMsgDecodedStream);
     TEST(iVariableDelay->iStatus == VariableDelayBase::ERampingUp);
     iJiffies = 0;

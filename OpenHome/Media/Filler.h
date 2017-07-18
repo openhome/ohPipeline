@@ -33,7 +33,7 @@ public:
     void SetTransportStop(Functor aStop);
     void SetTransportNext(Functor aNext);
     void SetTransportPrev(Functor aPrev);
-    void SetTransportSeek(FunctorGeneric<TUint> aSeek);
+    void SetTransportSeek(FunctorGeneric<TUint> aSeek); // Absolute seek position in seconds.
 
     virtual ModeClockPullers ClockPullers();
     virtual TBool IsValid(TUint aTrackId) const;

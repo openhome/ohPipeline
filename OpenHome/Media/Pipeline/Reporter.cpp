@@ -18,6 +18,7 @@ const TUint Reporter::kSupportedMsgTypes =   eMode
                                            | eMetatext
                                            | eStreamInterrupted
                                            | eHalt
+                                           | eFlush
                                            | eWait
                                            | eDecodedStream
                                            | eBitRate

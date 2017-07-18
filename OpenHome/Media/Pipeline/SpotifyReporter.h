@@ -12,6 +12,7 @@ class ISpotifyReporter
 {
 public:
     virtual TUint64 SubSamples() const = 0;
+    virtual void Flush(TUint aFlushId) = 0; // Do not increment subsample count until aFlushId passes.
     virtual ~ISpotifyReporter() {}
 };
 
@@ -38,8 +39,17 @@ class ISpotifyTrackObserver
 {
 public:
     virtual void TrackChanged(Media::ISpotifyMetadata* aMetadata) = 0;
+    /*
+     * Should be called when track offset has actively changed (e.g., due to a
+     * seek).
+     */
     virtual void TrackOffsetChanged(TUint aOffsetMs) = 0;
-    virtual void FlushTrackState() = 0;
+    /*
+     * Should be called to update current playback pos, so that action can be
+     * taken if loss of sync detected.
+     */
+    virtual void TrackPosition(TUint aPositionMs) = 0;
+    //virtual void FlushTrackState() = 0;
     virtual ~ISpotifyTrackObserver() {}
 };
 
@@ -76,6 +86,8 @@ public:
     StartOffset();
     void SetMs(TUint aOffsetMs);
     TUint64 OffsetSample(TUint aSampleRate) const;
+    TUint OffsetMs() const;
+    TUint AbsoluteDiff(TUint aOffsetMs) const;
 private:
     TUint iOffsetMs;
 };
@@ -87,6 +99,7 @@ class SpotifyReporter : public PipelineElement, public IPipelineElementUpstream,
 {
 private:
     static const TUint kSupportedMsgTypes;
+    static const TUint kTrackOffsetChangeThresholdMs;
     static const Brn kInterceptMode;
 public:
     SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, MsgFactory& aMsgFactory, TrackFactory& aTrackFactory);
@@ -95,15 +108,18 @@ public: // from IPipelineElementUpstream
     Msg* Pull() override;
 public: // from ISpotifyReporter
     TUint64 SubSamples() const override;
+    void Flush(TUint aFlushId) override;
 public: // from ISpotifyTrackObserver
     void TrackChanged(Media::ISpotifyMetadata* aMetadata) override;
     void TrackOffsetChanged(TUint aOffsetMs) override;
-    void FlushTrackState() override;
+    void TrackPosition(TUint aPositionMs) override;
+    //void FlushTrackState() override;
 private: // PipelineElement
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgTrack* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgFlush* aMsg) override;
 private:
     void ClearDecodedStream();
     void UpdateDecodedStream(MsgDecodedStream& aMsg);
@@ -122,6 +138,8 @@ private:
     TUint64 iSubSamples;
     TBool iInterceptMode;
     TBool iPipelineTrackSeen;
+    TBool iGeneratedTrackPending;
+    TUint iPendingFlushId;
     mutable Mutex iLock;
 };
 
