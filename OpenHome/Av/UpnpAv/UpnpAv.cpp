@@ -34,7 +34,7 @@ const TChar* SourceFactory::kSourceTypeUpnpAv = "UpnpAv";
 const Brn SourceFactory::kSourceNameUpnpAv("UPnP AV");
 
 SourceUpnpAv::SourceUpnpAv(IMediaPlayer& aMediaPlayer, Net::DvDevice& aDevice, UriProviderRepeater& aUriProvider, Media::MimeTypeList& aMimeTypeList)
-    : Source(SourceFactory::kSourceNameUpnpAv, SourceFactory::kSourceTypeUpnpAv, aMediaPlayer.Pipeline(), aMediaPlayer.PowerManager(), false)
+    : Source(SourceFactory::kSourceNameUpnpAv, SourceFactory::kSourceTypeUpnpAv, aMediaPlayer.Pipeline(), false)
     , iLock("UPA1")
     , iActivationLock("UPA2")
     , iDevice(aDevice)
@@ -80,10 +80,10 @@ void SourceUpnpAv::NotifyState(EPipelineState aState)
     }
 }
 
-void SourceUpnpAv::Activate(TBool aAutoPlay)
+void SourceUpnpAv::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
-    SourceBase::Activate(aAutoPlay);
-    if (!iNoPipelinePrefetchOnActivation) {
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
+    if (aPrefetchAllowed) {
         iLock.Wait();
         const TUint trackId = (iTrack==nullptr? Track::kIdNone : iTrack->Id());
         iLock.Signal();

@@ -172,7 +172,7 @@ void ProviderTransport::PlayAs(IDvInvocation& aInvocation, const Brx& aMode, con
 
 void ProviderTransport::Play(IDvInvocation& aInvocation)
 {
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    iPowerManager.StandbyDisable(StandbyDisableReason::Product);
     {
         AutoMutex _(iLockTransportControls);
         auto f = iTransportControls.Play();
@@ -226,7 +226,7 @@ void ProviderTransport::Stop(IDvInvocation& aInvocation)
 
 void ProviderTransport::SkipNext(IDvInvocation& aInvocation)
 {
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    iPowerManager.StandbyDisable(StandbyDisableReason::Product);
     {
         AutoMutex _(iLockTransportControls);
         auto f = iTransportControls.Next();
@@ -243,7 +243,7 @@ void ProviderTransport::SkipNext(IDvInvocation& aInvocation)
 
 void ProviderTransport::SkipPrevious(IDvInvocation& aInvocation)
 {
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    iPowerManager.StandbyDisable(StandbyDisableReason::Product);
     {
         AutoMutex _(iLockTransportControls);
         auto f = iTransportControls.Prev();
@@ -275,7 +275,7 @@ void ProviderTransport::SetShuffle(IDvInvocation& aInvocation, TBool aShuffle)
 void ProviderTransport::SeekSecondAbsolute(IDvInvocation& aInvocation,
                                             TUint aStreamId, TUint aSecondAbsolute)
 {
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    iPowerManager.StandbyDisable(StandbyDisableReason::Product);
     {
         AutoMutex _(iLockTransportControls);
         auto f = iTransportControls.Seek();

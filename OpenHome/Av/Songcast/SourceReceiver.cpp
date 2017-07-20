@@ -57,7 +57,7 @@ public:
                    Optional<IOhmMsgProcessor> aOhmMsgObserver);
     ~SourceReceiver();
 private: // from ISource
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
@@ -191,7 +191,7 @@ SourceReceiver::SourceReceiver(IMediaPlayer& aMediaPlayer,
                                Optional<IOhmTimestamper> aTxTimestamper,
                                Optional<IOhmTimestamper> aRxTimestamper,
                                Optional<IOhmMsgProcessor> aOhmMsgObserver)
-    : Source(SourceFactory::kSourceNameReceiver, SourceFactory::kSourceTypeReceiver, aMediaPlayer.Pipeline(), aMediaPlayer.PowerManager())
+    : Source(SourceFactory::kSourceNameReceiver, SourceFactory::kSourceTypeReceiver, aMediaPlayer.Pipeline())
     , iLock("SRX1")
     , iActivationLock("SRX2")
     , iUriLock("SRX3")
@@ -240,14 +240,11 @@ SourceReceiver::~SourceReceiver()
     delete iZoneHandler;
 }
 
-void SourceReceiver::Activate(TBool aAutoPlay)
+void SourceReceiver::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
     LOG(kSongcast, "SourceReceiver::Activate()\n");
-    SourceBase::Activate(aAutoPlay);
-    if (iNoPipelinePrefetchOnActivation) {
-        iPipeline.RemoveAll();
-    }
-    else {
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
+    if (aPrefetchAllowed) {
         iPipeline.StopPrefetch(iUriProvider->Mode(), Track::kIdNone);
         if (iZone.Bytes() > 0) {
             iZoneHandler->StartMonitoring(iZone);
@@ -255,6 +252,9 @@ void SourceReceiver::Activate(TBool aAutoPlay)
         if (aAutoPlay) {
             iPlaying = true;
         }
+    }
+    else {
+        iPipeline.RemoveAll();
     }
 }
 

@@ -49,7 +49,7 @@ public:
     SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId);
     ~SourceRadio();
 private: // from ISource
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;

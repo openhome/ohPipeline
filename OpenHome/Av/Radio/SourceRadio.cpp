@@ -46,7 +46,7 @@ const Brn SourceFactory::kSourceNameRadio("Radio");
 // SourceRadio
 
 SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId)
-    : Source(SourceFactory::kSourceNameRadio, SourceFactory::kSourceTypeRadio, aMediaPlayer.Pipeline(), aMediaPlayer.PowerManager())
+    : Source(SourceFactory::kSourceNameRadio, SourceFactory::kSourceTypeRadio, aMediaPlayer.Pipeline())
     , iLock("SRAD")
     , iUriProvider(nullptr)
     , iTrack(nullptr)
@@ -107,16 +107,16 @@ SourceRadio::~SourceRadio()
     }
 }
 
-void SourceRadio::Activate(TBool aAutoPlay)
+void SourceRadio::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
-    SourceBase::Activate(aAutoPlay);
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
     if (iTuneIn != nullptr) {
         iTuneIn->Refresh();
     }
     iTrackPosSeconds = 0;
     iActive = true;
     iAutoPlay = aAutoPlay;
-    if (!iNoPipelinePrefetchOnActivation) {
+    if (aPrefetchAllowed) {
         const TUint trackId = (iTrack==nullptr? Track::kIdNone : iTrack->Id());
         iPipeline.StopPrefetch(iUriProvider->Mode(), trackId);
         if (trackId != Track::kIdNone && aAutoPlay) {
@@ -181,9 +181,7 @@ void SourceRadio::Fetch(const Brx& aUri, const Brx& aMetaData)
 
 void SourceRadio::FetchLocked(const Brx& aUri, const Brx& aMetaData)
 {
-    if (!IsActive()) {
-        DoActivate();
-    }
+    ActivateIfNotActive();
     if (iTrack == nullptr || iTrack->Uri() != aUri) {
         if (iTrack != nullptr) {
             iTrack->RemoveRef();
@@ -207,9 +205,7 @@ void SourceRadio::FetchLocked(const Brx& aUri, const Brx& aMetaData)
 void SourceRadio::Play()
 {
     AutoMutex _(iLock);
-    if (!IsActive()) {
-        DoActivate();
-    }
+    ActivateIfNotActive();
     if (iTrack == nullptr) {
         return;
     }

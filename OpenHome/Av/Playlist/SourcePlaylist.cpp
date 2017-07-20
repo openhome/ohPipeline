@@ -37,7 +37,7 @@ private:
     TBool StartedShuffled();
     void DoSeekToTrackId(Media::Track* aTrack);
 private: // from ISource
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
@@ -104,8 +104,7 @@ const Brn SourceFactory::kSourceNamePlaylist("Playlist");
 SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer)
     : Source(SourceFactory::kSourceNamePlaylist,
              SourceFactory::kSourceTypePlaylist,
-             aMediaPlayer.Pipeline(),
-             aMediaPlayer.PowerManager())
+             aMediaPlayer.Pipeline())
     , iLock("SPL1")
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
@@ -170,13 +169,13 @@ void SourcePlaylist::DoSeekToTrackId(Track* aTrack)
     iLock.Signal();
 }
 
-void SourcePlaylist::Activate(TBool aAutoPlay)
+void SourcePlaylist::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
-    SourceBase::Activate(aAutoPlay);
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
     iTrackPosSeconds = 0;
     iActive = true;
     iUriProvider->SetActive(true);
-    if (!iNoPipelinePrefetchOnActivation) {
+    if (aPrefetchAllowed) {
         TUint trackId = ITrackDatabase::kTrackIdNone;
         if (static_cast<ITrackDatabase*>(iDatabase)->TrackCount() > 0) {
             trackId = iUriProvider->CurrentTrackId();

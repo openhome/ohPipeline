@@ -76,7 +76,7 @@ ModeClockPullers UriProviderRaop::ClockPullers()
 const Brn SourceRaop::kRaopPrefix("raop://");
 
 SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aUdpThreadPriority)
-    : Source(SourceFactory::kSourceNameRaop, SourceFactory::kSourceTypeRaop, aMediaPlayer.Pipeline(), aMediaPlayer.PowerManager(), false)
+    : Source(SourceFactory::kSourceNameRaop, SourceFactory::kSourceTypeRaop, aMediaPlayer.Pipeline(), false)
     , iEnv(aMediaPlayer.Env())
     , iLock("SRAO")
     , iUriProvider(aUriProvider)
@@ -139,16 +139,16 @@ IRaopDiscovery& SourceRaop::Discovery()
     return *iRaopDiscovery;
 }
 
-void SourceRaop::Activate(TBool aAutoPlay)
+void SourceRaop::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
-    SourceBase::Activate(aAutoPlay);
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
     iLock.Wait();
     iTrackPosSeconds = 0;
 
     if (iSessionActive) {
         StartNewTrack();
         iLock.Signal();
-        if (!iNoPipelinePrefetchOnActivation) {
+        if (aPrefetchAllowed) {
             iPipeline.Play();
         }
     }
@@ -161,7 +161,7 @@ void SourceRaop::Activate(TBool aAutoPlay)
         iTrack = iUriProvider.SetTrack(iNextTrackUri, iDidlLite);
         const TUint trackId = (iTrack==nullptr? Track::kIdNone : iTrack->Id());
         iLock.Signal();
-        if (!iNoPipelinePrefetchOnActivation) {
+        if (aPrefetchAllowed) {
             iPipeline.StopPrefetch(iUriProvider.Mode(), trackId);
         }
     }
@@ -386,9 +386,7 @@ void SourceRaop::SessionStartThread()
 
         LOG(kMedia, ">SourceRaop::SessionStartThread\n");
         // Setup pipeline (taking media player out of standby if required).
-        if (!IsActive()) {
-            DoActivate();
-        }
+        ActivateIfNotActive();
         {
             AutoMutex a(iLock);
             StartNewTrack();
