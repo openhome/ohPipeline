@@ -225,41 +225,39 @@ void SourcePlaylist::PipelineStopped()
 
 void SourcePlaylist::Play()
 {
-    if (!IsActive()) {
-        EnsureActiveNoPrefetch();
+    EnsureActiveNoPrefetch();
 
-        if (!StartedShuffled()) {
-            TUint trackId = ITrackDatabase::kTrackIdNone;
-            if (static_cast<ITrackDatabase*>(iDatabase)->TrackCount() > 0) {
-                trackId = iUriProvider->CurrentTrackId();
-                if (trackId == ITrackDatabase::kTrackIdNone) {
-                    Track* track = static_cast<ITrackDatabaseReader*>(iRepeater)->NextTrackRef(ITrackDatabase::kTrackIdNone);
-                    if (track != nullptr) {
-                        trackId = track->Id();
-                        track->RemoveRef();
-                    }
+    if (!StartedShuffled()) {
+        TUint trackId = ITrackDatabase::kTrackIdNone;
+        if (static_cast<ITrackDatabase*>(iDatabase)->TrackCount() > 0) {
+            trackId = iUriProvider->CurrentTrackId();
+            if (trackId == ITrackDatabase::kTrackIdNone) {
+                Track* track = static_cast<ITrackDatabaseReader*>(iRepeater)->NextTrackRef(ITrackDatabase::kTrackIdNone);
+                if (track != nullptr) {
+                    trackId = track->Id();
+                    track->RemoveRef();
                 }
             }
-
-            if (trackId == ITrackDatabase::kTrackIdNone) {
-                iLock.Wait();
-                iTransportState = EPipelineStopped;
-                iLock.Signal();
-                iPipeline.Stop();
-                return;
-            }
-
-            iPipeline.RemoveAll();
-            iPipeline.Begin(iUriProvider->Mode(), trackId);
         }
 
-        iLock.Wait();
-        iTransportState = EPipelinePlaying;
-        iLock.Signal();
-        DoPlay();
+        if (trackId == ITrackDatabase::kTrackIdNone) {
+            iLock.Wait();
+            iTransportState = EPipelineStopped;
+            iLock.Signal();
+            iPipeline.Stop();
+            return;
+        }
 
-        return;
+        iPipeline.RemoveAll();
+        iPipeline.Begin(iUriProvider->Mode(), trackId);
     }
+
+    iLock.Wait();
+    iTransportState = EPipelinePlaying;
+    iLock.Signal();
+    DoPlay();
+
+    return;
 
     if (static_cast<ITrackDatabase*>(iDatabase)->TrackCount() == 0) {
         iPipeline.Stop();
