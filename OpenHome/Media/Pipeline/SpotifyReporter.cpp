@@ -298,9 +298,9 @@ Msg* SpotifyReporter::Pull()
                         Track* track = iTrackFactory.CreateTrack(iTrackUri, metadata);
 
                         const TBool startOfStream = false;  // Report false as don't want downstream elements to re-enter any stream detection mode.
-                        MsgTrack* msg = iMsgFactory.CreateMsgTrack(*track, startOfStream);
+                        auto trackMsg = iMsgFactory.CreateMsgTrack(*track, startOfStream);
                         track->RemoveRef();
-                        return msg;
+                        return trackMsg;
                     }
                     else if (iMsgDecodedStreamPending) {
                         /*
@@ -311,8 +311,8 @@ Msg* SpotifyReporter::Pull()
                          */
                         if (iDecodedStream != nullptr) {
                             iMsgDecodedStreamPending = false;
-                            MsgDecodedStream* msg = CreateMsgDecodedStreamLocked();
-                            UpdateDecodedStream(*msg);
+                            auto streamMsg = CreateMsgDecodedStreamLocked();
+                            UpdateDecodedStream(*streamMsg);
                             return iDecodedStream;
                         }
                     }

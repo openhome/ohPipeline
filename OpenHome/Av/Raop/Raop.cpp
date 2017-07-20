@@ -633,7 +633,7 @@ void RaopDiscoverySession::GenerateAppleResponse(const Brx& aChallenge)
 
     if (Debug::TestLevel(Debug::kMedia)) {
         Bws<400> buf("challenge:");
-        for (TUint i = 0; i < 32; i++) {
+        for (i = 0; i < 32; i++) {
             if (i % 16 == 0) {
                 buf.Append("\n    ");
             }
@@ -652,15 +652,15 @@ void RaopDiscoverySession::GenerateAppleResponse(const Brx& aChallenge)
     if (Debug::TestLevel(Debug::kMedia)) {
         Bws<1280> buf("encrypted response");
         buf.AppendPrintf(" %d:", res);
-        for (TInt i = 0; i < res; i++) {
-            if (i % 16 == 0) {
+        for (TInt k = 0; k < res; k++) {
+            if (k % 16 == 0) {
                 buf.Append("\n    ");
             }
-            if (i == res-1) {
-                buf.AppendPrintf("%02x\n", response[i]);
+            if (k == res-1) {
+                buf.AppendPrintf("%02x\n", response[k]);
             }
             else {
-                buf.AppendPrintf("%02x, ", response[i]);
+                buf.AppendPrintf("%02x, ", response[k]);
             }
         }
         buf.Append("\n");
@@ -678,15 +678,15 @@ void RaopDiscoverySession::GenerateAppleResponse(const Brx& aChallenge)
         if (Debug::TestLevel(Debug::kMedia)) {
             Bws<1280> buf("decrypted response");
             buf.AppendPrintf(" %d:", res);
-            for (TInt i = 0; i < res; i++) {
-                if (i % 16 == 0) {
+            for (TInt k = 0; k < res; k++) {
+                if (k % 16 == 0) {
                     buf.Append("\n    ");
                 }
-                if (i == res-1) {
-                    buf.AppendPrintf("%02x\n", decrypted[i]);
+                if (k == res-1) {
+                    buf.AppendPrintf("%02x\n", decrypted[k]);
                 }
                 else {
-                    buf.AppendPrintf("%02x, ", decrypted[i]);
+                    buf.AppendPrintf("%02x, ", decrypted[k]);
                 }
             }
             buf.Append("\n");

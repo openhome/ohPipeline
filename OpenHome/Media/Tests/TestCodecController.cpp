@@ -967,9 +967,9 @@ void SuiteCodecControllerStream::TestSeek()
 
     // Pull remainder of stream.
     while (iJiffies < totalJiffies) {
-        TUint64 jiffiesBefore = iJiffies;
+        jiffiesBefore = iJiffies;
         PullNext(EMsgAudioPcm);
-        TUint64 offsetAfter = iMsgOffset + jiffiesOffset - offsetAfterSeek;
+        offsetAfter = iMsgOffset + jiffiesOffset - offsetAfterSeek;
         if (offsetAfter != jiffiesBefore) {
             Print("offsetAfter %llu, jiffiesBefore %llu\n", offsetAfter, jiffiesBefore);
         }

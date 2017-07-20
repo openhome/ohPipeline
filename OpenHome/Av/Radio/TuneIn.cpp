@@ -275,10 +275,10 @@ void RadioPresetsTuneIn::DoRefresh()
                         foundImage = ReadValue(parser, imageKey, iPresetArtUrl);
                     }
                     else if (key == presetNumberBuf) {
-                        Bws<Ascii::kMaxUintStringBytes> buf;
-                        if (ReadValue(parser, presetNumberKey, buf)) {
+                        Bws<Ascii::kMaxUintStringBytes> presetBuf;
+                        if (ReadValue(parser, presetNumberKey, presetBuf)) {
                             try {
-                                presetNumber = Ascii::Uint(buf);
+                                presetNumber = Ascii::Uint(presetBuf);
                                 foundPresetNumber = true;
                             }
                             catch (AsciiError&) {}

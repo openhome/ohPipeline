@@ -368,7 +368,7 @@ TUint ProtocolQobuz::WriteRequest(TUint64 aOffset)
 {
     iDechunker.ReadFlush();
     Close();
-    const TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+    TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
     if (!Connect(iUri, port, kTcpConnectTimeoutMs)) {
         LOG(kPipeline, "ProtocolQobuz::WriteRequest Connection failure\n");
         return 0;
@@ -377,7 +377,7 @@ TUint ProtocolQobuz::WriteRequest(TUint64 aOffset)
     try {
         LOG(kMedia, "ProtocolQobuz::WriteRequest send request\n");
         iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
-        const TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+        port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
         Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
         Http::WriteHeaderConnectionClose(iWriterRequest);
         Http::WriteHeaderRangeFirstOnly(iWriterRequest, aOffset);

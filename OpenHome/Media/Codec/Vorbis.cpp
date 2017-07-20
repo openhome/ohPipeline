@@ -118,7 +118,7 @@ size_t CodecVorbis::ReadCallback(void *ptr, size_t size, size_t nmemb)
             TUint64 remaining = iReadOffset-iController->StreamPos();
             LOG(kCodec, "CodecVorbis::ReadCallback iReadOffset: %llu, iController->StreamPos(): %llu, remaining: %llu\n", iReadOffset, iController->StreamPos(), remaining);
             while (remaining > 0) {
-                TUint bytes = buf.MaxBytes();
+                bytes = buf.MaxBytes();
                 if (remaining < bytes) {
                     // Safe cast.
                     // Only enter here if remaining < buf.MaxBytes() (which is a TUint).
