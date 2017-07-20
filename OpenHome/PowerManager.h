@@ -34,7 +34,7 @@ enum class StandbyDisableReason {
     Product
     /*
      * The product is being taken out of standby at boot time, as the
-     * boot-of-out-standby option has been set.
+     * boot-out-of-standby option has been set.
      *
      * Normal post-standby events should happen when this reason seen.
      */
