@@ -15,10 +15,9 @@ class SourceScd : public Av::Source
     static const TBool kDefaultVisibility;
 public:
     SourceScd(Media::PipelineManager& aPipeline,
-              IPowerManager& aPowerManager,
               UriProviderScd& aUriProvider);
 private: // from ISource
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void PipelineStopped() override;
     void StandbyEnabled() override;
@@ -42,7 +41,7 @@ Av::ISource* Av::SourceFactory::NewScd(Av::IMediaPlayer& aMediaPlayer)
     pipeline.Add(protocol);
     auto uriProvider = new UriProviderScd(trackFactory);
     aMediaPlayer.Add(uriProvider);
-    return new SourceScd(pipeline, aMediaPlayer.PowerManager(), *uriProvider);
+    return new SourceScd(pipeline, *uriProvider);
 }
 
 const Brn Av::SourceFactory::kSourceNameScd("Scd");
@@ -50,18 +49,16 @@ const TChar* Av::SourceFactory::kSourceTypeScd = "Scd";
 const TBool SourceScd::kDefaultVisibility = false;
 
 SourceScd::SourceScd(Media::PipelineManager& aPipeline,
-                     IPowerManager& aPowerManager,
                      UriProviderScd& aUriProvider)
     : Source(Av::SourceFactory::kSourceNameScd,
              Av::SourceFactory::kSourceTypeScd,
              aPipeline,
-             aPowerManager,
              kDefaultVisibility)
     , iUriProvider(aUriProvider)
 {
 }
 
-void SourceScd::Activate(TBool /*aAutoPlay*/)
+void SourceScd::Activate(TBool /*aAutoPlay*/, TBool /*aPrefetchAllowed*/)
 {
     iUriProvider.Reset();
 }

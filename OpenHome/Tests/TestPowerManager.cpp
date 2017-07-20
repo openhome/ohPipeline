@@ -694,8 +694,8 @@ void SuitePowerManager::TestShutdownToggleGeneratesCallback()
 
     TEST(observer.DisableCount() == 0);
     TEST(observer.EnableCount() == 1);
-    iPowerManager->StandbyDisable(StandbyDisableReason::User);
-    TEST(observer.DisableReason() == StandbyDisableReason::User);
+    iPowerManager->StandbyDisable(StandbyDisableReason::Product);
+    TEST(observer.DisableReason() == StandbyDisableReason::Product);
     TEST(observer.DisableCount() == 1);
     TEST(observer.EnableCount() == 1);
     TEST(!observer.Standby());
@@ -731,7 +731,7 @@ void SuitePowerManager::TestStandbyHandlerPriorities()
     iPowerManager->Start();
 
     iStandbyHandlerRunOrder.clear();
-    iPowerManager->StandbyDisable(StandbyDisableReason::User);
+    iPowerManager->StandbyDisable(StandbyDisableReason::Product);
     TEST(iStandbyHandlerRunOrder.size() == 3);
     TEST(iStandbyHandlerRunOrder[0] == 2);
     TEST(iStandbyHandlerRunOrder[1] == 1);

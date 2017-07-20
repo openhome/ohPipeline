@@ -58,7 +58,7 @@ TBool SourceBase::IsVisible() const
     return iVisible;
 }
 
-void SourceBase::Activate(TBool /*aAutoPlay*/)
+void SourceBase::Activate(TBool /*aAutoPlay*/, TBool /*aPrefetchAllowed*/)
 {
     iActive = true;
 }
@@ -112,10 +112,16 @@ TBool SourceBase::IsActive() const
     return iActive;
 }
 
-void SourceBase::DoActivate()
+void SourceBase::ActivateIfNotActive()
 {
     iActive = true;
-    iProduct->Activate(*this);
+    iProduct->ActivateIfNotActive(*this, true);
+}
+
+void SourceBase::ActivateIfNotActiveNoPrefetch()
+{
+    iActive = true;
+    iProduct->ActivateIfNotActive(*this, false);
 }
 
 void SourceBase::Initialise(IProduct& aProduct, IConfigInitialiser& aConfigInit, IConfigManager& aConfigManagerReader, TUint /*aId*/)
@@ -173,28 +179,21 @@ void SourceBase::VisibleChanged(Configuration::KeyValuePair<TUint>& aKvp)
 
 // Source
 
-Source::Source(const Brx& aSystemName, const TChar* aType, Media::PipelineManager& aPipeline, IPowerManager& aPowerManager, TBool aIsVisibleByDefault)
+Source::Source(const Brx& aSystemName, const TChar* aType, Media::PipelineManager& aPipeline, TBool aIsVisibleByDefault)
     : SourceBase(aSystemName, aType, aIsVisibleByDefault)
     , iPipeline(aPipeline)
-    , iNoPipelinePrefetchOnActivation(false)
-    , iPowerManager(aPowerManager)
     , iLockActivation("SRC ")
 {
 }
 
 void Source::DoPlay()
 {
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    ActivateIfNotActive();
     iPipeline.Play();
 }
 
 void Source::EnsureActiveNoPrefetch()
 {
     AutoMutex _(iLockActivation);
-    iNoPipelinePrefetchOnActivation = true;
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
-    if (!IsActive()) {
-        DoActivate();
-    }
-    iNoPipelinePrefetchOnActivation = false;
+    ActivateIfNotActiveNoPrefetch();
 }
