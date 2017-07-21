@@ -965,7 +965,7 @@ def build(bld):
             source='OpenHome/Av/Tests/TestMediaPlayerMain.cpp',
             use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
             target='TestMediaPlayer',
-            install_path='install/bin')
+            install_path=os.path.join(bld.path.abspath(), 'install', 'bin'))
     bld.program(
             source='OpenHome/Configuration/Tests/TestConfigManagerMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
