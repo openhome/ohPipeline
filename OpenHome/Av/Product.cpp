@@ -586,12 +586,12 @@ void Product::StandbyDisabled(StandbyDisableReason aReason)
                 // Invalid content in iStartupSourceVal. Leave last source set.
             }
         }
-    }
 
-    if (!activated) {
-        AutoMutex _(iLock);
-        if (iCurrentSource != kCurrentSourceNone) {
-            iSources[iCurrentSource]->Activate(iAutoPlay, kPrefetchAllowedDefault);
+        if (!activated) {
+            AutoMutex _(iLock);
+            if (iCurrentSource != kCurrentSourceNone) {
+                iSources[iCurrentSource]->Activate(iAutoPlay, kPrefetchAllowedDefault);
+            }
         }
     }
 }
