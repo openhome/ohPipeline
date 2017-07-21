@@ -573,23 +573,25 @@ void Product::StandbyDisabled(StandbyDisableReason aReason)
     iStandby = false;
     iLock.Signal();
 
+    TBool activated = false;
     if (aReason == StandbyDisableReason::Product || aReason == StandbyDisableReason::Boot) {
         iLock.Wait();
         const Bws<ISource::kMaxSystemNameBytes> startupSourceVal(iStartupSourceVal);
         iLock.Signal();
         if (startupSourceVal != ConfigStartupSource::kLastUsed) {
             try {
-                const TBool activated = DoSetCurrentSource(startupSourceVal);
-                if (!activated) {
-                    AutoMutex _(iLock);
-                    if (iCurrentSource != kCurrentSourceNone) {
-                        iSources[iCurrentSource]->Activate(iAutoPlay, kPrefetchAllowedDefault);
-                    }
-                }
+                activated = DoSetCurrentSource(startupSourceVal);
             }
             catch (AvSourceNotFound&) {
                 // Invalid content in iStartupSourceVal. Leave last source set.
             }
+        }
+    }
+
+    if (!activated) {
+        AutoMutex _(iLock);
+        if (iCurrentSource != kCurrentSourceNone) {
+            iSources[iCurrentSource]->Activate(iAutoPlay, kPrefetchAllowedDefault);
         }
     }
 }
