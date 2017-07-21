@@ -93,8 +93,10 @@ DriverSongcastSender::~DriverSongcastSender()
 void DriverSongcastSender::DriverThread()
 {
     // pull the first (assumed non-audio) msg here so that any delays populating the pipeline don't affect timing calculations below.
-    Msg* msg = iPipeline.Pull();
-    (void)msg->Process(*this);
+    {
+        Msg* msg = iPipeline.Pull();
+        (void)msg->Process(*this);
+    }
 
     TUint64 now = OsTimeInUs(iEnv.OsCtx());
     try {

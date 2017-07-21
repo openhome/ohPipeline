@@ -610,7 +610,7 @@ TUint ProtocolHttp::WriteRequest(TUint64 aOffset)
     iContentRecogBuf.ReadFlush();
     //iTcpClient.LogVerbose(true);
     Close();
-    const TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+    TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
     if (!Connect(iUri, port)) {
         LOG(kMedia, "ProtocolHttp::WriteRequest Connection failure\n");
         return 0;
@@ -639,7 +639,7 @@ TUint ProtocolHttp::WriteRequest(TUint64 aOffset)
     try {
         LOG(kMedia, "ProtocolHttp::WriteRequest send request\n");
         iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
-        const TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+        port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
         Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
         if (iUserAgent.Bytes() > 0) {
             iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);

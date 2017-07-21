@@ -411,7 +411,7 @@ TUint ProtocolCalmRadio::WriteRequest(TUint64 aOffset)
 {
     iReaderIcy->ReadFlush();
     Close();
-    const TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+    TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
     if (!Connect(iUri, port, kTcpConnectTimeoutMs)) {
         LOG2(kPipeline, kError, "ProtocolCalmRadio::WriteRequest Connection failure\n");
         return 0;
@@ -420,7 +420,7 @@ TUint ProtocolCalmRadio::WriteRequest(TUint64 aOffset)
     try {
         LOG(kMedia, "ProtocolCalmRadio::WriteRequest send request\n");
         iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
-        const TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+        port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
         Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
         if (iUserAgent.Bytes() > 0) {
             iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);
