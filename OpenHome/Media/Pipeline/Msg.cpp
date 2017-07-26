@@ -42,7 +42,7 @@ AllocatorBase::~AllocatorBase()
         }
         catch (AssertionFailed&) {
             Log::Print("...leak at %u of %u\n", i+1, slots);
-            throw;
+            ASSERTS();
         }
     }
     LOG(kPipeline, "< ~AllocatorBase for %s\n", iName);
