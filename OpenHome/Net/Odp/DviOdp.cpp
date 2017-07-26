@@ -445,6 +445,8 @@ void DviOdp::Subscribe()
         ParseDeviceAndService(deviceAlias, serviceName, serviceVersion);
     }
     catch (OdpError&) {
+        iWriter = &iSession.WriteLock();
+        AutoOdpSession _(iSession);
         iResponseStarted = true;
         WriterJsonObject writer(*iWriter);
         writer.WriteString(Odp::kKeyType, Odp::kTypeSubscribeResponse);
@@ -476,6 +478,9 @@ void DviOdp::Subscribe()
         writer.WriteEnd();
 
         iResponseEnded = true;
+        iSession.WriteEnd();
+        iWriter = nullptr;
+        throw;
     }
 
     // create subscription

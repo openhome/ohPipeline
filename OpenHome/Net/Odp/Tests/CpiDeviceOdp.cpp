@@ -126,19 +126,16 @@ void CpiDeviceOdp::OdpReaderThread()
             }
         }
     }
-    catch (NetworkError&) {
-        LogError("NetworkError");
-    }
-    catch (NetworkTimeout&) {
-        LogError("NetworkTimeout");
-    }
-    catch (WriterError&) {
-        LogError("WriterError");
+    catch (AssertionFailed&) {
+        throw;
     }
     catch (ReaderError&) {
         if (!iExiting) {
             LogError("ReaderError");
         }
+    }
+    catch (Exception& ex) {
+        LogError(ex.Message());
     }
     iConnected = false;
 }
