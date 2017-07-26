@@ -20,6 +20,7 @@ TestMediaPlayerOptions::TestMediaPlayerOptions()
     , iOptionUserAgent("", "--useragent", Brn(""), "User Agent (for HTTP requests)")
     , iOptionClockPull("", "--clockpull", "Enable clock pulling")
     , iOptionStoreFile("", "--storefile", Brn(""), "File for reading/writing persistent store")
+    , iOptionOdp("", "--odp", 0, "Port for ODP server")
 {
     iParser.AddOption(&iOptionRoom);
     iParser.AddOption(&iOptionName);
@@ -33,6 +34,7 @@ TestMediaPlayerOptions::TestMediaPlayerOptions()
     iParser.AddOption(&iOptionUserAgent);
     iParser.AddOption(&iOptionClockPull);
     iParser.AddOption(&iOptionStoreFile);
+    iParser.AddOption(&iOptionOdp);
 }
 
 void TestMediaPlayerOptions::AddOption(Option* aOption)
@@ -103,4 +105,9 @@ const OptionBool& TestMediaPlayerOptions::ClockPull() const
 const OptionString& TestMediaPlayerOptions::StoreFile() const
 {
     return iOptionStoreFile;
+}
+
+const OptionUint& TestMediaPlayerOptions::OptionOdp() const
+{
+    return iOptionOdp;
 }
