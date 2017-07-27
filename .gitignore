@@ -21,6 +21,7 @@ tags
 # waf auto-generated Visual Studio solution
 project.*
 .depproj/
+.vs/
 
 # FunctionalTest Config
 .testconfig.xml
