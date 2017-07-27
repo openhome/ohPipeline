@@ -75,9 +75,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iProviderInfo = new ProviderInfo(aDevice, *iPipeline);
     iProduct->AddAttribute("Info");
     iProviderConfig = new ProviderConfig(aDevice, *iConfigManager);
-    // Transport service disabled until remaining bugs are ironed out
-    //iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
-    //iProduct->AddAttribute("Transport");
+    iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
+    iProduct->AddAttribute("Transport");
 }
 
 MediaPlayer::~MediaPlayer()
