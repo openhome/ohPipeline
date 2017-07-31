@@ -11,9 +11,9 @@ using namespace OpenHome::Scd::Sender::Demo;
 
 void DirScanner::Run(std::string& aPath, IScdSupply& aSupply)
 {
-    for (auto it = std::tr2::sys::directory_iterator(aPath); it != std::tr2::sys::directory_iterator(); ++it) {
-        std::cout << it->path() << std::endl;
-        WavSender sender(it->path(), aSupply);
+    for (auto& p: std::experimental::filesystem::v1::directory_iterator(aPath)) {
+        std::cout << p.path().filename() << std::endl;
+        WavSender sender(p, aSupply);
         sender.Run();
     }
 }
