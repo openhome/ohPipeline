@@ -229,14 +229,20 @@ void SuiteJsonDecode::Test()
     DecodeChar("\\n", '\n');
     DecodeChar("\\r", '\r');
     DecodeChar("\\t", '\t');
-    for (TUint i=0; i<256; i++) {
+
+    for (TUint i=0; i<128; i++) {
         Bws<7> enc("\\u00");
         Ascii::AppendHex(enc, (TByte)i);
         DecodeChar(enc.PtrZ(), (TByte)i);
     }
+
     Bws<64> url("http:\\/\\/domain\\/path?query");
     Json::Unescape(url);
     TEST(url == Brn("http://domain/path?query"));
+
+    Bws<32> buf("Dvo\\u0159\\u00e1k");
+    Json::Unescape(buf);
+    TEST(buf == Brn("Dvo\xc5\x99\xc3\xa1k"));
 }
 
 void SuiteJsonDecode::DecodeChar(const TChar* aEncoded, TByte aDecoded)
