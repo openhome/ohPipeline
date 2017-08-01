@@ -320,7 +320,9 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
 {
     Print("TestDvOdp - starting\n");
 
-    Debug::SetLevel(Debug::kOdp | Debug::kError | Debug::kEvent);
+    Debug::SetLevel(Debug::kOdp | Debug::kEvent);
+    Debug::SetSeverity(Debug::kSeverityError);
+   
     auto server = new DviServerOdp(aDvStack, 1);
     aDvStack.AddProtocolFactory(new DviProtocolFactoryOdp());
     auto sem = new Semaphore("SEM1", 0);

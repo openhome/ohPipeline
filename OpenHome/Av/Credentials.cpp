@@ -304,7 +304,7 @@ void Credential::PasswordChanged(Configuration::KeyValuePair<const Brx&>& aKvp)
         const int decryptedLen = RSA_private_decrypt(passwordEncrypted.Bytes(), passwordEncrypted.Ptr(), const_cast<TByte*>(iPassword.Ptr()), iRsa, RSA_PKCS1_OAEP_PADDING);
         if (decryptedLen < 0) {
             const Brx& id = Id();
-            LOG(kError, "Failed to decrypt password for %.*s\n", PBUF(id));
+            LOG_ERROR(kApplication6, "Failed to decrypt password for %.*s\n", PBUF(id));
             iPassword.SetBytes(0);
         }
         else {

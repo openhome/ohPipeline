@@ -65,7 +65,7 @@ void ScdSession::Run()
         throw;
     }
     catch (Exception& ex) {
-        LOG2(kError, kScd, "Exception - %s - in ScdSession::Run()\n", ex.Message());
+        LOG_ERROR(kScd, "Exception - %s - in ScdSession::Run()\n", ex.Message());
     }
 }
 

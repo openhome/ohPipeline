@@ -104,7 +104,7 @@ void ZoneHandler::StartMonitoring(const Brx& aZone)
         iWriteBuffer.WriteFlush();
     }
     catch (WriterError&) {
-        LOG2(kSongcast, kError, "ZoneHandler::StartMonitoring(%.*s) WriterError\n", PBUF(aZone));
+        LOG_ERROR(kSongcast, "ZoneHandler::StartMonitoring(%.*s) WriterError\n", PBUF(aZone));
     }
 }
 
@@ -126,7 +126,7 @@ void ZoneHandler::SetHomeSenderUri(const Brx& aUri)
 void ZoneHandler::SetCurrentSenderUri(const Brx& aUri)
 {
     if (aUri.Bytes() > iSenderUriCurrent.MaxBytes()) {
-        LOG2(kSongcast, kError, "ERROR: unexpectedly long currentSenderUri - %.*s\n", PBUF(aUri));
+        LOG_ERROR(kSongcast, "ERROR: unexpectedly long currentSenderUri - %.*s\n", PBUF(aUri));
         return;
     }
     LOG(kSongcast, "ZoneHandler::SetCurrentSenderUri(%.*s)\n", PBUF(aUri));
@@ -234,7 +234,7 @@ void ZoneHandler::Run()
                         headerPresetInfo.Internalise(iReadBuffer, header);
                         const TUint metadataBytes = headerPresetInfo.MetadataBytes();
                         if (metadataBytes > iRxPresetMetadata.MaxBytes()) {
-                            LOG2(kSongcast, kError, "ERROR: metadata for preset %u is too long - %u bytes.\n", headerPresetInfo.Preset(), metadataBytes);
+                            LOG_ERROR(kSongcast, "ERROR: metadata for preset %u is too long - %u bytes.\n", headerPresetInfo.Preset(), metadataBytes);
                             (void)iReadBuffer.Read(metadataBytes);
                         }
                         else {
@@ -248,7 +248,7 @@ void ZoneHandler::Run()
                     }
                         break;
                     default:
-                        LOG2(kSongcast, kError, "WARNING: unexpected ohz msg type (%u) received\n", header.MsgType());
+                        LOG_ERROR(kSongcast, "WARNING: unexpected ohz msg type (%u) received\n", header.MsgType());
                         Skip(header.MsgBytes());
                         break;
                     }
@@ -334,10 +334,10 @@ void ZoneHandler::TimerZoneUriExpired()
         iSendZoneUriCount--;
     }
     catch (OhzError&) {
-        LOG2(kSongcast, kError, "ZoneHandler::TimerZoneUriExpired OhzError\n");
+        LOG_ERROR(kSongcast, "ZoneHandler::TimerZoneUriExpired OhzError\n");
     }
     catch (WriterError&) {
-        LOG2(kSongcast, kError, "ZoneHandler::TimerZoneUriExpired WriterError\n");
+        LOG_ERROR(kSongcast, "ZoneHandler::TimerZoneUriExpired WriterError\n");
     }
 
     if (iSendZoneUriCount > 0) {
@@ -361,10 +361,10 @@ void ZoneHandler::TimerPresetInfoExpired()
         iSendPresetInfoCount--;
     }
     catch (OhzError&) {
-        LOG2(kSongcast, kError, "ZoneHandler::TimerPresetInfoExpired OhzError\n");
+        LOG_ERROR(kSongcast, "ZoneHandler::TimerPresetInfoExpired OhzError\n");
     }
     catch (WriterError&) {
-        LOG2(kSongcast, kError, "ZoneHandler::TimerPresetInfoExpired WriterError\n");
+        LOG_ERROR(kSongcast, "ZoneHandler::TimerPresetInfoExpired WriterError\n");
     }
 
     if (iSendPresetInfoCount > 0) {

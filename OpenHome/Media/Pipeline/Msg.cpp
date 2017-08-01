@@ -417,7 +417,7 @@ TUint Jiffies::PerSample(TUint aSampleRate)
     case 192000:
         return kJiffies192000;
     default:
-        LOG(kError, "JiffiesPerSample - invalid sample rate: %u\n", aSampleRate);
+        LOG_ERROR(kApplication6, "JiffiesPerSample - invalid sample rate: %u\n", aSampleRate);
         THROW(SampleRateInvalid);
     }
 }

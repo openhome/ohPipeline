@@ -82,7 +82,7 @@ void CpiDeviceOdp::OdpReaderThread()
             Brn type = parser.String(Odp::kKeyType);
             if (!iConnected) {
                 if (type != Odp::kTypeAnnouncement) {
-                    LOG2(kOdp, kError, "Odp: no announcement on connect\n");
+                    LOG_ERROR(kOdp, "Odp: no announcement on connect\n");
                     THROW(ReaderError);
                 }
 
@@ -92,7 +92,7 @@ void CpiDeviceOdp::OdpReaderThread()
                 Brn udn;
                 for (;;) {
                     if (p.Finished()) {
-                        LOG2(kOdp, kError, "Odp: unable to find device %.*s, exiting thread\n", PBUF(iAlias));
+                        LOG_ERROR(kOdp, "Odp: unable to find device %.*s, exiting thread\n", PBUF(iAlias));
                         if (iStateChanged) {
                             iStateChanged();
                         }
@@ -122,7 +122,7 @@ void CpiDeviceOdp::OdpReaderThread()
                 HandleEventedUpdate(parser);
             }
             else if (iResponseHandler == nullptr || !iResponseHandler->HandleOdpResponse(parser)) {
-                LOG2(kOdp, kError, "Unexpected Odp message: %.*s\n", PBUF(line));
+                LOG_ERROR(kOdp, "Unexpected Odp message: %.*s\n", PBUF(line));
             }
         }
     }
@@ -142,7 +142,7 @@ void CpiDeviceOdp::OdpReaderThread()
 
 void CpiDeviceOdp::LogError(const TChar* aError)
 {
-    LOG2(kOdp, kError, "Odp: error %s for device %.*s, exiting thread\n", aError, PBUF(iAlias));
+    LOG_ERROR(kOdp, "Odp: error %s for device %.*s, exiting thread\n", aError, PBUF(iAlias));
     if (iStateChanged) {
         iStateChanged();
     }
@@ -153,7 +153,7 @@ void CpiDeviceOdp::HandleEventedUpdate(JsonParser& aParser)
     Brn sid = aParser.String(Odp::kKeySid);
     CpiSubscription* subscription = iCpStack.SubscriptionManager().FindSubscription(sid);
     if (subscription == nullptr) {
-        LOG2(kOdp, kError, "Odp: event from unknown subscription - %.*s\n", PBUF(sid));
+        LOG_ERROR(kOdp, "Odp: event from unknown subscription - %.*s\n", PBUF(sid));
         return;
     }
     Brn propsBuf = aParser.String(Odp::kKeyProperties);

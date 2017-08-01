@@ -99,7 +99,8 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
         return;
     }
 
-    Debug::SetLevel(Debug::kError | Debug::kApplication6);
+    Debug::SetLevel(Debug::kApplication6);
+    Debug::SetSeverity(Debug::kSeverityError);
     TestQobuz* qobuz = new TestQobuz(*env, optionId.Value(), optionSecret.Value());
     qobuz->Start(optionUsername.Value(), optionPassword.Value());
     qobuz->Test();

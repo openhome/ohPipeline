@@ -114,7 +114,8 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
         return;
     }
 
-    Debug::SetLevel(Debug::kError | Debug::kApplication6);
+    Debug::SetLevel(Debug::kApplication6);
+    Debug::SetSeverity(Debug::kSeverityError);
     TestTidal* tidal = new TestTidal(*env, optionToken.Value());
     tidal->Start(optionUsername.Value(), optionPassword.Value());
     tidal->Test();

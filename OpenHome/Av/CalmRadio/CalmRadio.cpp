@@ -141,12 +141,12 @@ TBool CalmRadio::TryLoginLocked()
         iSocket.Connect(ep, kConnectTimeoutMs);
     }
     catch (NetworkTimeout&) {
-        LOG2(kPipeline, kError, "CalmRadio::TryLoginLocked - connection failure\n");
+        LOG_ERROR(kPipeline, "CalmRadio::TryLoginLocked - connection failure\n");
         iCredentialsState.SetState(kId, Brn("Login Error (Connection Failed): Please Try Again."), Brx::Empty());
         return false;
     }
     catch (NetworkError&) {
-        LOG2(kPipeline, kError, "CalmRadio::TryLoginLocked - connection failure\n");
+        LOG_ERROR(kPipeline, "CalmRadio::TryLoginLocked - connection failure\n");
         iCredentialsState.SetState(kId, Brn("Login Error (Connection Failed): Please Try Again."), Brx::Empty());
         return false;
     }
@@ -203,7 +203,7 @@ TBool CalmRadio::TryLoginLocked()
                 iDechunker.SetChunked(false);
                 TUint bytes = iHeaderContentLength.ContentLength();
                 if (bytes > iLoginResp.MaxBytes()) {
-                    LOG2(kPipeline, kError, "CalmRadio::TryLoginLocked - response is too long (%u bytes)\n", bytes);
+                    LOG_ERROR(kPipeline, "CalmRadio::TryLoginLocked - response is too long (%u bytes)\n", bytes);
                     THROW(ReaderError);
                 }
                 while (bytes != 0) {
@@ -228,11 +228,11 @@ TBool CalmRadio::TryLoginLocked()
             if (error.Bytes() == 0) {
                 error.Append("Login Error (Read Failure): Please Try Again.");
             }
-            LOG2(kPipeline, kError, "ReaderError in CalmRadio::TryLoginLocked\n");
+            LOG_ERROR(kPipeline, "ReaderError in CalmRadio::TryLoginLocked\n");
         }
         catch (Exception& ex) {
             error.AppendPrintf("Login Error - %s: Please Try Again.", ex.Message());
-            LOG2(kPipeline, kError, "%s in CalmRadio::TryLoginLocked\n", ex.Message());
+            LOG_ERROR(kPipeline, "%s in CalmRadio::TryLoginLocked\n", ex.Message());
         }
     }
 

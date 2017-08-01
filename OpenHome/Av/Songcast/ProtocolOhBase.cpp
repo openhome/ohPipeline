@@ -103,7 +103,7 @@ void ProtocolOhBase::RequestResend(const Brx& aFrames)
             iSocket.Send(buffer, iEndpoint);
         }
         catch (NetworkError&) {
-            LOG2(kSongcast, kError, "NetworkError in ProtocolOhBase::RequestResend()\n");
+            LOG_ERROR(kSongcast, "NetworkError in ProtocolOhBase::RequestResend()\n");
         }
     }
 }

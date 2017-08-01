@@ -173,7 +173,7 @@ void NtpClient::LogError(const TChar* aEx) const
 {
     Endpoint::AddressBuf buf;
     iServerEndpoint.AppendAddress(buf);
-    LOG2(kPipeline, kError, "%s from NtpClient::DoTryGetNetworkTime. Server is %.*s\n", aEx, PBUF(buf));
+    LOG_ERROR(kPipeline, "%s from NtpClient::DoTryGetNetworkTime. Server is %.*s\n", aEx, PBUF(buf));
 }
 
 
