@@ -224,7 +224,7 @@ void CodecFlac::StreamInitialise()
 
     if(initState != FLAC__STREAM_DECODER_INIT_STATUS_OK) {
         state = FLAC__stream_decoder_get_state(iDecoder);
-        LOG(kError, "Flac::Initialise stream decoder init failed with: %d, state: %d\n", initState, state);
+        LOG_ERROR(kApplication6, "Flac::Initialise stream decoder init failed with: %d, state: %d\n", initState, state);
         // All flac reported errors here are unrecoverable.
         ASSERTS();
     }

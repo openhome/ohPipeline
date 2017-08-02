@@ -53,17 +53,17 @@ void ScdHeader::Internalise(IReader& aReader)
     Bws<4> scd;
     reader.ReadReplace(4, scd);
     if (scd != kId) {
-        LOG2(kError, kScd, "SCD - bad header\n");
+        LOG_ERROR(kScd, "SCD - bad header\n");
         THROW(ScdError);
     }
     iType  = reader.ReadUintBe(1);
     if (iType > kTypeSkip) {
-        LOG2(kError, kScd, "SCD - unsupported type - %u\n", iType);
+        LOG_ERROR(kScd, "SCD - unsupported type - %u\n", iType);
         THROW(ScdError);
     }
     iBytes = reader.ReadUintBe(2);
     if (iBytes < kHeaderBytes) {
-        LOG2(kError, kScd, "SCD - corrupt header - (only %u bytes)\n", iBytes);
+        LOG_ERROR(kScd, "SCD - corrupt header - (only %u bytes)\n", iBytes);
         THROW(ScdError);
     }
     (void)reader.ReadUintBe(4); // reserved, currently unused, bytes

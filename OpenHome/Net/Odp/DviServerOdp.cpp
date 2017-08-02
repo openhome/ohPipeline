@@ -60,7 +60,7 @@ void DviSessionOdp::Run()
                 throw;
             }
             catch (Exception& ex) {
-                LOG2(kOdp, kError, "DviSessionOdp::Run - %s parsing request:\n%.*s\n", ex.Message(), PBUF(request));
+                LOG_ERROR(kOdp, "DviSessionOdp::Run - %s parsing request:\n%.*s\n", ex.Message(), PBUF(request));
             }
         }
     }

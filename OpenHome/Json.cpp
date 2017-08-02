@@ -118,10 +118,14 @@ void Json::Unescape(Bwx& aValue)
                 Brn hexBuf = aValue.Split(i+1, 4);
                 i += 4;
                 const TUint hex = Ascii::UintHex(hexBuf);
-                if (hex > 0xFF) {
-                    THROW(JsonUnsupported);
+                if (hex < 0x80) {
+                    aValue[j++] = (TByte)hex;
                 }
-                aValue[j++] = (TByte)hex;
+                else {
+                    Bwn buf(aValue.Ptr() + j, bytes - j);
+                    Converter::ToUtf8(hex, buf);
+                    j += buf.Bytes();
+                }
             }
                 break;
             default:

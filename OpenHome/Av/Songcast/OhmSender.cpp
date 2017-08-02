@@ -1012,7 +1012,7 @@ void OhmSender::RunMulticast()
                     }
                 }
                 catch (OhmError&) {
-                    LOG2(kSongcast, kError, "OhmSender::RunMulticast OhmError\n");
+                    LOG_ERROR(kSongcast, "OhmSender::RunMulticast OhmError\n");
                 }
                 
                 iRxBuffer.ReadFlush();
@@ -1066,7 +1066,7 @@ void OhmSender::RunUnicast()
                         }
                     }
                     catch (OhmError&) {
-                        LOG2(kSongcast, kError, "OhmSender: waiting for JOIN, caught OhmError, msgType=%u\n", header.MsgType());
+                        LOG_ERROR(kSongcast, "OhmSender: waiting for JOIN, caught OhmError, msgType=%u\n", header.MsgType());
                     }
                     iRxBuffer.ReadFlush();  
                 }
@@ -1204,7 +1204,7 @@ void OhmSender::RunUnicast()
                         }
                     }
                     catch (OhmError&) {
-                        LOG2(kSongcast, kError, "OhmSender::RunUnicast OhmError\n");
+                        LOG_ERROR(kSongcast, "OhmSender::RunUnicast OhmError\n");
                     }
                     
                     iRxBuffer.ReadFlush();

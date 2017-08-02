@@ -114,7 +114,7 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
         }
         catch (Exception& ex) {
             if (!iExit) {
-                LOG2(kMedia, kError, "Exception - %s - in ProtocolScd::Stream\n", ex.Message());
+                LOG_ERROR(kMedia, "Exception - %s - in ProtocolScd::Stream\n", ex.Message());
             }
         }
     }
@@ -245,7 +245,7 @@ void ProtocolScd::OutputTrack(Track* aTrack)
 void ProtocolScd::OutputStream()
 {
     if (iStreamFormat == nullptr) {
-        LOG2(kError, kMedia, "ProtocolScd received Audio but no Format\n");
+        LOG_ERROR(kMedia, "ProtocolScd received Audio but no Format\n");
         iUnrecoverableError = true;
         THROW(ScdError);
     }
