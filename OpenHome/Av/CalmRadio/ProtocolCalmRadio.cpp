@@ -66,6 +66,7 @@ private:
     Media::ReaderIcy* iReaderIcy;
     HttpHeaderContentType iHeaderContentType;
     HttpHeaderContentLength iHeaderContentLength;
+    HttpHeaderLocation iHeaderLocation;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
     Media::HeaderIcyMetadata iHeaderIcyMetadata;
     Bws<kMaxUserAgentBytes> iUserAgent;
@@ -119,6 +120,7 @@ ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, C
 
     iReaderResponse.AddHeader(iHeaderContentType);
     iReaderResponse.AddHeader(iHeaderContentLength);
+    iReaderResponse.AddHeader(iHeaderLocation);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
     iReaderResponse.AddHeader(iHeaderIcyMetadata);
 
@@ -365,9 +367,23 @@ TBool ProtocolCalmRadio::IsCurrentStream(TUint aStreamId) const
 
 ProtocolStreamResult ProtocolCalmRadio::DoStream()
 {
-    // no support for redirects - its not clear whether we'd need to reapply the username/token query for these
+    TUint code;
+    for (;;) { // loop until we don't get a redirection response (i.e. normally don't loop at all!)
+        code = WriteRequestHandleForbidden(0);
+        if (code == 0) {
+            return EProtocolStreamErrorUnrecoverable;
+        }
+        // Check for redirection
+        if (code >= HttpStatus::kRedirectionCodes && code < HttpStatus::kClientErrorCodes) {
+            if (!iHeaderLocation.Received()) {
+                return EProtocolStreamErrorUnrecoverable;
+            }
+            iUri.Replace(iHeaderLocation.Location());
+            continue;
+        }
+        break;
+    }
 
-    TUint code = WriteRequestHandleForbidden(0);
     iSeekable = false;
     iTotalStreamBytes = iHeaderContentLength.ContentLength();
     iTotalBytes = iTotalStreamBytes;
