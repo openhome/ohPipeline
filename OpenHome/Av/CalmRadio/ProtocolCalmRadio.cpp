@@ -474,7 +474,7 @@ ProtocolStreamResult ProtocolCalmRadio::ProcessContent()
 {
     if (!iStarted) {
         iStreamId = iIdProvider->NextStreamId();
-        iSupply->OutputStream(iUri.AbsoluteUri(), iTotalBytes, iOffset, iSeekable, false, Multiroom::Allowed, *this, iStreamId);
+        iSupply->OutputStream(iUri.AbsoluteUri(), iTotalBytes, iOffset, iSeekable, true/*live*/, Multiroom::Allowed, *this, iStreamId);
         iStarted = true;
     }
     iContentProcessor = iProtocolManager->GetAudioProcessor();
