@@ -138,7 +138,7 @@ void AnimatorBasic::ProcessAudio(MsgPlayable* aMsg)
     TUint jiffies = numSamples * iJiffiesPerSample;
     if (jiffies > iPendingJiffies) {
         jiffies = iPendingJiffies;
-        const TUint bytes = Jiffies::ToBytes(jiffies, iJiffiesPerSample, iNumChannels, (iBitDepth/8));
+        const TUint bytes = Jiffies::ToBytes(jiffies, iJiffiesPerSample, iNumChannels, iBitDepth);
         if (bytes == 0) {
             iPendingJiffies = 0;
             iPlayable = aMsg;

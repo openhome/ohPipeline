@@ -182,7 +182,7 @@ void DriverSongcastSender::SendAudio(MsgPlayable* aMsg)
         iAudioSent = true;
         if (jiffies > iJiffiesToSend) {
             jiffies = iJiffiesToSend;
-            const TUint bytes = Jiffies::ToBytes(jiffies, iJiffiesPerSample, iNumChannels, (iBitDepth/8));
+            const TUint bytes = Jiffies::ToBytes(jiffies, iJiffiesPerSample, iNumChannels, iBitDepth);
             if (bytes == 0) {
                 iPlayable = aMsg;
                 return;

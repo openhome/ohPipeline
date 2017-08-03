@@ -136,7 +136,7 @@ MsgAudioPcm* DecodedAudioAggregator::TryAggregate(MsgAudioPcm* aMsg)
 
     TUint jiffies = aMsg->Jiffies();
     const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-    const TUint msgBytes = Jiffies::ToBytes(jiffies, jiffiesPerSample, iChannels, iBitDepth/8);
+    const TUint msgBytes = Jiffies::ToBytes(jiffies, jiffiesPerSample, iChannels, iBitDepth);
     ASSERT(jiffies == aMsg->Jiffies()); // refuse to handle msgs not terminating on sample boundaries
 
     if (iDecodedAudio == nullptr) {
@@ -150,13 +150,13 @@ MsgAudioPcm* DecodedAudioAggregator::TryAggregate(MsgAudioPcm* aMsg)
     }
 
     TUint aggregatedJiffies = iDecodedAudio->Jiffies();
-    TUint aggregatedBytes = Jiffies::ToBytes(aggregatedJiffies, jiffiesPerSample, iChannels, iBitDepth/8);
+    TUint aggregatedBytes = Jiffies::ToBytes(aggregatedJiffies, jiffiesPerSample, iChannels, iBitDepth);
     if (aggregatedBytes + msgBytes <= kMaxBytes) {
         // Have byte capacity to add new data.
         iDecodedAudio->Aggregate(aMsg);
 
         aggregatedJiffies = iDecodedAudio->Jiffies();
-        aggregatedBytes = Jiffies::ToBytes(aggregatedJiffies, jiffiesPerSample, iChannels, iBitDepth/8);
+        aggregatedBytes = Jiffies::ToBytes(aggregatedJiffies, jiffiesPerSample, iChannels, iBitDepth);
         if (AggregatorFull(aggregatedBytes, iDecodedAudio->Jiffies())) {
             MsgAudioPcm* msg = iDecodedAudio;
             iDecodedAudio = nullptr;

@@ -416,18 +416,24 @@ TUint Jiffies::PerSample(TUint aSampleRate)
         return kJiffies176400;
     case 192000:
         return kJiffies192000;
+    case 1411200:
+        return kJiffies1411200;
+    case 2822400:
+        return kJiffies2822400;
+    case 5644800:
+        return kJiffies5644800;
     default:
         LOG_ERROR(kApplication6, "JiffiesPerSample - invalid sample rate: %u\n", aSampleRate);
         THROW(SampleRateInvalid);
     }
 }
 
-TUint Jiffies::ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBytesPerSubsample)
+TUint Jiffies::ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample)
 { // static
     aJiffies -= aJiffies % aJiffiesPerSample; // round down requested aJiffies to the nearest integer number of samples
     const TUint numSamples = aJiffies / aJiffiesPerSample;
     const TUint numSubsamples = numSamples * aNumChannels;
-    const TUint bytes = numSubsamples * aBytesPerSubsample;
+    const TUint bytes = ((numSubsamples * aBitsPerSubsample) + 7) / 8;
     return bytes;
 }
 
@@ -1886,9 +1892,9 @@ MsgPlayable* MsgAudioPcm::CreatePlayable()
 {
     TUint offsetJiffies = iOffset;
     const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-    const TUint offsetBytes = Jiffies::ToBytes(offsetJiffies, jiffiesPerSample, iNumChannels, iBitDepth/8);
+    const TUint offsetBytes = Jiffies::ToBytes(offsetJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
     TUint sizeJiffies = iSize + (iOffset - offsetJiffies);
-    const TUint sizeBytes = Jiffies::ToBytes(sizeJiffies, jiffiesPerSample, iNumChannels, iBitDepth/8);
+    const TUint sizeBytes = Jiffies::ToBytes(sizeJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
     // both size & offset will be rounded down if they don't fall on a sample boundary
     // we don't risk losing any data doing this as the start and end of each DecodedAudio's data fall on sample boundaries
 
@@ -1998,10 +2004,9 @@ MsgPlayable* MsgSilence::CreatePlayable()
 {
     TUint offsetJiffies = iOffset;
     const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-    const TUint bytesPerSubsample = iBitDepth/8;
-    (void)Jiffies::ToBytes(offsetJiffies, jiffiesPerSample, iNumChannels, bytesPerSubsample);
+    (void)Jiffies::ToBytes(offsetJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
     TUint sizeJiffies = iSize + (iOffset - offsetJiffies);
-    const TUint sizeBytes = Jiffies::ToBytes(sizeJiffies, jiffiesPerSample, iNumChannels, bytesPerSubsample);
+    const TUint sizeBytes = Jiffies::ToBytes(sizeJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
     // both size & offset will be rounded down if they don't fall on a sample boundary
     // we don't risk losing any data doing this as each original MsgSilence had an integer number of samples
 

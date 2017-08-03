@@ -182,7 +182,7 @@ public:
 public:
     static TBool IsValidSampleRate(TUint aSampleRate);
     static TUint PerSample(TUint aSampleRate);
-    static TUint ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBytesPerSubsample);
+    static TUint ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample);
     static void RoundDown(TUint& aJiffies, TUint aSampleRate);
     static void RoundUp(TUint& aJiffies, TUint aSampleRate);
     static TUint ToSongcastTime(TUint aJiffies, TUint aSampleRate);
@@ -194,22 +194,25 @@ public:
     static TUint SongcastTicksPerSecond(TUint aSampleRate);
 private:
     //Number of jiffies per sample
-    static const TUint kJiffies7350   = kPerSecond / 7350;
-    static const TUint kJiffies8000   = kPerSecond / 8000;
-    static const TUint kJiffies11025  = kPerSecond / 11025;
-    static const TUint kJiffies12000  = kPerSecond / 12000;
-    static const TUint kJiffies14700  = kPerSecond / 14700;
-    static const TUint kJiffies16000  = kPerSecond / 16000;
-    static const TUint kJiffies22050  = kPerSecond / 22050;
-    static const TUint kJiffies24000  = kPerSecond / 24000;
-    static const TUint kJiffies29400  = kPerSecond / 29400;
-    static const TUint kJiffies32000  = kPerSecond / 32000;
-    static const TUint kJiffies44100  = kPerSecond / 44100;
-    static const TUint kJiffies48000  = kPerSecond / 48000;
-    static const TUint kJiffies88200  = kPerSecond / 88200;
-    static const TUint kJiffies96000  = kPerSecond / 96000;
-    static const TUint kJiffies176400 = kPerSecond / 176400;
-    static const TUint kJiffies192000 = kPerSecond / 192000;
+    static const TUint kJiffies7350    = kPerSecond / 7350;
+    static const TUint kJiffies8000    = kPerSecond / 8000;
+    static const TUint kJiffies11025   = kPerSecond / 11025;
+    static const TUint kJiffies12000   = kPerSecond / 12000;
+    static const TUint kJiffies14700   = kPerSecond / 14700;
+    static const TUint kJiffies16000   = kPerSecond / 16000;
+    static const TUint kJiffies22050   = kPerSecond / 22050;
+    static const TUint kJiffies24000   = kPerSecond / 24000;
+    static const TUint kJiffies29400   = kPerSecond / 29400;
+    static const TUint kJiffies32000   = kPerSecond / 32000;
+    static const TUint kJiffies44100   = kPerSecond / 44100;
+    static const TUint kJiffies48000   = kPerSecond / 48000;
+    static const TUint kJiffies88200   = kPerSecond / 88200;
+    static const TUint kJiffies96000   = kPerSecond / 96000;
+    static const TUint kJiffies176400  = kPerSecond / 176400;
+    static const TUint kJiffies192000  = kPerSecond / 192000;
+    static const TUint kJiffies1411200 = kPerSecond / 1411200; // DSD only from here on
+    static const TUint kJiffies2822400 = kPerSecond / 2822400;
+    static const TUint kJiffies5644800 = kPerSecond / 5644800;
 
     static const TUint kSongcastTicksPerSec44k = 44100 * 256;
     static const TUint kSongcastTicksPerSec48k = 48000 * 256;
