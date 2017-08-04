@@ -126,7 +126,9 @@ void CodecWav::Process()
         // Truncate to a sensible sample boundary.
         const TUint remainder = iReadBuf.Bytes() % (iNumChannels * (iBitDepth/8));
         TUint bufBytes = iReadBuf.Bytes() - remainder;
-        bufBytes = std::min(bufBytes, iAudioBytesRemaining);
+        if (iAudioBytesRemaining != 0) {
+            bufBytes = std::min(bufBytes, iAudioBytesRemaining);
+        }
         Brn split = iReadBuf.Split(bufBytes);
         iReadBuf.SetBytes(bufBytes);
 
@@ -275,15 +277,9 @@ void CodecWav::ProcessDataChunk()
     else {
         iAudioBytesTotal = dataChunkBytes;
     }
-
     iAudioBytesRemaining = iAudioBytesTotal;
-
     iTrackStart += 8;
 
-    if (iAudioBytesTotal % (iNumChannels * (iBitDepth/8)) != 0) {
-        // There aren't an exact number of samples in the file => file is corrupt
-        THROW(CodecStreamCorrupt);
-    }
     const TUint numSamples = iAudioBytesTotal / (iNumChannels * (iBitDepth/8));
     iTrackLengthJiffies = ((TUint64)numSamples * Jiffies::kPerSecond) / iSampleRate;
 }
