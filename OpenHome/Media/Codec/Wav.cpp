@@ -126,7 +126,9 @@ void CodecWav::Process()
         // Truncate to a sensible sample boundary.
         const TUint remainder = iReadBuf.Bytes() % (iNumChannels * (iBitDepth/8));
         TUint bufBytes = iReadBuf.Bytes() - remainder;
-        bufBytes = std::min(bufBytes, iAudioBytesRemaining);
+        if (iAudioBytesRemaining != 0) {
+            bufBytes = std::min(bufBytes, iAudioBytesRemaining);
+        }
         Brn split = iReadBuf.Split(bufBytes);
         iReadBuf.SetBytes(bufBytes);
 
