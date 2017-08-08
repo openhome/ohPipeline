@@ -295,7 +295,12 @@ void SocketUdpServer::ServerThread()
                 iDiscard->Read(iSocket);
             }
             catch (NetworkError&) {
+                // This thread will become a busy loop if network operations
+                // repeatedly fail. Sleep here to give other threads a chance
+                // to run in that scenario.
+                Thread::Sleep(50);
                 CheckRebind();
+                continue;
             }
         }
 
@@ -318,6 +323,10 @@ void SocketUdpServer::ServerThread()
                 iDiscard->Read(iSocket);
             }
             catch (NetworkError&) {
+                // This thread will become a busy loop if network operations
+                // repeatedly fail. Sleep here to give other threads a chance
+                // to run in that scenario.
+                Thread::Sleep(50);
                 CheckRebind();
                 continue;
             }
