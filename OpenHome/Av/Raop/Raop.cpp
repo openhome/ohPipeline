@@ -1274,10 +1274,15 @@ void HeaderCSeq::Process(const Brx& aValue)
         THROW(HttpError);
     }
 
-    Parser parser(aValue);
-    Brn cseq = parser.Remaining();
-    iCSeq = Ascii::Uint(cseq);
-    iReceived = true;
+    try {
+        Parser parser(aValue);
+        Brn cseq = parser.Remaining();
+        iCSeq = Ascii::Uint(cseq);
+        iReceived = true;
+    }
+    catch (AsciiError&) {
+        THROW(HttpError);
+    }
 }
 
 
@@ -1344,34 +1349,42 @@ void HeaderRtspTransport::Reset()
     iTimingPort = 0;
 }
 
-TUint HeaderRtspTransport::ParsePort(Brx& aData)
+Brn HeaderRtspTransport::ParameterValue(Brx& aData)
 {
     Parser parser(aData);
     parser.Next('=');
     Brn val = parser.Next();
-
-    return Ascii::Uint(val);
+    return val;
 }
 
 void HeaderRtspTransport::Process(const Brx& aValue)
 {
-    Parser parser(aValue);
-    for (TUint i=0; i<6; i++) {
-        Brn entry;
+    try {
+        Parser parser(aValue);
+        for (TUint i=0; i<6; i++) {
+            Brn entry;
 
-        if (i < 5) {
-            entry = parser.Next(';');
-        }
-        else {
-            entry = parser.Next();
-        }
+            if (i < 5) {
+                entry = parser.Next(';');
+            }
+            else {
+                entry = parser.Next();
+            }
 
-        if (Ascii::Contains(entry, kControlPortStr)) {
-            iControlPort = ParsePort(entry);
+            if (Ascii::Contains(entry, kControlPortStr)) {
+                Brn val = ParameterValue(entry);
+                iControlPort = Ascii::Uint(val);
+            }
+            else if (Ascii::Contains(entry, kTimingPortStr)) {
+                Brn val = ParameterValue(entry);
+                iTimingPort = Ascii::Uint(val);
+            }
         }
-        else if (Ascii::Contains(entry, kTimingPortStr)) {
-            iTimingPort = ParsePort(entry);
-        }
+    }
+    catch (AsciiError&) {
+        iControlPort = 0;
+        iTimingPort = 0;
+        THROW(HttpError);
     }
 }
 
@@ -1405,19 +1418,26 @@ TBool HeaderRtpInfo::Recognise(const Brx& aHeader)
 
 void HeaderRtpInfo::Process(const Brx& aValue)
 {
-    Parser parser(aValue);
-    Brn entry;
-    do {
-        entry = parser.Next(';');
-        if (Ascii::Contains(entry, kSeqStr)) {
-            Brn val = ParameterValue(entry);
-            iSeq = Ascii::Uint(val);
-        }
-        else if (Ascii::Contains(entry, kRtpTimeStr)) {
-            Brn val = ParameterValue(entry);
-            iRtpTime = Ascii::Uint(val);
-        }
-    } while (entry != Brx::Empty());
+    try {
+        Parser parser(aValue);
+        Brn entry;
+        do {
+            entry = parser.Next(';');
+            if (Ascii::Contains(entry, kSeqStr)) {
+                Brn val = ParameterValue(entry);
+                iSeq = Ascii::Uint(val);
+            }
+            else if (Ascii::Contains(entry, kRtpTimeStr)) {
+                Brn val = ParameterValue(entry);
+                iRtpTime = Ascii::Uint(val);
+            }
+        } while (entry != Brx::Empty());
+    }
+    catch (AsciiError&) {
+        iSeq = 0;
+        iRtpTime = 0;
+        THROW(HttpError);
+    }
 }
 
 Brn HeaderRtpInfo::ParameterValue(Brx& aData)
