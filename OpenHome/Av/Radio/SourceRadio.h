@@ -17,6 +17,7 @@ namespace Net {
 namespace Media {
     class PipelineManager;
     class MimeTypeList;
+    class UriProviderSingleTrack;
 }
 namespace Av {
 
@@ -79,7 +80,9 @@ private: // from IPipelineObserver
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private:
     Mutex iLock;
-    UriProviderRadio* iUriProvider;
+    UriProviderRadio* iUriProviderPresets;
+    Media::UriProviderSingleTrack* iUriProviderSingle;
+    Brn iCurrentMode;
     ProviderRadio* iProviderRadio;
     PresetDatabase* iPresetDatabase;
     RadioPresetsTuneIn* iTuneIn;
