@@ -301,7 +301,6 @@ Msg* Mpeg4BoxSwitcherRoot::Process()
                 iState = eBox;
             }
             catch (Mpeg4BoxUnrecognised&) {
-                const Brx& id = iHeaderReader.Id();
                 LOG(kCodec, "Mpeg4BoxSwitcherRoot::Process couldn't find processor for %.*s, %u bytes\n",
                             PBUF(id), iHeaderReader.Bytes());
 
@@ -383,7 +382,6 @@ Msg* Mpeg4BoxSwitcher::Process()
                         *iCache);
                 iState = eBox;
             } catch (Mpeg4BoxUnrecognised&) {
-                const Brx& id = iHeaderReader.Id();
                 LOG(kCodec, "Mpeg4BoxSwitcher::Process couldn't find processor for %.*s, %u bytes\n",
                             PBUF(id), iHeaderReader.Bytes());
 

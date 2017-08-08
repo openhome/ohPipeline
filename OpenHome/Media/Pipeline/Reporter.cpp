@@ -18,6 +18,7 @@ const TUint Reporter::kSupportedMsgTypes =   eMode
                                            | eMetatext
                                            | eStreamInterrupted
                                            | eHalt
+                                           | eFlush
                                            | eWait
                                            | eDecodedStream
                                            | eBitRate
@@ -190,7 +191,7 @@ void Reporter::EventCallback()
     iLock.Signal();
 
     if (msgMode != nullptr) {
-        iObserver.NotifyMode(msgMode->Mode(), msgMode->Info());
+        iObserver.NotifyMode(msgMode->Mode(), msgMode->Info(), msgMode->TransportControls());
         msgMode->RemoveRef();
     }
     if (msgTrack != nullptr) {

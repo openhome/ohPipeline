@@ -31,16 +31,15 @@ class ProviderPlaylist;
 class SourcePlaylist : public Source, private ISourcePlaylist, private ITrackDatabaseObserver, private Media::IPipelineObserver
 {
 public:
-    SourcePlaylist(Environment& aEnv, Net::DvDevice& aDevice, Media::PipelineManager& aPipeline,
-                   Media::TrackFactory& aTrackFactory, Media::MimeTypeList& aMimeTypeList, IPowerManager& aPowerManager);
+    SourcePlaylist(IMediaPlayer& aMediaPlayer);
     ~SourcePlaylist();
 private:
-    void EnsureActive();
     TBool StartedShuffled();
     void DoSeekToTrackId(Media::Track* aTrack);
 private: // from ISource
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
+    TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
     void PipelineStopped() override;
 private: // from ISourcePlaylist
@@ -60,14 +59,14 @@ private: // from ITrackDatabaseObserver
     void NotifyAllDeleted() override;
 private: // from Media::IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
-    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo) override;
+    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
+                    const Media::ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Media::Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private:
     Mutex iLock;
-    Mutex iActivationLock;
     TrackDatabase* iDatabase;
     Shuffler* iShuffler;
     Repeater* iRepeater;
@@ -77,7 +76,6 @@ private:
     TUint iStreamId;
     Media::EPipelineState iTransportState; // FIXME - this appears to be set but never used
     TUint iTrackId;
-    TBool iNoPipelineStateChangeOnActivation;
     TBool iNewPlaylist;
 };
     
@@ -94,7 +92,7 @@ using namespace OpenHome::Media;
 
 ISource* SourceFactory::NewPlaylist(IMediaPlayer& aMediaPlayer)
 { // static
-    return new SourcePlaylist(aMediaPlayer.Env(), aMediaPlayer.Device(), aMediaPlayer.Pipeline(), aMediaPlayer.TrackFactory(), aMediaPlayer.MimeTypes(), aMediaPlayer.PowerManager());
+    return new SourcePlaylist(aMediaPlayer);
 }
 
 const TChar* SourceFactory::kSourceTypePlaylist = "Playlist";
@@ -103,25 +101,31 @@ const Brn SourceFactory::kSourceNamePlaylist("Playlist");
 
 // SourcePlaylist
 
-SourcePlaylist::SourcePlaylist(Environment& aEnv, Net::DvDevice& aDevice, PipelineManager& aPipeline,
-                               TrackFactory& aTrackFactory, MimeTypeList& aMimeTypeList, IPowerManager& aPowerManager)
-    : Source(SourceFactory::kSourceNamePlaylist, SourceFactory::kSourceTypePlaylist, aPipeline, aPowerManager)
+SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer)
+    : Source(SourceFactory::kSourceNamePlaylist,
+             SourceFactory::kSourceTypePlaylist,
+             aMediaPlayer.Pipeline())
     , iLock("SPL1")
-    , iActivationLock("SPL2")
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
     , iTransportState(EPipelineStopped)
     , iTrackId(ITrackDatabase::kTrackIdNone)
-    , iNoPipelineStateChangeOnActivation(false)
     , iNewPlaylist(true)
 {
-    iDatabase = new TrackDatabase(aTrackFactory);
-    iShuffler = new Shuffler(aEnv, *iDatabase);
+    auto& env = aMediaPlayer.Env();
+    iDatabase = new TrackDatabase(aMediaPlayer.TrackFactory());
+    iShuffler = new Shuffler(env, *iDatabase);
     iRepeater = new Repeater(*iShuffler);
-    iUriProvider = new UriProviderPlaylist(*iRepeater, aPipeline, *this);
+    iUriProvider = new UriProviderPlaylist(*iRepeater, iPipeline, *this);
+    iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourcePlaylist::Play));
+    iUriProvider->SetTransportPause(MakeFunctor(*this, &SourcePlaylist::Pause));
+    iUriProvider->SetTransportStop(MakeFunctor(*this, &SourcePlaylist::Stop));
+    iUriProvider->SetTransportNext(MakeFunctor(*this, &SourcePlaylist::Next));
+    iUriProvider->SetTransportPrev(MakeFunctor(*this, &SourcePlaylist::Prev));
+    iUriProvider->SetTransportSeek(MakeFunctorGeneric<TUint>(*this, &SourcePlaylist::SeekAbsolute));
     iPipeline.Add(iUriProvider); // ownership passes to iPipeline
-    iProviderPlaylist = new ProviderPlaylist(aDevice, aEnv, *this, *iDatabase, *iRepeater);
-    aMimeTypeList.AddUpnpProtocolInfoObserver(MakeFunctorGeneric(*iProviderPlaylist, &ProviderPlaylist::NotifyProtocolInfo));
+    iProviderPlaylist = new ProviderPlaylist(aMediaPlayer.Device(), env, *this, *iDatabase, *iRepeater, aMediaPlayer.TransportRepeatRandom());
+    aMediaPlayer.MimeTypes().AddUpnpProtocolInfoObserver(MakeFunctorGeneric(*iProviderPlaylist, &ProviderPlaylist::NotifyProtocolInfo));
     iPipeline.AddObserver(*this);
 }
 
@@ -131,16 +135,6 @@ SourcePlaylist::~SourcePlaylist()
     delete iDatabase;
     delete iShuffler;
     delete iRepeater;
-}
-
-void SourcePlaylist::EnsureActive()
-{
-    AutoMutex a(iActivationLock);
-    iNoPipelineStateChangeOnActivation = true;
-    if (!IsActive()) {
-        DoActivate();
-    }
-    iNoPipelineStateChangeOnActivation = false;
 }
 
 TBool SourcePlaylist::StartedShuffled()
@@ -175,13 +169,13 @@ void SourcePlaylist::DoSeekToTrackId(Track* aTrack)
     iLock.Signal();
 }
 
-void SourcePlaylist::Activate(TBool aAutoPlay)
+void SourcePlaylist::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
-    SourceBase::Activate(aAutoPlay);
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
     iTrackPosSeconds = 0;
     iActive = true;
     iUriProvider->SetActive(true);
-    if (!iNoPipelineStateChangeOnActivation) {
+    if (aPrefetchAllowed) {
         TUint trackId = ITrackDatabase::kTrackIdNone;
         if (static_cast<ITrackDatabase*>(iDatabase)->TrackCount() > 0) {
             trackId = iUriProvider->CurrentTrackId();
@@ -210,6 +204,15 @@ void SourcePlaylist::Deactivate()
     Source::Deactivate();
 }
 
+TBool SourcePlaylist::TryActivateNoPrefetch(const Brx& aMode)
+{
+    if (iUriProvider->Mode() != aMode) {
+        return false;
+    }
+    EnsureActiveNoPrefetch();
+    return true;
+}
+
 void SourcePlaylist::StandbyEnabled()
 {
     Stop();
@@ -222,9 +225,9 @@ void SourcePlaylist::PipelineStopped()
 
 void SourcePlaylist::Play()
 {
-    if (!IsActive()) {
-        EnsureActive();
-
+    const TBool alreadyActive = IsActive();
+    EnsureActiveNoPrefetch(); // Ensure product is out of standby, and ensure this source is active.
+    if (!alreadyActive) {
         if (!StartedShuffled()) {
             TUint trackId = ITrackDatabase::kTrackIdNone;
             if (static_cast<ITrackDatabase*>(iDatabase)->TrackCount() > 0) {
@@ -351,7 +354,7 @@ void SourcePlaylist::SeekRelative(TInt aSeconds)
 
 void SourcePlaylist::SeekToTrackId(TUint aId)
 {
-    EnsureActive();
+    EnsureActiveNoPrefetch();
 
     Track* track = nullptr;
     static_cast<ITrackDatabase*>(iDatabase)->GetTrackById(aId, track);
@@ -360,7 +363,7 @@ void SourcePlaylist::SeekToTrackId(TUint aId)
 
 TBool SourcePlaylist::SeekToTrackIndex(TUint aIndex)
 {
-    EnsureActive();
+    EnsureActiveNoPrefetch();
 
     Track* track = static_cast<ITrackDatabaseReader*>(iRepeater)->TrackRefByIndex(aIndex);
     if (track != nullptr) {
@@ -428,7 +431,9 @@ void SourcePlaylist::NotifyPipelineState(EPipelineState aState)
     }
 }
 
-void SourcePlaylist::NotifyMode(const Brx& /*aMode*/, const ModeInfo& /*aInfo*/)
+void SourcePlaylist::NotifyMode(const Brx& /*aMode*/,
+                                const ModeInfo& /*aInfo*/,
+                                const ModeTransportControls& /*aTransportControls*/)
 {
 }
 

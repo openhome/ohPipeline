@@ -534,7 +534,10 @@ void SuiteDecodedAudioAggregator::TestPcmIsExpectedSize()
 
 void SuiteDecodedAudioAggregator::TestRawPcmNotAggregated()
 {
-    Queue(iMsgFactory->CreateMsgMode(Brn("dummyMode"), true, ModeClockPullers(), false, false));
+    ModeInfo info;
+    info.SetSupportsLatency(true);
+    ModeTransportControls transportControls;
+    Queue(iMsgFactory->CreateMsgMode(Brn("dummyMode"), info, ModeClockPullers(), transportControls));
     Queue(CreateTrack());
     PcmStreamInfo pcmStream;
     pcmStream.Set(32, 48000, 2, AudioDataEndian::Big, SpeakerProfile(), 0LL);

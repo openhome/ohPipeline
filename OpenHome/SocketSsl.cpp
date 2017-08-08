@@ -314,7 +314,7 @@ void SocketSslImpl::Read(Bwx& aBuffer)
     if (iSecure) {
         int bytes = SSL_read(iSsl, ((void*)(aBuffer.Ptr() + aBuffer.Bytes())), aBuffer.MaxBytes() - aBuffer.Bytes());
         if (bytes <= 0) {
-            LOG2(kSsl, kError, "SSL_read returned %d, SSL_get_error()=%d\n", bytes, SSL_get_error(iSsl, bytes));
+            LOG_ERROR(kSsl, "SSL_read returned %d, SSL_get_error()=%d\n", bytes, SSL_get_error(iSsl, bytes));
             THROW(ReaderError);
         }
         aBuffer.SetBytes(aBuffer.Bytes() + bytes);
@@ -350,7 +350,7 @@ long SocketSslImpl::BioCallback(BIO *b, int oper, const char *argp, int argi, lo
         char* data;
         long len = BIO_get_mem_data(b, &data);
         if (argi > len) {
-            LOG2(kSsl, kError, "SSL: Wanted %d bytes, bio only has space for %d\n", argi, (int)len);
+            LOG_ERROR(kSsl, "SSL: Wanted %d bytes, bio only has space for %d\n", argi, (int)len);
             argi = len;
         }
         int remaining = argi;
@@ -397,7 +397,7 @@ long SocketSslImpl::BioCallback(BIO *b, int oper, const char *argp, int argi, lo
             ASSERTS();
         }
         if (retvalue < argi) {
-            LOG2(kSsl, kError, "SSL: Wanted %d bytes, wrote %d\n", argi, (int)retvalue);
+            LOG_ERROR(kSsl, "SSL: Wanted %d bytes, wrote %d\n", argi, (int)retvalue);
         }
     }
         break;

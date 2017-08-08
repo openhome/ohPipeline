@@ -43,11 +43,11 @@ public:
     SourceUpnpAv(IMediaPlayer& aMediaPlayer, Net::DvDevice& aDevice, Media::UriProviderRepeater& aUriProvider, Media::MimeTypeList& aMimeTypeList);
     ~SourceUpnpAv();
 private:
-    void EnsureActive();
     void NotifyState(Media::EPipelineState aState);
 private: // from Source
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
+    TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
     void PipelineStopped() override;
 private: // from ISourceUpnpAv
@@ -60,7 +60,8 @@ private: // from ISourceUpnpAv
     void Seek(TUint aSecondsAbsolute) override;
 private: // from IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
-    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo) override;
+    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
+                    const Media::ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Media::Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
@@ -78,7 +79,6 @@ private:
     std::atomic<TUint> iStreamId;
     Media::EPipelineState iTransportState;
     Media::EPipelineState iPipelineTransportState;
-    TBool iNoPipelinePrefetchOnActivation;
     TBool iIgnorePipelineStateUpdates;
 };
 

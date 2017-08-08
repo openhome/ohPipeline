@@ -42,7 +42,7 @@ AllocatorBase::~AllocatorBase()
         }
         catch (AssertionFailed&) {
             Log::Print("...leak at %u of %u\n", i+1, slots);
-            throw;
+            ASSERTS();
         }
     }
     LOG(kPipeline, "< ~AllocatorBase for %s\n", iName);
@@ -417,7 +417,7 @@ TUint Jiffies::PerSample(TUint aSampleRate)
     case 192000:
         return kJiffies192000;
     default:
-        LOG(kError, "JiffiesPerSample - invalid sample rate: %u\n", aSampleRate);
+        LOG_ERROR(kApplication6, "JiffiesPerSample - invalid sample rate: %u\n", aSampleRate);
         THROW(SampleRateInvalid);
     }
 }
@@ -891,23 +891,15 @@ void Track::Clear()
 
 // ModeInfo
 
-ModeInfo::ModeInfo()
-{
-    Clear();
-}
-
-void ModeInfo::Set(TBool aSupportsLatency, TBool aSupportsNext, TBool aSupportsPrev)
-{
-    iSupportsLatency = aSupportsLatency;
-    iSupportsNext    = aSupportsNext;
-    iSupportsPrev    = aSupportsPrev;
-}
-
 void ModeInfo::Clear()
 {
-    iSupportsLatency = false;
-    iSupportsNext    = false;
-    iSupportsPrev    = false;
+    iSupportsLatency     = false;
+    iSupportsNext        = false;
+    iSupportsPrev        = false;
+    iSupportsRepeat      = false;
+    iSupportsRandom      = false;
+    iRampPauseResumeLong = true;
+    iRampSkipLong        = false;
 }
 
 
@@ -942,6 +934,23 @@ IClockPuller* ModeClockPullers::PipelineBuffer() const
 }
 
 
+// ModeTransportControls
+
+ModeTransportControls::ModeTransportControls()
+{
+}
+
+void ModeTransportControls::Clear()
+{
+    iPlay  = Functor();
+    iPause = Functor();
+    iStop  = Functor();
+    iNext  = Functor();
+    iPrev  = Functor();
+    iSeek  = FunctorGeneric<TUint>();
+}
+
+
 // MsgMode
 
 MsgMode::MsgMode(AllocatorBase& aAllocator)
@@ -964,11 +973,19 @@ const ModeClockPullers& MsgMode::ClockPullers() const
     return iClockPullers;
 }
 
-void MsgMode::Initialise(const Brx& aMode, TBool aSupportsLatency, ModeClockPullers aClockPullers, TBool aSupportsNext, TBool aSupportsPrev)
+const ModeTransportControls& MsgMode::TransportControls() const
+{
+    return iTransportControls;
+}
+
+void MsgMode::Initialise(const Brx& aMode, const ModeInfo& aInfo,
+                         ModeClockPullers aClockPullers,
+                         const ModeTransportControls& aTransportControls)
 {
     iMode.Replace(aMode);
-    iInfo.Set(aSupportsLatency, aSupportsNext, aSupportsPrev);
+    iInfo = aInfo;
     iClockPullers = aClockPullers;
+    iTransportControls = aTransportControls;
 }
 
 void MsgMode::Clear()
@@ -976,6 +993,7 @@ void MsgMode::Clear()
     iMode.Replace(Brx::Empty());
     iInfo.Clear();
     iClockPullers = ModeClockPullers();
+    iTransportControls.Clear();
 }
 
 Msg* MsgMode::Process(IMsgProcessor& aProcessor)
@@ -3099,6 +3117,13 @@ Track* TrackFactory::CreateTrack(const Brx& aUri, const Brx& aMetaData)
     return track;
 }
 
+Track* TrackFactory::CreateNullTrack()
+{
+    auto track = iAllocatorTrack.Allocate();
+    track->Initialise(Brx::Empty(), Brx::Empty(), Track::kIdNone);
+    return track;
+}
+
 
 // MsgFactory
 
@@ -3126,11 +3151,21 @@ MsgFactory::MsgFactory(IInfoAggregator& aInfoAggregator, const MsgFactoryInitPar
 {
 }
 
-MsgMode* MsgFactory::CreateMsgMode(const Brx& aMode, TBool aSupportsLatency, ModeClockPullers aClockPullers, TBool aSupportsNext, TBool aSupportsPrev)
+MsgMode* MsgFactory::CreateMsgMode(const Brx& aMode, const ModeInfo& aInfo,
+                                   ModeClockPullers aClockPullers,
+                                   const ModeTransportControls& aTransportControls)
 {
     MsgMode* msg = iAllocatorMsgMode.Allocate();
-    msg->Initialise(aMode, aSupportsLatency, aClockPullers, aSupportsNext, aSupportsPrev);
+    msg->Initialise(aMode, aInfo, aClockPullers, aTransportControls);
     return msg;
+}
+
+MsgMode* MsgFactory::CreateMsgMode(const Brx& aMode)
+{
+    ModeInfo info;
+    ModeClockPullers clockPullers;
+    ModeTransportControls transportControls;
+    return CreateMsgMode(aMode, info, clockPullers, transportControls);
 }
 
 MsgTrack* MsgFactory::CreateMsgTrack(Media::Track& aTrack, TBool aStartOfStream)

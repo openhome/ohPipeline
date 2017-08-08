@@ -16,6 +16,7 @@ private: // from Suite
     void Test() override;
 private:
     void EncodeChar(TByte aChar, const TChar* aEncoded);
+    void EncodeUni(TByte aChar);
 private: // from IWriter
     void Write(TByte aValue) override;
     void Write(const Brx& aBuffer) override;
@@ -46,10 +47,12 @@ private:
     void TestParseNoUnescapeInPlace();
     void TestParseArray();
     void TestParseObject();
+    void TestParseEmptyObject();
     void TestValidKey();
     void TestInvalidKey();
     void TestGetValidString();
     void TestGetInvalidString();
+    void TestGetOptionalString();
     void TestGetValidNum();
     void TestGetInvalidNum();
     void TestGetStringAsNum();
@@ -57,6 +60,7 @@ private:
     void TestGetValidBool();
     void TestCorruptInput();
     void TestParseNull();
+    void TestParseUnicodeEscaped();
 private:
     JsonParser* iParser;
 };
@@ -90,6 +94,7 @@ private:
     void TestWriteArray();
     void TestWriteObject();
     void TestWriteMixed();
+    void TestAutoWriteEnd();
 private:
     Bws<512> iBuf;
     WriterBuffer* iWriterBuf;
@@ -111,9 +116,27 @@ private:
     void TestWriteArray();
     void TestWriteObject();
     void TestWriteMixed();
+    void TestAutoWriteEnd();
 private:
     Bws<512> iBuf;
     WriterBuffer* iWriterBuf;
+};
+
+class SuiteParserJsonArray : public SuiteUnitTest
+{
+public:
+    SuiteParserJsonArray();
+public: // from SuiteUnitTest
+    void Setup() override;
+    void TearDown() override;
+private:
+    void TestIdentifyType();
+    void TestIntArray();
+    void TestBoolArray();
+    void TestStringArray();
+    void TestObjectArray();
+    void TestArrayArray();
+    void TestArrayInObject();
 };
 
 } // namespace OpenHome
@@ -135,19 +158,10 @@ void SuiteJsonEncode::Test()
     EncodeChar('\r', "\\r");
     EncodeChar('\t', "\\t");
     for (TUint i=0; i<32; i++) {
-        iEncoded.SetBytes(0);
-        TByte b = (TByte)i;
-        Bws<1> ch(&b, 1);
-        Json::Escape(*this, ch);
-        TEST(iEncoded.Bytes() > 1);
-        if (iEncoded.Bytes() > 2) {
-            Brn start(iEncoded.Ptr(), 2);
-            TEST(start == Brn("\\u"));
-            TEST(Ascii::UintHex(iEncoded.Split(2)) == i);
-        }
+        EncodeUni((TByte)i);
     }
-    // with very few exceptions, characters above 0x1F should not be encoded
-    for (TUint i=32; i<256; i++) {
+    // with very few exceptions, characters [0x20..0x7F] should not be encoded
+    for (TUint i=32; i<128; i++) {
         if (i == '\"' || i == '/' || i == '\\') {
             // ...the exceptions mentioned above
             continue;
@@ -158,6 +172,9 @@ void SuiteJsonEncode::Test()
         Json::Escape(*this, ch);
         TEST(iEncoded == ch);
     }
+    for (TUint i=128; i<256; i++) {
+        EncodeUni((TByte)i);
+    }
 }
 
 void SuiteJsonEncode::EncodeChar(TByte aChar, const TChar* aEncoded)
@@ -167,6 +184,19 @@ void SuiteJsonEncode::EncodeChar(TByte aChar, const TChar* aEncoded)
     Json::Escape(*this, ch);
     Brn expected(aEncoded);
     TEST(iEncoded == expected);
+}
+
+void SuiteJsonEncode::EncodeUni(TByte aChar)
+{
+    iEncoded.SetBytes(0);
+    Bws<1> ch(&aChar, 1);
+    Json::Escape(*this, ch);
+    TEST(iEncoded.Bytes() > 1);
+    if (iEncoded.Bytes() > 2) {
+        Brn start(iEncoded.Ptr(), 2);
+        TEST(start == Brn("\\u"));
+        TEST(Ascii::UintHex(iEncoded.Split(2)) == aChar);
+    }
 }
 
 void SuiteJsonEncode::Write(TByte aValue)
@@ -199,14 +229,20 @@ void SuiteJsonDecode::Test()
     DecodeChar("\\n", '\n');
     DecodeChar("\\r", '\r');
     DecodeChar("\\t", '\t');
-    for (TUint i=0; i<256; i++) {
+
+    for (TUint i=0; i<128; i++) {
         Bws<7> enc("\\u00");
         Ascii::AppendHex(enc, (TByte)i);
         DecodeChar(enc.PtrZ(), (TByte)i);
     }
+
     Bws<64> url("http:\\/\\/domain\\/path?query");
     Json::Unescape(url);
     TEST(url == Brn("http://domain/path?query"));
+
+    Bws<32> buf("Dvo\\u0159\\u00e1k");
+    Json::Unescape(buf);
+    TEST(buf == Brn("Dvo\xc5\x99\xc3\xa1k"));
 }
 
 void SuiteJsonDecode::DecodeChar(const TChar* aEncoded, TByte aDecoded)
@@ -227,10 +263,12 @@ SuiteJsonParser::SuiteJsonParser()
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseNoUnescapeInPlace), "TestParseNoUnescapeInPlace");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseArray), "TestParseArray");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseObject), "TestParseObject");
+    AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseEmptyObject), "TestParseEmptyObject");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestValidKey), "TestValidKey");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestInvalidKey), "TestInvalidKey");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetValidString), "TestGetValidString");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetInvalidString), "TestGetInvalidString");
+    AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetOptionalString), "TestGetOptionalString");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetValidNum), "TestGetValidNum");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetInvalidNum), "TestGetInvalidNum");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetStringAsNum), "TestGetStringAsNum");
@@ -238,7 +276,7 @@ SuiteJsonParser::SuiteJsonParser()
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetValidBool), "TestGetValidBool");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestCorruptInput), "TestCorruptInput");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseNull), "TestParseNull");
-
+    AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseUnicodeEscaped), "TestParseUnicodeEscaped");
 }
 
 void SuiteJsonParser::Setup()
@@ -320,6 +358,27 @@ void SuiteJsonParser::TestParseObject()
     TEST(iParser->Num("key4") == 4);
 }
 
+void SuiteJsonParser::TestParseEmptyObject()
+{
+    Brn json("{}");
+    iParser->Parse(json);
+    std::vector<Brn> keys;
+    iParser->GetKeys(keys);
+    TEST(keys.size() == 0);
+
+    iParser->Reset();
+    json.Set("");
+    iParser->Parse(json);
+    iParser->GetKeys(keys);
+    TEST(keys.size() == 0);
+
+    iParser->Reset();
+    json.Set("null");
+    iParser->Parse(json);
+    iParser->GetKeys(keys);
+    TEST(keys.size() == 0);
+}
+
 void SuiteJsonParser::TestValidKey()
 {
     const Brn json("{\"key1\":\"val1\"}");
@@ -354,6 +413,15 @@ void SuiteJsonParser::TestGetInvalidString()
     iParser->Parse(json);
     TEST_THROWS(iParser->String("key2"), JsonKeyNotFound);
     TEST_THROWS(iParser->String(Brn("key2")), JsonKeyNotFound);
+}
+
+void SuiteJsonParser::TestGetOptionalString()
+{
+    Brn json("{\"key1\":null}");
+
+    iParser->Parse(json);
+    TEST(iParser->StringOptional("key1") == Brx::Empty());
+    TEST(iParser->StringOptional("key2") == Brx::Empty());
 }
 
 void SuiteJsonParser::TestGetValidNum()
@@ -437,6 +505,28 @@ void SuiteJsonParser::TestParseNull()
     TEST_THROWS(iParser->String("obj"), JsonValueNull);
     TEST_THROWS(iParser->String("str"), JsonValueNull);
     TEST(iParser->String("foo") == Brn("bar"));
+}
+
+void SuiteJsonParser::TestParseUnicodeEscaped()
+{
+    const Brn json("{\"key\":\"\\u0000\\u0000\\u0000U\"}");
+    iParser->Parse(json);
+
+    TEST(iParser->HasKey("key"));
+    TEST(!iParser->IsNull("key"));
+    TEST(iParser->String("key") == Brn("\\u0000\\u0000\\u0000U"));
+    iParser->Reset();
+
+    Bws<4> valueExpected;
+    WriterBuffer writerBuffer(valueExpected);
+    WriterBinary writerBinary(writerBuffer);
+    writerBinary.WriteUint32Be(85);
+
+    Bwh jsonWritable(json);
+    iParser->ParseAndUnescape(jsonWritable);
+    TEST(iParser->HasKey("key"));
+    TEST(!iParser->IsNull("key"));
+    TEST(iParser->String("key") == valueExpected);
 }
 
 
@@ -527,6 +617,7 @@ SuiteWriterJsonObject::SuiteWriterJsonObject()
     AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestWriteArray), "TestWriteArray");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestWriteObject), "TestWriteObject");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestWriteMixed), "TestWriteMixed");
+    AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestAutoWriteEnd), "TestAutoWriteEnd");
 }
 
 void SuiteWriterJsonObject::Setup()
@@ -728,6 +819,16 @@ void SuiteWriterJsonObject::TestWriteMixed()
     TEST(iBuf == Brn("{\"key1\":-128,\"key2\":\"str1\",\"key3\":false,\"key4\":[128,\"str2\",true],\"key5\":{\"key6\":256,\"key7\":\"str3\",\"key8\":true}}"));
 }
 
+void SuiteWriterJsonObject::TestAutoWriteEnd()
+{
+    {
+        WriterJsonObject jsonWriter(*iWriterBuf);
+        AutoWriterJson _(jsonWriter);
+        jsonWriter.WriteInt("key1", 256);
+    }
+    TEST(iBuf == Brn("{\"key1\":256}"));
+}
+
 
 // SuiteWriterJsonArray
 
@@ -742,6 +843,7 @@ SuiteWriterJsonArray::SuiteWriterJsonArray()
     AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestWriteArray), "TestWriteArray");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestWriteObject), "TestWriteObject");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestWriteMixed), "TestWriteMixed");
+    AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestAutoWriteEnd), "TestAutoWriteEnd");
 }
 
 void SuiteWriterJsonArray::Setup()
@@ -866,6 +968,156 @@ void SuiteWriterJsonArray::TestWriteMixed()
     TEST(iBuf == Brn("[256,\"line1\\r\\nline2\",false,[256,\"str\",false],{\"key1\":256,\"key2\":\"str\",\"key3\":false}]"));
 }
 
+void SuiteWriterJsonArray::TestAutoWriteEnd()
+{
+    {
+        WriterJsonArray jsonArray(*iWriterBuf);
+        AutoWriterJson _(jsonArray);
+        jsonArray.WriteInt(256);
+    }
+    TEST(iBuf == Brn("[256]"));
+}
+
+
+// SuiteParserJsonArray
+
+SuiteParserJsonArray::SuiteParserJsonArray()
+    : SuiteUnitTest("SuiteParserJsonArray")
+{
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestIdentifyType), "TestIdentifyType");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestIntArray), "TestIntArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestBoolArray), "TestBoolArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestStringArray), "TestStringArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestObjectArray), "TestObjectArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestArrayArray), "TestArrayArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestArrayInObject), "TestArrayInObject");
+}
+
+void SuiteParserJsonArray::Setup()
+{
+}
+
+void SuiteParserJsonArray::TearDown()
+{
+}
+
+void SuiteParserJsonArray::TestIdentifyType()
+{
+    auto parser1 = JsonParserArray::Create(Brn("[1,2,3]"));
+    TEST(parser1.Type() == JsonParserArray::ValType::Int);
+    auto parser2 = JsonParserArray::Create(Brn("[-9,0]"));
+    TEST(parser2.Type() == JsonParserArray::ValType::Int);
+
+    auto parser3 = JsonParserArray::Create(Brn("[true]"));
+    TEST(parser3.Type() == JsonParserArray::ValType::Bool);
+    auto parser4 = JsonParserArray::Create(Brn("[false]"));
+    TEST(parser4.Type() == JsonParserArray::ValType::Bool);
+
+    auto parser5 = JsonParserArray::Create(Brn("null"));
+    TEST(parser5.Type() == JsonParserArray::ValType::Null);
+
+    auto parser6 = JsonParserArray::Create(Brn("[\"foo\"]"));
+    TEST(parser6.Type() == JsonParserArray::ValType::String);
+
+    auto parser7 = JsonParserArray::Create(Brn("[{\"foo\":1}]"));
+    TEST(parser7.Type() == JsonParserArray::ValType::Object);
+
+    auto parser8 = JsonParserArray::Create(Brn("[[1,2],[3,4,5]]"));
+    TEST(parser8.Type() == JsonParserArray::ValType::Array);
+
+    auto parser9 = JsonParserArray::Create(Brn("[]"));
+    TEST(parser9.Type() == JsonParserArray::ValType::Null);
+}
+
+void SuiteParserJsonArray::TestIntArray()
+{
+    auto parser = JsonParserArray::Create(Brn("[ 1,2, -3 ]"));
+    TEST(parser.NextInt() == 1);
+    TEST_THROWS(parser.NextBool(), JsonWrongType);
+    TEST_THROWS(parser.NextString(), JsonWrongType);
+    TEST_THROWS(parser.NextObject(), JsonWrongType);
+    TEST_THROWS(parser.NextArray(), JsonWrongType);
+    TEST(parser.NextInt() == 2);
+    TEST(parser.NextInt() == -3);
+    TEST_THROWS(parser.NextInt(), JsonArrayEnumerationComplete);
+}
+
+void SuiteParserJsonArray::TestBoolArray()
+{
+    auto parser = JsonParserArray::Create(Brn("[true, false,true ]"));
+    TEST(parser.NextBool());
+    TEST_THROWS(parser.NextInt(), JsonWrongType);
+    TEST_THROWS(parser.NextString(), JsonWrongType);
+    TEST_THROWS(parser.NextObject(), JsonWrongType);
+    TEST_THROWS(parser.NextArray(), JsonWrongType);
+    TEST(!parser.NextBool());
+    TEST(parser.NextBool());
+    TEST_THROWS(parser.NextBool(), JsonArrayEnumerationComplete);
+}
+
+void SuiteParserJsonArray::TestStringArray()
+{
+    auto parser1 = JsonParserArray::Create(Brn("[\"foo\",\"bar\"]"));
+    TEST(parser1.NextString() == Brn("foo"));
+    TEST_THROWS(parser1.NextInt(), JsonWrongType);
+    TEST_THROWS(parser1.NextBool(), JsonWrongType);
+    TEST_THROWS(parser1.NextObject(), JsonWrongType);
+    TEST_THROWS(parser1.NextArray(), JsonWrongType);
+    TEST(parser1.NextString() == Brn("bar"));
+    TEST_THROWS(parser1.NextString(), JsonArrayEnumerationComplete);
+
+    auto parser2 = JsonParserArray::Create(Brn("[ \"foo\" , \"bar\" ]"));
+    TEST(parser2.NextString() == Brn("foo"));
+    TEST(parser2.NextString() == Brn("bar"));
+    TEST_THROWS(parser2.NextString(), JsonArrayEnumerationComplete);
+
+    Bws<16> arrW("[\"\\\"\"]");
+    auto parser3 = JsonParserArray::Create(arrW);
+    TEST(parser3.NextStringEscaped() == Brn("\""));
+    TEST_THROWS(parser3.NextString(), JsonArrayEnumerationComplete);
+
+    Bws<64> arrW2("[\" \\\" \\\\ \\/ \\b \\f \\n \\r \\t \"]");
+    auto parser4 = JsonParserArray::Create(arrW2);
+    TEST(parser4.NextStringEscaped() == Brn(" \" \\ / \b \f \n \r \t "));
+    TEST_THROWS(parser4.NextString(), JsonArrayEnumerationComplete);
+}
+
+void SuiteParserJsonArray::TestObjectArray()
+{
+    auto parser = JsonParserArray::Create(Brn("[{\"val\":0}, {\"val\":1} ]"));
+    TEST(parser.NextObject() == Brn("{\"val\":0}"));
+    TEST_THROWS(parser.NextBool(), JsonWrongType);
+    TEST_THROWS(parser.NextInt(), JsonWrongType);
+    TEST_THROWS(parser.NextString(), JsonWrongType);
+    TEST_THROWS(parser.NextArray(), JsonWrongType);
+    TEST(parser.NextObject() == Brn("{\"val\":1}"));
+    TEST_THROWS(parser.NextObject(), JsonArrayEnumerationComplete);
+}
+
+void SuiteParserJsonArray::TestArrayArray()
+{
+    auto parser = JsonParserArray::Create(Brn("[[1,2],[3,4,5]]"));
+    TEST(parser.NextArray() == Brn("[1,2]"));
+    TEST_THROWS(parser.NextBool(), JsonWrongType);
+    TEST_THROWS(parser.NextInt(), JsonWrongType);
+    TEST_THROWS(parser.NextString(), JsonWrongType);
+    TEST_THROWS(parser.NextObject(), JsonWrongType);
+    TEST(parser.NextArray() == Brn("[3,4,5]"));
+    TEST_THROWS(parser.NextArray(), JsonArrayEnumerationComplete);
+}
+
+void SuiteParserJsonArray::TestArrayInObject()
+{
+    Brn json("{\"arr\":[-7,9]}");
+    JsonParser parser;
+    parser.Parse(json);
+    Brn arr = parser.String("arr");
+    auto arrParser = JsonParserArray::Create(arr);
+    TEST(arrParser.Type() == JsonParserArray::ValType::Int);
+    TEST(arrParser.NextInt() == -7);
+    TEST(arrParser.NextInt() == 9);
+}
+
 
 
 void TestJson()
@@ -877,5 +1129,6 @@ void TestJson()
     runner.Add(new SuiteWriterJson());
     runner.Add(new SuiteWriterJsonObject());
     runner.Add(new SuiteWriterJsonArray());
+    runner.Add(new SuiteParserJsonArray());
     runner.Run();
 }

@@ -12,7 +12,9 @@ using namespace OpenHome::Media;
 UriProviderSingleTrack::UriProviderSingleTrack(const TChar* aMode, TBool aSupportsLatency, TrackFactory& aTrackFactory)
     : UriProvider(aMode,
                   aSupportsLatency? Latency::Supported : Latency::NotSupported,
-                  Next::NotSupported, Prev::NotSupported)
+                  Next::NotSupported, Prev::NotSupported,
+                  Repeat::NotSupported, Random::NotSupported,
+                  RampPauseResume::Long, RampSkip::Short)
     , iLock("UPST")
     , iTrackFactory(aTrackFactory)
     , iTrack(nullptr)
@@ -87,28 +89,27 @@ TUint UriProviderSingleTrack::CurrentTrackId() const
     return id;
 }
 
-TBool UriProviderSingleTrack::MoveNext()
+void UriProviderSingleTrack::MoveNext()
 {
-    return MoveCursor();
+    MoveCursor();
 }
 
-TBool UriProviderSingleTrack::MovePrevious()
+void UriProviderSingleTrack::MovePrevious()
 {
-    return MoveCursor();
+    MoveCursor();
 }
 
-TBool UriProviderSingleTrack::MoveTo(const Brx& aCommand)
+void UriProviderSingleTrack::MoveTo(const Brx& aCommand)
 {
     if (aCommand.Bytes() != 0) {
         THROW(FillerInvalidCommand);
     }
     AutoMutex a(iLock);
     if (iTrack == nullptr) {
-        return false;
+        return;
     }
     iIgnoreNext = false;
     iPlayLater = false;
-    return true;
 }
 
 void UriProviderSingleTrack::DoBegin(TUint aTrackId, TBool aLater)
@@ -119,12 +120,11 @@ void UriProviderSingleTrack::DoBegin(TUint aTrackId, TBool aLater)
     iLock.Signal();
 }
 
-TBool UriProviderSingleTrack::MoveCursor()
+void UriProviderSingleTrack::MoveCursor()
 {
     AutoMutex a(iLock);
     if (iTrack == nullptr || iIgnoreNext) {
-        return false;
+        return;
     }
     iIgnoreNext = true;
-    return true;
 }

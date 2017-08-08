@@ -81,7 +81,7 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
 {
     TBool success = false;
     if (!TryConnect()) {
-        LOG2(kPipeline, kError, "Qobuz::TryGetStreamUrl - connection failure\n");
+        LOG_ERROR(kPipeline, "Qobuz::TryGetStreamUrl - connection failure\n");
         return false;
     }
     AutoSocketReader _(iSocket, iReaderUntil2);
@@ -92,7 +92,7 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
         timestamp = iUnixTimestamp.Now();
     }
     catch (UnixTimestampUnavailable&) {
-        LOG2(kPipeline, kError, "Qobuz::TryGetStreamUrl - failure to determine network time\n");
+        LOG_ERROR(kPipeline, "Qobuz::TryGetStreamUrl - failure to determine network time\n");
         return false;
     }
     Bws<Ascii::kMaxUintStringBytes> audioFormatBuf;
@@ -124,11 +124,11 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
     try {
         const TUint code = WriteRequestReadResponse(Http::kMethodGet, iPathAndQuery);
         if (code != 200) {
-            LOG2(kPipeline, kError, "Http error - %d - in response to Qobuz::TryGetStreamUrl.\n", code);
-            LOG2(kPipeline, kError, "...path/query is %.*s\n", PBUF(iPathAndQuery));
-            LOG2(kPipeline, kError, "Some/all of response is:\n");
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetStreamUrl.\n", code);
+            LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
+            LOG_ERROR(kPipeline, "Some/all of response is:\n");
             Brn buf = iDechunker.Read(kReadBufferBytes);
-            LOG2(kPipeline, kError, "%.*s\n", PBUF(buf));
+            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
             THROW(ReaderError);
         }
 
@@ -142,13 +142,13 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
         success = true;
     }
     catch (HttpError&) {
-        LOG2(kPipeline, kError, "HttpError in Qobuz::TryGetStreamUrl\n");
+        LOG_ERROR(kPipeline, "HttpError in Qobuz::TryGetStreamUrl\n");
     }
     catch (ReaderError&) {
-        LOG2(kPipeline, kError, "ReaderError in Qobuz::TryGetStreamUrl\n");
+        LOG_ERROR(kPipeline, "ReaderError in Qobuz::TryGetStreamUrl\n");
     }
     catch (WriterError&) {
-        LOG2(kPipeline, kError, "WriterError in Qobuz::TryGetStreamUrl\n");
+        LOG_ERROR(kPipeline, "WriterError in Qobuz::TryGetStreamUrl\n");
     }
     return success;
 }
@@ -231,7 +231,7 @@ TBool Qobuz::TryLoginLocked()
     TBool success = false;
 
     if (!TryConnect()) {
-        LOG2(kMedia, kError, "Qobuz::TryLogin - connection failure\n");
+        LOG_ERROR(kMedia, "Qobuz::TryLogin - connection failure\n");
         iCredentialsState.SetState(kId, Brn("Login Error (Connection Failed): Please Try Again."), Brx::Empty());
         return false;
     }
@@ -265,7 +265,7 @@ TBool Qobuz::TryLoginLocked()
                 iCredentialsState.SetState(kId, status, Brx::Empty());
             }
             updatedStatus = true;
-            LOG2(kPipeline, kError, "Http error - %d - in response to Qobuz login.  Some/all of response is:\n%.*s\n", code, PBUF(status));
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz login.  Some/all of response is:\n%.*s\n", code, PBUF(status));
             THROW(ReaderError);
         }
 
@@ -281,15 +281,15 @@ TBool Qobuz::TryLoginLocked()
     }
     catch (HttpError&) {
         error.Append("Login Error (Http Failure): Please Try Again.");
-        LOG2(kPipeline, kError, "HttpError in Qobuz::TryLoginLocked\n");
+        LOG_ERROR(kPipeline, "HttpError in Qobuz::TryLoginLocked\n");
     }
     catch (ReaderError&) {
         error.Append("Login Error (Read Failure): Please Try Again.");
-        LOG2(kPipeline, kError, "ReaderError in Qobuz::TryLoginLocked\n");
+        LOG_ERROR(kPipeline, "ReaderError in Qobuz::TryLoginLocked\n");
     }
     catch (WriterError&) {
         error.Append("Login Error (Write Failure): Please Try Again.");
-        LOG2(kPipeline, kError, "WriterError in Qobuz::TryLoginLocked\n");
+        LOG_ERROR(kPipeline, "WriterError in Qobuz::TryLoginLocked\n");
     }
 
     if (!updatedStatus) {

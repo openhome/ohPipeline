@@ -56,8 +56,8 @@ class IPresetDatabaseReaderTrack
 public:
     virtual ~IPresetDatabaseReaderTrack() {}
     virtual Media::Track* TrackRefById(TUint aId) = 0;
-    virtual Media::Track* NextTrackRef(TUint aId) = 0;
-    virtual Media::Track* PrevTrackRef(TUint aId) = 0;
+    virtual Media::Track* NextTrackRef(TUint& aId) = 0;
+    virtual Media::Track* PrevTrackRef(TUint& aId) = 0;
     virtual Media::Track* FirstTrackRef() = 0;
     virtual Media::Track* LastTrackRef() = 0;
 };
@@ -93,8 +93,8 @@ public: // from IPresetDatabaseWriter
     void EndSetPresets() override;
 public: // from IPresetDatabaseReaderTrack
     Media::Track* TrackRefById(TUint aId) override;
-    Media::Track* NextTrackRef(TUint aId) override;
-    Media::Track* PrevTrackRef(TUint aId) override;
+    Media::Track* NextTrackRef(TUint& aId) override;
+    Media::Track* PrevTrackRef(TUint& aId) override;
     Media::Track* FirstTrackRef() override;
     Media::Track* LastTrackRef() override;
 private:
@@ -107,7 +107,7 @@ private:
         Preset();
         void Set(TUint aId, const Brx& aUri, const Brx& aMetaData);
         TUint Id() const { return iId; }
-        TBool IsEmpty() const { return iId != IPresetDatabaseReader::kPresetIdNone; }
+        TBool IsEmpty() const { return iId == IPresetDatabaseReader::kPresetIdNone; }
         const Brx& Uri() const { return iUri; }
         const Brx& MetaData() const { return iMetaData; }
     private:

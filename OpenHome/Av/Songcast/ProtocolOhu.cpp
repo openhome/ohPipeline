@@ -83,7 +83,7 @@ void ProtocolOhu::Broadcast(OhmMsg* aMsg)
             catch (NetworkError&) {
                 Endpoint::EndpointBuf buf;
                 iSlaveList[i].AppendEndpoint(buf);
-                LOG(kError, "NetworkError in ProtocolOhu::Broadcast for slave %s\n", buf.Ptr());
+                LOG_ERROR(kApplication6, "NetworkError in ProtocolOhu::Broadcast for slave %s\n", buf.Ptr());
             }
         }
     }
@@ -197,7 +197,7 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
                     iReadBuffer.ReadFlush();
                 }
                 catch (OhmError&) {
-                    LOG2(kSongcast, kError, "OHU: OhmError while joining\n");
+                    LOG_ERROR(kSongcast, "OHU: OhmError while joining\n");
                 }
             }
             
@@ -247,18 +247,18 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
                     iReadBuffer.ReadFlush();
                 }
                 catch (OhmError&) {
-                    LOG2(kSongcast, kError, "OHU: OhmError while playing\n");
+                    LOG_ERROR(kSongcast, "OHU: OhmError while playing\n");
                 }
             }
         }
         catch (NetworkError&) { // from OpenUnicast only
-            LOG2(kSongcast, kError, "OHU: NetworkError.  Stopped=%u, starving=%u, leaving=%u\n", iStopped, iStarving, iLeaving);
+            LOG_ERROR(kSongcast, "OHU: NetworkError.  Stopped=%u, starving=%u, leaving=%u\n", iStopped, iStarving, iLeaving);
         }
         catch (ReaderError&) {
-            LOG2(kSongcast, kError, "OHU: ReaderError.  Stopped=%u, starving=%u, leaving=%u\n", iStopped, iStarving, iLeaving);
+            LOG_ERROR(kSongcast, "OHU: ReaderError.  Stopped=%u, starving=%u, leaving=%u\n", iStopped, iStarving, iLeaving);
         }
         catch (OhmDiscontinuity&) {
-            LOG2(kSongcast, kError, "OHU: Sender Halted.  Stopped=%u, starving=%u, leaving=%u\n", iStopped, iStarving, iLeaving);
+            LOG_ERROR(kSongcast, "OHU: Sender Halted.  Stopped=%u, starving=%u, leaving=%u\n", iStopped, iStarving, iLeaving);
         }
     } while (!iStopped);
 

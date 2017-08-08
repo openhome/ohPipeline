@@ -12,7 +12,7 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 
 Stopper::Stopper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, IStopperObserver& aObserver,
-                 IPipelineElementObserverThread& aObserverThread, TUint aRampDuration)
+                 IPipelineElementObserverThread& aObserverThread, TUint aRampJiffiesLong, TUint aRampJiffiesShort)
     : iMsgFactory(aMsgFactory)
     , iUpstreamElement(aUpstreamElement)
     , iObserver(aObserver)
@@ -20,7 +20,9 @@ Stopper::Stopper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamEle
     , iLock("STP1")
     , iSem("STP2", 0)
     , iStreamPlayObserver(nullptr)
-    , iRampDuration(aRampDuration)
+    , iRampJiffiesLong(aRampJiffiesLong)
+    , iRampJiffiesShort(aRampJiffiesShort)
+    , iRampJiffies(aRampJiffiesLong)
     , iTargetHaltId(MsgHalt::kIdInvalid)
     , iTrackId(0)
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
@@ -55,7 +57,7 @@ void Stopper::Play()
     case ERunning:
         break;
     case ERampingDown:
-        iRemainingRampSize = iRampDuration - iRemainingRampSize;
+        iRemainingRampSize = iRampJiffies - iRemainingRampSize;
         if (iRemainingRampSize == 0) {
             SetState(ERunning);
         }
@@ -70,7 +72,7 @@ void Stopper::Play()
     case EPaused:
         SetState(ERampingUp);
         iCurrentRampValue = Ramp::kMin;
-        iRemainingRampSize = iRampDuration;
+        iRemainingRampSize = iRampJiffies;
         iSem.Signal();
         break;
     case EStopped:
@@ -105,7 +107,7 @@ void Stopper::BeginPause()
     switch (iState)
     {
     case ERunning:
-        iRemainingRampSize = iRampDuration;
+        iRemainingRampSize = iRampJiffies;
         iCurrentRampValue = Ramp::kMax;
         SetState(ERampingDown);
         break;
@@ -113,7 +115,7 @@ void Stopper::BeginPause()
         // We're already pausing.  No Benefit in allowing another Pause request to interrupt this.
         break;
     case ERampingUp:
-        iRemainingRampSize = iRampDuration - iRemainingRampSize;
+        iRemainingRampSize = iRampJiffies - iRemainingRampSize;
         // don't change iCurrentRampValue - just start ramp down from whatever value it is already at
         SetState(ERampingDown);
         break;
@@ -143,14 +145,14 @@ void Stopper::BeginStop(TUint aHaltId)
     switch (iState)
     {
     case ERunning:
-        iRemainingRampSize = iRampDuration;
+        iRemainingRampSize = iRampJiffies;
         iCurrentRampValue = Ramp::kMax;
         SetState(ERampingDown);
         break;
     case ERampingDown:
         break;
     case ERampingUp:
-        iRemainingRampSize = iRampDuration - iRemainingRampSize;
+        iRemainingRampSize = iRampJiffies - iRemainingRampSize;
         // don't change iCurrentRampValue - just start ramp down from whatever value it is already at
         SetState(ERampingDown);
         break;
@@ -215,6 +217,8 @@ Msg* Stopper::Pull()
 
 Msg* Stopper::ProcessMsg(MsgMode* aMsg)
 {
+    iRampJiffies = aMsg->Info().RampPauseResumeLong()?
+                    iRampJiffiesLong : iRampJiffiesShort;
     return aMsg;
 }
 
@@ -303,8 +307,7 @@ Msg* Stopper::ProcessMsg(MsgHalt* aMsg)
 
 Msg* Stopper::ProcessMsg(MsgFlush* aMsg)
 {
-    aMsg->RemoveRef();
-    return nullptr;
+    return aMsg;
 }
 
 Msg* Stopper::ProcessMsg(MsgWait* aMsg)

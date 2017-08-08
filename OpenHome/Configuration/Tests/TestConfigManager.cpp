@@ -493,9 +493,9 @@ void SuiteConfigNum::TestInvalidValueFromStore()
 void SuiteConfigNum::TestInvalidDefaultValue()
 {
     // No value in store and attempt to pass in invalid default.
-    const Brn kKey("conf.num.1");
+    const Brn kTestKey("conf.num.1");
     static const TInt kInvalid = kMax+1;
-    TEST_THROWS(ConfigNum num(*iConfigManager, kKey, kMin, kMax, kInvalid), AssertionFailed);
+    TEST_THROWS(ConfigNum num(*iConfigManager, kTestKey, kMin, kMax, kInvalid), AssertionFailed);
 }
 
 void SuiteConfigNum::TestInvalidRange()
@@ -864,14 +864,14 @@ void SuiteConfigChoice::TestInvalidValueFromStore()
 void SuiteConfigChoice::TestInvalidDefaultValue()
 {
     // No value in store and attempt to pass in invalid default.
-    const Brn kKey("conf.choice.1");
+    const Brn kTestKey("conf.choice.1");
     static const TInt kInvalid = 3;
 
     std::vector<TUint> choices;
     choices.push_back(kChoice1);
     choices.push_back(kChoice2);
     choices.push_back(kChoice3);
-    TEST_THROWS(ConfigChoice choice(*iConfigManager, kKey, choices, kInvalid), AssertionFailed);
+    TEST_THROWS(ConfigChoice choice(*iConfigManager, kTestKey, choices, kInvalid), AssertionFailed);
 }
 
 void SuiteConfigChoice::TestValueFromStore()
@@ -1194,7 +1194,7 @@ void SuiteConfigText::TestInvalidValueFromStore()
 void SuiteConfigText::TestInvalidDefaultValue()
 {
     // No value in store and attempt to pass in invalid default.
-    const Brn kKey("conf.text.1");
+    const Brn kTestKey("conf.text.1");
     Bws<kMaxLength+1> invalidVal;
     // Create val of form "01234567890123456789...".
     for (TUint i=0; i<invalidVal.MaxBytes(); i++) {
@@ -1202,7 +1202,7 @@ void SuiteConfigText::TestInvalidDefaultValue()
         Ascii::AppendDec(invalidVal, val);
     }
 
-    TEST_THROWS(ConfigText text(*iConfigManager, kKey, kMaxLength, invalidVal), AssertionFailed);
+    TEST_THROWS(ConfigText text(*iConfigManager, kTestKey, kMaxLength, invalidVal), AssertionFailed);
 }
 
 void SuiteConfigText::TestValueFromStore()

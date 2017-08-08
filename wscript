@@ -160,13 +160,13 @@ upnp_services = [
         GeneratedFile('OpenHome/Av/ServiceXml/Upnp/RenderingControl1.xml',  'upnp.org',        'RenderingControl',  '1', 'UpnpOrgRenderingControl1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Product2.xml',       'av.openhome.org', 'Product',           '2', 'AvOpenhomeOrgProduct2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Radio1.xml',         'av.openhome.org', 'Radio',             '1', 'AvOpenhomeOrgRadio1'),
-        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Sender1.xml',        'av.openhome.org', 'Sender',            '1', 'AvOpenhomeOrgSender1'),
+        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Sender2.xml',        'av.openhome.org', 'Sender',            '2', 'AvOpenhomeOrgSender2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Playlist1.xml',      'av.openhome.org', 'Playlist',          '1', 'AvOpenhomeOrgPlaylist1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Receiver1.xml',      'av.openhome.org', 'Receiver',          '1', 'AvOpenhomeOrgReceiver1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Time1.xml',          'av.openhome.org', 'Time',              '1', 'AvOpenhomeOrgTime1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Info1.xml',          'av.openhome.org', 'Info',              '1', 'AvOpenhomeOrgInfo1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Volume3.xml',        'av.openhome.org', 'Volume',            '3', 'AvOpenhomeOrgVolume3'),
-        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Config1.xml',        'av.openhome.org', 'Config',            '1', 'AvOpenhomeOrgConfig1'),
+        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Config2.xml',        'av.openhome.org', 'Config',            '2', 'AvOpenhomeOrgConfig2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Credentials1.xml',   'av.openhome.org', 'Credentials',       '1', 'AvOpenhomeOrgCredentials1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Debug1.xml',         'av.openhome.org', 'Debug',             '1', 'AvOpenhomeOrgDebug1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Transport1.xml',     'av.openhome.org', 'Transport',         '1', 'AvOpenhomeOrgTransport1'),
@@ -262,6 +262,7 @@ def build(bld):
                 'OpenHome/Media/Protocol/ProtocolHttps.cpp',
                 'OpenHome/Media/Protocol/ProtocolFile.cpp',
                 'OpenHome/Media/Protocol/ProtocolTone.cpp',
+                'OpenHome/Media/Protocol/Icy.cpp',
                 'OpenHome/Media/Protocol/Rtsp.cpp',
                 'OpenHome/Media/Protocol/ProtocolRtsp.cpp',
                 'OpenHome/Media/Protocol/ContentAudio.cpp',
@@ -295,13 +296,14 @@ def build(bld):
                 'Generated/DvAvOpenhomeOrgInfo1.cpp',
                 'OpenHome/Av/ProviderInfo.cpp',
                 'Generated/DvAvOpenhomeOrgTransport1.cpp',
+                'OpenHome/Av/TransportControl.cpp',
                 'OpenHome/Av/ProviderTransport.cpp',
                 'Generated/DvAvOpenhomeOrgVolume3.cpp',
                 'OpenHome/Av/ProviderVolume.cpp',
                 'OpenHome/Av/Source.cpp',
                 'OpenHome/Av/MediaPlayer.cpp',
                 'OpenHome/Av/Logger.cpp',
-                'Generated/DvAvOpenhomeOrgConfig1.cpp',
+                'Generated/DvAvOpenhomeOrgConfig2.cpp',
                 'OpenHome/Json.cpp',
                 'OpenHome/Av/Utils/FormUrl.cpp',
                 'OpenHome/NtpClient.cpp',
@@ -321,6 +323,18 @@ def build(bld):
             ],
             use=['OHNET', 'OPENSSL', 'ohPipeline'],
             target='ohMediaPlayer')
+
+    bld.stlib(
+            source=[
+                'OpenHome/Net/Odp/Odp.cpp',
+                'OpenHome/Net/Odp/DviOdp.cpp',
+                'OpenHome/Net/Odp/DviProtocolOdp.cpp',
+                'OpenHome/Net/Odp/DviServerOdp.cpp',
+                'OpenHome/Net/Odp/CpiOdp.cpp',
+            ],
+            use=['OHNET'],
+            target='Odp')
+
 
     # Library
     bld.stlib(
@@ -345,6 +359,8 @@ def build(bld):
                 'OpenHome/Av/Radio/PresetDatabase.cpp',
                 'OpenHome/Av/Radio/UriProviderRadio.cpp',
                 'OpenHome/Av/Radio/TuneIn.cpp',
+                'OpenHome/Av/CalmRadio/CalmRadio.cpp',
+                'OpenHome/Av/CalmRadio/ProtocolCalmRadio.cpp',
                 'OpenHome/Av/Radio/ContentAsx.cpp',
                 'OpenHome/Av/Radio/ContentM3u.cpp',
                 'OpenHome/Av/Radio/ContentM3uX.cpp',
@@ -359,7 +375,7 @@ def build(bld):
     # Library
     bld.stlib(
             source=[
-                'Generated/DvAvOpenhomeOrgSender1.cpp',
+                'Generated/DvAvOpenhomeOrgSender2.cpp',
                 'OpenHome/Av/Songcast/Ohm.cpp',
                 'OpenHome/Av/Songcast/OhmMsg.cpp',
                 'OpenHome/Av/Songcast/OhmSender.cpp',
@@ -378,6 +394,19 @@ def build(bld):
             ],
             use=['OHNET', 'ohMediaPlayer'],
             target='SourceSongcast')
+
+    # Library
+    bld.stlib(
+            source=[
+                'OpenHome/Av/Scd/ScdMsg.cpp',
+                'OpenHome/Av/Scd/Receiver/ProtocolScd.cpp',
+                'OpenHome/Av/Scd/Receiver/SupplyScd.cpp',
+                'OpenHome/Av/Scd/Receiver/OhMetadata.cpp',
+                'OpenHome/Av/Scd/Receiver/UriProviderScd.cpp',
+                'OpenHome/Av/Scd/Receiver/SourceScd.cpp'
+            ],
+            use=['OHNET', 'ohMediaPlayer'],
+            target='SourceScd')
 
     # Library
     bld.stlib(
@@ -649,7 +678,7 @@ def build(bld):
                 'OpenHome/Media/Tests/TestRamper.cpp',
                 'OpenHome/Media/Tests/TestFlywheelRamper.cpp',
                 'OpenHome/Media/Tests/TestReporter.cpp',
-                'OpenHome/Media/Tests/TestSpotifyReporter.cpp',
+                #'OpenHome/Media/Tests/TestSpotifyReporter.cpp',
                 'OpenHome/Media/Tests/TestPreDriver.cpp',
                 'OpenHome/Media/Tests/TestPruner.cpp',
                 'OpenHome/Media/Tests/TestAnalogBypassRamper.cpp',
@@ -687,6 +716,8 @@ def build(bld):
                 'OpenHome/Av/Tests/TestMediaPlayerOptions.cpp',
                 'OpenHome/Configuration/Tests/ConfigRamStore.cpp',
                 'OpenHome/Configuration/Tests/TestConfigManager.cpp',
+                'OpenHome/Tests/TestPipe.cpp',
+                'OpenHome/Tests/Mock.cpp',
                 'OpenHome/Tests/TestPowerManager.cpp',
                 'OpenHome/Tests/TestSsl.cpp',
                 'OpenHome/Av/Tests/TestCredentials.cpp',
@@ -694,13 +725,15 @@ def build(bld):
                 'OpenHome/Tests/TestJson.cpp',
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
+                'OpenHome/Net/Odp/Tests/CpiDeviceOdp.cpp',
+                'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
             source='OpenHome/Media/Tests/TestShellMain.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'WebAppFrameworkTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceRaop', 'SourceUpnpAv'],
+            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'WebAppFrameworkTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceRaop', 'SourceUpnpAv', 'Odp'],
             target='TestShell',
             install_path=None)
     bld.program(
@@ -783,11 +816,11 @@ def build(bld):
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestReporter',
             install_path=None)
-    bld.program(
-            source='OpenHome/Media/Tests/TestSpotifyReporterMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-            target='TestSpotifyReporter',
-            install_path=None)
+    #bld.program(
+    #        source='OpenHome/Media/Tests/TestSpotifyReporterMain.cpp',
+    #        use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+    #        target='TestSpotifyReporter',
+    #        install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestPreDriverMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
@@ -930,9 +963,9 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestMediaPlayerMain.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
+            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
             target='TestMediaPlayer',
-            install_path='install/bin')
+            install_path=os.path.join(bld.path.abspath(), 'install', 'bin'))
     bld.program(
             source='OpenHome/Configuration/Tests/TestConfigManagerMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
@@ -963,6 +996,11 @@ def build(bld):
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestFriendlyNameManager',
             install_path=None)
+    #bld.program(
+    #        source='OpenHome/Tests/TestKey.cpp',
+    #        use=['OHNET', 'ohMediaPlayer', 'OPENSSL'],
+    #        target='TestKey',
+    #        install_path=None)
     #bld.program(
     #        source='OpenHome/Tests/TestHttpsBsd.cpp',
     #        use=['OHNET', 'ohMediaPlayer', 'OPENSSL'],
@@ -1005,7 +1043,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source=['OpenHome/Web/ConfigUi/Tests/TestConfigUiMain.cpp'],
-            use=['OHNET', 'PLATFORM', 'OPENSSL', 'ConfigUiTestUtils', 'WebAppFrameworkTestUtils', 'ConfigUi', 'WebAppFramework', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceRaop', 'SourceUpnpAv', 'ohMediaPlayer'],
+            use=['OHNET', 'PLATFORM', 'OPENSSL', 'ConfigUiTestUtils', 'WebAppFrameworkTestUtils', 'ConfigUi', 'WebAppFramework', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'ohMediaPlayer'],
             target='TestConfigUi',
             install_path=None)
     bld.program(
@@ -1018,6 +1056,29 @@ def build(bld):
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestVolumeManager',
             install_path=None)
+    bld.program(
+            source='OpenHome/Net/Odp/Tests/TestDvOdpMain.cpp',
+            use=['OHNET', 'Odp', 'ohMediaPlayerTestUtils'],
+            target='TestDvOdp',
+            install_path=None)
+
+    bld.stlib(
+            source=[
+                'OpenHome/Av/Scd/ScdMsg.cpp',
+                'OpenHome/Av/Scd/Sender/ScdSupply.cpp',
+                'OpenHome/Av/Scd/Sender/ScdServer.cpp'
+            ],
+            use=['OHNET', 'ohMediaPlayer'],
+            target='ScdSender')
+    #bld.program(
+    #        source=[
+    #            'OpenHome/Av/Scd/Sender/Demo/WavSender.cpp',
+    #            'OpenHome/Av/Scd/Sender/Demo/DirScanner.cpp',
+    #            'OpenHome/Av/Scd/Sender/Demo/WavSenderMain.cpp'
+    #            ],
+    #        use=['OHNET', 'ScdSender', 'ohMediaPlayer'],
+    #        target='WavSender',
+    #        install_path=None)
 
 # Bundles
 def bundle(ctx):
@@ -1030,6 +1091,7 @@ def bundle(ctx):
                  'SourceRadio',
                  'SourceSongcast',
                  'SourceRaop',
+                 'SourceScd',
                  'SourceUpnpAv',
                  'CodecAac',
                  'CodecAacBase',
@@ -1047,7 +1109,8 @@ def bundle(ctx):
                  'libOgg',
                  'WebAppFramework',
                  'ConfigUi',
-                 'ConfigUiTestUtils'
+                 'ConfigUiTestUtils',
+                 'Odp'
                 ]
     lib_files = gather_files(ctx, '{bld}', (ctx.env.cxxstlib_PATTERN % x for x in lib_names))
     res_files = gather_files(ctx, '{top}/OpenHome/Web/ConfigUi/res', ['**/*'])

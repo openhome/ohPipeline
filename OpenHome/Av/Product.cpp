@@ -11,6 +11,8 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
 #include <OpenHome/Net/Core/OhNet.h>
+#include <OpenHome/Optional.h>
+#include <OpenHome/Av/TransportControl.h>
 
 #include <limits.h>
 
@@ -357,9 +359,14 @@ void Product::GetUri(const Brx& aStaticDataKey, Bwx& aUri)
     }
 }
 
+void Product::StandbyDisableNoSourceSwitch()
+{
+    iPowerManager.StandbyDisable(StandbyDisableReason::SourceActivation);
+}
+
 void Product::SetCurrentSource(TUint aIndex)
 {
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    StandbyDisableNoSourceSwitch();
     (void)DoSetCurrentSource(aIndex);
 }
 
@@ -376,15 +383,14 @@ TBool Product::DoSetCurrentSourceLocked(TUint aIndex)
     }
     iCurrentSource = aIndex;
     iLastSelectedSource->Set(iSources[iCurrentSource]->SystemName());
-    if (!iStandby) {
-        iSources[iCurrentSource]->Activate(iAutoPlay);
-    }
-
     {
         AutoMutex amx(iObserverLock);
         for (auto observer : iObservers) {
             observer->SourceIndexChanged();
         }
+    }
+    if (!iStandby) {
+        iSources[iCurrentSource]->Activate(iAutoPlay, kPrefetchAllowedDefault);
     }
     return true;
 }
@@ -397,7 +403,7 @@ TBool Product::DoSetCurrentSource(TUint aIndex)
 
 void Product::SetCurrentSourceByName(const Brx& aName)
 {
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    StandbyDisableNoSourceSwitch();
     AutoMutex a(iLock);
     Bws<ISource::kMaxSourceNameBytes> name;
     TUint i = 0;
@@ -412,7 +418,7 @@ void Product::SetCurrentSourceByName(const Brx& aName)
 
 void Product::SetCurrentSourceBySystemName(const Brx& aSystemName)
 {
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    StandbyDisableNoSourceSwitch();
     DoSetCurrentSource(aSystemName);
 }
 
@@ -477,9 +483,9 @@ TUint Product::SourceXmlChangeCount()
     return iSourceXmlChangeCount;
 }
 
-void Product::Activate(ISource& aSource)
+void Product::ActivateIfNotActive(ISource& aSource, TBool aPrefetchAllowed)
 {
-    iPowerManager.StandbyDisable(StandbyDisableReason::User);
+    StandbyDisableNoSourceSwitch();
 
     ISource* srcNew = nullptr;
     ISource* srcOld = nullptr;
@@ -507,7 +513,7 @@ void Product::Activate(ISource& aSource)
             iCurrentSource = i;
             iLastSelectedSource->Set(iSources[iCurrentSource]->SystemName());
             srcNew = iSources[i];
-            srcNew->Activate(iAutoPlay);
+            srcNew->Activate(iAutoPlay, aPrefetchAllowed);
             {
                 AutoMutex amx(iObserverLock);
                 for (auto observer : iObservers) {
@@ -542,6 +548,16 @@ void Product::AddNameObserver(IProductNameObserver& aObserver)
     aObserver.NameChanged(iProductName);
 }
 
+TBool Product::TryActivate(const Brx& aMode)
+{
+    for (auto it=iSources.begin(); it!=iSources.end(); ++it) {
+        if ((*it)->TryActivateNoPrefetch(aMode)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Product::StandbyEnabled()
 {
     AutoMutex _(iLock);
@@ -558,7 +574,7 @@ void Product::StandbyDisabled(StandbyDisableReason aReason)
     iLock.Signal();
 
     TBool activated = false;
-    if (aReason != StandbyDisableReason::Alarm) {
+    if (aReason == StandbyDisableReason::Product || aReason == StandbyDisableReason::Boot) {
         iLock.Wait();
         const Bws<ISource::kMaxSystemNameBytes> startupSourceVal(iStartupSourceVal);
         iLock.Signal();
@@ -570,11 +586,12 @@ void Product::StandbyDisabled(StandbyDisableReason aReason)
                 // Invalid content in iStartupSourceVal. Leave last source set.
             }
         }
-    }
-    if (!activated) {
-        AutoMutex _(iLock);
-        if (iCurrentSource != kCurrentSourceNone) {
-            iSources[iCurrentSource]->Activate(iAutoPlay);
+
+        if (!activated) {
+            AutoMutex _(iLock);
+            if (iCurrentSource != kCurrentSourceNone) {
+                iSources[iCurrentSource]->Activate(iAutoPlay, kPrefetchAllowedDefault);
+            }
         }
     }
 }

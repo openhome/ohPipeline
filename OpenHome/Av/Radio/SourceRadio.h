@@ -17,6 +17,7 @@ namespace Net {
 namespace Media {
     class PipelineManager;
     class MimeTypeList;
+    class UriProviderSingleTrack;
 }
 namespace Av {
 
@@ -29,8 +30,10 @@ public:
     virtual void Play() = 0;
     virtual void Pause() = 0;
     virtual void Stop() = 0;
+    virtual void Next() = 0;
+    virtual void Prev() = 0;
     virtual void SeekAbsolute(TUint aSeconds) = 0;
-    virtual void SeekRelative(TUint aSeconds) = 0;
+    virtual void SeekRelative(TInt aSeconds) = 0;
 };
 
 class ProviderRadio;
@@ -47,8 +50,9 @@ public:
     SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId);
     ~SourceRadio();
 private: // from ISource
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
+    TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
     void PipelineStopped() override;
 private: // from ISourceRadio
@@ -57,22 +61,28 @@ private: // from ISourceRadio
     void Play() override;
     void Pause() override;
     void Stop() override;
+    void Next() override;
+    void Prev() override;
     void SeekAbsolute(TUint aSeconds) override;
-    void SeekRelative(TUint aSeconds) override;
+    void SeekRelative(TInt aSeconds) override;
 private: // from IPresetDatabaseObserver
     void PresetDatabaseChanged() override;
 private:
     void FetchLocked(const Brx& aUri, const Brx& aMetaData);
+    void NextPrev(TBool aNext);
 private: // from IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
-    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo) override;
+    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
+                    const Media::ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Media::Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private:
     Mutex iLock;
-    UriProviderRadio* iUriProvider;
+    UriProviderRadio* iUriProviderPresets;
+    Media::UriProviderSingleTrack* iUriProviderSingle;
+    Brn iCurrentMode;
     ProviderRadio* iProviderRadio;
     PresetDatabase* iPresetDatabase;
     RadioPresetsTuneIn* iTuneIn;

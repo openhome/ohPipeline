@@ -57,8 +57,9 @@ public:
                    Optional<IOhmMsgProcessor> aOhmMsgObserver);
     ~SourceReceiver();
 private: // from ISource
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
+    TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
     void PipelineStopped() override;
 private: // from ISourceReceiver
@@ -70,13 +71,13 @@ private: // from IZoneListener
     void NotifyPresetInfo(TUint aPreset, const Brx& aMetadata) override;
 private: // from Media::IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
-    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo) override;
+    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
+                    const Media::ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Media::Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private:
-    void EnsureActive();
     void UriChanged();
     void ZoneChangeThread();
     void CurrentAdapterChanged();
@@ -97,7 +98,6 @@ private:
     TUint iTrackId;
     TBool iPlaying;
     TBool iQuit;
-    TBool iNoPipelinePrefetchOnActivation;
     Media::BwsTrackUri iPendingTrackUri;
     SongcastSender* iSender;
     StoreText* iStoreZone;
@@ -115,7 +115,8 @@ public:
     ~SongcastSender();
 private: // from Media::IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
-    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo) override;
+    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
+                    const Media::ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Media::Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
@@ -190,7 +191,7 @@ SourceReceiver::SourceReceiver(IMediaPlayer& aMediaPlayer,
                                Optional<IOhmTimestamper> aTxTimestamper,
                                Optional<IOhmTimestamper> aRxTimestamper,
                                Optional<IOhmMsgProcessor> aOhmMsgObserver)
-    : Source(SourceFactory::kSourceNameReceiver, SourceFactory::kSourceTypeReceiver, aMediaPlayer.Pipeline(), aMediaPlayer.PowerManager())
+    : Source(SourceFactory::kSourceNameReceiver, SourceFactory::kSourceTypeReceiver, aMediaPlayer.Pipeline())
     , iLock("SRX1")
     , iActivationLock("SRX2")
     , iUriLock("SRX3")
@@ -198,7 +199,6 @@ SourceReceiver::SourceReceiver(IMediaPlayer& aMediaPlayer,
     , iTrackId(Track::kIdNone)
     , iPlaying(false)
     , iQuit(false)
-    , iNoPipelinePrefetchOnActivation(false)
 {
     Environment& env = aMediaPlayer.Env();
     DvDeviceStandard& device = aMediaPlayer.Device();
@@ -209,6 +209,8 @@ SourceReceiver::SourceReceiver(IMediaPlayer& aMediaPlayer,
     // Receiver
     iProviderReceiver = new ProviderReceiver(device, *this, kProtocolInfo);
     iUriProvider = new UriProviderSongcast(aMediaPlayer, aClockPuller);
+    iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceReceiver::Play));
+    iUriProvider->SetTransportStop(MakeFunctor(*this, &SourceReceiver::Stop));
     iPipeline.Add(iUriProvider);
     iOhmMsgFactory = new OhmMsgFactory(210, 10, 10);
     TrackFactory& trackFactory = aMediaPlayer.TrackFactory();
@@ -238,14 +240,11 @@ SourceReceiver::~SourceReceiver()
     delete iZoneHandler;
 }
 
-void SourceReceiver::Activate(TBool aAutoPlay)
+void SourceReceiver::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
     LOG(kSongcast, "SourceReceiver::Activate()\n");
-    SourceBase::Activate(aAutoPlay);
-    if (iNoPipelinePrefetchOnActivation) {
-        iPipeline.RemoveAll();
-    }
-    else {
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
+    if (aPrefetchAllowed) {
         iPipeline.StopPrefetch(iUriProvider->Mode(), Track::kIdNone);
         if (iZone.Bytes() > 0) {
             iZoneHandler->StartMonitoring(iZone);
@@ -253,6 +252,9 @@ void SourceReceiver::Activate(TBool aAutoPlay)
         if (aAutoPlay) {
             iPlaying = true;
         }
+    }
+    else {
+        iPipeline.RemoveAll();
     }
 }
 
@@ -266,6 +268,15 @@ void SourceReceiver::Deactivate()
     iTrackUri.Replace(Brx::Empty());
     iStoreZone->Write();
     Source::Deactivate();
+}
+
+TBool SourceReceiver::TryActivateNoPrefetch(const Brx& aMode)
+{
+    if (iUriProvider->Mode() != aMode) {
+        return false;
+    }
+    EnsureActiveNoPrefetch();
+    return true;
 }
 
 void SourceReceiver::StandbyEnabled()
@@ -283,7 +294,7 @@ void SourceReceiver::PipelineStopped()
 void SourceReceiver::Play()
 {
     LOG(kSongcast, "SourceReceiver::Play()\n");
-    EnsureActive();
+    EnsureActiveNoPrefetch();
     TBool doPlay = false;
     {
         AutoMutex a(iLock);
@@ -316,7 +327,7 @@ void SourceReceiver::Stop()
 void SourceReceiver::SetSender(const Brx& aUri, const Brx& aMetadata)
 {
     LOG(kSongcast, "SourceReceiver::SetSender(%.*s)\n", PBUF(aUri));
-    EnsureActive();
+    EnsureActiveNoPrefetch();
     AutoMutex a(iLock);
     if (aUri.Bytes() > 0) {
         iUri.Replace(aUri);
@@ -350,6 +361,10 @@ void SourceReceiver::SetSender(const Brx& aUri, const Brx& aMetadata)
         iStoreZone->Set(iZone);
         if (iPlaying) {
             iZoneHandler->StartMonitoring(iZone);
+        }
+        else {
+            iTrackId = Track::kIdNone;
+            iPipeline.StopPrefetch(iUriProvider->Mode(), iTrackId);
         }
     }
     else {
@@ -390,7 +405,9 @@ void SourceReceiver::NotifyPipelineState(EPipelineState aState)
     }
 }
 
-void SourceReceiver::NotifyMode(const Brx& /*aMode*/, const ModeInfo& /*aInfo*/)
+void SourceReceiver::NotifyMode(const Brx& /*aMode*/,
+                                const ModeInfo& /*aInfo*/,
+                                const ModeTransportControls& /*aTransportControls*/)
 {
 }
 
@@ -408,16 +425,6 @@ void SourceReceiver::NotifyTime(TUint /*aSeconds*/, TUint /*aTrackDurationSecond
 
 void SourceReceiver::NotifyStreamInfo(const DecodedStreamInfo& /*aStreamInfo*/)
 {
-}
-
-void SourceReceiver::EnsureActive()
-{
-    AutoMutex a(iActivationLock);
-    iNoPipelinePrefetchOnActivation = true;
-    if (!IsActive()) {
-        DoActivate();
-    }
-    iNoPipelinePrefetchOnActivation = false;
 }
 
 void SourceReceiver::UriChanged()
@@ -517,7 +524,9 @@ void SongcastSender::NotifyPipelineState(EPipelineState aState)
     iSender->NotifyPipelineState(aState);
 }
 
-void SongcastSender::NotifyMode(const Brx& /*aMode*/, const ModeInfo& /*aInfo*/)
+void SongcastSender::NotifyMode(const Brx& /*aMode*/,
+                                const ModeInfo& /*aInfo*/,
+                                const ModeTransportControls& /*aTransportControls*/)
 {
 }
 

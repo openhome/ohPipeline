@@ -16,6 +16,7 @@ const TUint Pruner::kSupportedMsgTypes =   eMode
                                          | eMetatext
                                          | eStreamInterrupted
                                          | eHalt
+                                         | eFlush
                                          | eWait
                                          | eDecodedStream
                                          | eBitRate
@@ -108,6 +109,12 @@ Msg* Pruner::ProcessMsg(MsgHalt* aMsg)
     }
     iConsumeHalts = true;
     return TryQueueCancelWaiting(aMsg);
+}
+
+Msg* Pruner::ProcessMsg(MsgFlush* aMsg)
+{
+    aMsg->RemoveRef();
+    return nullptr;
 }
 
 Msg* Pruner::ProcessMsg(MsgWait* aMsg)

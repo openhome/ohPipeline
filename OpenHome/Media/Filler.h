@@ -2,6 +2,7 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Functor.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Protocol/Protocol.h>
@@ -12,6 +13,7 @@
 EXCEPTION(FillerInvalidMode);
 EXCEPTION(FillerInvalidCommand);
 EXCEPTION(UriProviderInvalidId);
+EXCEPTION(UriProviderNotSupported);
 
 namespace OpenHome {
 namespace Media {
@@ -23,30 +25,43 @@ class UriProvider
 public:
     virtual ~UriProvider();
     const Brx& Mode() const;
-    TBool SupportsLatency() const;
-    TBool SupportsNext() const;
-    TBool SupportsPrev() const;
+    const Media::ModeInfo& ModeInfo() const;
+    const Media::ModeTransportControls& ModeTransportControls() const;
+
+    void SetTransportPlay(Functor aPlay);
+    void SetTransportPause(Functor aPause);
+    void SetTransportStop(Functor aStop);
+    void SetTransportNext(Functor aNext);
+    void SetTransportPrev(Functor aPrev);
+    void SetTransportSeek(FunctorGeneric<TUint> aSeek); // Absolute seek position in seconds.
+
     virtual ModeClockPullers ClockPullers();
     virtual TBool IsValid(TUint aTrackId) const;
     virtual void Begin(TUint aTrackId) = 0;
     virtual void BeginLater(TUint aTrackId) = 0; // Queue a track but return ePlayLater when OkToPlay() is called
     virtual EStreamPlay GetNext(Track*& aTrack) = 0;
     virtual TUint CurrentTrackId() const = 0; // Id of last delivered track.  Or of pending track requested via Begin or Move[After|Before]
-    virtual TBool MoveNext() = 0; // returns true if GetNext would return a non-nullptr track and ePlayYes
-    virtual TBool MovePrevious() = 0; // returns true if GetNext would return a non-nullptr track and ePlayYes
-    virtual TBool MoveTo(const Brx& aCommand); // returns true if GetNext would return a non-nullptr track and ePlayYes
+    virtual void MoveNext() = 0;
+    virtual void MovePrevious() = 0;
+    virtual void MoveTo(const Brx& aCommand);
+    virtual void Interrupt(TBool aInterrupt);
 protected:
-    enum class Latency  { Supported, NotSupported };
-    enum class Next     { Supported, NotSupported };
-    enum class Prev     { Supported, NotSupported };
+    enum class Latency          { Supported, NotSupported };
+    enum class Next             { Supported, NotSupported };
+    enum class Prev             { Supported, NotSupported };
+    enum class Repeat           { Supported, NotSupported };
+    enum class Random           { Supported, NotSupported };
+    enum class RampPauseResume  { Long, Short };
+    enum class RampSkip         { Long, Short };
 protected:
     UriProvider(const TChar* aMode, Latency aLatency,
-                Next aNextSupported, Prev aPrevSupported);
+                Next aNextSupported, Prev aPrevSupported,
+                Repeat aRepeatSupported, Random aRandomSupported,
+                RampPauseResume aRampPauseResume, RampSkip aRampSkip);
 private:
     BwsMode iMode;
-    TBool iSupportsLatency;
-    TBool iSupportsNext;
-    TBool iSupportsPrev;
+    Media::ModeInfo iModeInfo;
+    Media::ModeTransportControls iTransportControls;
 };
 
 class Filler : private Thread, public IPipelineElementDownstream, private IMsgProcessor
@@ -63,11 +78,11 @@ public:
     void Quit();
     void Play(const Brx& aMode, TUint aTrackId);
     void PlayLater(const Brx& aMode, TUint aTrackId);
-    TBool Play(const Brx& aMode, const Brx& aCommand);
+    void Play(const Brx& aMode, const Brx& aCommand);
     TUint Stop(); // Stops filler and encourages protocols to stop.  Returns haltId iff filler was active
     TUint Flush(); // Stops filler, encourages protocols to stop.  Returns flushId.  MsgFlush will be delivered once protocol is stopped.
-    TBool Next(const Brx& aMode);
-    TBool Prev(const Brx& aMode);
+    void Next(const Brx& aMode);
+    void Prev(const Brx& aMode);
     TBool IsStopped() const;
     TUint NullTrackId() const;
 private:
@@ -119,6 +134,7 @@ private:
     IFlushIdProvider& iFlushIdProvider;
     MsgFactory& iMsgFactory;
     std::vector<UriProvider*> iUriProviders;
+    Mutex iLockUriProvider;
     UriProvider* iActiveUriProvider;
     IUriStreamer* iUriStreamer;
     Track* iTrack;

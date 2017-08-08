@@ -18,19 +18,44 @@ const Brx& UriProvider::Mode() const
     return iMode;
 }
 
-TBool UriProvider::SupportsLatency() const
+const Media::ModeInfo& UriProvider::ModeInfo() const
 {
-    return iSupportsLatency;
+    return iModeInfo;
 }
 
-TBool UriProvider::SupportsNext() const
+const Media::ModeTransportControls& UriProvider::ModeTransportControls() const
 {
-    return iSupportsNext;
+    return iTransportControls;
 }
 
-TBool UriProvider::SupportsPrev() const
+void UriProvider::SetTransportPlay(Functor aPlay)
 {
-    return iSupportsPrev;
+    iTransportControls.SetPlay(aPlay);
+}
+
+void UriProvider::SetTransportPause(Functor aPause)
+{
+    iTransportControls.SetPause(aPause);
+}
+
+void UriProvider::SetTransportStop(Functor aStop)
+{
+    iTransportControls.SetStop(aStop);
+}
+
+void UriProvider::SetTransportNext(Functor aNext)
+{
+    iTransportControls.SetNext(aNext);
+}
+
+void UriProvider::SetTransportPrev(Functor aPrev)
+{
+    iTransportControls.SetPrev(aPrev);
+}
+
+void UriProvider::SetTransportSeek(FunctorGeneric<TUint> aSeek)
+{
+    iTransportControls.SetSeek(aSeek);
 }
 
 ModeClockPullers UriProvider::ClockPullers()
@@ -43,18 +68,28 @@ TBool UriProvider::IsValid(TUint /*aTrackId*/) const
     return true;
 }
 
-TBool UriProvider::MoveTo(const Brx& /*aCommand*/)
+void UriProvider::MoveTo(const Brx& /*aCommand*/)
 {
     THROW(FillerInvalidCommand);
 }
 
-UriProvider::UriProvider(const TChar* aMode, Latency aLatency,
-                        Next aNextSupported, Prev aPrevSupported)
-    : iMode(aMode)
-    , iSupportsLatency(aLatency == Latency::Supported)
-    , iSupportsNext(aNextSupported == Next::Supported)
-    , iSupportsPrev(aPrevSupported == Prev::Supported)
+void UriProvider::Interrupt(TBool /*aInterrupt*/)
 {
+}
+
+UriProvider::UriProvider(const TChar* aMode, Latency aLatency,
+                         Next aNextSupported, Prev aPrevSupported,
+                         Repeat aRepeatSupported, Random aRandomSupported,
+                         RampPauseResume aRampPauseResume, RampSkip aRampSkip)
+    : iMode(aMode)
+{
+    iModeInfo.SetSupportsLatency(aLatency == Latency::Supported);
+    iModeInfo.SetSupportsNextPrev(aNextSupported == Next::Supported,
+                                  aPrevSupported == Prev::Supported);
+    iModeInfo.SetSupportsRepeatRandom(aRepeatSupported == Repeat::Supported,
+                                      aRandomSupported == Random::Supported);
+    iModeInfo.SetRampDurations(aRampPauseResume == RampPauseResume::Long,
+                               aRampSkip        == RampSkip::Long);
 }
 
 UriProvider::~UriProvider()
@@ -69,12 +104,13 @@ Filler::Filler(IPipelineElementDownstream& aPipeline, IPipelineIdTracker& aIdTra
                MsgFactory& aMsgFactory, TrackFactory& aTrackFactory, IStreamPlayObserver& aStreamPlayObserver,
                IPipelineIdProvider& aIdProvider, TUint aThreadPriority, TUint aDefaultDelay)
     : Thread("Filler", aThreadPriority)
-    , iLock("FILL")
+    , iLock("FIL1")
     , iPipeline(aPipeline)
     , iPipelineIdTracker(aIdTracker)
     , iPipelineIdManager(aPipelineIdManager)
     , iFlushIdProvider(aFlushIdProvider)
     , iMsgFactory(aMsgFactory)
+    , iLockUriProvider("FIL2")
     , iActiveUriProvider(nullptr)
     , iUriStreamer(nullptr)
     , iTrack(nullptr)
@@ -91,7 +127,7 @@ Filler::Filler(IPipelineElementDownstream& aPipeline, IPipelineIdTracker& aIdTra
     , iDefaultDelay(aDefaultDelay)
     , iPrefetchTrackId(kPrefetchTrackIdInvalid)
 {
-    iNullTrack = aTrackFactory.CreateTrack(Brx::Empty(), Brx::Empty());
+    iNullTrack = aTrackFactory.CreateNullTrack();
 }
 
 Filler::~Filler()
@@ -144,20 +180,25 @@ void Filler::PlayLater(const Brx& aMode, TUint aTrackId)
     Signal();
 }
 
-TBool Filler::Play(const Brx& aMode, const Brx& aCommand)
+void Filler::Play(const Brx& aMode, const Brx& aCommand)
 {
     LOG(kMedia, "Filler::Play(%.*s, %.*s)\n", PBUF(aMode), PBUF(aCommand));
     AutoMutex _(iLock);
     UpdateActiveUriProvider(aMode);
-    const TBool ret = iActiveUriProvider->MoveTo(aCommand);
+    iActiveUriProvider->MoveTo(aCommand);
     iStopped = false;
     Signal();
-    return ret;
 }
 
 TUint Filler::Stop()
 {
     LOG(kMedia, "Filler::Stop()\n");
+    {
+        AutoMutex _(iLockUriProvider);
+        if (iActiveUriProvider != nullptr) {
+            iActiveUriProvider->Interrupt(true);
+        }
+    }
     AutoMutex a(iLock);
     const TUint haltId = StopLocked();
     Signal();
@@ -166,6 +207,12 @@ TUint Filler::Stop()
 
 TUint Filler::Flush()
 {
+    {
+        AutoMutex _(iLockUriProvider);
+        if (iActiveUriProvider != nullptr) {
+            iActiveUriProvider->Interrupt(true);
+        }
+    }
     AutoMutex a(iLock);
     (void)StopLocked();
     if (iNextFlushId == MsgFlush::kIdInvalid) {
@@ -175,32 +222,28 @@ TUint Filler::Flush()
     return iNextFlushId;
 }
 
-TBool Filler::Next(const Brx& aMode)
+void Filler::Next(const Brx& aMode)
 {
     LOG(kMedia, "Filler::Next(%.*s)\n", PBUF(aMode));
-    TBool ret = false;
     iLock.Wait();
     if (iActiveUriProvider != nullptr && iActiveUriProvider->Mode() == aMode) {
-        ret = iActiveUriProvider->MoveNext();
+        iActiveUriProvider->MoveNext();
         iStopped = false;
         Signal();
     }
     iLock.Signal();
-    return ret;
 }
 
-TBool Filler::Prev(const Brx& aMode)
+void Filler::Prev(const Brx& aMode)
 {
     LOG(kMedia, "Filler::Prev(%.*s)\n", PBUF(aMode));
-    TBool ret = false;
     iLock.Wait();
     if (iActiveUriProvider != nullptr && iActiveUriProvider->Mode() == aMode) {
-        ret = iActiveUriProvider->MovePrevious();
+        iActiveUriProvider->MovePrevious();
         iStopped = false;
         Signal();
     }
     iLock.Signal();
-    return ret;
 }
 
 TBool Filler::IsStopped() const
@@ -223,7 +266,12 @@ void Filler::UpdateActiveUriProvider(const Brx& aMode)
     for (TUint i=0; i<iUriProviders.size(); i++) {
         UriProvider* uriProvider = iUriProviders[i];
         if (uriProvider->Mode() == aMode) {
+            if (prevUriProvider != nullptr) {
+                prevUriProvider->Interrupt(false);
+            }
+            iLockUriProvider.Wait();
             iActiveUriProvider = uriProvider;
+            iLockUriProvider.Signal();
             break;
         }
     }
@@ -237,6 +285,12 @@ void Filler::UpdateActiveUriProvider(const Brx& aMode)
 TUint Filler::StopLocked()
 {
     LOG(kMedia, "Filler::StopLocked iStopped=%u\n", iStopped);
+    {
+        AutoMutex _(iLockUriProvider);
+        if (iActiveUriProvider != nullptr) {
+            iActiveUriProvider->Interrupt(false);
+        }
+    }
     if (iPendingHaltId == MsgHalt::kIdInvalid) {
         iPendingHaltId = ++iNextHaltId;
     }
@@ -295,30 +349,29 @@ void Filler::Run()
             /* assume that if the uri provider has returned a track then ProtocolManager
                 will call OutputTrack, causing Stopper to later call iStreamPlayObserver */
             iPrefetchTrackId = kPrefetchTrackIdInvalid;
+            if (iChangedMode) {
+                const auto& modeInfo = iActiveUriProvider->ModeInfo();
+                iPipeline.Push(iMsgFactory.CreateMsgMode(iActiveUriProvider->Mode(),
+                                                         modeInfo,
+                                                         iActiveUriProvider->ClockPullers(),
+                                                         iActiveUriProvider->ModeTransportControls()));
+                if (!modeInfo.SupportsLatency()) {
+                    iPipeline.Push(iMsgFactory.CreateMsgDelay(iDefaultDelay));
+                }
+                iChangedMode = false;
+            }
             if (iTrackPlayStatus == ePlayNo) {
-                iChangedMode = true;
                 iStopped = true;
                 iLock.Signal();
-                iPipeline.Push(iMsgFactory.CreateMsgMode(Brn("null"), false, ModeClockPullers(), false, false));
                 iPipeline.Push(iMsgFactory.CreateMsgTrack(*iNullTrack));
                 iPipelineIdTracker.AddStream(iNullTrack->Id(), NullTrackStreamHandler::kNullTrackStreamId, false /* play later */);
                 iPipeline.Push(iMsgFactory.CreateMsgEncodedStream(Brx::Empty(), Brx::Empty(), 0, 0, NullTrackStreamHandler::kNullTrackStreamId, false /* not seekable */, true /* live */, Multiroom::Forbidden, &iNullTrackStreamHandler));
                 iPipeline.Push(iMsgFactory.CreateMsgMetaText(Brx::Empty()));
-                iPipeline.Push(iMsgFactory.CreateMsgDelay(iDefaultDelay));
             }
             else {
                 iLock.Signal();
                 iUriStreamer->Interrupt(false);
                 iLock.Wait();
-                if (iChangedMode) {
-                    const TBool supportsLatency = iActiveUriProvider->SupportsLatency();
-                    iPipeline.Push(iMsgFactory.CreateMsgMode(iActiveUriProvider->Mode(), supportsLatency, iActiveUriProvider->ClockPullers(),
-                                                             iActiveUriProvider->SupportsNext(), iActiveUriProvider->SupportsPrev()));
-                    if (!supportsLatency) {
-                        iPipeline.Push(iMsgFactory.CreateMsgDelay(iDefaultDelay));
-                    }
-                    iChangedMode = false;
-                }
                 iWaitingForAudio = true;
                 iNoAudioBeforeNextTrack = false;
                 iLock.Signal();

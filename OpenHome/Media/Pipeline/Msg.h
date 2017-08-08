@@ -3,6 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
+#include <OpenHome/Functor.h>
 #include <OpenHome/Private/Fifo.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Stream.h>
@@ -320,17 +321,29 @@ class ModeInfo
 {
     friend class MsgMode;
 public:
+    inline ModeInfo();
+    inline ModeInfo(TBool aSupportsLatency);
+    inline void SetSupportsLatency(TBool aSupportsLatency);
+    inline void SetSupportsNextPrev(TBool aSupportsNext, TBool aSupportsPrev);
+    inline void SetSupportsRepeatRandom(TBool aSupportsRepeat, TBool aSupportsRandom);
+    inline void SetRampDurations(TBool aPauseResumeLong, TBool aSkipLong);
     inline TBool SupportsLatency() const;
     inline TBool SupportsNext() const;
     inline TBool SupportsPrev() const;
+    inline TBool SupportsRepeat() const;
+    inline TBool SupportsRandom() const;
+    inline TBool RampPauseResumeLong() const;
+    inline TBool RampSkipLong() const;
 private:
-    ModeInfo();
-    void Set(TBool aSupportsLatency, TBool aSupportsNext, TBool aSupportsPrev);
     void Clear();
 private:
     TBool iSupportsLatency;
     TBool iSupportsNext;
     TBool iSupportsPrev;
+    TBool iSupportsRepeat;
+    TBool iSupportsRandom;
+    TBool iRampPauseResumeLong;
+    TBool iRampSkipLong;
 };
 
 class IClockPuller;
@@ -348,6 +361,34 @@ private:
     IClockPuller* iPipelineBuffer;
 };
 
+class ModeTransportControls
+{
+    friend class MsgMode;
+public:
+    ModeTransportControls();
+    inline void SetPlay(Functor aPlay);
+    inline void SetPause(Functor aPause);
+    inline void SetStop(Functor aStop);
+    inline void SetNext(Functor aNext);
+    inline void SetPrev(Functor aPrev);
+    inline void SetSeek(FunctorGeneric<TUint> aSeek);
+    inline Functor Play() const;
+    inline Functor Pause() const;
+    inline Functor Stop() const;
+    inline Functor Next() const;
+    inline Functor Prev() const;
+    inline FunctorGeneric<TUint> Seek() const;
+private:
+    void Clear();
+private:
+    Functor iPlay;
+    Functor iPause;
+    Functor iStop;
+    Functor iNext;
+    Functor iPrev;
+    FunctorGeneric<TUint> iSeek;
+};
+
 class MsgMode : public Msg
 {
     friend class MsgFactory;
@@ -356,8 +397,11 @@ public:
     const Brx& Mode() const;
     const ModeInfo& Info() const;
     const ModeClockPullers& ClockPullers() const;
+    const ModeTransportControls& TransportControls() const;
 private:
-    void Initialise(const Brx& aMode, TBool aSupportsLatency, ModeClockPullers aClockPullers, TBool aSupportsNext, TBool aSupportsPrev);
+    void Initialise(const Brx& aMode, const ModeInfo& aInfo,
+                    ModeClockPullers aClockPullers,
+                    const ModeTransportControls& aTransportControls);
 private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
@@ -365,6 +409,7 @@ private:
     BwsMode iMode;
     ModeInfo iInfo;
     ModeClockPullers iClockPullers;
+    ModeTransportControls iTransportControls;
 };
 
 class MsgTrack : public Msg
@@ -997,14 +1042,8 @@ public:
     void Clear();
     TUint NumMsgs() const; // test/debug use only
 private:
-    void CheckMsgNotQueued(Msg* aMsg) const;
-    Msg* DequeueLocked();
-private:
     mutable Mutex iLock;
     Semaphore iSem;
-    Msg* iHead;
-    Msg* iTail;
-    TUint iNumMsgs;
 };
 
 class MsgReservoir
@@ -1540,6 +1579,7 @@ class TrackFactory
 public:
     TrackFactory(IInfoAggregator& aInfoAggregator, TUint aTrackCount);
     Track* CreateTrack(const Brx& aUri, const Brx& aMetaData);
+    Track* CreateNullTrack();
 private:
     Allocator<Track> iAllocatorTrack;
     Mutex iLock;
@@ -1597,7 +1637,8 @@ class MsgFactory
 public:
     MsgFactory(IInfoAggregator& aInfoAggregator, const MsgFactoryInitParams& aInitParams);
 
-    MsgMode* CreateMsgMode(const Brx& aMode, TBool aSupportsLatency, ModeClockPullers aClockPullers, TBool aSupportsNext, TBool aSupportsPrev);
+    MsgMode* CreateMsgMode(const Brx& aMode, const ModeInfo& aInfo, ModeClockPullers aClockPullers, const ModeTransportControls& aTransportControls);
+    MsgMode* CreateMsgMode(const Brx& aMode);
     MsgTrack* CreateMsgTrack(Media::Track& aTrack, TBool aStartOfStream = true);
     MsgDrain* CreateMsgDrain(Functor aCallback);
     MsgDelay* CreateMsgDelay(TUint aDelayJiffies);

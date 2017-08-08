@@ -26,6 +26,9 @@
 #include <OpenHome/Av/VolumeManager.h>
 #include <OpenHome/Web/WebAppFramework.h>
 #include <OpenHome/Av/RebootHandler.h>
+#include <OpenHome/Net/Odp/DviServerOdp.h>
+
+#include <memory>
 
 namespace OpenHome {
     class PowerManager;
@@ -43,6 +46,7 @@ namespace Media {
 namespace Configuration {
     class ConfigRamStore;
     class ConfigManager;
+    class StoreFileWriterJson;
 }
 namespace Web {
     class ConfigAppBase;
@@ -100,12 +104,14 @@ class TestMediaPlayer : private Net::IResourceManager, public IPowerHandler/*, p
 private:
     static const Brn kSongcastSenderIconFileName;
     static const TUint kTrackCount = 1200;
+    static const TUint kNumOdpSessions = 4;
     static const TUint kMinWebUiResourceThreads = 4;
     static const TUint kMaxWebUiTabs = 4;
     static const TUint kUiSendQueueSize = 100;
 public:
     TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                     const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
+                    const TChar* aStoreFile, TUint aOdpPort=0,
                     TUint aMinWebUiResourceThreads=kMinWebUiResourceThreads, TUint aMaxWebUiTabs=kMaxWebUiTabs, TUint aUiSendQueueSize=kUiSendQueueSize);
     virtual ~TestMediaPlayer();
     void SetPullableClock(Media::IPullableClock& aPullableClock);
@@ -166,6 +172,9 @@ private:
     Av::FriendlyNameAttributeUpdater* iFnUpdaterUpnpAv;
     RamStore* iRamStore;
     Configuration::ConfigRamStore* iConfigRamStore;
+    Configuration::StoreFileWriterJson* iStoreFileWriter;
+    TUint iOdpPort;
+    std::unique_ptr<OpenHome::Net::DviServerOdp> iServerOdp;
     TUint iMinWebUiResourceThreads;
     TUint iMaxWebUiTabs;
     TUint iUiSendQueueSize;
@@ -188,6 +197,8 @@ public:
     const TestFramework::OptionString& Qobuz() const;
     const TestFramework::OptionString& UserAgent() const;
     const TestFramework::OptionBool& ClockPull() const;
+    const TestFramework::OptionString& StoreFile() const;
+    const TestFramework::OptionUint& OptionOdp() const;
 private:
     TestFramework::OptionParser iParser;
     TestFramework::OptionString iOptionRoom;
@@ -201,6 +212,8 @@ private:
     TestFramework::OptionString iOptionQobuz;
     TestFramework::OptionString iOptionUserAgent;
     TestFramework::OptionBool iOptionClockPull;
+    TestFramework::OptionString iOptionStoreFile;
+    TestFramework::OptionUint iOptionOdp;
 };
 
 // Not very nice, but only to allow reusable test functions.

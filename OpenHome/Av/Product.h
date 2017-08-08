@@ -12,6 +12,7 @@
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Av/Source.h>
+#include <OpenHome/Av/TransportControl.h>
 
 #include <map>
 #include <vector>
@@ -29,7 +30,12 @@ class IProduct
 {
 public:
     virtual ~IProduct() {}
-    virtual void Activate(ISource& aSource) = 0;
+    /*
+     * Must only activate the given source if it is not already active.
+     *
+     * If given source is already active, should do nothing.
+     */
+    virtual void ActivateIfNotActive(ISource& aSource, TBool aPrefetchAllowed) = 0;
     virtual void NotifySourceChanged(ISource& aSource) = 0;
 };
 
@@ -79,12 +85,14 @@ private:
 
 class Product : private IProduct
               , public IProductNameObservable
+              , public ITransportActivator
               , private IStandbyHandler
               , private INonCopyable
 {
 private:
     static const Brn kKeyLastSelectedSource;
     static const TUint kCurrentSourceNone;
+    static const TBool kPrefetchAllowedDefault = true;
 public:
     static const Brn kConfigIdRoomBase;
     static const Brn kConfigIdNameBase;
@@ -134,11 +142,14 @@ private:
     void AutoPlayChanged(Configuration::KeyValuePair<TUint>& aKvp);
     void CurrentAdapterChanged();
     void GetUri(const Brx& aStaticDataKey, Bwx& aUri);
+    void StandbyDisableNoSourceSwitch();
 private: // from IProduct
-    void Activate(ISource& aSource) override;
+    void ActivateIfNotActive(ISource& aSource, TBool aPrefetchAllowed) override;
     void NotifySourceChanged(ISource& aSource) override;
 public: // from IProductNameObservable
     void AddNameObserver(IProductNameObserver& aObserver) override;
+public: // from ITransportActivator
+    TBool TryActivate(const Brx& aMode) override;
 private: // from IStandbyHandler
     void StandbyEnabled() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;

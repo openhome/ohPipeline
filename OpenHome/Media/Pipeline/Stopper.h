@@ -42,7 +42,7 @@ class Stopper : public IPipelineElementUpstream, private IMsgProcessor, private 
     friend class SuiteStopper;
 public:
     Stopper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, IStopperObserver& aObserver,
-            IPipelineElementObserverThread& aObserverThread, TUint aRampDuration);
+            IPipelineElementObserverThread& aObserverThread, TUint aRampJiffiesLong, TUint aRampJiffiesShort);
     virtual ~Stopper();
     void SetStreamPlayObserver(IStreamPlayObserver& aObserver);
     void Play();
@@ -114,7 +114,9 @@ private:
     Semaphore iSem;
     IStreamPlayObserver* iStreamPlayObserver;
     EState iState;
-    const TUint iRampDuration;
+    const TUint iRampJiffiesLong;
+    const TUint iRampJiffiesShort;
+    TUint iRampJiffies;
     TUint iRemainingRampSize;
     TUint iCurrentRampValue;
     MsgQueueLite iQueue; // empty unless we have to split a msg during a ramp

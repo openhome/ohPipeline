@@ -67,9 +67,11 @@ AnimatorBasic::~AnimatorBasic()
 void AnimatorBasic::DriverThread()
 {
     // pull the first (assumed non-audio) msg here so that any delays populating the pipeline don't affect timing calculations below.
-    Msg* msg = iPipeline.Pull();
-    ASSERT(msg != nullptr);
-    (void)msg->Process(*this);
+    {
+        Msg* msg = iPipeline.Pull();
+        ASSERT(msg != nullptr);
+        (void)msg->Process(*this);
+    }
 
     TUint64 now = OsTimeInUs(iOsCtx);
     iLastTimeUs = now;
@@ -211,6 +213,12 @@ void AnimatorBasic::PullClock(TUint aMultiplier)
     }
     iPullValue = aMultiplier;
     LOG(kPipeline, "AnimatorBasic::PullClock now at %u%%\n", (TUint)((iPullValue * 100) / IPullableClock::kNominalFreq));
+}
+
+TUint AnimatorBasic::MaxPull() const
+{
+    static const TUint kMaxPull = (kNominalFreq / 100) * 4; // 4% of nominal
+    return kMaxPull;
 }
 
 TUint AnimatorBasic::PipelineAnimatorBufferJiffies()

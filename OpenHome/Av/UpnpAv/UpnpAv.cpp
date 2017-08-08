@@ -34,7 +34,7 @@ const TChar* SourceFactory::kSourceTypeUpnpAv = "UpnpAv";
 const Brn SourceFactory::kSourceNameUpnpAv("UPnP AV");
 
 SourceUpnpAv::SourceUpnpAv(IMediaPlayer& aMediaPlayer, Net::DvDevice& aDevice, UriProviderRepeater& aUriProvider, Media::MimeTypeList& aMimeTypeList)
-    : Source(SourceFactory::kSourceNameUpnpAv, SourceFactory::kSourceTypeUpnpAv, aMediaPlayer.Pipeline(), aMediaPlayer.PowerManager(), false)
+    : Source(SourceFactory::kSourceNameUpnpAv, SourceFactory::kSourceTypeUpnpAv, aMediaPlayer.Pipeline(), false)
     , iLock("UPA1")
     , iActivationLock("UPA2")
     , iDevice(aDevice)
@@ -42,11 +42,17 @@ SourceUpnpAv::SourceUpnpAv(IMediaPlayer& aMediaPlayer, Net::DvDevice& aDevice, U
     , iTrack(nullptr)
     , iTransportState(Media::EPipelineStopped)
     , iPipelineTransportState(Media::EPipelineStopped)
-    , iNoPipelinePrefetchOnActivation(false)
     , iIgnorePipelineStateUpdates(false)
 {
     iStreamId.store(IPipelineIdProvider::kStreamIdInvalid);
     ASSERT(iStreamId.is_lock_free());
+
+    iUriProvider.SetTransportPlay(MakeFunctor(*this, &SourceUpnpAv::Play));
+    iUriProvider.SetTransportPause(MakeFunctor(*this, &SourceUpnpAv::Pause));
+    iUriProvider.SetTransportStop(MakeFunctor(*this, &SourceUpnpAv::Stop));
+    iUriProvider.SetTransportNext(MakeFunctor(*this, &SourceUpnpAv::Next));
+    iUriProvider.SetTransportPrev(MakeFunctor(*this, &SourceUpnpAv::Prev));
+    iUriProvider.SetTransportSeek(MakeFunctorGeneric<TUint>(*this, &SourceUpnpAv::Seek));
 
     iProviderAvTransport = new ProviderAvTransport(iDevice, aMediaPlayer.Env(), *this);
     iProviderConnectionManager = new ProviderConnectionManager(iDevice);
@@ -67,16 +73,6 @@ SourceUpnpAv::~SourceUpnpAv()
     }
 }
 
-void SourceUpnpAv::EnsureActive()
-{
-    AutoMutex a(iActivationLock);
-    iNoPipelinePrefetchOnActivation = true;
-    if (!IsActive()) {
-        DoActivate();
-    }
-    iNoPipelinePrefetchOnActivation = false;
-}
-
 void SourceUpnpAv::NotifyState(EPipelineState aState)
 {
     if (!iIgnorePipelineStateUpdates) {
@@ -84,10 +80,10 @@ void SourceUpnpAv::NotifyState(EPipelineState aState)
     }
 }
 
-void SourceUpnpAv::Activate(TBool aAutoPlay)
+void SourceUpnpAv::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
-    SourceBase::Activate(aAutoPlay);
-    if (!iNoPipelinePrefetchOnActivation) {
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
+    if (aPrefetchAllowed) {
         iLock.Wait();
         const TUint trackId = (iTrack==nullptr? Track::kIdNone : iTrack->Id());
         iLock.Signal();
@@ -110,6 +106,15 @@ void SourceUpnpAv::Deactivate()
     Source::Deactivate();
 }
 
+TBool SourceUpnpAv::TryActivateNoPrefetch(const Brx& aMode)
+{
+    if (iUriProvider.Mode() != aMode) {
+        return false;
+    }
+    EnsureActiveNoPrefetch();
+    return true;
+}
+
 void SourceUpnpAv::StandbyEnabled()
 {
     Stop();
@@ -122,7 +127,7 @@ void SourceUpnpAv::PipelineStopped()
 
 void SourceUpnpAv::SetTrack(const Brx& aUri, const Brx& aMetaData)
 {
-    EnsureActive();
+    EnsureActiveNoPrefetch();
     TBool playNow = false;
     TUint trackId;
     {
@@ -154,7 +159,7 @@ void SourceUpnpAv::SetTrack(const Brx& aUri, const Brx& aMetaData)
 
 void SourceUpnpAv::Play()
 {
-    EnsureActive();
+    EnsureActiveNoPrefetch();
     TBool restartTrack;
     TUint trackId;
     {
@@ -223,7 +228,9 @@ void SourceUpnpAv::NotifyPipelineState(EPipelineState aState)
     }
 }
 
-void SourceUpnpAv::NotifyMode(const Brx& /*aMode*/, const ModeInfo& /*aInfo*/)
+void SourceUpnpAv::NotifyMode(const Brx& /*aMode*/,
+                              const ModeInfo& /*aInfo*/,
+                              const ModeTransportControls& /*aTransportControls*/)
 {
 }
 

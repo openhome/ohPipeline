@@ -177,10 +177,23 @@ void ProviderAvTransport::SetAVTransportURI(IDvInvocation& aInvocation, TUint aI
                 }
             }
         }
-        iCurrentTrackUri.Replace(aCurrentURI);
-        iCurrentTrackMetaData.Replace(metaData);
-        iAvTransportUri.Replace(iCurrentTrackUri);
-        iAvTransportUriMetaData.Replace(iCurrentTrackMetaData);
+        try {
+            iCurrentTrackUri.ReplaceThrow(aCurrentURI);
+            iAvTransportUri.ReplaceThrow(iCurrentTrackUri);
+        }
+        catch (BufferOverflow&) {
+            iCurrentTrackUri.Replace(Brx::Empty());
+            iAvTransportUri.Replace(Brx::Empty());
+            throw;
+        }
+        try {
+            iCurrentTrackMetaData.ReplaceThrow(metaData);
+            iAvTransportUriMetaData.ReplaceThrow(iCurrentTrackMetaData);
+        }
+        catch (BufferOverflow&) {
+            iCurrentTrackMetaData.Replace(Brx::Empty());
+            iAvTransportUriMetaData.Replace(Brx::Empty());
+        }
         iCurrentMediaCategory.Set(kCurrentMediaCategoryTrackAware);
         iPlaybackStorageMedium.Set(kPlaybackStorageMediumNetwork);
         iNumberOfTracks = 1;
@@ -525,7 +538,9 @@ void ProviderAvTransport::NotifyPipelineState(Media::EPipelineState aState)
     iLock.Signal();
 }
 
-void ProviderAvTransport::NotifyMode(const Brx& /*aMode*/, const Media::ModeInfo& /*aInfo*/)
+void ProviderAvTransport::NotifyMode(const Brx& /*aMode*/,
+                                     const Media::ModeInfo& /*aInfo*/,
+                                     const Media::ModeTransportControls& /*aTransportControls*/)
 {
 }
 

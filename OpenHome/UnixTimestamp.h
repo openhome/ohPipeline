@@ -22,7 +22,8 @@ public:
 
 class UnixTimestamp : public IUnixTimestamp
 {
-    static const TUint kSecsBetweenNtpAndUnixEpoch = 2208988800; // secs between 1900 and 1970
+    static const TUint kSecsBetweenNtpAndUnixEpoch;
+    static const TUint kTimeResyncFreqMs;
 public:
     UnixTimestamp(Environment& aEnv);
     ~UnixTimestamp();
@@ -35,8 +36,10 @@ private:
     Environment& iEnv;
     Mutex iLock;
     NtpClient iNtpClient;
+    NtpTimestamp iNtpTimestamp;
     Timer* iTimer;
     TBool iTimestampValid;
+    TBool iTimestampRenew;
     TUint iStartSeconds;
     TUint iStartMs;
 };

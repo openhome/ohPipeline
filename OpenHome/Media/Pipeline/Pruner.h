@@ -33,6 +33,7 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgTrack* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgHalt* aMsg) override;
+    Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;

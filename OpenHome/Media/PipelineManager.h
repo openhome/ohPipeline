@@ -44,6 +44,13 @@ private:
     const TUint iOpenHomeMax;
 };
 
+class IModeObserver
+{
+public:
+    virtual void NotifyModeAdded(const Brx& aMode) = 0;
+    virtual ~IModeObserver() {}
+};
+
 /**
  * External interface to the pipeline.
  */
@@ -139,6 +146,7 @@ public:
      */
     void RemoveObserver(IPipelineObserver& aObserver);
     void AddObserver(ITrackObserver& aObserver);
+    void AddObserver(IModeObserver& aObserver);
     /**
      * Retrieve a sample reporter.
      *
@@ -149,12 +157,12 @@ public:
     /**
      * Retrieve a track change observer.
      *
-     * @return  ITrackChangeObserver that can be notified out-of-band that the
+     * @return  ISpotifyTrackObserver that can be notified out-of-band that the
      *          current track has changed, allowing IPipelinePropertyObservers
      *          to be updated without requiring a MsgTrack to be passed down
      *          the pipeline.
      */
-    ITrackChangeObserver& TrackChangeObserver() const;
+    ISpotifyTrackObserver& SpotifyTrackObserver() const;
     /**
      * Instruct the pipeline what should be streamed next.
      *
@@ -174,6 +182,14 @@ public:
      * to be played.
      */
     void Play();
+    /**
+     * Halt the pipeline, instruct it what to play next then restart.
+     *
+     * @param[in] aMode            Identifier for the UriProvider
+     * @param[in] aCommand         Mode-specific string, telling the UriProvider
+     *                             what to play.
+     */
+    void PlayAs(const Brx& aMode, const Brx& aCommand);
     /**
      * Pause the pipeline.
      *
@@ -262,7 +278,8 @@ private: // from IAttenuator
     void SetAttenuation(TUint aAttenuation) override;
 private: // from IPipelineObserver
     void NotifyPipelineState(EPipelineState aState) override;
-    void NotifyMode(const Brx& aMode, const ModeInfo& aInfo) override;
+    void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,
+                    const ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
@@ -299,6 +316,7 @@ private:
     IdManager* iIdManager;
     std::vector<UriProvider*> iUriProviders;
     std::vector<IPipelineObserver*> iObservers;
+    IModeObserver* iModeObserver;
     EPipelineState iPipelineState;
     Semaphore iPipelineStoppedSem;
     BwsMode iMode;

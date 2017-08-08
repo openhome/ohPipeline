@@ -20,7 +20,11 @@ const Brn UriProviderPlaylist::kCommandId("id");
 const Brn UriProviderPlaylist::kCommandIndex("index");
 
 UriProviderPlaylist::UriProviderPlaylist(ITrackDatabaseReader& aDatabase, PipelineManager& aPipeline, ITrackDatabaseObserver& aObserver)
-    : UriProvider("Playlist", Latency::NotSupported, Next::Supported, Prev::Supported)
+    : UriProvider("Playlist",
+                  Latency::NotSupported,
+                  Next::Supported, Prev::Supported,
+                  Repeat::Supported, Random::Supported,
+                  RampPauseResume::Long, RampSkip::Short)
     , iLock("UPPL")
     , iDatabase(aDatabase)
     , iIdManager(aPipeline)
@@ -106,7 +110,7 @@ TUint UriProviderPlaylist::CurrentTrackId() const
     return id;
 }
 
-TBool UriProviderPlaylist::MoveNext()
+void UriProviderPlaylist::MoveNext()
 {
     AutoMutex a(iLock);
     if (iPending != nullptr) {
@@ -125,10 +129,9 @@ TBool UriProviderPlaylist::MoveNext()
         iPendingCanPlay = (iPending == nullptr? ePlayNo : ePlayLater);
     }
     iPendingDirection = eForwards;
-    return (iPendingCanPlay == ePlayYes);
 }
 
-TBool UriProviderPlaylist::MovePrevious()
+void UriProviderPlaylist::MovePrevious()
 {
     AutoMutex a(iLock);
     if (iPending != nullptr) {
@@ -147,10 +150,9 @@ TBool UriProviderPlaylist::MovePrevious()
         iPendingCanPlay = (iPending == nullptr? ePlayNo : ePlayLater);
     }
     iPendingDirection = eBackwards;
-    return (iPendingCanPlay == ePlayYes);
 }
 
-TBool UriProviderPlaylist::MoveTo(const Brx& aCommand)
+void UriProviderPlaylist::MoveTo(const Brx& aCommand)
 {
     Track* track = nullptr;
     if (aCommand.BeginsWith(kCommandId)) {
@@ -170,7 +172,6 @@ TBool UriProviderPlaylist::MoveTo(const Brx& aCommand)
     iPending = track;
     iPendingCanPlay = ePlayYes;
     iPendingDirection = eJumpTo;
-    return true;
 }
 
 void UriProviderPlaylist::DoBegin(TUint aTrackId, EStreamPlay aPendingCanPlay)
@@ -307,7 +308,9 @@ void UriProviderPlaylist::NotifyPipelineState(EPipelineState /*aState*/)
 {
 }
 
-void UriProviderPlaylist::NotifyMode(const Brx& /*aMode*/, const ModeInfo& /*aInfo*/)
+void UriProviderPlaylist::NotifyMode(const Brx& /*aMode*/,
+                                     const Media::ModeInfo& /*aInfo*/,
+                                     const Media::ModeTransportControls& /*aTransportControls*/)
 {
 }
 

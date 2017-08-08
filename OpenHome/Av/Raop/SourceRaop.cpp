@@ -76,7 +76,7 @@ ModeClockPullers UriProviderRaop::ClockPullers()
 const Brn SourceRaop::kRaopPrefix("raop://");
 
 SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aUdpThreadPriority)
-    : Source(SourceFactory::kSourceNameRaop, SourceFactory::kSourceTypeRaop, aMediaPlayer.Pipeline(), aMediaPlayer.PowerManager(), false)
+    : Source(SourceFactory::kSourceNameRaop, SourceFactory::kSourceTypeRaop, aMediaPlayer.Pipeline(), false)
     , iEnv(aMediaPlayer.Env())
     , iLock("SRAO")
     , iUriProvider(aUriProvider)
@@ -139,16 +139,18 @@ IRaopDiscovery& SourceRaop::Discovery()
     return *iRaopDiscovery;
 }
 
-void SourceRaop::Activate(TBool aAutoPlay)
+void SourceRaop::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
-    SourceBase::Activate(aAutoPlay);
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
     iLock.Wait();
     iTrackPosSeconds = 0;
 
     if (iSessionActive) {
         StartNewTrack();
         iLock.Signal();
-        iPipeline.Play();
+        if (aPrefetchAllowed) {
+            iPipeline.Play();
+        }
     }
     else {
         if (iTrack != nullptr) {
@@ -159,7 +161,9 @@ void SourceRaop::Activate(TBool aAutoPlay)
         iTrack = iUriProvider.SetTrack(iNextTrackUri, iDidlLite);
         const TUint trackId = (iTrack==nullptr? Track::kIdNone : iTrack->Id());
         iLock.Signal();
-        iPipeline.StopPrefetch(iUriProvider.Mode(), trackId);
+        if (aPrefetchAllowed) {
+            iPipeline.StopPrefetch(iUriProvider.Mode(), trackId);
+        }
     }
 }
 
@@ -170,6 +174,15 @@ void SourceRaop::Deactivate()
     iSessionActive = false; // If switching away from Net Aux, don't want to allow session to be re-initialised without user explicitly re-selecting device from a control point.
     iLock.Signal();
     Source::Deactivate();
+}
+
+TBool SourceRaop::TryActivateNoPrefetch(const Brx& aMode)
+{
+    if (iUriProvider.Mode() != aMode) {
+        return false;
+    }
+    EnsureActiveNoPrefetch();
+    return true;
 }
 
 void SourceRaop::StandbyEnabled()
@@ -290,22 +303,18 @@ void SourceRaop::NotifySessionWait(TUint aSeq, TUint aTime)
     // exit its Stream() method, so SendFlush() will return
     // MsgFlush::kIdInvalid (as it can no longer send a flush).
 
-    TUint flushId = MsgFlush::kIdInvalid;
-    {
-        AutoMutex a(iLock);
-        if (IsActive() && iSessionActive) {
-            // Possible race condition here - MsgFlush could pass Waiter before
-            // iPipeline::Wait is called.
-            flushId = iProtocol->SendFlush(aSeq, aTime);
-            if (flushId != MsgFlush::kIdInvalid) {
-                iTransportState = Media::EPipelineWaiting;
-            }
+    AutoMutex a(iLock);
+    if (IsActive() && iSessionActive) {
+        // Possible race condition here - MsgFlush could pass Waiter before
+        // iPipeline::Wait is called.
+        const TUint flushId = iProtocol->SendFlushStart(aSeq, aTime);
+        if (flushId != MsgFlush::kIdInvalid) {
+            iTransportState = Media::EPipelineWaiting;
+            iPipeline.Wait(flushId);
+            iProtocol->SendFlushEnd();
         }
     }
 
-    if (flushId != MsgFlush::kIdInvalid) {
-        iPipeline.Wait(flushId);
-    }
     LOG(kMedia, "<SourceRaop::NotifySessionWait\n");
 }
 
@@ -316,7 +325,9 @@ void SourceRaop::NotifyPipelineState(Media::EPipelineState aState)
     iLock.Signal();
 }
 
-void SourceRaop::NotifyMode(const Brx& /*aMode*/, const ModeInfo& /*aInfo*/)
+void SourceRaop::NotifyMode(const Brx& /*aMode*/,
+                            const ModeInfo& /*aInfo*/,
+                            const ModeTransportControls& /*aTransportControls*/)
 {
 }
 
@@ -375,9 +386,7 @@ void SourceRaop::SessionStartThread()
 
         LOG(kMedia, ">SourceRaop::SessionStartThread\n");
         // Setup pipeline (taking media player out of standby if required).
-        if (!IsActive()) {
-            DoActivate();
-        }
+        ActivateIfNotActive();
         {
             AutoMutex a(iLock);
             StartNewTrack();

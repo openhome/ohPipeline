@@ -704,7 +704,6 @@ template <TUint MaxFrames> void Repairer<MaxFrames>::TimerRepairExpired()
         iResendConst.push_back(range);
         rangeCount++;
 
-
         // phase 2 - if there is room add the missing frames in the backlog
         for (TUint i=0; rangeCount < kMaxMissedRanges && i < iRepairFrames.size(); i++) {
             IRepairable* repairable = iRepairFrames[i];
@@ -712,7 +711,7 @@ template <TUint MaxFrames> void Repairer<MaxFrames>::TimerRepairExpired()
             end = static_cast<TUint16>(repairable->Frame());
 
             if (end-start > 0) {
-                ResendRange* range = iFifoResend.Read();
+                range = iFifoResend.Read();
                 range->Set(start, end-1);
                 iResend.push_back(range);
                 iResendConst.push_back(range);
@@ -757,7 +756,8 @@ private:
 public:
     ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId);
     ~ProtocolRaop();
-    TUint SendFlush(TUint aSeq, TUint aTime);
+    TUint SendFlushStart(TUint aSeq, TUint aTime); // if returns valid flush id, internal mutex is locked => call SendFlushEnd later.
+    void SendFlushEnd();
 private: // from Protocol
     void Interrupt(TBool aInterrupt) override;
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;

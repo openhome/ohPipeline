@@ -33,16 +33,17 @@ public: // from UriProvider
     void BeginLater(TUint aTrackId) override;
     Media::EStreamPlay GetNext(Media::Track*& aTrack) override;
     TUint CurrentTrackId() const override;
-    TBool MoveNext() override;
-    TBool MovePrevious() override;
-    TBool MoveTo(const Brx& aCommand) override;
+    void MoveNext() override;
+    void MovePrevious() override;
+    void MoveTo(const Brx& aCommand) override;
 private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
     void NotifyAllDeleted() override;
 private: // from Media::IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
-    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo) override;
+    void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
+                    const Media::ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Media::Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;

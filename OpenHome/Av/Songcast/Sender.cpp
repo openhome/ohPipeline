@@ -189,12 +189,12 @@ Msg* Sender::ProcessMsg(MsgStreamInterrupted* aMsg)
 Msg* Sender::ProcessMsg(MsgHalt* aMsg)
 {
     SendPendingAudio(true);
+    iOhmSender->NotifyAudioPlaying(false);
     return aMsg;
 }
 
 Msg* Sender::ProcessMsg(MsgFlush* aMsg)
 {
-    ASSERTS(); // don't expect this msg at this stage of the pipeline
     return aMsg;
 }
 
@@ -223,6 +223,7 @@ Msg* Sender::ProcessMsg(MsgDecodedStream* aMsg)
     iOhmSenderDriver->SetAudioFormat(iSampleRate, streamInfo.BitRate(), std::min(numChannels, (TUint)2),
                                      bitDepth, streamInfo.Lossless(), streamInfo.CodecName(),
                                      streamInfo.SampleStart());
+    iOhmSender->NotifyBroadcastAllowed(!iStreamForbidden);
 
     return aMsg;
 }
@@ -303,6 +304,7 @@ void Sender::SendPendingAudio(TBool aHalt)
     iOhmSenderDriver->SendAudio(msg, aHalt);
     iAudioBuf = nullptr;
     iPendingAudio.clear();
+    iOhmSender->NotifyAudioPlaying(true);
 }
 
 void Sender::ConfigEnabledChanged(KeyValuePair<TUint>& aStringId)

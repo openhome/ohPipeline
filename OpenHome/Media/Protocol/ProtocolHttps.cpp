@@ -124,7 +124,7 @@ ProtocolStreamResult ProtocolHttps::Stream(const Brx& aUri)
     }
 
     if (!Connect()) {
-        LOG2(kMedia, kError, "ProtocolHttps::Stream(%.*s) - connect failure\n", PBUF(aUri));
+        LOG_ERROR(kMedia, "ProtocolHttps::Stream(%.*s) - connect failure\n", PBUF(aUri));
         return EProtocolStreamErrorUnrecoverable;
     }
     ProtocolStreamResult res = DoStream();
@@ -147,9 +147,9 @@ ProtocolGetResult ProtocolHttps::Get(IWriter& aWriter, const Brx& aUri, TUint64 
         return EProtocolGetErrorNotSupported;
     }
     if (!Connect()) {
-        LOG2(kMedia, kError, "ProtocolHttps::Get - connect failed - ");
-        LOG2(kMedia, kError, iUri.AbsoluteUri());
-        LOG2(kMedia, kError, "\n");
+        LOG_ERROR(kMedia, "ProtocolHttps::Get - connect failed - ");
+        LOG_ERROR(kMedia, iUri.AbsoluteUri());
+        LOG_ERROR(kMedia, "\n");
         return EProtocolGetErrorUnrecoverable;
     }
 
@@ -239,7 +239,7 @@ ProtocolStreamResult ProtocolHttps::DoStream()
         iWriterRequest.WriteFlush();
     }
     catch(WriterError&) {
-        LOG2(kMedia, kError, "ProtocolHttps::Stream writer error\n");
+        LOG_ERROR(kMedia, "ProtocolHttps::Stream writer error\n");
         return EProtocolStreamErrorUnrecoverable;
     }
 
@@ -282,7 +282,7 @@ ProtocolGetResult ProtocolHttps::DoGet(IWriter& aWriter, TUint64 aOffset, TUint 
         iWriterRequest.WriteFlush();
     }
     catch(WriterError&) {
-        LOG2(kMedia, kError, "ProtocolHttps::DoGet writer error\n");
+        LOG_ERROR(kMedia, "ProtocolHttps::DoGet writer error\n");
         return EProtocolGetErrorUnrecoverable;
     }
 

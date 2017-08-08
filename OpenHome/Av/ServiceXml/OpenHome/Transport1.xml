@@ -30,27 +30,33 @@
       <name>Stop</name>
     </action>
     <action>
-      <name>Next</name>
+      <name>SkipNext</name>
+    </action>
+    <action>
+      <name>SkipPrevious</name>
+    </action>
+    <action>
+      <name>SetRepeat</name>
       <argumentList>
         <argument>
-          <name>StreamId</name>
+          <name>Repeat</name>
           <direction>in</direction>
-          <relatedStateVariable>StreamId</relatedStateVariable>
+          <relatedStateVariable>Repeat</relatedStateVariable>
         </argument>
       </argumentList>
     </action>
     <action>
-      <name>Prev</name>
+      <name>SetShuffle</name>
       <argumentList>
         <argument>
-          <name>StreamId</name>
+          <name>Shuffle</name>
           <direction>in</direction>
-          <relatedStateVariable>StreamId</relatedStateVariable>
+          <relatedStateVariable>Shuffle</relatedStateVariable>
         </argument>
       </argumentList>
     </action>
     <action>
-      <name>SeekSecondsAbsolute</name>
+      <name>SeekSecondAbsolute</name>
       <argumentList>
         <argument>
           <name>StreamId</name>
@@ -58,14 +64,14 @@
           <relatedStateVariable>StreamId</relatedStateVariable>
         </argument>
         <argument>
-          <name>SecondsAbsolute</name>
+          <name>SecondAbsolute</name>
           <direction>in</direction>
           <relatedStateVariable>A_ARG_TYPE_uint</relatedStateVariable>
         </argument>
       </argumentList>
     </action>
     <action>
-      <name>SeekSecondsRelative</name>
+      <name>SeekSecondRelative</name>
       <argumentList>
         <argument>
           <name>StreamId</name>
@@ -73,7 +79,7 @@
           <relatedStateVariable>StreamId</relatedStateVariable>
         </argument>
         <argument>
-          <name>SecondsRelative</name>
+          <name>SecondRelative</name>
           <direction>in</direction>
           <relatedStateVariable>A_ARG_TYPE_int</relatedStateVariable>
         </argument>
@@ -100,57 +106,27 @@
       </argumentList>
     </action>
     <action>
-      <name>Counters</name>
-      <argumentList>
-        <argument>
-          <name>ModeCount</name>
-          <direction>out</direction>
-          <relatedStateVariable>ModeCount</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>TrackCount</name>
-          <direction>out</direction>
-          <relatedStateVariable>TrackCount</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>StreamCount</name>
-          <direction>out</direction>
-          <relatedStateVariable>StreamCount</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>MetatextCount</name>
-          <direction>out</direction>
-          <relatedStateVariable>MetatextCount</relatedStateVariable>
-        </argument>
-      </argumentList>
-    </action>
-    <action>
       <name>ModeInfo</name>
       <argumentList>
         <argument>
-          <name>NextAvailable</name>
+          <name>CanSkipNext</name>
           <direction>out</direction>
-          <relatedStateVariable>NextAvailable</relatedStateVariable>
+          <relatedStateVariable>CanSkipNext</relatedStateVariable>
         </argument>
         <argument>
-          <name>PrevAvailable</name>
+          <name>CanSkipPrevious</name>
           <direction>out</direction>
-          <relatedStateVariable>PrevAvailable</relatedStateVariable>
-        </argument>
-      </argumentList>
-    </action>
-    <action>
-      <name>TrackInfo</name>
-      <argumentList>
-        <argument>
-          <name>Uri</name>
-          <direction>out</direction>
-          <relatedStateVariable>A_ARG_TYPE_string</relatedStateVariable>
+          <relatedStateVariable>CanSkipPrevious</relatedStateVariable>
         </argument>
         <argument>
-          <name>Metadata</name>
+          <name>CanRepeat</name>
           <direction>out</direction>
-          <relatedStateVariable>A_ARG_TYPE_string</relatedStateVariable>
+          <relatedStateVariable>CanRepeat</relatedStateVariable>
+        </argument>
+        <argument>
+          <name>CanShuffle</name>
+          <direction>out</direction>
+          <relatedStateVariable>CanShuffle</relatedStateVariable>
         </argument>
       </argumentList>
     </action>
@@ -163,54 +139,14 @@
           <relatedStateVariable>StreamId</relatedStateVariable>
         </argument>
         <argument>
-          <name>Uri</name>
+          <name>CanSeek</name>
           <direction>out</direction>
-          <relatedStateVariable>A_ARG_TYPE_string</relatedStateVariable>
+          <relatedStateVariable>CanSeek</relatedStateVariable>
         </argument>
         <argument>
-          <name>Metadata</name>
+          <name>CanPause</name>
           <direction>out</direction>
-          <relatedStateVariable>A_ARG_TYPE_string</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>Seekable</name>
-          <direction>out</direction>
-          <relatedStateVariable>Seekable</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>Pausable</name>
-          <direction>out</direction>
-          <relatedStateVariable>Pausable</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>Duration</name>
-          <direction>out</direction>
-          <relatedStateVariable>Duration</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>BitRate</name>
-          <direction>out</direction>
-          <relatedStateVariable>BitRate</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>BitDepth</name>
-          <direction>out</direction>
-          <relatedStateVariable>BitDepth</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>SampleRate</name>
-          <direction>out</direction>
-          <relatedStateVariable>SampleRate</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>Lossless</name>
-          <direction>out</direction>
-          <relatedStateVariable>Lossless</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>CodecName</name>
-          <direction>out</direction>
-          <relatedStateVariable>CodecName</relatedStateVariable>
+          <relatedStateVariable>CanPause</relatedStateVariable>
         </argument>
       </argumentList>
     </action>
@@ -225,12 +161,22 @@
       </argumentList>
     </action>
     <action>
-      <name>Metatext</name>
+      <name>Repeat</name>
       <argumentList>
         <argument>
-          <name>Metatext</name>
+          <name>Repeat</name>
           <direction>out</direction>
-          <relatedStateVariable>Metatext</relatedStateVariable>
+          <relatedStateVariable>Repeat</relatedStateVariable>
+        </argument>
+      </argumentList>
+    </action>
+    <action>
+      <name>Shuffle</name>
+      <argumentList>
+        <argument>
+          <name>Shuffle</name>
+          <direction>out</direction>
+          <relatedStateVariable>Shuffle</relatedStateVariable>
         </argument>
       </argumentList>
     </action>
@@ -241,35 +187,19 @@
       <dataType>string</dataType>
     </stateVariable>
     <stateVariable sendEvents="yes">
-      <name>ModeCount</name>
-      <dataType>ui4</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>TrackCount</name>
-      <dataType>ui4</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>Mode</name>
-      <dataType>string</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>SequenceNumbers</name>
-      <dataType>string</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>StreamCount</name>
-      <dataType>ui4</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>MetatextCount</name>
-      <dataType>ui4</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>NextAvailable</name>
+      <name>CanSkipNext</name>
       <dataType>boolean</dataType>
     </stateVariable>
     <stateVariable sendEvents="yes">
-      <name>PrevAvailable</name>
+      <name>CanSkipPrevious</name>
+      <dataType>boolean</dataType>
+    </stateVariable>
+    <stateVariable sendEvents="yes">
+      <name>CanRepeat</name>
+      <dataType>boolean</dataType>
+    </stateVariable>
+    <stateVariable sendEvents="yes">
+      <name>CanShuffle</name>
       <dataType>boolean</dataType>
     </stateVariable>
     <stateVariable sendEvents="yes">
@@ -277,40 +207,12 @@
       <dataType>ui4</dataType>
     </stateVariable>
     <stateVariable sendEvents="yes">
-      <name>Duration</name>
-      <dataType>ui4</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>Seekable</name>
+      <name>CanSeek</name>
       <dataType>boolean</dataType>
     </stateVariable>
     <stateVariable sendEvents="yes">
-      <name>Pausable</name>
+      <name>CanPause</name>
       <dataType>boolean</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>BitRate</name>
-      <dataType>ui4</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>BitDepth</name>
-      <dataType>ui4</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>SampleRate</name>
-      <dataType>ui4</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>Lossless</name>
-      <dataType>boolean</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>CodecName</name>
-      <dataType>string</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>Metatext</name>
-      <dataType>string</dataType>
     </stateVariable>
     <stateVariable sendEvents="yes">
       <name>TransportState</name>
@@ -322,6 +224,14 @@
         <allowedValue>Buffering</allowedValue>
         <allowedValue>Waiting</allowedValue>
       </allowedValueList>
+    </stateVariable>
+    <stateVariable sendEvents="yes">
+      <name>Repeat</name>
+      <dataType>boolean</dataType>
+    </stateVariable>
+    <stateVariable sendEvents="yes">
+      <name>Shuffle</name>
+      <dataType>boolean</dataType>
     </stateVariable>
     <stateVariable sendEvents="no">
       <name>A_ARG_TYPE_uint</name>

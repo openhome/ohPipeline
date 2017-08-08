@@ -1,144 +1,60 @@
 #include <OpenHome/Av/TransportControl.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Exception.h>
-#include <OpenHome/Private/Standard.h>
-#include <OpenHome/Media/PipelineObserver.h>
-#include <OpenHome/Media/PipelineManager.h>
-#include <OpenHome/Av/ProviderTransportControlEriskay.h>
+#include <OpenHome/Private/Thread.h>
+
+#include <vector>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
 
-TransportControl::TransportControl(Net::DvDevice& aDevice, Media::PipelineManager& aPipeline)
-    : iLock("MTPC")
-    , iPipeline(aPipeline)
-    , iPlaySupported(false)
-    , iPauseSupported(false)
-    , iStopSupported(false)
-    , iNextSupported(false)
-    , iPrevSupported(false)
-    , iSeekSupported(false)
-    , iStreamId(Media::IPipelineIdProvider::kStreamIdInvalid)
+
+TransportRepeatRandom::TransportRepeatRandom()
+    : iLock("TCRR")
+    , iRepeat(false)
+    , iRandom(false)
 {
-    iProvider = new ProviderTransportControlEriskay(aDevice, *this);
-    iPipeline.AddObserver(*this);
 }
 
-TransportControl::~TransportControl()
-{
-    delete iProvider;
-}
-
-void TransportControl::Play()
+void TransportRepeatRandom::SetRepeat(TBool aRepeat)
 {
     AutoMutex _(iLock);
-    if (!iPlaySupported) {
-        THROW(TransportControlActionNotAllowed);
+    if (iRepeat == aRepeat) {
+        return;
     }
-    iPipeline.Play();
+    iRepeat = aRepeat;
+    for (auto obs: iObservers) {
+        obs->TransportRepeatChanged(iRepeat);
+    }
 }
 
-void TransportControl::Pause(TUint aStreamId)
+void TransportRepeatRandom::SetRandom(TBool aRandom)
 {
     AutoMutex _(iLock);
-    if (iStreamId != aStreamId) {
-        THROW(TransportControlIncorrectStreamId);
+    if (iRandom == aRandom) {
+        return;
     }
-    if (!iPauseSupported) {
-        THROW(TransportControlActionNotAllowed);
+    iRandom = aRandom;
+    for (auto obs: iObservers) {
+        obs->TransportRandomChanged(iRandom);
     }
-    iPipeline.Pause();
 }
 
-void TransportControl::Stop(TUint aStreamId)
+void TransportRepeatRandom::AddObserver(ITransportRepeatRandomObserver& aObserver)
 {
     AutoMutex _(iLock);
-    if (iStreamId != aStreamId) {
-        THROW(TransportControlIncorrectStreamId);
-    }
-    if (!iStopSupported) {
-        THROW(TransportControlActionNotAllowed);
-    }
-    iPipeline.Stop();
+    iObservers.push_back(&aObserver);
+    aObserver.TransportRepeatChanged(iRepeat);
+    aObserver.TransportRandomChanged(iRandom);
 }
 
-void TransportControl::Next(TUint aStreamId)
+void TransportRepeatRandom::RemoveObserver(ITransportRepeatRandomObserver& aObserver)
 {
     AutoMutex _(iLock);
-    if (iStreamId != aStreamId) {
-        THROW(TransportControlIncorrectStreamId);
+    for (auto it=iObservers.begin(); it!=iObservers.end(); ++it) {
+        if (*it == &aObserver) {
+            iObservers.erase(it);
+            return;
+        }
     }
-    if (!iNextSupported) {
-        THROW(TransportControlActionNotAllowed);
-    }
-    iPipeline.Next();
-}
-
-void TransportControl::Prev(TUint aStreamId)
-{
-    AutoMutex _(iLock);
-    if (iStreamId != aStreamId) {
-        THROW(TransportControlIncorrectStreamId);
-    }
-    if (!iPrevSupported) {
-        THROW(TransportControlActionNotAllowed);
-    }
-    iPipeline.Prev();
-}
-
-void TransportControl::SeekSecondsAbsolute(TUint aStreamId, TUint aSeconds)
-{
-    AutoMutex _(iLock);
-    SeekLocked(aStreamId, aSeconds);
-}
-
-void TransportControl::SeekSecondsRelative(TUint aStreamId, TInt aSeconds)
-{
-    AutoMutex _(iLock);
-    iSeconds += aSeconds;
-    SeekLocked(aStreamId, aSeconds);
-}
-
-void TransportControl::SeekLocked(TUint aStreamId, TUint aSecondsAbsolute)
-{
-    if (iStreamId != aStreamId) {
-        THROW(TransportControlIncorrectStreamId);
-    }
-    if (!iSeekSupported) {
-        THROW(TransportControlActionNotAllowed);
-    }
-    if (!iPipeline.Seek(aStreamId, aSecondsAbsolute)) {
-        THROW(TransportControlIncorrectStreamId);
-    }
-}
-
-void TransportControl::NotifyPipelineState(Media::EPipelineState aState)
-{
-    iProvider->NotifyState(aState);
-}
-
-void TransportControl::NotifyTrack(Media::Track& /*aTrack*/, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
-{
-}
-
-void TransportControl::NotifyMetaText(const Brx& /*aText*/)
-{
-}
-
-void TransportControl::NotifyTime(TUint aSeconds, TUint /*aTrackDurationSeconds*/)
-{
-    iLock.Wait();
-    iSeconds = aSeconds;
-    iLock.Signal();
-}
-
-void TransportControl::NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo)
-{
-    iLock.Wait();
-    iStreamId       =  aStreamInfo.StreamId();
-    iPauseSupported = !aStreamInfo.Live();
-    iSeekSupported  =  aStreamInfo.Seekable();
-    iLock.Signal();
-    iProvider->NotifyStream(iStreamId, iPauseSupported, iSeekSupported);
 }

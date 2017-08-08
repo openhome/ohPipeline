@@ -20,7 +20,11 @@ UriProviderRadio::UriProviderRadio(TrackFactory& aTrackFactory,
     : UriProvider("Radio",
                   Latency::NotSupported,
                   Next::Supported,
-                  Prev::Supported)
+                  Prev::Supported,
+                  Repeat::NotSupported,
+                  Random::NotSupported,
+                  RampPauseResume::Long,
+                  RampSkip::Short)
     , iLock("UPRD")
     , iTrackFactory(aTrackFactory)
     , iDbReader(aDbReader)
@@ -51,6 +55,15 @@ Track* UriProviderRadio::SetTrack(const Brx& aUri, const Brx& aMetaData)
         iTrack->AddRef();
     }
     return iTrack;
+}
+
+void UriProviderRadio::SetTrack(Track* aTrack)
+{
+    if (iTrack != nullptr) {
+        iTrack->RemoveRef();
+    }
+    iTrack = aTrack;
+    iTrack->AddRef();
 }
 
 void UriProviderRadio::Begin(TUint aTrackId)
@@ -87,13 +100,14 @@ TUint UriProviderRadio::CurrentTrackId() const
     return id;
 }
 
-TBool UriProviderRadio::MoveNext()
+void UriProviderRadio::MoveNext()
 {
     AutoMutex _(iLock);
     if (iTrack == nullptr) {
-        return false;
+        return;
     }
-    auto track = iDbReader.NextTrackRef(iTrack->Id());
+    TUint id = iTrack->Id();
+    auto track = iDbReader.NextTrackRef(id);
     iPlayLater = (track == nullptr);
     if (track == nullptr) {
         track = iDbReader.FirstTrackRef();
@@ -101,16 +115,16 @@ TBool UriProviderRadio::MoveNext()
     iIgnoreNext = false;
     iTrack->RemoveRef();
     iTrack = track;
-    return (iTrack != nullptr);
 }
 
-TBool UriProviderRadio::MovePrevious()
+void UriProviderRadio::MovePrevious()
 {
     AutoMutex _(iLock);
     if (iTrack == nullptr) {
-        return false;
+        return;
     }
-    auto track = iDbReader.PrevTrackRef(iTrack->Id());
+    TUint id = iTrack->Id();
+    auto track = iDbReader.PrevTrackRef(id);
     iPlayLater = (track == nullptr);
     if (track == nullptr) {
         track = iDbReader.LastTrackRef();
@@ -118,10 +132,9 @@ TBool UriProviderRadio::MovePrevious()
     iIgnoreNext = false;
     iTrack->RemoveRef();
     iTrack = track;
-    return (iTrack != nullptr);
 }
 
-TBool UriProviderRadio::MoveTo(const Brx& aCommand)
+void UriProviderRadio::MoveTo(const Brx& aCommand)
 {
     if (!aCommand.BeginsWith(kCommandId)) {
         THROW(FillerInvalidCommand);
@@ -148,7 +161,6 @@ TBool UriProviderRadio::MoveTo(const Brx& aCommand)
     iTrack = track;
     iIgnoreNext = false;
     iPlayLater = false;
-    return true;
 }
 
 void UriProviderRadio::DoBegin(TUint aTrackId, TBool aLater)

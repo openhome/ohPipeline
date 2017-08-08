@@ -17,10 +17,11 @@ namespace Media {
 
 class SuiteRamper : public SuiteUnitTest, private IPipelineElementUpstream, private IMsgProcessor
 {
-    static const TUint kRampDuration = Jiffies::kPerMs * 50; // shorter than production code but this is assumed to not matter
-    static const TUint kExpectedFlushId = 5;
-    static const TUint kSampleRate = 44100;
-    static const TUint kNumChannels = 2;
+    static const TUint kRampDurationLong;
+    static const TUint kRampDurationShort;
+    static const TUint kExpectedFlushId;
+    static const TUint kSampleRate;
+    static const TUint kNumChannels;
     static const SpeakerProfile kProfile;
 public:
     SuiteRamper();
@@ -71,6 +72,7 @@ private:
 private:
     void PullNext();
     void PullNext(EMsgType aExpectedMsg);
+    Msg* CreateMode(TBool aLongRamp = true);
     Msg* CreateTrack();
     Msg* CreateDecodedStream();
     Msg* CreateAudio();
@@ -79,6 +81,7 @@ private:
     void TestNonLiveStreamAtStartNoRamp();
     void TestNonLiveStreamInMiddleRamps();
     void TestLiveStreamRamps();
+    void TestRampDurationTakenFromModeInfo();
 private:
     AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
@@ -94,12 +97,18 @@ private:
     TUint iNextStreamId;
     TUint64 iSampleStart;
     TBool iLive;
+    TUint iExpectedRampJiffies;
 };
 
 } // namespace Media
 } // namespace OpenHome
 
 
+const TUint SuiteRamper::kRampDurationLong = Jiffies::kPerMs * 50; // shorter than production code but this is assumed to not matter
+const TUint SuiteRamper::kRampDurationShort = Jiffies::kPerMs * 10;
+const TUint SuiteRamper::kExpectedFlushId = 5;
+const TUint SuiteRamper::kSampleRate = 44100;
+const TUint SuiteRamper::kNumChannels = 2;
 const SpeakerProfile SuiteRamper::kProfile(2);
 
 SuiteRamper::SuiteRamper()
@@ -109,6 +118,7 @@ SuiteRamper::SuiteRamper()
     AddTest(MakeFunctor(*this, &SuiteRamper::TestNonLiveStreamAtStartNoRamp), "TestNonLiveStreamAtStartNoRamp");
     AddTest(MakeFunctor(*this, &SuiteRamper::TestNonLiveStreamInMiddleRamps), "TestNonLiveStreamInMiddleRamps");
     AddTest(MakeFunctor(*this, &SuiteRamper::TestLiveStreamRamps), "TestLiveStreamRamps");
+    AddTest(MakeFunctor(*this, &SuiteRamper::TestRampDurationTakenFromModeInfo), "TestRampDurationTakenFromModeInfo");
 }
 
 SuiteRamper::~SuiteRamper()
@@ -128,7 +138,7 @@ void SuiteRamper::Setup()
     init.SetMsgHaltCount(2);
     init.SetMsgFlushCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
-    iRamper = new Ramper(*this, kRampDuration);
+    iRamper = new Ramper(*this, kRampDurationLong, kRampDurationShort);
     iStreamId = UINT_MAX;
     iTrackOffset = 0;
     iJiffies = 0;
@@ -137,6 +147,7 @@ void SuiteRamper::Setup()
     iNextStreamId = 1;
     iSampleStart = 0;
     iLive = false;
+    iExpectedRampJiffies = UINT_MAX;
 }
 
 void SuiteRamper::TearDown()
@@ -301,6 +312,16 @@ void SuiteRamper::PullNext(EMsgType aExpectedMsg)
     TEST(iLastPulledMsg == aExpectedMsg);
 }
 
+Msg* SuiteRamper::CreateMode(TBool aLongRamp)
+{
+    ModeInfo info;
+    info.SetRampDurations(aLongRamp, false);
+    iExpectedRampJiffies = aLongRamp? kRampDurationLong : kRampDurationShort;
+    ModeClockPullers clockPullers;
+    ModeTransportControls transportControls;
+    return iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
+}
+
 Msg* SuiteRamper::CreateTrack()
 {
     Track* track = iTrackFactory->CreateTrack(Brx::Empty(), Brx::Empty());
@@ -327,7 +348,7 @@ Msg* SuiteRamper::CreateAudio()
 
 void SuiteRamper::TestNonAudioMsgsPass()
 {
-    iPendingMsgs.push_back(iMsgFactory->CreateMsgMode(Brn("Mode"), true, ModeClockPullers(), false, false));
+    iPendingMsgs.push_back(iMsgFactory->CreateMsgMode(Brn("Mode")));
     iPendingMsgs.push_back(CreateTrack());
     iPendingMsgs.push_back(iMsgFactory->CreateMsgDrain(Functor()));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgDelay(Jiffies::kPerMs * 100));
@@ -358,8 +379,10 @@ void SuiteRamper::TestNonLiveStreamAtStartNoRamp()
 {
     iLive = false;
     iSampleStart = 0;
+    iPendingMsgs.push_back(CreateMode());
     iPendingMsgs.push_back(CreateTrack());
     iPendingMsgs.push_back(CreateDecodedStream());
+    PullNext(EMsgMode);
     PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
 
@@ -372,8 +395,11 @@ void SuiteRamper::TestNonLiveStreamInMiddleRamps()
 {
     iLive = false;
     iSampleStart = 100;
+    iPendingMsgs.push_back(CreateMode());
+    TEST(iExpectedRampJiffies == kRampDurationLong);
     iPendingMsgs.push_back(CreateTrack());
     iPendingMsgs.push_back(CreateDecodedStream());
+    PullNext(EMsgMode);
     PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
     TEST(iRamper->iRamping);
@@ -384,15 +410,17 @@ void SuiteRamper::TestNonLiveStreamInMiddleRamps()
         iPendingMsgs.push_back(CreateAudio());
         PullNext(EMsgAudioPcm);
     }
-    TEST(iJiffies == kRampDuration);
+    TEST(iJiffies == iExpectedRampJiffies);
 }
 
 void SuiteRamper::TestLiveStreamRamps()
 {
     iLive = true;
     iSampleStart = 0;
+    iPendingMsgs.push_back(CreateMode());
     iPendingMsgs.push_back(CreateTrack());
     iPendingMsgs.push_back(CreateDecodedStream());
+    PullNext(EMsgMode);
     PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
     TEST(iRamper->iRamping);
@@ -403,9 +431,36 @@ void SuiteRamper::TestLiveStreamRamps()
         iPendingMsgs.push_back(CreateAudio());
         PullNext(EMsgAudioPcm);
     }
-    TEST(iJiffies == kRampDuration);
+    TEST(iJiffies == iExpectedRampJiffies);
     iRamping = false; /* rounding errors in ramp code mean that
                          we can't rely on this being updated automatically */
+
+    iPendingMsgs.push_back(CreateAudio());
+    PullNext(EMsgAudioPcm);
+}
+
+void SuiteRamper::TestRampDurationTakenFromModeInfo()
+{
+    iLive = true;
+    iSampleStart = 0;
+    iPendingMsgs.push_back(CreateMode(false));
+    TEST(iExpectedRampJiffies == kRampDurationShort);
+    iPendingMsgs.push_back(CreateTrack());
+    iPendingMsgs.push_back(CreateDecodedStream());
+    PullNext(EMsgMode);
+    PullNext(EMsgTrack);
+    PullNext(EMsgDecodedStream);
+    TEST(iRamper->iRamping);
+
+    iRamping = true;
+    iJiffies = 0;
+    while (iRamper->iRamping) {
+        iPendingMsgs.push_back(CreateAudio());
+        PullNext(EMsgAudioPcm);
+    }
+    TEST(iJiffies == iExpectedRampJiffies);
+    iRamping = false; /* rounding errors in ramp code mean that
+                      we can't rely on this being updated automatically */
 
     iPendingMsgs.push_back(CreateAudio());
     PullNext(EMsgAudioPcm);
