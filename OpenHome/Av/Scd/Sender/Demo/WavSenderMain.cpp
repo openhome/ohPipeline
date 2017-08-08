@@ -64,29 +64,31 @@ int CDECL main(int aArgc, char* aArgv[])
     Net::Library::DestroySubnetList(subnetList);
     /*auto cpStack = */lib->StartCp(subnet);
 
-    Debug::AddLevel(Debug::kScd);
+    {
+        Debug::AddLevel(Debug::kScd);
 
-    // app goes here
-    ScdMsgFactory factory(1,   // Ready
-                          0,   // MetadataDidl
-                          5,   // MetadataOh,
-                          5,   // Format,
-                          100, // Audio,
-                          0,   // MetatextDidl,
-                          5,   // MetatextOh,
-                          1,   // Halt,
-                          1,   // Disconnect,
-                          0,   // Seek,
-                          0    // Skip
-                         );
-    ScdSupply supply(factory);
-    ScdServer server(lib->Env(), supply, factory);
-    Endpoint::EndpointBuf buf;
-    server.Endpoint().AppendEndpoint(buf);
-    Log::Print("SCD Sender running on %s\n", buf.Ptr());
-    std::string path(optionDir.CString());
-    //DummySupply supply;
-    DirScanner::Run(path, supply);
+        // app goes here
+        ScdMsgFactory factory(1,   // Ready
+            0,   // MetadataDidl
+            5,   // MetadataOh,
+            5,   // Format,
+            100, // Audio,
+            0,   // MetatextDidl,
+            5,   // MetatextOh,
+            1,   // Halt,
+            1,   // Disconnect,
+            0,   // Seek,
+            0    // Skip
+        );
+        ScdSupply supply(factory);
+        ScdServer server(lib->Env(), supply, factory);
+        Endpoint::EndpointBuf buf;
+        server.Endpoint().AppendEndpoint(buf);
+        Log::Print("SCD Sender running on %s\n", buf.Ptr());
+        std::string path(optionDir.CString());
+        //DummySupply supply;
+        DirScanner::Run(path, supply);
+    }
 
     delete lib;
 

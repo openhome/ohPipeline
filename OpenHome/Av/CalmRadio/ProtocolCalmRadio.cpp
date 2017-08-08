@@ -66,6 +66,7 @@ private:
     Media::ReaderIcy* iReaderIcy;
     HttpHeaderContentType iHeaderContentType;
     HttpHeaderContentLength iHeaderContentLength;
+    HttpHeaderLocation iHeaderLocation;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
     Media::HeaderIcyMetadata iHeaderIcyMetadata;
     Bws<kMaxUserAgentBytes> iUserAgent;
@@ -119,6 +120,7 @@ ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, C
 
     iReaderResponse.AddHeader(iHeaderContentType);
     iReaderResponse.AddHeader(iHeaderContentLength);
+    iReaderResponse.AddHeader(iHeaderLocation);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
     iReaderResponse.AddHeader(iHeaderIcyMetadata);
 
@@ -168,13 +170,13 @@ ProtocolStreamResult ProtocolCalmRadio::Stream(const Brx& aUri)
     }
     const Brx& host = iUri.Host();
     if (host != Brn("stream")) {
-        LOG2(kMedia, kError, "Unsupported host for Calm Radio - %.*s\n", PBUF(host));
+        LOG_ERROR(kMedia, "Unsupported host for Calm Radio - %.*s\n", PBUF(host));
         return EProtocolErrorNotSupported;
     }
     ProtocolStreamResult res;
     const Brx& query = iUri.Query();
     if (query.Bytes() == 0) {
-        LOG2(kMedia, kError, "No query in Calm Radio uri - %.*s\n", PBUF(aUri));
+        LOG_ERROR(kMedia, "No query in Calm Radio uri - %.*s\n", PBUF(aUri));
         return EProtocolErrorNotSupported;
     }
     Brn uri = query.Split(1); // remove leading '?'
@@ -365,16 +367,30 @@ TBool ProtocolCalmRadio::IsCurrentStream(TUint aStreamId) const
 
 ProtocolStreamResult ProtocolCalmRadio::DoStream()
 {
-    // no support for redirects - its not clear whether we'd need to reapply the username/token query for these
+    TUint code;
+    for (;;) { // loop until we don't get a redirection response (i.e. normally don't loop at all!)
+        code = WriteRequestHandleForbidden(0);
+        if (code == 0) {
+            return EProtocolStreamErrorUnrecoverable;
+        }
+        // Check for redirection
+        if (code >= HttpStatus::kRedirectionCodes && code < HttpStatus::kClientErrorCodes) {
+            if (!iHeaderLocation.Received()) {
+                return EProtocolStreamErrorUnrecoverable;
+            }
+            iUri.Replace(iHeaderLocation.Location());
+            continue;
+        }
+        break;
+    }
 
-    TUint code = WriteRequestHandleForbidden(0);
     iSeekable = false;
     iTotalStreamBytes = iHeaderContentLength.ContentLength();
     iTotalBytes = iTotalStreamBytes;
     iLive = (iTotalBytes == 0);
 
     if (code != HttpStatus::kPartialContent.Code() && code != HttpStatus::kOk.Code()) {
-        LOG2(kPipeline, kError, "ProtocolCalmRadio::DoStream server returned error %u\n", code);
+        LOG_ERROR(kPipeline, "ProtocolCalmRadio::DoStream server returned error %u\n", code);
         return EProtocolStreamErrorUnrecoverable;
     }
     if (code == HttpStatus::kPartialContent.Code()) {
@@ -413,7 +429,7 @@ TUint ProtocolCalmRadio::WriteRequest(TUint64 aOffset)
     Close();
     TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
     if (!Connect(iUri, port, kTcpConnectTimeoutMs)) {
-        LOG2(kPipeline, kError, "ProtocolCalmRadio::WriteRequest Connection failure\n");
+        LOG_ERROR(kPipeline, "ProtocolCalmRadio::WriteRequest Connection failure\n");
         return 0;
     }
 
@@ -431,7 +447,7 @@ TUint ProtocolCalmRadio::WriteRequest(TUint64 aOffset)
         iWriterRequest.WriteFlush();
     }
     catch(WriterError&) {
-        LOG2(kPipeline, kError, "ProtocolCalmRadio::WriteRequest WriterError\n");
+        LOG_ERROR(kPipeline, "ProtocolCalmRadio::WriteRequest WriterError\n");
         return 0;
     }
 
@@ -442,11 +458,11 @@ TUint ProtocolCalmRadio::WriteRequest(TUint64 aOffset)
         iTcpClient.LogVerbose(false);
     }
     catch(HttpError&) {
-        LOG2(kPipeline, kError, "ProtocolCalmRadio::WriteRequest HttpError\n");
+        LOG_ERROR(kPipeline, "ProtocolCalmRadio::WriteRequest HttpError\n");
         return 0;
     }
     catch(ReaderError&) {
-        LOG2(kPipeline, kError, "ProtocolCalmRadio::WriteRequest ReaderError\n");
+        LOG_ERROR(kPipeline, "ProtocolCalmRadio::WriteRequest ReaderError\n");
         return 0;
     }
     const TUint code = iReaderResponse.Status().Code();
@@ -458,7 +474,7 @@ ProtocolStreamResult ProtocolCalmRadio::ProcessContent()
 {
     if (!iStarted) {
         iStreamId = iIdProvider->NextStreamId();
-        iSupply->OutputStream(iUri.AbsoluteUri(), iTotalBytes, iOffset, iSeekable, false, Multiroom::Allowed, *this, iStreamId);
+        iSupply->OutputStream(iUri.AbsoluteUri(), iTotalBytes, iOffset, iSeekable, true/*live*/, Multiroom::Allowed, *this, iStreamId);
         iStarted = true;
     }
     iContentProcessor = iProtocolManager->GetAudioProcessor();

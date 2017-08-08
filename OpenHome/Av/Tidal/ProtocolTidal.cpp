@@ -288,29 +288,29 @@ TBool ProtocolTidal::TryGetTrackId(const Brx& aQuery, Bwx& aTrackId)
     (void)parser.Next('?');
     Brn buf = parser.Next('=');
     if (buf != Brn("version")) {
-        LOG2(kPipeline, kError, "TryGetTrackId failed - no version\n");
+        LOG_ERROR(kPipeline, "TryGetTrackId failed - no version\n");
         return false;
     }
     Brn verBuf = parser.Next('&');
     try {
         const TUint ver = Ascii::Uint(verBuf);
         if (ver != 1) {
-            LOG2(kPipeline, kError, "TryGetTrackId failed - unsupported version - %d\n", ver);
+            LOG_ERROR(kPipeline, "TryGetTrackId failed - unsupported version - %d\n", ver);
             return false;
         }
     }
     catch (AsciiError&) {
-        LOG2(kPipeline, kError, "TryGetTrackId failed - invalid version\n");
+        LOG_ERROR(kPipeline, "TryGetTrackId failed - invalid version\n");
         return false;
     }
     buf.Set(parser.Next('='));
     if (buf != Brn("trackId")) {
-        LOG2(kPipeline, kError, "TryGetTrackId failed - no track id tag\n");
+        LOG_ERROR(kPipeline, "TryGetTrackId failed - no track id tag\n");
         return false;
     }
     aTrackId.Replace(parser.Remaining());
     if (aTrackId.Bytes() == 0) {
-        LOG2(kPipeline, kError, "TryGetTrackId failed - no track id value\n");
+        LOG_ERROR(kPipeline, "TryGetTrackId failed - no track id value\n");
         return false;
     }
     return true;
@@ -340,7 +340,7 @@ ProtocolStreamResult ProtocolTidal::DoStream()
     iTotalBytes = iHeaderContentLength.ContentLength();
 
     if (code != HttpStatus::kPartialContent.Code() && code != HttpStatus::kOk.Code()) {
-        LOG2(kPipeline, kError, "ProtocolTidal::DoStream server returned error %u\n", code);
+        LOG_ERROR(kPipeline, "ProtocolTidal::DoStream server returned error %u\n", code);
         return EProtocolStreamErrorUnrecoverable;
     }
     if (code == HttpStatus::kPartialContent.Code()) {
@@ -362,7 +362,7 @@ TUint ProtocolTidal::WriteRequest(TUint64 aOffset)
     Close();
     TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
     if (!Connect(iUri, port, kTcpConnectTimeoutMs)) {
-        LOG2(kPipeline, kError, "ProtocolTidal::WriteRequest Connection failure\n");
+        LOG_ERROR(kPipeline, "ProtocolTidal::WriteRequest Connection failure\n");
         return 0;
     }
 
@@ -376,7 +376,7 @@ TUint ProtocolTidal::WriteRequest(TUint64 aOffset)
         iWriterRequest.WriteFlush();
     }
     catch(WriterError&) {
-        LOG2(kPipeline, kError, "ProtocolTidal::WriteRequest WriterError\n");
+        LOG_ERROR(kPipeline, "ProtocolTidal::WriteRequest WriterError\n");
         return 0;
     }
 
@@ -387,11 +387,11 @@ TUint ProtocolTidal::WriteRequest(TUint64 aOffset)
         //iTcpClient.LogVerbose(false);
     }
     catch(HttpError&) {
-        LOG2(kPipeline, kError, "ProtocolTidal::WriteRequest HttpError\n");
+        LOG_ERROR(kPipeline, "ProtocolTidal::WriteRequest HttpError\n");
         return 0;
     }
     catch(ReaderError&) {
-        LOG2(kPipeline, kError, "ProtocolTidal::WriteRequest ReaderError\n");
+        LOG_ERROR(kPipeline, "ProtocolTidal::WriteRequest ReaderError\n");
         return 0;
     }
     const TUint code = iReaderResponse.Status().Code();

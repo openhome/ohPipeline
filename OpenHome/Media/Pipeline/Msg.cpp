@@ -42,7 +42,7 @@ AllocatorBase::~AllocatorBase()
         }
         catch (AssertionFailed&) {
             Log::Print("...leak at %u of %u\n", i+1, slots);
-            throw;
+            ASSERTS();
         }
     }
     LOG(kPipeline, "< ~AllocatorBase for %s\n", iName);
@@ -417,7 +417,7 @@ TUint Jiffies::PerSample(TUint aSampleRate)
     case 192000:
         return kJiffies192000;
     default:
-        LOG(kError, "JiffiesPerSample - invalid sample rate: %u\n", aSampleRate);
+        LOG_ERROR(kApplication6, "JiffiesPerSample - invalid sample rate: %u\n", aSampleRate);
         THROW(SampleRateInvalid);
     }
 }

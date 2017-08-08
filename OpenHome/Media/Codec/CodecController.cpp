@@ -230,22 +230,22 @@ void CodecController::StartSeek(TUint aStreamId, TUint aSecondsAbsolute, ISeekOb
 {
     AutoMutex a(iLock);
     if (aStreamId != iStreamId) {
-        LOG2(kMedia, kError, "CodecController::StartSeek(%u, %u) fail - wrong stream id (current %u)\n", aStreamId, aSecondsAbsolute, iStreamId);
+        LOG_ERROR(kMedia, "CodecController::StartSeek(%u, %u) fail - wrong stream id (current %u)\n", aStreamId, aSecondsAbsolute, iStreamId);
         aHandle = ISeeker::kHandleError;
         return;
     }
     if (iActiveCodec == nullptr) {
-        LOG2(kMedia, kError, "CodecController::StartSeek(%u, %u) fail - no active codec\n", aStreamId, aSecondsAbsolute);
+        LOG_ERROR(kMedia, "CodecController::StartSeek(%u, %u) fail - no active codec\n", aStreamId, aSecondsAbsolute);
         aHandle = ISeeker::kHandleError;
         return;
     }
     if (!iSeekable) {
-        LOG2(kMedia, kError, "CodecController::StartSeek(%u, %u) fail - stream not seekable\n", aStreamId, aSecondsAbsolute);
+        LOG_ERROR(kMedia, "CodecController::StartSeek(%u, %u) fail - stream not seekable\n", aStreamId, aSecondsAbsolute);
         aHandle = ISeeker::kHandleError;
         return;
     }
     if (iSeek) {
-        LOG2(kMedia, kError, "CodecController::StartSeek(%u, %u) fail - seek already in progress\n", aStreamId, aSecondsAbsolute);
+        LOG_ERROR(kMedia, "CodecController::StartSeek(%u, %u) fail - seek already in progress\n", aStreamId, aSecondsAbsolute);
         aHandle = ISeeker::kHandleError;
         return;
     }
@@ -376,7 +376,7 @@ void CodecController::CodecThread()
                             (void)iActiveCodec->TrySeek(iStreamId, sampleNum);
                         }
                         catch (Exception&) {
-                            LOG2(kPipeline, kError, "Exception from TrySeek\n");
+                            LOG_ERROR(kPipeline, "Exception from TrySeek\n");
                             iSeekObserver->NotifySeekComplete(seekHandle, MsgFlush::kIdInvalid);
                             throw;
                         }
@@ -404,11 +404,11 @@ void CodecController::CodecThread()
             }
             catch (CodecStreamCorrupt&) {
                 if (!iStreamStopped) {
-                    LOG2(kPipeline, kError, "WARNING: CodecStreamCorrupt\n");
+                    LOG_ERROR(kPipeline, "WARNING: CodecStreamCorrupt\n");
                 }
             }
             catch (CodecStreamFeatureUnsupported&) {
-                LOG2(kPipeline, kError, "WARNING: CodecStreamFeatureUnsupported\n");
+                LOG_ERROR(kPipeline, "WARNING: CodecStreamFeatureUnsupported\n");
             }
         }
         catch (CodecStreamStopped&) {}

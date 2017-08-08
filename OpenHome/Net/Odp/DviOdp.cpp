@@ -347,7 +347,7 @@ void DviOdp::Process(const Brx& aJsonRequest)
         typeBuf.Set(iParserReq.String(Odp::kKeyType));
     }
     catch (JsonKeyNotFound&) {
-        LOG2(kOdp, kError, "Odp: No type on request\n%.*s\n", PBUF(aJsonRequest));
+        LOG_ERROR(kOdp, "Odp: No type on request\n%.*s\n", PBUF(aJsonRequest));
         THROW(OdpError);
     }
     if (typeBuf == Odp::kTypeAction) {
@@ -360,14 +360,14 @@ void DviOdp::Process(const Brx& aJsonRequest)
         Unsubscribe();
     }
     else {
-        LOG2(kOdp, kError, "Odp: Unknown type on request - %.*s\n", PBUF(typeBuf));
+        LOG_ERROR(kOdp, "Odp: Unknown type on request - %.*s\n", PBUF(typeBuf));
         THROW(OdpError);
     }
 }
 
 void DviOdp::LogParseErrorThrow(const TChar* aEx, const Brx& aJson)
 {
-    LOG2(kOdp, kError, "Odp: %s parsing %.*s\n", aEx, PBUF(aJson));
+    LOG_ERROR(kOdp, "Odp: %s parsing %.*s\n", aEx, PBUF(aJson));
     THROW(OdpError);
 }
 
@@ -379,7 +379,7 @@ void DviOdp::Action()
         actionName.Set(iParserReq.String(Odp::kKeyAction));
     }
     catch (JsonKeyNotFound&) {
-        LOG2(kOdp, kError, "Odp: no action specified\n");
+        LOG_ERROR(kOdp, "Odp: no action specified\n");
         THROW(OdpError);
     }
     Brn args;
@@ -387,7 +387,7 @@ void DviOdp::Action()
         args.Set(iParserReq.StringOptional(Odp::kKeyArguments));
     }
     catch (JsonKeyNotFound&) {
-        LOG2(kOdp, kError, "Odp: no arguments specified\n");
+        LOG_ERROR(kOdp, "Odp: no arguments specified\n");
         THROW(OdpError);
     }
     try {
@@ -445,6 +445,8 @@ void DviOdp::Subscribe()
         ParseDeviceAndService(deviceAlias, serviceName, serviceVersion);
     }
     catch (OdpError&) {
+        iWriter = &iSession.WriteLock();
+        AutoOdpSession _(iSession);
         iResponseStarted = true;
         WriterJsonObject writer(*iWriter);
         writer.WriteString(Odp::kKeyType, Odp::kTypeSubscribeResponse);
@@ -476,6 +478,9 @@ void DviOdp::Subscribe()
         writer.WriteEnd();
 
         iResponseEnded = true;
+        iSession.WriteEnd();
+        iWriter = nullptr;
+        throw;
     }
 
     // create subscription
@@ -514,7 +519,7 @@ void DviOdp::Unsubscribe()
         sid.Set(iParserReq.String(Odp::kKeySid));
     }
     catch (JsonKeyNotFound&) {
-        LOG2(kOdp, kError, "Odp: No sid for unsubscribe\n");
+        LOG_ERROR(kOdp, "Odp: No sid for unsubscribe\n");
         THROW(OdpError);
     }
 
@@ -563,12 +568,12 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceAlias, Brn& aServiceName, TUint& 
         }
         iDvStack.DeviceMap().ClearMap(deviceMap);
         if (iDevice == nullptr) {
-            LOG2(kOdp, kError, "Odp: device %.*s not present\n", PBUF(alias));
+            LOG_ERROR(kOdp, "Odp: device %.*s not present\n", PBUF(alias));
             THROW(OdpError);
         }
     }
     catch (JsonKeyNotFound&) {
-        LOG2(kOdp, kError, "Odp: No device specified for action\n");
+        LOG_ERROR(kOdp, "Odp: No device specified for action\n");
         THROW(OdpError);
     }
     try {
@@ -592,7 +597,7 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceAlias, Brn& aServiceName, TUint& 
             aServiceVersion = iServiceVersion;
         }
         catch (JsonKeyNotFound&) {
-            LOG2(kOdp, kError, "Odp: incomplete service description - %.*s\n", PBUF(serviceBuf));
+            LOG_ERROR(kOdp, "Odp: incomplete service description - %.*s\n", PBUF(serviceBuf));
             THROW(OdpError);
         }
         const TUint count = iDevice->ServiceCount();
@@ -604,12 +609,12 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceAlias, Brn& aServiceName, TUint& 
             }
         }
         if (iService == nullptr) {
-            LOG2(kOdp, kError, "Odp: service %.*s not present\n", PBUF(serviceBuf));
+            LOG_ERROR(kOdp, "Odp: service %.*s not present\n", PBUF(serviceBuf));
             THROW(OdpError);
         }
     }
     catch (JsonKeyNotFound&) {
-        LOG2(kOdp, kError, "Odp: No service specified for action\n");
+        LOG_ERROR(kOdp, "Odp: No service specified for action\n");
         THROW(OdpError);
     }
 }

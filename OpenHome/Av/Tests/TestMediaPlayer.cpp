@@ -27,7 +27,8 @@
 #include <OpenHome/Web/ConfigUi/ConfigUiMediaPlayer.h>
 #include <OpenHome/Web/ConfigUi/FileResourceHandler.h>
 #include <OpenHome/Av/UpnpAv/FriendlyNameUpnpAv.h>
-#include <OpenHome/Av/CalmRadio/CalmRadio.h> // FIXME - won't be required if we create an associated protocol module
+#include <OpenHome/Net/Odp/DviServerOdp.h>
+#include <OpenHome/Net/Odp/DviProtocolOdp.h>
 
 #undef LPEC_ENABLE
 
@@ -129,7 +130,8 @@ void RebootLogger::Reboot(const Brx& aReason)
 const Brn TestMediaPlayer::kSongcastSenderIconFileName("SongcastSenderIcon");
 
 TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
-                                 const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent, const TChar* aStoreFile,
+                                 const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
+                                 const TChar* aStoreFile, TUint aOdpPort,
                                  TUint aMinWebUiResourceThreads, TUint aMaxWebUiTabs, TUint aUiSendQueueSize)
     : iPullableClock(nullptr)
     , iSemShutdown("TMPS", 0)
@@ -141,6 +143,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     , iTxTimestamper(nullptr)
     , iRxTimestamper(nullptr)
     , iStoreFileWriter(nullptr)
+    , iOdpPort(aOdpPort)
     , iMinWebUiResourceThreads(aMinWebUiResourceThreads)
     , iMaxWebUiTabs(aMaxWebUiTabs)
     , iUiSendQueueSize(aUiSendQueueSize)
@@ -150,6 +153,8 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
 
     // Do NOT set UPnP friendly name attributes at this stage.
     // (Wait until MediaPlayer is created so that friendly name can be observed.)
+
+    aDvStack.AddProtocolFactory(new DviProtocolFactoryOdp());
 
     // Create UPnP device.
     // Friendly name not set here.
@@ -162,6 +167,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
 #ifdef LPEC_ENABLE
     iDevice->SetAttribute("Lpec.Name", "ohPipeline");
 #endif
+    iDevice->SetAttribute("Odp.Name", "Ds");
 
     // Create separate UPnP device for standard MediaRenderer.
     Bws<256> buf(aUdn);
@@ -176,6 +182,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
 #ifdef LPEC_ENABLE
     iDeviceUpnpAv->SetAttribute("Lpec.Name", "MediaRenderer");
 #endif
+    iDeviceUpnpAv->SetAttribute("Odp.Name", "MediaRenderer");
 
     // create read/write store.  This creates a number of static (constant) entries automatically
     iRamStore = new RamStore(kSongcastSenderIconFileName);
@@ -289,6 +296,10 @@ void TestMediaPlayer::Run()
 {
     RegisterPlugins(iMediaPlayer->Env());
     AddConfigApp();
+
+    iServerOdp.reset(new DviServerOdp(iMediaPlayer->DvStack(), kNumOdpSessions, iOdpPort));
+    Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
+
     InitialiseLogger();
     iMediaPlayer->Start();
     InitialiseSubsystems();
