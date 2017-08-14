@@ -15,6 +15,7 @@ const TUint Attenuator::kSupportedMsgTypes =   eMode
                                          | eMetatext
                                          | eStreamInterrupted
                                          | eHalt
+                                         | eFlush
                                          | eWait
                                          | eDecodedStream
                                          | eBitRate

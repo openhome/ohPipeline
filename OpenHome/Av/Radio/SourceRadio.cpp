@@ -16,6 +16,7 @@
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Optional.h>
+#include <OpenHome/Debug-ohMediaPlayer.h>
 
 #include <limits.h>
 #include <memory>
@@ -45,9 +46,9 @@ const Brn SourceFactory::kSourceNameRadio("Radio");
 // SourceRadio
 
 SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId)
-    : Source(SourceFactory::kSourceNameRadio, SourceFactory::kSourceTypeRadio, aMediaPlayer.Pipeline(), aMediaPlayer.PowerManager())
+    : Source(SourceFactory::kSourceNameRadio, SourceFactory::kSourceTypeRadio, aMediaPlayer.Pipeline())
     , iLock("SRAD")
-    , iUriProvider(nullptr)
+    , iUriProviderPresets(nullptr)
     , iTrack(nullptr)
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
@@ -72,14 +73,24 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
                                   kPowerPriorityNormal, Brn("Radio.PresetId"),
                                   IPresetDatabaseReader::kPresetIdNone);
 
-    iPresetDatabase = new PresetDatabase(aMediaPlayer.TrackFactory());
+    auto& trackFactory = aMediaPlayer.TrackFactory();
+    iPresetDatabase = new PresetDatabase(trackFactory);
     iPresetDatabase->AddObserver(*this);
 
-    iUriProvider = new UriProviderRadio(aMediaPlayer.TrackFactory(), *iPresetDatabase);
-    iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceRadio::Play));
-    iUriProvider->SetTransportPause(MakeFunctor(*this, &SourceRadio::Pause));
-    iUriProvider->SetTransportStop(MakeFunctor(*this, &SourceRadio::Stop));
-    aMediaPlayer.Add(iUriProvider);
+    iUriProviderPresets = new UriProviderRadio(trackFactory, *iPresetDatabase);
+    iUriProviderPresets->SetTransportPlay(MakeFunctor(*this, &SourceRadio::Play));
+    iUriProviderPresets->SetTransportPause(MakeFunctor(*this, &SourceRadio::Pause));
+    iUriProviderPresets->SetTransportStop(MakeFunctor(*this, &SourceRadio::Stop));
+    iUriProviderPresets->SetTransportNext(MakeFunctor(*this, &SourceRadio::Next));
+    iUriProviderPresets->SetTransportPrev(MakeFunctor(*this, &SourceRadio::Prev));
+    aMediaPlayer.Add(iUriProviderPresets);
+    iCurrentMode.Set(iUriProviderPresets->Mode());
+
+    iUriProviderSingle = new UriProviderSingleTrack("Radio-Single", false, trackFactory);
+    iUriProviderSingle->SetTransportPlay(MakeFunctor(*this, &SourceRadio::Play));
+    iUriProviderSingle->SetTransportPause(MakeFunctor(*this, &SourceRadio::Pause));
+    iUriProviderSingle->SetTransportStop(MakeFunctor(*this, &SourceRadio::Stop));
+    aMediaPlayer.Add(iUriProviderSingle);
 
     iProviderRadio = new ProviderRadio(aMediaPlayer.Device(), *this, *iPresetDatabase);
     mimeTypes.AddUpnpProtocolInfoObserver(MakeFunctorGeneric(*iProviderRadio, &ProviderRadio::NotifyProtocolInfo));
@@ -104,18 +115,18 @@ SourceRadio::~SourceRadio()
     }
 }
 
-void SourceRadio::Activate(TBool aAutoPlay)
+void SourceRadio::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
-    SourceBase::Activate(aAutoPlay);
+    SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
     if (iTuneIn != nullptr) {
         iTuneIn->Refresh();
     }
     iTrackPosSeconds = 0;
     iActive = true;
     iAutoPlay = aAutoPlay;
-    if (!iNoPipelinePrefetchOnActivation) {
+    if (aPrefetchAllowed) {
         const TUint trackId = (iTrack==nullptr? Track::kIdNone : iTrack->Id());
-        iPipeline.StopPrefetch(iUriProvider->Mode(), trackId);
+        iPipeline.StopPrefetch(iCurrentMode, trackId);
         if (trackId != Track::kIdNone && aAutoPlay) {
             iPipeline.Play();
         }
@@ -131,7 +142,13 @@ void SourceRadio::Deactivate()
 
 TBool SourceRadio::TryActivateNoPrefetch(const Brx& aMode)
 {
-    if (iUriProvider->Mode() != aMode) {
+    if (aMode == iUriProviderPresets->Mode()) {
+        iCurrentMode.Set(iUriProviderPresets->Mode());
+    }
+    else if (aMode == iUriProviderSingle->Mode()) {
+        iCurrentMode.Set(iUriProviderSingle->Mode());
+    }
+    else {
         return false;
     }
     EnsureActiveNoPrefetch();
@@ -163,6 +180,7 @@ TBool SourceRadio::TryFetch(TUint aPresetId, const Brx& aUri)
     else if (!iPresetDatabase->TryGetPresetById(aPresetId, iPresetUri, iPresetMetadata)) {
         return false;
     }
+    iCurrentMode.Set(iUriProviderPresets->Mode());
     iStorePresetNumber->Set(iPresetDatabase->GetPresetNumber(aPresetId));
     iProviderRadio->NotifyPresetInfo(aPresetId, iPresetUri, iPresetMetadata);
     FetchLocked(iPresetUri, iPresetMetadata);
@@ -172,22 +190,26 @@ TBool SourceRadio::TryFetch(TUint aPresetId, const Brx& aUri)
 void SourceRadio::Fetch(const Brx& aUri, const Brx& aMetaData)
 {
     AutoMutex _(iLock);
+    iCurrentMode.Set(iUriProviderSingle->Mode());
     iStorePresetNumber->Set(IPresetDatabaseReader::kPresetIdNone);
     FetchLocked(aUri, aMetaData);
 }
 
 void SourceRadio::FetchLocked(const Brx& aUri, const Brx& aMetaData)
 {
-    if (!IsActive()) {
-        DoActivate();
-    }
+    ActivateIfNotActive();
     if (iTrack == nullptr || iTrack->Uri() != aUri) {
         if (iTrack != nullptr) {
             iTrack->RemoveRef();
         }
-        iTrack = iUriProvider->SetTrack(aUri, aMetaData);
+        if (iCurrentMode == iUriProviderPresets->Mode()) {
+            iTrack = iUriProviderPresets->SetTrack(aUri, aMetaData);
+        }
+        else {
+            iTrack = iUriProviderSingle->SetTrack(aUri, aMetaData);
+        }
         if (iTrack != nullptr) {
-            iPipeline.StopPrefetch(iUriProvider->Mode(), iTrack->Id());
+            iPipeline.StopPrefetch(iCurrentMode, iTrack->Id());
         }
     }
 }
@@ -204,9 +226,7 @@ void SourceRadio::FetchLocked(const Brx& aUri, const Brx& aMetaData)
 void SourceRadio::Play()
 {
     AutoMutex _(iLock);
-    if (!IsActive()) {
-        DoActivate();
-    }
+    ActivateIfNotActive();
     if (iTrack == nullptr) {
         return;
     }
@@ -224,7 +244,7 @@ void SourceRadio::Play()
      * which is just a false-positive in this scenario.
      */
     iPipeline.RemoveAll();
-    iPipeline.Begin(iUriProvider->Mode(), iTrack->Id());
+    iPipeline.Begin(iCurrentMode, iTrack->Id());
     DoPlay();
 }
 
@@ -248,6 +268,47 @@ void SourceRadio::Stop()
     if (IsActive()) {
         iPipeline.Stop();
     }
+}
+
+void SourceRadio::Next()
+{
+    NextPrev(true);
+}
+
+void SourceRadio::Prev()
+{
+    NextPrev(false);
+}
+
+void SourceRadio::NextPrev(TBool aNext)
+{
+    const TChar* func = aNext? "Next" : "Prev";
+    if (!IsActive()) {
+        return;
+    }
+    AutoMutex _(iLock);
+    const TUint presetNum = iStorePresetNumber->Get();
+    if (presetNum == IPresetDatabaseReader::kPresetIdNone) {
+        LOG(kMedia, "SourceRadio::%s - no preset selected so nothing to move relative to\n", func);
+    }
+    TUint id = iPresetDatabase->GetPresetId(presetNum);
+    const auto track = aNext? iPresetDatabase->NextTrackRef(id) :
+                              iPresetDatabase->PrevTrackRef(id);
+    if (track == nullptr) {
+        LOG(kMedia, "SourceRadio::%s - at end of preset list (and no current support for Repeat mode)\n", func);
+        return;
+    }
+    if (iTrack != nullptr) {
+        iTrack->RemoveRef();
+    }
+    iTrack = track;
+    iUriProviderPresets->SetTrack(iTrack);
+    iProviderRadio->NotifyPresetInfo(id, iTrack->Uri(), iTrack->MetaData());
+    iStorePresetNumber->Set(iPresetDatabase->GetPresetNumber(id));
+
+    iPipeline.RemoveAll();
+    iPipeline.Begin(iCurrentMode, iTrack->Id());
+    DoPlay();
 }
 
 void SourceRadio::SeekAbsolute(TUint aSeconds)
@@ -302,7 +363,7 @@ void SourceRadio::PresetDatabaseChanged()
         iPipeline.Play();
     }
     else {
-        iTrack = iUriProvider->SetTrack(iPresetUri, iPresetMetadata);
+        iTrack = iUriProviderPresets->SetTrack(iPresetUri, iPresetMetadata);
     }
 }
 

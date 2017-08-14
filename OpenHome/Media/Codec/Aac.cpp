@@ -23,7 +23,7 @@ private: // from CodecBase
     void StreamCompleted();
 private:
     void ProcessMpeg4();
-    TUint SkipEsdsTag(const TByte& aPtr);
+    TUint SkipEsdsTag(IReader& aReader, TByte& aDescLen);
 private:
     static const TUint kMaxRecogBytes = 6 * 1024; // copied from previous CodecController behaviour
     Bws<kMaxRecogBytes> iRecogBuf;
@@ -80,16 +80,28 @@ TBool CodecAac::Recognise(const EncodedStreamInfo& aStreamInfo)
     return false;
 }
 
-TUint CodecAac::SkipEsdsTag(const TByte& aPtr)
+TUint CodecAac::SkipEsdsTag(IReader& aReader, TByte& aDescLen)
 {
-    switch(aPtr) {
+    TUint skip = 0;
+    TByte val = aReader.Read(1)[0];
+
+    switch (val) {
         case 0x80:
         case 0x81:
         case 0xFE:
-            return 3;
+            skip = 3;
+            break;
         default:
-            return 0;
+            skip = 0;
     }
+
+    if (skip > 0) {
+        aDescLen = aReader.Read(skip)[skip - 1];
+    }
+    else {
+        aDescLen = val;
+    }
+    return skip + 1;
 }
 
 void CodecAac::StreamInitialise()
@@ -106,6 +118,124 @@ void CodecAac::StreamInitialise()
         CodecBufferedReader codecBufReader(*iController, iInBuf);
         Mpeg4InfoReader mp4Reader(codecBufReader);
         mp4Reader.Read(info);
+
+        // see http://wiki.multimedia.cx/index.php?title=Understanding_AAC for details
+        // or http://xhelmboyx.tripod.com/formats/mp4-layout.txt - search for 'esds'
+
+        // also see APar_Extract_esds_Info() in
+        //          http://m4sharp.googlecode.com/svn-history/r3/trunk/m4aSharp/m4aSharp/AP_AtomExtracts.cpp
+        // and
+        //          http://www.jthink.net/jaudiotagger/javadoc/org/jaudiotagger/audio/mp4/atom/Mp4EsdsBox.html
+        /*
+        EsdsBox ( stream specific description box), usually holds the Bitrate/No of Channels
+
+        It contains a number of (possibly optional?) sections (section 3 - 6) (containing optional filler) with differeent info in each section.
+
+        -> 4 bytes version/flags = 8-bit hex version + 24-bit hex flags (current = 0)
+
+        Section 3 -> 1 byte ES descriptor type tag = 8-bit hex value 0x03
+        -> 3 bytes optional extended descriptor type tag string = 3 * 8-bit hex value - types are 0x80,0x81,0xFE
+        -> 1 byte descriptor type length = 8-bit unsigned length
+        -> 2 bytes ES ID = 16-bit unsigned value
+        -> 1 byte stream priority = 8-bit unsigned value - Defaults to 16 and ranges from 0 through to 31
+
+        Section 4 -> 1 byte decoder config descriptor type tag = 8-bit hex value 0x04
+        -> 3 bytes optional extended descriptor type tag string = 3 * 8-bit hex value - types are 0x80,0x81,0xFE
+        -> 1 byte descriptor type length = 8-bit unsigned length *
+        -> 1 byte object type ID = 8-bit unsigned value
+        - type IDs are system v1 = 1 ; system v2 = 2
+        - type IDs are MPEG-4 video = 32 ; MPEG-4 AVC SPS = 33
+        - type IDs are MPEG-4 AVC PPS = 34 ; MPEG-4 audio = 64
+        - type IDs are MPEG-2 simple video = 96
+        - type IDs are MPEG-2 main video = 97
+        - type IDs are MPEG-2 SNR video = 98
+        - type IDs are MPEG-2 spatial video = 99
+        - type IDs are MPEG-2 high video = 100
+        - type IDs are MPEG-2 4:2:2 video = 101
+        - type IDs are MPEG-4 ADTS main = 102
+        - type IDs are MPEG-4 ADTS Low Complexity = 103
+        - type IDs are MPEG-4 ADTS Scalable Sampling Rate = 104
+        - type IDs are MPEG-2 ADTS = 105 ; MPEG-1 video = 106
+        - type IDs are MPEG-1 ADTS = 107 ; JPEG video = 108
+        - type IDs are private audio = 192 ; private video = 208
+        - type IDs are 16-bit PCM LE audio = 224 ; vorbis audio = 225
+        - type IDs are dolby v3 (AC3) audio = 226 ; alaw audio = 227
+        - type IDs are mulaw audio = 228 ; G723 ADPCM audio = 229
+        - type IDs are 16-bit PCM Big Endian audio = 230
+        - type IDs are Y'CbCr 4:2:0 (YV12) video = 240 ; H264 video = 241
+        - type IDs are H263 video = 242 ; H261 video = 243
+
+        -> 6 bits stream type = 3/4 byte hex value - type IDs are object descript. = 1 ; clock ref. = 2 - type IDs are scene descript. = 4 ; visual = 4 - type IDs are audio = 5 ; MPEG-7 = 6 ; IPMP = 7 - type IDs are OCI = 8 ; MPEG Java = 9 - type IDs are user private = 32
+        -> 1 bit upstream flag = 1/8 byte hex value
+        -> 1 bit reserved flag = 1/8 byte hex value set to 1
+        -> 3 bytes buffer size = 24-bit unsigned value
+        -> 4 bytes maximum bit rate = 32-bit unsigned value
+        -> 4 bytes average bit rate = 32-bit unsigned value
+
+        Section 5 -> 1 byte decoder specific descriptor type tag 8-bit hex value 0x05
+        -> 3 bytes optional extended descriptor type tag string = 3 * 8-bit hex value - types are 0x80,0x81,0xFE
+        -> 1 byte descriptor type length = 8-bit unsigned length
+        -> 1 byte Audio profile Id - 5 bits Profile Id - 3 bits Unknown
+        -> 8 bits other flags - 3 bits unknown - 2 bits is No of Channels - 3 bits unknown
+
+        Section 6
+        -> 1 byte SL config descriptor type tag = 8-bit hex value 0x06
+        -> 3 bytes optional extended descriptor type tag string = 3 * 8-bit hex value - types are 0x80,0x81,0xFE
+        -> 1 byte descriptor type length = 8-bit unsigned length
+        -> 1 byte SL value = 8-bit hex value set to 0x02
+
+        Valid Type ID seen for aac is "MPEG-4 audio" - not sure if any others are used so no checking for this is done
+        */
+        iChannels = 0;
+
+        TByte descTag, descLen, val;
+        TUint bytesRead = 0;
+
+        descTag = codecBufReader.Read(1)[0];
+        bytesRead++;
+        if (descTag == 3) {     // section 3
+            bytesRead += SkipEsdsTag(codecBufReader, descLen);
+            if (descLen != 0) {
+                // skip es_id (2 bytes) and stream_priority (1 byte)
+                descTag = codecBufReader.Read(4)[3];
+                bytesRead += 4;
+                if (descTag == 4) {     // section 4
+                    bytesRead += SkipEsdsTag(codecBufReader, descLen);
+                    if (descLen != 0) {
+                        // 13 = obj type (1)     +
+                        //      stream type (1)  +
+                        //      buffer size (3)  +
+                        //      max_bit_rate (4) +
+                        //      avg_bit_rate (4)
+                        Brn buf = codecBufReader.Read(13);
+                        bytesRead += 13;
+                        // extract bitrates
+                        iBitrateMax = Converter::BeUint32At(buf, 5);
+                        iBitrateAverage = Converter::BeUint32At(buf, 9);
+                        descTag = codecBufReader.Read(1)[0];
+                        bytesRead++;
+                        if(descTag == 5) {     // section 5
+                            bytesRead += SkipEsdsTag(codecBufReader, descLen);
+                            if (descLen != 0) {
+                                // skip audio profile id (1 byte)
+                                val = codecBufReader.Read(2)[1];
+                                bytesRead += 2;
+                                iChannels = (val >> 3) & 0xf;  // FIXME - compare against iInfo.Channels() - or is that not valid?
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // Skip any remaining bytes of the ES descriptor.
+        // First check that we have not gone beyond its end
+        if (info.StreamDescriptorBytes() < bytesRead) {
+            THROW(CodecStreamCorrupt);
+        }
+        TUint skip = info.StreamDescriptorBytes() - bytesRead;
+        if (skip > 0) {
+            codecBufReader.Read(skip);
+        }
 
         // Read sample size table.
         ReaderBinary readerBin(codecBufReader);
@@ -130,108 +260,6 @@ void CodecAac::StreamInitialise()
     }
 
     iInBuf.SetBytes(0);
-
-    // see http://wiki.multimedia.cx/index.php?title=Understanding_AAC for details
-    // or http://xhelmboyx.tripod.com/formats/mp4-layout.txt - search for 'esds'
-
-    // also see APar_Extract_esds_Info() in
-    //          http://m4sharp.googlecode.com/svn-history/r3/trunk/m4aSharp/m4aSharp/AP_AtomExtracts.cpp
-    // and
-    //          http://www.jthink.net/jaudiotagger/javadoc/org/jaudiotagger/audio/mp4/atom/Mp4EsdsBox.html
-    /*
-    EsdsBox ( stream specific description box), usually holds the Bitrate/No of Channels
-
-    It contains a number of (possibly optional?) sections (section 3 - 6) (containing optional filler) with differeent info in each section.
-
-    -> 4 bytes version/flags = 8-bit hex version + 24-bit hex flags (current = 0)
-
-    Section 3 -> 1 byte ES descriptor type tag = 8-bit hex value 0x03
-    -> 3 bytes optional extended descriptor type tag string = 3 * 8-bit hex value - types are 0x80,0x81,0xFE
-    -> 1 byte descriptor type length = 8-bit unsigned length
-    -> 2 bytes ES ID = 16-bit unsigned value
-    -> 1 byte stream priority = 8-bit unsigned value - Defaults to 16 and ranges from 0 through to 31
-
-    Section 4 -> 1 byte decoder config descriptor type tag = 8-bit hex value 0x04
-    -> 3 bytes optional extended descriptor type tag string = 3 * 8-bit hex value - types are 0x80,0x81,0xFE
-    -> 1 byte descriptor type length = 8-bit unsigned length *
-    -> 1 byte object type ID = 8-bit unsigned value
-    - type IDs are system v1 = 1 ; system v2 = 2
-    - type IDs are MPEG-4 video = 32 ; MPEG-4 AVC SPS = 33
-    - type IDs are MPEG-4 AVC PPS = 34 ; MPEG-4 audio = 64
-    - type IDs are MPEG-2 simple video = 96
-    - type IDs are MPEG-2 main video = 97
-    - type IDs are MPEG-2 SNR video = 98
-    - type IDs are MPEG-2 spatial video = 99
-    - type IDs are MPEG-2 high video = 100
-    - type IDs are MPEG-2 4:2:2 video = 101
-    - type IDs are MPEG-4 ADTS main = 102
-    - type IDs are MPEG-4 ADTS Low Complexity = 103
-    - type IDs are MPEG-4 ADTS Scalable Sampling Rate = 104
-    - type IDs are MPEG-2 ADTS = 105 ; MPEG-1 video = 106
-    - type IDs are MPEG-1 ADTS = 107 ; JPEG video = 108
-    - type IDs are private audio = 192 ; private video = 208
-    - type IDs are 16-bit PCM LE audio = 224 ; vorbis audio = 225
-    - type IDs are dolby v3 (AC3) audio = 226 ; alaw audio = 227
-    - type IDs are mulaw audio = 228 ; G723 ADPCM audio = 229
-    - type IDs are 16-bit PCM Big Endian audio = 230
-    - type IDs are Y'CbCr 4:2:0 (YV12) video = 240 ; H264 video = 241
-    - type IDs are H263 video = 242 ; H261 video = 243
-
-    -> 6 bits stream type = 3/4 byte hex value - type IDs are object descript. = 1 ; clock ref. = 2 - type IDs are scene descript. = 4 ; visual = 4 - type IDs are audio = 5 ; MPEG-7 = 6 ; IPMP = 7 - type IDs are OCI = 8 ; MPEG Java = 9 - type IDs are user private = 32
-    -> 1 bit upstream flag = 1/8 byte hex value
-    -> 1 bit reserved flag = 1/8 byte hex value set to 1
-    -> 3 bytes buffer size = 24-bit unsigned value
-    -> 4 bytes maximum bit rate = 32-bit unsigned value
-    -> 4 bytes average bit rate = 32-bit unsigned value
-
-    Section 5 -> 1 byte decoder specific descriptor type tag 8-bit hex value 0x05
-    -> 3 bytes optional extended descriptor type tag string = 3 * 8-bit hex value - types are 0x80,0x81,0xFE
-    -> 1 byte descriptor type length = 8-bit unsigned length
-    -> 1 byte Audio profile Id - 5 bits Profile Id - 3 bits Unknown
-    -> 8 bits other flags - 3 bits unknown - 2 bits is No of Channels - 3 bits unknown
-
-    Section 6
-    -> 1 byte SL config descriptor type tag = 8-bit hex value 0x06
-    -> 3 bytes optional extended descriptor type tag string = 3 * 8-bit hex value - types are 0x80,0x81,0xFE
-    -> 1 byte descriptor type length = 8-bit unsigned length
-    -> 1 byte SL value = 8-bit hex value set to 0x02
-
-    Valid Type ID seen for aac is "MPEG-4 audio" - not sure if any others are used so no checking for this is done
-    */
-    iChannels = 0;
-    const TByte *ptr = info.StreamDescriptor().Ptr();
-    //ptr += 4;   // Container should already have skipped over 32-bit version field.
-
-    if(*ptr == 3) {     // section 3
-        ptr++;
-        ptr += SkipEsdsTag(*ptr);
-        if(*ptr != 0) {
-            ptr += 4;
-            if(*ptr == 4) {     // section 4
-                ptr++;
-                ptr += SkipEsdsTag(*ptr);
-                if(*ptr != 0) {
-                    ptr++; //ObjectTypeIndication
-                    ptr++; // a_v_flag
-                    ptr += 4;
-                    //extract bitrates
-                    iBitrateMax = Converter::BeUint32At(Brn(ptr,4), 0);
-                    ptr += 4;
-                    iBitrateAverage = Converter::BeUint32At(Brn(ptr,4), 0);
-                    ptr += 4;
-                    if(*ptr == 5) {     // section 5
-                        ptr++;
-                        ptr += SkipEsdsTag(*ptr);
-                        if(*ptr != 0) {
-                            ptr += 2;
-                            iChannels = (*ptr >> 3) & 0xf;  // FIXME - compare against iInfo.Channels() - or is that not valid?
-                        }
-                    }
-
-                }
-            }
-        }
-    }
 
     iSampleRate = info.Timescale();
     iOutputSampleRate = iSampleRate;

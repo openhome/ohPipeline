@@ -58,7 +58,7 @@ void Json::Escape(IWriter& aWriter, const Brx& aValue)
             aWriter.Write(kEscapedTab);
             break;
         default:
-            if (ch > 0x1F) {
+            if (ch > 0x1F && ch < 0x80) {
                 aWriter.Write(ch);
             }
             else {
@@ -118,10 +118,14 @@ void Json::Unescape(Bwx& aValue)
                 Brn hexBuf = aValue.Split(i+1, 4);
                 i += 4;
                 const TUint hex = Ascii::UintHex(hexBuf);
-                if (hex > 0xFF) {
-                    THROW(JsonUnsupported);
+                if (hex < 0x80) {
+                    aValue[j++] = (TByte)hex;
                 }
-                aValue[j++] = (TByte)hex;
+                else {
+                    Bwn buf(aValue.Ptr() + j, bytes - j);
+                    Converter::ToUtf8(hex, buf);
+                    j += buf.Bytes();
+                }
             }
                 break;
             default:
@@ -168,8 +172,12 @@ void JsonParser::Parse(const Brx& aJson, TBool aUnescapeInPlace)
 {
     Reset();
 
-    const TByte* ptr = aJson.Ptr();
-    const TByte* end = ptr + aJson.Bytes();
+    Brn json = Ascii::Trim(aJson);
+    if (json.Bytes() == 0 || json == WriterJson::kNull) {
+        return;
+    }
+    const TByte* ptr = json.Ptr();
+    const TByte* end = ptr + json.Bytes();
 
     enum ParseState {
         DocStart,
@@ -284,6 +292,9 @@ void JsonParser::Parse(const Brx& aJson, TBool aUnescapeInPlace)
                 }
                 escapeChar = false;
             }
+            else {
+                escapeChar = false;
+            }
             break;
         case ArrayEnd:
             if (ch == '[') {
@@ -342,6 +353,25 @@ Brn JsonParser::String(const TChar* aKey) const
 Brn JsonParser::String(const Brx& aKey) const
 {
     return Value(aKey);
+}
+
+Brn JsonParser::StringOptional(const TChar* aKey) const
+{
+    Brn key(aKey);
+    return StringOptional(key);
+}
+
+Brn JsonParser::StringOptional(const Brx& aKey) const
+{
+    try {
+        return String(aKey);
+    }
+    catch (JsonKeyNotFound&) {
+        return Brx::Empty();
+    }
+    catch (JsonValueNull&) {
+        return Brx::Empty();
+    }
 }
 
 TInt JsonParser::Num(const TChar* aKey) const
@@ -554,7 +584,7 @@ JsonParserArray::JsonParserArray(const Brx& aArray)
 
 void JsonParserArray::StartParse()
 {
-    if (iBuf == WriterJson::kNull) {
+    if (iBuf == WriterJson::kNull || iBuf.Bytes() == 0) {
         iType = ValType::Null;
         return;
     }
@@ -718,6 +748,14 @@ void WriterJson::WriteValueBool(IWriter& aWriter, TBool aValue)
 
 const Brn WriterJsonArray::kArrayStart("[");
 const Brn WriterJsonArray::kArrayEnd("]");
+
+WriterJsonArray::WriterJsonArray()
+    : iWriter(nullptr)
+    , iWriteOnEmpty(WriteOnEmpty::eNull)
+    , iStarted(false)
+    , iEnded(false)
+{
+}
 
 WriterJsonArray::WriterJsonArray(IWriter& aWriter, WriteOnEmpty aWriteOnEmpty)
     : iWriter(&aWriter)
@@ -1034,4 +1072,17 @@ void WriterJsonValueString::CheckStarted()
         iStarted = true;
         iWriter->Write(WriterJson::kQuote);
     }
+}
+
+
+// AutoWriterJson
+
+AutoWriterJson::AutoWriterJson(IWriterJson& aWriterJson)
+    : iWriterJson(aWriterJson)
+{
+}
+
+AutoWriterJson::~AutoWriterJson()
+{
+    iWriterJson.WriteEnd();
 }

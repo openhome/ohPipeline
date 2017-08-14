@@ -22,12 +22,16 @@ const TUint Ramper::kSupportedMsgTypes =   eMode
                                          | eSilence
                                          | eQuit;
 
-Ramper::Ramper(IPipelineElementUpstream& aUpstreamElement, TUint aRampDuration)
+Ramper::Ramper(IPipelineElementUpstream& aUpstreamElement,
+              TUint aRampJiffiesLong,
+              TUint aRampJiffiesShort)
     : PipelineElement(kSupportedMsgTypes)
     , iUpstreamElement(aUpstreamElement)
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
     , iRamping(false)
-    , iRampDuration(aRampDuration)
+    , iRampJiffiesLong(aRampJiffiesLong)
+    , iRampJiffiesShort(aRampJiffiesShort)
+    , iRampJiffies(aRampJiffiesLong)
     , iRemainingRampSize(0)
     , iCurrentRampValue(Ramp::kMin)
 {
@@ -51,6 +55,13 @@ Msg* Ramper::Pull()
     return msg;
 }
 
+Msg* Ramper::ProcessMsg(MsgMode* aMsg)
+{
+    iRampJiffies = aMsg->Info().RampPauseResumeLong()?
+                        iRampJiffiesLong : iRampJiffiesShort;
+    return aMsg;
+}
+
 Msg* Ramper::ProcessMsg(MsgHalt* aMsg)
 {
     iRamping = false;
@@ -65,7 +76,7 @@ Msg* Ramper::ProcessMsg(MsgDecodedStream* aMsg)
     if (info.Live() || (newStream && info.SampleStart() > 0)) {
         iRamping = true;
         iCurrentRampValue = Ramp::kMin;
-        iRemainingRampSize = iRampDuration;
+        iRemainingRampSize = iRampJiffies;
     }
     else {
         iRamping = false;

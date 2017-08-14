@@ -94,12 +94,29 @@ void CodecAlacApple::StreamInitialise()
 
     iCurrentSample = 0;
 
+    // Apple's implementation requires a 24-byte config and ignores first 4 bytes from current config taken from Mpeg4Container.
+    static const TUint kConfigBytes = 24;
+
     // Use iInBuf for gathering initialisation data, as it doesn't need to be used for audio until Process() starts being called.
     Mpeg4Info info;
+    Bws<kConfigBytes> config;
+
     try {
         CodecBufferedReader codecBufReader(*iController, iInBuf);
         Mpeg4InfoReader mp4Reader(codecBufReader);
         mp4Reader.Read(info);
+
+        if (info.StreamDescriptorBytes() < (kConfigBytes + 4)) {
+            THROW(CodecStreamCorrupt);
+        }
+
+        codecBufReader.Read(4);
+        config.Append(codecBufReader.Read(kConfigBytes));
+
+        TUint skip = info.StreamDescriptorBytes() - kConfigBytes - 4;
+        if (skip > 0) {
+            codecBufReader.Read(skip);
+        }
 
         // Read sample size table.
         ReaderBinary readerBin(codecBufReader);
@@ -125,10 +142,6 @@ void CodecAlacApple::StreamInitialise()
 
     iInBuf.SetBytes(0);
 
-    // Apple's implementation requires a 24-byte config and ignores first 4 bytes from current config taken from Mpeg4Container.
-    static const TUint kConfigBytes = 24;
-    Bws<kConfigBytes> config(Brn(info.StreamDescriptor().Ptr()+4, info.StreamDescriptor().Bytes()-4));
-
     // Configure decoder (re-initialise rather than delete/new whole object).
     TInt status = iDecoder->Init((void*)config.Ptr(), config.Bytes());
     if (status != ALAC_noErr) {
@@ -150,9 +163,9 @@ void CodecAlacApple::StreamInitialise()
 
     // Bit depth has already been read from outer "alac" box in MPEG4 container
     // and is stored within info.BitDepth(). However, that is not always
-    // correct! There is a byte at index 9 of the inner "alac" box (whose
-    // contents are contained within info.StreamDescriptor()) which seems to be
-    // correct, so use that instead.
+    // correct! There is a byte at index 9 of the inner "alac" box which seems to
+    // be correct, so use that instead.
+    //
     //
     // Could alternatively access this value from iDecoder->mConfig.bitDepth
     // after iDecoder->Init() has been called, but that is directly accessing
@@ -160,12 +173,10 @@ void CodecAlacApple::StreamInitialise()
     // data here.
 
     //iBitDepth = info.BitDepth();
-    static const TUint kBitDepthOffset = 9;
-    if (info.StreamDescriptor().Bytes() <= kBitDepthOffset) {
-        THROW(CodecStreamCorrupt);
-    }
-    iBitDepth = info.StreamDescriptor()[kBitDepthOffset];
 
+    // config buffer does not contain the first 4 bytes of the "alac" box,
+    // so we read offset 5
+    iBitDepth = config[5];
 
     iBytesPerSample = info.Channels()*iBitDepth/8;
     iSampleRate = info.Timescale();

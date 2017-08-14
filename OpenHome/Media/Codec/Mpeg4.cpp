@@ -33,10 +33,10 @@ Mpeg4Info::Mpeg4Info() :
 
 Mpeg4Info::Mpeg4Info(const Brx& aCodec, TUint aSampleRate, TUint aTimescale,
         TUint aChannels, TUint aBitDepth, TUint64 aDuration,
-        const Brx& aStreamDescriptor) :
+        TUint aStreamDescriptorBytes) :
         iCodec(aCodec), iSampleRate(aSampleRate), iTimescale(aTimescale), iChannels(
-                aChannels), iBitDepth(aBitDepth), iDuration(aDuration), iStreamDescriptor(
-                aStreamDescriptor)
+                aChannels), iBitDepth(aBitDepth), iDuration(aDuration), iStreamDescBytes(
+                        aStreamDescriptorBytes)
 {
 }
 
@@ -44,7 +44,7 @@ TBool Mpeg4Info::Initialised() const
 {
     const TBool initialised = iCodec.Bytes() > 0 && iSampleRate != 0
             && iTimescale != 0 && iChannels != 0 && iBitDepth != 0
-            && iDuration != 0 && iStreamDescriptor.Bytes() > 0;
+            && iDuration != 0 && iStreamDescBytes > 0;
     return initialised;
 }
 
@@ -79,9 +79,9 @@ TUint64 Mpeg4Info::Duration() const
     return iDuration;
 }
 
-const Brx& Mpeg4Info::StreamDescriptor() const
+TUint Mpeg4Info::StreamDescriptorBytes() const
 {
-    return iStreamDescriptor;
+    return iStreamDescBytes;
 }
 
 void Mpeg4Info::SetCodec(const Brx& aCodec)
@@ -115,9 +115,9 @@ void Mpeg4Info::SetDuration(TUint64 aDuration)
     iDuration = aDuration;
 }
 
-void Mpeg4Info::SetStreamDescriptor(const Brx& aDescriptor)
+void Mpeg4Info::SetStreamDescriptorBytes(TUint aBytes)
 {
-    iStreamDescriptor.Replace(aDescriptor);
+    iStreamDescBytes = aBytes;
 }
 
 // Mpeg4InfoReader
@@ -133,7 +133,6 @@ void Mpeg4InfoReader::Read(IMpeg4InfoWritable& aInfo)
     ReaderBinary readerBin(iReader);
     try {
         Bws<IMpeg4InfoWritable::kCodecBytes> codec;
-        Bws<IMpeg4InfoWritable::kMaxStreamDescriptorBytes> streamDescriptor;
 
         readerBin.ReadReplace(codec.MaxBytes(), codec);
         aInfo.SetCodec(codec);
@@ -154,8 +153,7 @@ void Mpeg4InfoReader::Read(IMpeg4InfoWritable& aInfo)
         aInfo.SetDuration(duration);
 
         const TUint streamDescriptorBytes = readerBin.ReadUintBe(4);
-        readerBin.ReadReplace(streamDescriptorBytes, streamDescriptor);
-        aInfo.SetStreamDescriptor(streamDescriptor);
+        aInfo.SetStreamDescriptorBytes(streamDescriptorBytes);
 
         //ASSERT(aInfo.Initialised());
     } catch (ReaderError&) {
@@ -180,8 +178,7 @@ void Mpeg4InfoWriter::Write(IWriter& aWriter) const
     writer.WriteUint32Be(iInfo.Channels());
     writer.WriteUint32Be(iInfo.BitDepth());
     writer.WriteUint64Be(iInfo.Duration());
-    writer.WriteUint32Be(iInfo.StreamDescriptor().Bytes());
-    writer.Write(iInfo.StreamDescriptor());
+    writer.WriteUint32Be(iInfo.StreamDescriptorBytes());
     aWriter.WriteFlush();   // FIXME - required?
 }
 
@@ -304,7 +301,6 @@ Msg* Mpeg4BoxSwitcherRoot::Process()
                 iState = eBox;
             }
             catch (Mpeg4BoxUnrecognised&) {
-                const Brx& id = iHeaderReader.Id();
                 LOG(kCodec, "Mpeg4BoxSwitcherRoot::Process couldn't find processor for %.*s, %u bytes\n",
                             PBUF(id), iHeaderReader.Bytes());
 
@@ -386,7 +382,6 @@ Msg* Mpeg4BoxSwitcher::Process()
                         *iCache);
                 iState = eBox;
             } catch (Mpeg4BoxUnrecognised&) {
-                const Brx& id = iHeaderReader.Id();
                 LOG(kCodec, "Mpeg4BoxSwitcher::Process couldn't find processor for %.*s, %u bytes\n",
                             PBUF(id), iHeaderReader.Bytes());
 
@@ -2913,15 +2908,10 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
             // FIXME - should be able to pass codec info msg on directly without copying into buffer here.
             // However, need to know size of it for codecs to unpack it into a buffer, and it's generally small (< 50 bytes) and a one-off per stream so it isn't a huge performance hit.
             MsgAudioEncoded* codecInfo = iCodecInfo.CodecInfo();
-            Bws<IMpeg4InfoWritable::kMaxStreamDescriptorBytes> codecInfoBuf;
-            ASSERT(codecInfoBuf.MaxBytes() >= codecInfo->Bytes());
-            codecInfo->CopyTo(const_cast<TByte*>(codecInfoBuf.Ptr()));
-            codecInfoBuf.SetBytes(codecInfo->Bytes());
-            codecInfo->RemoveRef();
 
             Mpeg4Info info(iStreamInfo.Codec(), iStreamInfo.SampleRate(),
                     iDurationInfo.Timescale(), iStreamInfo.Channels(),
-                    iStreamInfo.BitDepth(), iDurationInfo.Duration(), codecInfoBuf);
+                    iStreamInfo.BitDepth(), iDurationInfo.Duration(), codecInfo->Bytes());
 
             Mpeg4InfoWriter writer(info);
             Bws<Mpeg4InfoWriter::kMaxBytes> infoBuf;
@@ -2930,6 +2920,7 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
 
             // Need to create MsgAudioEncoded w/ data for codec.
             msg = iMsgFactory->CreateMsgAudioEncoded(infoBuf);
+            msg->Add(codecInfo);
 
             iSampleSizeTable.WriteInit();
             iMdataState = eMdataSizeTab;

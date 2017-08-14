@@ -60,10 +60,15 @@ tidalPwd  = config.Get( 'tidal.password' )
 qobuzId   = config.Get( 'qobuz.id' ) + ':' + config.Get( 'qobuz.secret' )
 qobuzUser = config.Get( 'qobuz.user' )
 qobuzPwd  = config.Get( 'qobuz.password' )
+crUser    = config.Get( 'calmradio.user' )
+crPwd     = config.Get( 'calmradio.password' )
 
 tests = [
     # UPnP compliance
     [ 'TestComplianceDevice',         'local'                                                                                        ],
+
+    # Transport Service
+    [ 'TestTransportService',         'local'                                                                                        ],
 
     # OH Playlist Service
     [ 'TestPlaylistHandling',         'local', 'all',   0                                                                            ],
@@ -90,9 +95,9 @@ tests = [
     [ 'TestQobuzPlayTracks',          'local', 'none',  8,       'off',   'off',       120,         qobuzId,     qobuzUser, qobuzPwd ],
     [ 'TestQobuzDropout',             'local', 'none',  'none',  1800,    'unicast',   20,          qobuzId,     qobuzUser, qobuzPwd ],
 
-    # Airplay
-    [ 'TestAirplayFunctions',         'local'                                                                                        ],
-    [ 'TestAirplayDropout',           'local', '1800'                                                                                ],
+    # Calm Radio
+    ['TestCalmRadioPlayChannels',     'local', 'none',  8,       20,      crUser,      crPwd                                         ],
+    ['TestCalmRadioDropout',          'local', 'none', 'none',   1800,    'none',      5,           crUser,      crPwd               ],
 
     # UPnP AV
     [ 'TestAvTransportService',       'local', 'ALL'                                                                                 ],
@@ -112,6 +117,10 @@ tests = [
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'sender',    'multicast'                      ],
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'standby',   'unicast'                        ],
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'standby',   'multicast'                      ],
+
+    # Airplay
+    ['TestAirplayFunctions', 'local'],
+    ['TestAirplayDropout', 'local', '1800'],
 
     # Sources
     [ 'TestSourceSelect',             'local'                                                                                        ],

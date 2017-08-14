@@ -503,7 +503,7 @@ void HttpHeaderRange::Process(const Brx& aValue)
             THROW(HttpError);
         }
 
-        Brn start(range.Ptr(), indHyphen);      // Get the start value.
+        start.Set(range.Ptr(), indHyphen);      // Get the start value.
         indHyphen++; // Shift index so we skip over separator.
         end = range.Split(indHyphen, range.Bytes()-indHyphen);  // Get the end value.
 

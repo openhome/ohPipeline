@@ -358,7 +358,7 @@ void Seeker::HandleSeekFail()
             LOG(kPipeline, "Seeker::HandleSeekFail() SeekRestream returned %u\n", iTargetFlushId);
         }
         else {
-            LOG2(kPipeline, kError, "Seeker::HandleSeekFail() give up, already failed to seek twice\n");
+            LOG_ERROR(kPipeline, "Seeker::HandleSeekFail() give up, already failed to seek twice\n");
             iTargetFlushId = MsgFlush::kIdInvalid;
             iSeekConsecutiveFailureCount = 0;
             iState = ERampingUp;

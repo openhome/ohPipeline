@@ -45,7 +45,7 @@ public:
 private:
     void NotifyState(Media::EPipelineState aState);
 private: // from Source
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;

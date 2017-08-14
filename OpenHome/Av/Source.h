@@ -27,7 +27,7 @@ public:
     virtual const Brx& Type() const = 0;
     virtual void Name(Bwx& aBuf) const = 0;
     virtual TBool IsVisible() const = 0;
-    virtual void Activate(TBool aAutoPlay) = 0;
+    virtual void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) = 0;
     virtual void Deactivate() = 0;
     virtual TBool TryActivateNoPrefetch(const Brx& aMode) = 0; // returns true if derived Source owns a UriProvider whose mode matches aMode
     virtual void SetVisible(TBool aVisible) = 0;
@@ -54,14 +54,23 @@ protected: // from ISource
     const Brx& Type() const override;
     void Name(Bwx& aBuf) const override;
     TBool IsVisible() const override;
-    void Activate(TBool aAutoPlay) override;
+    void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
     void SetVisible(TBool aVisible) override;
 protected:
     SourceBase(const Brx& aSystemName, const TChar* aType, TBool aIsVisibleByDefault = true);
     ~SourceBase();
     TBool IsActive() const;
-    void DoActivate();
+    /*
+     * Takes product out of standby and activates this source, if not already
+     * active.
+     */
+    void ActivateIfNotActive();
+    /*
+     * Takes product out of standby and activates this source, if not already
+     * active. Tells source not to prefetch.
+     */
+    void ActivateIfNotActiveNoPrefetch();
 private: // from ISource
     void Initialise(IProduct& aProduct, Configuration::IConfigInitialiser& aConfigInit, Configuration::IConfigManager& aConfigManagerReader, TUint aId) override;
 private:
@@ -90,17 +99,18 @@ private:
 class Source : public SourceBase
 {
 protected:
-    Source(const Brx& aSystemName, const TChar* aType, Media::PipelineManager& aPipeline, IPowerManager& aPowerManager, TBool aIsVisibleByDefault = true);
+    Source(const Brx& aSystemName, const TChar* aType, Media::PipelineManager& aPipeline, TBool aIsVisibleByDefault = true);
+    /*
+     * Will activate source if not already active, followed by telling pipeline
+     * to play.
+     */
     void DoPlay();
     void EnsureActiveNoPrefetch();
 protected:
     Media::PipelineManager& iPipeline;
-    TBool iNoPipelinePrefetchOnActivation;
 private:
-    IPowerManager& iPowerManager;
     Mutex iLockActivation;
 };
 
 } // namespace Av
 } // namespace OpenHome
-

@@ -13,7 +13,8 @@ UriProviderRepeater::UriProviderRepeater(const TChar* aMode, TBool aSupportsLate
     : UriProvider(aMode,
                   aSupportsLatency? Latency::Supported : Latency::NotSupported,
                   Next::NotSupported, Prev::NotSupported,
-                  Repeat::NotSupported, Random::NotSupported)
+                  Repeat::NotSupported, Random::NotSupported,
+                  RampPauseResume::Long, RampSkip::Short)
     , iLock("UPRP")
     , iTrackFactory(aTrackFactory)
     , iTrack(nullptr)

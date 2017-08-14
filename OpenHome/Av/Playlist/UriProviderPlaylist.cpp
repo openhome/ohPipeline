@@ -20,7 +20,11 @@ const Brn UriProviderPlaylist::kCommandId("id");
 const Brn UriProviderPlaylist::kCommandIndex("index");
 
 UriProviderPlaylist::UriProviderPlaylist(ITrackDatabaseReader& aDatabase, PipelineManager& aPipeline, ITrackDatabaseObserver& aObserver)
-    : UriProvider("Playlist", Latency::NotSupported, Next::Supported, Prev::Supported, Repeat::Supported, Random::Supported)
+    : UriProvider("Playlist",
+                  Latency::NotSupported,
+                  Next::Supported, Prev::Supported,
+                  Repeat::Supported, Random::Supported,
+                  RampPauseResume::Long, RampSkip::Short)
     , iLock("UPPL")
     , iDatabase(aDatabase)
     , iIdManager(aPipeline)

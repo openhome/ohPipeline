@@ -22,7 +22,9 @@ UriProviderRadio::UriProviderRadio(TrackFactory& aTrackFactory,
                   Next::Supported,
                   Prev::Supported,
                   Repeat::NotSupported,
-                  Random::NotSupported)
+                  Random::NotSupported,
+                  RampPauseResume::Long,
+                  RampSkip::Short)
     , iLock("UPRD")
     , iTrackFactory(aTrackFactory)
     , iDbReader(aDbReader)
@@ -53,6 +55,15 @@ Track* UriProviderRadio::SetTrack(const Brx& aUri, const Brx& aMetaData)
         iTrack->AddRef();
     }
     return iTrack;
+}
+
+void UriProviderRadio::SetTrack(Track* aTrack)
+{
+    if (iTrack != nullptr) {
+        iTrack->RemoveRef();
+    }
+    iTrack = aTrack;
+    iTrack->AddRef();
 }
 
 void UriProviderRadio::Begin(TUint aTrackId)
@@ -95,7 +106,8 @@ void UriProviderRadio::MoveNext()
     if (iTrack == nullptr) {
         return;
     }
-    auto track = iDbReader.NextTrackRef(iTrack->Id());
+    TUint id = iTrack->Id();
+    auto track = iDbReader.NextTrackRef(id);
     iPlayLater = (track == nullptr);
     if (track == nullptr) {
         track = iDbReader.FirstTrackRef();
@@ -111,7 +123,8 @@ void UriProviderRadio::MovePrevious()
     if (iTrack == nullptr) {
         return;
     }
-    auto track = iDbReader.PrevTrackRef(iTrack->Id());
+    TUint id = iTrack->Id();
+    auto track = iDbReader.PrevTrackRef(id);
     iPlayLater = (track == nullptr);
     if (track == nullptr) {
         track = iDbReader.LastTrackRef();

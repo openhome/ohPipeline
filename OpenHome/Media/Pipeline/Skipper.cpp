@@ -9,13 +9,16 @@
 using namespace OpenHome;
 using namespace OpenHome::Media;
 
-Skipper::Skipper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, TUint aRampDuration)
+Skipper::Skipper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement,
+                 TUint aRampJiffiesLong, TUint aRampJiffiesShort)
     : iFlusher(aUpstreamElement, "Skipper")
     , iMsgFactory(aMsgFactory)
     , iLock("SKP1")
     , iBlocker("SKP2")
     , iState(eStarting)
-    , iRampDuration(aRampDuration)
+    , iRampJiffiesLong(aRampJiffiesLong)
+    , iRampJiffiesShort(aRampJiffiesShort)
+    , iRampJiffies(aRampJiffiesLong)
     , iRemainingRampSize(0)
     , iCurrentRampValue(Ramp::kMax)
     , iTargetFlushId(MsgFlush::kIdInvalid)
@@ -85,6 +88,8 @@ Msg* Skipper::Pull()
 Msg* Skipper::ProcessMsg(MsgMode* aMsg)
 {
     iStreamId = IPipelineIdProvider::kStreamIdInvalid;
+    iRampJiffies = aMsg->Info().RampPauseResumeLong()?
+                        iRampJiffiesLong : iRampJiffiesShort;
     return aMsg;
 }
 
@@ -100,6 +105,10 @@ Msg* Skipper::ProcessMsg(MsgTrack* aMsg)
 
 Msg* Skipper::ProcessMsg(MsgDrain* aMsg)
 {
+    iRunning = false;
+    if (iState == eRunning) {
+        iState = eStarting;
+    }
     return aMsg;
 }
 
@@ -147,7 +156,7 @@ Msg* Skipper::ProcessMsg(MsgHalt* aMsg)
         /* A Halt signals a potential discontinuity in audio.
           Appropriate ramps must already have been applied by the creator of this msg
           ...so we can terminate our ramp */
-        StartFlushing();
+        StartFlushing(false);
     }
     if (iTargetHaltId != MsgHalt::kIdInvalid && aMsg->Id() == iTargetHaltId) {
         LOG(kPipeline, "Skipper - completed flush (pulled haltId %u)\n", iTargetHaltId);
@@ -164,9 +173,7 @@ Msg* Skipper::ProcessMsg(MsgFlush* aMsg)
     if (iTargetFlushId != MsgFlush::kIdInvalid && iTargetFlushId == aMsg->Id()) {
         ASSERT(iState == eFlushing);
         iState = eStarting;
-        aMsg->RemoveRef();
         iTargetFlushId = MsgFlush::kIdInvalid;
-        return nullptr;
     }
     return aMsg;
 }
@@ -303,16 +310,18 @@ TBool Skipper::TryRemoveCurrentStream(TBool aRampDown)
     }
     else if (iState == eRunning) {
         iState = eRamping;
-        iRemainingRampSize = iRampDuration;
+        iRemainingRampSize = iRampJiffies;
         iCurrentRampValue = Ramp::kMax;
     }
     return (state != iState);
 }
 
-void Skipper::StartFlushing()
+void Skipper::StartFlushing(TBool aGenerateHalt)
 {
-    iQueue.Enqueue(iMsgFactory.CreateMsgHalt()); /* inform downstream parties (StarvationMonitor)
-                                                    that any subsequent break in audio is expected */
+    if (aGenerateHalt) {
+        iQueue.Enqueue(iMsgFactory.CreateMsgHalt()); /* inform downstream parties (StarvationMonitor)
+                                                        that any subsequent break in audio is expected */
+    }
     iState = eFlushing;
     iTargetFlushId = (iStreamHandler==nullptr? MsgFlush::kIdInvalid : iStreamHandler->TryStop(iStreamId));
     if (iTargetHaltId != MsgHalt::kIdNone && iTargetHaltId != MsgHalt::kIdInvalid) {

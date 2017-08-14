@@ -17,6 +17,7 @@ private: // from Suite
     void Test() override;
 private:
     void EncodeChar(TByte aChar, const TChar* aEncoded);
+    void EncodeUni(TByte aChar);
 private: // from IWriter
     void Write(TByte aValue) override;
     void Write(const Brx& aBuffer) override;
@@ -47,10 +48,12 @@ private:
     void TestParseNoUnescapeInPlace();
     void TestParseArray();
     void TestParseObject();
+    void TestParseEmptyObject();
     void TestValidKey();
     void TestInvalidKey();
     void TestGetValidString();
     void TestGetInvalidString();
+    void TestGetOptionalString();
     void TestGetValidNum();
     void TestGetInvalidNum();
     void TestGetStringAsNum();
@@ -58,6 +61,7 @@ private:
     void TestGetValidBool();
     void TestCorruptInput();
     void TestParseNull();
+    void TestParseUnicodeEscaped();
 private:
     JsonParser* iParser;
 };
@@ -91,6 +95,7 @@ private:
     void TestWriteArray();
     void TestWriteObject();
     void TestWriteMixed();
+    void TestAutoWriteEnd();
 private:
     Bws<512> iBuf;
     WriterBuffer* iWriterBuf;
@@ -112,6 +117,7 @@ private:
     void TestWriteArray();
     void TestWriteObject();
     void TestWriteMixed();
+    void TestAutoWriteEnd();
 private:
     Bws<512> iBuf;
     WriterBuffer* iWriterBuf;
@@ -155,19 +161,10 @@ void SuiteJsonEncode::Test()
     EncodeChar('\r', "\\r");
     EncodeChar('\t', "\\t");
     for (TUint i=0; i<32; i++) {
-        iEncoded.SetBytes(0);
-        TByte b = (TByte)i;
-        Bws<1> ch(&b, 1);
-        Json::Escape(*this, ch);
-        TEST(iEncoded.Bytes() > 1);
-        if (iEncoded.Bytes() > 2) {
-            Brn start(iEncoded.Ptr(), 2);
-            TEST(start == Brn("\\u"));
-            TEST(Ascii::UintHex(iEncoded.Split(2)) == i);
-        }
+        EncodeUni((TByte)i);
     }
-    // with very few exceptions, characters above 0x1F should not be encoded
-    for (TUint i=32; i<256; i++) {
+    // with very few exceptions, characters [0x20..0x7F] should not be encoded
+    for (TUint i=32; i<128; i++) {
         if (i == '\"' || i == '/' || i == '\\') {
             // ...the exceptions mentioned above
             continue;
@@ -178,6 +175,9 @@ void SuiteJsonEncode::Test()
         Json::Escape(*this, ch);
         TEST(iEncoded == ch);
     }
+    for (TUint i=128; i<256; i++) {
+        EncodeUni((TByte)i);
+    }
 }
 
 void SuiteJsonEncode::EncodeChar(TByte aChar, const TChar* aEncoded)
@@ -187,6 +187,19 @@ void SuiteJsonEncode::EncodeChar(TByte aChar, const TChar* aEncoded)
     Json::Escape(*this, ch);
     Brn expected(aEncoded);
     TEST(iEncoded == expected);
+}
+
+void SuiteJsonEncode::EncodeUni(TByte aChar)
+{
+    iEncoded.SetBytes(0);
+    Bws<1> ch(&aChar, 1);
+    Json::Escape(*this, ch);
+    TEST(iEncoded.Bytes() > 1);
+    if (iEncoded.Bytes() > 2) {
+        Brn start(iEncoded.Ptr(), 2);
+        TEST(start == Brn("\\u"));
+        TEST(Ascii::UintHex(iEncoded.Split(2)) == aChar);
+    }
 }
 
 void SuiteJsonEncode::Write(TByte aValue)
@@ -219,14 +232,20 @@ void SuiteJsonDecode::Test()
     DecodeChar("\\n", '\n');
     DecodeChar("\\r", '\r');
     DecodeChar("\\t", '\t');
-    for (TUint i=0; i<256; i++) {
+
+    for (TUint i=0; i<128; i++) {
         Bws<7> enc("\\u00");
         Ascii::AppendHex(enc, (TByte)i);
         DecodeChar(enc.PtrZ(), (TByte)i);
     }
+
     Bws<64> url("http:\\/\\/domain\\/path?query");
     Json::Unescape(url);
     TEST(url == Brn("http://domain/path?query"));
+
+    Bws<32> buf("Dvo\\u0159\\u00e1k");
+    Json::Unescape(buf);
+    TEST(buf == Brn("Dvo\xc5\x99\xc3\xa1k"));
 }
 
 void SuiteJsonDecode::DecodeChar(const TChar* aEncoded, TByte aDecoded)
@@ -247,10 +266,12 @@ SuiteJsonParser::SuiteJsonParser()
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseNoUnescapeInPlace), "TestParseNoUnescapeInPlace");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseArray), "TestParseArray");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseObject), "TestParseObject");
+    AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseEmptyObject), "TestParseEmptyObject");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestValidKey), "TestValidKey");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestInvalidKey), "TestInvalidKey");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetValidString), "TestGetValidString");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetInvalidString), "TestGetInvalidString");
+    AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetOptionalString), "TestGetOptionalString");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetValidNum), "TestGetValidNum");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetInvalidNum), "TestGetInvalidNum");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetStringAsNum), "TestGetStringAsNum");
@@ -258,7 +279,7 @@ SuiteJsonParser::SuiteJsonParser()
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestGetValidBool), "TestGetValidBool");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestCorruptInput), "TestCorruptInput");
     AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseNull), "TestParseNull");
-
+    AddTest(MakeFunctor(*this, &SuiteJsonParser::TestParseUnicodeEscaped), "TestParseUnicodeEscaped");
 }
 
 void SuiteJsonParser::Setup()
@@ -340,6 +361,27 @@ void SuiteJsonParser::TestParseObject()
     TEST(iParser->Num("key4") == 4);
 }
 
+void SuiteJsonParser::TestParseEmptyObject()
+{
+    Brn json("{}");
+    iParser->Parse(json);
+    std::vector<Brn> keys;
+    iParser->GetKeys(keys);
+    TEST(keys.size() == 0);
+
+    iParser->Reset();
+    json.Set("");
+    iParser->Parse(json);
+    iParser->GetKeys(keys);
+    TEST(keys.size() == 0);
+
+    iParser->Reset();
+    json.Set("null");
+    iParser->Parse(json);
+    iParser->GetKeys(keys);
+    TEST(keys.size() == 0);
+}
+
 void SuiteJsonParser::TestValidKey()
 {
     const Brn json("{\"key1\":\"val1\"}");
@@ -374,6 +416,15 @@ void SuiteJsonParser::TestGetInvalidString()
     iParser->Parse(json);
     TEST_THROWS(iParser->String("key2"), JsonKeyNotFound);
     TEST_THROWS(iParser->String(Brn("key2")), JsonKeyNotFound);
+}
+
+void SuiteJsonParser::TestGetOptionalString()
+{
+    Brn json("{\"key1\":null}");
+
+    iParser->Parse(json);
+    TEST(iParser->StringOptional("key1") == Brx::Empty());
+    TEST(iParser->StringOptional("key2") == Brx::Empty());
 }
 
 void SuiteJsonParser::TestGetValidNum()
@@ -457,6 +508,28 @@ void SuiteJsonParser::TestParseNull()
     TEST_THROWS(iParser->String("obj"), JsonValueNull);
     TEST_THROWS(iParser->String("str"), JsonValueNull);
     TEST(iParser->String("foo") == Brn("bar"));
+}
+
+void SuiteJsonParser::TestParseUnicodeEscaped()
+{
+    const Brn json("{\"key\":\"\\u0000\\u0000\\u0000U\"}");
+    iParser->Parse(json);
+
+    TEST(iParser->HasKey("key"));
+    TEST(!iParser->IsNull("key"));
+    TEST(iParser->String("key") == Brn("\\u0000\\u0000\\u0000U"));
+    iParser->Reset();
+
+    Bws<4> valueExpected;
+    WriterBuffer writerBuffer(valueExpected);
+    WriterBinary writerBinary(writerBuffer);
+    writerBinary.WriteUint32Be(85);
+
+    Bwh jsonWritable(json);
+    iParser->ParseAndUnescape(jsonWritable);
+    TEST(iParser->HasKey("key"));
+    TEST(!iParser->IsNull("key"));
+    TEST(iParser->String("key") == valueExpected);
 }
 
 
@@ -547,6 +620,7 @@ SuiteWriterJsonObject::SuiteWriterJsonObject()
     AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestWriteArray), "TestWriteArray");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestWriteObject), "TestWriteObject");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestWriteMixed), "TestWriteMixed");
+    AddTest(MakeFunctor(*this, &SuiteWriterJsonObject::TestAutoWriteEnd), "TestAutoWriteEnd");
 }
 
 void SuiteWriterJsonObject::Setup()
@@ -748,6 +822,16 @@ void SuiteWriterJsonObject::TestWriteMixed()
     TEST(iBuf == Brn("{\"key1\":-128,\"key2\":\"str1\",\"key3\":false,\"key4\":[128,\"str2\",true],\"key5\":{\"key6\":256,\"key7\":\"str3\",\"key8\":true}}"));
 }
 
+void SuiteWriterJsonObject::TestAutoWriteEnd()
+{
+    {
+        WriterJsonObject jsonWriter(*iWriterBuf);
+        AutoWriterJson _(jsonWriter);
+        jsonWriter.WriteInt("key1", 256);
+    }
+    TEST(iBuf == Brn("{\"key1\":256}"));
+}
+
 
 // SuiteWriterJsonArray
 
@@ -762,6 +846,7 @@ SuiteWriterJsonArray::SuiteWriterJsonArray()
     AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestWriteArray), "TestWriteArray");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestWriteObject), "TestWriteObject");
     AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestWriteMixed), "TestWriteMixed");
+    AddTest(MakeFunctor(*this, &SuiteWriterJsonArray::TestAutoWriteEnd), "TestAutoWriteEnd");
 }
 
 void SuiteWriterJsonArray::Setup()
@@ -884,6 +969,16 @@ void SuiteWriterJsonArray::TestWriteMixed()
     jsonArray.WriteEnd();
 
     TEST(iBuf == Brn("[256,\"line1\\r\\nline2\",false,[256,\"str\",false],{\"key1\":256,\"key2\":\"str\",\"key3\":false}]"));
+}
+
+void SuiteWriterJsonArray::TestAutoWriteEnd()
+{
+    {
+        WriterJsonArray jsonArray(*iWriterBuf);
+        AutoWriterJson _(jsonArray);
+        jsonArray.WriteInt(256);
+    }
+    TEST(iBuf == Brn("[256]"));
 }
 
 

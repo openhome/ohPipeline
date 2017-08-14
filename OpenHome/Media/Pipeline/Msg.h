@@ -326,11 +326,14 @@ public:
     inline void SetSupportsLatency(TBool aSupportsLatency);
     inline void SetSupportsNextPrev(TBool aSupportsNext, TBool aSupportsPrev);
     inline void SetSupportsRepeatRandom(TBool aSupportsRepeat, TBool aSupportsRandom);
+    inline void SetRampDurations(TBool aPauseResumeLong, TBool aSkipLong);
     inline TBool SupportsLatency() const;
     inline TBool SupportsNext() const;
     inline TBool SupportsPrev() const;
     inline TBool SupportsRepeat() const;
     inline TBool SupportsRandom() const;
+    inline TBool RampPauseResumeLong() const;
+    inline TBool RampSkipLong() const;
 private:
     void Clear();
 private:
@@ -339,6 +342,8 @@ private:
     TBool iSupportsPrev;
     TBool iSupportsRepeat;
     TBool iSupportsRandom;
+    TBool iRampPauseResumeLong;
+    TBool iRampSkipLong;
 };
 
 class IClockPuller;
@@ -1037,14 +1042,8 @@ public:
     void Clear();
     TUint NumMsgs() const; // test/debug use only
 private:
-    void CheckMsgNotQueued(Msg* aMsg) const;
-    Msg* DequeueLocked();
-private:
     mutable Mutex iLock;
     Semaphore iSem;
-    Msg* iHead;
-    Msg* iTail;
-    TUint iNumMsgs;
 };
 
 class MsgReservoir

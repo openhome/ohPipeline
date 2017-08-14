@@ -27,6 +27,8 @@
 #include <OpenHome/Web/ConfigUi/ConfigUiMediaPlayer.h>
 #include <OpenHome/Web/ConfigUi/FileResourceHandler.h>
 #include <OpenHome/Av/UpnpAv/FriendlyNameUpnpAv.h>
+#include <OpenHome/Net/Odp/DviServerOdp.h>
+#include <OpenHome/Net/Odp/DviProtocolOdp.h>
 
 #undef LPEC_ENABLE
 
@@ -129,6 +131,7 @@ const Brn TestMediaPlayer::kSongcastSenderIconFileName("SongcastSenderIcon");
 
 TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                                  const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
+                                 const TChar* aStoreFile, TUint aOdpPort,
                                  TUint aMinWebUiResourceThreads, TUint aMaxWebUiTabs, TUint aUiSendQueueSize)
     : iPullableClock(nullptr)
     , iSemShutdown("TMPS", 0)
@@ -139,6 +142,8 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     , iUserAgent(aUserAgent)
     , iTxTimestamper(nullptr)
     , iRxTimestamper(nullptr)
+    , iStoreFileWriter(nullptr)
+    , iOdpPort(aOdpPort)
     , iMinWebUiResourceThreads(aMinWebUiResourceThreads)
     , iMaxWebUiTabs(aMaxWebUiTabs)
     , iUiSendQueueSize(aUiSendQueueSize)
@@ -148,6 +153,8 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
 
     // Do NOT set UPnP friendly name attributes at this stage.
     // (Wait until MediaPlayer is created so that friendly name can be observed.)
+
+    aDvStack.AddProtocolFactory(new DviProtocolFactoryOdp());
 
     // Create UPnP device.
     // Friendly name not set here.
@@ -160,6 +167,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
 #ifdef LPEC_ENABLE
     iDevice->SetAttribute("Lpec.Name", "ohPipeline");
 #endif
+    iDevice->SetAttribute("Odp.Name", "Ds");
 
     // Create separate UPnP device for standard MediaRenderer.
     Bws<256> buf(aUdn);
@@ -174,12 +182,23 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
 #ifdef LPEC_ENABLE
     iDeviceUpnpAv->SetAttribute("Lpec.Name", "MediaRenderer");
 #endif
+    iDeviceUpnpAv->SetAttribute("Odp.Name", "MediaRenderer");
 
     // create read/write store.  This creates a number of static (constant) entries automatically
     iRamStore = new RamStore(kSongcastSenderIconFileName);
 
     // create a read/write store using the new config framework
     iConfigRamStore = new ConfigRamStore();
+    if (Brn(aStoreFile).Bytes() > 0) {
+        StoreFileReaderJson storeFileReader(aStoreFile);
+        storeFileReader.Read(*iConfigRamStore);
+
+        iStoreFileWriter = new StoreFileWriterJson(aStoreFile);
+        iConfigRamStore->AddStoreObserver(*iStoreFileWriter);
+    }
+    else {
+        Log::Print("No store file parameter specified - will not attempt to load store values from file, and changes to store values will not be persisted.\n");
+    }
 
     VolumeProfile volumeProfile;
     VolumeConsumer volumeInit;
@@ -198,7 +217,6 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
                                    *iConfigRamStore, pipelineInit,
                                    volumeInit, volumeProfile, *iInfoLogger,
                                    aUdn, Brn(aRoom), Brn(aProductName));
-    iMediaPlayer->EnableTransportService();
     iPipelineObserver = new LoggingPipelineObserver();
     iMediaPlayer->Pipeline().AddObserver(*iPipelineObserver);
 
@@ -233,6 +251,11 @@ TestMediaPlayer::~TestMediaPlayer()
     delete iDevice;
     delete iDeviceUpnpAv;
     delete iRamStore;
+    if (iStoreFileWriter != nullptr) {
+        // Store writer will not have been created if store file param not specified.
+        iConfigRamStore->RemoveStoreObserver(*iStoreFileWriter);
+        delete iStoreFileWriter;
+    }
     delete iConfigRamStore;
 }
 
@@ -273,6 +296,10 @@ void TestMediaPlayer::Run()
 {
     RegisterPlugins(iMediaPlayer->Env());
     AddConfigApp();
+
+    iServerOdp.reset(new DviServerOdp(iMediaPlayer->DvStack(), kNumOdpSessions, iOdpPort));
+    Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
+
     InitialiseLogger();
     iMediaPlayer->Start();
     InitialiseSubsystems();
@@ -288,7 +315,8 @@ void TestMediaPlayer::Run()
     iDevice->SetEnabled();
     iDeviceUpnpAv->SetEnabled();
 
-    iConfigRamStore->Print();
+    StorePrinter storePrinter(*iConfigRamStore);
+    storePrinter.Print();
 
     Log::Print("\nFull (software) media player\n");
     Log::Print("Intended to be controlled via a separate, standard CP (Kazoo etc.)\n");
@@ -300,7 +328,7 @@ void TestMediaPlayer::Run()
 
     //IPowerManager& powerManager = iMediaPlayer->PowerManager();
     //powerManager.PowerDown(); // FIXME - this should probably be replaced by a normal shutdown procedure
-    iConfigRamStore->Print();
+    storePrinter.Print();
 }
 
 void TestMediaPlayer::RunWithSemaphore()
@@ -319,13 +347,14 @@ void TestMediaPlayer::RunWithSemaphore()
     iDevice->SetEnabled();
     iDeviceUpnpAv->SetEnabled();
 
-    iConfigRamStore->Print();
+    StorePrinter storePrinter(*iConfigRamStore);
+    storePrinter.Print();
 
     iSemShutdown.Wait();    // FIXME - can Run() and RunWithSemaphore() be refactored out? only difference is how they wait for termination signal
 
     //IPowerManager& powerManager = iMediaPlayer->PowerManager();
     //powerManager.PowerDown(); // FIXME - this should probably be replaced by a normal shutdown procedure
-    iConfigRamStore->Print();
+    storePrinter.Print();
 }
 
 PipelineManager& TestMediaPlayer::Pipeline()
@@ -385,6 +414,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
         Log::Print("\n");
         iMediaPlayer->Add(ProtocolFactory::NewQobuz(appId, appSecret, *iMediaPlayer));
     }
+    iMediaPlayer->Add(ProtocolFactory::NewCalmRadio(aEnv, iUserAgent, *iMediaPlayer));
 
     // Add sources
     iMediaPlayer->Add(SourceFactory::NewPlaylist(*iMediaPlayer));
@@ -416,6 +446,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
                                                  Optional<IOhmTimestamper>(iTxTimestamper),
                                                  Optional<IOhmTimestamper>(iRxTimestamper),
                                                  Optional<IOhmMsgProcessor>()));
+
+    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer));
 }
 
 void TestMediaPlayer::InitialiseSubsystems()

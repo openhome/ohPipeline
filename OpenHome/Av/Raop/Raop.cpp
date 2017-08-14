@@ -633,7 +633,7 @@ void RaopDiscoverySession::GenerateAppleResponse(const Brx& aChallenge)
 
     if (Debug::TestLevel(Debug::kMedia)) {
         Bws<400> buf("challenge:");
-        for (TUint i = 0; i < 32; i++) {
+        for (i = 0; i < 32; i++) {
             if (i % 16 == 0) {
                 buf.Append("\n    ");
             }
@@ -652,15 +652,15 @@ void RaopDiscoverySession::GenerateAppleResponse(const Brx& aChallenge)
     if (Debug::TestLevel(Debug::kMedia)) {
         Bws<1280> buf("encrypted response");
         buf.AppendPrintf(" %d:", res);
-        for (TInt i = 0; i < res; i++) {
-            if (i % 16 == 0) {
+        for (TInt k = 0; k < res; k++) {
+            if (k % 16 == 0) {
                 buf.Append("\n    ");
             }
-            if (i == res-1) {
-                buf.AppendPrintf("%02x\n", response[i]);
+            if (k == res-1) {
+                buf.AppendPrintf("%02x\n", response[k]);
             }
             else {
-                buf.AppendPrintf("%02x, ", response[i]);
+                buf.AppendPrintf("%02x, ", response[k]);
             }
         }
         buf.Append("\n");
@@ -678,15 +678,15 @@ void RaopDiscoverySession::GenerateAppleResponse(const Brx& aChallenge)
         if (Debug::TestLevel(Debug::kMedia)) {
             Bws<1280> buf("decrypted response");
             buf.AppendPrintf(" %d:", res);
-            for (TInt i = 0; i < res; i++) {
-                if (i % 16 == 0) {
+            for (TInt k = 0; k < res; k++) {
+                if (k % 16 == 0) {
                     buf.Append("\n    ");
                 }
-                if (i == res-1) {
-                    buf.AppendPrintf("%02x\n", decrypted[i]);
+                if (k == res-1) {
+                    buf.AppendPrintf("%02x\n", decrypted[k]);
                 }
                 else {
-                    buf.AppendPrintf("%02x, ", decrypted[i]);
+                    buf.AppendPrintf("%02x, ", decrypted[k]);
                 }
             }
             buf.Append("\n");
@@ -1274,10 +1274,15 @@ void HeaderCSeq::Process(const Brx& aValue)
         THROW(HttpError);
     }
 
-    Parser parser(aValue);
-    Brn cseq = parser.Remaining();
-    iCSeq = Ascii::Uint(cseq);
-    iReceived = true;
+    try {
+        Parser parser(aValue);
+        Brn cseq = parser.Remaining();
+        iCSeq = Ascii::Uint(cseq);
+        iReceived = true;
+    }
+    catch (AsciiError&) {
+        THROW(HttpError);
+    }
 }
 
 
@@ -1344,34 +1349,42 @@ void HeaderRtspTransport::Reset()
     iTimingPort = 0;
 }
 
-TUint HeaderRtspTransport::ParsePort(Brx& aData)
+Brn HeaderRtspTransport::ParameterValue(Brx& aData)
 {
     Parser parser(aData);
     parser.Next('=');
     Brn val = parser.Next();
-
-    return Ascii::Uint(val);
+    return val;
 }
 
 void HeaderRtspTransport::Process(const Brx& aValue)
 {
-    Parser parser(aValue);
-    for (TUint i=0; i<6; i++) {
-        Brn entry;
+    try {
+        Parser parser(aValue);
+        for (TUint i=0; i<6; i++) {
+            Brn entry;
 
-        if (i < 5) {
-            entry = parser.Next(';');
-        }
-        else {
-            entry = parser.Next();
-        }
+            if (i < 5) {
+                entry = parser.Next(';');
+            }
+            else {
+                entry = parser.Next();
+            }
 
-        if (Ascii::Contains(entry, kControlPortStr)) {
-            iControlPort = ParsePort(entry);
+            if (Ascii::Contains(entry, kControlPortStr)) {
+                Brn val = ParameterValue(entry);
+                iControlPort = Ascii::Uint(val);
+            }
+            else if (Ascii::Contains(entry, kTimingPortStr)) {
+                Brn val = ParameterValue(entry);
+                iTimingPort = Ascii::Uint(val);
+            }
         }
-        else if (Ascii::Contains(entry, kTimingPortStr)) {
-            iTimingPort = ParsePort(entry);
-        }
+    }
+    catch (AsciiError&) {
+        iControlPort = 0;
+        iTimingPort = 0;
+        THROW(HttpError);
     }
 }
 
@@ -1405,19 +1418,26 @@ TBool HeaderRtpInfo::Recognise(const Brx& aHeader)
 
 void HeaderRtpInfo::Process(const Brx& aValue)
 {
-    Parser parser(aValue);
-    Brn entry;
-    do {
-        entry = parser.Next(';');
-        if (Ascii::Contains(entry, kSeqStr)) {
-            Brn val = ParameterValue(entry);
-            iSeq = Ascii::Uint(val);
-        }
-        else if (Ascii::Contains(entry, kRtpTimeStr)) {
-            Brn val = ParameterValue(entry);
-            iRtpTime = Ascii::Uint(val);
-        }
-    } while (entry != Brx::Empty());
+    try {
+        Parser parser(aValue);
+        Brn entry;
+        do {
+            entry = parser.Next(';');
+            if (Ascii::Contains(entry, kSeqStr)) {
+                Brn val = ParameterValue(entry);
+                iSeq = Ascii::Uint(val);
+            }
+            else if (Ascii::Contains(entry, kRtpTimeStr)) {
+                Brn val = ParameterValue(entry);
+                iRtpTime = Ascii::Uint(val);
+            }
+        } while (entry != Brx::Empty());
+    }
+    catch (AsciiError&) {
+        iSeq = 0;
+        iRtpTime = 0;
+        THROW(HttpError);
+    }
 }
 
 Brn HeaderRtpInfo::ParameterValue(Brx& aData)

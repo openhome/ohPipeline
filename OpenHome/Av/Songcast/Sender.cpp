@@ -195,7 +195,6 @@ Msg* Sender::ProcessMsg(MsgHalt* aMsg)
 
 Msg* Sender::ProcessMsg(MsgFlush* aMsg)
 {
-    ASSERTS(); // don't expect this msg at this stage of the pipeline
     return aMsg;
 }
 

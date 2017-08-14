@@ -81,7 +81,7 @@ private:
     virtual TBool Recognise(const Brx& aHeader);
     virtual void Process(const Brx& aValue);
 private:
-    static TUint ParsePort(Brx& aData);
+    static Brn ParameterValue(Brx& aData);
 private:
     TUint iControlPort;
     TUint iTimingPort;

@@ -24,7 +24,7 @@ NtpClient::NtpClient(Environment& aEnv)
     , iUdpReader(iSocket)
     , iReadBuffer(iUdpReader)
     , iNextServerIndex(0)
-    , iLogEnable(false)
+    , iLogEnable(true) // temporarily enabled to help diagnose http://forums.linn.co.uk/bb/showthread.php?tid=36476&pid=440782#pid440782
 {
     iWriteBuffer = new Sws<kFrameBytes>(*this);
     iReadTimeout = new Timer(aEnv, MakeFunctor(*this, &NtpClient::ReadTimeout), "NtpClient");
@@ -124,6 +124,10 @@ TBool NtpClient::DoTryGetNetworkTime(NtpTimestamp& aNetworkTime, TUint& aNetwork
     catch (ReaderError&) {
         LogError("ReaderError");
     }
+    iSocket.ReCreate(); /* Mandatory NTP fields are followed by an unpredictable amount of
+                           extension data.  Rather than figuring out how to parse this in
+                           all cases, its easier to just close then re-open the socket to
+                           flush any remaining data from the current UDP frame. */
 
     return success;
 }
@@ -173,7 +177,7 @@ void NtpClient::LogError(const TChar* aEx) const
 {
     Endpoint::AddressBuf buf;
     iServerEndpoint.AppendAddress(buf);
-    LOG2(kPipeline, kError, "%s from NtpClient::DoTryGetNetworkTime. Server is %.*s\n", aEx, PBUF(buf));
+    LOG_ERROR(kPipeline, "%s from NtpClient::DoTryGetNetworkTime. Server is %.*s\n", aEx, PBUF(buf));
 }
 
 

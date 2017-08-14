@@ -75,6 +75,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iProviderInfo = new ProviderInfo(aDevice, *iPipeline);
     iProduct->AddAttribute("Info");
     iProviderConfig = new ProviderConfig(aDevice, *iConfigManager);
+    iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
+    iProduct->AddAttribute("Transport");
 }
 
 MediaPlayer::~MediaPlayer()
@@ -142,12 +144,6 @@ ILoggerSerial& MediaPlayer::BufferLogOutput(TUint aBytes, IShell& aShell, Option
 {
     iLoggerBuffered = new LoggerBuffered(aBytes, iDevice, *iProduct, aShell, aLogPoster);
     return iLoggerBuffered->LoggerSerial();
-}
-
-void MediaPlayer::EnableTransportService()
-{
-    iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
-    iProduct->AddAttribute("Transport");
 }
 
 void MediaPlayer::Start()

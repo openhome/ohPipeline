@@ -25,9 +25,39 @@ enum StandbyHandlerPriority {
 };
 
 enum class StandbyDisableReason {
-     User
+    /*
+     * An event has occured where the product is expected to exit standby and
+     * perform normal post-standby events.
+     *
+     * Normal post-standby events should happen when this reason seen.
+     */
+    Product
+    /*
+     * The product is being taken out of standby at boot time, as the
+     * boot-out-of-standby option has been set.
+     *
+     * Normal post-standby events should happen when this reason seen.
+     */
     ,Boot
+    /*
+     * A user-set alarm clock mode has taken the product out of standby.
+     *
+     * Only post-standby events related to activating the appropriate alarm
+     * mode should happen when this reason seen (e.g., setting and playing the
+     * appropriate source and/or content).
+     */
     ,Alarm
+    /*
+     * Interaction directly with a source has taken the product out of standby.
+     * (e.g., a network-based source module has received an event from a client
+     * that it should activate itself).
+     *
+     * Only post-standby events related to activating the appropriate mode
+     * should happen when this reason seen (i.e., the source that is taking the
+     * product out of standby should NOT be overridden by any user-defined
+     * startup source).
+     */
+    ,SourceActivation
 };
 
 class IPowerHandler

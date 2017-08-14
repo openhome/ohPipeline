@@ -2,7 +2,7 @@
     {   "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.13.7_core4",
+        "version": "1.15.2630",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
@@ -28,7 +28,7 @@
     },
     {   "name": "libplatform",
         "type": "internal",
-        "version": "0.21.494",
+        "version": "0.21.510",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
@@ -38,7 +38,7 @@
     },
     {   "name":             "libosa",
         "type":             "internal",
-        "version":          "0.1.1_core4",
+        "version":          "0.1.252",
         "cross-check":      false,
         "archive-suffix":   "-Release",
         "platform-ignore": {
@@ -49,7 +49,7 @@
     {   "name": "openssl",
         "type": "openhome",
         "platform-specific": true,
-        "version": "0.2.61",
+        "version": "0.2.65",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.bz2"
     },
     {   "name":             "testharness",
@@ -92,7 +92,7 @@
     {
         "name": "FunctionalTest",
         "type": "openhome",
-        "version": "0.0.869",
+        "version": "0.0.920",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "FunctionalTest-${version}.zip",

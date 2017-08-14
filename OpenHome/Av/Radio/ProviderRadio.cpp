@@ -186,7 +186,7 @@ void ProviderRadio::SetId(IDvInvocation& aInvocation, TUint aValue, const Brx& a
     Log::Print("ProviderRadio::SetId(%u, %.*s)\n", aValue, PBUF(aUri));
     AutoMutex _(iActionLock);
     if (!iSource.TryFetch(aValue, aUri)) {
-        AutoMutex _(iLock);
+        AutoMutex __(iLock);
         iUri.Replace(Brx::Empty());
         iMetaData.Replace(Brx::Empty());
         aInvocation.Error(kInvalidChannelCode, kInvalidChannelMsg);

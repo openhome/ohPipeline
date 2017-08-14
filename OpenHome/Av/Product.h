@@ -30,7 +30,12 @@ class IProduct
 {
 public:
     virtual ~IProduct() {}
-    virtual void Activate(ISource& aSource) = 0;
+    /*
+     * Must only activate the given source if it is not already active.
+     *
+     * If given source is already active, should do nothing.
+     */
+    virtual void ActivateIfNotActive(ISource& aSource, TBool aPrefetchAllowed) = 0;
     virtual void NotifySourceChanged(ISource& aSource) = 0;
 };
 
@@ -87,6 +92,7 @@ class Product : private IProduct
 private:
     static const Brn kKeyLastSelectedSource;
     static const TUint kCurrentSourceNone;
+    static const TBool kPrefetchAllowedDefault = true;
 public:
     static const Brn kConfigIdRoomBase;
     static const Brn kConfigIdNameBase;
@@ -136,8 +142,9 @@ private:
     void AutoPlayChanged(Configuration::KeyValuePair<TUint>& aKvp);
     void CurrentAdapterChanged();
     void GetUri(const Brx& aStaticDataKey, Bwx& aUri);
+    void StandbyDisableNoSourceSwitch();
 private: // from IProduct
-    void Activate(ISource& aSource) override;
+    void ActivateIfNotActive(ISource& aSource, TBool aPrefetchAllowed) override;
     void NotifySourceChanged(ISource& aSource) override;
 public: // from IProductNameObservable
     void AddNameObserver(IProductNameObserver& aObserver) override;

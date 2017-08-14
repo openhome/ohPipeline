@@ -19,7 +19,9 @@ namespace Media {
 
 class SuiteStopper : public SuiteUnitTest, private IPipelineElementUpstream, private IStopperObserver, private IStreamHandler, private IMsgProcessor
 {
-    static const TUint kRampDuration = Jiffies::kPerMs * 20;
+    static const TUint kRampDurationLong = Jiffies::kPerMs * 20;
+    static const TUint kRampDurationShort = Jiffies::kPerMs * 10;
+    static const TUint kRampDuration = kRampDurationLong;
     static const TUint kExpectedFlushId = 5;
     static const TUint kExpectedSeekSeconds = 51;
     static const TUint kSampleRate = 44100;
@@ -100,6 +102,7 @@ private:
     void TestPauseLiveStreamThrows();
     void TestInterruptRamps();
     void TestSilenceEndsRamp();
+    void TestRampDurationTakenFromMode();
     void TestPauseFromStoppedIgnored();
     void TestOkToPlayCalledOnceForLiveStream();
     void TestOkToPlayCalledOnceForNonLiveStream();
@@ -170,6 +173,7 @@ SuiteStopper::SuiteStopper()
     AddTest(MakeFunctor(*this, &SuiteStopper::TestPauseLiveStreamThrows), "TestPauseLiveStreamThrows");
     AddTest(MakeFunctor(*this, &SuiteStopper::TestInterruptRamps), "TestInterruptRamps");
     AddTest(MakeFunctor(*this, &SuiteStopper::TestSilenceEndsRamp), "TestSilenceEndsRamp");
+    AddTest(MakeFunctor(*this, &SuiteStopper::TestRampDurationTakenFromMode), "TestRampDurationTakenFromMode");
     AddTest(MakeFunctor(*this, &SuiteStopper::TestPauseFromStoppedIgnored), "TestPauseFromStoppedIgnored");
     AddTest(MakeFunctor(*this, &SuiteStopper::TestOkToPlayCalledOnceForLiveStream), "TestOkToPlayCalledOnceForLiveStream");
     AddTest(MakeFunctor(*this, &SuiteStopper::TestOkToPlayCalledOnceForNonLiveStream), "TestOkToPlayCalledOnceForNonLiveStream");
@@ -194,7 +198,7 @@ SuiteStopper::~SuiteStopper()
 void SuiteStopper::Setup()
 {
     iEventCallback = new ElementObserverSync();
-    iStopper = new Stopper(*iMsgFactory, *this, *this, *iEventCallback, kRampDuration);
+    iStopper = new Stopper(*iMsgFactory, *this, *this, *iEventCallback, kRampDurationLong, kRampDurationShort);
     iStreamId = UINT_MAX;
     iTrackOffset = 0;
     iRampingDown = iRampingUp = iMuted = false;
@@ -405,7 +409,7 @@ Msg* SuiteStopper::ProcessMsg(MsgAudioPcm* aMsg)
         TEST(iLastSubsample == firstSubsample);
     }
     else {
-        TEST(firstSubsample == 0x7f7f7f);
+        TEST(iLastSubsample == 0x7f7f7f);
     }
 
     return playable;
@@ -532,7 +536,8 @@ void SuiteStopper::TestMsgsPassWhilePlaying()
     PullNext(EMsgBitRate);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());
     PullNext(EMsgHalt);
-    iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2)); // not passed on
+    iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2));
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
     PullNext(EMsgWait);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgQuit());
@@ -711,6 +716,64 @@ void SuiteStopper::TestSilenceEndsRamp()
     PullNext(EMsgAudioPcm);
 }
 
+void SuiteStopper::TestRampDurationTakenFromMode()
+{
+    ModeInfo info;
+    info.SetRampDurations(true, false);
+    TUint expectedRampJiffies = kRampDurationLong;
+    ModeClockPullers clockPullers;
+    ModeTransportControls transportControls;
+    auto mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
+
+    iStopper->Play();
+    iPendingMsgs.push_back(mode);
+    iPendingMsgs.push_back(CreateTrack());
+    PullNext(EMsgMode);
+    PullNext(EMsgTrack);
+    iPendingMsgs.push_back(CreateEncodedStream());
+    iPendingMsgs.push_back(CreateDecodedStream());
+    PullNext(EMsgDecodedStream);
+
+    iPendingMsgs.push_back(CreateAudio());
+    PullNext(EMsgAudioPcm);
+    iStopper->BeginPause();
+    iJiffies = 0;
+    iRampingDown = true;
+    while (iRampingDown) {
+        iPendingMsgs.push_back(CreateAudio());
+        PullNext(EMsgAudioPcm);
+    }
+    TEST(iJiffies == expectedRampJiffies);
+
+    info.SetRampDurations(false, false);
+    expectedRampJiffies = kRampDurationShort;
+    mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
+
+    iMuted = true; // bodge to fool audio processor into accepting any audio fragment left after completing the ramp
+    iStopper->Play();
+    iPendingMsgs.push_back(mode);
+    iPendingMsgs.push_back(CreateTrack());
+    do {
+        PullNext();
+    } while (iLastPulledMsg != EMsgMode);
+    iMuted = false;
+    PullNext(EMsgTrack);
+    iPendingMsgs.push_back(CreateEncodedStream());
+    iPendingMsgs.push_back(CreateDecodedStream());
+    PullNext(EMsgDecodedStream);
+
+    iPendingMsgs.push_back(CreateAudio());
+    PullNext(EMsgAudioPcm);
+    iStopper->BeginPause();
+    iJiffies = 0;
+    iRampingDown = true;
+    while (iRampingDown) {
+        iPendingMsgs.push_back(CreateAudio());
+        PullNext(EMsgAudioPcm);
+    }
+    TEST(iJiffies == expectedRampJiffies);
+}
+
 void SuiteStopper::TestPauseFromStoppedIgnored()
 {
     iStopper->BeginPause();
@@ -782,6 +845,7 @@ void SuiteStopper::TestStopFromPlay()
     iPendingMsgs.push_back(CreateAudio());
     iPendingMsgs.push_back(CreateSilence(Jiffies::kPerMs * 3));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2));
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
     PullNext(EMsgWait);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgQuit());
@@ -852,6 +916,7 @@ void SuiteStopper::TestPlayNoFlushes()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgDrain(Functor()));
     PullNext(EMsgDrain);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2));
+    PullNext(EMsgFlush);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
     PullNext(EMsgWait);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgQuit());

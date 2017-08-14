@@ -279,30 +279,28 @@ void SocketUdpServer::ServerThread()
     iSemaphore.Signal();
 
     for (;;) {
-
         // closed
-
         for (;;) {
-            iLock.Wait();
-
-            if (iQuit) {
-                iLock.Signal();
-                return;
-            }
-
-            if (iOpen)
             {
-                iLock.Signal();
-                break;
+                AutoMutex _(iLock);
+                if (iQuit) {
+                    return;
+                }
+                if (iOpen) {
+                    break;
+                }
             }
-
-            iLock.Signal();
 
             try {
                 iDiscard->Read(iSocket);
             }
             catch (NetworkError&) {
+                // This thread will become a busy loop if network operations
+                // repeatedly fail. Sleep here to give other threads a chance
+                // to run in that scenario.
+                Thread::Sleep(50);
                 CheckRebind();
+                continue;
             }
         }
 
@@ -310,27 +308,25 @@ void SocketUdpServer::ServerThread()
         iSemaphore.Signal();
 
         // opened
-
         for (;;) {
-            iLock.Wait();
-
-            if (iQuit) {
-                iLock.Signal();
-                return;
-            }
-
-            if (!iOpen)
             {
-                iLock.Signal();
-                break;
+                AutoMutex _(iLock);
+                if (iQuit) {
+                    return;
+                }
+                if (!iOpen) {
+                    break;
+                }
             }
-
-            iLock.Signal();
 
             try {
                 iDiscard->Read(iSocket);
             }
             catch (NetworkError&) {
+                // This thread will become a busy loop if network operations
+                // repeatedly fail. Sleep here to give other threads a chance
+                // to run in that scenario.
+                Thread::Sleep(50);
                 CheckRebind();
                 continue;
             }
@@ -343,17 +339,19 @@ void SocketUdpServer::ServerThread()
             iDiscard = iFifoWaiting.Read();
         }
 
-        iReadyLock.Wait();
-        iFifoReady.ReadInterrupt(false);
-        // Move all messages from ready queue back to waiting queue
-
-        while (iFifoReady.SlotsUsed() > 0) {
-            MsgUdp* msg = iFifoReady.Read();
-            iFifoWaiting.Write(msg);
+        {
+            AutoMutex _(iReadyLock);
+            iFifoReady.ReadInterrupt(false);
+            // Move all messages from ready queue back to waiting queue
+            try {
+                while (iFifoReady.SlotsUsed() > 0) {
+                    MsgUdp* msg = iFifoReady.Read();
+                    iFifoWaiting.Write(msg);
+                }
+            }
+            catch (FifoReadError&) {}
+            iFifoReady.ReadInterrupt(false);
         }
-
-        iFifoReady.ReadInterrupt(false);
-        iReadyLock.Signal();
 
         iSocket.Interrupt(false);
         iSemaphore.Signal();

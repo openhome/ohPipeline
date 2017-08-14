@@ -170,6 +170,23 @@ TUint64 StartOffset::OffsetSample(TUint aSampleRate) const
     return (static_cast<TUint64>(iOffsetMs)*aSampleRate)/1000;
 }
 
+TUint StartOffset::OffsetMs() const
+{
+    return iOffsetMs;
+}
+
+TUint StartOffset::AbsoluteDiff(TUint aOffsetMs) const
+{
+    TUint offsetDiff = 0;
+    if (iOffsetMs >= aOffsetMs) {
+        offsetDiff = iOffsetMs - aOffsetMs;
+    }
+    else {
+        offsetDiff = aOffsetMs - iOffsetMs;
+    }
+    return offsetDiff;
+}
+
 
 // SpotifyReporter
 
@@ -180,6 +197,7 @@ const TUint SpotifyReporter::kSupportedMsgTypes =   eMode
                                                   | eMetatext
                                                   | eStreamInterrupted
                                                   | eHalt
+                                                  | eFlush
                                                   | eWait
                                                   | eDecodedStream
                                                   | eBitRate
@@ -187,6 +205,7 @@ const TUint SpotifyReporter::kSupportedMsgTypes =   eMode
                                                   | eSilence
                                                   | eQuit;
 
+const TUint SpotifyReporter::kTrackOffsetChangeThresholdMs = 2000;
 const Brn SpotifyReporter::kInterceptMode("Spotify");
 
 SpotifyReporter::SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, MsgFactory& aMsgFactory, TrackFactory& aTrackFactory)
@@ -201,6 +220,8 @@ SpotifyReporter::SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, Msg
     , iSubSamples(0)
     , iInterceptMode(false)
     , iPipelineTrackSeen(false)
+    , iGeneratedTrackPending(false)
+    , iPendingFlushId(MsgFlush::kIdInvalid)
     , iLock("SARL")
 {
 }
@@ -259,7 +280,8 @@ Msg* SpotifyReporter::Pull()
                 if (iPipelineTrackSeen && iDecodedStream != nullptr) {
                     // If new metadata is available, generate a new MsgTrack
                     // with that metadata.
-                    if (iMetadata != nullptr) {
+                    if (iGeneratedTrackPending && iMetadata != nullptr) {
+                        iGeneratedTrackPending = false;
                         const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
                         const TUint bitDepth = info.BitDepth();
                         const TUint channels = info.NumChannels();
@@ -269,14 +291,16 @@ Msg* SpotifyReporter::Pull()
                         WriterBuffer writerBuffer(metadata);
                         SpotifyDidlLiteWriter metadataWriter(iTrackUri, *iMetadata);
                         metadataWriter.Write(writerBuffer, bitDepth, channels, sampleRate);
-                        iMetadata->Destroy();
-                        iMetadata = nullptr;
+                        // Keep metadata cached here, in case pipeline restarts
+                        // (e.g., source has switched away from Spotify and
+                        // back again) but Spotify is still on same track, so
+                        // hasn't evented out new metadata.
                         Track* track = iTrackFactory.CreateTrack(iTrackUri, metadata);
 
                         const TBool startOfStream = false;  // Report false as don't want downstream elements to re-enter any stream detection mode.
-                        MsgTrack* msg = iMsgFactory.CreateMsgTrack(*track, startOfStream);
+                        auto trackMsg = iMsgFactory.CreateMsgTrack(*track, startOfStream);
                         track->RemoveRef();
-                        return msg;
+                        return trackMsg;
                     }
                     else if (iMsgDecodedStreamPending) {
                         /*
@@ -287,8 +311,8 @@ Msg* SpotifyReporter::Pull()
                          */
                         if (iDecodedStream != nullptr) {
                             iMsgDecodedStreamPending = false;
-                            MsgDecodedStream* msg = CreateMsgDecodedStreamLocked();
-                            UpdateDecodedStream(*msg);
+                            auto streamMsg = CreateMsgDecodedStreamLocked();
+                            UpdateDecodedStream(*streamMsg);
                             return iDecodedStream;
                         }
                     }
@@ -324,6 +348,12 @@ TUint64 SpotifyReporter::SubSamples() const
     return iSubSamples;
 }
 
+void SpotifyReporter::Flush(TUint aFlushId)
+{
+    AutoMutex _(iLock);
+    iPendingFlushId = aFlushId;
+}
+
 void SpotifyReporter::TrackChanged(Media::ISpotifyMetadata* aMetadata)
 {
     AutoMutex _(iLock);
@@ -334,6 +364,7 @@ void SpotifyReporter::TrackChanged(Media::ISpotifyMetadata* aMetadata)
     }
     iMetadata = aMetadata;
     iTrackDurationMs = iMetadata->DurationMs();
+    iGeneratedTrackPending = true; // Pick up new metadata.
     iMsgDecodedStreamPending = true;
 
     // Any start offset will be updated via call to TrackOffsetChanged, be it
@@ -343,22 +374,33 @@ void SpotifyReporter::TrackChanged(Media::ISpotifyMetadata* aMetadata)
 void SpotifyReporter::TrackOffsetChanged(TUint aOffsetMs)
 {
     AutoMutex _(iLock);
-    iStartOffset.SetMs(aOffsetMs);
     // Must output new MsgDecodedStream to update start offset.
     iMsgDecodedStreamPending = true;
+    iStartOffset.SetMs(aOffsetMs);
 }
 
-void SpotifyReporter::FlushTrackState()
+void SpotifyReporter::TrackPosition(TUint aPositionMs)
 {
     AutoMutex _(iLock);
-    iTrackUri.SetBytes(0);
-    if (iMetadata != nullptr) {
-        iMetadata->Destroy();
-        iMetadata = nullptr;
+    const TUint offsetDiffAbs = iStartOffset.AbsoluteDiff(aPositionMs);
+    if (offsetDiffAbs > kTrackOffsetChangeThresholdMs) {
+        // Must output new MsgDecodedStream to update start offset.
+        iMsgDecodedStreamPending = true;
     }
-    iStartOffset.SetMs(0);
-    iTrackDurationMs = 0;
+    iStartOffset.SetMs(aPositionMs);
 }
+
+//void SpotifyReporter::FlushTrackState()
+//{
+//    AutoMutex _(iLock);
+//    iTrackUri.SetBytes(0);
+//    if (iMetadata != nullptr) {
+//        iMetadata->Destroy();
+//        iMetadata = nullptr;
+//    }
+//    iStartOffset.SetMs(0);
+//    iTrackDurationMs = 0;
+//}
 
 Msg* SpotifyReporter::ProcessMsg(MsgMode* aMsg)
 {
@@ -391,6 +433,7 @@ Msg* SpotifyReporter::ProcessMsg(MsgTrack* aMsg)
 
     iTrackUri.Replace(aMsg->Track().Uri()); // Cache URI for reuse in out-of-band MsgTracks.
     iPipelineTrackSeen = true;              // Only matters when in iInterceptMode. Ensures in-band MsgTrack is output before any are generated from out-of-band notifications.
+    iGeneratedTrackPending = true;
     return aMsg;
 }
 
@@ -421,11 +464,26 @@ Msg* SpotifyReporter::ProcessMsg(MsgAudioPcm* aMsg)
     const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
     TUint samples = aMsg->Jiffies()/Jiffies::PerSample(info.SampleRate());
 
-    // iLock held in ::Pull() method to protect iSubSamples.
-    TUint64 subSamplesPrev = iSubSamples;
-    iSubSamples += samples*info.NumChannels();
+    if (iPendingFlushId == MsgFlush::kIdInvalid) {
+        // iLock held in ::Pull() method to protect iSubSamples.
+        TUint64 subSamplesPrev = iSubSamples;
+        iSubSamples += samples*info.NumChannels();
 
-    ASSERT(iSubSamples >= subSamplesPrev); // Overflow not handled.
+        ASSERT(iSubSamples >= subSamplesPrev); // Overflow not handled.
+    }
+    return aMsg;
+}
+
+Msg* SpotifyReporter::ProcessMsg(MsgFlush* aMsg)
+{
+    if (!iInterceptMode) {
+        return aMsg;
+    }
+
+    // iLock already held in ::Pull() method.
+    if (aMsg->Id() >= iPendingFlushId) {
+        iPendingFlushId = MsgFlush::kIdInvalid;
+    }
     return aMsg;
 }
 
@@ -458,10 +516,11 @@ MsgDecodedStream* SpotifyReporter::CreateMsgDecodedStreamLocked() const
     const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
     // Due to out-of-band track notification from Spotify, audio for current track was probably pushed into pipeline before track offset/duration was known, so use updated values here.
     const TUint64 trackLengthJiffies = TrackLengthJiffiesLocked();
+    const TUint64 startOffset = iStartOffset.OffsetSample(info.SampleRate());
     MsgDecodedStream* msg =
         iMsgFactory.CreateMsgDecodedStream(info.StreamId(), info.BitRate(), info.BitDepth(),
                                            info.SampleRate(), info.NumChannels(), info.CodecName(),
-                                           trackLengthJiffies, iStartOffset.OffsetSample(info.SampleRate()),
+                                           trackLengthJiffies, startOffset,
                                            info.Lossless(), info.Seekable(), info.Live(), info.AnalogBypass(),
                                            info.Multiroom(), info.Profile(), info.StreamHandler());
     return msg;

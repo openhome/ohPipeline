@@ -33,7 +33,7 @@ public:
     void SetTransportStop(Functor aStop);
     void SetTransportNext(Functor aNext);
     void SetTransportPrev(Functor aPrev);
-    void SetTransportSeek(FunctorGeneric<TUint> aSeek);
+    void SetTransportSeek(FunctorGeneric<TUint> aSeek); // Absolute seek position in seconds.
 
     virtual ModeClockPullers ClockPullers();
     virtual TBool IsValid(TUint aTrackId) const;
@@ -46,15 +46,18 @@ public:
     virtual void MoveTo(const Brx& aCommand);
     virtual void Interrupt(TBool aInterrupt);
 protected:
-    enum class Latency  { Supported, NotSupported };
-    enum class Next     { Supported, NotSupported };
-    enum class Prev     { Supported, NotSupported };
-    enum class Repeat   { Supported, NotSupported };
-    enum class Random   { Supported, NotSupported };
+    enum class Latency          { Supported, NotSupported };
+    enum class Next             { Supported, NotSupported };
+    enum class Prev             { Supported, NotSupported };
+    enum class Repeat           { Supported, NotSupported };
+    enum class Random           { Supported, NotSupported };
+    enum class RampPauseResume  { Long, Short };
+    enum class RampSkip         { Long, Short };
 protected:
     UriProvider(const TChar* aMode, Latency aLatency,
                 Next aNextSupported, Prev aPrevSupported,
-                Repeat aRepeatSupported, Random aRandomSupported);
+                Repeat aRepeatSupported, Random aRandomSupported,
+                RampPauseResume aRampPauseResume, RampSkip aRampSkip);
 private:
     BwsMode iMode;
     Media::ModeInfo iModeInfo;
