@@ -116,7 +116,7 @@ public:
     void Read(IStoreReadWrite& aStore);
 private:
     const TChar* iFilePath;
-    FileSystemAnsii iFileSystem;
+    FileSystemAnsi iFileSystem;
 };
 
 class StoreFileWriterJson : public IStoreObserver, public IStoreVisitor
@@ -145,7 +145,7 @@ public:
     void Read(IStoreReadWrite& aStore);
 private:
     const TChar* iFilePath;
-    FileSystemAnsii iFileSystem;
+    FileSystemAnsi iFileSystem;
 };
 
 class StoreFileWriterBinary : public IStoreObserver, public IStoreVisitor

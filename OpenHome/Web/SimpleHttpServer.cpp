@@ -123,22 +123,22 @@ void SimpleHttpSession::Run()
         }
     }
     catch (HttpError&) {
-        LOG2(kDvDevice, kDvEvent, "HttpError handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
+        //LOG2(kDvEvent, "HttpError handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
         if (iErrorStatus == &HttpStatus::kOk) {
             iErrorStatus = &HttpStatus::kBadRequest;
         }
     }
     catch (ReaderError&) {
-        LOG2(kDvDevice, kDvEvent, "ReaderError handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
+        //LOG2(kDvDevice, kDvEvent, "ReaderError handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
         if (iErrorStatus == &HttpStatus::kOk) {
             iErrorStatus = &HttpStatus::kBadRequest;
         }
     }
     catch (WriterError&) {
-        LOG2(kDvDevice, kDvEvent, "WriterError handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
+        //LOG2(kDvDevice, kDvEvent, "WriterError handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
     }
     catch (ResourceInvalid&) {
-        LOG2(kDvDevice, kDvEvent, "ResourceInvalid handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
+        //LOG2(kDvDevice, kDvEvent, "ResourceInvalid handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
     }
     try {
         if (!iResponseStarted) {
@@ -154,7 +154,7 @@ void SimpleHttpSession::Run()
         }
     }
     catch (WriterError&) {
-        LOG2(kDvDevice, kDvEvent, "WriterError(2) handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
+        //LOG2(kDvDevice, kDvEvent, "WriterError(2) handling %.*s for %.*s\n", PBUF(method), PBUF(reqUri));
     }
     iShutdownSem.Signal();
 }
