@@ -59,7 +59,7 @@ void FileResourceHandler::SetResource(const Brx& aResourceTail)
 
     try {
         // FIXME - dynamic allocation!
-        iFile = new FileAnsii(filename.PtrZ(), eFileReadOnly); // asserts if a file is already open
+        iFile = new FileAnsi(filename.PtrZ(), eFileReadOnly); // asserts if a file is already open
     }
     catch (FileOpenError&) {
         LOG(kHttp, "FileResourceHandler::SetResource failed to open resource: %.*s\n", PBUF(filename));
@@ -95,7 +95,7 @@ void LanguageResourceFileReader::SetResource(const Brx& aUriTail)
 
     try {
         // FIXME - dynamic allocation!
-        IFile* file = new FileAnsii(filename.PtrZ(), eFileReadOnly); // asserts if a file is already open
+        IFile* file = new FileAnsi(filename.PtrZ(), eFileReadOnly); // asserts if a file is already open
         iFileStream.SetFile(file);
         iAllocated = true;
     }
