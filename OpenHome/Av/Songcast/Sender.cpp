@@ -344,8 +344,10 @@ void Sender::ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aBytesP
     const TByte* src = aData.Ptr() + aBytesPerSubsample*iFirstChannelIndex;
     const TUint stride = aBytesPerSubsample * aNumChannels;
     const TUint numSamples = aData.Bytes() / stride;
-    const TUint dstBytesPerSubsample = std::min(aBytesPerSubsample, 3u);
-    const TUint outputChannels = std::min(aNumChannels, 2u);
+    const TUint maxBytesPerSubsample = 3;
+    const TUint dstBytesPerSubsample = std::min(aBytesPerSubsample, maxBytesPerSubsample);
+    const TUint maxChannels = 2;
+    const TUint outputChannels = std::min(aNumChannels, maxChannels);
     const TUint totalBytesToCopy = numSamples * outputChannels * dstBytesPerSubsample;
     TByte* dst = const_cast<TByte*>(iAudioBuf->Ptr()) + iAudioBuf->Bytes();
 
