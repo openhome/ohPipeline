@@ -29,7 +29,7 @@ private:
     Bws<kMaxRecogBytes> iRecogBuf;
     SampleSizeTable iSampleSizeTable;
     SeekTable iSeekTable;
-    TUint iCurrentSample;       // Sample count is 32 bits in stsz box.
+    TUint iCurrentCodecSample;  // Sample count is 32 bits in stsz box.
 };
 
 } //namespace Codec
@@ -110,7 +110,7 @@ void CodecAac::StreamInitialise()
 
     CodecAacBase::StreamInitialise();
 
-    iCurrentSample = 0;
+    iCurrentCodecSample = 0;
 
     // Use iInBuf for gathering initialisation data, as it doesn't need to be used for audio until Process() starts being called.
     Mpeg4Info info;
@@ -308,7 +308,7 @@ TBool CodecAac::TrySeek(TUint aStreamId, TUint64 aSample)
         if (canSeek) {
             const TUint64 seekTableOutputSample = seekTableInputSample * divisor;
             iTotalSamplesOutput = aSample;
-            iCurrentSample = static_cast<TUint>(codecSample);
+            iCurrentCodecSample = static_cast<TUint>(codecSample);
             iTrackOffset = (Jiffies::kPerSecond/iOutputSampleRate)*seekTableOutputSample;
             iInBuf.SetBytes(0);
             iDecodedBuf.SetBytes(0);
@@ -342,20 +342,20 @@ void CodecAac::Process()
 void CodecAac::ProcessMpeg4() 
 {
     LOG(kCodec, "CodecAac::Process\n");
-    if (iCurrentSample < iSampleSizeTable.Count()) {
+    if (iCurrentCodecSample < iSampleSizeTable.Count()) {
 
         // Read in a single aac sample.
         iInBuf.SetBytes(0);
 
         try {
-            LOG(kCodec, "CodecAac::Process  iCurrentSample: %u, size: %u, inBuf.MaxBytes(): %u\n", iCurrentSample, iSampleSizeTable.SampleSize(iCurrentSample), iInBuf.MaxBytes());
-            TUint sampleSize = iSampleSizeTable.SampleSize(iCurrentSample);
+            LOG(kCodec, "CodecAac::Process  iCurrentCodecSample: %u, size: %u, inBuf.MaxBytes(): %u\n", iCurrentCodecSample, iSampleSizeTable.SampleSize(iCurrentCodecSample), iInBuf.MaxBytes());
+            TUint sampleSize = iSampleSizeTable.SampleSize(iCurrentCodecSample);
             iController->Read(iInBuf, sampleSize);
             LOG(kCodec, "CodecAac::Process  read iInBuf.Bytes() = %u\n", iInBuf.Bytes());
             if (iInBuf.Bytes() < sampleSize) {
                 THROW(CodecStreamEnded);
             }
-            iCurrentSample++;
+            iCurrentCodecSample++;
 
             // Now decode and output
             DecodeFrame(false);
