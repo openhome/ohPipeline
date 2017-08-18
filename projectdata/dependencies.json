@@ -14,7 +14,7 @@
     {   "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.0.96",
+        "version": "0.0.97",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -123,5 +123,16 @@
             "Windows-x86": false,
             "*": true },
         "ignore":           "${platform-ignore[$platform]}"
+    },
+    {   "name": "brstaging",
+        "type": "internal",
+        "platform-specific": true,
+        "platform-ignore": {
+            "Linux-armhf": false,
+            "*": true },
+        "ignore":      "${platform-ignore[$platform]}",
+        "version": "0.0.0",
+        "cross-check": false,
+        "archive-filename": "${name}-${platform}-${version}.tar.gz"
     }
 ]
