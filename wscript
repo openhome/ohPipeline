@@ -123,7 +123,7 @@ def configure(conf):
     if conf.options.with_default_fpm:
         fixed_point_model = 'FPM_DEFAULT'
     elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Core-armv5', 'Core-armv6']:
-        fixed_point_model = 'FPM_ARM'
+        fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
     elif conf.options.dest_platform in ['Linux-x64', 'Windows-x64', 'Mac-x64']:

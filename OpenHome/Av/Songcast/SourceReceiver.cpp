@@ -246,11 +246,11 @@ void SourceReceiver::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
     SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
     if (aPrefetchAllowed) {
         iPipeline.StopPrefetch(iUriProvider->Mode(), Track::kIdNone);
-        if (iZone.Bytes() > 0) {
-            iZoneHandler->StartMonitoring(iZone);
-        }
         if (aAutoPlay) {
             iPlaying = true;
+        }
+        if (iZone.Bytes() > 0) {
+            iZoneHandler->StartMonitoring(iZone);
         }
     }
     else {
@@ -282,6 +282,7 @@ TBool SourceReceiver::TryActivateNoPrefetch(const Brx& aMode)
 void SourceReceiver::StandbyEnabled()
 {
     Stop();
+    iTrackUri.Replace(Brx::Empty());
 }
 
 void SourceReceiver::PipelineStopped()
