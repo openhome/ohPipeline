@@ -267,7 +267,7 @@ void CodecAac::StreamInitialise()
     //iChannels = iMp4->Channels();     // not valid !!!
     iSamplesTotal = info.Duration();
 
-    if(iChannels == 0) {
+    if (iChannels == 0) {
         THROW(CodecStreamCorrupt);  // invalid for an audio file type
     }
 
@@ -289,26 +289,31 @@ void CodecAac::StreamCompleted()
 TBool CodecAac::TrySeek(TUint aStreamId, TUint64 aSample)
 {
     LOG(kCodec, "CodecAac::TrySeek(%u, %llu)\n", aStreamId, aSample);
-    TUint64 startSample;
 
-    TUint64 sampleInSeekTable = aSample;
-    if (iOutputSampleRate != iSampleRate) {
-        TUint divisor = iOutputSampleRate / iSampleRate;
-        sampleInSeekTable /= divisor;
+    TUint divisor = 1;
+    if (iOutputSampleRate != iSampleRate
+            && iOutputSampleRate > 0
+            && iSampleRate > 0) {
+        divisor = iOutputSampleRate / iSampleRate;
     }
+    TUint64 seekTableInputSample = aSample / divisor;
 
     try {
-        TUint64 bytes = iSeekTable.Offset(sampleInSeekTable, startSample);     // find file offset relating to given audio sample
-        LOG(kCodec, "CodecAac::Seek to sample: %llu, byte: %llu\n", startSample, bytes);
-        TBool canSeek = iController->TrySeekTo(aStreamId, bytes);
+        TUint64 codecSample = 0;
+        // This alters seekTableInputSample to point to closest audio sample to aSample that can actually be seeked to.
+        // codecSample is altered to be the "codec" sample containing that audio sample. This is nothing to do with audio samples in Hz.
+        const TUint64 bytes = iSeekTable.Offset(seekTableInputSample, codecSample);     // find file offset relating to given audio sample
+        LOG(kCodec, "CodecAac::Seek to sample: %llu, byte: %llu, codecSample: %llu\n", seekTableInputSample, bytes, codecSample);
+        const TBool canSeek = iController->TrySeekTo(aStreamId, bytes);
         if (canSeek) {
+            const TUint64 seekTableOutputSample = seekTableInputSample * divisor;
             iTotalSamplesOutput = aSample;
-            iCurrentSample = static_cast<TUint>(startSample);
-            iTrackOffset = (Jiffies::kPerSecond/iOutputSampleRate)*aSample;
+            iCurrentSample = static_cast<TUint>(codecSample);
+            iTrackOffset = (Jiffies::kPerSecond/iOutputSampleRate)*seekTableOutputSample;
             iInBuf.SetBytes(0);
             iDecodedBuf.SetBytes(0);
             iOutBuf.SetBytes(0);
-            iController->OutputDecodedStream(iBitrateAverage, iBitDepth, iOutputSampleRate, iChannels, kCodecAac, iTrackLengthJiffies, aSample, false, DeriveProfile(iChannels));
+            iController->OutputDecodedStream(iBitrateAverage, iBitDepth, iOutputSampleRate, iChannels, kCodecAac, iTrackLengthJiffies, seekTableOutputSample, false, DeriveProfile(iChannels));
         }
         return canSeek;
     }

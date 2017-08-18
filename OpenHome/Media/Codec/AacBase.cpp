@@ -268,9 +268,13 @@ void CodecAacBase::DecodeFrame(TBool aParseOnly)
     /* end sbr decoder */
 
     if (sampleRate != iOutputSampleRate) {
-        iOutputSampleRate = sampleRate;
+        const TUint outputSampleRateOld = iOutputSampleRate;
+        const TUint outputSampleRateNew = sampleRate;
+        const TUint64 startSample = (iTrackOffset/Jiffies::kPerSecond)*outputSampleRateNew;
+        iOutputSampleRate = outputSampleRateNew;
         if (!aParseOnly) {
-            iController->OutputDecodedStream(iBitrateAverage, iBitDepth, iOutputSampleRate, iChannels, kCodecAac, iTrackLengthJiffies, 0, false, DeriveProfile(iChannels));
+            LOG(kCodec, "CodecAacBase::DecodeFrame Sample rate changed. outputSampleRateOld: %u, outputSampleRateNew: %u, startSample: %llu\n", outputSampleRateOld, outputSampleRateNew, startSample);
+            iController->OutputDecodedStream(iBitrateAverage, iBitDepth, iOutputSampleRate, iChannels, kCodecAac, iTrackLengthJiffies, startSample, false, DeriveProfile(iChannels));
         }
     }
     numOutSamples = frameSize;
