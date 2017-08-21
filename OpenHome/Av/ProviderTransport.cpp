@@ -200,7 +200,7 @@ void ProviderTransport::Pause(IDvInvocation& aInvocation)
                 iPipeline.Pause();
             }
             catch (PipelineStreamNotPausable&) {
-                aInvocation.Error(kCodeNotSupportedByStream, kMsgNotSupportedByStream);
+                iPipeline.Stop();
             }
         }
     }
