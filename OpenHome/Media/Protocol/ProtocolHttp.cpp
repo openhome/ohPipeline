@@ -446,6 +446,7 @@ void ProtocolHttp::Reinitialise(const Brx& aUri)
     (void)iSem.Clear();
     iUri.Replace(aUri);
     iReaderIcy->Reset();
+    iIcyObserverDidlLite->Reset();
     iContentRecogBuf.ReadFlush();
 }
 
