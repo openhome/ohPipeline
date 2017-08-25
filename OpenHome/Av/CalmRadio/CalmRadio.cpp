@@ -6,15 +6,69 @@
 #include <OpenHome/Json.h>
 #include <OpenHome/SocketSsl.h>
 #include <OpenHome/Media/Debug.h>
+#include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Http.h>
-#include <OpenHome/Private/Uri.h>
+#include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Stream.h>
+#include <OpenHome/Private/Uri.h>
 
 #include <algorithm>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
+
+class UriEscaper : public IWriter, private INonCopyable
+{
+public:
+    static void Escape(IWriter& aWriter, const Brx& aUri);
+private:
+    UriEscaper(IWriter& aWriter);
+private: // from IWriter
+    void Write(TByte aValue) override;
+    void Write(const Brx& aBuffer) override;
+    void WriteFlush() override;
+private:
+    IWriter& iWriter;
+};
+
+void UriEscaper::Escape(IWriter& aWriter, const Brx& aBuf)
+{ // static
+    UriEscaper self(aWriter);
+    Uri::Escape(self, aBuf);
+}
+
+UriEscaper::UriEscaper(IWriter& aWriter)
+    : iWriter(aWriter)
+{
+}
+
+void UriEscaper::Write(TByte aValue)
+{
+    if (aValue == '&') {
+        iWriter.Write('%');
+        WriterAscii writerAscii(iWriter);
+        writerAscii.WriteHex(aValue);
+    }
+    else {
+        iWriter.Write(aValue);
+    }
+}
+
+void UriEscaper::Write(const Brx& aBuffer)
+{
+    const TUint bytes = aBuffer.Bytes();
+    const TByte* ptr = aBuffer.Ptr();
+    for (TUint i=0; i<bytes; i++) {
+        Write(*ptr++);
+    }
+}
+
+void UriEscaper::WriteFlush()
+{
+    iWriter.WriteFlush();
+}
+
 
 // CalmRadio
 
@@ -59,9 +113,10 @@ void CalmRadio::GetStreamUrl(Bwx& aUrlBase)
         THROW(CalmRadioNoToken);
     }
     aUrlBase.Append("?user=");
+    WriterBuffer writer(aUrlBase);
     {
         AutoMutex __(iLockConfig);
-        aUrlBase.Append(iUsername.Buffer());
+        UriEscaper::Escape(writer, iUsername.Buffer());
     }
     aUrlBase.Append("&pass=");
     Uri::Escape(aUrlBase, token);
@@ -158,10 +213,11 @@ TBool CalmRadio::TryLoginLocked()
         AutoSocketSsl _(iSocket);
         Bws<128> pathAndQuery("/get_token?user=");
         {
+            WriterBuffer writer(pathAndQuery);
             AutoMutex __(iLockConfig);
-            pathAndQuery.Append(iUsername.Buffer());
+            UriEscaper::Escape(writer, iUsername.Buffer());
             pathAndQuery.Append("&pass=");
-            pathAndQuery.Append(iPassword.Buffer());
+            UriEscaper::Escape(writer, iPassword.Buffer());
         }
         try {
             iWriterRequest.WriteMethod(Http::kMethodGet, pathAndQuery, Http::eHttp11);
