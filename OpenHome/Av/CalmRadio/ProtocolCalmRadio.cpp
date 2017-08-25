@@ -124,7 +124,7 @@ ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, C
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
     iReaderResponse.AddHeader(iHeaderIcyMetadata);
 
-    iCalm = new CalmRadio(aEnv, aCredentialsManager);
+    iCalm = new CalmRadio(aEnv, aCredentialsManager, aUserAgent);
     aCredentialsManager.Add(iCalm);
 }
 
