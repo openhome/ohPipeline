@@ -291,7 +291,7 @@ TBool CalmRadio::TryLoginLocked()
             LOG_ERROR(kPipeline, "ReaderError in CalmRadio::TryLoginLocked\n");
         }
         catch (Exception& ex) {
-            error.AppendPrintf("Login Error - %s: Please Try Again.", ex.Message());
+            error.AppendPrintf("Login Error. Please Try Again.", ex.Message());
             LOG_ERROR(kPipeline, "%s in CalmRadio::TryLoginLocked\n", ex.Message());
         }
     }
