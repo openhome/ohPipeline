@@ -25,7 +25,7 @@ class CalmRadio : public ICredentialConsumer
     static const Brn kId;
     static const TUint kMaxStatusBytes = 512;
 public:
-    CalmRadio(Environment& aEnv, ICredentialsState& aCredentialsState);
+    CalmRadio(Environment& aEnv, ICredentialsState& aCredentialsState, const Brx& aUserAgent);
     ~CalmRadio();
     void Interrupt(TBool aInterrupt);
     void GetStreamUrl(Bwx& aUrlBase);
@@ -43,6 +43,7 @@ private:
     Mutex iLock;
     Mutex iLockConfig;
     ICredentialsState& iCredentialsState;
+    Bws<64> iUserAgent;
     SocketSsl iSocket;
     Srs<1024> iReaderBuf;
     ReaderUntilS<kReadBufferBytes> iReaderUntil;
