@@ -473,7 +473,7 @@ void SuiteJsonParser::TestGetNumAsString()
 
 void SuiteJsonParser::TestGetValidBool()
 {
-    const Brn json("{\"key1\":true,\"key2\":false\n}");
+    const Brn json("{\"key1\":true,\"key2\":false}");
 
     iParser->Parse(json);
     TEST(iParser->Bool("key1"));

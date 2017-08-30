@@ -197,12 +197,10 @@ void JsonParser::Parse(const Brx& aJson, TBool aUnescapeInPlace)
     Brn key;
     TUint nestCount = 0;
     TBool escapeChar = false;
-    TUint skipCount = 0;
 
     while (state != Complete && ptr < end) {
         TChar ch = (TChar)*ptr++;
         if (Ascii::IsWhitespace(ch)) {
-            ++skipCount;
             continue;
         }
         switch (state)
@@ -236,7 +234,6 @@ void JsonParser::Parse(const Brx& aJson, TBool aUnescapeInPlace)
             }
             break;
         case ValueStart:
-            skipCount = 0;
             if (ch != ':') {
                 if (ch == '\"') {
                     valStart = ptr;
@@ -265,14 +262,14 @@ void JsonParser::Parse(const Brx& aJson, TBool aUnescapeInPlace)
         case NumEnd:
         case MiscEnd:
             if (ch == ',') {
-                Add(key, valStart, ptr - valStart - skipCount);
+                Add(key, valStart, ptr - valStart - 1);
                 state = KeyStart;
             }
             else if (ch == '}') {
                 if (nestCount != 0) {
                     THROW(JsonUnsupported);
                 }
-                Add(key, valStart, ptr - valStart - skipCount);
+                Add(key, valStart, ptr - valStart - 1);
                 state = Complete;
             }
             break;
