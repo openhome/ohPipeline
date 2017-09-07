@@ -181,6 +181,7 @@ public:
     void Play();
     void Pause();
     void Wait(TUint aFlushId);
+    void FlushQuick(TUint aFlushId);
     void Stop(TUint aHaltId);
     void RemoveCurrentStream();
     void RemoveAll(TUint aHaltId);

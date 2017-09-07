@@ -100,6 +100,7 @@ private:
     void TestRampsAroundStarvation();
     void TestNotifyStarvingAroundStarvation();
     void TestReportsBuffering();
+    void TestFlush();
     void TestAllSampleRates();
 private:
     AllocatorInfoLogger iInfoAggregator;
@@ -145,6 +146,7 @@ SuiteStarvationRamper::SuiteStarvationRamper()
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestRampsAroundStarvation), "TestRampsAroundStarvation");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestNotifyStarvingAroundStarvation), "TestNotifyStarvingAroundStarvation");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestReportsBuffering), "TestReportsBuffering");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestFlush), "TestFlush");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestAllSampleRates), "TestAllSampleRates");
 
     // audio data with left=0x7f, right=0x00
@@ -726,6 +728,39 @@ void SuiteStarvationRamper::TestReportsBuffering()
         PullNext(EMsgAudioPcm);
     } while (!iStarvationRamper->IsEmpty());
     TEST(!iBuffering);
+
+    Quit();
+}
+
+void SuiteStarvationRamper::TestFlush()
+{
+    AddPending(iMsgFactory->CreateMsgMode(kMode));
+    AddPending(CreateTrack());
+    AddPending(CreateDecodedStream());
+    for (TUint i = 0; i < 50; i++) {
+        AddPending(CreateAudio());
+    }
+    static const TUint kFlushId = 42;
+    AddPending(iMsgFactory->CreateMsgFlush(kFlushId));
+
+    PullNext(EMsgMode);
+    PullNext(EMsgTrack);
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgAudioPcm);
+
+    iJiffies = 0;
+    iStarvationRamper->Flush(kFlushId);
+    TEST(iStarvationRamper->iState == StarvationRamper::State::RampingDown);
+    iRampingDown = true;
+    do {
+        PullNext(EMsgAudioPcm);
+    } while (iJiffies < StarvationRamper::kRampDownJiffies);
+    TEST(iJiffies == StarvationRamper::kRampDownJiffies);
+    TEST(iStarvationRamper->iState == StarvationRamper::State::Flushing);
+    iRampingDown = false;
+    PullNext(EMsgHalt);
+    TEST(iStarvationRamper->IsEmpty());
+    TEST(iStarvationRamper->iState == StarvationRamper::State::Halted);
 
     Quit();
 }

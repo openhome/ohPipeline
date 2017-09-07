@@ -97,6 +97,7 @@ public:
                      IPipelineElementObserverThread& aObserverThread, TUint aSizeJiffies,
                      TUint aThreadPriority, TUint aRampUpSize, TUint aMaxStreamCount);
     ~StarvationRamper();
+    void Flush(TUint aId); // ramps down quickly then discards everything up to a flush with the given id
     TUint SizeInJiffies() const;
     TUint ThreadPriorityFlywheelRamper() const;
     TUint ThreadPriorityStarvationRamper() const;
@@ -118,6 +119,7 @@ private: // from MsgReservoir
     Msg* ProcessMsgOut(MsgDrain* aMsg) override;
     Msg* ProcessMsgOut(MsgDelay* aMsg) override;
     Msg* ProcessMsgOut(MsgHalt* aMsg) override;
+    Msg* ProcessMsgOut(MsgFlush* aMsg) override;
     Msg* ProcessMsgOut(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsgOut(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsgOut(MsgSilence* aMsg) override;
@@ -127,7 +129,9 @@ private:
         Running,
         Halted,
         RampingUp,
-        RampingDown
+        FlywheelRamping,
+        RampingDown,
+        Flushing
     };
 private:
     MsgFactory& iMsgFactory;
@@ -158,6 +162,7 @@ private:
     TUint iNumChannels;
     TUint iCurrentRampValue;
     TUint iRemainingRampSize;
+    TUint iTargetFlushId;
     TUint iLastPulledAudioRampValue;
     TUint iEventId;
     std::atomic<bool> iEventBuffering;
