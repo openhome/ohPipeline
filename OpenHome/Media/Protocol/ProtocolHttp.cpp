@@ -87,7 +87,7 @@ private:
     HeaderServer iHeaderServer;
     Bws<kMaxUserAgentBytes> iUserAgent;
     IcyObserverDidlLite* iIcyObserverDidlLite;
-    OpenHome::Uri iUri;
+    Uri iUri;
     TUint64 iTotalStreamBytes;
     TUint64 iTotalBytes;
     TUint iStreamId;

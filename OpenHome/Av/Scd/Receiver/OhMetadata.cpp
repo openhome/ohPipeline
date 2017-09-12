@@ -13,13 +13,13 @@ namespace Scd {
 class Oh2DidlTagMapping
 {
 public:
-    Oh2DidlTagMapping(const TChar* aOhKey, const TChar* aDidlTag, const OpenHome::Brx& aNs)
+    Oh2DidlTagMapping(const TChar* aOhKey, const TChar* aDidlTag, const Brx& aNs)
         : iOhKey(aOhKey)
         , iDidlTag(aDidlTag)
         , iNs(aNs)
         , iRole(OpenHome::Brx::Empty())
     {}
-    Oh2DidlTagMapping(const TChar* aOhKey, const TChar* aDidlTag, const OpenHome::Brx& aNs, const TChar* aRole)
+    Oh2DidlTagMapping(const TChar* aOhKey, const TChar* aDidlTag, const Brx& aNs, const TChar* aRole)
         : iOhKey(aOhKey)
         , iDidlTag(aDidlTag)
         , iNs(aNs)

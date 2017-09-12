@@ -36,7 +36,7 @@ public:
     MockTimerFactory(ITestPipeWritable& aTestPipe);
     void FireTimer(const TChar* aId);
 public: // from ITimerFactory
-    OpenHome::ITimer* CreateTimer(OpenHome::Functor aCallback, const TChar* aId) override;
+    OpenHome::ITimer* CreateTimer(Functor aCallback, const TChar* aId) override;
 private:
     ITestPipeWritable& iTestPipe;
     std::vector<std::reference_wrapper<MockTimer>> iTimers;

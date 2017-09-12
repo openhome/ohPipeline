@@ -55,7 +55,7 @@ private:
     ReaderHttpChunked iDechunker;
     HttpHeaderContentLength iHeaderContentLength;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
-    OpenHome::Uri iUri;
+    Uri iUri;
     TUint iStreamId;
     TBool iStopped;
     TUint iNextFlushId;

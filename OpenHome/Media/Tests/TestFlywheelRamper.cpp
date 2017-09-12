@@ -25,10 +25,10 @@ class PcmProcessorFeedback;
 class SuiteFlywheelRamper : public SuiteUnitTest, public INonCopyable
 {
 public:
-    SuiteFlywheelRamper(OpenHome::Environment& aEnv);
+    SuiteFlywheelRamper(Environment& aEnv);
 
 private:
-    OpenHome::Environment& iEnv;
+    Environment& iEnv;
     // from SuiteUnitTest
 
     void Test1(); // FeedbackModel algorithm
@@ -95,7 +95,7 @@ TInt32 SuiteFlywheelRamper::Int32(const Brx& aSamples, TUint aByteIndex)
 }
 
 
-SuiteFlywheelRamper::SuiteFlywheelRamper(OpenHome::Environment& aEnv)
+SuiteFlywheelRamper::SuiteFlywheelRamper(Environment& aEnv)
     :SuiteUnitTest("SuiteFlywheelRamper")
     ,iEnv(aEnv)
 {
@@ -728,7 +728,7 @@ void PcmProcessorFeedback::ProcessFragment32(const Brx& aData, TUint /*aNumChann
 
 /////////////////////////////////////////////////////////////////
 
-void TestFlywheelRamper(OpenHome::Environment& aEnv)
+void TestFlywheelRamper(Environment& aEnv)
 {
     Runner runner("Testing FlywheelRamper");
     runner.Add(new SuiteFlywheelRamper(aEnv));
