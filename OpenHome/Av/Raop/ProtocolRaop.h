@@ -428,29 +428,6 @@ private:
     IRaopResendRequester& iResendRequester;
 };
 
-class IRepairerTimer
-{
-public:
-    virtual void Start(Functor aFunctor, TUint aFireInMs) = 0;
-    virtual void Cancel() = 0;
-    virtual ~IRepairerTimer() {}
-};
-
-class RepairerTimer : public IRepairerTimer
-{
-public:
-    RepairerTimer(Environment& aEnv, const TChar* aId);
-    ~RepairerTimer();
-public: // from IRepairerTimer
-    void Start(Functor aFunctor, TUint aFireInMs) override;
-    void Cancel() override;
-private:
-    void TimerFired();
-private:
-    Timer iTimer;
-    Functor iFunctor;
-};
-
 class ResendRange : public IResendRange
 {
 public:
@@ -471,7 +448,7 @@ private:
     static const TUint kInitialRepairTimeoutMs = 10;
     static const TUint kSubsequentRepairTimeoutMs = 30;
 public:
-    Repairer(Environment& aEnv, IResendRangeRequester& aResendRequester, IAudioSupply& aAudioSupply, IRepairerTimer& aTimer);
+    Repairer(Environment& aEnv, IResendRangeRequester& aResendRequester, IAudioSupply& aAudioSupply, ITimerFactory& aTimerFactory);
     ~Repairer();
     void OutputAudio(IRepairable& aRepairable);  // THROWS RepairerBufferFull, RepairerStreamRestarted
     void DropAudio();
@@ -484,7 +461,7 @@ private:
     Environment& iEnv;
     IResendRangeRequester& iResendRequester;
     IAudioSupply& iAudioSupply;
-    IRepairerTimer& iTimer;
+    ITimer* iTimer;
     IRepairable* iRepairFirst;
     std::vector<IRepairable*> iRepairFrames;
     std::vector<IRepairable*> iOutput;
@@ -500,11 +477,10 @@ private:
 
 // Repairer
 
-template <TUint MaxFrames> Repairer<MaxFrames>::Repairer(Environment& aEnv, IResendRangeRequester& aResendRequester, IAudioSupply& aAudioSupply, IRepairerTimer& aTimer)
+template <TUint MaxFrames> Repairer<MaxFrames>::Repairer(Environment& aEnv, IResendRangeRequester& aResendRequester, IAudioSupply& aAudioSupply, ITimerFactory& aTimerFactory)
     : iEnv(aEnv)
     , iResendRequester(aResendRequester)
     , iAudioSupply(aAudioSupply)
-    , iTimer(aTimer)
     , iRepairFirst(nullptr)
     , iRunning(false)
     , iRepairing(false)
@@ -512,6 +488,7 @@ template <TUint MaxFrames> Repairer<MaxFrames>::Repairer(Environment& aEnv, IRes
     , iMutexTransport("REPL")
     , iMutexAudioOutput("REAO")
 {
+    iTimer = aTimerFactory.CreateTimer(MakeFunctor(*this, &Repairer<MaxFrames>::TimerRepairExpired), "Repairer");
     for (TUint i=0; i<kMaxMissedRanges; i++) {
         iFifoResend.Write(new ResendRange());
     }
@@ -519,12 +496,13 @@ template <TUint MaxFrames> Repairer<MaxFrames>::Repairer(Environment& aEnv, IRes
 
 template <TUint MaxFrames> Repairer<MaxFrames>::~Repairer()
 {
-    iTimer.Cancel();
+    iTimer->Cancel();
     ASSERT(iFifoResend.SlotsFree() == 0);
     while (iFifoResend.SlotsUsed() > 0) {
         auto resend = iFifoResend.Read();
         delete resend;
     }
+    delete iTimer;
 }
 
 template <TUint MaxFrames> void Repairer<MaxFrames>::OutputAudio(IRepairable& aRepairable)
@@ -592,7 +570,7 @@ template <TUint MaxFrames> TBool Repairer<MaxFrames>::RepairBegin(IRepairable& a
 {
     LOG(kMedia, "Repairer::RepairBegin BEGIN ON %d\n", aRepairable.Frame());
     iRepairFirst = &aRepairable;
-    iTimer.Start(MakeFunctor(*this, &Repairer<MaxFrames>::TimerRepairExpired), iEnv.Random(kInitialRepairTimeoutMs));
+    iTimer->FireIn(iEnv.Random(kInitialRepairTimeoutMs));
     return true;
 }
 
@@ -602,7 +580,7 @@ template <TUint MaxFrames> void Repairer<MaxFrames>::RepairReset()
     /* TimerRepairExpired() claims iMutexTransport.  Release it briefly to avoid possible deadlock.
     TimerManager guarantees that TimerRepairExpired() won't be called once Cancel() returns... */
     iMutexTransport.Signal();
-    iTimer.Cancel();
+    iTimer->Cancel();
     iMutexTransport.Wait();
     if (iRepairFirst != nullptr) {
         iRepairFirst->Destroy();
@@ -784,7 +762,7 @@ template <TUint MaxFrames> void Repairer<MaxFrames>::TimerRepairExpired()
         iResend.clear();
         iResendConst.clear();
 
-        iTimer.Start(MakeFunctor(*this, &Repairer<MaxFrames>::TimerRepairExpired), kSubsequentRepairTimeoutMs);
+        iTimer->FireIn(kSubsequentRepairTimeoutMs);
     }
 }
 
@@ -804,11 +782,8 @@ private:
     static const TUint kMaxRepairFrames = 50;
     static const TUint kMinDelayChangeSamples = 441; // Require min change of 10 ms at 44.1KHz to cause delay value to be updated/output.
 public:
-    ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer); // FIXME - surely the server thread priorities should be up at filler priority (or whatever UdpServer uses).
+    ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer, ITimerFactory& aTimerFactory);
     ~ProtocolRaop();
-
-    // FIXME - WTF? This is horrid. Pass a functor, or some kind of callback, into SendFlushStart() which explicitly calls back to perform some appropriate task before lock is released.
-    // This puts too much burden on caller and is really cryptic (i.e., what is a caller meant to do between SendFlushStart()/SendFlushEnd() 'cause it sure ain't documented here!?).
     void SendFlush(TUint aSeq, TUint aTime, FunctorGeneric<TUint> aFlushHandler); // aFlushHandler is called with the flush ID before call returns.
 private: // from Protocol
     void Interrupt(TBool aInterrupt) override;
@@ -880,7 +855,6 @@ private:
     // +3 as must be able to cause repairer to overflow (which requires kMaxRepairFrames+2), plus could be sending from normal audio channel and control channel simultaneously.
     RaopRepairableAllocator<kMaxRepairFrames+3,kMaxFrameBytes> iRepairableAllocator;
     RaopResendRangeRequester iResendRangeRequester;
-    RepairerTimer iRepairerTimer;
     Repairer<kMaxRepairFrames> iRepairer;
 };
 

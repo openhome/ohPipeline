@@ -383,7 +383,7 @@ void RaopPacketResendRequest::Write(IWriter& aWriter) const
 
 // ProtocolRaop
 
-ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer)
+ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer, ITimerFactory& aTimerFactory)
     : Protocol(aEnv)
     , iTrackFactory(aTrackFactory)
     , iDiscovery(aDiscovery)
@@ -394,8 +394,7 @@ ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory
     , iLockRaop("PRAL")
     , iSem("PRAS", 0)
     , iResendRangeRequester(iControlServer)
-    , iRepairerTimer(aEnv, "PRRT")
-    , iRepairer(aEnv, iResendRangeRequester, *this, iRepairerTimer)
+    , iRepairer(aEnv, iResendRangeRequester, *this, aTimerFactory)
 {
 }
 
@@ -1276,37 +1275,6 @@ void RaopResendRangeRequester::RequestResendSequences(const std::vector<const IR
         LOG(kPipeline, "\t%d->%d\n", start, end);
         iResendRequester.RequestResend(start, count);
     }
-}
-
-
-// RepairerTimer
-
-RepairerTimer::RepairerTimer(Environment& aEnv, const TChar* aId)
-    : iTimer(aEnv, MakeFunctor(*this, &RepairerTimer::TimerFired), aId)
-{
-}
-
-RepairerTimer::~RepairerTimer()
-{
-    iTimer.Cancel();
-}
-
-void RepairerTimer::Start(Functor aFunctor, TUint aFireInMs)
-{
-    iFunctor = aFunctor;
-    iTimer.FireIn(aFireInMs);
-}
-
-void RepairerTimer::Cancel()
-{
-    iTimer.Cancel();
-}
-
-void RepairerTimer::TimerFired()
-{
-    Functor functor = iFunctor;
-    iFunctor = Functor();   // Clear iFunctor member here in case Start() is called within functor callback.
-    functor();
 }
 
 
