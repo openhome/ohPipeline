@@ -84,6 +84,7 @@ void ConfigRamStore::Read(const Brx& aKey, Bwx& aDest)
     }
 
     if (it->second->Bytes() > aDest.MaxBytes()) {
+        Log::Print("ConfigRamStore::Read StoreReadBufferUndersized aKey: %.*s, aDest.MaxBytes(): %u, it->second->Bytes(): %u, it->second: %.*s\n", PBUF(aKey), aDest.MaxBytes(), it->second->Bytes(), PBUF(*it->second));
         THROW(StoreReadBufferUndersized);
     }
 
