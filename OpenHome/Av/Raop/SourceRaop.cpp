@@ -305,14 +305,8 @@ void SourceRaop::NotifySessionWait(TUint aSeq, TUint aTime)
 
     AutoMutex a(iLock);
     if (IsActive() && iSessionActive) {
-        // Possible race condition here - MsgFlush could pass Waiter before
-        // iPipeline::Wait is called.
-        const TUint flushId = iProtocol->SendFlushStart(aSeq, aTime);
-        if (flushId != MsgFlush::kIdInvalid) {
-            iTransportState = Media::EPipelineWaiting;
-            iPipeline.Wait(flushId);
-            iProtocol->SendFlushEnd();
-        }
+        // Synchronous callback ensures ::FlushCallback() is able to notify pipeline of flush ID to wait for BEFORE protocol module sends that flush ID into pipeline.
+        iProtocol->SendFlush(aSeq, aTime, MakeFunctorGeneric<TUint>(*this, &SourceRaop::FlushCallback));
     }
 
     LOG(kMedia, "<SourceRaop::NotifySessionWait\n");
@@ -358,6 +352,15 @@ void SourceRaop::NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo)
     iLock.Wait();
     iStreamId = aStreamInfo.StreamId();
     iLock.Signal();
+}
+
+void SourceRaop::FlushCallback(TUint aFlushId)
+{
+    // Called synchronously during SendFlush() call in ::NotifySessionWait();
+    if (aFlushId != MsgFlush::kIdInvalid) {
+        iTransportState = Media::EPipelineWaiting;
+        iPipeline.Wait(aFlushId);
+    }
 }
  
 void SourceRaop::HandleInterfaceChange()
