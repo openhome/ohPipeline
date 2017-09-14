@@ -391,11 +391,10 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewMp3(iMediaPlayer->MimeTypes()));
 
     // Add protocol modules (Radio source can require several stacked Http instances)
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
+    static const TUint kNumHttpProtocols = 5;
+    for (TUint i=0; i<kNumHttpProtocols; i++) {
+        iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
+    }
     iMediaPlayer->Add(ProtocolFactory::NewHls(aEnv, iUserAgent));
 
     // only add Tidal if we have a token to use with login
