@@ -46,11 +46,11 @@ using namespace OpenHome::Net;
 
 // SourceFactory
 
-ISource* SourceFactory::NewRaop(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller, const Brx& aMacAddr, TUint aUdpThreadPriority)
+ISource* SourceFactory::NewRaop(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller, const Brx& aMacAddr, TUint aServerThreadPriority)
 { // static
     UriProviderRaop* raopUriProvider = new UriProviderRaop(aMediaPlayer, aClockPuller);
     aMediaPlayer.Add(raopUriProvider);
-    return new SourceRaop(aMediaPlayer, *raopUriProvider, aMacAddr, aUdpThreadPriority);
+    return new SourceRaop(aMediaPlayer, *raopUriProvider, aMacAddr, aServerThreadPriority);
 }
 
 const TChar* SourceFactory::kSourceTypeRaop = "NetAux";
@@ -75,12 +75,12 @@ ModeClockPullers UriProviderRaop::ClockPullers()
 
 const Brn SourceRaop::kRaopPrefix("raop://");
 
-SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aUdpThreadPriority)
+SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aServerThreadPriority)
     : Source(SourceFactory::kSourceNameRaop, SourceFactory::kSourceTypeRaop, aMediaPlayer.Pipeline(), false)
     , iEnv(aMediaPlayer.Env())
     , iLock("SRAO")
     , iUriProvider(aUriProvider)
-    , iServerManager(aMediaPlayer.Env(), kMaxUdpSize, kMaxUdpPackets, aUdpThreadPriority)
+    , iServerManager(aMediaPlayer.Env(), kMaxUdpSize, kMaxUdpPackets, aServerThreadPriority)
     , iSessionActive(false)
     , iTrack(nullptr)
     , iTrackPosSeconds(0)
@@ -96,7 +96,7 @@ SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider
     iControlId = iServerManager.CreateServer();
     iTimingId = iServerManager.CreateServer();
 
-    iProtocol = new ProtocolRaop(aMediaPlayer.Env(), aMediaPlayer.TrackFactory(), *iRaopDiscovery, iServerManager, iAudioId, iControlId);   // creating directly, rather than through ProtocolFactory
+    iProtocol = new ProtocolRaop(aMediaPlayer.Env(), aMediaPlayer.TrackFactory(), *iRaopDiscovery, iServerManager, iAudioId, iControlId, aServerThreadPriority, aServerThreadPriority);   // creating directly, rather than through ProtocolFactory
     iPipeline.Add(iProtocol);   // takes ownership
     iPipeline.AddObserver(*this);
 

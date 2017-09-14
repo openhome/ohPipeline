@@ -804,7 +804,7 @@ private:
     static const TUint kMaxRepairFrames = 50;
     static const TUint kMinDelayChangeSamples = 441; // Require min change of 10 ms at 44.1KHz to cause delay value to be updated/output.
 public:
-    ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId, TUint aThreadPriorityAudioServer = ThreadPriority::kPriorityNormal, TUint aThreadPriorityControlServer = ThreadPriority::kPriorityNormal); // FIXME - surely the server thread priorities should be up at filler priority (or whatever UdpServer uses).
+    ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer); // FIXME - surely the server thread priorities should be up at filler priority (or whatever UdpServer uses).
     ~ProtocolRaop();
 
     // FIXME - WTF? This is horrid. Pass a functor, or some kind of callback, into SendFlushStart() which explicitly calls back to perform some appropriate task before lock is released.

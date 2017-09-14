@@ -437,8 +437,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     TUint priorityCodec = 0;
     TUint priorityEvent = 0;
     iMediaPlayer->Pipeline().GetThreadPriorities(priorityFiller, priorityFlywheelRamper, priorityStarvationRamper, priorityCodec, priorityEvent);
-    const TUint raopUdpPriority = priorityFiller;
-    iMediaPlayer->Add(SourceFactory::NewRaop(*iMediaPlayer, Optional<IClockPuller>(nullptr), macAddr, raopUdpPriority));
+    const TUint raopServerPriority = priorityFiller;
+    iMediaPlayer->Add(SourceFactory::NewRaop(*iMediaPlayer, Optional<IClockPuller>(nullptr), macAddr, raopServerPriority));
 
     iMediaPlayer->Add(SourceFactory::NewReceiver(*iMediaPlayer,
                                                  Optional<IClockPuller>(nullptr),
