@@ -613,6 +613,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, T
 #endif
 
     Debug::SetLevel(Debug::kPipeline | Debug::kSources | Debug::kMedia);
+    Debug::SetSeverity(Debug::kSeverityInfo);
     Net::Library* lib = new Net::Library(initParams);
     //Net::DvStack* dvStack = lib->StartDv();
     std::vector<NetworkAdapter*>* subnetList = lib->CreateSubnetList();
