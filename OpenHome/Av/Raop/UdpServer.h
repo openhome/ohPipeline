@@ -28,29 +28,24 @@ private:
  * Class for a continuously running server which buffers packets while active
  * and discards packets when deactivated
  */
-class SocketUdpServer : public IReaderSource
+class SocketUdpServer
 {
 public:
     SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority, TUint aPort, TIpAddress aInterface);
     ~SocketUdpServer();
     void Open();
     void Close();
-    TBool IsOpen();
-    void WaitForOpen();         // it is up to callers to provide sufficient locking so that
-    void ClearWaitForOpen();    // WaitForOpen() is not called again after ClearWaitForOpen()
+
     void Send(const Brx& aBuffer, const Endpoint& aEndpoint);
-    Endpoint Receive(Bwx& aBuf);
-    Endpoint Sender() const; // sender of last completed Read()
     TUint Port() const;
+    void Interrupt(TBool aInterrupt);
 
     void SetSendBufBytes(TUint aBytes);
     void SetRecvBufBytes(TUint aBytes);
     void SetRecvTimeout(TUint aMs);
     void SetTtl(TUint aTtl);
-public: // from IReaderSource
-    void Read(Bwx& aBuffer) override;
-    void ReadFlush() override;
-    void ReadInterrupt() override;
+    
+    Endpoint Receive(Bwx& aBuf);
 private:
     static void CopyMsgToBuf(MsgUdp& aMsg, Bwx& aBuf, Endpoint& aEndpoint);
     void ServerThread();
@@ -67,15 +62,14 @@ private:
     SocketUdp iSocket;
     TUint iMaxSize;
     TBool iOpen;
-    Fifo<MsgUdp*> iFifoWaiting;
-    Fifo<MsgUdp*> iFifoReady;
+    FifoLiteDynamic<MsgUdp*> iFifoWaiting;
+    FifoLiteDynamic<MsgUdp*> iFifoReady;
     MsgUdp* iDiscard;
-    Endpoint iSender;
     mutable Mutex iLock;
-    Mutex iReadyLock;
-    Semaphore iSemaphore;
-    Semaphore iSemaphoreOpen;
+    Mutex iLockFifo;
+    Semaphore iSemRead;
     ThreadFunctor* iServerThread;
+    TBool iInterrupted;
     TBool iQuit;
     TUint iAdapterListenerId;
     TBool iRebindPosted;

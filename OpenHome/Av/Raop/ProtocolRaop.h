@@ -174,7 +174,7 @@ public:
      * Client must have completed any Packet()/PacketConsumed() pair prior to calling this.
      */
     void Close();
-    void DoInterrupt();
+    void Interrupt(TBool aInterrupt);
     void Reset();
 
     const RaopPacketAudio& Packet() const;  // May throw RaopPacketUnavailable.
@@ -248,7 +248,7 @@ public:
      * Client must have completed any Packet()/PacketConsumed() pair prior to calling this.
      */
     void Close();
-    void DoInterrupt();
+    void Interrupt(TBool aInterrupt);
     void Reset(TUint aClientPort);
 
     const RaopPacketResendResponse& Packet();   // May throw RaopPacketUnavailable.
@@ -800,14 +800,13 @@ private: // from IRaopResendConsumer
 private: // from IAudioSupply
     void OutputAudio(const Brx& aAudio) override;
 private:
+    void DoInterrupt(TBool aInterrupt);
     void Reset();
-    void Start();
     void UpdateSessionId(TUint aSessionId);
     TBool IsValidSession(TUint aSessionId) const;
     TBool ShouldFlush(TUint aSeq, TUint aTimestamp) const;
     void OutputDiscontinuity();
     void OutputContainer(const Brx& aFmtp);
-    void DoInterrupt();
     void RepairReset();
     void WaitForDrain();
     void ProcessPacket(const RaopPacketAudio& aPacket);
@@ -846,7 +845,6 @@ private:
     TBool iWaiting;
     TBool iResumePending;
     TBool iStopped;
-    TBool iInterrupted;
     TBool iDiscontinuity;
     TBool iStarving;
     mutable Mutex iLockRaop;

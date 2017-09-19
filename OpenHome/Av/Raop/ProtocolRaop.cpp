@@ -391,6 +391,7 @@ ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory
     , iAudioServer(iServerManager.Find(aAudioId), *this, aThreadPriorityAudioServer)
     , iControlServer(iServerManager.Find(aControlId), *this, aThreadPriorityControlServer)
     , iSupply(nullptr)
+    , iStopped(false)
     , iLockRaop("PRAL")
     , iSem("PRAS", 0)
     , iResendRangeRequester(iControlServer)
@@ -403,19 +404,6 @@ ProtocolRaop::~ProtocolRaop()
     delete iSupply;
 }
 
-void ProtocolRaop::DoInterrupt()
-{
-    // Only interrupt network sockets here.
-    // Do NOT call RepairReset() here, as that should only happen within
-    // Stream() method.
-    LOG(kMedia, ">ProtocolRaop::DoInterrupt\n");
-    iAudioServer.DoInterrupt();
-    iControlServer.DoInterrupt();
-    LOG(kMedia, "<ProtocolRaop::DoInterrupt\n");
-
-    // FIXME - should iSem.Signal() be called here instead of all the individual locations it is currently called in?
-}
-
 void ProtocolRaop::RepairReset()
 {
     // This must only be called from Stream() method to avoid deadlock (in
@@ -425,13 +413,20 @@ void ProtocolRaop::RepairReset()
     iSupply->Discard();
 }
 
-void ProtocolRaop::Interrupt(TBool /*aInterrupt*/)
+void ProtocolRaop::Interrupt(TBool aInterrupt)
 {
+    LOG(kMedia, ">ProtocolRaop::Interrupt aInterrupt: %u\n", aInterrupt);
     {
-        AutoMutex a(iLockRaop);
-        iInterrupted = true;
+        if (aInterrupt) {
+            AutoMutex a(iLockRaop);
+            iStopped = true;
+            DoInterrupt(aInterrupt);
+            iSem.Signal();
+        }
+        else {
+            DoInterrupt(aInterrupt);
+        }
     }
-    DoInterrupt();
 }
 
 void ProtocolRaop::Initialise(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownstream)
@@ -466,6 +461,8 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
 
     // FIXME - clear iSem here and purge iControlServer/iAudioServer of any audio they still hold? (Will probably need to reconstruct socket to purge audio in low-level network queue too.)
     //iSem.Clear(); // Clear any stale signals. This is the only safe place to do this, as guaranteed all servers are currently closed (i.e., won't miss any message consumer calls and end up waiting forever).
+    iAudioServer.Interrupt(false);
+    iControlServer.Interrupt(false);
     StartServers();
 
     iStarted = false;
@@ -479,7 +476,6 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
             TUint flushId = MsgFlush::kIdInvalid;
             TBool waiting = false;
             TBool stopped = false;
-            TBool interrupted = false;
             TBool discontinuity = false;
             {
                 AutoMutex a(iLockRaop);
@@ -489,69 +485,59 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
 
                 if (iStopped) {
                     stopped = true;
+                    iStopped = false;
                     iStreamId = IPipelineIdProvider::kStreamIdInvalid;
                     iActive = false;
                 }
                 if (iWaiting) {
                     waiting = true;
                     iWaiting = false;
-                }
-                if (iInterrupted) {
-                    interrupted = true;
-                    iStreamId = IPipelineIdProvider::kStreamIdInvalid;
-                    iActive = false;
-                    iStopped = true;
+                    DoInterrupt(false);
                 }
                 if (iDiscontinuity) {
                     discontinuity = true;
                     iDiscontinuity = false;
+                    DoInterrupt(false);
                 }
                 if (iStarving) {
                     iStarving = false;
-                    // No need to "un-interrupt" sockets here.
-
+                    DoInterrupt(false);
                     // Pipeline has already starved, so should be no need to
                     // output a drain msg here (as should be no glitching).
                 }
             }
 
-
+            // Output any pending flush.
             if (flushId != MsgFlush::kIdInvalid) {
+                iSupply->Flush();
                 iSupply->OutputFlush(flushId);
-
-                if (stopped) {
-                    WaitForDrain();
-                    iDiscovery.Close();
-                    StopServers();
-                    LOG(kMedia, "<ProtocolRaop::Stream stopped. Returning EProtocolStreamStopped\n");
-                    return EProtocolStreamStopped;
-                }
-                else if (waiting) {
-                    LOG(kMedia, "ProtocolRaop::Stream waiting.\n");
-                    OutputDiscontinuity();
-                    // Resume normal operation.
-                    LOG(kMedia, "ProtocolRaop::Stream signalled end of wait.\n");
-                }
-                else {
-                    ASSERTS();  // Shouldn't be flushing in any other state.
-                }
-
                 RepairReset();
             }
+
+            if (stopped) {
+                iSupply->Flush();
+                // There may not have been a pending flush for this, as this may have been triggered by ::Interrupt(true).
+                WaitForDrain();
+                iDiscovery.Close();
+                StopServers();
+                LOG(kMedia, "<ProtocolRaop::Stream stopped. Returning EProtocolStreamStopped\n");
+                return EProtocolStreamStopped;
+            }
+            else if (waiting) {
+                LOG(kMedia, "ProtocolRaop::Stream waiting.\n");
+                OutputDiscontinuity();
+                RepairReset();
+                // Resume normal operation.
+                LOG(kMedia, "ProtocolRaop::Stream signalled end of wait.\n");
+            }
+
+            
 
             if (discontinuity) {
                 LOG(kMedia, "ProtocolRaop::Stream discontinuity.\n");
                 OutputDiscontinuity();
                 RepairReset();
                 LOG(kMedia, "ProtocolRaop::Stream signalled end of starvation.\n");
-            }
-
-            if (interrupted) {
-                RepairReset();
-                iDiscovery.Close();
-                StopServers();
-                LOG(kMedia, "<ProtocolRaop::Stream interrupted. Returning EProtocolStreamStopped\n");
-                return EProtocolStreamStopped;
             }
         }
 
@@ -568,6 +554,7 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
             }
 
             // Output any pending flush ID, then wait for pipeline to drain.
+            iSupply->Flush();
             if (flushId != MsgFlush::kIdInvalid) {
                 iSupply->OutputFlush(flushId);
             }
@@ -611,6 +598,20 @@ ProtocolGetResult ProtocolRaop::Get(IWriter& /*aWriter*/, const Brx& /*aUri*/, T
     return EProtocolGetErrorNotSupported;
 }
 
+void ProtocolRaop::DoInterrupt(TBool aInterrupt)
+{
+    LOG(kMedia, ">ProtocolRaop::DoInterrupt aInterrupt: %u\n", aInterrupt);
+    // Only interrupt network sockets here.
+    // Do NOT call RepairReset() here, as that should only happen within
+    // Stream() method.
+    iAudioServer.Interrupt(aInterrupt);
+    iControlServer.Interrupt(aInterrupt);
+    LOG(kMedia, "<ProtocolRaop::DoInterrupt\n");
+
+
+    // FIXME - should iSem.Signal() be called here instead of all the individual locations it is currently called in?
+}
+
 void ProtocolRaop::Reset()
 {
     AutoMutex a(iLockRaop);
@@ -634,7 +635,6 @@ void ProtocolRaop::Reset()
     iWaiting = false;
     iResumePending = false;
     iStopped = false;
-    iInterrupted = false;
     iDiscontinuity = false;
     iStarving = false;
 }
@@ -738,8 +738,7 @@ void ProtocolRaop::OutputDiscontinuity()
 
     Semaphore sem("PRWS", 0);
 
-    // FIXME - need to send a flush before doing this?
-
+    iSupply->Flush();
     LOG(kMedia, "ProtocolRaop::OutputDiscontinuity before OutputDrain()\n");
     iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal)); // FIXME - what if doing this while waiter is flushing?
     LOG(kMedia, "ProtocolRaop::OutputDiscontinuity after OutputDrain()\n");
@@ -917,7 +916,7 @@ TUint ProtocolRaop::Delay(TUint aSamples)
 
 TUint ProtocolRaop::TryStop(TUint aStreamId)
 {
-    LOG(kMedia, "ProtocolRaop::TryStop\n");
+    LOG(kMedia, "ProtocolRaop::TryStop aStreamId: %u\n", aStreamId);
     TBool stop = false;
     AutoMutex a(iLockRaop);
     if (!iStopped && iActive) {
@@ -925,7 +924,7 @@ TUint ProtocolRaop::TryStop(TUint aStreamId)
         if (stop) {
             iNextFlushId = iFlushIdProvider->NextFlushId();
             iStopped = true;
-            DoInterrupt();
+            DoInterrupt(true);
             // Lock doesn't need to be held for this; code that opens server from other thread must check iStopped before opening it.
             StopServers();
             iSem.Signal();
@@ -966,7 +965,8 @@ void ProtocolRaop::NotifyStarving(const Brx& aMode, TUint aStreamId, TBool aStar
     if (aStarving) {
         //iDiscontinuity = true;    // FIXME - if enabling this and, say, forcing Repairer to throw a RepairerBufferFull after every 1000 packets, protocol goes into an infinite restart loop as it ends up blocked waiting for MsgDrain to reach end up pipeline before it can output anymore audio.
         iStarving = true;
-        DoInterrupt();
+        DoInterrupt(true);
+        iSem.Signal();
     }
 }
 
@@ -1010,7 +1010,7 @@ void ProtocolRaop::SendFlush(TUint aSeq, TUint aTime, FunctorGeneric<TUint> aFlu
 
     // FIXME - clear any resend-related members here?
 
-    DoInterrupt();  // FIXME - need to do an interrupt here?
+    DoInterrupt(true);  // FIXME - need to do an interrupt here?
 
     // FIXME - need to signal iSem here, or should DoInterrupt() do that?
     iSem.Signal();
@@ -1042,11 +1042,8 @@ RaopControlServer::~RaopControlServer()
         AutoMutex _(iLock);
         iExit = true;
     }
+    iServer.Interrupt(true);
     iSem.Signal();
-
-    iServer.ReadInterrupt();
-    iServer.ClearWaitForOpen();
-
     iThread->Join();
     delete iThread;
 }
@@ -1078,15 +1075,10 @@ void RaopControlServer::Close()
     }
 }
 
-void RaopControlServer::DoInterrupt()
+void RaopControlServer::Interrupt(TBool aInterrupt)
 {
-    LOG(kMedia, "RaopControlServer::DoInterrupt\n");
-    iServer.ReadInterrupt();
-
-    // FIXME - why resetting port on interrupt? Surely shouldn't be done here.
-    // Only appropriate place is surely when Reset() or Open() is called (where client port param should be passed in).
-    AutoMutex a(iLock);
-    iClientPort = kInvalidServerPort;
+    LOG(kMedia, "RaopControlServer::Interrupt aInterrupt: %u\n", aInterrupt);
+    iServer.Interrupt(aInterrupt);
 }
 
 void RaopControlServer::Reset(TUint aClientPort)
@@ -1130,7 +1122,7 @@ void RaopControlServer::Run()
             if (!iOpen) {
                 // Semaphore was signalled, but server now closed.
                 // Silently consume this signal.
-                LOG_DEBUG(kMedia, "RaopAudioServer::Run !iOpen\n");
+                LOG_DEBUG(kMedia, "RaopControlServer::Run !iOpen\n");
                 continue;
             }
             if (!iAwaitingConsumer) {
@@ -1141,10 +1133,7 @@ void RaopControlServer::Run()
         if (canRead) {
             try {
                 iBuf.SetBytes(0);
-                iServer.Read(iBuf);
-                iServer.ReadFlush();
-
-                iEndpoint.Replace(iServer.Sender());
+                iEndpoint.Replace(iServer.Receive(iBuf));
                 try {
                     // This (and other packet wrappers) may throw InvalidRaopPacket.
                     RtpPacketRaop packet(iBuf);
@@ -1202,22 +1191,12 @@ void RaopControlServer::Run()
                     iSem.Signal();
                 }
             }
-            catch (ReaderError&) {
-                // FIXME - is this right? If this happens mid-stream, it appears that control server just gives up forever more (until stream manually re-established).
-                LOG_DEBUG(kMedia, "RaopControlServer::Run caught ReaderError\n");
-                iServer.ReadFlush();    // FIXME - could this throw a ReaderError?
-                if (!iServer.IsOpen()) {
-                    iServer.WaitForOpen();
-                }
+            catch (UdpServerClosed&) {
+                LOG_DEBUG(kMedia, "RaopControlServer::Run caught UdpServerClosed\n");
                 iSem.Signal();
             }
             catch (NetworkError&) {
-                // FIXME - can this be thrown during socket read?
                 LOG_DEBUG(kMedia, "RaopControlServer::Run caught NetworkError\n");
-                iServer.ReadFlush();    // FIXME - could this throw a ReaderError?
-                if (!iServer.IsOpen()) {
-                    iServer.WaitForOpen();
-                }
                 iSem.Signal();
             }
         }
@@ -1320,13 +1299,11 @@ RaopAudioServer::RaopAudioServer(SocketUdpServer& aServer, IRaopAudioConsumer& a
 
 RaopAudioServer::~RaopAudioServer()
 {
-    iServer.ReadInterrupt();
-    iServer.ClearWaitForOpen();
-
     {
         AutoMutex _(iLock);
         iQuit = true;
     }
+    iServer.Interrupt(true);
     iSem.Signal();
     iThread->Join();
     delete iThread;
@@ -1359,15 +1336,14 @@ void RaopAudioServer::Close()
     }
 }
 
-void RaopAudioServer::DoInterrupt()
+void RaopAudioServer::Interrupt(TBool aInterrupt)
 {
-    LOG(kMedia, "RaopAudioServer::DoInterrupt()\n");
-    iServer.ReadInterrupt();
+    LOG(kMedia, "RaopAudioServer::Interrupt aInterrupt: %u\n", aInterrupt);
+    iServer.Interrupt(aInterrupt);
 }
 
 void RaopAudioServer::Reset()
 {
-    iServer.ReadFlush();    // Set to read next udp packet.
 }
 
 const RaopPacketAudio& RaopAudioServer::Packet() const
@@ -1415,11 +1391,7 @@ void RaopAudioServer::Run()
         if (canRead) {
             try {
                 iBuf.SetBytes(0);
-
-                // FIXME - should iServer.ReadFlush() be called here BEFORE reading packets? Or will that just result in first packet from socket being dropped? RaopControlServer should follow same behaviour (in fact, they should both be refactored into common socket reading thread which notifies an intermediate consumer, which wraps that thread and performs appropriate packet manipulation and notification of downstream consumers of those packets).
-
-                iServer.Read(iBuf);
-                iServer.ReadFlush();
+                (void)iServer.Receive(iBuf); // Never send any data to audio server, so don't care about Endpoint returned.
                 try {
                     iPacket.Set(iBuf);
                 }
@@ -1432,18 +1404,13 @@ void RaopAudioServer::Run()
                 iAwaitingConsumer = true;
                 iConsumer.AudioPacketReceived();
             }
-            catch (ReaderError&) {
-                // Either no data, user abort or invalid header.
-                LOG_DEBUG(kMedia, "RaopAudioServer::Run ReaderError\n");
-                iServer.ReadFlush(); // FIXME - could this throw a ReaderError?
+            catch (UdpServerClosed&) {
+                LOG_DEBUG(kMedia, "RaopAudioServer::Run UdpServerClosed\n");
                 // Read failed, so resignal semaphore.
                 iSem.Signal();
             }
             catch (NetworkError&) {
-                // FIXME - can this be thrown during socket read?
-
                 LOG_DEBUG(kMedia, "RaopAudioServer::Run NetworkError\n");
-                iServer.ReadFlush(); // FIXME - could this throw a ReaderError?
                 // Read failed, so resignal semaphore.
                 iSem.Signal();
             }

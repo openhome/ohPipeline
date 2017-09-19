@@ -1,7 +1,7 @@
 #include <OpenHome/Av/Raop/UdpServer.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
-#include <OpenHome/Private/Printer.h>
+#include <OpenHome/Media/Debug.h>
 
 using namespace OpenHome;
 using namespace Av;
@@ -44,9 +44,9 @@ SocketUdpServer::SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPa
     , iFifoWaiting(aMaxPackets)
     , iFifoReady(aMaxPackets)
     , iLock("UDPL")
-    , iReadyLock("UDPR")
-    , iSemaphore("UDPS", 0)
-    , iSemaphoreOpen("UDPO", 0)
+    , iLockFifo("UDPF")
+    , iSemRead("UDPR", 0)
+    , iInterrupted(false)
     , iQuit(false)
     , iAdapterListenerId(0)
     , iRebindPosted(false)
@@ -60,7 +60,6 @@ SocketUdpServer::SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPa
 
     iServerThread = new ThreadFunctor("UdpServer", MakeFunctor(*this, &SocketUdpServer::ServerThread), aThreadPriority);
     iServerThread->Start();
-    iSemaphore.Wait();
 
     Functor functor = MakeFunctor(*this, &SocketUdpServer::CurrentAdapterChanged);
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
@@ -72,93 +71,61 @@ SocketUdpServer::~SocketUdpServer()
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
     nifList.RemoveCurrentChangeListener(iAdapterListenerId);
 
-    iLock.Wait();
-
-    if (iQuit)
     {
-        iLock.Signal();
-        ASSERTS();
+        AutoMutex _a(iLock);
+        iQuit = true;
     }
 
-    iQuit = true;
-
-    iLock.Signal();
-
     iSocket.Interrupt(true);
-    iFifoReady.ReadInterrupt(true);
-
+    // Can't hold iLock here, as server thread needs to acquire iLock to check iQuit value following iSocket.Interrupt().
+    iServerThread->Join();
     delete iServerThread;
 
-    iReadyLock.Wait();
-    iFifoReady.ReadInterrupt(false); // Clear read interrupt so that FIFO can be emptied.
+    AutoMutex _b(iLockFifo);
     while (iFifoReady.SlotsUsed() > 0) {
         MsgUdp* msg = iFifoReady.Read();
         delete msg;
     }
-    iReadyLock.Signal();
-
-    iFifoWaiting.ReadInterrupt(false); // Clear read interrupt so that FIFO can be emptied.
     while (iFifoWaiting.SlotsUsed() > 0) {
         MsgUdp* msg = iFifoWaiting.Read();
         delete msg;
     }
-
     delete iDiscard;
 }
 
 void SocketUdpServer::Open()
 {
-    iLock.Wait();
-
-    if (iQuit || iOpen)
+    LOG(kMedia, "SocketUdpServer::Open\n");
     {
-        iLock.Signal();
-        ASSERTS();
+        AutoMutex _(iLock);
+        iOpen = true;
     }
 
-    iOpen = true;
+    // Server starts in a closed state, where it is waiting on packets to discard.
+    // Must interrupt socket to get out of that state.
     iSocket.Interrupt(true);
-
-    iLock.Signal();
-
-    iSemaphore.Wait();
-    iSemaphoreOpen.Signal();
+    iSocket.Interrupt(false);
 }
 
 void SocketUdpServer::Close()
 {
-    iLock.Wait();
-
-    if (iQuit || !iOpen)
-    {
-        iLock.Signal();
-        ASSERTS();
-    }
-
+    LOG(kMedia, "SocketUdpServer::Close\n");
+    AutoMutex _a(iLock);
     iOpen = false;
 
+    // Terminate any current read on server thread.
     iSocket.Interrupt(true);
-    iFifoReady.ReadInterrupt(true);
 
-    iLock.Signal();
+    AutoMutex _b(iLockFifo);
+    // Move all messages from ready queue back to waiting queue.
+    // It's fine to clear iFifoReady.ReadInterrupt() state here, as any
+    // call to Read() will result in a UdpServerClosed due to iOpen == false.
+    while (iFifoReady.SlotsUsed() > 0) {
+        MsgUdp* msg = iFifoReady.Read();
+        iFifoWaiting.Write(msg);
+    }
 
-    iSemaphore.Wait();
-}
-
-TBool SocketUdpServer::IsOpen()
-{
-    AutoMutex a(iLock);
-    return iOpen;
-}
-
-void SocketUdpServer::WaitForOpen()
-{
-    iSemaphoreOpen.Wait();
-}
-
-void SocketUdpServer::ClearWaitForOpen()
-{
-    iSemaphoreOpen.Signal();
+    iSocket.Interrupt(false);
 }
 
 void SocketUdpServer::Send(const Brx& aBuffer, const Endpoint& aEndpoint)
@@ -166,55 +133,20 @@ void SocketUdpServer::Send(const Brx& aBuffer, const Endpoint& aEndpoint)
     iSocket.Send(aBuffer, aEndpoint);
 }
 
-Endpoint SocketUdpServer::Receive(Bwx& aBuf)
-{
-    iLock.Wait();
-
-    if (iQuit) {
-        iLock.Signal();
-        ASSERTS();
-    }
-
-    if (!iOpen) {
-        iLock.Signal();
-        THROW(UdpServerClosed);
-    }
-
-    iLock.Signal();
-
-    // Get data from msg
-    try {
-        iReadyLock.Wait();
-        MsgUdp* msg = iFifoReady.Read(); // will block until msg available
-        iReadyLock.Signal();
-
-        Endpoint ep;
-        CopyMsgToBuf(*msg, aBuf, ep);
-
-        // Requeue msg
-        iLock.Wait();
-
-        iFifoWaiting.Write(msg);
-
-        iLock.Signal();
-
-        return ep;
-    }
-    catch (FifoReadError&) {
-        iReadyLock.Signal();
-        THROW(ReaderError);
-    }
-}
-
-Endpoint SocketUdpServer::Sender() const
-{
-    AutoMutex a(iLock);
-    return iSender;
-}
-
 TUint SocketUdpServer::Port() const
 {
     return iSocket.Port();
+}
+
+void SocketUdpServer::Interrupt(TBool aInterrupt)
+{
+    // Clients only read from iFifoReady, so only need interrupt that.
+    // Want to continue reading from iSocket and buffering packets in background.
+    AutoMutex _(iLock);
+    iInterrupted = aInterrupt;
+    if (aInterrupt) {
+        iSemRead.Signal();
+    }
 }
 
 void SocketUdpServer::SetSendBufBytes(TUint aBytes)
@@ -237,28 +169,42 @@ void SocketUdpServer::SetTtl(TUint aTtl)
     iSocket.SetTtl(aTtl);
 }
 
-void SocketUdpServer::Read(Bwx& aBuffer)
+Endpoint SocketUdpServer::Receive(Bwx& aBuf)
 {
-    try {
-        Endpoint ep = Receive(aBuffer);
-        iLock.Wait();
-        iSender.Replace(ep);
-        iLock.Signal();
+    {
+        AutoMutex _(iLock);
+        if (iQuit) {
+            ASSERTS();
+        }
+        if (!iOpen) {
+            THROW(UdpServerClosed);
+        }
     }
-    catch (UdpServerClosed&) {
-        THROW(ReaderError);
+
+    // Use for loop to consume extra iSemRead signals when message not available (e.g., Interrupt() was called many times).
+    for (;;) {
+        iSemRead.Signal();
+        {
+            AutoMutex _(iLock);
+            if (iInterrupted) {
+                THROW(NetworkError);
+            }
+        }
+
+        AutoMutex _(iLockFifo);
+        if (iFifoReady.SlotsUsed() > 0) {
+            // Get data from msg.
+            MsgUdp* msg = iFifoReady.Read();
+            Endpoint ep;
+            CopyMsgToBuf(*msg, aBuf, ep);
+            ASSERT(iFifoWaiting.SlotsUsed() < iFifoWaiting.Slots());
+            iFifoWaiting.Write(msg);
+            return ep;
+        }
+        else {
+            continue;
+        }
     }
-}
-
-void SocketUdpServer::ReadFlush()
-{
-}
-
-void SocketUdpServer::ReadInterrupt()
-{
-    // Clients read from iFifoReady - never iSocket, so interrupt any waiting
-    // Read()s on the FIFO.
-    iFifoReady.ReadInterrupt(true);
 }
 
 void SocketUdpServer::CopyMsgToBuf(MsgUdp& aMsg, Bwx& aBuf, Endpoint& aEndpoint)
@@ -271,85 +217,40 @@ void SocketUdpServer::CopyMsgToBuf(MsgUdp& aMsg, Bwx& aBuf, Endpoint& aEndpoint)
 
 void SocketUdpServer::ServerThread()
 {
-    iSemaphore.Signal();
-
     for (;;) {
-        // closed
-        for (;;) {
-            {
-                AutoMutex _(iLock);
-                if (iQuit) {
-                    return;
-                }
-                if (iOpen) {
-                    break;
-                }
-            }
-
-            try {
-                iDiscard->Read(iSocket);
-            }
-            catch (NetworkError&) {
-                // This thread will become a busy loop if network operations
-                // repeatedly fail. Sleep here to give other threads a chance
-                // to run in that scenario.
-                Thread::Sleep(50);
-                CheckRebind();
-                continue;
+        {
+            AutoMutex _(iLock);
+            if (iQuit) {
+                return;
             }
         }
 
-        iSocket.Interrupt(false);
-        iSemaphore.Signal();
+        try {
+            iDiscard->Read(iSocket);
+        }
+        catch (NetworkError&) {
+            // This thread will become a busy loop if network operations
+            // repeatedly fail. Sleep here to give other threads a chance
+            // to run in that scenario.
+            Thread::Sleep(50);
+            CheckRebind();
+            continue;
+        }
 
-        // opened
-        for (;;) {
-            {
-                AutoMutex _(iLock);
-                if (iQuit) {
-                    return;
-                }
-                if (!iOpen) {
-                    break;
-                }
-            }
-
-            try {
-                iDiscard->Read(iSocket);
-            }
-            catch (NetworkError&) {
-                // This thread will become a busy loop if network operations
-                // repeatedly fail. Sleep here to give other threads a chance
-                // to run in that scenario.
-                Thread::Sleep(50);
-                CheckRebind();
-                continue;
-            }
-
+        AutoMutex _a(iLock);
+        if (iOpen) {
+            AutoMutex _b(iLockFifo);
             if (iFifoWaiting.SlotsUsed() == 0) {
+                // No more packets to read into.
+                // Drop this packet and reuse iDiscard to read next packet.
                 continue;
             }
 
+            ASSERT(iFifoReady.SlotsUsed() < iFifoReady.Slots());
             iFifoReady.Write(iDiscard);
             iDiscard = iFifoWaiting.Read();
+            iSemRead.Signal();
         }
-
-        {
-            AutoMutex _(iReadyLock);
-            iFifoReady.ReadInterrupt(false);
-            // Move all messages from ready queue back to waiting queue
-            try {
-                while (iFifoReady.SlotsUsed() > 0) {
-                    MsgUdp* msg = iFifoReady.Read();
-                    iFifoWaiting.Write(msg);
-                }
-            }
-            catch (FifoReadError&) {}
-            iFifoReady.ReadInterrupt(false);
-        }
-
-        iSocket.Interrupt(false);
-        iSemaphore.Signal();
     }
 }
 
@@ -397,6 +298,7 @@ void SocketUdpServer::CurrentAdapterChanged()
         Semaphore waiter("", 0);
         PostRebind(current->Address(), iSocket.Port(), MakeFunctor(waiter, &Semaphore::Signal));
         waiter.Wait();
+        iSocket.Interrupt(false);
     }
 }
 
