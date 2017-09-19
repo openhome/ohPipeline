@@ -176,6 +176,11 @@ void ConfigRamStore::Delete(const Brx& aKey)
     }
 }
 
+void ConfigRamStore::DeleteAll()
+{
+    Clear();
+}
+
 void ConfigRamStore::Accept(IStoreVisitor& aVisitor)
 {
     AutoMutex _(iLockData);

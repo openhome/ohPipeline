@@ -39,7 +39,7 @@ private:
     static const TUint kReadBufBytes = 6 * 1024;
     Mutex iLock;
     Supply* iSupply;
-    OpenHome::Uri iUri;
+    Uri iUri;
     FileStream iFileStream;
     Srs<kReadBufBytes> iReaderBuf;
     ContentRecogBuf iContentRecogBuf;
