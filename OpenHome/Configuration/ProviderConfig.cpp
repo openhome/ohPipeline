@@ -11,9 +11,10 @@ using namespace OpenHome::Net;
 
 IProvider* ProviderFactory::NewConfiguration(DvDevice& aDevice,
                                              IConfigManager& aConfigReader,
-                                             IConfigObservable& aConfigObservable)
+                                             IConfigObservable& aConfigObservable,
+                                             IStoreReadWrite& aStore)
 { // static
-    return new ProviderConfig(aDevice, aConfigReader, aConfigObservable);
+    return new ProviderConfig(aDevice, aConfigReader, aConfigObservable, aStore);
 }
 
 
@@ -185,11 +186,13 @@ const TUint ProviderConfig::kErrorCodeValueTooLong = 804;
 const Brn ProviderConfig::kErrorDescValueTooLong("Value too long");
 
 ProviderConfig::ProviderConfig(DvDevice& aDevice,
-                               Configuration::IConfigManager& aConfigManager,
-                               Configuration::IConfigObservable& aConfigObservable)
+                               IConfigManager& aConfigManager,
+                               IConfigObservable& aConfigObservable,
+                               IStoreReadWrite& aStore)
     : DvProviderAvOpenhomeOrgConfig3(aDevice)
     , iConfigManager(aConfigManager)
     , iConfigObservable(aConfigObservable)
+    , iStore(aStore)
     , iLock("PCFG")
 {
     EnablePropertyDetails();
@@ -199,6 +202,7 @@ ProviderConfig::ProviderConfig(DvDevice& aDevice,
     EnableActionSetValue();
     EnableActionGetValue();
     EnableActionHasKey();
+    EnableActionResetAll();
 
     iConfigObservable.Add(*this);
 }
@@ -389,5 +393,13 @@ void ProviderConfig::HasKey(IDvInvocation& aInvocation, const Brx& aKey, IDvInvo
 {
     aInvocation.StartResponse();
     aValue.Write(iConfigManager.Has(aKey));
+    aInvocation.EndResponse();
+}
+
+void ProviderConfig::ResetAll(IDvInvocation& aInvocation)
+{
+    iStore.DeleteAll();
+    // FIXME - request reboot
+    aInvocation.StartResponse();
     aInvocation.EndResponse();
 }

@@ -70,6 +70,9 @@
         </argument>
       </argumentList>
     </action>
+    <action>
+      <name>ResetAll</name>
+    </action>
   </actionList>
   <serviceStateTable>
     <stateVariable sendEvents="yes">

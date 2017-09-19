@@ -71,7 +71,8 @@ class ProviderConfig : public Net::DvProviderAvOpenhomeOrgConfig3
 public:
     ProviderConfig(Net::DvDevice& aDevice,
                    Configuration::IConfigManager& aConfigManager,
-                   Configuration::IConfigObservable& aConfigObservable);
+                   Configuration::IConfigObservable& aConfigObservable,
+                   Configuration::IStoreReadWrite& aStore);
     ~ProviderConfig();
     void Start();
 private: // from IConfigObserver
@@ -92,6 +93,7 @@ private: // from DvProviderAvOpenhomeOrgConfiguration1
     void SetValue(Net::IDvInvocation& aInvocation, const Brx& aKey, const Brx& aValue) override;
     void GetValue(Net::IDvInvocation& aInvocation, const Brx& aKey, Net::IDvInvocationResponseString& aValue) override;
     void HasKey(Net::IDvInvocation& aInvocation, const Brx& aKey, Net::IDvInvocationResponseBool& aValue) override;
+    void ResetAll(Net::IDvInvocation& aInvocation) override;
 private:
     class ConfigItemNum
     {
@@ -126,6 +128,7 @@ private:
 private:
     Configuration::IConfigManager& iConfigManager;
     Configuration::IConfigObservable& iConfigObservable;
+    IStoreReadWrite& iStore;
     DetailsWriter iDetailsWriter;
     std::map<Brn, ConfigItemNum*, BufferCmp> iMapNum;
     std::map<Brn, ConfigItemChoice*, BufferCmp> iMapChoice;

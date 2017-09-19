@@ -56,7 +56,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iKvpStore = new KvpStore(aStaticDataSource);
     iTrackFactory = new Media::TrackFactory(aInfoAggregator, kTrackCount);
     iConfigManager = new Configuration::ConfigManager(iReadWriteStore);
-    iProviderConfig = new ProviderConfig(aDevice, *iConfigManager, *iConfigManager); // must be created before any config values
+    iProviderConfig = new ProviderConfig(aDevice, *iConfigManager, *iConfigManager, iReadWriteStore); // must be created before any config values
     iPowerManager = new OpenHome::PowerManager(*iConfigManager);
     iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase /* + Brx::Empty() */, Product::kMaxRoomBytes, aDefaultRoom);
     iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase /* + Brx::Empty() */, Product::kMaxNameBytes, aDefaultName);

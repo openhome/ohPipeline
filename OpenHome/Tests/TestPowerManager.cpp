@@ -98,6 +98,7 @@ private: // from IStoreReadWrite
     void Read(const Brx& aKey, Bwx& aDest) override;
     void Write(const Brx& aKey, const Brx& aSource) override;
     void Delete(const Brx& aKey) override;
+    void DeleteAll() override;
 private:
     TUint iNumChoice;
 };
@@ -431,6 +432,11 @@ void ConfigStartupStandby::Write(const Brx& /*aKey*/, const Brx& /*aSource*/)
 }
 
 void ConfigStartupStandby::Delete(const Brx& /*aKey*/)
+{
+    ASSERTS();
+}
+
+void ConfigStartupStandby::DeleteAll()
 {
     ASSERTS();
 }
