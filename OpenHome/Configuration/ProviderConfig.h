@@ -89,7 +89,7 @@ private:
     void ClearMaps();
 private: // from DvProviderAvOpenhomeOrgConfiguration1
     void GetKeys(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aKeyList) override;
-    void GetDetails(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aKeys);
+    void GetDetails(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aKeys) override;
     void SetValue(Net::IDvInvocation& aInvocation, const Brx& aKey, const Brx& aValue) override;
     void GetValue(Net::IDvInvocation& aInvocation, const Brx& aKey, Net::IDvInvocationResponseString& aValue) override;
     void HasKey(Net::IDvInvocation& aInvocation, const Brx& aKey, Net::IDvInvocationResponseBool& aValue) override;
