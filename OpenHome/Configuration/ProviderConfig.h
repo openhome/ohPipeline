@@ -52,7 +52,6 @@ public:
 private:
     WriterBwh iWriterBuf;
     WriterJsonArray iWriterArray;
-    TBool iStarted;
 };
 
 class ProviderConfig : public Net::DvProviderAvOpenhomeOrgConfig3
