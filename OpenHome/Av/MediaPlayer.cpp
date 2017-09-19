@@ -56,6 +56,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iKvpStore = new KvpStore(aStaticDataSource);
     iTrackFactory = new Media::TrackFactory(aInfoAggregator, kTrackCount);
     iConfigManager = new Configuration::ConfigManager(iReadWriteStore);
+    iProviderConfig = new ProviderConfig(aDevice, *iConfigManager, *iConfigManager); // must be created before any config values
     iPowerManager = new OpenHome::PowerManager(*iConfigManager);
     iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase /* + Brx::Empty() */, Product::kMaxRoomBytes, aDefaultRoom);
     iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase /* + Brx::Empty() */, Product::kMaxNameBytes, aDefaultName);
@@ -74,7 +75,6 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iProduct->AddAttribute("Time");
     iProviderInfo = new ProviderInfo(aDevice, *iPipeline);
     iProduct->AddAttribute("Info");
-    iProviderConfig = new ProviderConfig(aDevice, *iConfigManager);
     iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
     iProduct->AddAttribute("Transport");
 }
@@ -154,9 +154,8 @@ void MediaPlayer::Start()
 
     iConfigManager->Open();
     iPipeline->Start(*iVolumeManager, *iVolumeManager);
-    if (iProviderTransport != nullptr) {
-        iProviderTransport->Start();
-    }
+    iProviderTransport->Start();
+    iProviderConfig->Start();
     iCredentials->Start();
     iMimeTypes.Start();
     iProduct->Start();

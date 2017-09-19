@@ -5,6 +5,7 @@
 namespace OpenHome {
 namespace Configuration {
     class IConfigManager;
+    class IConfigObservable;
 }
 namespace Net {
     class DvDevice;
@@ -30,7 +31,9 @@ public:
 class ProviderFactory
 {
 public:
-    static IProvider* NewConfiguration(Net::DvDevice& aDevice, Configuration::IConfigManager& aConfigReader);
+    static IProvider* NewConfiguration(Net::DvDevice& aDevice,
+                                       Configuration::IConfigManager& aConfigReader,
+                                       Configuration::IConfigObservable& aConfigObservable);
 };
 
 } // namespace Av

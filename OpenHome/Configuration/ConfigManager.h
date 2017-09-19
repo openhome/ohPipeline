@@ -127,10 +127,11 @@ class ConfigVal : public IObservable<T>, public ISerialisable
 {
     using typename IObservable<T>::FunctorObserver;
 protected:
-    ConfigVal(IConfigInitialiser& aManager, const Brx& aKey);
+    ConfigVal(IConfigInitialiser& aManager, const Brx& aKey, TBool aRebootRequired);
 public:
     virtual ~ConfigVal();
     const Brx& Key() const;
+    TBool RebootRequired() const;
     virtual T Default() const = 0;
 public: // from IObservable
     virtual TUint Subscribe(FunctorObserver aFunctor) override = 0;
@@ -154,15 +155,17 @@ private:
     Mutex iObserverLock;
     TUint iWriteObserverId; // ID for own Write() observer
     TUint iNextObserverId;
+    TBool iRebootRequired;
 };
 
 // ConfigVal
-template <class T> ConfigVal<T>::ConfigVal(IConfigInitialiser& aManager, const Brx& aKey)
+template <class T> ConfigVal<T>::ConfigVal(IConfigInitialiser& aManager, const Brx& aKey, TBool aRebootRequired)
     : iConfigManager(aManager)
     , iKey(aKey)
     , iObserverLock("CVOL")
     , iWriteObserverId(0)
     , iNextObserverId(IConfigManager::kSubscriptionIdInvalid+1)
+    , iRebootRequired(aRebootRequired)
 {
 }
 
@@ -180,6 +183,11 @@ template <class T> ConfigVal<T>::~ConfigVal()
 template <class T> const Brx& ConfigVal<T>::Key() const
 {
     return iKey;
+}
+
+template <class T> TBool ConfigVal<T>::RebootRequired() const
+{
+    return iRebootRequired;
 }
 
 template <class T> void ConfigVal<T>::Unsubscribe(TUint aId)
@@ -244,7 +252,10 @@ public:
     typedef FunctorGeneric<KeyValuePair<TInt>&> FunctorConfigNum;
     typedef KeyValuePair<TInt> KvpNum;
 public:
-    ConfigNum(IConfigInitialiser& aManager, const Brx& aKey, TInt aMin, TInt aMax, TInt aDefault);
+    ConfigNum(IConfigInitialiser& aManager, const Brx& aKey,
+              TInt aMin, TInt aMax, TInt aDefault,
+              TBool aRebootRequired = false);
+    ~ConfigNum();
     TInt Min() const;
     TInt Max() const;
     void Set(TInt aVal);    // THROWS ConfigValueOutOfRange
@@ -319,8 +330,14 @@ public:
     typedef FunctorGeneric<KeyValuePair<TUint>&> FunctorConfigChoice;
     typedef KeyValuePair<TUint> KvpChoice;
 public:
-    ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey, const std::vector<TUint>& aChoices, TUint aDefault);
-    ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey, const std::vector<TUint>& aChoices, TUint aDefault, IConfigChoiceMapper& aMapper);
+    ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
+                 const std::vector<TUint>& aChoices, TUint aDefault,
+                 TBool aRebootRequired = false);
+    ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
+                 const std::vector<TUint>& aChoices, TUint aDefault,
+                 IConfigChoiceMapper& aMapper,
+                 TBool aRebootRequired = false);
+    ~ConfigChoice();
     const std::vector<TUint>& Choices() const;
     void Set(TUint aVal);   // THROWS ConfigInvalidSelection
 
@@ -384,7 +401,9 @@ public:
     typedef FunctorGeneric<KeyValuePair<const Brx&>&> FunctorConfigText;
     typedef KeyValuePair<const Brx&> KvpText;
 public:
-    ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMaxLength, const Brx& aDefault);
+    ConfigText(IConfigInitialiser& aManager, const Brx& aKey,
+               TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired = false);
+    ~ConfigText();
     TUint MaxLength() const;
     void Set(const Brx& aText); // THROWS ConfigValueTooLong
 private:
@@ -442,6 +461,9 @@ public:
     virtual void Add(ConfigNum& aNum) = 0;
     virtual void Add(ConfigChoice& aChoice) = 0;
     virtual void Add(ConfigText& aText) = 0;
+    virtual void Remove(ConfigNum& aNum) = 0;
+    virtual void Remove(ConfigChoice& aChoice) = 0;
+    virtual void Remove(ConfigText& aText) = 0;
     virtual void FromStore(const Brx& aKey, Bwx& aDest, const Brx& aDefault) = 0;
     virtual void ToStore(const Brx& aKey, const Brx& aValue) = 0;
     virtual ~IConfigInitialiser() {}
@@ -462,6 +484,7 @@ public:
     ~SerialisedMap();
     void Add(const Brx& aKey, T& aVal);
     TBool Has(const Brx& aKey) const;
+    TBool TryRemove(const Brx& aKey);
     T& Get(const Brx& aKey) const;
     Iterator Begin() const;
     Iterator End() const;
@@ -510,6 +533,20 @@ template <class T> TBool SerialisedMap<T>::Has(const Brx& aKey) const
     return found;
 }
 
+template <class T> TBool SerialisedMap<T>::TryRemove(const Brx& aKey)
+{
+    TBool found = false;
+    Brn key(aKey);
+    AutoMutex a(iLock);
+    typename Map::const_iterator it = iMap.find(&key);
+    if (it != iMap.end()) {
+        iMap.erase(it);
+        found = true;
+    }
+
+    return found;
+}
+
 template <class T> T& SerialisedMap<T>::Get(const Brx& aKey) const
 {
     Brn key(aKey);
@@ -544,6 +581,26 @@ public: // from IWriter
     void WriteFlush() override;
 };
 
+class IConfigObserver
+{
+public:
+    virtual void Added(ConfigNum& aVal) = 0;
+    virtual void Added(ConfigChoice& aVal) = 0;
+    virtual void Added(ConfigText& aVal) = 0;
+    virtual void Removed(ConfigNum& aVal) = 0;
+    virtual void Removed(ConfigChoice& aVal) = 0;
+    virtual void Removed(ConfigText& aVal) = 0;
+    virtual~IConfigObserver() {}
+};
+
+class IConfigObservable
+{
+public:
+    virtual void Add(IConfigObserver& aObserver) = 0;
+    virtual void Remove(IConfigObserver& aObserver) = 0;
+    virtual ~IConfigObservable() {}
+};
+
 /*
  * Class storing a collection of ConfigVals. Values are stored with, and
  * retrievable via, an ID of form "some.value.identifier". Classes that create
@@ -551,7 +608,10 @@ public: // from IWriter
  *
  * Known identifiers are listed elsewhere.
  */
-class ConfigManager : public IConfigManager, public IConfigInitialiser, private INonCopyable
+class ConfigManager : public IConfigManager
+                    , public IConfigInitialiser
+                    , public IConfigObservable
+                    , private INonCopyable
 {
 private:
     typedef SerialisedMap<ConfigNum> ConfigNumMap;
@@ -577,8 +637,14 @@ public: // from IConfigInitialiser
     void Add(ConfigNum& aNum) override;
     void Add(ConfigChoice& aChoice) override;
     void Add(ConfigText& aText) override;
+    void Remove(ConfigNum& aNum) override;
+    void Remove(ConfigChoice& aChoice) override;
+    void Remove(ConfigText& aText) override;
     void FromStore(const Brx& aKey, Bwx& aDest, const Brx& aDefault) override;
     void ToStore(const Brx& aKey, const Brx& aValue) override;
+private: // from IConfigObservable
+    void Add(IConfigObserver& aObserver) override;
+    void Remove(IConfigObserver& aObserver) override;
 private:
     void AddNum(const Brx& aKey, ConfigNum& aNum);
     void AddChoice(const Brx& aKey, ConfigChoice& aChoice);
@@ -610,6 +676,7 @@ private:
     std::vector<const Brx*> iKeyListOrdered;
     TBool iOpen;
     mutable Mutex iLock;
+    IConfigObserver* iObserver;
 };
 
 } // namespace Configuration

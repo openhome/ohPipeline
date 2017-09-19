@@ -89,6 +89,9 @@ private: // from IConfigInitialiser
     void Add(ConfigNum& aNum) override;
     void Add(ConfigChoice& aChoice) override;
     void Add(ConfigText& aText) override;
+    void Remove(ConfigNum& aNum) override;
+    void Remove(ConfigChoice& aChoice) override;
+    void Remove(ConfigText& aText) override;
     void FromStore(const Brx& aKey, Bwx& aDest, const Brx& aDefault) override;
     void ToStore(const Brx& aKey, const Brx& aValue) override;
 private: // from IStoreReadWrite
@@ -390,6 +393,20 @@ void ConfigStartupStandby::Add(ConfigChoice& /*aChoice*/)
 }
 
 void ConfigStartupStandby::Add(ConfigText& /*aText*/)
+{
+    ASSERTS();
+}
+
+void ConfigStartupStandby::Remove(ConfigNum& /*aNum*/)
+{
+    ASSERTS();
+}
+
+void ConfigStartupStandby::Remove(ConfigChoice& /*aChoice*/)
+{
+}
+
+void ConfigStartupStandby::Remove(ConfigText& /*aText*/)
 {
     ASSERTS();
 }
