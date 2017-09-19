@@ -73,6 +73,7 @@ SocketUdpServer::~SocketUdpServer()
 
     {
         AutoMutex _a(iLock);
+        iOpen = false; // Ensure that if server hasn't been Close()d, thread won't try to place message into queue after socket interrupt below.
         iQuit = true;
     }
 
