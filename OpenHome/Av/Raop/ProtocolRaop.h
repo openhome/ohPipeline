@@ -14,6 +14,7 @@
 EXCEPTION(InvalidRaopPacket)
 EXCEPTION(RepairerBufferFull)
 EXCEPTION(RepairerStreamRestarted)
+EXCEPTION(RaopPacketUnavailable);
 
 namespace OpenHome {
     class Timer;
@@ -36,8 +37,12 @@ public:
     static const TUint kBytes = 4;
     static const TUint kVersion = 2;
 public:
+    RtpHeaderRaop();
     RtpHeaderRaop(TBool aPadding, TBool aExtension, TUint aCsrcCount, TBool aMarker, TUint aPayloadType, TUint aSeqNumber);
     RtpHeaderRaop(const Brx& aRtpHeader);
+    void Set(const Brx& aRtpHeader);
+    void Set(const RtpHeaderRaop& aRtpHeader);
+    void Clear();
     void Write(IWriter& aWriter) const;
     TBool Padding() const;
     TBool Extension() const;
@@ -64,12 +69,16 @@ public:
     // So, 1500-20-8 = 1472 RTP bytes max.
     static const TUint kMaxPacketBytes = 1472;
 public:
+    RtpPacketRaop();
     RtpPacketRaop(const Brx& aRtpPacket);
+    void Set(const Brx& aRtpPacket);
+    void Set(const RtpPacketRaop& aRtpPacket);
+    void Clear();
     const RtpHeaderRaop& Header() const;
     const Brx& Payload() const;
 private:
-    const RtpHeaderRaop iHeader;
-    const Brn iPayload;
+    RtpHeaderRaop iHeader;
+    Brn iPayload;
 };
 
 class RaopPacketAudio : private INonCopyable
@@ -79,14 +88,17 @@ public:
 private:
     static const TUint kAudioSpecificHeaderBytes = 8;
 public:
+    RaopPacketAudio();
     RaopPacketAudio(const RtpPacketRaop& aRtpPacket);
+    void Set(const RtpPacketRaop& aRtpPacket);
+    void Clear();
     const RtpHeaderRaop& Header() const;
     const Brx& Payload() const;
     TUint Timestamp() const;
     TUint Ssrc() const;
 private:
-    const RtpPacketRaop& iPacket;
-    const Brn iPayload;
+    RtpPacketRaop iPacket;
+    Brn iPayload;
     TUint iTimestamp;
     TUint iSsrc;
 };
@@ -119,13 +131,16 @@ class RaopPacketResendResponse
 public:
     static const TUint kType = 0x56;
 public:
+    RaopPacketResendResponse();
     RaopPacketResendResponse(const RtpPacketRaop& aRtpPacket);
+    void Set(const RtpPacketRaop& aRtpPacket);
+    void Clear();
     const RtpHeaderRaop& Header() const;
     const RaopPacketAudio& AudioPacket() const;
 private:
-    const RtpPacketRaop& iPacketOuter;
-    const RtpPacketRaop iPacketInner;
-    const RaopPacketAudio iAudioPacket;
+    RtpPacketRaop iPacketOuter;
+    RtpPacketRaop iPacketInner;
+    RaopPacketAudio iAudioPacket;
 };
 
 class RaopPacketResendRequest
@@ -142,21 +157,41 @@ private:
     const TUint iCount;
 };
 
+class IRaopAudioConsumer
+{
+public:
+    virtual void AudioPacketReceived() = 0;
+    virtual ~IRaopAudioConsumer() {}
+};
+
 class RaopAudioServer : private INonCopyable
 {
 public:
-    RaopAudioServer(SocketUdpServer& aServer);
+    RaopAudioServer(SocketUdpServer& aServer, IRaopAudioConsumer& aConsumer, TUint aThreadPriority);
     ~RaopAudioServer();
     void Open();
+    /*
+     * Client must have completed any Packet()/PacketConsumed() pair prior to calling this.
+     */
     void Close();
-    void ReadPacket(Bwx& aBuf);
     void DoInterrupt();
     void Reset();
+
+    const RaopPacketAudio& Packet() const;  // May throw RaopPacketUnavailable.
+    void PacketConsumed();                  // Signals this to read next packet.
+private:
+    void Run();
 private:
     SocketUdpServer& iServer;
-    TBool iInterrupted;
-    Mutex iLock;
+    IRaopAudioConsumer& iConsumer;
+    Bws<RtpPacketRaop::kMaxPacketBytes> iBuf;
+    RaopPacketAudio iPacket;
     TBool iOpen;
+    TBool iQuit;
+    TBool iAwaitingConsumer;
+    ThreadFunctor* iThread;
+    Semaphore iSem;
+    mutable Mutex iLock;
 };
 
 // FIXME - this class currently writes out the packet length at the start of decoded audio.
@@ -176,13 +211,6 @@ private:
     Bws<kAesInitVectorBytes> iInitVector;
 };
 
-class IRaopResendReceiver
-{
-public:
-    virtual void ResendReceive(const RaopPacketResendResponse& aPacket) = 0;
-    virtual ~IRaopResendReceiver() {}
-};
-
 class IRaopResendRequester
 {
 public:
@@ -190,11 +218,17 @@ public:
     virtual ~IRaopResendRequester() {}
 };
 
+class IRaopResendConsumer
+{
+public:
+    virtual void ResendPacketReceived() = 0;
+    virtual ~IRaopResendConsumer() {}
+};
+
 class RaopControlServer : public IRaopResendRequester
 {
 private:
     static const TUint kMaxReadBufferBytes = 1500;
-    static const TUint kPriority = kPriorityNormal-1;
     static const TUint kSessionStackBytes = 10 * 1024;
     static const TUint kInvalidServerPort = 0;
     //static const TUint kDefaultLatencySamples = 88200;  // 2000ms at 44.1KHz.
@@ -206,28 +240,44 @@ private:
         EResendResponse = 0x56,
     };
 public:
-    RaopControlServer(SocketUdpServer& aServer, IRaopResendReceiver& aResendReceiver);
+    //RaopControlServer(SocketUdpServer& aServer, IRaopResendObserver& aResendObserver, ILatencyObserver& aLatencyObserver);
+    RaopControlServer(SocketUdpServer& aServer, IRaopResendConsumer& aResendConsumer, TUint aThreadPriority);
     ~RaopControlServer();
     void Open();
+    /*
+     * Client must have completed any Packet()/PacketConsumed() pair prior to calling this.
+     */
     void Close();
     void DoInterrupt();
     void Reset(TUint aClientPort);
-    TUint Latency() const;  // Returns latency in samples.
+
+    const RaopPacketResendResponse& Packet();   // May throw RaopPacketUnavailable.
+    void PacketConsumed();                      // Signals this to read next packet.
+
+    TUint Latency() const;  // Returns latency in samples. // FIXME - should remove and should only be passed into observer.
 public: // from IRaopResendRequester
     void RequestResend(TUint aSeqStart, TUint aCount) override;
 private:
     void Run();
 private:
+
+    // FIXME - is this necessary?
     Endpoint iEndpoint;
+
+    // FIXME - is this ever actually used? Currently get client port by storing endpoint that has sent us a packet. That seems like it may not always be good (e.g., what if haven't received any data on control channel, but wish to send a resend request?). Probably need hook from TCP channel into here to set server/port.
     TUint iClientPort;
+
     SocketUdpServer& iServer;
-    IRaopResendReceiver& iResendReceiver;
-    Bws<kMaxReadBufferBytes> iPacket;
+    IRaopResendConsumer& iResendConsumer;
+    Bws<kMaxReadBufferBytes> iBuf;
+    RaopPacketResendResponse iPacket;
     ThreadFunctor* iThread;
     TUint iLatency;
     mutable Mutex iLock;
     TBool iOpen;
     TBool iExit;
+    TBool iAwaitingConsumer;
+    Semaphore iSem;
 };
 
 class IAudioSupply
@@ -378,29 +428,6 @@ private:
     IRaopResendRequester& iResendRequester;
 };
 
-class IRepairerTimer
-{
-public:
-    virtual void Start(Functor aFunctor, TUint aFireInMs) = 0;
-    virtual void Cancel() = 0;
-    virtual ~IRepairerTimer() {}
-};
-
-class RepairerTimer : public IRepairerTimer
-{
-public:
-    RepairerTimer(Environment& aEnv, const TChar* aId);
-    ~RepairerTimer();
-public: // from IRepairerTimer
-    void Start(Functor aFunctor, TUint aFireInMs) override;
-    void Cancel() override;
-private:
-    void TimerFired();
-private:
-    Timer iTimer;
-    Functor iFunctor;
-};
-
 class ResendRange : public IResendRange
 {
 public:
@@ -421,7 +448,7 @@ private:
     static const TUint kInitialRepairTimeoutMs = 10;
     static const TUint kSubsequentRepairTimeoutMs = 30;
 public:
-    Repairer(Environment& aEnv, IResendRangeRequester& aResendRequester, IAudioSupply& aAudioSupply, IRepairerTimer& aTimer);
+    Repairer(Environment& aEnv, IResendRangeRequester& aResendRequester, IAudioSupply& aAudioSupply, ITimerFactory& aTimerFactory);
     ~Repairer();
     void OutputAudio(IRepairable& aRepairable);  // THROWS RepairerBufferFull, RepairerStreamRestarted
     void DropAudio();
@@ -434,7 +461,7 @@ private:
     Environment& iEnv;
     IResendRangeRequester& iResendRequester;
     IAudioSupply& iAudioSupply;
-    IRepairerTimer& iTimer;
+    ITimer* iTimer;
     IRepairable* iRepairFirst;
     std::vector<IRepairable*> iRepairFrames;
     std::vector<IRepairable*> iOutput;
@@ -450,11 +477,10 @@ private:
 
 // Repairer
 
-template <TUint MaxFrames> Repairer<MaxFrames>::Repairer(Environment& aEnv, IResendRangeRequester& aResendRequester, IAudioSupply& aAudioSupply, IRepairerTimer& aTimer)
+template <TUint MaxFrames> Repairer<MaxFrames>::Repairer(Environment& aEnv, IResendRangeRequester& aResendRequester, IAudioSupply& aAudioSupply, ITimerFactory& aTimerFactory)
     : iEnv(aEnv)
     , iResendRequester(aResendRequester)
     , iAudioSupply(aAudioSupply)
-    , iTimer(aTimer)
     , iRepairFirst(nullptr)
     , iRunning(false)
     , iRepairing(false)
@@ -462,6 +488,7 @@ template <TUint MaxFrames> Repairer<MaxFrames>::Repairer(Environment& aEnv, IRes
     , iMutexTransport("REPL")
     , iMutexAudioOutput("REAO")
 {
+    iTimer = aTimerFactory.CreateTimer(MakeFunctor(*this, &Repairer<MaxFrames>::TimerRepairExpired), "Repairer");
     for (TUint i=0; i<kMaxMissedRanges; i++) {
         iFifoResend.Write(new ResendRange());
     }
@@ -469,12 +496,13 @@ template <TUint MaxFrames> Repairer<MaxFrames>::Repairer(Environment& aEnv, IRes
 
 template <TUint MaxFrames> Repairer<MaxFrames>::~Repairer()
 {
-    iTimer.Cancel();
+    iTimer->Cancel();
     ASSERT(iFifoResend.SlotsFree() == 0);
     while (iFifoResend.SlotsUsed() > 0) {
         auto resend = iFifoResend.Read();
         delete resend;
     }
+    delete iTimer;
 }
 
 template <TUint MaxFrames> void Repairer<MaxFrames>::OutputAudio(IRepairable& aRepairable)
@@ -542,7 +570,7 @@ template <TUint MaxFrames> TBool Repairer<MaxFrames>::RepairBegin(IRepairable& a
 {
     LOG(kMedia, "Repairer::RepairBegin BEGIN ON %d\n", aRepairable.Frame());
     iRepairFirst = &aRepairable;
-    iTimer.Start(MakeFunctor(*this, &Repairer<MaxFrames>::TimerRepairExpired), iEnv.Random(kInitialRepairTimeoutMs));
+    iTimer->FireIn(iEnv.Random(kInitialRepairTimeoutMs));
     return true;
 }
 
@@ -552,7 +580,7 @@ template <TUint MaxFrames> void Repairer<MaxFrames>::RepairReset()
     /* TimerRepairExpired() claims iMutexTransport.  Release it briefly to avoid possible deadlock.
     TimerManager guarantees that TimerRepairExpired() won't be called once Cancel() returns... */
     iMutexTransport.Signal();
-    iTimer.Cancel();
+    iTimer->Cancel();
     iMutexTransport.Wait();
     if (iRepairFirst != nullptr) {
         iRepairFirst->Destroy();
@@ -580,7 +608,7 @@ template <TUint MaxFrames> TBool Repairer<MaxFrames>::Repair(IRepairable& aRepai
             // A frame in the past that is not a resend implies that the sender has reset their frame count
             RepairReset();
             repairing = false;
-            LOG(kMedia, "Repairer::OutputAudio Repair frame: %u, resend: %u\n", aRepairable.Frame(), aRepairable.Resend());
+            LOG(kMedia, "Repairer::Repair frame: %u, resend: %u\n", aRepairable.Frame(), aRepairable.Resend());
             aRepairable.Destroy();
             THROW(RepairerStreamRestarted);
         }
@@ -734,7 +762,7 @@ template <TUint MaxFrames> void Repairer<MaxFrames>::TimerRepairExpired()
         iResend.clear();
         iResendConst.clear();
 
-        iTimer.Start(MakeFunctor(*this, &Repairer<MaxFrames>::TimerRepairExpired), kSubsequentRepairTimeoutMs);
+        iTimer->FireIn(kSubsequentRepairTimeoutMs);
     }
 }
 
@@ -746,7 +774,7 @@ class IVolumeScalerEnabler;
 // - Timing
 // However, the timing channel was never monitored in the previous codebase,
 // so no RaopTiming class exists here.
-class ProtocolRaop : public Media::Protocol, public IRaopResendReceiver, public IAudioSupply
+class ProtocolRaop : public Media::Protocol, public IRaopAudioConsumer, public IRaopResendConsumer, public IAudioSupply
 {
 private:
     static const TUint kSampleRate = 44100;     // Always 44.1KHz. Can get this from fmtp field.
@@ -754,10 +782,9 @@ private:
     static const TUint kMaxRepairFrames = 50;
     static const TUint kMinDelayChangeSamples = 441; // Require min change of 10 ms at 44.1KHz to cause delay value to be updated/output.
 public:
-    ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId);
+    ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer, ITimerFactory& aTimerFactory);
     ~ProtocolRaop();
-    TUint SendFlushStart(TUint aSeq, TUint aTime); // if returns valid flush id, internal mutex is locked => call SendFlushEnd later.
-    void SendFlushEnd();
+    void SendFlush(TUint aSeq, TUint aTime, FunctorGeneric<TUint> aFlushHandler); // aFlushHandler is called with the flush ID before call returns.
 private: // from Protocol
     void Interrupt(TBool aInterrupt) override;
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -766,8 +793,10 @@ private: // from Protocol
 private: // from IStreamHandler
     TUint TryStop(TUint aStreamId) override;
     void NotifyStarving(const Brx& aMode, TUint aStreamId, TBool aStarving) override;
-private: // from IRaopResendReceiver
-    void ResendReceive(const RaopPacketResendResponse& aPacket) override;
+private: // from IRaopAudioConsumer
+    void AudioPacketReceived() override;
+private: // from IRaopResendConsumer
+    void ResendPacketReceived() override;
 private: // from IAudioSupply
     void OutputAudio(const Brx& aAudio) override;
 private:
@@ -776,14 +805,16 @@ private:
     void UpdateSessionId(TUint aSessionId);
     TBool IsValidSession(TUint aSessionId) const;
     TBool ShouldFlush(TUint aSeq, TUint aTimestamp) const;
-    //void OutputAudio(const Brx& aAudio);
     void OutputDiscontinuity();
     void OutputContainer(const Brx& aFmtp);
     void DoInterrupt();
     void RepairReset();
     void WaitForDrain();
-    void InputChanged();
-    void ResendTimerFired();
+    void ProcessPacket(const RaopPacketAudio& aPacket);
+    void ProcessPacket(const RaopPacketResendResponse& aPacket);
+    void ProcessStreamStartOrResume();
+    void StartServers();
+    void StopServers();
     static TUint Delay(TUint aSamples);
 private:
     Media::TrackFactory& iTrackFactory;
@@ -797,7 +828,6 @@ private:
     // for servicing control channel, as that is currently handled on its on
     // thread.
     UdpServerManager& iServerManager;
-    Bws<RtpPacketRaop::kMaxPacketBytes> iPacketBuf;
     Bws<RtpPacketRaop::kMaxPacketBytes> iAudioDecrypted;
     RaopAudioDecryptor iAudioDecryptor;
     RaopAudioServer iAudioServer;
@@ -805,6 +835,7 @@ private:
     Media::SupplyAggregatorBytes* iSupply;
     Uri iUri;
 
+    TBool iStarted;
     TUint iSessionId;
     TUint iStreamId;
     TUint iLatency;
@@ -819,12 +850,11 @@ private:
     TBool iDiscontinuity;
     TBool iStarving;
     mutable Mutex iLockRaop;
-    Semaphore iSemDrain;
+    Semaphore iSem;
 
     // +3 as must be able to cause repairer to overflow (which requires kMaxRepairFrames+2), plus could be sending from normal audio channel and control channel simultaneously.
     RaopRepairableAllocator<kMaxRepairFrames+3,kMaxFrameBytes> iRepairableAllocator;
     RaopResendRangeRequester iResendRangeRequester;
-    RepairerTimer iRepairerTimer;
     Repairer<kMaxRepairFrames> iRepairer;
 };
 

@@ -46,11 +46,11 @@ using namespace OpenHome::Net;
 
 // SourceFactory
 
-ISource* SourceFactory::NewRaop(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller, const Brx& aMacAddr, TUint aUdpThreadPriority)
+ISource* SourceFactory::NewRaop(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller, const Brx& aMacAddr, TUint aServerThreadPriority)
 { // static
     UriProviderRaop* raopUriProvider = new UriProviderRaop(aMediaPlayer, aClockPuller);
     aMediaPlayer.Add(raopUriProvider);
-    return new SourceRaop(aMediaPlayer, *raopUriProvider, aMacAddr, aUdpThreadPriority);
+    return new SourceRaop(aMediaPlayer, *raopUriProvider, aMacAddr, aServerThreadPriority);
 }
 
 const TChar* SourceFactory::kSourceTypeRaop = "NetAux";
@@ -75,12 +75,12 @@ ModeClockPullers UriProviderRaop::ClockPullers()
 
 const Brn SourceRaop::kRaopPrefix("raop://");
 
-SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aUdpThreadPriority)
+SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aServerThreadPriority)
     : Source(SourceFactory::kSourceNameRaop, SourceFactory::kSourceTypeRaop, aMediaPlayer.Pipeline(), false)
     , iEnv(aMediaPlayer.Env())
     , iLock("SRAO")
     , iUriProvider(aUriProvider)
-    , iServerManager(aMediaPlayer.Env(), kMaxUdpSize, kMaxUdpPackets, aUdpThreadPriority)
+    , iServerManager(aMediaPlayer.Env(), kMaxUdpSize, kMaxUdpPackets, aServerThreadPriority)
     , iSessionActive(false)
     , iTrack(nullptr)
     , iTrackPosSeconds(0)
@@ -96,7 +96,8 @@ SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider
     iControlId = iServerManager.CreateServer();
     iTimingId = iServerManager.CreateServer();
 
-    iProtocol = new ProtocolRaop(aMediaPlayer.Env(), aMediaPlayer.TrackFactory(), *iRaopDiscovery, iServerManager, iAudioId, iControlId);   // creating directly, rather than through ProtocolFactory
+    TimerFactory timerFactory(aMediaPlayer.Env());
+    iProtocol = new ProtocolRaop(aMediaPlayer.Env(), aMediaPlayer.TrackFactory(), *iRaopDiscovery, iServerManager, iAudioId, iControlId, aServerThreadPriority, aServerThreadPriority, timerFactory); // Creating directly, rather than through ProtocolFactory.
     iPipeline.Add(iProtocol);   // takes ownership
     iPipeline.AddObserver(*this);
 
@@ -305,14 +306,8 @@ void SourceRaop::NotifySessionWait(TUint aSeq, TUint aTime)
 
     AutoMutex a(iLock);
     if (IsActive() && iSessionActive) {
-        // Possible race condition here - MsgFlush could pass Waiter before
-        // iPipeline::Wait is called.
-        const TUint flushId = iProtocol->SendFlushStart(aSeq, aTime);
-        if (flushId != MsgFlush::kIdInvalid) {
-            iTransportState = Media::EPipelineWaiting;
-            iPipeline.Wait(flushId);
-            iProtocol->SendFlushEnd();
-        }
+        // Synchronous callback ensures ::FlushCallback() is able to notify pipeline of flush ID to wait for BEFORE protocol module sends that flush ID into pipeline.
+        iProtocol->SendFlush(aSeq, aTime, MakeFunctorGeneric<TUint>(*this, &SourceRaop::FlushCallback));
     }
 
     LOG(kMedia, "<SourceRaop::NotifySessionWait\n");
@@ -358,6 +353,15 @@ void SourceRaop::NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo)
     iLock.Wait();
     iStreamId = aStreamInfo.StreamId();
     iLock.Signal();
+}
+
+void SourceRaop::FlushCallback(TUint aFlushId)
+{
+    // Called synchronously during SendFlush() call in ::NotifySessionWait();
+    if (aFlushId != MsgFlush::kIdInvalid) {
+        iTransportState = Media::EPipelineWaiting;
+        iPipeline.Wait(aFlushId);
+    }
 }
  
 void SourceRaop::HandleInterfaceChange()

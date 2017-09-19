@@ -258,12 +258,7 @@ void SocketUdpServer::ReadInterrupt()
 {
     // Clients read from iFifoReady - never iSocket, so interrupt any waiting
     // Read()s on the FIFO.
-
     iFifoReady.ReadInterrupt(true);
-
-    iReadyLock.Wait();
-    iFifoReady.ReadInterrupt(false);
-    iReadyLock.Signal();
 }
 
 void SocketUdpServer::CopyMsgToBuf(MsgUdp& aMsg, Bwx& aBuf, Endpoint& aEndpoint)

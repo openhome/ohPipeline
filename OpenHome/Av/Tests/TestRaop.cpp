@@ -2,81 +2,32 @@
 #include <OpenHome/Private/SuiteUnitTest.h>
 #include <OpenHome/Av/Raop/Raop.h>
 #include <OpenHome/Av/Raop/ProtocolRaop.h>
+#include <OpenHome/Tests/TestPipe.h>
+#include <OpenHome/Private/Timer.h>
 #include <OpenHome/Private/Ascii.h>
 
 namespace OpenHome {
 namespace Av {
-
-class ITestPipeWritable
-{
-public:
-    virtual void Write(const Brx& aMessage) = 0;
-    virtual void Write(const Brx& aMessage, TInt aValue) = 0;
-    virtual ~ITestPipeWritable() {}
-};
-
-class ITestPipeReadable
-{
-public:
-    virtual TBool Expect(const Brx& aMessage) = 0;
-    virtual TBool Expect(const Brx& aMessage, TInt aValue) = 0;
-    virtual TBool ExpectEmpty() = 0;
-    virtual ~ITestPipeReadable() {}
-};
-
-class TestPipeDynamic : public ITestPipeWritable, public ITestPipeReadable
-{
-public:
-    static const TUint kMaxMsgBytes = 256;
-private:
-    const TUint kIntMaxAsciiBytes = 11;
-public:
-    TestPipeDynamic(TUint aSlots);
-    ~TestPipeDynamic();
-    void Print();
-public: // from ITestPipeWritable
-    void Write(const Brx& aMessage) override;
-    void Write(const Brx& aMessage, TInt aValue) override;
-public: // from ITestPipeReadable
-    TBool Expect(const Brx& aMessage) override;
-    TBool Expect(const Brx& aMessage, TInt aValue) override;
-    TBool ExpectEmpty() override;
-private:
-    FifoLiteDynamic<Bwh*> iFifo;
-    Mutex iLock;
-};
+namespace Test {
 
 class MockResendRequester : public IResendRangeRequester, private INonCopyable
 {
 public:
-    MockResendRequester(ITestPipeWritable& aTestPipe);
+    MockResendRequester(OpenHome::Test::ITestPipeWritable& aTestPipe);
 private: // from IResendRangeRequester
     void RequestResendSequences(const std::vector<const IResendRange*> aRanges) override;
 private:
-    ITestPipeWritable& iTestPipe;
+    OpenHome::Test::ITestPipeWritable& iTestPipe;
 };
 
 class MockAudioSupply : public IAudioSupply, private INonCopyable
 {
 public:
-    MockAudioSupply(ITestPipeWritable& aTestPipe);
+    MockAudioSupply(OpenHome::Test::ITestPipeWritable& aTestPipe);
 private: // from IAudioSupply
     void OutputAudio(const Brx& aAudio) override;
 private:
-    ITestPipeWritable& iTestPipe;
-};
-
-class MockRepairerTimer : public IRepairerTimer, private INonCopyable
-{
-public:
-    MockRepairerTimer(ITestPipeWritable& aTestPipe);
-    void Fire();
-private: // from IRepairerTimer
-    void Start(Functor aFunctor, TUint aFireInMs) override;
-    void Cancel() override;
-private:
-    ITestPipeWritable& iTestPipe;
-    Functor iFunctor;
+    OpenHome::Test::ITestPipeWritable& iTestPipe;
 };
 
 class MockRepairableAllocator;
@@ -84,7 +35,7 @@ class MockRepairableAllocator;
 class MockRepairable : public IRepairable
 {
 public:
-    MockRepairable(ITestPipeWritable& aTestPipe, MockRepairableAllocator& aAllocator, TUint aMaxBytes);
+    MockRepairable(OpenHome::Test::ITestPipeWritable& aTestPipe, MockRepairableAllocator& aAllocator, TUint aMaxBytes);
     void Set(TUint aFrame, TBool aResend, const Brx& aData);
 public: // from IRepairable
     TUint Frame() const override;
@@ -92,7 +43,7 @@ public: // from IRepairable
     const Brx& Data() const override;
     void Destroy() override;
 private:
-    ITestPipeWritable& iTestPipe;
+    OpenHome::Test::ITestPipeWritable& iTestPipe;
     MockRepairableAllocator& iAllocator;
     TUint iFrame;
     TBool iResend;
@@ -102,12 +53,46 @@ private:
 class MockRepairableAllocator
 {
 public:
-    MockRepairableAllocator(ITestPipeWritable& aTestPipe, TUint aMaxRepairable, TUint aMaxBytes);
+    MockRepairableAllocator(OpenHome::Test::ITestPipeWritable& aTestPipe, TUint aMaxRepairable, TUint aMaxBytes);
     ~MockRepairableAllocator();
     IRepairable* Allocate(TUint aFrame, TBool aResend, const Brx& aData);
     void Deallocate(MockRepairable* aRepairable);
 private:
     FifoLiteDynamic<MockRepairable*> iFifo;
+};
+
+/*
+ * Mock timer which does NOT report time passed in FireIn() calls to test pipe.
+ *
+ * Repairer randomises time passed to some FireIn() calls, so simplest solution
+ * is to have timers report FireIn() calls without the unpredictable time
+ * parameter.
+ */
+class MockTimerRepairer : public OpenHome::ITimer, private OpenHome::INonCopyable
+{
+public:
+    MockTimerRepairer(OpenHome::Test::ITestPipeWritable& aTestPipe, OpenHome::Functor aCallback, const TChar* aId);
+    const TChar* Id() const;
+    void Fire();
+public: // from ITimer
+    void FireIn(TUint aMs) override;
+    void Cancel() override;
+private:
+    OpenHome::Test::ITestPipeWritable& iTestPipe;
+    OpenHome::Functor iCallback;
+    const TChar* iId;
+};
+
+class MockTimerFactoryRepairer : public OpenHome::ITimerFactory, private OpenHome::INonCopyable
+{
+public:
+    MockTimerFactoryRepairer(OpenHome::Test::ITestPipeWritable& aTestPipe);
+    void FireTimer(const TChar* aId);
+public: // from ITimerFactory
+    ITimer* CreateTimer(OpenHome::Functor aCallback, const TChar* aId) override;
+private:
+    OpenHome::Test::ITestPipeWritable& iTestPipe;
+    std::vector<std::reference_wrapper<MockTimerRepairer>> iTimers;
 };
 
 class SuiteRaopResend : public TestFramework::SuiteUnitTest, private INonCopyable
@@ -143,97 +128,24 @@ private:
     void TestSequenceNumberWrappingDuringRepair();
 private:
     Environment& iEnv;
-    TestPipeDynamic* iTestPipe;
+    OpenHome::Test::TestPipeDynamic* iTestPipe;
     MockResendRequester* iResendRequester;
     MockAudioSupply* iAudioSupply;
-    MockRepairerTimer* iTimer;
+    MockTimerFactoryRepairer* iTimerFactory;
     MockRepairableAllocator* iAllocator;
     Repairer<kMaxFrames>* iRepairer;
 };
 
+} // namespace Test
 } // namespace Av
 } // namespace OpenHome
 
 
 using namespace OpenHome;
-using namespace OpenHome::TestFramework;
 using namespace OpenHome::Av;
-
-
-// TestPipeDynamic
-
-TestPipeDynamic::TestPipeDynamic(TUint aSlots)
-    : iFifo(aSlots)
-    , iLock("TPDL")
-{
-}
-
-TestPipeDynamic::~TestPipeDynamic()
-{
-    AutoMutex a(iLock);
-    while (iFifo.SlotsUsed() > 0) {
-        Bwh* buf = iFifo.Read();
-        delete buf;
-    }
-}
-
-void TestPipeDynamic::Print()
-{
-    AutoMutex a(iLock);
-    const TUint slots = iFifo.SlotsUsed();
-    Log::Print("\nTestPipeDynamic::Print\n");
-    Log::Print("[\n");
-    for (TUint i=0; i<slots; i++) {
-        Bwh* buf = iFifo.Read();
-        Log::Print("\t");
-        Log::Print(*buf);
-        Log::Print("\n");
-        iFifo.Write(buf);
-    }
-    Log::Print("]\n");
-}
-
-void TestPipeDynamic::Write(const Brx& aMessage)
-{
-    AutoMutex a(iLock);
-    Bwh* buf = new Bwh(aMessage);
-    iFifo.Write(buf);
-}
-
-void TestPipeDynamic::Write(const Brx& aMessage, TInt aValue)
-{
-    AutoMutex a(iLock);
-    Bwh* buf = new Bwh(aMessage.Bytes() + kIntMaxAsciiBytes);
-    buf->Replace(aMessage);
-    Ascii::AppendDec(*buf, aValue);
-    iFifo.Write(buf);
-}
-
-TBool TestPipeDynamic::Expect(const Brx& aMessage)
-{
-    AutoMutex a(iLock);
-    if (iFifo.SlotsUsed() > 0) {
-        Bwh* buf = iFifo.Read();
-        const TBool match = (*buf == aMessage);
-        delete buf;
-        return match;
-    }
-    return false;
-}
-
-TBool TestPipeDynamic::Expect(const Brx& aMessage, TInt aValue)
-{
-    Bwh msg(aMessage.Bytes() + kIntMaxAsciiBytes);
-    msg.Replace(aMessage);
-    Ascii::AppendDec(msg, aValue);
-    return Expect(msg);
-}
-
-TBool TestPipeDynamic::ExpectEmpty()
-{
-    AutoMutex a(iLock);
-    return (iFifo.SlotsUsed() == 0);
-}
+using namespace OpenHome::Av::Test;
+using namespace OpenHome::TestFramework;
+using namespace OpenHome::Test;
 
 
 // MockResendRequester
@@ -271,40 +183,6 @@ void MockAudioSupply::OutputAudio(const Brx& aAudio)
     buf.Append(" ");
     buf.Append(aAudio);
     iTestPipe.Write(buf);
-}
-
-
-// MockRepairerTimer
-
-MockRepairerTimer::MockRepairerTimer(ITestPipeWritable& aTestPipe)
-    : iTestPipe(aTestPipe)
-{
-}
-
-void MockRepairerTimer::Fire()
-{
-    // Must clear iFunctor BEFORE calling it, as callee may call ::Start() on timer.
-    // (So, if iFunctor was cleared after call, it would prevent any future calls.)
-    Functor functor = iFunctor;
-    iFunctor = Functor();
-    functor();
-}
-
-void MockRepairerTimer::Start(Functor aFunctor, TUint /*aFireInMs*/)
-{
-    iFunctor = aFunctor;
-    //Bws<50> buf("MRT::Start ");
-    //Ascii::AppendDec(buf, aFireInMs);
-    //iTestPipe.Write(buf);
-
-    // Retry timer duration is randomised when repairs start, so can't test it.
-    iTestPipe.Write(Brn("MRT::Start"));
-}
-
-void MockRepairerTimer::Cancel()
-{
-    iTestPipe.Write(Brn("MRT::Cancel"));
-    iFunctor = Functor();
 }
 
 
@@ -381,6 +259,69 @@ void MockRepairableAllocator::Deallocate(MockRepairable* aRepairable)
 }
 
 
+// MockTimerRepairer
+
+MockTimerRepairer::MockTimerRepairer(ITestPipeWritable& aTestPipe, Functor aCallback, const TChar* aId)
+    : iTestPipe(aTestPipe)
+    , iCallback(aCallback)
+    , iId(aId)
+{
+}
+
+const TChar* MockTimerRepairer::Id() const
+{
+    return iId;
+}
+
+void MockTimerRepairer::Fire()
+{
+    iCallback();
+}
+
+void MockTimerRepairer::FireIn(TUint /*aMs*/)
+{
+    Bws<64> buf("MT::FireIn ");
+    buf.Append(iId);
+    // Time parameter not reported.
+    iTestPipe.Write(buf);
+}
+
+void MockTimerRepairer::Cancel()
+{
+    Bws<64> buf("MT::Cancel ");
+    buf.Append(iId);
+    iTestPipe.Write(buf);
+}
+
+
+// MockTimerFactoryRepairer
+
+MockTimerFactoryRepairer::MockTimerFactoryRepairer(ITestPipeWritable& aTestPipe)
+    : iTestPipe(aTestPipe)
+{
+}
+
+void MockTimerFactoryRepairer::FireTimer(const TChar* aId)
+{
+    for (MockTimerRepairer& t : iTimers) {
+        if (*aId == *t.Id()) {
+            t.Fire();
+            return;
+        }
+    }
+    ASSERTS(); // No such timer.
+}
+
+ITimer* MockTimerFactoryRepairer::CreateTimer(Functor aCallback, const TChar* aId)
+{
+    // The ITimer that is returned from here must not be destroyed until all
+    // calls to FireTimer() have been made.
+    MockTimerRepairer* timer = new MockTimerRepairer(iTestPipe, aCallback, aId);
+    iTimers.push_back(*timer);
+    return timer;
+}
+
+
 // SuiteRaopResend
 
 
@@ -414,18 +355,18 @@ void SuiteRaopResend::Setup()
     iTestPipe = new TestPipeDynamic(kMaxTestPipeMessages);
     iResendRequester = new MockResendRequester(*iTestPipe);
     iAudioSupply = new MockAudioSupply(*iTestPipe);
-    iTimer = new MockRepairerTimer(*iTestPipe);
+    iTimerFactory = new MockTimerFactoryRepairer(*iTestPipe);
     // Repair buffer stashes first discontinuity frame in a pointer, then proceeds to fill a buffer of kMaxFrameBytes.
     // So, need kMaxFrames+2 to overflow repair buffer.
     iAllocator = new MockRepairableAllocator(*iTestPipe, kMaxFrames+2, kMaxFrameBytes);
-    iRepairer = new Repairer<kMaxFrames>(iEnv, *iResendRequester, *iAudioSupply, *iTimer);
+    iRepairer = new Repairer<kMaxFrames>(iEnv, *iResendRequester, *iAudioSupply, *iTimerFactory);
 }
 
 void SuiteRaopResend::TearDown()
 {
     delete iRepairer;
     delete iAllocator;
-    delete iTimer;
+    delete iTimerFactory;
     delete iAudioSupply;
     delete iResendRequester;
     delete iTestPipe;
@@ -453,11 +394,11 @@ void SuiteRaopResend::TestResendOnePacket()
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
     // Expect retry logic to kick in.
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // Allow repairer to output resend request.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Now, deliver expected packet...
     iRepairer->OutputAudio(*iAllocator->Allocate(1, true, Brn("1")));
@@ -478,7 +419,7 @@ void SuiteRaopResend::TestResendOnePacket()
     TEST(iTestPipe->Expect(Brn("MR::Destroy 3")));
 
     // Fire timer again. Should have no effect as no missing packets.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->ExpectEmpty());
 }
 
@@ -491,11 +432,11 @@ void SuiteRaopResend::TestResendMultiplePackets()
     // Miss a couple of packets.
     iRepairer->OutputAudio(*iAllocator->Allocate(3, false, Brn("3")));
     // Expect retry logic to kick in.
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // Allow repairer to output resend request.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Now, deliver expected packets...
     iRepairer->OutputAudio(*iAllocator->Allocate(1, true, Brn("1")));
@@ -525,14 +466,14 @@ void SuiteRaopResend::TestResendMulitpleRanges()
     // Have a couple of contiguous packets to ensure resend algorithm skips over these.
     iRepairer->OutputAudio(*iAllocator->Allocate(3, false, Brn("3")));
     iRepairer->OutputAudio(*iAllocator->Allocate(4, false, Brn("4")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // Miss more packets.
     iRepairer->OutputAudio(*iAllocator->Allocate(6, false, Brn("6")));
 
     // Allow repairer to output resend request.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->2 5->5")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Send in the missing packets, which should flush out the buffered packets.
     iRepairer->OutputAudio(*iAllocator->Allocate(1, true, Brn("1")));
@@ -563,7 +504,7 @@ void SuiteRaopResend::TestResendBeyondMultipleRangeLimit()
 
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // Miss another packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(4, false, Brn("4")));
     // Miss another packet.
@@ -572,9 +513,9 @@ void SuiteRaopResend::TestResendBeyondMultipleRangeLimit()
     iRepairer->OutputAudio(*iAllocator->Allocate(6, false, Brn("6")));
 
     // Allow repairer to output resend request.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1 3->3")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Send in the missing packets, which should flush out the buffered packets.
     iRepairer->OutputAudio(*iAllocator->Allocate(1, true, Brn("1")));
@@ -589,9 +530,9 @@ void SuiteRaopResend::TestResendBeyondMultipleRangeLimit()
     TEST(iTestPipe->Expect(Brn("MR::Destroy 4")));
 
     // Now fire timer to allow request for final missing packet.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 5->5")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     iRepairer->OutputAudio(*iAllocator->Allocate(5, true, Brn("5")));
     TEST(iTestPipe->Expect(Brn("MAS::OutputAudio 1 5")));
@@ -612,13 +553,13 @@ void SuiteRaopResend::TestMultipleResendRecover()
 
     // Miss a couple of packet sequences.
     iRepairer->OutputAudio(*iAllocator->Allocate(3, false, Brn("3")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     iRepairer->OutputAudio(*iAllocator->Allocate(5, false, Brn("5")));
 
     // Allow timer to fire.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->2 4->4")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Resend only the first missing packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(1, true, Brn("1")));
@@ -629,9 +570,9 @@ void SuiteRaopResend::TestMultipleResendRecover()
     iRepairer->OutputAudio(*iAllocator->Allocate(6, false, Brn("6")));
 
     // Fire timer again.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 2->2 4->4")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Send in first missing packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, true, Brn("2")));
@@ -655,7 +596,7 @@ void SuiteRaopResend::TestMultipleResendRecover()
     TEST(iTestPipe->Expect(Brn("MR::Destroy 7")));
 
     // Allow timer to fire again. Nothing should happen as no more missing packets.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
 
     // Send in more packets.
     iRepairer->OutputAudio(*iAllocator->Allocate(8, false, Brn("8")));
@@ -667,14 +608,14 @@ void SuiteRaopResend::TestMultipleResendRecover()
 
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(11, false, Brn("11")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Another packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(12, false, Brn("12")));
     // Allow timer to fire.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 10->10")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // More packets arrive before resend request satisfied.
     iRepairer->OutputAudio(*iAllocator->Allocate(13, false, Brn("13")));
     iRepairer->OutputAudio(*iAllocator->Allocate(14, false, Brn("14")));
@@ -703,20 +644,20 @@ void SuiteRaopResend::TestResendRequest()
 
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Send another packet in.
     iRepairer->OutputAudio(*iAllocator->Allocate(3, false, Brn("3")));
 
     // Fire timer again. Resend request should be made again as packet still hasn't arrived.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Send in missed packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(1, true, Brn("1")));
@@ -739,12 +680,12 @@ void SuiteRaopResend::TestResendPacketBufferOverflowFirst()
 
     // Miss a couple of packets.
     iRepairer->OutputAudio(*iAllocator->Allocate(3, false, Brn("3")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Fill buffer with packets.
     iRepairer->OutputAudio(*iAllocator->Allocate(4, false, Brn("4")));
@@ -755,7 +696,7 @@ void SuiteRaopResend::TestResendPacketBufferOverflowFirst()
 
     // Receive the first packet being waited on. Should cause overflow.
     TEST_THROWS(iRepairer->OutputAudio(*iAllocator->Allocate(2, true, Brn("2"))), RepairerBufferFull);
-    TEST(iTestPipe->Expect(Brn("MRT::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MT::Cancel Repairer")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 3")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 4")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 5")));
@@ -777,20 +718,20 @@ void SuiteRaopResend::TestResendPacketBufferOverflowMiddle()
 
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Miss another packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(4, false, Brn("4")));
 
     // Fire timer again.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1 3->3")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Now, send in some more packets to fill buffer.
     // So, have a packet missing at start and middle of repair buffer.
@@ -802,7 +743,7 @@ void SuiteRaopResend::TestResendPacketBufferOverflowMiddle()
     // Now, send in packet that was missing from middle of sequence (first packet still hasn't arrived).
     TEST_THROWS(iRepairer->OutputAudio(*iAllocator->Allocate(3, true, Brn("3"))), RepairerBufferFull);
     TEST(iTestPipe->Expect(Brn("MR::Destroy 3")));
-    TEST(iTestPipe->Expect(Brn("MRT::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MT::Cancel Repairer")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 2")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 4")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 5")));
@@ -823,12 +764,12 @@ void SuiteRaopResend::TestResendPacketBufferOverflowLast()
 
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Send in packets that should be appended to end of buffer until buffer overflows.
     iRepairer->OutputAudio(*iAllocator->Allocate(3, false, Brn("3")));
@@ -838,7 +779,7 @@ void SuiteRaopResend::TestResendPacketBufferOverflowLast()
     iRepairer->OutputAudio(*iAllocator->Allocate(7, false, Brn("7")));
 
     TEST_THROWS(iRepairer->OutputAudio(*iAllocator->Allocate(8, false, Brn("8"))), RepairerBufferFull);
-    TEST(iTestPipe->Expect(Brn("MRT::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MT::Cancel Repairer")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 2")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 3")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 4")));
@@ -858,12 +799,12 @@ void SuiteRaopResend::TestResendBufferOverflowRecover()
 
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Send in packets that should be appended to end of buffer until buffer overflows.
     iRepairer->OutputAudio(*iAllocator->Allocate(3, false, Brn("3")));
@@ -873,7 +814,7 @@ void SuiteRaopResend::TestResendBufferOverflowRecover()
     iRepairer->OutputAudio(*iAllocator->Allocate(7, false, Brn("7")));
 
     TEST_THROWS(iRepairer->OutputAudio(*iAllocator->Allocate(8, false, Brn("8"))), RepairerBufferFull);
-    TEST(iTestPipe->Expect(Brn("MRT::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MT::Cancel Repairer")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 2")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 3")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 4")));
@@ -903,20 +844,20 @@ void SuiteRaopResend::TestResendPacketsOutOfOrder()
 
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Miss another packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(4, false, Brn("4")));
 
     // Fire timer again.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1 3->3")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Now, send in the packets out of order.
     iRepairer->OutputAudio(*iAllocator->Allocate(3, true, Brn("3")));
@@ -945,12 +886,12 @@ void SuiteRaopResend::TestDropPacketWhileAwaitingResend()
 
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Send in a couple more packets.
     iRepairer->OutputAudio(*iAllocator->Allocate(3, false, Brn("3")));
@@ -974,9 +915,9 @@ void SuiteRaopResend::TestDropPacketWhileAwaitingResend()
     iRepairer->OutputAudio(*iAllocator->Allocate(7, false, Brn("7")));
 
     // Fire timer again, should still be repairing.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 5->5")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Now, send in requested packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(5, true, Brn("5")));
@@ -1000,25 +941,25 @@ void SuiteRaopResend::TestResendPacketsAlreadySeen()
 
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Miss another packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(4, false, Brn("4")));
 
     // Fire timer again.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1 3->3")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Act like first request wasn't answered and fire timer again.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1 3->3")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Now, send repair packets in.
     // Pretend race condition where packet 3 was actually sent after first request but just didn't arrive in time.
@@ -1080,14 +1021,14 @@ void SuiteRaopResend::TestStreamResetResendPending()
     TEST(iTestPipe->Expect(Brn("MR::Destroy 0")));
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // Send in packet with seq no. already seen, but that is not a resend.
     TEST_THROWS(iRepairer->OutputAudio(*iAllocator->Allocate(0, false, Brn("0"))), RepairerStreamRestarted);
-    TEST(iTestPipe->Expect(Brn("MRT::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MT::Cancel Repairer")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 2")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 0")));
     TEST(iTestPipe->ExpectEmpty());
@@ -1110,15 +1051,15 @@ void SuiteRaopResend::TestDropAudio()
     TEST(iTestPipe->Expect(Brn("MR::Destroy 0")));
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(2, false, Brn("2")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 1->1")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
 
     // Now, tell Repairer to drop audio.
     iRepairer->DropAudio();
-    TEST(iTestPipe->Expect(Brn("MRT::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MT::Cancel Repairer")));
     TEST(iTestPipe->Expect(Brn("MR::Destroy 2")));
 
     TEST(iTestPipe->ExpectEmpty());
@@ -1147,11 +1088,11 @@ void SuiteRaopResend::TestSequenceNumberWrappingDuringRepair()
     TEST(iTestPipe->Expect(Brn("MR::Destroy 65533")));
     // Miss a packet.
     iRepairer->OutputAudio(*iAllocator->Allocate(65535, false, Brn("65535")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // Fire timer.
-    iTimer->Fire();
+    iTimerFactory->FireTimer("Repairer");
     TEST(iTestPipe->Expect(Brn("MRR::ReqestResend 65534->65534")));
-    TEST(iTestPipe->Expect(Brn("MRT::Start")));
+    TEST(iTestPipe->Expect(Brn("MT::FireIn Repairer")));
     // Send in another packet, which wraps sequence no.
     iRepairer->OutputAudio(*iAllocator->Allocate(0, false, Brn("0")));
 

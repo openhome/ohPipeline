@@ -391,11 +391,10 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewMp3(iMediaPlayer->MimeTypes()));
 
     // Add protocol modules (Radio source can require several stacked Http instances)
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
+    static const TUint kNumHttpProtocols = 5;
+    for (TUint i=0; i<kNumHttpProtocols; i++) {
+        iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
+    }
     iMediaPlayer->Add(ProtocolFactory::NewHls(aEnv, iUserAgent));
 
     // only add Tidal if we have a token to use with login
@@ -438,8 +437,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     TUint priorityCodec = 0;
     TUint priorityEvent = 0;
     iMediaPlayer->Pipeline().GetThreadPriorities(priorityFiller, priorityFlywheelRamper, priorityStarvationRamper, priorityCodec, priorityEvent);
-    const TUint raopUdpPriority = priorityFiller;
-    iMediaPlayer->Add(SourceFactory::NewRaop(*iMediaPlayer, Optional<IClockPuller>(nullptr), macAddr, raopUdpPriority));
+    const TUint raopServerPriority = priorityFiller;
+    iMediaPlayer->Add(SourceFactory::NewRaop(*iMediaPlayer, Optional<IClockPuller>(nullptr), macAddr, raopServerPriority));
 
     iMediaPlayer->Add(SourceFactory::NewReceiver(*iMediaPlayer,
                                                  Optional<IClockPuller>(nullptr),
@@ -614,6 +613,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, T
 #endif
 
     Debug::SetLevel(Debug::kPipeline | Debug::kSources | Debug::kMedia);
+    Debug::SetSeverity(Debug::kSeverityInfo);
     Net::Library* lib = new Net::Library(initParams);
     //Net::DvStack* dvStack = lib->StartDv();
     std::vector<NetworkAdapter*>* subnetList = lib->CreateSubnetList();
