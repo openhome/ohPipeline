@@ -540,6 +540,7 @@ template <class T> TBool SerialisedMap<T>::TryRemove(const Brx& aKey)
     AutoMutex a(iLock);
     typename Map::const_iterator it = iMap.find(&key);
     if (it != iMap.end()) {
+        delete it->first;
         iMap.erase(it);
         found = true;
     }
