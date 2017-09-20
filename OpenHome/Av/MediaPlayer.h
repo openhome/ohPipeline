@@ -39,6 +39,7 @@ namespace Configuration {
     class ConfigText;
     class ConfigChoice;
     class ProviderConfig;
+    class ProviderConfigApp;
 }
 namespace Av {
 
@@ -154,6 +155,7 @@ private:
     ProviderTransport* iProviderTransport;
     Av::TransportRepeatRandom iTransportRepeatRandom;
     Configuration::ProviderConfig* iProviderConfig;
+    Configuration::ProviderConfigApp* iProviderConfigApp;
     LoggerBuffered* iLoggerBuffered;
     IUnixTimestamp* iUnixTimestamp;
 };

@@ -588,6 +588,7 @@ public:
     virtual void Added(ConfigNum& aVal) = 0;
     virtual void Added(ConfigChoice& aVal) = 0;
     virtual void Added(ConfigText& aVal) = 0;
+    virtual void AddsComplete() = 0;
     virtual void Removed(ConfigNum& aVal) = 0;
     virtual void Removed(ConfigChoice& aVal) = 0;
     virtual void Removed(ConfigText& aVal) = 0;

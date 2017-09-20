@@ -33,9 +33,11 @@ class ProviderFactory
 {
 public:
     static IProvider* NewConfiguration(Net::DvDevice& aDevice,
-                                       Configuration::IConfigManager& aConfigReader,
-                                       Configuration::IConfigObservable& aConfigObservable,
-                                       Configuration::IStoreReadWrite& aStore);
+                                       Configuration::IConfigManager& aConfigManager);
+    static IProvider* NewConfigApp(Net::DvDevice& aDevice,
+                                   Configuration::IConfigManager& aConfigManager,
+                                   Configuration::IConfigObservable& aConfigObservable,
+                                   Configuration::IStoreReadWrite& aStore);
 };
 
 } // namespace Av

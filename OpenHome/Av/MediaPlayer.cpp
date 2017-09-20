@@ -18,6 +18,7 @@
 #include <OpenHome/Configuration/IStore.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Configuration/ProviderConfig.h>
+#include <OpenHome/Configuration/ProviderConfigApp.h>
 #include <OpenHome/Av/Credentials.h>
 #include <OpenHome/Media/MimeTypeList.h>
 #include <OpenHome/Av/Logger.h>
@@ -56,7 +57,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iKvpStore = new KvpStore(aStaticDataSource);
     iTrackFactory = new Media::TrackFactory(aInfoAggregator, kTrackCount);
     iConfigManager = new Configuration::ConfigManager(iReadWriteStore);
-    iProviderConfig = new ProviderConfig(aDevice, *iConfigManager, *iConfigManager, iReadWriteStore); // must be created before any config values
+    iProviderConfigApp = nullptr; //new ProviderConfigApp(aDevice, *iConfigManager, *iConfigManager, iReadWriteStore); // must be created before any config values
     iPowerManager = new OpenHome::PowerManager(*iConfigManager);
     iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase /* + Brx::Empty() */, Product::kMaxRoomBytes, aDefaultRoom);
     iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase /* + Brx::Empty() */, Product::kMaxNameBytes, aDefaultName);
@@ -75,6 +76,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iProduct->AddAttribute("Time");
     iProviderInfo = new ProviderInfo(aDevice, *iPipeline);
     iProduct->AddAttribute("Info");
+    iProviderConfig = new ProviderConfig(aDevice, *iConfigManager);
     iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
     iProduct->AddAttribute("Transport");
 }
@@ -102,6 +104,7 @@ MediaPlayer::~MediaPlayer()
     delete iConfigProductRoom;
     delete iConfigProductName;
     delete iPowerManager;
+    delete iProviderConfigApp;
     delete iConfigManager;
     delete iTrackFactory;
     delete iKvpStore;
@@ -155,7 +158,6 @@ void MediaPlayer::Start()
     iConfigManager->Open();
     iPipeline->Start(*iVolumeManager, *iVolumeManager);
     iProviderTransport->Start();
-    iProviderConfig->Start();
     iCredentials->Start();
     iMimeTypes.Start();
     iProduct->Start();

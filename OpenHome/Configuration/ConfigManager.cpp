@@ -484,6 +484,9 @@ void ConfigManager::Open()
     // All keys should have been added, so sort key list.
     std::sort(iKeyListOrdered.begin(), iKeyListOrdered.end(), BufferPtrCmp());
     iOpen = true;
+    if (iObserver != nullptr) {
+        iObserver->AddsComplete();
+    }
 }
 
 void ConfigManager::Add(ConfigNum& aNum)
