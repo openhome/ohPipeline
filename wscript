@@ -720,6 +720,7 @@ def build(bld):
                 'OpenHome/Tests/Mock.cpp',
                 'OpenHome/Tests/TestPowerManager.cpp',
                 'OpenHome/Tests/TestSsl.cpp',
+                'OpenHome/Tests/TestSocket.cpp',
                 'OpenHome/Av/Tests/TestCredentials.cpp',
                 'Generated/CpAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Tests/TestJson.cpp',
@@ -980,6 +981,11 @@ def build(bld):
             source='OpenHome/Tests/TestSslMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
             target='TestSsl',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Tests/TestSocketMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestSocket',
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestCredentialsMain.cpp',
