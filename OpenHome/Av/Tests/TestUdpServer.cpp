@@ -252,6 +252,15 @@ void SuiteSocketUdpServer::TestInterrupt()
 {
     // interrupt server while it should be waiting on reading udp packet and try resume
     iServer->Open();
+
+    // Interrupt server before any read, then try read.
+    iServer->Interrupt(true);
+    TEST_THROWS(iServer->Receive(iInBuf), NetworkError);
+    // Further reads should result in exception until interrupt cleared.
+    TEST_THROWS(iServer->Receive(iInBuf), NetworkError);
+    iServer->Interrupt(false);
+
+    // Now, send some data in.
     for (TUint i=0; i<kMaxMsgCount; i++) {
         SendNextMsg(iOutBuf);
         iServer->Receive(iInBuf);

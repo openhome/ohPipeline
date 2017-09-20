@@ -81,6 +81,7 @@ SocketUdpServer::~SocketUdpServer()
     // Can't hold iLock here, as server thread needs to acquire iLock to check iQuit value following iSocket.Interrupt().
     iServerThread->Join();
     delete iServerThread;
+    iSocket.Close();
 
     AutoMutex _b(iLockFifo);
     while (iFifoReady.SlotsUsed() > 0) {
@@ -179,6 +180,11 @@ Endpoint SocketUdpServer::Receive(Bwx& aBuf)
         }
         if (!iOpen) {
             THROW(UdpServerClosed);
+        }
+        // Explicitly check if iInterrupted was previously set.
+        // Otherwise, could block in here if a previous Receive() call already picked up the iSemRead.Signal() from ::Interrupt().
+        if (iInterrupted) {
+            THROW(NetworkError);
         }
     }
 
