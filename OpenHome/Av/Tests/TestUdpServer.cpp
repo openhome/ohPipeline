@@ -118,7 +118,6 @@ private:
     Bws<kMaxMsgSize> iOutBuf;
     Bws<kMaxMsgSize> iInBuf;
     TByte iMsgCount;
-    Semaphore* iSem;
 };
 
 SuiteSocketUdpServer::SuiteSocketUdpServer(Environment& aEnv, TIpAddress aInterface)
@@ -155,12 +154,10 @@ void SuiteSocketUdpServer::Setup()
     iOutBuf.SetBytes(0);
     iInBuf.SetBytes(0);
     iMsgCount = 0;
-    iSem = new Semaphore("SSUS", 0);
 }
 
 void SuiteSocketUdpServer::TearDown()
 {
-    delete iSem;
     delete iSender;
     delete iServer;
 }
