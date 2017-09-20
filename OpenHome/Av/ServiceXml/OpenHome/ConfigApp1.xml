@@ -9,19 +9,9 @@
       <name>GetKeys</name>
       <argumentList>
         <argument>
-          <name>KeyList</name>
+          <name>Keys</name>
           <direction>out</direction>
-          <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
-        </argument>
-      </argumentList>
-    </action>
-    <action>
-      <name>GetDetails</name>
-      <argumentList>
-        <argument>
-          <name>Details</name>
-          <direction>out</direction>
-          <relatedStateVariable>Details</relatedStateVariable>
+          <relatedStateVariable>Keys</relatedStateVariable>
         </argument>
       </argumentList>
     </action>
@@ -56,36 +46,17 @@
       </argumentList>
     </action>
     <action>
-      <name>HasKey</name>
-      <argumentList>
-        <argument>
-          <name>Key</name>
-          <direction>in</direction>
-          <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
-        </argument>
-        <argument>
-          <name>Exists</name>
-          <direction>out</direction>
-          <relatedStateVariable>A_ARG_TYPE_Bool</relatedStateVariable>
-        </argument>
-      </argumentList>
-    </action>
-    <action>
       <name>ResetAll</name>
     </action>
   </actionList>
   <serviceStateTable>
     <stateVariable sendEvents="yes">
-      <name>Details</name>
+      <name>Keys</name>
       <dataType>string</dataType>
     </stateVariable>
     <stateVariable sendEvents="no">
       <name>A_ARG_TYPE_String</name>
       <dataType>string</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="no">
-      <name>A_ARG_TYPE_Bool</name>
-      <dataType>boolean</dataType>
     </stateVariable>
   </serviceStateTable>
 </scpd>
