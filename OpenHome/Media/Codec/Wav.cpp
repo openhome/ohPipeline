@@ -123,20 +123,21 @@ void CodecWav::Process()
         iController->ReadNextMsg(readBuf);
         iReadBuf.SetBytes(iReadBuf.Bytes() + readBuf.Bytes());
 
-        // Truncate to a sensible sample boundary.
-        const TUint remainder = iReadBuf.Bytes() % (iNumChannels * (iBitDepth/8));
-        TUint bufBytes = iReadBuf.Bytes() - remainder;
+        // If stream has a valid length, truncate if remaining length smaller than buffer read.
+        TUint bytes = iReadBuf.Bytes();
         if (iAudioBytesRemaining != 0) {
-            bufBytes = std::min(bufBytes, iAudioBytesRemaining);
+            bytes = std::min(bytes, iAudioBytesRemaining);
         }
-        Brn split = iReadBuf.Split(bufBytes);
-        iReadBuf.SetBytes(bufBytes);
+        // It's possible that data read into buffer, or value of iAudioBytesRemaining, does not end on a sensible sample boundary.
+        const TUint remainder = bytes % (iNumChannels * (iBitDepth/8));
+        bytes -= remainder;
+        const Brn outBuf(iReadBuf.Ptr(), bytes); // Do this to avoid truncating iReadBuf length to "bytes" here, as still need access to remainder of iReadBuf.
 
-        iTrackOffset += iController->OutputAudioPcm(iReadBuf, iNumChannels, iSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
+        iTrackOffset += iController->OutputAudioPcm(outBuf, iNumChannels, iSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
         if(iFileSize != 0) {
-            iAudioBytesRemaining -= iReadBuf.Bytes();
+            iAudioBytesRemaining -= outBuf.Bytes();
         }
-        iReadBuf.Replace(split);
+        iReadBuf.Replace(iReadBuf.Split(bytes));
     }
 }
 

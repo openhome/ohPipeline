@@ -87,26 +87,19 @@ private:
     void GenerateNextMsg(Bwx& aBuf);
     void SendNextMsg(Bwx& aBuf);
     void CheckMsgValue(Brx& aBuf, TByte aVal);
-    void WaitThread();
     void TestOpen();
-    void TestWaitForOpen();
-    void TestClearWaitForOpen();
-    void TestOpenTwice();
     void TestClose();
-    void TestCloseTwice();
     void TestReopen();
-    void TestMsgQueueClearedWhenClosed();
-    void TestMsgOrderingReceive();
-    void TestMsgOrderingRead();
+
+    void TestMsgOrdering();
+    void TestInterrupt();
     void TestReadFlush();
-    void TestReadInterrupt();
     void TestMsgsDisposedStart();
     void TestMsgsDisposed();
     void TestMsgsDisposedCapacityExceeded();
+
     void TestSend();
     void TestPort();
-    void TestSender();
-    //void TestSubnetChanged();
 private:
     static const TUint kUdpRecvBufSize = 8192;
     // ensure (kMaxMsgSize+8)*kMaxMsgCount < kUdpRecvBufSize
@@ -134,24 +127,16 @@ SuiteSocketUdpServer::SuiteSocketUdpServer(Environment& aEnv, TIpAddress aInterf
     , iInterface(aInterface)
 {
     AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestOpen), "TestOpen");
-    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestWaitForOpen), "TestWaitForOpen");
-    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestClearWaitForOpen), "TestClearWaitForOpen");
-    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestOpenTwice), "TestOpenTwice");
     AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestClose), "TestClose");
-    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestCloseTwice), "TestCloseTwice");
     AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestReopen), "TestReopen");
-    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestMsgQueueClearedWhenClosed), "TestMsgQueueClearedWhenClosed");
-    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestMsgOrderingReceive), "TestMsgOrderingReceive");
-    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestMsgOrderingRead), "TestMsgOrderingRead");
+    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestMsgOrdering), "TestMsgOrdering");
     AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestReadFlush), "TestReadFlush");
-    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestReadInterrupt), "TestReadInterrupt");
+    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestInterrupt), "TestInterrupt");
     AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestMsgsDisposedStart), "TestMsgsDisposedStart");
     AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestMsgsDisposed), "TestMsgsDisposed");
     AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestMsgsDisposedCapacityExceeded), "TestMsgsDisposedCapacityExceeded");
     AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestSend), "TestSend");
     AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestPort), "TestPort");
-    AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestSender), "TestSender");
-    //AddTest(MakeFunctor(*this, &SuiteSocketUdpServer::TestSubnetChanged));
 }
 
 void SuiteSocketUdpServer::Setup()
@@ -204,64 +189,19 @@ void SuiteSocketUdpServer::CheckMsgValue(Brx& aBuf, TByte aVal)
 {
     TEST(aBuf.Bytes() == kMaxMsgSize);
     TEST(aBuf[0] == aVal);
+    if (aBuf[0] != aVal) {
+        Log::Print("SuiteSocketUdpServer::CheckMsgValue comparison failed. aBuf[0]: %d, aVal: %d\n", aBuf[0], aVal);
+    }
     TEST(aBuf[aBuf.Bytes()-1] == aVal);
-}
-
-void SuiteSocketUdpServer::WaitThread()
-{
-    iSem->Signal();
-    iServer->WaitForOpen();
-    iSem->Signal();
 }
 
 void SuiteSocketUdpServer::TestOpen()
 {
     // test calls to Receive are allowed immediately after call to Open()
     iServer->Open();
-    TEST(iServer->IsOpen() == true);
     SendNextMsg(iOutBuf);
     iServer->Receive(iInBuf);
     CheckMsgValue(iInBuf, iMsgCount++);
-}
-
-void SuiteSocketUdpServer::TestWaitForOpen()
-{
-    // test WaitForOpen() blocks until Open() is called
-
-    // should go as follows:
-    // - start wait thread
-    // - block until wait thread starts
-    // - wait thread calls WaitForOpen()
-    // - this thread calls Open()
-    // - block until wait thread signals semaphore again
-    ThreadFunctor* waitThread = new ThreadFunctor("SuiteUdpServer", MakeFunctor(*this, &SuiteSocketUdpServer::WaitThread));
-    waitThread->Start();
-    iSem->Wait(kSemWaitMs);
-    iServer->Open();
-    iSem->Wait(kSemWaitMs);
-    waitThread->Kill();
-    waitThread->Join();
-    delete waitThread;
-}
-
-void SuiteSocketUdpServer::TestClearWaitForOpen()
-{
-    // test ClearWaitForOpen() causes WaitForOpen() to return
-    ThreadFunctor* waitThread = new ThreadFunctor("SuiteUdpServer", MakeFunctor(*this, &SuiteSocketUdpServer::WaitThread));
-    waitThread->Start();
-    iSem->Wait(kSemWaitMs);
-    iServer->ClearWaitForOpen();
-    iSem->Wait(kSemWaitMs);
-    waitThread->Kill();
-    waitThread->Join();
-    delete waitThread;
-}
-
-void SuiteSocketUdpServer::TestOpenTwice()
-{
-    // test Open() cannot be called when server already open
-    iServer->Open();
-    TEST_THROWS(iServer->Open(), AssertionFailed);
 }
 
 void SuiteSocketUdpServer::TestClose()
@@ -270,18 +210,9 @@ void SuiteSocketUdpServer::TestClose()
     Bws<kMaxMsgSize> buf;
     iServer->Open();
     iServer->Close();
-    TEST(iServer->IsOpen() == false);
     TEST_THROWS(iServer->Receive(buf), UdpServerClosed);
-    TEST_THROWS(iServer->Read(buf), ReaderError);
 }
 
-void SuiteSocketUdpServer::TestCloseTwice()
-{
-    // test Close() cannot be called when server already closed
-    iServer->Open();
-    iServer->Close();
-    TEST_THROWS(iServer->Close(), AssertionFailed);
-}
 void SuiteSocketUdpServer::TestReopen()
 {
     // test server can be successfully closed and re-opened
@@ -298,54 +229,13 @@ void SuiteSocketUdpServer::TestReopen()
     CheckMsgValue(iInBuf, iMsgCount++);
 }
 
-void SuiteSocketUdpServer::TestMsgQueueClearedWhenClosed()
-{
-    // test any msgs received by the server, but not yet read by a client, are
-    // disposed of when the server is closed and not retrievable when server is
-    // re-opened
-
-    iServer->Open();
-    // send some msgs with server open, but don't read them
-    for (TUint i=0; i<kDisposedCount; i++) {
-        SendNextMsg(iOutBuf);
-    }
-    iMsgCount += kDisposedCount;
-
-    // now close the server, which should clear the msg queue
-    iServer->Close();
-
-    // now re-open server and send more msgs - none of the first set of msgs
-    // should be retrievable
-    iServer->Open();
-    TUint totalMsgCount = iMsgCount + 10;
-    for (;iMsgCount<totalMsgCount;) {
-        SendNextMsg(iOutBuf);
-        iServer->Receive(iInBuf);
-        // should definitely not receive any of first set of msgs, so if
-        // ordering problems occur here and not down to network issues,
-        // suggests msg queue wasn't cleared
-        CheckMsgValue(iInBuf, iMsgCount++);
-    }
-}
-
-void SuiteSocketUdpServer::TestMsgOrderingReceive()
-{
-    // test msgs are received in correct order (when sent in a synchronised manner)
-    iServer->Open();
-    for (TUint i=0; i<kMaxMsgCount; i++) {
-        SendNextMsg(iOutBuf);
-        iServer->Receive(iInBuf);
-        CheckMsgValue(iInBuf, iMsgCount++);
-    }
-}
-
-void SuiteSocketUdpServer::TestMsgOrderingRead()
+void SuiteSocketUdpServer::TestMsgOrdering()
 {
     // test msgs are read in correct order (when sent in a synchronised manner)
     iServer->Open();
     for (TUint i=0; i<kMaxMsgCount; i++) {
         SendNextMsg(iOutBuf);
-        iServer->Read(iInBuf);
+        iServer->Receive(iInBuf);
         CheckMsgValue(iInBuf, iMsgCount++);
     }
 }
@@ -356,28 +246,29 @@ void SuiteSocketUdpServer::TestReadFlush()
     iServer->Open();
     for (TUint i=0; i<kMaxMsgCount; i++) {
         SendNextMsg(iOutBuf);
-        iServer->Read(iInBuf);
-        iServer->ReadFlush();
+        iServer->Receive(iInBuf);
         CheckMsgValue(iInBuf, iMsgCount++);
     }
 }
 
-void SuiteSocketUdpServer::TestReadInterrupt()
+void SuiteSocketUdpServer::TestInterrupt()
 {
-    // interrupt server while it should be waiting on reading udp packet and
-    // try resume
+    // interrupt server while it should be waiting on reading udp packet and try resume
     iServer->Open();
     for (TUint i=0; i<kMaxMsgCount; i++) {
         SendNextMsg(iOutBuf);
-        iServer->Read(iInBuf);
+        iServer->Receive(iInBuf);
         CheckMsgValue(iInBuf, iMsgCount++);
     }
 
-    iServer->ReadInterrupt();
+    iServer->Interrupt(true);
+    TEST_THROWS(iServer->Receive(iInBuf), NetworkError);
+    iServer->Interrupt(false);
 
+    // Now that interrupt has been cleared, read more packets.
     for (TUint i=0; i<kMaxMsgCount; i++) {
         SendNextMsg(iOutBuf);
-        iServer->Read(iInBuf);
+        iServer->Receive(iInBuf);
         CheckMsgValue(iInBuf, iMsgCount++);
     }
 }
@@ -385,11 +276,6 @@ void SuiteSocketUdpServer::TestReadInterrupt()
 void SuiteSocketUdpServer::TestMsgsDisposedStart()
 {
     // test msgs are disposed of when server is closed from start and re-opened
-    TUint notDisposed = 0;
-
-    iServer->Open();
-    iServer->Close();
-
     for (TUint i=0; i<kDisposedCount; i++) {
         SendNextMsg(iOutBuf);
     }
@@ -397,26 +283,36 @@ void SuiteSocketUdpServer::TestMsgsDisposedStart()
     iMsgCount += kDisposedCount;
     iServer->Open();
 
-    // due to timing issues, server may have been re-opened and received one
-    // (or more) msgs intended to be dropped - dispose of these
-    TUint totalMsgCount = iMsgCount + 10;
+    const TUint totalMsgCount = iMsgCount + 10;
+    TUint notDisposed = 0;
     for (;iMsgCount<totalMsgCount;) {
         SendNextMsg(iOutBuf);
         iServer->Receive(iInBuf);
-        if (iInBuf[0] < iMsgCount) { // rcvd a msg intended for disposal
+        // Due to timing issues, server may have been re-opened and received one or more msgs intended to be dropped - dispose of these. This is because the server thread may not have had a chance to consume and discard all those messages prior to being re-opened.
+
+
+
+
+        // FIXME - a way to address this would be to provide a mock IUdpSocket interface, and the implementation of that interface for test purposes would allow us to wait until Receive() had been called on it for all queued messages. At that point, we would know that server has consumed all messages, and that we can definitely test that none of those messages are pulled through when server re-opened.
+
+
+
+
+        if (iInBuf[0] < iMsgCount) { // rcvd a message queued up after Close() was called.
             notDisposed++;
             continue;
         }
+        // should definitely not receive any of first set of msgs, so if
+        // ordering problems occur here and not down to network issues,
+        // suggests msg queue wasn't cleared
         CheckMsgValue(iInBuf, iMsgCount++);
     }
-    ASSERT(notDisposed < kDisposedCount);
+    TEST(notDisposed <= kDisposedCount);
 }
 
 void SuiteSocketUdpServer::TestMsgsDisposed()
 {
     // test msgs are disposed of when server is closed part-way through execution, then re-opened
-    TUint notDisposed = 0;
-
     iServer->Open();
     for (TUint i=0; i<10; i++) {
         SendNextMsg(iOutBuf);
@@ -424,6 +320,12 @@ void SuiteSocketUdpServer::TestMsgsDisposed()
         CheckMsgValue(iInBuf, iMsgCount++);
     }
 
+    // Send some messages that will not be read, and will be dropped when server closed.
+    for (TUint i=0; i<kDisposedCount; i++) {
+        SendNextMsg(iOutBuf);
+    }
+    iMsgCount += kDisposedCount;
+
     iServer->Close();
     for (TUint i=0; i<kDisposedCount; i++) {
         SendNextMsg(iOutBuf);
@@ -432,24 +334,25 @@ void SuiteSocketUdpServer::TestMsgsDisposed()
     iMsgCount += kDisposedCount;
     iServer->Open();
 
-    TUint totalMsgCount = iMsgCount + 10;
+    const TUint totalMsgCount = iMsgCount + 10;
+    TUint notDisposed = 0;
     for (;iMsgCount<totalMsgCount;) {
         SendNextMsg(iOutBuf);
         iServer->Receive(iInBuf);
-        if (iInBuf[0] < iMsgCount) { // rcvd a msg intended for disposal
+        // Due to timing issues, server may have been re-opened and received one or more msgs intended to be dropped - dispose of these. This is because the server thread may not have had a chance to consume and discard all those messages prior to being re-opened.
+        if (iInBuf[0] < iMsgCount) { // rcvd a message queued up after Close() was called.
             notDisposed++;
             continue;
         }
         CheckMsgValue(iInBuf, iMsgCount++);
     }
-    ASSERT(notDisposed < kDisposedCount);
+    // Only possible undiposed messages received should have been those queued up after Close() was called. (i.e., kDisposedCount at most).
+    TEST(notDisposed <= kDisposedCount);
 }
 
 void SuiteSocketUdpServer::TestMsgsDisposedCapacityExceeded()
 {
     // test msgs are disposed of when server capacity exceeded
-    TUint notDisposed = 0;
-
     iServer->Open();
     for (TUint i=0; i<kMaxMsgCount+kDisposedCount; i++) {
         SendNextMsg(iOutBuf);
@@ -466,12 +369,7 @@ void SuiteSocketUdpServer::TestMsgsDisposedCapacityExceeded()
     for (;iMsgCount<totalMsgCount;) {
         SendNextMsg(iOutBuf);
         iServer->Receive(iInBuf);
-        if (iInBuf[0] < iMsgCount) { // rcvd a msg intended for disposal
-            notDisposed++;
-            continue;
-        }
         CheckMsgValue(iInBuf, iMsgCount++);
-        ASSERT(notDisposed < kDisposedCount);
     }
 }
 
@@ -513,22 +411,6 @@ void SuiteSocketUdpServer::TestPort()
     Endpoint ep = iSender->Receive(iInBuf);
 
     TEST(iServer->Port() == ep.Port());
-}
-
-void SuiteSocketUdpServer::TestSender()
-{
-    Endpoint empty;
-    iServer->Open();
-    Endpoint ep = iServer->Sender(); // no call to Read() has been made
-    TEST(ep.Address() == empty.Address());
-    TEST(ep.Port() == empty.Port());
-
-    Endpoint expected(iSender->Port(), iInterface);
-    SendNextMsg(iOutBuf);
-    iServer->Read(iInBuf);
-    ep = iServer->Sender();
-    TEST(ep.Address() == expected.Address());
-    TEST(ep.Port() == expected.Port());
 }
 
 //void SuiteSocketUdpServer::TestSubnetChanged()
