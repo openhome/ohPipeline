@@ -158,8 +158,8 @@ void SuiteSocketUdpServer::Setup()
 
 void SuiteSocketUdpServer::TearDown()
 {
-    delete iSender;
     delete iServer;
+    delete iSender;
 }
 
 void SuiteSocketUdpServer::PrintBufInfo(const char* aMsg, Brx& aBuf)
