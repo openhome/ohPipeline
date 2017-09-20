@@ -184,7 +184,7 @@ Endpoint SocketUdpServer::Receive(Bwx& aBuf)
 
     // Use for loop to consume extra iSemRead signals when message not available (e.g., Interrupt() was called many times).
     for (;;) {
-        iSemRead.Signal();
+        iSemRead.Wait();
         {
             AutoMutex _(iLock);
             if (iInterrupted) {
