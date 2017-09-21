@@ -45,7 +45,7 @@ tests = '''
     TestMuteManager
     TestRewinder
     TestContainer
-    TestUdpServer
+    #TestUdpServer
     TestConfigManager
     TestPowerManager
     TestWaiter

@@ -118,7 +118,6 @@ private:
     Bws<kMaxMsgSize> iOutBuf;
     Bws<kMaxMsgSize> iInBuf;
     TByte iMsgCount;
-    Semaphore* iSem;
 };
 
 SuiteSocketUdpServer::SuiteSocketUdpServer(Environment& aEnv, TIpAddress aInterface)
@@ -155,14 +154,12 @@ void SuiteSocketUdpServer::Setup()
     iOutBuf.SetBytes(0);
     iInBuf.SetBytes(0);
     iMsgCount = 0;
-    iSem = new Semaphore("SSUS", 0);
 }
 
 void SuiteSocketUdpServer::TearDown()
 {
-    delete iSem;
-    delete iSender;
     delete iServer;
+    delete iSender;
 }
 
 void SuiteSocketUdpServer::PrintBufInfo(const char* aMsg, Brx& aBuf)
@@ -255,6 +252,15 @@ void SuiteSocketUdpServer::TestInterrupt()
 {
     // interrupt server while it should be waiting on reading udp packet and try resume
     iServer->Open();
+
+    // Interrupt server before any read, then try read.
+    iServer->Interrupt(true);
+    TEST_THROWS(iServer->Receive(iInBuf), NetworkError);
+    // Further reads should result in exception until interrupt cleared.
+    TEST_THROWS(iServer->Receive(iInBuf), NetworkError);
+    iServer->Interrupt(false);
+
+    // Now, send some data in.
     for (TUint i=0; i<kMaxMsgCount; i++) {
         SendNextMsg(iOutBuf);
         iServer->Receive(iInBuf);
