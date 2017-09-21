@@ -14,10 +14,9 @@ using namespace OpenHome::Net;
 IProvider* ProviderFactory::NewConfigApp(DvDevice& aDevice,
                                          IConfigManager& aConfigReader,
                                          IConfigObservable& aConfigObservable,
-                                         IStoreReadWrite& aStore,
-                                         IRebootHandler& aRebootHandler)
+                                         IStoreReadWrite& aStore)
 { // static
-    return new ProviderConfigApp(aDevice, aConfigReader, aConfigObservable, aStore, aRebootHandler);
+    return new ProviderConfigApp(aDevice, aConfigReader, aConfigObservable, aStore);
 }
 
 
@@ -119,13 +118,12 @@ const Brn ProviderConfigApp::kRebootReason("FacDef");
 ProviderConfigApp::ProviderConfigApp(DvDevice& aDevice,
                                      IConfigManager& aConfigManager,
                                      IConfigObservable& aConfigObservable,
-                                     IStoreReadWrite& aStore,
-                                     Av::IRebootHandler& aRebootHandler)
+                                     IStoreReadWrite& aStore)
     : DvProviderAvOpenhomeOrgConfigApp1(aDevice)
     , iConfigManager(aConfigManager)
     , iConfigObservable(aConfigObservable)
     , iStore(aStore)
-    , iRebootHandler(aRebootHandler)
+    , iRebootHandler(nullptr)
     , iLock("PCFG")
 {
     EnablePropertyKeys();
@@ -142,6 +140,11 @@ ProviderConfigApp::~ProviderConfigApp()
 {
     iConfigObservable.Remove(*this);
     ClearMaps();
+}
+
+void ProviderConfigApp::Attach(Av::IRebootHandler& aRebootHandler)
+{
+    iRebootHandler = &aRebootHandler;
 }
 
 void ProviderConfigApp::Added(ConfigNum& aVal)
@@ -359,7 +362,8 @@ void ProviderConfigApp::GetValue(IDvInvocation& aInvocation, const Brx& aKey, ID
 void ProviderConfigApp::ResetAll(IDvInvocation& aInvocation)
 {
     iStore.DeleteAll();
-    iRebootHandler.Reboot(kRebootReason);
+    ASSERT(iRebootHandler != nullptr);
+    iRebootHandler->Reboot(kRebootReason);
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }

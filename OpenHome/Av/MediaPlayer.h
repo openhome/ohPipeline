@@ -98,7 +98,7 @@ public:
                 Configuration::IStoreReadWrite& aReadWriteStore,
                 Media::PipelineInitParams* aPipelineInitParams,
                 VolumeConsumer& aVolumeConsumer, IVolumeProfile& aVolumeProfile,
-                IRebootHandler& aRebootHandler,  IInfoAggregator& aInfoAggregator,
+                IInfoAggregator& aInfoAggregator,
                 const Brx& aEntropy,
                 const Brx& aDefaultRoom,
                 const Brx& aDefaultName);
@@ -109,7 +109,7 @@ public:
     void Add(Media::Protocol* aProtocol);
     void Add(ISource* aSource);
     RingBufferLogger* LogBuffer(); // an optional component. returns nullptr if not available. no transfer of ownership.
-    void Start();
+    void Start(IRebootHandler& aRebootHandler);
 public: // from IMediaPlayer
     Environment& Env() override;
     Net::DvStack& DvStack() override;

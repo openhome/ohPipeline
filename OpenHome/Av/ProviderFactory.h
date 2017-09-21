@@ -13,7 +13,6 @@ namespace Net {
 }
 namespace Av {
     class Product;
-    class IRebootHandler;
 
 /**
  * DvProvider (the base class of all providers) does not have a publicly
@@ -38,8 +37,7 @@ public:
     static IProvider* NewConfigApp(Net::DvDevice& aDevice,
                                    Configuration::IConfigManager& aConfigManager,
                                    Configuration::IConfigObservable& aConfigObservable,
-                                   Configuration::IStoreReadWrite& aStore,
-                                   IRebootHandler& aRebootHandler);
+                                   Configuration::IStoreReadWrite& aStore);
 };
 
 } // namespace Av

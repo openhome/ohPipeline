@@ -216,7 +216,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     iMediaPlayer = new MediaPlayer(aDvStack, *iDevice, *iRamStore,
                                    *iConfigRamStore, pipelineInit,
                                    volumeInit, volumeProfile,
-                                   iRebootHandler, *iInfoLogger,
+                                   *iInfoLogger,
                                    aUdn, Brn(aRoom), Brn(aProductName));
     iPipelineObserver = new LoggingPipelineObserver();
     iMediaPlayer->Pipeline().AddObserver(*iPipelineObserver);
@@ -302,7 +302,7 @@ void TestMediaPlayer::Run()
     Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
 
     InitialiseLogger();
-    iMediaPlayer->Start();
+    iMediaPlayer->Start(iRebootHandler);
     InitialiseSubsystems();
 
     // Debugging for ConfigManager.
@@ -336,7 +336,7 @@ void TestMediaPlayer::RunWithSemaphore()
 {
     RegisterPlugins(iMediaPlayer->Env());
     AddConfigApp();
-    iMediaPlayer->Start();
+    iMediaPlayer->Start(iRebootHandler);
     InitialiseSubsystems();
 
     // Debugging for ConfigManager.

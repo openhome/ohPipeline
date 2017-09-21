@@ -39,7 +39,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
                          IStoreReadWrite& aReadWriteStore,
                          PipelineInitParams* aPipelineInitParams,
                          VolumeConsumer& aVolumeConsumer, IVolumeProfile& aVolumeProfile,
-                         IRebootHandler& aRebootHandler, IInfoAggregator& aInfoAggregator,
+                         IInfoAggregator& aInfoAggregator,
                          const Brx& aEntropy,
                          const Brx& aDefaultRoom,
                          const Brx& aDefaultName)
@@ -59,7 +59,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iConfigManager = new Configuration::ConfigManager(iReadWriteStore);
     iProviderConfigApp = new ProviderConfigApp(aDevice,
                                                *iConfigManager, *iConfigManager,
-                                               iReadWriteStore, aRebootHandler); // must be created before any config values
+                                               iReadWriteStore); // must be created before any config values
     iPowerManager = new OpenHome::PowerManager(*iConfigManager);
     iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase /* + Brx::Empty() */, Product::kMaxRoomBytes, aDefaultRoom);
     iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase /* + Brx::Empty() */, Product::kMaxNameBytes, aDefaultName);
@@ -153,7 +153,7 @@ ILoggerSerial& MediaPlayer::BufferLogOutput(TUint aBytes, IShell& aShell, Option
     return iLoggerBuffered->LoggerSerial();
 }
 
-void MediaPlayer::Start()
+void MediaPlayer::Start(IRebootHandler& aRebootHandler)
 {
     // All sources must have been added to Product by time this is called.
     // So, can now initialise startup source ConfigVal.
@@ -162,6 +162,7 @@ void MediaPlayer::Start()
     iConfigManager->Open();
     iPipeline->Start(*iVolumeManager, *iVolumeManager);
     iProviderTransport->Start();
+    iProviderConfigApp->Attach(aRebootHandler);
     iCredentials->Start();
     iMimeTypes.Start();
     iProduct->Start();

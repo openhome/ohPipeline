@@ -40,9 +40,9 @@ public:
     ProviderConfigApp(Net::DvDevice& aDevice,
                       Configuration::IConfigManager& aConfigManager,
                       Configuration::IConfigObservable& aConfigObservable,
-                      Configuration::IStoreReadWrite& aStore,
-                      Av::IRebootHandler& aRebootHandler);
+                      Configuration::IStoreReadWrite& aStore);
     ~ProviderConfigApp();
+    void Attach(Av::IRebootHandler& aRebootHandler);
 private: // from IConfigObserver
     void Added(ConfigNum& aVal) override;
     void Added(ConfigChoice& aVal) override;
@@ -115,7 +115,7 @@ private:
     Configuration::IConfigManager& iConfigManager;
     Configuration::IConfigObservable& iConfigObservable;
     IStoreReadWrite& iStore;
-    Av::IRebootHandler& iRebootHandler;
+    Av::IRebootHandler* iRebootHandler;
     KeysWriter iKeysWriter;
     std::map<Brn, ConfigItemNum*, BufferCmp> iMapNum;
     std::map<Brn, ConfigItemChoice*, BufferCmp> iMapChoice;
