@@ -60,6 +60,7 @@ class VolumeConsumer;
 class IVolumeManager;
 class IVolumeProfile;
 class ConfigStartupSource;
+class IRebootHandler;
 
 class IMediaPlayer
 {
@@ -97,7 +98,7 @@ public:
                 Configuration::IStoreReadWrite& aReadWriteStore,
                 Media::PipelineInitParams* aPipelineInitParams,
                 VolumeConsumer& aVolumeConsumer, IVolumeProfile& aVolumeProfile,
-                IInfoAggregator& aInfoAggregator,
+                IRebootHandler& aRebootHandler,  IInfoAggregator& aInfoAggregator,
                 const Brx& aEntropy,
                 const Brx& aDefaultRoom,
                 const Brx& aDefaultName);

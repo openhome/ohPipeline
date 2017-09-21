@@ -39,7 +39,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
                          IStoreReadWrite& aReadWriteStore,
                          PipelineInitParams* aPipelineInitParams,
                          VolumeConsumer& aVolumeConsumer, IVolumeProfile& aVolumeProfile,
-                         IInfoAggregator& aInfoAggregator,
+                         IRebootHandler& aRebootHandler, IInfoAggregator& aInfoAggregator,
                          const Brx& aEntropy,
                          const Brx& aDefaultRoom,
                          const Brx& aDefaultName)
@@ -57,7 +57,9 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iKvpStore = new KvpStore(aStaticDataSource);
     iTrackFactory = new Media::TrackFactory(aInfoAggregator, kTrackCount);
     iConfigManager = new Configuration::ConfigManager(iReadWriteStore);
-    iProviderConfigApp = nullptr; //new ProviderConfigApp(aDevice, *iConfigManager, *iConfigManager, iReadWriteStore); // must be created before any config values
+    iProviderConfigApp = new ProviderConfigApp(aDevice,
+                                               *iConfigManager, *iConfigManager,
+                                               iReadWriteStore, aRebootHandler); // must be created before any config values
     iPowerManager = new OpenHome::PowerManager(*iConfigManager);
     iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase /* + Brx::Empty() */, Product::kMaxRoomBytes, aDefaultRoom);
     iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase /* + Brx::Empty() */, Product::kMaxNameBytes, aDefaultName);
@@ -79,6 +81,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iProviderConfig = new ProviderConfig(aDevice, *iConfigManager);
     iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
     iProduct->AddAttribute("Transport");
+    iProduct->AddAttribute("ConfigApp"); // iProviderConfigApp is instantiated before iProduct
+                                         // so this attribute can't be added in the obvious location
 }
 
 MediaPlayer::~MediaPlayer()

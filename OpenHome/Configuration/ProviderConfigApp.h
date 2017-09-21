@@ -11,6 +11,9 @@
 #include <map>
 
 namespace OpenHome {
+    namespace Av {
+        class IRebootHandler;
+    }
     namespace Net {
         class PropertyInt;
         class PropertyUint;
@@ -32,11 +35,13 @@ class ProviderConfigApp : public Net::DvProviderAvOpenhomeOrgConfigApp1
     static const Brn kErrorDescValueOutOfRange;
     static const Brn kErrorDescInvalidSelection;
     static const Brn kErrorDescValueTooLong;
+    static const Brn kRebootReason;
 public:
     ProviderConfigApp(Net::DvDevice& aDevice,
                       Configuration::IConfigManager& aConfigManager,
                       Configuration::IConfigObservable& aConfigObservable,
-                      Configuration::IStoreReadWrite& aStore);
+                      Configuration::IStoreReadWrite& aStore,
+                      Av::IRebootHandler& aRebootHandler);
     ~ProviderConfigApp();
 private: // from IConfigObserver
     void Added(ConfigNum& aVal) override;
@@ -47,7 +52,7 @@ private: // from IConfigObserver
     void Removed(ConfigChoice& aVal) override;
     void Removed(ConfigText& aVal) override;
 private:
-    void CreateKey(const Brx& aConfigKey, Bwx& aKey);
+    void StripKey(const Brx& aConfigKey, Bwx& aKey);
     void ConfigNumChanged(KeyValuePair<TInt>& aKvp);
     void ConfigChoiceChanged(KeyValuePair<TUint>& aKvp);
     void ConfigTextChanged(KeyValuePair<const Brx&>& aKvp);
@@ -91,7 +96,7 @@ private:
             , iProperty(aProperty)
             , iListenerId(IConfigManager::kSubscriptionIdInvalid)
         {
-            aKey.TransferTo(iKey);
+            aKey.TransferTo(iKeyStripped);
         }
         ~ConfigItem()
         {
@@ -101,7 +106,7 @@ private:
         T& iVal;
         S& iProperty;
         TUint iListenerId;
-        Brh iKey;
+        Brh iKeyStripped;
     };
     typedef ConfigItem<ConfigNum,    Net::PropertyInt>    ConfigItemNum;
     typedef ConfigItem<ConfigChoice, Net::PropertyUint>   ConfigItemChoice;
@@ -110,10 +115,12 @@ private:
     Configuration::IConfigManager& iConfigManager;
     Configuration::IConfigObservable& iConfigObservable;
     IStoreReadWrite& iStore;
+    Av::IRebootHandler& iRebootHandler;
     KeysWriter iKeysWriter;
     std::map<Brn, ConfigItemNum*, BufferCmp> iMapNum;
     std::map<Brn, ConfigItemChoice*, BufferCmp> iMapChoice;
     std::map<Brn, ConfigItemText*, BufferCmp> iMapText;
+    std::map<Brn, Brn, BufferCmp> iMapKeys;
     Mutex iLock;
 };
 

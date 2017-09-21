@@ -41,9 +41,9 @@ ConfigNum::ConfigNum(IConfigInitialiser& aManager, const Brx& aKey,
         ASSERTS();
     }
 
-    iConfigManager.Add(*this);
     iVal = initialVal;
 
+    iConfigManager.Add(*this);
     AddInitialSubscribers();
 }
 
@@ -210,9 +210,9 @@ void ConfigChoice::Init()
         ASSERTS();
     }
 
-    iConfigManager.Add(*this);
     iSelected = initialVal;
 
+    iConfigManager.Add(*this);
     AddInitialSubscribers();
 }
 
@@ -297,9 +297,9 @@ ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMax
     }
 
     // Initial value fits into initial buf, so it is within max length limit.
-    iConfigManager.Add(*this);
     iText.Replace(initialBuf);
 
+    iConfigManager.Add(*this);
     AddInitialSubscribers();
 }
 

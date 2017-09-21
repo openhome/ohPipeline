@@ -1,5 +1,6 @@
 #include <OpenHome/Configuration/ProviderConfigApp.h>
 #include <OpenHome/Av/Product.h>
+#include <OpenHome/Av/RebootHandler.h>
 #include <OpenHome/Private/Ascii.h>
 
 using namespace OpenHome;
@@ -13,9 +14,10 @@ using namespace OpenHome::Net;
 IProvider* ProviderFactory::NewConfigApp(DvDevice& aDevice,
                                          IConfigManager& aConfigReader,
                                          IConfigObservable& aConfigObservable,
-                                         IStoreReadWrite& aStore)
+                                         IStoreReadWrite& aStore,
+                                         IRebootHandler& aRebootHandler)
 { // static
-    return new ProviderConfigApp(aDevice, aConfigReader, aConfigObservable, aStore);
+    return new ProviderConfigApp(aDevice, aConfigReader, aConfigObservable, aStore, aRebootHandler);
 }
 
 
@@ -112,14 +114,18 @@ const Brn ProviderConfigApp::kErrorDescInvalidSelection("Expected value selected
 const TUint ProviderConfigApp::kErrorCodeValueTooLong = 804;
 const Brn ProviderConfigApp::kErrorDescValueTooLong("Value too long");
 
+const Brn ProviderConfigApp::kRebootReason("FacDef");
+
 ProviderConfigApp::ProviderConfigApp(DvDevice& aDevice,
                                      IConfigManager& aConfigManager,
                                      IConfigObservable& aConfigObservable,
-                                     IStoreReadWrite& aStore)
+                                     IStoreReadWrite& aStore,
+                                     Av::IRebootHandler& aRebootHandler)
     : DvProviderAvOpenhomeOrgConfigApp1(aDevice)
     , iConfigManager(aConfigManager)
     , iConfigObservable(aConfigObservable)
     , iStore(aStore)
+    , iRebootHandler(aRebootHandler)
     , iLock("PCFG")
 {
     EnablePropertyKeys();
@@ -142,45 +148,51 @@ void ProviderConfigApp::Added(ConfigNum& aVal)
 {
     AutoMutex _(iLock);
     Bwh keyStripped(aVal.Key().Bytes());
-    CreateKey(aVal.Key(), keyStripped);
+    StripKey(aVal.Key(), keyStripped);
     iKeysWriter.Add(aVal, keyStripped);
-    Brn key(keyStripped);
-    auto prop = new PropertyInt(new ParameterInt(key));
+    Brn keyBuf(aVal.Key());
+    Brn keyStrippedBuf(keyStripped);
+    auto prop = new PropertyInt(new ParameterInt(keyStripped));
     iService->AddProperty(prop); // passes ownership
     auto item = new ConfigItemNum(aVal, *prop, keyStripped);
-    iMapNum.insert(std::pair<Brn, ConfigItemNum*>(key, item));
+    iMapNum.insert(std::pair<Brn, ConfigItemNum*>(keyBuf, item));
     auto cb = MakeFunctorConfigNum(*this, &ProviderConfigApp::ConfigNumChanged);
     item->iListenerId = aVal.Subscribe(cb);
+    iMapKeys.insert(std::pair<Brn, Brn>(keyStrippedBuf, keyBuf));
 }
 
 void ProviderConfigApp::Added(ConfigChoice& aVal)
 {
     AutoMutex _(iLock);
     Bwh keyStripped(aVal.Key().Bytes());
-    CreateKey(aVal.Key(), keyStripped);
+    StripKey(aVal.Key(), keyStripped);
     iKeysWriter.Add(aVal, keyStripped);
-    Brn key(keyStripped);
-    auto prop = new PropertyUint(new ParameterUint(key));
+    Brn keyBuf(aVal.Key());
+    Brn keyStrippedBuf(keyStripped);
+    auto prop = new PropertyUint(new ParameterUint(keyStripped));
     iService->AddProperty(prop); // passes ownership
     auto item = new ConfigItemChoice(aVal, *prop, keyStripped);
-    iMapChoice.insert(std::pair<Brn, ConfigItemChoice*>(key, item));
+    iMapChoice.insert(std::pair<Brn, ConfigItemChoice*>(keyBuf, item));
     auto cb = MakeFunctorConfigChoice(*this, &ProviderConfigApp::ConfigChoiceChanged);
     item->iListenerId = aVal.Subscribe(cb);
+    iMapKeys.insert(std::pair<Brn, Brn>(keyStrippedBuf, keyBuf));
 }
 
 void ProviderConfigApp::Added(ConfigText& aVal)
 {
     AutoMutex _(iLock);
     Bwh keyStripped(aVal.Key().Bytes());
-    CreateKey(aVal.Key(), keyStripped);
+    StripKey(aVal.Key(), keyStripped);
     iKeysWriter.Add(aVal, keyStripped);
-    Brn key(keyStripped);
-    auto prop = new PropertyString(new ParameterString(key));
+    Brn keyBuf(aVal.Key());
+    Brn keyStrippedBuf(keyStripped);
+    auto prop = new PropertyString(new ParameterString(keyStripped));
     iService->AddProperty(prop); // passes ownership
     auto item = new ConfigItemText(aVal, *prop, keyStripped);
-    iMapText.insert(std::pair<Brn, ConfigItemText*>(key, item));
+    iMapText.insert(std::pair<Brn, ConfigItemText*>(keyBuf, item));
     auto cb = MakeFunctorConfigText(*this, &ProviderConfigApp::ConfigTextChanged);
     item->iListenerId = aVal.Subscribe(cb);
+    iMapKeys.insert(std::pair<Brn, Brn>(keyStrippedBuf, keyBuf));
 }
 
 void ProviderConfigApp::AddsComplete()
@@ -222,7 +234,7 @@ void ProviderConfigApp::Removed(ConfigText& aVal)
     }
 }
 
-void ProviderConfigApp::CreateKey(const Brx& aConfigKey, Bwx& aKey)
+void ProviderConfigApp::StripKey(const Brx& aConfigKey, Bwx& aKey)
 {
     aKey.SetBytes(0);
     const TUint bytes = aConfigKey.Bytes();
@@ -239,7 +251,7 @@ void ProviderConfigApp::ConfigNumChanged(KeyValuePair<TInt>& aKvp)
     Brn key(aKvp.Key());
     auto it = iMapNum.find(key);
     if (it != iMapNum.end()) {
-        (void)it->second->iProperty.SetValue(aKvp.Value());
+        (void)SetPropertyInt(it->second->iProperty, aKvp.Value());
     }
 }
 
@@ -248,7 +260,7 @@ void ProviderConfigApp::ConfigChoiceChanged(KeyValuePair<TUint>& aKvp)
     Brn key(aKvp.Key());
     auto it = iMapChoice.find(key);
     if (it != iMapChoice.end()) {
-        (void)it->second->iProperty.SetValue(aKvp.Value());
+        (void)SetPropertyUint(it->second->iProperty, aKvp.Value());
     }
 }
 
@@ -257,7 +269,7 @@ void ProviderConfigApp::ConfigTextChanged(KeyValuePair<const Brx&>& aKvp)
     Brn key(aKvp.Key());
     auto it = iMapText.find(key);
     if (it != iMapText.end()) {
-        (void)it->second->iProperty.SetValue(aKvp.Value());
+        (void)SetPropertyString(it->second->iProperty, aKvp.Value());
     }
 }
 
@@ -287,13 +299,33 @@ void ProviderConfigApp::GetKeys(IDvInvocation& aInvocation, IDvInvocationRespons
 
 void ProviderConfigApp::SetValue(IDvInvocation& aInvocation, const Brx& aKey, const Brx& aValue)
 {
-    if (!iConfigManager.Has(aKey)) {
+    Brn keyStripped(aKey);
+    auto it = iMapKeys.find(keyStripped);
+    if (it == iMapKeys.end()) {
         aInvocation.Error(kErrorCodeInvalidKey, kErrorDescInvalidKey);
     }
+    Brn keyConfig(it->second);
+    ISerialisable* ser = nullptr;
+    auto it2 = iMapNum.find(keyConfig);
+    if (it2 != iMapNum.end()) {
+        ser = &it2->second->iVal;
+    }
+    else {
+        auto it3 = iMapChoice.find(keyConfig);
+        if (it3 != iMapChoice.end()) {
+            ser = &it3->second->iVal;
+        }
+        else {
+            auto it4 = iMapText.find(keyConfig);
+            if (it4 == iMapText.end()) {
+                aInvocation.Error(kErrorCodeInvalidKey, kErrorDescInvalidKey);
+            }
+            ser = &it4->second->iVal;
+        }
+    }
 
-    ISerialisable& ser = iConfigManager.Get(aKey);
     try {
-        ser.Deserialise(aValue);
+        ser->Deserialise(aValue);
     }
     catch (ConfigNotANumber&) {
         aInvocation.Error(kErrorCodeNotANumber, kErrorDescNotANumber);
@@ -327,7 +359,7 @@ void ProviderConfigApp::GetValue(IDvInvocation& aInvocation, const Brx& aKey, ID
 void ProviderConfigApp::ResetAll(IDvInvocation& aInvocation)
 {
     iStore.DeleteAll();
-    // FIXME - request reboot
+    iRebootHandler.Reboot(kRebootReason);
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }

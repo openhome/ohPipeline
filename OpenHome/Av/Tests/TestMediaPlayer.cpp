@@ -215,7 +215,8 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     pipelineInit->SetGorgerDuration(pipelineInit->DecodedReservoirJiffies());
     iMediaPlayer = new MediaPlayer(aDvStack, *iDevice, *iRamStore,
                                    *iConfigRamStore, pipelineInit,
-                                   volumeInit, volumeProfile, *iInfoLogger,
+                                   volumeInit, volumeProfile,
+                                   iRebootHandler, *iInfoLogger,
                                    aUdn, Brn(aRoom), Brn(aProductName));
     iPipelineObserver = new LoggingPipelineObserver();
     iMediaPlayer->Pipeline().AddObserver(*iPipelineObserver);
