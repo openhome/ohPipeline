@@ -307,6 +307,7 @@ def build(bld):
                 'OpenHome/Av/Logger.cpp',
                 'Generated/DvAvOpenhomeOrgConfig2.cpp',
                 'OpenHome/Json.cpp',
+                'OpenHome/DebugManager.cpp',
                 'OpenHome/Av/Utils/FormUrl.cpp',
                 'OpenHome/NtpClient.cpp',
                 'OpenHome/UnixTimestamp.cpp',
@@ -344,11 +345,14 @@ def build(bld):
     bld.stlib(
             source=[
                 'Generated/DvAvOpenhomeOrgPlaylist1.cpp',
+                'Generated/CpAvOpenhomeOrgPlaylist1.cpp',
                 'OpenHome/Av/Playlist/ProviderPlaylist.cpp',
                 'OpenHome/Av/Playlist/SourcePlaylist.cpp',
                 'OpenHome/Av/Playlist/TrackDatabase.cpp',
                 'OpenHome/Av/Playlist/UriProviderPlaylist.cpp',
                 'OpenHome/Av/Tidal/Tidal.cpp',
+                'OpenHome/Av/Tidal/TidalMetadata.cpp',
+                'OpenHome/Av/Tidal/TidalPins.cpp',
                 'OpenHome/Av/Tidal/ProtocolTidal.cpp',
                 'OpenHome/Av/Qobuz/Qobuz.cpp',
                 'OpenHome/Av/Qobuz/ProtocolQobuz.cpp'
@@ -715,7 +719,6 @@ def build(bld):
                 'Generated/CpUpnpOrgRenderingControl1.cpp',
                 'OpenHome/Av/Tests/TestTrackDatabase.cpp',
                 #'OpenHome/Av/Tests/TestPlaylist.cpp',
-                'Generated/CpAvOpenhomeOrgPlaylist1.cpp',
                 'OpenHome/Av/Tests/TestMediaPlayer.cpp',
                 'OpenHome/Av/Tests/TestMediaPlayerOptions.cpp',
                 'OpenHome/Configuration/Tests/ConfigRamStore.cpp',

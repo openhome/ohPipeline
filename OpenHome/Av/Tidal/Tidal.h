@@ -7,6 +7,9 @@
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Net/Private/DviStack.h>
+#include <OpenHome/Av/MediaPlayer.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
         
 namespace OpenHome {
     class Environment;
@@ -37,6 +40,8 @@ public:
     TBool TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken);
     TBool TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl);
     TBool TryLogout(const Brx& aSessionId);
+    TBool TryGetArtistId(WriterBwh& aWriter, const Brx& aArtist);
+    TBool TryGetTracksByArtistId(WriterBwh& aWriter, const Brx& aArtistId, TUint aLimit, TUint aOffset);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
     const Brx& Id() const override;

@@ -129,7 +129,7 @@ void RebootLogger::Reboot(const Brx& aReason)
 
 const Brn TestMediaPlayer::kSongcastSenderIconFileName("SongcastSenderIcon");
 
-TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
+TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                                  const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
                                  const TChar* aStoreFile, TUint aOdpPort,
                                  TUint aMinWebUiResourceThreads, TUint aMaxWebUiTabs, TUint aUiSendQueueSize)
@@ -147,6 +147,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     , iMinWebUiResourceThreads(aMinWebUiResourceThreads)
     , iMaxWebUiTabs(aMaxWebUiTabs)
     , iUiSendQueueSize(aUiSendQueueSize)
+    , iCpStack(aCpStack)
 {
     Log::Print("Shell running on port %u\n", aDvStack.Env().Shell()->Port());
     iInfoLogger = new Media::AllocatorInfoLogger();
@@ -402,7 +403,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 
     // only add Tidal if we have a token to use with login
     if (iTidalId.Bytes() > 0) {
-        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, iTidalId, *iMediaPlayer));
+        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, iTidalId, *iMediaPlayer, iCpStack));
     }
     // ...likewise, only add Qobuz if we have ids for login
     if (iQobuzIdSecret.Bytes() > 0) {

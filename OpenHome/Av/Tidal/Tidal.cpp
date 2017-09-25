@@ -1,4 +1,5 @@
 #include <OpenHome/Av/Tidal/Tidal.h>
+#include <OpenHome/Av/Tidal/TidalMetadata.h>
 #include <OpenHome/Av/Credentials.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Debug.h>
@@ -11,6 +12,8 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
+#include <OpenHome/Json.h>
+#include <OpenHome/Net/Core/CpDeviceDv.h>
 
 #include <algorithm>
 
@@ -127,6 +130,114 @@ TBool Tidal::TryLogout(const Brx& aSessionId)
 {
     AutoMutex _(iLock);
     return TryLogoutLocked(aSessionId);
+}
+
+TBool Tidal::TryGetArtistId(WriterBwh& aWriter, const Brx& aArtist)
+{
+    AutoMutex _(iLock);
+    TBool success = false;
+    if (!TryConnect(kPort)) {
+        LOG_ERROR(kMedia, "Tidal::TryGetArtistId - connection failure\n");
+        return false;
+    }
+    AutoSocketSsl __(iSocket);
+    Bws<128> pathAndQuery("/v1/search/?query=");
+    Uri::Escape(pathAndQuery, aArtist);
+    pathAndQuery.Append("&sessionId=");
+    pathAndQuery.Append(iSessionId);
+    pathAndQuery.Append("&countryCode=");
+    pathAndQuery.Append(iCountryCode);
+    pathAndQuery.Append("&types=ARTISTS&limit=");
+    Ascii::AppendDec(pathAndQuery, 1);
+    pathAndQuery.Append("&offset=");
+    Ascii::AppendDec(pathAndQuery, 0);
+    Brn url;
+    try {
+        WriteRequestHeaders(Http::kMethodGet, pathAndQuery, kPort);
+
+        iReaderResponse.Read();
+        const TUint code = iReaderResponse.Status().Code();
+        if (code != 200) {
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal TryGetArtistId.  Some/all of response is:\n", code);
+            Brn buf = iReaderUntil.Read(kReadBufferBytes);
+            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
+            THROW(ReaderError);
+        }  
+        
+        TUint count = iHeaderContentLength.ContentLength();
+        while(count > 0) {
+            Brn buf = iReaderUntil.Read(kReadBufferBytes);
+            aWriter.Write(buf);
+            count -= buf.Bytes();
+        }        
+
+        LOG(kMedia, "Tidal::TryGetArtistId Response: %.*s\n", PBUF(aWriter.Buffer()));
+        success = true;
+    }
+    catch (HttpError&) {
+        LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetArtistId\n");
+    }
+    catch (ReaderError&) {
+        LOG_ERROR(kPipeline, "ReaderError in Tidal::TryGetArtistId\n");
+    }
+    catch (WriterError&) {
+        LOG_ERROR(kPipeline, "WriterError in Tidal::TryGetArtistId\n");
+    }
+    return success;
+}
+
+TBool Tidal::TryGetTracksByArtistId(WriterBwh& aWriter, const Brx& aArtistId, TUint aLimit, TUint aOffset)
+{
+    AutoMutex _(iLock);
+    TBool success = false;
+    if (!TryConnect(kPort)) {
+        LOG_ERROR(kMedia, "Tidal::TryGetTracksByArtistId - connection failure\n");
+        return false;
+    }
+    AutoSocketSsl __(iSocket);
+    Bws<128> pathAndQuery("/v1/artists/");
+    pathAndQuery.Append(aArtistId);
+    pathAndQuery.Append("/toptracks?sessionId=");
+    pathAndQuery.Append(iSessionId);
+    pathAndQuery.Append("&countryCode=");
+    pathAndQuery.Append(iCountryCode);
+    pathAndQuery.Append("&limit=");
+    Ascii::AppendDec(pathAndQuery, aLimit);
+    pathAndQuery.Append("&offset=");
+    Ascii::AppendDec(pathAndQuery, aOffset);
+    Brn url;
+    try {
+        WriteRequestHeaders(Http::kMethodGet, pathAndQuery, kPort);
+
+        iReaderResponse.Read();
+        const TUint code = iReaderResponse.Status().Code();
+        if (code != 200) {
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal TryGetTracksByArtistId.  Some/all of response is:\n", code);
+            Brn buf = iReaderUntil.Read(kReadBufferBytes);
+            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
+            THROW(ReaderError);
+        }  
+        
+        TUint count = iHeaderContentLength.ContentLength();
+        while(count > 0) {
+            Brn buf = iReaderUntil.Read(kReadBufferBytes);
+            aWriter.Write(buf);
+            count -= buf.Bytes();
+        }        
+
+        LOG(kMedia, "Tidal::TryGetTracksByArtistId Response: %.*s\n", PBUF(aWriter.Buffer()));
+        success = true;
+    }
+    catch (HttpError&) {
+        LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetTracksByArtistId\n");
+    }
+    catch (ReaderError&) {
+        LOG_ERROR(kPipeline, "ReaderError in Tidal::TryGetTracksByArtistId\n");
+    }
+    catch (WriterError&) {
+        LOG_ERROR(kPipeline, "WriterError in Tidal::TryGetTracksByArtistId\n");
+    }
+    return success;
 }
 
 void Tidal::Interrupt(TBool aInterrupt)

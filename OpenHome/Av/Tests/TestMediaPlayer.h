@@ -109,7 +109,7 @@ private:
     static const TUint kMaxWebUiTabs = 4;
     static const TUint kUiSendQueueSize = 100;
 public:
-    TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
+    TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                     const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
                     const TChar* aStoreFile, TUint aOdpPort=0,
                     TUint aMinWebUiResourceThreads=kMinWebUiResourceThreads, TUint aMaxWebUiTabs=kMaxWebUiTabs, TUint aUiSendQueueSize=kUiSendQueueSize);
@@ -178,6 +178,7 @@ private:
     TUint iMinWebUiResourceThreads;
     TUint iMaxWebUiTabs;
     TUint iUiSendQueueSize;
+    Net::CpStack& iCpStack;
 };
 
 class TestMediaPlayerOptions

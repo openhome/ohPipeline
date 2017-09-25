@@ -8,13 +8,15 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 
-ProviderDebug::ProviderDebug(DvDevice& aDevice, RingBufferLogger& aLogger, Optional<ILogPoster> aLogPoster)
+ProviderDebug::ProviderDebug(DvDevice& aDevice, RingBufferLogger& aLogger, Optional<ILogPoster> aLogPoster, DebugManager& aDebugManager)
     : DvProviderAvOpenhomeOrgDebug1(aDevice)
     , iLogger(aLogger)
     , iLogPoster(aLogPoster)
+    , iDebugManager(aDebugManager)
 {
     EnableActionGetLog();
     EnableActionSendLog();
+    EnableActionDebugTest();
 }
 
 void ProviderDebug::GetLog(IDvInvocation& aInvocation, IDvInvocationResponseString& aLog)
@@ -32,5 +34,42 @@ void ProviderDebug::SendLog(IDvInvocation& aInvocation, const Brx& aData)
     }
     iLogPoster.Unwrap().SendLog(iLogger, aData);
     aInvocation.StartResponse();
+    aInvocation.EndResponse();
+}
+
+void ProviderDebug::DebugTest(IDvInvocation& aInvocation, const Brx& aaDebugType, const Brx& aaDebugInput, IDvInvocationResponseString& aaDebugInfo, IDvInvocationResponseBool& aaDebugResult)
+{
+    aInvocation.StartResponse();
+
+    WriterAscii writer(aaDebugInfo);
+    TBool result = iDebugManager.Test(aaDebugType, aaDebugInput, writer);
+
+    if (aaDebugType == Brn("help")) {
+        writer.Write(Brn("forceassert (input: none)"));
+        writer.Write(Brn(" "));
+        writer.WriteNewline(); // can't get this to work
+        result = true;
+    }
+    else if (aaDebugType == Brn("forceassert")) {
+        writer.Write(Brn("Complete"));
+        result = true;
+    }
+
+    aaDebugInfo.WriteFlush();
+    aaDebugResult.Write(result);
+    aInvocation.EndResponse();
+
+    // include this Debug afterwards so control point will not hang waiting for a response before the device asserts
+    if (aaDebugType == Brn("forceassert")) {
+        ASSERTS();
+    }
+}
+
+void ProviderDebug::DebugDump(Net::IDvInvocation& aInvocation, const Brx& aaDebugType, Net::IDvInvocationResponseString& aaDebugInfo)
+{
+    aInvocation.StartResponse();
+    WriterAscii writer(aaDebugInfo);
+    iDebugManager.Dump(aaDebugType, writer);
+    aaDebugInfo.WriteFlush();
     aInvocation.EndResponse();
 }

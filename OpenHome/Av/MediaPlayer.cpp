@@ -122,6 +122,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
         iProduct->AddAttribute("ConfigApp"); // iProviderConfigApp is instantiated before iProduct
                                              // so this attribute can't be added in the obvious location
     }
+    iDebugManager = new DebugManager();
 }
 
 MediaPlayer::~MediaPlayer()
@@ -153,6 +154,7 @@ MediaPlayer::~MediaPlayer()
     delete iKvpStore;
     delete iLoggerBuffered;
     delete iUnixTimestamp;
+    delete iDebugManager;
 }
 
 void MediaPlayer::Quit()
@@ -188,7 +190,7 @@ void MediaPlayer::AddAttribute(const TChar* aAttribute)
 
 ILoggerSerial& MediaPlayer::BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster)
 {
-    iLoggerBuffered = new LoggerBuffered(aBytes, iDevice, *iProduct, aShell, aLogPoster);
+    iLoggerBuffered = new LoggerBuffered(aBytes, iDevice, *iProduct, aShell, aLogPoster, *iDebugManager);
     return iLoggerBuffered->LoggerSerial();
 }
 
@@ -310,4 +312,9 @@ IUnixTimestamp& MediaPlayer::UnixTimestamp()
 ITransportRepeatRandom& MediaPlayer::TransportRepeatRandom()
 {
     return iTransportRepeatRandom;
+}
+
+DebugManager& MediaPlayer::GetDebugManager()
+{
+    return *iDebugManager; 
 }

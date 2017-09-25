@@ -57,7 +57,9 @@ void TestMediaPlayerThread::RunInThread()
 {
     const TChar* cookie ="TestMediaPlayerMain";
     NetworkAdapter* adapter = iLib->CurrentSubnetAdapter(cookie);
-    Net::DvStack* dvStack = iLib->StartDv();
+    CpStack* cpStack = nullptr;
+    DvStack* dvStack = nullptr;
+    iLib->StartCombined(adapter->Address(), cpStack, dvStack);
 
     // Seed random number generator.
     TestMediaPlayerInit::SeedRandomNumberGenerator(dvStack->Env(), iOptions.Room().Value(), adapter->Address(), dvStack->ServerUpnp());
@@ -70,7 +72,7 @@ void TestMediaPlayerThread::RunInThread()
     Log::Print("UDN is %.*s\n", PBUF(udn));
 
     // Create TestMediaPlayer.
-    TestMediaPlayer* tmp = new TestMediaPlayer(*dvStack, udn, iOptions.Room().CString(), iOptions.Name().CString(),
+    TestMediaPlayer* tmp = new TestMediaPlayer(*dvStack, *cpStack, udn, iOptions.Room().CString(), iOptions.Name().CString(),
         iOptions.TuneIn().Value(), iOptions.Tidal().Value(), iOptions.Qobuz().Value(),
         iOptions.UserAgent().Value(), iOptions.StoreFile().CString(), iOptions.OptionOdp().Value());
     Media::AnimatorBasic* animator = new Media::AnimatorBasic(dvStack->Env(), tmp->Pipeline(), iOptions.ClockPull().Value());
