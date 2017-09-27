@@ -32,6 +32,41 @@ using namespace OpenHome::Configuration;
 using namespace OpenHome::Media;
 using namespace OpenHome::Net;
 
+// MediaPlayerInitParams
+
+MediaPlayerInitParams* MediaPlayerInitParams::New(const Brx& aDefaultRoom, const Brx& aDefaultName)
+{ // static
+    return new MediaPlayerInitParams(aDefaultRoom, aDefaultName);
+}
+
+MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName)
+    : iDefaultRoom(aDefaultRoom)
+    , iDefaultName(aDefaultName)
+    , iConfigAppEnable(false)
+{
+}
+
+void MediaPlayerInitParams::EnableConfigApp()
+{
+    iConfigAppEnable = true;
+}
+
+const Brx& MediaPlayerInitParams::DefaultRoom() const
+{
+    return iDefaultRoom;
+}
+
+const Brx& MediaPlayerInitParams::DefaultName() const
+{
+    return iDefaultName;
+}
+
+TBool MediaPlayerInitParams::ConfigAppEnabled() const
+{
+    return iConfigAppEnable;
+}
+
+
 // MediaPlayer
 
 MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
@@ -41,8 +76,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
                          VolumeConsumer& aVolumeConsumer, IVolumeProfile& aVolumeProfile,
                          IInfoAggregator& aInfoAggregator,
                          const Brx& aEntropy,
-                         const Brx& aDefaultRoom,
-                         const Brx& aDefaultName)
+                         MediaPlayerInitParams* aInitParams)
     : iDvStack(aDvStack)
     , iDevice(aDevice)
     , iReadWriteStore(aReadWriteStore)
@@ -51,18 +85,21 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     , iConfigAutoPlay(nullptr)
     , iConfigStartupSource(nullptr)
     , iProviderTransport(nullptr)
+    , iProviderConfigApp(nullptr)
     , iLoggerBuffered(nullptr)
 {
     iUnixTimestamp = new OpenHome::UnixTimestamp(iDvStack.Env());
     iKvpStore = new KvpStore(aStaticDataSource);
     iTrackFactory = new Media::TrackFactory(aInfoAggregator, kTrackCount);
     iConfigManager = new Configuration::ConfigManager(iReadWriteStore);
-    iProviderConfigApp = new ProviderConfigApp(aDevice,
-                                               *iConfigManager, *iConfigManager,
-                                               iReadWriteStore); // must be created before any config values
+    if (aInitParams->ConfigAppEnabled()) {
+        iProviderConfigApp = new ProviderConfigApp(aDevice,
+                                                   *iConfigManager, *iConfigManager,
+                                                   iReadWriteStore); // must be created before any config values
+    }
     iPowerManager = new OpenHome::PowerManager(*iConfigManager);
-    iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase /* + Brx::Empty() */, Product::kMaxRoomBytes, aDefaultRoom);
-    iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase /* + Brx::Empty() */, Product::kMaxNameBytes, aDefaultName);
+    iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase, Product::kMaxRoomBytes, aInitParams->DefaultRoom());
+    iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase, Product::kMaxNameBytes, aInitParams->DefaultName());
     std::vector<TUint> choices;
     choices.push_back(Product::kAutoPlayDisable);
     choices.push_back(Product::kAutoPlayEnable);
@@ -81,8 +118,10 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     iProviderConfig = new ProviderConfig(aDevice, *iConfigManager);
     iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
     iProduct->AddAttribute("Transport");
-    iProduct->AddAttribute("ConfigApp"); // iProviderConfigApp is instantiated before iProduct
-                                         // so this attribute can't be added in the obvious location
+    if (iProviderConfigApp != nullptr) {
+        iProduct->AddAttribute("ConfigApp"); // iProviderConfigApp is instantiated before iProduct
+                                             // so this attribute can't be added in the obvious location
+    }
 }
 
 MediaPlayer::~MediaPlayer()
@@ -162,7 +201,9 @@ void MediaPlayer::Start(IRebootHandler& aRebootHandler)
     iConfigManager->Open();
     iPipeline->Start(*iVolumeManager, *iVolumeManager);
     iProviderTransport->Start();
-    iProviderConfigApp->Attach(aRebootHandler);
+    if (iProviderConfigApp != nullptr) {
+        iProviderConfigApp->Attach(aRebootHandler);
+    }
     iCredentials->Start();
     iMimeTypes.Start();
     iProduct->Start();
