@@ -166,6 +166,8 @@ public:
 
 class RaopAudioServer : private INonCopyable
 {
+private:
+    static const TUint kSocketFailureRetryIntervalMs = 50;
 public:
     RaopAudioServer(SocketUdpServer& aServer, IRaopAudioConsumer& aConsumer, TUint aThreadPriority);
     ~RaopAudioServer();
@@ -233,6 +235,7 @@ private:
     static const TUint kInvalidServerPort = 0;
     //static const TUint kDefaultLatencySamples = 88200;  // 2000ms at 44.1KHz.
     static const TUint kDefaultLatencySamples = 77175;  // 1750ms at 44.1KHz
+    static const TUint kSocketFailureRetryIntervalMs = 50;
 private:
     enum EType {
         ESync = 0x54,
