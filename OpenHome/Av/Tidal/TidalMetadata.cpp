@@ -66,7 +66,22 @@ const Brn TidalMetadata::kImageResourceResolutionLow("320x320"); // 80x80 | 160x
 const Brn TidalMetadata::kImageResourceResolutionMed("640x640");
 const Brn TidalMetadata::kImageResourceResolutionHigh("1280x1280");
 const Brn TidalMetadata::kImageResourceExtension(".jpg");
-
+const Brn TidalMetadata::kIdTypeArtist("artists");
+const Brn TidalMetadata::kIdTypeAlbum("albums");
+const Brn TidalMetadata::kIdTypeTrack("tracks");
+const Brn TidalMetadata::kIdTypePlaylist("playlists");
+const Brn TidalMetadata::kIdTypeSavedPlaylist("saved");
+const Brn TidalMetadata::kIdTypeFavorites("favorites");
+const Brn TidalMetadata::kIdTypeGenre("genres");
+const Brn TidalMetadata::kIdTypeMood("moods");
+const Brn TidalMetadata::kSmartTypeNew("featured/new");
+const Brn TidalMetadata::kSmartTypeRecommended("featured/recommended");
+const Brn TidalMetadata::kSmartTypeTop20("featured/top");
+const Brn TidalMetadata::kSmartTypeExclusive("featured/exclusive");
+const Brn TidalMetadata::kSmartTypeRising("rising/new");
+const Brn TidalMetadata::kSmartTypeDiscovery("discovery/new");
+const Brn TidalMetadata::kIdTypeSmart("smart");
+const Brn TidalMetadata::kIdTypeUserSpecific("users");
 
 TidalMetadata::TidalMetadata(Media::TrackFactory& aTrackFactory)
     : iTrackFactory(aTrackFactory)
@@ -91,34 +106,40 @@ Media::Track* TidalMetadata::TrackFromJson(const Brx& aMetadata)
     }
 }
 
-const Brx& TidalMetadata::FirstIdFromJson(const Brx& aJsonResponse)
+const Brx& TidalMetadata::FirstIdFromJson(const Brx& aJsonResponse, EIdType aType)
 {
-    static const Brn types[] = { Brn("artists"), Brn("albums"), Brn("playlists"), Brn("tracks") };
     try {
         JsonParser parser;
         parser.Parse(aJsonResponse);
-        for (TUint i = 0; i < sizeof(types); i++) {
-            if (parser.HasKey(types[i])) {
-                parser.Parse(parser.String(types[i]));
-                if (parser.Num(Brn("totalNumberOfItems")) == 0) {
-                    continue;
-                }
-                auto parserArray = JsonParserArray::Create(parser.String("items"));
-                if (parserArray.Type() == JsonParserArray::ValType::Null) {
-                    continue;
-                }
-                parser.Parse(parserArray.NextObject());
-                if (parser.HasKey(Brn("id"))) {
-                    return parser.String(Brn("id"));
-                }
+        if (parser.HasKey(IdTypeToString(aType)) || aType == eMood || aType == eSmartExclusive || aType == eSavedPlaylist) {
+            if (aType != eMood && aType != eSmartExclusive && aType != eSavedPlaylist) {
+                // mood/exclusive/saved playlist return top level object only (playlist based), all others have a higher level TYPE based response
+                parser.Parse(parser.String(IdTypeToString(aType)));
             }
+            if (parser.Num(Brn("totalNumberOfItems")) == 0) {
+                THROW(TidalResponseInvalid);
+            }
+            auto parserArray = JsonParserArray::Create(parser.String("items"));
+            if (parserArray.Type() == JsonParserArray::ValType::Null) {
+                THROW(TidalResponseInvalid);
+            }
+            parser.Parse(parserArray.NextObject());
+            if (parser.HasKey(Brn("id"))) {
+                return parser.String(Brn("id"));
+            }
+            else if (parser.HasKey(Brn("uuid"))) {
+                return parser.String(Brn("uuid"));
+            }
+        }
+        else {
+            THROW(TidalResponseInvalid);
         }
     }
     catch (AssertionFailed&) {
         throw;
     }
     catch (Exception&) {
-        return Brx::Empty();
+        throw;
     }
     return Brx::Empty();
 }
@@ -127,7 +148,7 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata)
 {
     static const Tidal2DidlTagMapping kTidal2Didl[] ={
         { "title", "dc:title", kNsDc },
-        //{ "trackNumber", "upnp:originalTrackNumber", kNsUpnp },
+        { "trackNumber", "upnp:originalTrackNumber", kNsUpnp },
     };
     static const TUint kNumTidal2DidlMappings = sizeof kTidal2Didl / sizeof kTidal2Didl[0];
 
@@ -149,28 +170,38 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata)
     iMetaDataDidl.Replace(Brx::Empty());
     JsonParser parser;
     parser.Parse(aMetadata);
+
+    if (parser.HasKey("item")) {
+        // playlists have an extra layer of indirection (item dictionary) as they can be mixed media (audio and video)
+        parser.Parse(parser.String("item"));
+    }
+    else if (!parser.HasKey("id")) {
+        // track uri based on id, so will be invalid without one
+        THROW(TidalResponseInvalid);
+    }
+
     if (parser.HasKey("allowStreaming")) {
         if (!parser.Bool("allowStreaming")) {
-            throw;
+            THROW(TidalResponseInvalid);
         }
     }
     if (parser.HasKey("streamReady")) {
         if (!parser.Bool("streamReady")) {
-            throw;
+            THROW(TidalResponseInvalid);
         }
     }
     //if (parser.HasKey("url")) { // streamable tidal url
     //    iTrackUri.ReplaceThrow(parser.String("url")); 
     //}
-    if (parser.HasKey("id")) { // special linn style tidal url
+    if (parser.HasKey("id")) { // special linn style tidal url (non-streamable, gets converted later)
         iTrackUri.ReplaceThrow(Brn("tidal://track?version=1&trackId="));
         iTrackUri.AppendThrow(parser.String("id"));
     }
     TryAppend("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
     TryAppend("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
     TryAppend("<item");
-    //TryAddAttribute(parser, "id", "id");
-    //TryAppend(" parentID=\"-1\" restricted=\"1\">");
+    TryAddAttribute(parser, "id", "id");
+    TryAppend(" parentID=\"-1\" restricted=\"1\">");
     TryAppend(">");
     for (TUint i=0; i<kNumTidal2DidlMappings; i++) {
         auto& mapping = kTidal2Didl[i];
@@ -332,4 +363,25 @@ void TidalMetadata::TryAppend(const Brx& aBuf)
     if (!iMetaDataDidl.TryAppend(aBuf)) {
         THROW(BufferOverflow);
     }
+}
+
+const Brx& TidalMetadata::IdTypeToString(EIdType aType)
+{
+    switch (aType) {
+        case eArtist: return kIdTypeArtist;
+        case eAlbum: return kIdTypeAlbum;
+        case eTrack: return kIdTypeTrack;
+        case ePlaylist: return kIdTypePlaylist;
+        case eSavedPlaylist: return kIdTypeSavedPlaylist;
+        case eFavorites: return kIdTypeFavorites;
+        case eGenre: return kIdTypeGenre;
+        case eMood: return kIdTypeMood;
+        case eSmartNew: return kSmartTypeNew;
+        case eSmartRecommended: return kSmartTypeRecommended;
+        case eSmartTop20: return kSmartTypeTop20;
+        case eSmartExclusive: return kSmartTypeExclusive;
+        case eSmartRising: return kSmartTypeRising;
+        case eSmartDiscovery: return kSmartTypeDiscovery;
+    }
+    return Brx::Empty();
 }

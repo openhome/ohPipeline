@@ -132,110 +132,128 @@ TBool Tidal::TryLogout(const Brx& aSessionId)
     return TryLogoutLocked(aSessionId);
 }
 
-TBool Tidal::TryGetArtistId(WriterBwh& aWriter, const Brx& aArtist)
+TBool Tidal::TryGetId(WriterBwh& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType)
 {
-    AutoMutex _(iLock);
-    TBool success = false;
-    if (!TryConnect(kPort)) {
-        LOG_ERROR(kMedia, "Tidal::TryGetArtistId - connection failure\n");
-        return false;
-    }
-    AutoSocketSsl __(iSocket);
-    Bws<128> pathAndQuery("/v1/search/?query=");
-    Uri::Escape(pathAndQuery, aArtist);
-    pathAndQuery.Append("&sessionId=");
-    pathAndQuery.Append(iSessionId);
-    pathAndQuery.Append("&countryCode=");
-    pathAndQuery.Append(iCountryCode);
-    pathAndQuery.Append("&types=ARTISTS&limit=");
-    Ascii::AppendDec(pathAndQuery, 1);
-    pathAndQuery.Append("&offset=");
-    Ascii::AppendDec(pathAndQuery, 0);
-    Brn url;
-    try {
-        WriteRequestHeaders(Http::kMethodGet, pathAndQuery, kPort);
+    Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
 
-        iReaderResponse.Read();
-        const TUint code = iReaderResponse.Status().Code();
-        if (code != 200) {
-            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal TryGetArtistId.  Some/all of response is:\n", code);
-            Brn buf = iReaderUntil.Read(kReadBufferBytes);
-            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
-            THROW(ReaderError);
-        }  
-        
-        TUint count = iHeaderContentLength.ContentLength();
-        while(count > 0) {
-            Brn buf = iReaderUntil.Read(kReadBufferBytes);
-            aWriter.Write(buf);
-            count -= buf.Bytes();
-        }        
+    if (aType == TidalMetadata::eMood) {
+        // will return the most recently updated playlist for the given mood
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(aQuery);
+        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
+    }
+    else if (aType == TidalMetadata::eSmartExclusive) {
+        // will return the latest exclusive playlist
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
+    }
+    else if (aType == TidalMetadata::eSavedPlaylist) {
+        // will return the latest saved playlist
+        pathAndQuery.Append(TidalMetadata::kIdTypeUserSpecific);
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(iUserId);
+        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
+    }
+    else {
+        pathAndQuery.Append("search/?query=");
+        Uri::Escape(pathAndQuery, aQuery);
+        pathAndQuery.Append("&types=");
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+    }
 
-        LOG(kMedia, "Tidal::TryGetArtistId Response: %.*s\n", PBUF(aWriter.Buffer()));
-        success = true;
-    }
-    catch (HttpError&) {
-        LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetArtistId\n");
-    }
-    catch (ReaderError&) {
-        LOG_ERROR(kPipeline, "ReaderError in Tidal::TryGetArtistId\n");
-    }
-    catch (WriterError&) {
-        LOG_ERROR(kPipeline, "WriterError in Tidal::TryGetArtistId\n");
-    }
-    return success;
+    return TryGetResponse(aWriter, pathAndQuery, 1, 0);
 }
 
-TBool Tidal::TryGetTracksByArtistId(WriterBwh& aWriter, const Brx& aArtistId, TUint aLimit, TUint aOffset)
+TBool Tidal::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset)
+{
+    Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
+    if (aType == TidalMetadata::eMood || aType == TidalMetadata::eSmartExclusive || aType == TidalMetadata::eSavedPlaylist) {
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(TidalMetadata::ePlaylist));
+    }
+    else {
+        if (aId == TidalMetadata::kIdTypeUserSpecific) {
+            pathAndQuery.Append(aId);
+            pathAndQuery.Append("/");
+            pathAndQuery.Append(iUserId);
+            pathAndQuery.Append("/");
+        }
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+    }
+    if ((aId != TidalMetadata::kIdTypeSmart && aId != TidalMetadata::kIdTypeUserSpecific) || aType == TidalMetadata::eSmartExclusive) {
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(aId);
+    }
+    switch (aType) {
+        case TidalMetadata::eArtist: pathAndQuery.Append(Brn("/toptracks?")); break;
+        case TidalMetadata::eGenre:
+        case TidalMetadata::eSmartNew:
+        case TidalMetadata::eSmartRecommended:
+        case TidalMetadata::eSmartTop20:
+        case TidalMetadata::eSmartRising:
+        case TidalMetadata::eSmartDiscovery:
+        case TidalMetadata::eAlbum: pathAndQuery.Append(Brn("/tracks?")); break;
+        case TidalMetadata::eFavorites: pathAndQuery.Append(Brn("/tracks?order=NAME&orderDirection=ASC")); break;
+        case TidalMetadata::eMood:
+        case TidalMetadata::eSmartExclusive:
+        case TidalMetadata::eSavedPlaylist:
+        case TidalMetadata::ePlaylist: pathAndQuery.Append(Brn("/items?order=INDEX&orderDirection=ASC")); break;
+        case TidalMetadata::eTrack: pathAndQuery.Append(Brn("?")); break;
+    }
+
+    return TryGetResponse(aWriter, pathAndQuery, aLimit, aOffset);
+}
+
+TBool Tidal::TryGetResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset)
 {
     AutoMutex _(iLock);
     TBool success = false;
     if (!TryConnect(kPort)) {
-        LOG_ERROR(kMedia, "Tidal::TryGetTracksByArtistId - connection failure\n");
+        LOG_ERROR(kMedia, "Tidal::TryGetResponse - connection failure\n");
         return false;
     }
     AutoSocketSsl __(iSocket);
-    Bws<128> pathAndQuery("/v1/artists/");
-    pathAndQuery.Append(aArtistId);
-    pathAndQuery.Append("/toptracks?sessionId=");
-    pathAndQuery.Append(iSessionId);
-    pathAndQuery.Append("&countryCode=");
-    pathAndQuery.Append(iCountryCode);
-    pathAndQuery.Append("&limit=");
-    Ascii::AppendDec(pathAndQuery, aLimit);
-    pathAndQuery.Append("&offset=");
-    Ascii::AppendDec(pathAndQuery, aOffset);
-    Brn url;
+    aPathAndQuery.Append("&limit=");
+    Ascii::AppendDec(aPathAndQuery, aLimit);
+    aPathAndQuery.Append("&offset=");
+    Ascii::AppendDec(aPathAndQuery, aOffset);
+    aPathAndQuery.Append("&sessionId=");
+    aPathAndQuery.Append(iSessionId);
+    aPathAndQuery.Append("&countryCode=");
+    aPathAndQuery.Append(iCountryCode);
     try {
-        WriteRequestHeaders(Http::kMethodGet, pathAndQuery, kPort);
+        LOG(kMedia, "Write tidal request: https://api.tidal.com%.*s\n", PBUF(aPathAndQuery));
+        WriteRequestHeaders(Http::kMethodGet, aPathAndQuery, kPort);
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
         if (code != 200) {
-            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal TryGetTracksByArtistId.  Some/all of response is:\n", code);
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal TryGetResponse.  Some/all of response is:\n", code);
             Brn buf = iReaderUntil.Read(kReadBufferBytes);
             LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
             THROW(ReaderError);
         }  
         
         TUint count = iHeaderContentLength.ContentLength();
+        //Log::Print("Read tidal response (%d): ", count);
         while(count > 0) {
             Brn buf = iReaderUntil.Read(kReadBufferBytes);
+            //Log::Print(buf);
             aWriter.Write(buf);
             count -= buf.Bytes();
-        }        
+        }   
+        //Log::Print("\n");     
 
-        LOG(kMedia, "Tidal::TryGetTracksByArtistId Response: %.*s\n", PBUF(aWriter.Buffer()));
         success = true;
     }
     catch (HttpError&) {
-        LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetTracksByArtistId\n");
+        LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetResponse\n");
     }
     catch (ReaderError&) {
-        LOG_ERROR(kPipeline, "ReaderError in Tidal::TryGetTracksByArtistId\n");
+        LOG_ERROR(kPipeline, "ReaderError in Tidal::TryGetResponse\n");
     }
     catch (WriterError&) {
-        LOG_ERROR(kPipeline, "WriterError in Tidal::TryGetTracksByArtistId\n");
+        LOG_ERROR(kPipeline, "WriterError in Tidal::TryGetResponse\n");
     }
     return success;
 }

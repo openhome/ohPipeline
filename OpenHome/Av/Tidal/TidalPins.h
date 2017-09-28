@@ -11,6 +11,7 @@
 #include <OpenHome/Av/MediaPlayer.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/DebugManager.h>
+#include <OpenHome/Av/Playlist/TrackDatabase.h>
         
 namespace OpenHome {
     class Environment;
@@ -23,19 +24,34 @@ namespace Av {
 class TidalPins
     : public IDebugTestHandler
 {
-    static const TUint kJsonResponseChunks = 4 * 1024;
     static const TUint kTrackLimitPerRequest = 10;
-    static const TUint kMaxTracks = 1000;
+    static const TUint kJsonResponseChunks = 4 * 1024;
 public:
-    static const Brn kConfigKeySoundQuality;
-public:
-    TidalPins(Tidal& aTidal, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack);
+    TidalPins(Tidal& aTidal, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, TUint aMaxTracks = ITrackDatabase::kMaxTracks);
     ~TidalPins();
-    TBool LoadTracksByArtistId(const Brx& aArtistId, TUint aMaxTracks = kMaxTracks);
+
+    TBool LoadTracksByArtist(const Brx& aArtist); // tidal id or search string 
+    TBool LoadTracksByAlbum(const Brx& aAlbum); // tidal id or search string 
+    TBool LoadTracksByTrack(const Brx& aTrack); // tidal id or search string 
+    TBool LoadTracksByPlaylist(const Brx& aPlaylist); // tidal id or search string 
+    TBool LoadTracksByGenre(const Brx& aGenre); // tidal text string id
+    TBool LoadTracksByMood(const Brx& aMood); // tidal text string id
+    TBool LoadTracksByNew(); // tidal smart playlist (featured)
+    TBool LoadTracksByRecommended(); // tidal smart playlist (featured)
+    TBool LoadTracksByTop20(); // tidal smart playlist (featured)
+    TBool LoadTracksByExclusive(); // tidal smart playlist (featured)
+    TBool LoadTracksByRising(); // tidal smart playlist
+    TBool LoadTracksByDiscovery(); // tidal smart playlist
+    TBool LoadTracksByFavorites(); // user's favorited tracks
+    TBool LoadTracksBySavedPlaylist(); // user's most recently created/updated tidal playlist
+
 public:  // IDebugTestHandler
     TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter);
 private:
-    TBool IsNumber(const Brx& aRequest);
+    TBool LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType);
+    TBool LoadTracksBySmartType(TidalMetadata::EIdType aType);
+    TBool IsValidId(const Brx& aRequest, TidalMetadata::EIdType aType);
+    TBool IsValidUuid(const Brx& aRequest);
 private:
     Mutex iLock;
     Tidal& iTidal;
@@ -43,6 +59,7 @@ private:
     Media::TrackFactory& iTrackFactory;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     Net::CpStack& iCpStack;
+    TUint iMaxTracks;
 };
 
 };  // namespace Av

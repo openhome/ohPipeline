@@ -10,6 +10,7 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
+#include <OpenHome/Av/Tidal/TidalMetadata.h>
         
 namespace OpenHome {
     class Environment;
@@ -31,6 +32,7 @@ class Tidal : public ICredentialConsumer
     static const TUint kGranularityPassword = 128;
     static const Brn kId;
     static const TUint kMaxStatusBytes = 512;
+    static const TUint kMaxPathAndQueryBytes = 512;
 public:
     static const Brn kConfigKeySoundQuality;
 public:
@@ -40,8 +42,8 @@ public:
     TBool TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken);
     TBool TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl);
     TBool TryLogout(const Brx& aSessionId);
-    TBool TryGetArtistId(WriterBwh& aWriter, const Brx& aArtist);
-    TBool TryGetTracksByArtistId(WriterBwh& aWriter, const Brx& aArtistId, TUint aLimit, TUint aOffset);
+    TBool TryGetId(WriterBwh& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType);
+    TBool TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
     const Brx& Id() const override;
@@ -55,6 +57,7 @@ private:
     TBool TryLoginLocked(Bwx& aSessionId);
     TBool TryLogoutLocked(const Brx& aSessionId);
     TBool TryGetSubscriptionLocked();
+    TBool TryGetResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset);
     void WriteRequestHeaders(const Brx& aMethod, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
     static Brn ReadInt(ReaderUntil& aReader, const Brx& aTag);
     static Brn ReadString(ReaderUntil& aReader, const Brx& aTag);

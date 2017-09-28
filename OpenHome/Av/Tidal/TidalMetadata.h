@@ -5,6 +5,8 @@
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
+EXCEPTION(TidalResponseInvalid);
+EXCEPTION(TidalRequestInvalid);
 
 namespace OpenHome {
     class Environment;
@@ -21,16 +23,52 @@ class TidalMetadata : private OpenHome::INonCopyable
     static const OpenHome::Brn kImageResourceResolutionMed;
     static const OpenHome::Brn kImageResourceResolutionHigh;
     static const OpenHome::Brn kImageResourceExtension;
+    static const OpenHome::Brn kIdTypeArtist;
+    static const OpenHome::Brn kIdTypeAlbum;
+    static const OpenHome::Brn kIdTypeTrack;
+    static const OpenHome::Brn kIdTypePlaylist;
+    static const OpenHome::Brn kIdTypeGenre;
+    static const OpenHome::Brn kIdTypeMood;
+    // user specific
+    static const OpenHome::Brn kIdTypeSavedPlaylist;
+    static const OpenHome::Brn kIdTypeFavorites;
+    // smart types
+    static const OpenHome::Brn kSmartTypeNew;
+    static const OpenHome::Brn kSmartTypeRecommended;
+    static const OpenHome::Brn kSmartTypeTop20;
+    static const OpenHome::Brn kSmartTypeExclusive;
+    static const OpenHome::Brn kSmartTypeRising;
+    static const OpenHome::Brn kSmartTypeDiscovery;
 public:
-    TidalMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
-    OpenHome::Media::Track* TrackFromJson(const OpenHome::Brx& aMetadata);
-    const OpenHome::Brx& FirstIdFromJson(const OpenHome::Brx& aJsonResponse);
+    static const OpenHome::Brn kIdTypeSmart;
+    static const OpenHome::Brn kIdTypeUserSpecific;
+    enum EIdType {
+        eArtist,
+        eAlbum,
+        eTrack,
+        ePlaylist,
+        eSavedPlaylist,
+        eFavorites,
+        eGenre,
+        eMood,
+        eSmartNew,
+        eSmartRecommended,
+        eSmartTop20,
+        eSmartExclusive,
+        eSmartRising,
+        eSmartDiscovery,
+    };
     enum EImageResolution {
         eNone,
         eLow,
         eMed,
         eHigh
     };
+public:
+    TidalMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
+    OpenHome::Media::Track* TrackFromJson(const OpenHome::Brx& aMetadata);
+    const OpenHome::Brx& FirstIdFromJson(const OpenHome::Brx& aJsonResponse, EIdType aType);
+    static const Brx& IdTypeToString(EIdType aType);
 private:
     void ParseTidalMetadata(const OpenHome::Brx& aMetadata);
     void TryAddAttribute(OpenHome::JsonParser& aParser,
