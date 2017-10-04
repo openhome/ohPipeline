@@ -75,8 +75,6 @@ def configure(conf):
         conf.path.find_node('.').abspath()
         ]
 
-    mono = set_env(conf, 'MONO', [] if conf.options.dest_platform.startswith('Windows') else ["mono", "--runtime=v4.0"])
-
     # Setup Ogg lib options
     # Using https://git.xiph.org/?p=ogg.git
     # 1344d4ed60e26f6426c782b705ec0c9c5fddfe43
@@ -85,7 +83,7 @@ def configure(conf):
         'thirdparty/libogg/include',
         ]
 
-    # Setup FLAC lib options 
+    # Setup FLAC lib options
     conf.env.DEFINES_FLAC = ['VERSION=\"1.2.1\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG']
     conf.env.INCLUDES_FLAC = [
         'thirdparty/flac-1.2.1/src/libFLAC/include',
@@ -176,22 +174,25 @@ upnp_services = [
 def build(bld):
 
     # Generated provider base classes
-    t4templatedir = bld.env['T4_TEMPLATE_PATH']
-    text_transform_exe_node = find_resource_or_fail(bld, bld.root, os.path.join(bld.env['TEXT_TRANSFORM_PATH'], 'TextTransform.exe'))
+    service_gen_path = os.path.join(bld.env['SERVICE_GEN_DIR'], 'ServiceGen.py')
+    output_dir = 'Generated'
     for service in upnp_services:
-        for t4Template, prefix, ext, args in [
-                ('DvUpnpCppCoreHeader.tt', 'Dv', '.h', '-a buffer:1'),
-                ('DvUpnpCppCoreSource.tt', 'Dv', '.cpp', ''),
-                ('CpUpnpCppHeader.tt', 'Cp', '.h', '-a buffer:1'),
-                ('CpUpnpCppBufferSource.tt', 'Cp', '.cpp', '')
-                ]:
-            t4_template_node = find_resource_or_fail(bld, bld.root, os.path.join(t4templatedir, t4Template))
-            tgt = bld.path.find_or_declare(os.path.join('Generated', prefix + service.target + ext))
-            bld(
-                rule="${MONO} " + text_transform_exe_node.abspath() + " -o " + tgt.abspath() + " " + t4_template_node.abspath() + " -a xml:../" + service.xml + " -a domain:" + service.domain + " -a type:" + service.type + " -a version:" + service.version + " " + args,
-                source=[text_transform_exe_node, t4_template_node, service.xml],
-                target=tgt
-                )
+        for template_file, prefix, ext in [
+            ('DvUpnpCppCoreHeader.py', 'Dv', '.h'),
+            ('DvUpnpCppCoreSource.py', 'Dv', '.cpp'),
+            ('CpUpnpCppBufferHeader.py', 'Cp', '.h'),
+            ('CpUpnpCppBufferSource.py', 'Cp', '.cpp')
+        ]:
+            output_file = bld.path.find_or_declare(os.path.join(output_dir, prefix + service.target + ext))
+            bld( rule='python ' + service_gen_path +
+                      ' -t ' + template_file +
+                      ' -o ' + output_dir +
+                      ' -x ' + os.path.abspath(service.xml) +
+                      ' -d ' + service.domain +
+                      ' -y ' + service.type +
+                      ' -v ' + service.version,
+                 source=service.xml,
+                 target=output_file)
     bld.add_group()
 
     # Copy ConfigUi resources to 'build' and 'install/bin'.

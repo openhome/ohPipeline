@@ -1,137 +1,137 @@
 <scpd>
   <serviceStateTable>
-    <stateVariable>
-      <name>PresetNameList</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no">
+      <name>PresetNameList</name>
       <dataType>string</dataType>
     </stateVariable>
-    <stateVariable> 
-      <name>LastChange</name> <sendEventsAttribute>yes</sendEventsAttribute>
+    <stateVariable sendEvents="yes">
+      <name>LastChange</name>
       <dataType>string</dataType>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>Brightness</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>Brightness</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>Contrast</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>Contrast</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>Sharpness</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>Sharpness</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>RedVideoGain</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>RedVideoGain</name>
       <dataType>ui2</dataType>
       <allowedValueRange>
         <minimum>0</minimum>
         <step>1</step>
       </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>GreenVideoGain</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>GreenVideoGain</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>BlueVideoGain</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>BlueVideoGain</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>RedVideoBlackLevel</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>RedVideoBlackLevel</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>GreenVideoBlackLevel</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>GreenVideoBlackLevel</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>BlueVideoBlackLevel</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>BlueVideoBlackLevel</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>ColorTemperature</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>ColorTemperature</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>HorizontalKeystone</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>HorizontalKeystone</name>
       <dataType>i2</dataType>
 	    <allowedValueRange>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>VerticalKeystone</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>VerticalKeystone</name>
       <dataType>i2</dataType>
 	    <allowedValueRange>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>Mute</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>Mute</name>
       <dataType>boolean</dataType>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>Volume</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>Volume</name>
       <dataType>ui2</dataType>
 	    <allowedValueRange>
 		    <minimum>0</minimum>
 		    <step>1</step>
 	    </allowedValueRange>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>VolumeDB</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>VolumeDB</name>
       <dataType>i2</dataType>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>Loudness</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>Loudness</name>
       <dataType>boolean</dataType>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>A_ARG_TYPE_Channel</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>A_ARG_TYPE_Channel</name>
       <dataType>string</dataType>
     </stateVariable>
-    <stateVariable><Optional/>
-      <name>A_ARG_TYPE_InstanceID</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no"><Optional/>
+      <name>A_ARG_TYPE_InstanceID</name>
       <dataType>ui4</dataType>
     </stateVariable>
-    <stateVariable>
-      <name>A_ARG_TYPE_PresetName</name> <sendEventsAttribute>no</sendEventsAttribute>
+    <stateVariable sendEvents="no">
+      <name>A_ARG_TYPE_PresetName</name>
       <dataType>string</dataType>
     </stateVariable>
   </serviceStateTable>
@@ -713,4 +713,3 @@
     </action>
   </actionList>
 </scpd>
-
