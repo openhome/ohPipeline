@@ -131,7 +131,7 @@ void Product::Start()
     TBool sourceSelected = false;
     if (startupSourceVal != ConfigStartupSource::kLastUsed) {
         try {
-            (void)DoSetCurrentSource(startupSourceVal);
+            (void)DoSetCurrentSource(startupSourceVal, false);
             sourceSelected = true;
         }
         catch (AvSourceNotFound&) {
@@ -144,14 +144,14 @@ void Product::Start()
         iLastSelectedSource->Get(startupSource);
         if (startupSource == Brx::Empty()) {
             // If there is no stored startup source, select the first added source.
-            (void)DoSetCurrentSource(0);
+            (void)DoSetCurrentSource(0, false);
         }
         else {
             try {
-                DoSetCurrentSource(startupSource);
+                (void)DoSetCurrentSource(startupSource, false);
             }
             catch (AvSourceNotFound&) {
-                (void)DoSetCurrentSource(0);
+                (void)DoSetCurrentSource(0, false);
                 iLastSelectedSource->Set(Brx::Empty());
             }
         }
@@ -366,43 +366,47 @@ void Product::StandbyDisableNoSourceSwitch()
 
 void Product::SetCurrentSource(TUint aIndex)
 {
+    TBool reActivateIfNoSourceChange = iStandby;
     StandbyDisableNoSourceSwitch();
-    (void)DoSetCurrentSource(aIndex);
+    (void)DoSetCurrentSource(aIndex, reActivateIfNoSourceChange);
 }
 
-TBool Product::DoSetCurrentSourceLocked(TUint aIndex)
+TBool Product::DoSetCurrentSourceLocked(TUint aIndex, TBool aReActivateIfNoSourceChange)
 {
     if (aIndex >= (TUint)iSources.size()) {
         THROW(AvSourceNotFound);
     }
-    if (iCurrentSource == aIndex) {
-        return false;
-    }
-    if (iCurrentSource != kCurrentSourceNone) {
-        iSources[iCurrentSource]->Deactivate();
-    }
-    iCurrentSource = aIndex;
-    iLastSelectedSource->Set(iSources[iCurrentSource]->SystemName());
-    {
-        AutoMutex amx(iObserverLock);
-        for (auto observer : iObservers) {
-            observer->SourceIndexChanged();
+    TBool activate = aReActivateIfNoSourceChange;
+    if (iCurrentSource != aIndex) {
+        activate = true;
+        if (iCurrentSource != kCurrentSourceNone) {
+            iSources[iCurrentSource]->Deactivate();
+        }
+        iCurrentSource = aIndex;
+        iLastSelectedSource->Set(iSources[iCurrentSource]->SystemName());
+        {
+            AutoMutex amx(iObserverLock);
+            for (auto observer : iObservers) {
+                observer->SourceIndexChanged();
+            }
         }
     }
-    if (!iStandby) {
+    if (activate && !iStandby) {
         iSources[iCurrentSource]->Activate(iAutoPlay, kPrefetchAllowedDefault);
+        return true;
     }
-    return true;
+    return false;
 }
 
-TBool Product::DoSetCurrentSource(TUint aIndex)
+TBool Product::DoSetCurrentSource(TUint aIndex, TBool aReActivateIfNoSourceChange)
 {
     AutoMutex a(iLock);
-    return DoSetCurrentSourceLocked(aIndex);
+    return DoSetCurrentSourceLocked(aIndex, aReActivateIfNoSourceChange);
 }
 
 void Product::SetCurrentSourceByName(const Brx& aName)
 {
+    TBool reActivateIfNoSourceChange = iStandby;
     StandbyDisableNoSourceSwitch();
     AutoMutex a(iLock);
     Bws<ISource::kMaxSourceNameBytes> name;
@@ -413,16 +417,17 @@ void Product::SetCurrentSourceByName(const Brx& aName)
             break;
         }
     }
-    (void)DoSetCurrentSourceLocked(i);
+    (void)DoSetCurrentSourceLocked(i, reActivateIfNoSourceChange);
 }
 
 void Product::SetCurrentSourceBySystemName(const Brx& aSystemName)
 {
+    TBool reActivateIfNoSourceChange = iStandby;
     StandbyDisableNoSourceSwitch();
-    DoSetCurrentSource(aSystemName);
+    (void)DoSetCurrentSource(aSystemName, reActivateIfNoSourceChange);
 }
 
-TBool Product::DoSetCurrentSource(const Brx& aSystemName)
+TBool Product::DoSetCurrentSource(const Brx& aSystemName, TBool aReActivateIfNoSourceChange)
 {
     AutoMutex a(iLock);
     TUint i = 0;
@@ -431,7 +436,7 @@ TBool Product::DoSetCurrentSource(const Brx& aSystemName)
             break;
         }
     }
-    return DoSetCurrentSourceLocked(i);
+    return DoSetCurrentSourceLocked(i, aReActivateIfNoSourceChange);
 }
 
 void Product::GetSourceDetails(TUint aIndex, Bwx& aSystemName, Bwx& aType, Bwx& aName, TBool& aVisible) const
@@ -580,7 +585,7 @@ void Product::StandbyDisabled(StandbyDisableReason aReason)
         iLock.Signal();
         if (startupSourceVal != ConfigStartupSource::kLastUsed) {
             try {
-                activated = DoSetCurrentSource(startupSourceVal);
+                activated = DoSetCurrentSource(startupSourceVal, true);
             }
             catch (AvSourceNotFound&) {
                 // Invalid content in iStartupSourceVal. Leave last source set.
