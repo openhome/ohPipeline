@@ -1193,10 +1193,12 @@ void RaopControlServer::Run()
             }
             catch (UdpServerClosed&) {
                 LOG_DEBUG(kMedia, "RaopControlServer::Run caught UdpServerClosed\n");
+                Thread::Sleep(kSocketFailureRetryIntervalMs); // Try avoid blocking low priority threads if this goes into a retry loop.
                 iSem.Signal();
             }
             catch (NetworkError&) {
                 LOG_DEBUG(kMedia, "RaopControlServer::Run caught NetworkError\n");
+                Thread::Sleep(kSocketFailureRetryIntervalMs); // Try avoid blocking low priority threads if this goes into a retry loop.
                 iSem.Signal();
             }
         }
@@ -1406,11 +1408,13 @@ void RaopAudioServer::Run()
             }
             catch (UdpServerClosed&) {
                 LOG_DEBUG(kMedia, "RaopAudioServer::Run UdpServerClosed\n");
+                Thread::Sleep(kSocketFailureRetryIntervalMs); // Try avoid blocking low priority threads if this goes into a retry loop.
                 // Read failed, so resignal semaphore.
                 iSem.Signal();
             }
             catch (NetworkError&) {
                 LOG_DEBUG(kMedia, "RaopAudioServer::Run NetworkError\n");
+                Thread::Sleep(kSocketFailureRetryIntervalMs); // Try avoid blocking low priority threads if this goes into a retry loop.
                 // Read failed, so resignal semaphore.
                 iSem.Signal();
             }
