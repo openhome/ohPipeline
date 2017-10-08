@@ -2219,12 +2219,18 @@ Brn MsgPlayablePcm::ApplyAttenuation(Brn aData)
         switch (iBitDepth) {
         case 16:
             {
-                TInt16* source = (TInt16*)aData.Ptr();
-                TInt16* dest = (TInt16*)attenuatedData.Ptr();
-                TUint samples = aData.Bytes()/2;
+                TByte *source = (TByte *)aData.Ptr();
+                TByte *dest = (TByte *)attenuatedData.Ptr();
+                TUint samples = aData.Bytes()/2;  // Number of 16-bit samples
                 attenuatedData.SetBytes(aData.Bytes());
                 for(TUint i = 0; i < samples; i++) {
-                    dest[i] = (TInt16)((TInt32)source[i] * iAttenuation / MsgAudioPcm::kUnityAttenuation);
+                    TInt16 sample;
+                    TUint byteIndex = i*2;
+                    sample = source[byteIndex] << 8;
+                    sample += source[byteIndex+1];
+                    TInt attenuatedSample = sample * iAttenuation / MsgAudioPcm::kUnityAttenuation;
+                    dest[byteIndex] = attenuatedSample >> 8;
+                    dest[byteIndex+1] = (TByte)attenuatedSample;
                 }
             }
             break;
