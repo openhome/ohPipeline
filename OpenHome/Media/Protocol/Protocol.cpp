@@ -109,7 +109,7 @@ ProtocolNetwork::ProtocolNetwork(Environment& aEnv)
 {
 }
 
-TBool ProtocolNetwork::Connect(const OpenHome::Uri& aUri, TUint aDefaultPort, TUint aTimeoutMs)
+TBool ProtocolNetwork::Connect(const Uri& aUri, TUint aDefaultPort, TUint aTimeoutMs)
 {
     LOG(kMedia, ">ProtocolNetwork::Connect\n");
 

@@ -44,7 +44,7 @@ public:
 class IServerObserver
 {
 public:
-    virtual void NotifyServer(const OpenHome::Brx& aServer) = 0; // not allowed to throw
+    virtual void NotifyServer(const Brx& aServer) = 0; // not allowed to throw
 };
 
 class ContentProcessor;
@@ -157,7 +157,7 @@ protected:
     static const TUint kConnectTimeoutMs = 3000;
 protected:
     ProtocolNetwork(Environment& aEnv);
-    TBool Connect(const OpenHome::Uri& aUri, TUint aDefaultPort, TUint aTimeoutMs = kConnectTimeoutMs);
+    TBool Connect(const Uri& aUri, TUint aDefaultPort, TUint aTimeoutMs = kConnectTimeoutMs);
 protected: // from Protocol
     void Interrupt(TBool aInterrupt) override;
 protected:

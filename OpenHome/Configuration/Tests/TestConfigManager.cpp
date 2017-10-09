@@ -315,8 +315,8 @@ void SuiteCVSubscriptions::Setup()
 
 void SuiteCVSubscriptions::TearDown()
 {
-    SuiteCVNotify::TearDown();
     delete iConfigVal;
+    SuiteCVNotify::TearDown();
 }
 
 void SuiteCVSubscriptions::TestNoSubscriptions()
@@ -424,8 +424,8 @@ void SuiteConfigNum::Setup()
 
 void SuiteConfigNum::TearDown()
 {
-    SuiteCVNotify::TearDown();
     delete iConfigVal;
+    SuiteCVNotify::TearDown();
 }
 
 void SuiteConfigNum::NotifyChanged(ConfigNum::KvpNum& aKvp)
@@ -785,8 +785,8 @@ void SuiteConfigChoice::Setup()
 
 void SuiteConfigChoice::TearDown()
 {
-    SuiteCVNotify::TearDown();
     delete iConfigVal;
+    SuiteCVNotify::TearDown();
 }
 
 void SuiteConfigChoice::NotifyChanged(ConfigChoice::KvpChoice& aKvp)
@@ -1128,8 +1128,8 @@ void SuiteConfigText::Setup()
 
 void SuiteConfigText::TearDown()
 {
-    SuiteCVNotify::TearDown();
     delete iConfigVal;
+    SuiteCVNotify::TearDown();
 }
 
 void SuiteConfigText::NotifyChanged(ConfigText::KvpText& aKvp)

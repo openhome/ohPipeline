@@ -197,10 +197,12 @@ void JsonParser::Parse(const Brx& aJson, TBool aUnescapeInPlace)
     Brn key;
     TUint nestCount = 0;
     TBool escapeChar = false;
+    TUint skipCount = 0;
 
     while (state != Complete && ptr < end) {
         TChar ch = (TChar)*ptr++;
         if (Ascii::IsWhitespace(ch)) {
+            ++skipCount;
             continue;
         }
         switch (state)
@@ -234,6 +236,7 @@ void JsonParser::Parse(const Brx& aJson, TBool aUnescapeInPlace)
             }
             break;
         case ValueStart:
+            skipCount = 0;
             if (ch != ':') {
                 if (ch == '\"') {
                     valStart = ptr;
@@ -262,14 +265,14 @@ void JsonParser::Parse(const Brx& aJson, TBool aUnescapeInPlace)
         case NumEnd:
         case MiscEnd:
             if (ch == ',') {
-                Add(key, valStart, ptr - valStart - 1);
+                Add(key, valStart, ptr - valStart - 1 - skipCount);
                 state = KeyStart;
             }
             else if (ch == '}') {
                 if (nestCount != 0) {
                     THROW(JsonUnsupported);
                 }
-                Add(key, valStart, ptr - valStart - 1);
+                Add(key, valStart, ptr - valStart - 1 - skipCount);
                 state = Complete;
             }
             break;
@@ -456,6 +459,7 @@ enum class Type
     Object,
     Array
 };
+
 JsonParserArray JsonParserArray::Create(const Brx& aArray)
 {
     JsonParserArray self(aArray);
@@ -471,6 +475,7 @@ JsonParserArray::ValType JsonParserArray::Type() const
 
 TInt JsonParserArray::NextInt()
 {
+    EndEnumerationIfNullType();
     if (iType != ValType::Int) {
         THROW(JsonWrongType);
     }
@@ -485,6 +490,7 @@ TInt JsonParserArray::NextInt()
 
 TBool JsonParserArray::NextBool()
 {
+    EndEnumerationIfNullType();
     if (iType != ValType::Bool) {
         THROW(JsonWrongType);
     }
@@ -500,6 +506,7 @@ TBool JsonParserArray::NextBool()
 
 Brn JsonParserArray::NextString()
 {
+    EndEnumerationIfNullType();
     if (iType != ValType::String) {
         THROW(JsonWrongType);
     }
@@ -552,6 +559,7 @@ Brn JsonParserArray::NextStringEscaped()
 
 Brn JsonParserArray::NextArray()
 {
+    EndEnumerationIfNullType();
     if (iType != ValType::Array) {
         THROW(JsonWrongType);
     }
@@ -561,6 +569,7 @@ Brn JsonParserArray::NextArray()
 
 Brn JsonParserArray::NextObject()
 {
+    EndEnumerationIfNullType();
     if (iType != ValType::Object) {
         THROW(JsonWrongType);
     }
@@ -624,6 +633,7 @@ void JsonParserArray::StartParse()
 
 Brn JsonParserArray::NextNumOrBool()
 {
+    EndEnumerationIfNullType();
     while (iPtr < iEnd) {
         TChar ch = (TChar)*iPtr;
         if (!Ascii::IsWhitespace(ch)) {
@@ -650,6 +660,7 @@ Brn JsonParserArray::NextNumOrBool()
 
 Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
 {
+    EndEnumerationIfNullType();
     while (iPtr < iEnd) {
         if (*iPtr == aStart) {
             break;
@@ -694,6 +705,12 @@ Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
     return val;
 }
 
+void JsonParserArray::EndEnumerationIfNullType()
+{
+    if (iType == ValType::Null) {
+        THROW(JsonArrayEnumerationComplete);
+    }
+}
 
 // class WriterJson
 

@@ -169,13 +169,6 @@ void Stopper::BeginStop(TUint aHaltId)
     }
 }
 
-void Stopper::StopNow()
-{
-    iLock.Wait();
-    HandleStopped();
-    iLock.Signal();
-}
-
 void Stopper::Quit()
 {
     iQuit = true;

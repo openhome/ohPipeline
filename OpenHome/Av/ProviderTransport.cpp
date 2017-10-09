@@ -15,8 +15,6 @@ using namespace OpenHome::Media;
 
 static const TUint kCodeNotSupportedByMode = 801;
 static const Brn kMsgNotSupportedByMode("Action not supported by current mode");
-static const TUint kCodeNotSupportedByStream = 802;
-static const Brn kMsgNotSupportedByStream("Action not supported by current stream");
 static const TUint kSeekFailureCode = 803;
 static const Brn kSeekFailureMsg("Seek failed");
 static const TUint kCodeBadStreamId = 804;
@@ -200,7 +198,7 @@ void ProviderTransport::Pause(IDvInvocation& aInvocation)
                 iPipeline.Pause();
             }
             catch (PipelineStreamNotPausable&) {
-                aInvocation.Error(kCodeNotSupportedByStream, kMsgNotSupportedByStream);
+                iPipeline.Stop();
             }
         }
     }

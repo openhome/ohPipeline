@@ -56,6 +56,12 @@ public:
      * @param[in]  aKey      Unique key.  Throws StoreKeyNotFound if this doesn't exist.
      */
     virtual void Delete(const Brx& aKey) = 0;
+    /**
+     * Signal that all store contents should be deleted.
+     *
+     * May require a device reboot to take effect.
+     */
+    virtual void DeleteAll() = 0;
     virtual ~IStoreReadWrite() {}
 };
 

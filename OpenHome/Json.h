@@ -98,6 +98,7 @@ private:
     void StartParse();
     Brn NextNumOrBool();
     Brn NextCollection(TChar aStart, TChar aEnd);
+    void EndEnumerationIfNullType();
 private:
     Brn iBuf;
     ValType iType;

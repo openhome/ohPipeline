@@ -26,29 +26,6 @@ TestPipeDynamic::~TestPipeDynamic()
     }
 }
 
-void TestPipeDynamic::Print()
-{
-    AutoMutex a(iLock);
-    const TUint slots = iFifo.SlotsUsed();
-    Log::Print("\nTestPipeDynamic::Print\n");
-    Log::Print("[\n");
-    for (TUint i=0; i<slots; i++) {
-        Bwh* buf = iFifo.Read();
-        Log::Print("\t");
-        Log::Print(*buf);
-        Log::Print("\n");
-        iFifo.Write(buf);
-    }
-    Log::Print("]\n");
-}
-
-void TestPipeDynamic::Write(const Brx& aMessage)
-{
-    AutoMutex a(iLock);
-    Bwh* buf = new Bwh(aMessage);
-    iFifo.Write(buf);
-}
-
 TBool TestPipeDynamic::Expect(const Brx& aMessage)
 {
     AutoMutex a(iLock);
@@ -87,4 +64,27 @@ TBool TestPipeDynamic::ExpectEmpty()
         return false;
     }
     return true;
+}
+
+void TestPipeDynamic::Print()
+{
+    AutoMutex a(iLock);
+    const TUint slots = iFifo.SlotsUsed();
+    Log::Print("\nTestPipeDynamic::Print\n");
+    Log::Print("[\n");
+    for (TUint i=0; i<slots; i++) {
+        Bwh* buf = iFifo.Read();
+        Log::Print("\t");
+        Log::Print(*buf);
+        Log::Print("\n");
+        iFifo.Write(buf);
+    }
+    Log::Print("]\n");
+}
+
+void TestPipeDynamic::Write(const Brx& aMessage)
+{
+    AutoMutex a(iLock);
+    Bwh* buf = new Bwh(aMessage);
+    iFifo.Write(buf);
 }

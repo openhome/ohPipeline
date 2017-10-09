@@ -15,27 +15,18 @@ public:
     virtual ~ITestPipeWritable() {}
 };
 
-class ITestPipeReadable
-{
-public:
-    virtual TBool Expect(const OpenHome::Brx& aMessage) = 0;
-    virtual TBool ExpectEmpty() = 0;
-    virtual ~ITestPipeReadable() {}
-};
-
-class TestPipeDynamic : public ITestPipeWritable, public ITestPipeReadable
+class TestPipeDynamic : public ITestPipeWritable
 {
 public:
     static const TUint kMaxMsgBytes = 256;
 public:
     TestPipeDynamic(TUint aSlots = 1024);
     ~TestPipeDynamic();
+    TBool Expect(const OpenHome::Brx& aMessage);
+    TBool ExpectEmpty();
     void Print();
 public: // from ITestPipeWritable
     void Write(const OpenHome::Brx& aMessage) override;
-public: // from ITestPipeReadable
-    TBool Expect(const OpenHome::Brx& aMessage) override;
-    TBool ExpectEmpty() override;
 private:
     OpenHome::FifoLiteDynamic<OpenHome::Bwh*> iFifo;
     OpenHome::Mutex iLock;

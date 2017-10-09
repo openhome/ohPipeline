@@ -61,6 +61,7 @@ ENV_TEST_DECLARATION(TestWebAppFramework);
 CP_DV_TEST_DECLARATION(TestCredentials);
 CP_DV_TEST_DECLARATION(TestUpnpErrors);
 CP_DV_TEST_DECLARATION(TestDvOdp);
+ENV_TEST_DECLARATION(TestSocket);
 
 
 extern void TestCodec(OpenHome::Environment& aEnv, CreateTestCodecPipelineFunc aFunc, GetTestFiles aFiles, const std::vector<Brn>& aArgs);
@@ -128,6 +129,7 @@ void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], N
     shellTests.push_back(ShellTest("TestFlywheelRamper", ShellTestFlywheelRamper));
     shellTests.push_back(ShellTest("TestRaop", ShellTestRaop));
     shellTests.push_back(ShellTest("TestWebAppFramework", ShellTestWebAppFramework));
+    shellTests.push_back(ShellTest("TestSocket", ShellTestSocket));
 
     OpenHome::Media::ExecuteTestShell(aInitParams, shellTests);
 }

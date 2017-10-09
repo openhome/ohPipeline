@@ -87,7 +87,7 @@ private:
     HeaderServer iHeaderServer;
     Bws<kMaxUserAgentBytes> iUserAgent;
     IcyObserverDidlLite* iIcyObserverDidlLite;
-    OpenHome::Uri iUri;
+    Uri iUri;
     TUint64 iTotalStreamBytes;
     TUint64 iTotalBytes;
     TUint iStreamId;
@@ -446,6 +446,7 @@ void ProtocolHttp::Reinitialise(const Brx& aUri)
     (void)iSem.Clear();
     iUri.Replace(aUri);
     iReaderIcy->Reset();
+    iIcyObserverDidlLite->Reset();
     iContentRecogBuf.ReadFlush();
 }
 

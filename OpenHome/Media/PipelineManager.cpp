@@ -205,6 +205,13 @@ void PipelineManager::Wait(TUint aFlushId)
     iPipeline->Wait(aFlushId);
 }
 
+void PipelineManager::FlushQuick(TUint aFlushId)
+{
+    AutoMutex _(iPublicLock);
+    LOG(kPipeline, "PipelineManager::FlushQuick(%u)\n", aFlushId);
+    iPipeline->FlushQuick(aFlushId);
+}
+
 void PipelineManager::Stop()
 {
     AutoMutex _(iPublicLock);

@@ -131,9 +131,9 @@ public:
     void GetAttributes(Bwx& aAttributes) const;
     TUint SourceXmlChangeCount();
 private:
-    TBool DoSetCurrentSourceLocked(TUint aIndex); // returns true if aIndex wasn't already active
-    TBool DoSetCurrentSource(TUint aIndex);
-    TBool DoSetCurrentSource(const Brx& aSystemName);
+    TBool DoSetCurrentSourceLocked(TUint aIndex, TBool aReActivateIfNoSourceChange);
+    TBool DoSetCurrentSource(TUint aIndex, TBool aReActivateIfNoSourceChange);
+    TBool DoSetCurrentSource(const Brx& aSystemName, TBool aReActivateIfNoSourceChange);
     void AppendTag(IWriter& aWriter, const TChar* aTag, const Brx& aValue);
     void GetConfigText(const Brx& aId, Bwx& aDest, const Brx& aDefault);
     void ProductRoomChanged(Configuration::KeyValuePair<const Brx&>& aKvp);

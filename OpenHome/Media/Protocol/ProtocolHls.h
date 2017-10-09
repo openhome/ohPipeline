@@ -74,7 +74,7 @@ private:
     ITimer* iTimer;
     IHttpSocket& iSocket;
     ReaderUntilS<kMaxLineBytes> iReaderUntil;
-    OpenHome::Uri iUri;
+    Uri iUri;
     TBool iConnected;
     TUint64 iTotalBytes;
     TUint64 iOffset;
@@ -108,7 +108,7 @@ private:
     IHttpSocket& iSocket;
     IReader& iReader;
     ISegmentUriProvider* iSegmentUriProvider;
-    OpenHome::Uri iUri;
+    Uri iUri;
     TBool iConnected;
     TUint64 iTotalBytes;
     TUint64 iOffset;

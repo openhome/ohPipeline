@@ -124,6 +124,10 @@ TBool NtpClient::DoTryGetNetworkTime(NtpTimestamp& aNetworkTime, TUint& aNetwork
     catch (ReaderError&) {
         LogError("ReaderError");
     }
+    iSocket.ReCreate(); /* Mandatory NTP fields are followed by an unpredictable amount of
+                           extension data.  Rather than figuring out how to parse this in
+                           all cases, its easier to just close then re-open the socket to
+                           flush any remaining data from the current UDP frame. */
 
     return success;
 }

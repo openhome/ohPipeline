@@ -38,7 +38,7 @@ private:
     void ConstructFilename(TUint aSeq, const Brx& aUri, Bwx& aBuf);
 private:
     IPipelineElementDownstream& iDownstream;
-    FileSystemAnsii iFileSystem;
+    FileSystemAnsi iFileSystem;
     Bws<kMaxTimeFormatBytes> iTime;
     IFile* iFile;
     Bws<EncodedAudio::kMaxBytes> iBuf;

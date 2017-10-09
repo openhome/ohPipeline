@@ -99,10 +99,6 @@ tests = [
     ['TestCalmRadioPlayChannels',     'local', 'none',  8,       20,      crUser,      crPwd                                         ],
     ['TestCalmRadioDropout',          'local', 'none', 'none',   1800,    'none',      5,           crUser,      crPwd               ],
 
-    # Airplay
-    [ 'TestAirplayFunctions',         'local'                                                                                        ],
-    [ 'TestAirplayDropout',           'local', '1800'                                                                                ],
-
     # UPnP AV
     [ 'TestAvTransportService',       'local', 'ALL'                                                                                 ],
     [ 'TestRenderingControlService',  'local'                                                                                        ],
@@ -121,6 +117,10 @@ tests = [
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'sender',    'multicast'                      ],
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'standby',   'unicast'                        ],
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'standby',   'multicast'                      ],
+
+    # Airplay
+    ['TestAirplayFunctions', 'local'],
+    ['TestAirplayDropout', 'local', '1800'],
 
     # Sources
     [ 'TestSourceSelect',             'local'                                                                                        ],

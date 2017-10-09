@@ -13,8 +13,9 @@ using namespace OpenHome::Configuration;
 
 // ConfigNum
 
-ConfigNum::ConfigNum(IConfigInitialiser& aManager, const Brx& aKey, TInt aMin, TInt aMax, TInt aDefault)
-    : ConfigVal(aManager, aKey)
+ConfigNum::ConfigNum(IConfigInitialiser& aManager, const Brx& aKey,
+                     TInt aMin, TInt aMax, TInt aDefault, TBool aRebootRequired)
+    : ConfigVal(aManager, aKey, aRebootRequired)
     , iMin(aMin)
     , iMax(aMax)
     , iDefault(aDefault)
@@ -40,10 +41,15 @@ ConfigNum::ConfigNum(IConfigInitialiser& aManager, const Brx& aKey, TInt aMin, T
         ASSERTS();
     }
 
-    iConfigManager.Add(*this);
     iVal = initialVal;
 
+    iConfigManager.Add(*this);
     AddInitialSubscribers();
+}
+
+ConfigNum::~ConfigNum()
+{
+    iConfigManager.Remove(*this);
 }
 
 TInt ConfigNum::Min() const
@@ -122,8 +128,10 @@ void ConfigNum::Write(KeyValuePair<TInt>& aKvp)
 
 // ConfigChoice
 
-ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey, const std::vector<TUint>& aChoices, TUint aDefault)
-    : ConfigVal(aManager, aKey)
+ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
+                           const std::vector<TUint>& aChoices, TUint aDefault,
+                           TBool aRebootRequired)
+    : ConfigVal(aManager, aKey, aRebootRequired)
     , iChoices(aChoices)
     , iDefault(aDefault)
     , iMapper(nullptr)
@@ -132,14 +140,21 @@ ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey, const 
     Init();
 }
 
-ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey, const std::vector<TUint>& aChoices, TUint aDefault, IConfigChoiceMapper& aMapper)
-    : ConfigVal(aManager, aKey)
+ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
+                           const std::vector<TUint>& aChoices, TUint aDefault,
+                           IConfigChoiceMapper& aMapper, TBool aRebootRequired)
+    : ConfigVal(aManager, aKey, aRebootRequired)
     , iChoices(aChoices)
     , iDefault(aDefault)
     , iMapper(&aMapper)
     , iMutex("CVCM")
 {
     Init();
+}
+
+ConfigChoice::~ConfigChoice()
+{
+    iConfigManager.Remove(*this);
 }
 
 const std::vector<TUint>& ConfigChoice::Choices() const
@@ -195,9 +210,9 @@ void ConfigChoice::Init()
         ASSERTS();
     }
 
-    iConfigManager.Add(*this);
     iSelected = initialVal;
 
+    iConfigManager.Add(*this);
     AddInitialSubscribers();
 }
 
@@ -256,8 +271,8 @@ void ConfigChoice::Write(KeyValuePair<TUint>& aKvp)
 
 // ConfigText
 
-ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMaxLength, const Brx& aDefault)
-    : ConfigVal(aManager, aKey)
+ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
+    : ConfigVal(aManager, aKey, aRebootRequired)
     , iDefault(aDefault)
     , iText(aMaxLength)
     , iMutex("CVTM")
@@ -282,10 +297,15 @@ ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMax
     }
 
     // Initial value fits into initial buf, so it is within max length limit.
-    iConfigManager.Add(*this);
     iText.Replace(initialBuf);
 
+    iConfigManager.Add(*this);
     AddInitialSubscribers();
+}
+
+ConfigText::~ConfigText()
+{
+    iConfigManager.Remove(*this);
 }
 
 TUint ConfigText::MaxLength() const
@@ -367,6 +387,7 @@ ConfigManager::ConfigManager(IStoreReadWrite& aStore)
     : iStore(aStore)
     , iOpen(false)
     , iLock("CFML")
+    , iObserver(nullptr)
 {
 }
 
@@ -463,24 +484,72 @@ void ConfigManager::Open()
     // All keys should have been added, so sort key list.
     std::sort(iKeyListOrdered.begin(), iKeyListOrdered.end(), BufferPtrCmp());
     iOpen = true;
+    if (iObserver != nullptr) {
+        iObserver->AddsComplete();
+    }
 }
 
 void ConfigManager::Add(ConfigNum& aNum)
 {
     AddNum(aNum.Key(), aNum);
     iKeyListOrdered.push_back(&aNum.Key());
+
+    AutoMutex _(iLock);
+    if (iObserver != nullptr) {
+        iObserver->Added(aNum);
+    }
 }
 
 void ConfigManager::Add(ConfigChoice& aChoice)
 {
     AddChoice(aChoice.Key(), aChoice);
     iKeyListOrdered.push_back(&aChoice.Key());
+
+    AutoMutex _(iLock);
+    if (iObserver != nullptr) {
+        iObserver->Added(aChoice);
+    }
 }
 
 void ConfigManager::Add(ConfigText& aText)
 {
     AddText(aText.Key(), aText);
     iKeyListOrdered.push_back(&aText.Key());
+
+    AutoMutex _(iLock);
+    if (iObserver != nullptr) {
+        iObserver->Added(aText);
+    }
+}
+
+void ConfigManager::Remove(ConfigNum& aNum)
+{
+    if (iMapNum.TryRemove(aNum.Key())) {
+        AutoMutex _(iLock);
+        if (iObserver != nullptr) {
+            iObserver->Removed(aNum);
+        }
+    }
+}
+
+void ConfigManager::Remove(ConfigChoice& aChoice)
+{
+    if (iMapChoice.TryRemove(aChoice.Key())) {
+        AutoMutex _(iLock);
+        if (iObserver != nullptr) {
+            iObserver->Removed(aChoice);
+        }
+    }
+}
+
+void ConfigManager::Remove(ConfigText& aText)
+{
+    if (iMapText.TryRemove(aText.Key())) {
+        AutoMutex _(iLock);
+        if (iObserver != nullptr) {
+            iObserver->Removed(aText);
+        }
+    }
 }
 
 void ConfigManager::FromStore(const Brx& aKey, Bwx& aDest, const Brx& aDefault)
@@ -499,6 +568,24 @@ void ConfigManager::FromStore(const Brx& aKey, Bwx& aDest, const Brx& aDefault)
 void ConfigManager::ToStore(const Brx& aKey, const Brx& aValue)
 {
     iStore.Write(aKey, aValue);
+}
+
+void ConfigManager::Add(IConfigObserver& aObserver)
+{
+    AutoMutex _(iLock);
+    ASSERT(iObserver == nullptr); // don't support multiple observers (no obvious need for it)
+    iObserver = &aObserver;
+    // assume that observer is registered before any config values are created
+    // so... no need to notify about existing values
+}
+
+void ConfigManager::Remove(IConfigObserver& aObserver)
+{
+    AutoMutex _(iLock);
+    if (iObserver != nullptr) {
+        ASSERT(iObserver == &aObserver);
+        iObserver = nullptr;
+    }
 }
 
 void ConfigManager::AddNum(const Brx& aKey, ConfigNum& aNum)

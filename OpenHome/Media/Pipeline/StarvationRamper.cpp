@@ -386,6 +386,7 @@ StarvationRamper::StarvationRamper(MsgFactory& aMsgFactory, IPipelineElementUpst
     , iNumChannels(0)
     , iCurrentRampValue(Ramp::kMin)
     , iRemainingRampSize(0)
+    , iTargetFlushId(MsgFlush::kIdInvalid)
     , iLastPulledAudioRampValue(Ramp::kMax)
     , iLastEventBuffering(false)
 {
@@ -405,6 +406,15 @@ StarvationRamper::~StarvationRamper()
 {
     delete iPullerThread;
     delete iRampGenerator;
+}
+
+void StarvationRamper::Flush(TUint aId)
+{
+    AutoMutex _(iLock);
+    iTargetFlushId = aId;
+    iCurrentRampValue = Ramp::kMax;
+    iRemainingRampSize = kRampDownJiffies;
+    iState = State::RampingDown;
 }
 
 TUint StarvationRamper::SizeInJiffies() const
@@ -485,7 +495,7 @@ void StarvationRamper::StartFlywheelRamp()
     }*/
     iRampGenerator->Start(recentSamples, iSampleRate, iNumChannels, rampStart);
 //    const TUint flywheelEnd = Time::Now(*gEnv);
-    iState = State::RampingDown;
+    iState = State::FlywheelRamping;
 //    Log::Print("StarvationRamper::StartFlywheelRamp rampStart=%08x, prepTime=%ums, flywheelTime=%ums\n", rampStart, prepEnd - startTime, flywheelEnd - prepEnd);
 
     iStarving = true;
@@ -559,19 +569,24 @@ Msg* StarvationRamper::Pull()
         if (iRampGenerator->TryGetAudio(msg)) {
             return msg;
         }
-        else if (iState == State::RampingDown) {
+        else if (iState == State::FlywheelRamping) {
             iState = State::RampingUp;
             iCurrentRampValue = Ramp::kMin;
             iRemainingRampSize = iRampUpJiffies;
             return iMsgFactory.CreateMsgHalt();
         }
 
+        const TBool wasFlushing = iState == State::Flushing;
         msg = DoDequeue(true);
         iLock.Wait();
         if (!IsFull()) {
             iSem.Signal();
         }
         iLock.Signal();
+        if (wasFlushing && iState == State::Flushing && msg != nullptr) {
+            msg->RemoveRef();
+            msg = nullptr;
+        }
     } while (msg == nullptr);
     return msg;
 }
@@ -626,6 +641,23 @@ Msg* StarvationRamper::ProcessMsgOut(MsgHalt* aMsg)
     return aMsg;
 }
 
+Msg* StarvationRamper::ProcessMsgOut(MsgFlush* aMsg)
+{
+    const auto id = aMsg->Id();
+    aMsg->RemoveRef();
+    if (iTargetFlushId != MsgFlush::kIdInvalid && id == iTargetFlushId) {
+        if (iState == State::RampingDown) {
+            StartFlywheelRamp();
+        }
+        else if (iState == State::Flushing) {
+            iState = State::Halted;
+            iTargetFlushId = MsgFlush::kIdInvalid;
+            return iMsgFactory.CreateMsgHalt();
+        }
+    }
+    return nullptr;
+}
+
 Msg* StarvationRamper::ProcessMsgOut(MsgDecodedStream* aMsg)
 {
     NewStream();
@@ -651,18 +683,24 @@ Msg* StarvationRamper::ProcessMsgOut(MsgAudioPcm* aMsg)
         EnqueueAtHead(split);
     }
 
-    if (iState == State::RampingUp && iRemainingRampSize > 0) {
+    if ((iState == State::RampingUp || iState == State::RampingDown) && iRemainingRampSize > 0) {
         if (aMsg->Jiffies() > iRemainingRampSize) {
             MsgAudio* remaining = aMsg->Split(iRemainingRampSize);
             EnqueueAtHead(remaining);
         }
         MsgAudio* split;
-        iCurrentRampValue = aMsg->SetRamp(iCurrentRampValue, iRemainingRampSize, Ramp::EUp, split);
+        auto direction = iState == State::RampingUp ? Ramp::EUp : Ramp::EDown;
+        iCurrentRampValue = aMsg->SetRamp(iCurrentRampValue, iRemainingRampSize, direction, split);
         if (split != nullptr) {
             EnqueueAtHead(split);
         }
         if (iRemainingRampSize == 0) {
-            iState = State::Running;
+            if (iState == State::RampingUp) {
+                iState = State::Running;
+            }
+            else {
+                iState = State::Flushing;
+            }
         }
     }
 

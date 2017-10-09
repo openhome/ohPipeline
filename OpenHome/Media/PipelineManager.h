@@ -206,6 +206,13 @@ public:
      */
     void Wait(TUint aFlushId);
     /**
+     * Flush pipeline as quickly as possible.
+     *
+     * Be careful how you use this.  It may cause a flywheel ramp (which itself
+     * may cause a small glitch) if used when pipeline latency is very low.
+     */
+    void FlushQuick(TUint aFlushId);
+    /**
      * Stop the pipeline.
      *
      * Stop playing any current track.  Don't play any pending tracks already in the

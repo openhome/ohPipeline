@@ -652,13 +652,26 @@ void CodecController::OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint
     iChannels = aNumChannels;
     iSampleRate = aSampleRate;
     iBitDepth = aBitDepth;
-    const TBool queue = !iSeekInProgress;
-    if (iSeekInProgress) {
-        if (iPostSeekStreamInfo != nullptr) {
-            iPostSeekStreamInfo->RemoveRef();
-        }
-        iPostSeekStreamInfo = msg;
+
+    // Handle when the new MsgDecodedStream should be output.
+    if (iPostSeekStreamInfo != nullptr) {
+        // There is either a seek in progress and a MsgDecodedStream is already
+        // pending, or a seek has just finished and a new MsgDecodedStream has
+        // come in before the pending one has been output.
+        //
+        // Clear the pending MsgDecodedStream before deciding what action to
+        // take for the new MsgDecodedStream.
+        iPostSeekStreamInfo->RemoveRef();
+        iPostSeekStreamInfo = nullptr;
     }
+    TBool queue = true;
+    if (iSeekInProgress) {
+        // This message should not be directly queued. Cache it in
+        // iPostSeekStreamInfo.
+        iPostSeekStreamInfo = msg;
+        queue = false;
+    }
+
     iLock.Signal();
     if (queue) {
         Queue(msg);

@@ -5,6 +5,7 @@
 #include <OpenHome/Media/MimeTypeList.h>
 #include <OpenHome/Optional.h>
 #include <OpenHome/Av/Logger.h>
+#include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/TransportControl.h>
 
 namespace OpenHome {
@@ -39,6 +40,7 @@ namespace Configuration {
     class ConfigText;
     class ConfigChoice;
     class ProviderConfig;
+    class ProviderConfigApp;
 }
 namespace Av {
 
@@ -59,6 +61,7 @@ class VolumeConsumer;
 class IVolumeManager;
 class IVolumeProfile;
 class ConfigStartupSource;
+class IRebootHandler;
 
 class IMediaPlayer
 {
@@ -87,6 +90,24 @@ public:
     virtual ITransportRepeatRandom& TransportRepeatRandom() = 0;
 };
 
+
+class MediaPlayerInitParams
+{
+public:
+    static MediaPlayerInitParams* New(const Brx& aDefaultRoom, const Brx& aDefaultName);
+    void EnableConfigApp();
+    const Brx& DefaultRoom() const;
+    const Brx& DefaultName() const;
+    TBool ConfigAppEnabled() const;
+private:
+    MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName);
+private:
+    Bws<Product::kMaxRoomBytes> iDefaultRoom;
+    Bws<Product::kMaxNameBytes> iDefaultName;
+    TBool iConfigAppEnable;
+};
+
+
 class MediaPlayer : public IMediaPlayer, private INonCopyable
 {
     static const TUint kTrackCount = 1200;
@@ -98,8 +119,7 @@ public:
                 VolumeConsumer& aVolumeConsumer, IVolumeProfile& aVolumeProfile,
                 IInfoAggregator& aInfoAggregator,
                 const Brx& aEntropy,
-                const Brx& aDefaultRoom,
-                const Brx& aDefaultName);
+                MediaPlayerInitParams* aInitParams);
     ~MediaPlayer();
     void Quit();
     void Add(Media::Codec::ContainerBase* aContainer);
@@ -107,7 +127,7 @@ public:
     void Add(Media::Protocol* aProtocol);
     void Add(ISource* aSource);
     RingBufferLogger* LogBuffer(); // an optional component. returns nullptr if not available. no transfer of ownership.
-    void Start();
+    void Start(IRebootHandler& aRebootHandler);
 public: // from IMediaPlayer
     Environment& Env() override;
     Net::DvStack& DvStack() override;
@@ -154,6 +174,7 @@ private:
     ProviderTransport* iProviderTransport;
     Av::TransportRepeatRandom iTransportRepeatRandom;
     Configuration::ProviderConfig* iProviderConfig;
+    Configuration::ProviderConfigApp* iProviderConfigApp;
     LoggerBuffered* iLoggerBuffered;
     IUnixTimestamp* iUnixTimestamp;
 };

@@ -1459,7 +1459,11 @@ void ConfigUiValStartupSourceDelayed::RemoveObserver(TUint aObserverId)
 const Brn ConfigAppBase::kLangRoot("lang");
 const Brn ConfigAppBase::kDefaultLanguage("en-gb");
 
-ConfigAppBase::ConfigAppBase(IInfoAggregator& aInfoAggregator, IConfigManager& aConfigManager, IConfigAppResourceHandlerFactory& aResourceHandlerFactory, const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize, IRebootHandler& aRebootHandler)
+ConfigAppBase::ConfigAppBase(IInfoAggregator& aInfoAggregator, IConfigManager& aConfigManager,
+                             IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
+                             const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount,
+                             TUint aMaxTabs, TUint aSendQueueSize,
+                             IRebootHandler& aRebootHandler)
     : iConfigManager(aConfigManager)
     , iRebootRequired(true)
     , iLangResourceDir(aResourceDir.Bytes()+1+kLangRoot.Bytes()+1)  // "<aResourceDir>/<kLangRoot>/"
@@ -1599,62 +1603,56 @@ void ConfigAppBase::AddValue(IConfigUiVal* aValue)
     }
 }
 
-void ConfigAppBase::AddConfigNum(const Brx& aKey, TBool aRebootRequired)
+void ConfigAppBase::AddConfigNum(const Brx& aKey)
 {
-    if (aRebootRequired) {
-        AddValue(new ConfigUiValNum(iConfigManager.GetNum(aKey), iRebootRequired));
-    }
-    else {
-        AddValue(new ConfigUiValNum(iConfigManager.GetNum(aKey), iRebootNotRequired));
-    }
+    auto& num = iConfigManager.GetNum(aKey);
+    AddValue(new ConfigUiValNum(num, num.RebootRequired()? iRebootRequired : iRebootNotRequired));
 }
 
-void ConfigAppBase::AddConfigChoice(const Brx& aKey, TBool aRebootRequired)
+void ConfigAppBase::AddConfigChoice(const Brx& aKey)
 {
-    if (aRebootRequired) {
-        AddValue(new ConfigUiValChoice(iConfigManager.GetChoice(aKey), iRebootRequired));
-    }
-    else {
-        AddValue(new ConfigUiValChoice(iConfigManager.GetChoice(aKey), iRebootNotRequired));
-    }
+    auto& choice = iConfigManager.GetChoice(aKey);
+    AddValue(new ConfigUiValChoice(choice, choice.RebootRequired() ? iRebootRequired : iRebootNotRequired));
 }
 
-void ConfigAppBase::AddConfigText(const Brx& aKey, TBool aRebootRequired)
+void ConfigAppBase::AddConfigText(const Brx& aKey)
 {
-    if (aRebootRequired) {
-        AddValue(new ConfigUiValText(iConfigManager.GetText(aKey), iRebootRequired));
-    }
-    else {
-        AddValue(new ConfigUiValText(iConfigManager.GetText(aKey), iRebootNotRequired));
-    }
+    auto& text = iConfigManager.GetText(aKey);
+    AddValue(new ConfigUiValText(text, text.RebootRequired() ? iRebootRequired : iRebootNotRequired));
 }
 
-void ConfigAppBase::AddConfigNumConditional(const Brx& aKey, TBool aRebootRequired)
+void ConfigAppBase::AddConfigNumConditional(const Brx& aKey)
 {
     if (iConfigManager.HasNum(aKey)) {
-        AddConfigNum(aKey, aRebootRequired);
+        AddConfigNum(aKey);
     }
 }
 
-void ConfigAppBase::AddConfigChoiceConditional(const Brx& aKey, TBool aRebootRequired)
+void ConfigAppBase::AddConfigChoiceConditional(const Brx& aKey)
 {
     if (iConfigManager.HasChoice(aKey)) {
-        AddConfigChoice(aKey, aRebootRequired);
+        AddConfigChoice(aKey);
     }
 }
 
-void ConfigAppBase::AddConfigTextConditional(const Brx& aKey, TBool aRebootRequired)
+void ConfigAppBase::AddConfigTextConditional(const Brx& aKey)
 {
     if (iConfigManager.HasText(aKey)) {
-        AddConfigText(aKey, aRebootRequired);
+        AddConfigText(aKey);
     }
 }
 
 
 // ConfigAppBasic
 
-ConfigAppBasic::ConfigAppBasic(IInfoAggregator& aInfoAggregator, IConfigManager& aConfigManager, IConfigAppResourceHandlerFactory& aResourceHandlerFactory, const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize, IRebootHandler& aRebootHandler)
-    : ConfigAppBase(aInfoAggregator, aConfigManager, aResourceHandlerFactory, aResourcePrefix, aResourceDir, aResourceHandlersCount, aMaxTabs, aSendQueueSize, aRebootHandler)
+ConfigAppBasic::ConfigAppBasic(IInfoAggregator& aInfoAggregator, IConfigManager& aConfigManager,
+                               IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
+                               const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount,
+                               TUint aMaxTabs, TUint aSendQueueSize,
+                               IRebootHandler& aRebootHandler)
+    : ConfigAppBase(aInfoAggregator, aConfigManager,
+                    aResourceHandlerFactory, aResourcePrefix, aResourceDir, aResourceHandlersCount, 
+                    aMaxTabs, aSendQueueSize, aRebootHandler)
 {
     AddConfigText(Brn("Product.Name"));
     AddConfigText(Brn("Product.Room"));
@@ -1663,8 +1661,15 @@ ConfigAppBasic::ConfigAppBasic(IInfoAggregator& aInfoAggregator, IConfigManager&
 
 // ConfigAppSources
 
-ConfigAppSources::ConfigAppSources(IInfoAggregator& aInfoAggregator, IConfigManager& aConfigManager, IConfigAppResourceHandlerFactory& aResourceHandlerFactory, const std::vector<const Brx*>& aSources, const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize, IRebootHandler& aRebootHandler)
-    : ConfigAppBasic(aInfoAggregator, aConfigManager, aResourceHandlerFactory, aResourcePrefix, aResourceDir, aResourceHandlersCount, aMaxTabs, aSendQueueSize, aRebootHandler)
+ConfigAppSources::ConfigAppSources(IInfoAggregator& aInfoAggregator, IConfigManager& aConfigManager,
+                                   IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
+                                   const std::vector<const Brx*>& aSources,
+                                   const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount,
+                                   TUint aMaxTabs, TUint aSendQueueSize,
+                                   IRebootHandler& aRebootHandler)
+    : ConfigAppBasic(aInfoAggregator, aConfigManager,
+                     aResourceHandlerFactory, aResourcePrefix, aResourceDir, aResourceHandlersCount,
+                     aMaxTabs, aSendQueueSize, aRebootHandler)
 {
     // Get all product names.
     for (TUint i=0; i<aSources.size(); i++) {

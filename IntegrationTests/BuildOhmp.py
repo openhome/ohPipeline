@@ -19,8 +19,8 @@ class BuildOhmp( BASE.CommonBuild ):
         BASE.CommonBuild.__init__( self )
         self.watchdogTime = 600  # secs
         self.excludes     = ['\\thirdparty\\',
-                             "warning C4005: 'max' : macro redefinition",
-                             "warning C4005: 'min' : macro redefinition",
+                             "warning C4005: 'max': macro redefinition",
+                             "warning C4005: 'min': macro redefinition",
                              'warning generated',
                              'warnings generated',
                              'TestUpnpErrors',

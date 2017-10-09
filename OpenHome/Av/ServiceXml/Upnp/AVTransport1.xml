@@ -1,8 +1,7 @@
 <scpd>
     <serviceStateTable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>TransportState</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
             <allowedValueList>
                 <allowedValue>STOPPED</allowedValue>
@@ -14,51 +13,43 @@
                 <allowedValue>NO_MEDIA_PRESENT</allowedValue>
             </allowedValueList>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>TransportStatus</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
             <allowedValueList>
                 <allowedValue>OK</allowedValue>
-                <allowedValue>ERROR_OCCURRED</allowedValue>           
+                <allowedValue>ERROR_OCCURRED</allowedValue>
             </allowedValueList>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>PlaybackStorageMedium</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-	 <stateVariable>
+	    <stateVariable sendEvents="no">
             <name>RecordStorageMedium</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
-              </stateVariable>
-        <stateVariable>
+        </stateVariable>
+        <stateVariable sendEvents="no">
             <name>PossiblePlaybackStorageMedia</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>PossibleRecordStorageMedia</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>CurrentPlayMode</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
             <allowedValueList>
                 <allowedValue>NORMAL</allowedValue>
             </allowedValueList>
             <defaultValue>NORMAL</defaultValue>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>TransportPlaySpeed</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
-            <sendEventsAttribute>no</sendEventsAttribute>
+        <stateVariable sendEvents="no">
             <name>RecordMediumWriteStatus </name>
             <dataType>string</dataType>
             <allowedValueList>
@@ -69,107 +60,88 @@
                 <allowedValue>NOT_IMPLEMENTED</allowedValue>
             </allowedValueList>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>CurrentRecordQualityMode</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
-            <dataType>string</dataType>
-          </stateVariable>
-        <stateVariable>
-            <name>PossibleRecordQualityModes</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
+            <name>PossibleRecordQualityModes</name>
+            <dataType>string</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="no">
             <name>NumberOfTracks</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>ui4</dataType>
 		        <allowedValueRange>
 			        <minimum>0</minimum>
 		        </allowedValueRange>
-         </stateVariable>
-        <stateVariable>
+        </stateVariable>
+        <stateVariable sendEvents="no">
             <name>CurrentTrack</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>ui4</dataType>
 		        <allowedValueRange>
 			        <minimum>0</minimum>
 			        <step>1</step>
 		        </allowedValueRange>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>CurrentTrackDuration</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-    	  <stateVariable>
+    	<stateVariable sendEvents="no">
             <name>CurrentMediaDuration</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>CurrentTrackMetaData</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>CurrentTrackURI</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>AVTransportURI</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>AVTransportURIMetaData</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>NextAVTransportURI</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>NextAVTransportURIMetaData</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>RelativeTimePosition</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>AbsoluteTimePosition</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>RelativeCounterPosition</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>i4</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>AbsoluteCounterPosition</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>i4</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
 		<Optional/>
             <name>CurrentTransportActions</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="yes">
             <name>LastChange</name>
-            <sendEventsAttribute>yes</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>A_ARG_TYPE_SeekMode</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
             <allowedValueList>
                 <allowedValue>TRACK_NR</allowedValue>
@@ -182,14 +154,12 @@
                 <allowedValue>FRAME</allowedValue>
             </allowedValueList>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>A_ARG_TYPE_SeekTarget</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>string</dataType>
         </stateVariable>
-        <stateVariable>
+        <stateVariable sendEvents="no">
             <name>A_ARG_TYPE_InstanceID</name>
-            <sendEventsAttribute>no</sendEventsAttribute>
             <dataType>ui4</dataType>
         </stateVariable>
     </serviceStateTable>
@@ -490,4 +460,3 @@
         </action>
     </actionList>
 </scpd>
-

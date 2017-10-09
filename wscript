@@ -75,8 +75,6 @@ def configure(conf):
         conf.path.find_node('.').abspath()
         ]
 
-    mono = set_env(conf, 'MONO', [] if conf.options.dest_platform.startswith('Windows') else ["mono", "--runtime=v4.0"])
-
     # Setup Ogg lib options
     # Using https://git.xiph.org/?p=ogg.git
     # 1344d4ed60e26f6426c782b705ec0c9c5fddfe43
@@ -85,7 +83,7 @@ def configure(conf):
         'thirdparty/libogg/include',
         ]
 
-    # Setup FLAC lib options 
+    # Setup FLAC lib options
     conf.env.DEFINES_FLAC = ['VERSION=\"1.2.1\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG']
     conf.env.INCLUDES_FLAC = [
         'thirdparty/flac-1.2.1/src/libFLAC/include',
@@ -123,7 +121,7 @@ def configure(conf):
     if conf.options.with_default_fpm:
         fixed_point_model = 'FPM_DEFAULT'
     elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Core-armv5', 'Core-armv6']:
-        fixed_point_model = 'FPM_ARM'
+        fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
     elif conf.options.dest_platform in ['Linux-x64', 'Windows-x64', 'Mac-x64']:
@@ -167,6 +165,7 @@ upnp_services = [
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Info1.xml',          'av.openhome.org', 'Info',              '1', 'AvOpenhomeOrgInfo1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Volume3.xml',        'av.openhome.org', 'Volume',            '3', 'AvOpenhomeOrgVolume3'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Config2.xml',        'av.openhome.org', 'Config',            '2', 'AvOpenhomeOrgConfig2'),
+        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/ConfigApp1.xml',     'av.openhome.org', 'ConfigApp',         '1', 'AvOpenhomeOrgConfigApp1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Credentials1.xml',   'av.openhome.org', 'Credentials',       '1', 'AvOpenhomeOrgCredentials1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Debug1.xml',         'av.openhome.org', 'Debug',             '1', 'AvOpenhomeOrgDebug1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Transport1.xml',     'av.openhome.org', 'Transport',         '1', 'AvOpenhomeOrgTransport1'),
@@ -175,22 +174,25 @@ upnp_services = [
 def build(bld):
 
     # Generated provider base classes
-    t4templatedir = bld.env['T4_TEMPLATE_PATH']
-    text_transform_exe_node = find_resource_or_fail(bld, bld.root, os.path.join(bld.env['TEXT_TRANSFORM_PATH'], 'TextTransform.exe'))
+    service_gen_path = os.path.join(bld.env['SERVICE_GEN_DIR'], 'ServiceGen.py')
+    output_dir = 'Generated'
     for service in upnp_services:
-        for t4Template, prefix, ext, args in [
-                ('DvUpnpCppCoreHeader.tt', 'Dv', '.h', '-a buffer:1'),
-                ('DvUpnpCppCoreSource.tt', 'Dv', '.cpp', ''),
-                ('CpUpnpCppHeader.tt', 'Cp', '.h', '-a buffer:1'),
-                ('CpUpnpCppBufferSource.tt', 'Cp', '.cpp', '')
-                ]:
-            t4_template_node = find_resource_or_fail(bld, bld.root, os.path.join(t4templatedir, t4Template))
-            tgt = bld.path.find_or_declare(os.path.join('Generated', prefix + service.target + ext))
-            bld(
-                rule="${MONO} " + text_transform_exe_node.abspath() + " -o " + tgt.abspath() + " " + t4_template_node.abspath() + " -a xml:../" + service.xml + " -a domain:" + service.domain + " -a type:" + service.type + " -a version:" + service.version + " " + args,
-                source=[text_transform_exe_node, t4_template_node, service.xml],
-                target=tgt
-                )
+        for template_file, prefix, ext in [
+            ('DvUpnpCppCoreHeader.py', 'Dv', '.h'),
+            ('DvUpnpCppCoreSource.py', 'Dv', '.cpp'),
+            ('CpUpnpCppBufferHeader.py', 'Cp', '.h'),
+            ('CpUpnpCppBufferSource.py', 'Cp', '.cpp')
+        ]:
+            output_file = bld.path.find_or_declare(os.path.join(output_dir, prefix + service.target + ext))
+            bld( rule='python ' + service_gen_path +
+                      ' -t ' + template_file +
+                      ' -o ' + output_dir +
+                      ' -x ' + os.path.abspath(service.xml) +
+                      ' -d ' + service.domain +
+                      ' -y ' + service.type +
+                      ' -v ' + service.version,
+                 source=service.xml,
+                 target=output_file)
     bld.add_group()
 
     # Copy ConfigUi resources to 'build' and 'install/bin'.
@@ -309,6 +311,8 @@ def build(bld):
                 'OpenHome/NtpClient.cpp',
                 'OpenHome/UnixTimestamp.cpp',
                 'OpenHome/Configuration/ProviderConfig.cpp',
+                'Generated/DvAvOpenhomeOrgConfigApp1.cpp',
+                'OpenHome/Configuration/ProviderConfigApp.cpp',
                 'OpenHome/PowerManager.cpp',
                 'OpenHome/Av/Credentials.cpp',
                 'Generated/DvAvOpenhomeOrgCredentials1.cpp',
@@ -720,6 +724,7 @@ def build(bld):
                 'OpenHome/Tests/Mock.cpp',
                 'OpenHome/Tests/TestPowerManager.cpp',
                 'OpenHome/Tests/TestSsl.cpp',
+                'OpenHome/Tests/TestSocket.cpp',
                 'OpenHome/Av/Tests/TestCredentials.cpp',
                 'Generated/CpAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Tests/TestJson.cpp',
@@ -980,6 +985,11 @@ def build(bld):
             source='OpenHome/Tests/TestSslMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
             target='TestSsl',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Tests/TestSocketMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestSocket',
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestCredentialsMain.cpp',

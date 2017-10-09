@@ -625,7 +625,11 @@ private:
     typedef std::pair<Brn, Brn> ResourcePair;
     typedef std::map<Brn, Brn, BufferCmp> ResourceMap;
 protected:
-    ConfigAppBase(IInfoAggregator& aInfoAggregator, Configuration::IConfigManager& aConfigManager, IConfigAppResourceHandlerFactory& aResourceHandlerFactory, const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize, Av::IRebootHandler& aRebootHandler);
+    ConfigAppBase(IInfoAggregator& aInfoAggregator, Configuration::IConfigManager& aConfigManager,
+                  IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
+                  const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount,
+                  TUint aMaxTabs, TUint aSendQueueSize,
+                  Av::IRebootHandler& aRebootHandler);
     ~ConfigAppBase();
 public: // from IConfigApp
     ITab& Create(ITabHandler& aHandler, const std::vector<Bws<10>>& aLanguageList) override;
@@ -637,13 +641,13 @@ protected:
     void AddValue(IConfigUiVal* aValue);    // Takes ownership.
 
     // Convenience methods for adding ConfigVals to config app.
-    void AddConfigNum(const Brx& aKey, TBool aRebootRequired = false);
-    void AddConfigChoice(const Brx& aKey, TBool aRebootRequired = false);
-    void AddConfigText(const Brx& aKey, TBool aRebootRequired = false);
+    void AddConfigNum(const Brx& aKey);
+    void AddConfigChoice(const Brx& aKey);
+    void AddConfigText(const Brx& aKey);
 
-    void AddConfigNumConditional(const Brx& aKey, TBool aRebootRequired = false);
-    void AddConfigChoiceConditional(const Brx& aKey, TBool aRebootRequired = false);
-    void AddConfigTextConditional(const Brx& aKey, TBool aRebootRequired = false);
+    void AddConfigNumConditional(const Brx& aKey);
+    void AddConfigChoiceConditional(const Brx& aKey);
+    void AddConfigTextConditional(const Brx& aKey);
 protected:
     Configuration::IConfigManager& iConfigManager;
     // Helper additional JSON info writers for use in deriving classes.
@@ -668,7 +672,8 @@ public:
                    Configuration::IConfigManager& aConfigManager,
                    IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
                    const Brx& aResourcePrefix, const Brx& aResourceDir,
-                   TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize, Av::IRebootHandler& aRebootHandler);
+                   TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize,
+                   Av::IRebootHandler& aRebootHandler);
 };
 
 class ConfigAppSources : public ConfigAppBasic
@@ -681,7 +686,8 @@ public:
                      IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
                      const std::vector<const Brx*>& aSources,
                      const Brx& aResourcePrefix, const Brx& aResourceDir,
-                     TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize, Av::IRebootHandler& aRebootHandler);
+                     TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize,
+                     Av::IRebootHandler& aRebootHandler);
 };
 
 } // namespace Web

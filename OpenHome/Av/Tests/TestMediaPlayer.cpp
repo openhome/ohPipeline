@@ -213,10 +213,13 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     pipelineInit->SetStarvationRamperMinSize(100 * Jiffies::kPerMs); // larger StarvationRamper size useful for desktop
                                                                      // platforms with slightly unpredictable thread scheduling
     pipelineInit->SetGorgerDuration(pipelineInit->DecodedReservoirJiffies());
+    auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName));
+    mpInit->EnableConfigApp();
     iMediaPlayer = new MediaPlayer(aDvStack, *iDevice, *iRamStore,
                                    *iConfigRamStore, pipelineInit,
-                                   volumeInit, volumeProfile, *iInfoLogger,
-                                   aUdn, Brn(aRoom), Brn(aProductName));
+                                   volumeInit, volumeProfile,
+                                   *iInfoLogger,
+                                   aUdn, mpInit);
     iPipelineObserver = new LoggingPipelineObserver();
     iMediaPlayer->Pipeline().AddObserver(*iPipelineObserver);
 
@@ -301,7 +304,7 @@ void TestMediaPlayer::Run()
     Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
 
     InitialiseLogger();
-    iMediaPlayer->Start();
+    iMediaPlayer->Start(iRebootHandler);
     InitialiseSubsystems();
 
     // Debugging for ConfigManager.
@@ -335,7 +338,7 @@ void TestMediaPlayer::RunWithSemaphore()
 {
     RegisterPlugins(iMediaPlayer->Env());
     AddConfigApp();
-    iMediaPlayer->Start();
+    iMediaPlayer->Start(iRebootHandler);
     InitialiseSubsystems();
 
     // Debugging for ConfigManager.
@@ -391,11 +394,10 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewMp3(iMediaPlayer->MimeTypes()));
 
     // Add protocol modules (Radio source can require several stacked Http instances)
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
-    iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
+    static const TUint kNumHttpProtocols = 5;
+    for (TUint i=0; i<kNumHttpProtocols; i++) {
+        iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
+    }
     iMediaPlayer->Add(ProtocolFactory::NewHls(aEnv, iUserAgent));
 
     // only add Tidal if we have a token to use with login
@@ -438,8 +440,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     TUint priorityCodec = 0;
     TUint priorityEvent = 0;
     iMediaPlayer->Pipeline().GetThreadPriorities(priorityFiller, priorityFlywheelRamper, priorityStarvationRamper, priorityCodec, priorityEvent);
-    const TUint raopUdpPriority = priorityFiller;
-    iMediaPlayer->Add(SourceFactory::NewRaop(*iMediaPlayer, Optional<IClockPuller>(nullptr), macAddr, raopUdpPriority));
+    const TUint raopServerPriority = priorityFiller;
+    iMediaPlayer->Add(SourceFactory::NewRaop(*iMediaPlayer, Optional<IClockPuller>(nullptr), macAddr, raopServerPriority));
 
     iMediaPlayer->Add(SourceFactory::NewReceiver(*iMediaPlayer,
                                                  Optional<IClockPuller>(nullptr),
@@ -614,6 +616,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, T
 #endif
 
     Debug::SetLevel(Debug::kPipeline | Debug::kSources | Debug::kMedia);
+    Debug::SetSeverity(Debug::kSeverityInfo);
     Net::Library* lib = new Net::Library(initParams);
     //Net::DvStack* dvStack = lib->StartDv();
     std::vector<NetworkAdapter*>* subnetList = lib->CreateSubnetList();

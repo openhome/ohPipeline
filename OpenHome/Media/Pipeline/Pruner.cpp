@@ -113,8 +113,7 @@ Msg* Pruner::ProcessMsg(MsgHalt* aMsg)
 
 Msg* Pruner::ProcessMsg(MsgFlush* aMsg)
 {
-    aMsg->RemoveRef();
-    return nullptr;
+    return TryQueueCancelWaiting(aMsg);
 }
 
 Msg* Pruner::ProcessMsg(MsgWait* aMsg)

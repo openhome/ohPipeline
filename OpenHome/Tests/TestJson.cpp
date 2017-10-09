@@ -2,6 +2,7 @@
 #include <OpenHome/Private/SuiteUnitTest.h>
 #include <OpenHome/Json.h>
 #include <OpenHome/Private/Ascii.h>
+#include <functional>
 
 using namespace OpenHome;
 using namespace OpenHome::TestFramework;
@@ -130,12 +131,14 @@ public: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
 private:
+
     void TestIdentifyType();
     void TestIntArray();
     void TestBoolArray();
     void TestStringArray();
     void TestObjectArray();
     void TestArrayArray();
+    void TestEmptyArray();
     void TestArrayInObject();
 };
 
@@ -470,7 +473,7 @@ void SuiteJsonParser::TestGetNumAsString()
 
 void SuiteJsonParser::TestGetValidBool()
 {
-    const Brn json("{\"key1\":true,\"key2\":false}");
+    const Brn json("{\"key1\":true,\"key2\":     \n\n\n\nfalse      \n \n}");
 
     iParser->Parse(json);
     TEST(iParser->Bool("key1"));
@@ -990,6 +993,7 @@ SuiteParserJsonArray::SuiteParserJsonArray()
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestStringArray), "TestStringArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestObjectArray), "TestObjectArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestArrayArray), "TestArrayArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestEmptyArray), "TestEmptyArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestArrayInObject), "TestArrayInObject");
 }
 
@@ -1104,6 +1108,46 @@ void SuiteParserJsonArray::TestArrayArray()
     TEST_THROWS(parser.NextObject(), JsonWrongType);
     TEST(parser.NextArray() == Brn("[3,4,5]"));
     TEST_THROWS(parser.NextArray(), JsonArrayEnumerationComplete);
+}
+
+void SuiteParserJsonArray::TestEmptyArray()
+{
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextBool(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextInt(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextString(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextStringEscaped(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextArray(),
+            JsonArrayEnumerationComplete);
+    }
+    {
+        auto parser = JsonParserArray::Create(Brn("[]"));
+        TEST_THROWS(
+            parser.NextObject(),
+            JsonArrayEnumerationComplete);
+    }
 }
 
 void SuiteParserJsonArray::TestArrayInObject()

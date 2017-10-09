@@ -9,9 +9,9 @@ using namespace OpenHome::Net;
 
 // ProviderFactory
 
-IProvider* ProviderFactory::NewConfiguration(DvDevice& aDevice, IConfigManager& aConfigReader)
+IProvider* ProviderFactory::NewConfiguration(DvDevice& aDevice, IConfigManager& aConfigManager)
 { // static
-    return new ProviderConfig(aDevice, aConfigReader);
+    return new ProviderConfig(aDevice, aConfigManager);
 }
 
 
@@ -46,13 +46,18 @@ void KeyWriterJson::WriteKeys(const std::vector<const Brx*>& aKeys)
 
 // ProviderConfig
 
+const TUint ProviderConfig::kErrorCodeInvalidKey = 800;
 const Brn ProviderConfig::kErrorDescInvalidKey("Invalid key");
+const TUint ProviderConfig::kErrorCodeNotANumber = 801;
 const Brn ProviderConfig::kErrorDescNotANumber("Expected numerical value");
+const TUint ProviderConfig::kErrorCodeValueOutOfRange = 802;
 const Brn ProviderConfig::kErrorDescValueOutOfRange("Value outwith expected range");
+const TUint ProviderConfig::kErrorCodeInvalidSelection = 803;
 const Brn ProviderConfig::kErrorDescInvalidSelection("Expected value selected from list of options");
+const TUint ProviderConfig::kErrorCodeValueTooLong = 804;
 const Brn ProviderConfig::kErrorDescValueTooLong("Value too long");
 
-ProviderConfig::ProviderConfig(DvDevice& aDevice, Configuration::IConfigManager& aConfigManager)
+ProviderConfig::ProviderConfig(DvDevice& aDevice, IConfigManager& aConfigManager)
     : DvProviderAvOpenhomeOrgConfig2(aDevice)
     , iConfigManager(aConfigManager)
 {
@@ -109,7 +114,7 @@ void ProviderConfig::GetValue(IDvInvocation& aInvocation, const Brx& aKey, IDvIn
     aInvocation.EndResponse();
 }
 
-void ProviderConfig::HasKey(Net::IDvInvocation& aInvocation, const Brx& aKey, Net::IDvInvocationResponseBool& aValue) 
+void ProviderConfig::HasKey(IDvInvocation& aInvocation, const Brx& aKey, IDvInvocationResponseBool& aValue) 
 {
     aInvocation.StartResponse();
     aValue.Write(iConfigManager.Has(aKey));

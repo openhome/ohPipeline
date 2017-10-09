@@ -380,11 +380,11 @@ void CodecAdts::ProcessAdts(TBool aParseOnly)
     }
     catch (CodecStreamStart&) {
         iNewStreamStarted = true;
-        //LOG(kCodec, "CodecAlac::ProcessAdts caught CodecStreamStart\n");
+        //LOG(kCodec, "CodecAdts::ProcessAdts caught CodecStreamStart\n");
     }
     catch (CodecStreamEnded&) {
         iStreamEnded = true;
-        //LOG(kCodec, "CodecAlac::ProcessAdts caught CodecStreamEnded\n");
+        //LOG(kCodec, "CodecAdts::ProcessAdts caught CodecStreamEnded\n");
     }
 
     if(!aParseOnly) {

@@ -80,6 +80,7 @@ public: // from IStoreReadWrite
     void Read(const Brx& aKey, Bwx& aDest) override;
     void Write(const Brx& aKey, const Brx& aSource) override;
     void Delete(const Brx& aKey) override;
+    void DeleteAll() override;
 public: // from IStoreVisitable
     void Accept(IStoreVisitor& aVisitor) override;
 private:
@@ -116,7 +117,7 @@ public:
     void Read(IStoreReadWrite& aStore);
 private:
     const TChar* iFilePath;
-    FileSystemAnsii iFileSystem;
+    FileSystemAnsi iFileSystem;
 };
 
 class StoreFileWriterJson : public IStoreObserver, public IStoreVisitor
@@ -145,7 +146,7 @@ public:
     void Read(IStoreReadWrite& aStore);
 private:
     const TChar* iFilePath;
-    FileSystemAnsii iFileSystem;
+    FileSystemAnsi iFileSystem;
 };
 
 class StoreFileWriterBinary : public IStoreObserver, public IStoreVisitor

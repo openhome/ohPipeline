@@ -733,6 +733,12 @@ void Pipeline::Wait(TUint aFlushId)
     iWaiter->Wait(aFlushId, rampDown);
 }
 
+void Pipeline::FlushQuick(TUint aFlushId)
+{
+    Wait(aFlushId);
+    iStarvationRamper->Flush(aFlushId);
+}
+
 void Pipeline::Stop(TUint aHaltId)
 {
     iLock.Wait();

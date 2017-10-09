@@ -123,18 +123,21 @@ void CodecWav::Process()
         iController->ReadNextMsg(readBuf);
         iReadBuf.SetBytes(iReadBuf.Bytes() + readBuf.Bytes());
 
-        // Truncate to a sensible sample boundary.
-        const TUint remainder = iReadBuf.Bytes() % (iNumChannels * (iBitDepth/8));
-        TUint bufBytes = iReadBuf.Bytes() - remainder;
-        bufBytes = std::min(bufBytes, iAudioBytesRemaining);
-        Brn split = iReadBuf.Split(bufBytes);
-        iReadBuf.SetBytes(bufBytes);
-
-        iTrackOffset += iController->OutputAudioPcm(iReadBuf, iNumChannels, iSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
-        if(iFileSize != 0) {
-            iAudioBytesRemaining -= iReadBuf.Bytes();
+        // If stream has a valid length, truncate if remaining length smaller than buffer read.
+        TUint bytes = iReadBuf.Bytes();
+        if (iAudioBytesRemaining != 0) {
+            bytes = std::min(bytes, iAudioBytesRemaining);
         }
-        iReadBuf.Replace(split);
+        // It's possible that data read into buffer, or value of iAudioBytesRemaining, does not end on a sensible sample boundary.
+        const TUint remainder = bytes % (iNumChannels * (iBitDepth/8));
+        bytes -= remainder;
+        const Brn outBuf(iReadBuf.Ptr(), bytes); // Do this to avoid truncating iReadBuf length to "bytes" here, as still need access to remainder of iReadBuf.
+
+        iTrackOffset += iController->OutputAudioPcm(outBuf, iNumChannels, iSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
+        if(iFileSize != 0) {
+            iAudioBytesRemaining -= outBuf.Bytes();
+        }
+        iReadBuf.Replace(iReadBuf.Split(bytes));
     }
 }
 
@@ -275,15 +278,9 @@ void CodecWav::ProcessDataChunk()
     else {
         iAudioBytesTotal = dataChunkBytes;
     }
-
     iAudioBytesRemaining = iAudioBytesTotal;
-
     iTrackStart += 8;
 
-    if (iAudioBytesTotal % (iNumChannels * (iBitDepth/8)) != 0) {
-        // There aren't an exact number of samples in the file => file is corrupt
-        THROW(CodecStreamCorrupt);
-    }
     const TUint numSamples = iAudioBytesTotal / (iNumChannels * (iBitDepth/8));
     iTrackLengthJiffies = ((TUint64)numSamples * Jiffies::kPerSecond) / iSampleRate;
 }

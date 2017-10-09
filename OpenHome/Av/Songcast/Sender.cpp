@@ -339,22 +339,25 @@ TUint Sender::FirstChannelToSend(TUint aNumChannels)
     return (aNumChannels < 10) ? 0 : 8;
 }
 
-void Sender::ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aBytesPerSample)
+void Sender::ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aBytesPerSubsample)
 {
-    const TByte* src = aData.Ptr() + aBytesPerSample*iFirstChannelIndex;
-    const TUint stride = aBytesPerSample * aNumChannels;
+    const TByte* src = aData.Ptr() + aBytesPerSubsample*iFirstChannelIndex;
+    const TUint stride = aBytesPerSubsample * aNumChannels;
     const TUint numSamples = aData.Bytes() / stride;
-    const TUint dstBytesPerSample = std::min(aBytesPerSample, (TUint)3);
-    const TUint totalBytesToCopy = numSamples * 2 * dstBytesPerSample;
+    const TUint maxBytesPerSubsample = 3;
+    const TUint dstBytesPerSubsample = std::min(aBytesPerSubsample, maxBytesPerSubsample);
+    const TUint maxChannels = 2;
+    const TUint outputChannels = std::min(aNumChannels, maxChannels);
+    const TUint totalBytesToCopy = numSamples * outputChannels * dstBytesPerSubsample;
     TByte* dst = const_cast<TByte*>(iAudioBuf->Ptr()) + iAudioBuf->Bytes();
 
     ASSERT(iAudioBuf->BytesRemaining() >= totalBytesToCopy);
 
     for (TUint i=0; i<numSamples; i++) {
-        memcpy(dst, src, dstBytesPerSample);
-        memcpy(dst + dstBytesPerSample, src + aBytesPerSample, dstBytesPerSample);
+        (void)memcpy(dst, src, dstBytesPerSubsample);
+        (void)memcpy(dst + dstBytesPerSubsample, src + aBytesPerSubsample, dstBytesPerSubsample);
         src += stride;
-        dst += 2*dstBytesPerSample;
+        dst += outputChannels * dstBytesPerSubsample;
     }
     iAudioBuf->SetBytes(iAudioBuf->Bytes() + totalBytesToCopy);
 }

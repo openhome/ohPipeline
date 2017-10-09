@@ -53,6 +53,7 @@ private: // from IPipelineObserver
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private:
+    void FlushCallback(TUint aFlushId);
     void GenerateMetadata();
     void StartNewTrack();
     void AutoNetAuxChanged(Configuration::ConfigChoice::KvpChoice& aKvp);
