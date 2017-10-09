@@ -731,6 +731,21 @@ public:
     virtual void Update(TInt aDelta) = 0;
 };
 
+class MsgBitRate : public Msg
+{
+    friend class MsgFactory;
+public:
+    MsgBitRate(AllocatorBase& aAllocator);
+    TUint BitRate() const;
+private:
+    void Initialise(TUint aBitRate);
+private: // from Msg
+    void Clear() override;
+    Msg* Process(IMsgProcessor& aProcessor) override;
+private:
+    TUint iBitRate;
+};
+
 class MsgAudio : public Msg
 {
     friend class MsgFactory;
@@ -760,21 +775,6 @@ protected:
     TUint iBitDepth;
     TUint iNumChannels;
     IPipelineBufferObserver* iPipelineBufferObserver;
-};
-
-class MsgBitRate : public Msg
-{
-    friend class MsgFactory;
-public:
-    MsgBitRate(AllocatorBase& aAllocator);
-    TUint BitRate() const;
-private:
-    void Initialise(TUint aBitRate);
-private: // from Msg
-    void Clear() override;
-    Msg* Process(IMsgProcessor& aProcessor) override;
-private:
-    TUint iBitRate;
 };
 
 class MsgPlayable;
