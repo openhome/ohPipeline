@@ -434,7 +434,7 @@ Msg* SuiteSeeker::CreateEncodedStream()
 Msg* SuiteSeeker::CreateDecodedStream()
 {
     const TUint64 sampleStart = iTrackOffset / Jiffies::PerSample(kSampleRate);
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), iTrackLengthJiffies, sampleStart, true, iSeekable, false, false, Multiroom::Allowed, kProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), iTrackLengthJiffies, sampleStart, true, iSeekable, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
 }
 
 Msg* SuiteSeeker::CreateAudio()

@@ -233,6 +233,10 @@ inline Media::Multiroom DecodedStreamInfo::Multiroom() const
 {
     return iMultiroom;
 }
+inline AudioFormat DecodedStreamInfo::Format() const
+{
+    return iFormat;
+}
 inline const SpeakerProfile& DecodedStreamInfo::Profile() const
 {
     return iProfile;

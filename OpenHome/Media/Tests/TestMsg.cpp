@@ -2136,10 +2136,11 @@ void SuiteDecodedStream::Test()
     TBool lossless = true;
     TBool seekable = true;
     TBool live = true;
+    AudioFormat format = AudioFormat::Pcm;
     Media::Multiroom multiroom = Multiroom::Forbidden;
     SpeakerProfile profile(2);   // stereo
     IStreamHandler* handler = this;
-    MsgDecodedStream* msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, multiroom, profile, handler);
+    MsgDecodedStream* msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, format, multiroom, profile, handler);
     TEST(msg != nullptr);
     TEST(msg->StreamInfo().StreamId() == streamId);
     TEST(msg->StreamInfo().BitRate() == bitRate);
@@ -2152,6 +2153,7 @@ void SuiteDecodedStream::Test()
     TEST(msg->StreamInfo().Lossless() == lossless);
     TEST(msg->StreamInfo().Seekable() == seekable);
     TEST(msg->StreamInfo().Live() == live);
+    TEST(msg->StreamInfo().Format() == format);
     TEST(msg->StreamInfo().Multiroom() == multiroom);
     TEST(msg->StreamInfo().Profile() == profile);
     TEST(msg->StreamInfo().StreamHandler() == handler);
@@ -2185,9 +2187,10 @@ void SuiteDecodedStream::Test()
     lossless = false;
     seekable = false;
     live = false;
+    format = AudioFormat::Dsd;
     multiroom = Multiroom::Allowed;
     profile = SpeakerProfile(3, 2, 1);    // 5.1
-    msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, multiroom, profile, handler);
+    msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, format, multiroom, profile, handler);
     TEST(msg != nullptr);
     TEST(msg->StreamInfo().StreamId() == streamId);
     TEST(msg->StreamInfo().BitRate() == bitRate);
@@ -2200,6 +2203,7 @@ void SuiteDecodedStream::Test()
     TEST(msg->StreamInfo().Lossless() == lossless);
     TEST(msg->StreamInfo().Seekable() == seekable);
     TEST(msg->StreamInfo().Live() == live);
+    TEST(msg->StreamInfo().Format() == format);
     TEST(msg->StreamInfo().Multiroom() == multiroom);
     TEST(msg->StreamInfo().Profile() == profile);
     TEST(msg->StreamInfo().StreamHandler() == handler);
@@ -2284,7 +2288,7 @@ void SuiteMsgProcessor::Test()
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgPlayable);
     playable->RemoveRef();
 
-    Msg* msg = iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, Multiroom::Allowed, SpeakerProfile(), nullptr);
+    Msg* msg = iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
     TEST(msg == msg->Process(processor));
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgDecodedStream);
     msg->RemoveRef();
@@ -2930,7 +2934,7 @@ void SuiteMsgReservoir::Test()
     TEST(queue->EncodedStreamCount() == 1);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
-    msg = iMsgFactory->CreateMsgDecodedStream(3, 128, 16, 44100, 2, Brn("test codec"), 1<<16, 0, true, true, false, false, Multiroom::Allowed, SpeakerProfile(), nullptr);
+    msg = iMsgFactory->CreateMsgDecodedStream(3, 128, 16, 44100, 2, Brn("test codec"), 1<<16, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
     TEST(queue->DecodedStreamCount() == 0);
     queue->Enqueue(msg);
     TEST(queue->Jiffies() == 0);
@@ -3371,7 +3375,7 @@ Msg* SuitePipelineElement::CreateMsg(ProcessorMsgType::EMsgType aType)
     case ProcessorMsgType::EMsgWait:
         return iMsgFactory->CreateMsgWait();
     case ProcessorMsgType::EMsgDecodedStream:
-        return iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, Multiroom::Allowed, SpeakerProfile(), nullptr);
+        return iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
     case ProcessorMsgType::EMsgBitRate:
         return iMsgFactory->CreateMsgBitRate(1234);
     case ProcessorMsgType::EMsgAudioPcm:

@@ -667,6 +667,12 @@ private: // from Msg
     Msg* Process(IMsgProcessor& aProcessor) override;
 };
 
+enum class AudioFormat
+{
+    Pcm,
+    Dsd
+};
+
 class DecodedStreamInfo
 {
     friend class MsgDecodedStream;
@@ -684,11 +690,16 @@ public:
     inline TBool Live() const;
     inline TBool AnalogBypass() const;
     inline Media::Multiroom Multiroom() const;
+    inline AudioFormat Format() const;
     inline const SpeakerProfile& Profile() const;
     inline IStreamHandler* StreamHandler() const;
 private:
     DecodedStreamInfo();
-    void Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
+    void Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels,
+             const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart,
+             TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass,
+             AudioFormat aFormat, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile,
+             IStreamHandler* aStreamHandler);
 private:
     TUint iStreamId;
     TUint iBitRate;
@@ -702,6 +713,7 @@ private:
     TBool iSeekable;
     TBool iLive;
     TBool iAnalogBypass;
+    AudioFormat iFormat;
     Media::Multiroom iMultiroom;
     SpeakerProfile iProfile;
     IStreamHandler* iStreamHandler;
@@ -717,7 +729,11 @@ public:
     MsgDecodedStream(AllocatorBase& aAllocator);
     const DecodedStreamInfo& StreamInfo() const;
 private:
-    void Initialise(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
+    void Initialise(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels,
+                    const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart,
+                    TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass,
+                    AudioFormat aFormat, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile,
+                    IStreamHandler* aStreamHandler);
 private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
@@ -1767,7 +1783,7 @@ public:
     MsgHalt* CreateMsgHalt(TUint aId, Functor aCallback);
     MsgFlush* CreateMsgFlush(TUint aId);
     MsgWait* CreateMsgWait();
-    MsgDecodedStream* CreateMsgDecodedStream(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
+    MsgDecodedStream* CreateMsgDecodedStream(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, AudioFormat aFormat, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
     MsgDecodedStream* CreateMsgDecodedStream(MsgDecodedStream* aMsg, IStreamHandler* aStreamHandler);
     MsgBitRate* CreateMsgBitRate(TUint aBitRate);
     MsgAudioPcm* CreateMsgAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset);

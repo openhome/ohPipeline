@@ -647,7 +647,8 @@ void CodecController::OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint
     MsgDecodedStream* msg =
         iMsgFactory.CreateMsgDecodedStream(iStreamId, aBitRate, aBitDepth, aSampleRate, aNumChannels,
                                            aCodecName, aTrackLength, aSampleStart,
-                                           aLossless, iSeekable, iLive, aAnalogBypass, iMultiroom, aProfile, this);
+                                           aLossless, iSeekable, iLive, aAnalogBypass,
+                                           AudioFormat::Pcm, iMultiroom, aProfile, this);
     iLock.Wait();
     iChannels = aNumChannels;
     iSampleRate = aSampleRate;

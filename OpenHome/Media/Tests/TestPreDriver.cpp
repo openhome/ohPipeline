@@ -231,7 +231,7 @@ Msg* SuitePreDriver::Pull()
         return iMsgFactory->CreateMsgWait();
     case EMsgDecodedStream:
         iNextGeneratedMsg = EMsgSilence;
-        return iMsgFactory->CreateMsgDecodedStream(0, 128000, iBitDepth, iSampleRate, iNumChannels, Brn("dummy codec"), (TUint64)1<<31, 0, false, false, false, false, Multiroom::Allowed, iProfile, nullptr);
+        return iMsgFactory->CreateMsgDecodedStream(0, 128000, iBitDepth, iSampleRate, iNumChannels, Brn("dummy codec"), (TUint64)1<<31, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, iProfile, nullptr);
     case EMsgAudioPcm:
         return CreateAudio();
     case EMsgSilence:

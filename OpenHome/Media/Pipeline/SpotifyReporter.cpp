@@ -522,6 +522,6 @@ MsgDecodedStream* SpotifyReporter::CreateMsgDecodedStreamLocked() const
                                            info.SampleRate(), info.NumChannels(), info.CodecName(),
                                            trackLengthJiffies, startOffset,
                                            info.Lossless(), info.Seekable(), info.Live(), info.AnalogBypass(),
-                                           info.Multiroom(), info.Profile(), info.StreamHandler());
+                                           info.Format(), info.Multiroom(), info.Profile(), info.StreamHandler());
     return msg;
 }
