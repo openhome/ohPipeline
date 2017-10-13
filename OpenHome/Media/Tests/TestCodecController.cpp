@@ -7,7 +7,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Private/Arch.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/MimeTypeList.h>
 
 #include <list>
@@ -306,7 +306,7 @@ void SuiteCodecControllerBase::Setup()
     init.SetMsgAudioEncodedCount(400, 400);
     init.SetMsgAudioPcmCount(900, 900);
     init.SetMsgSilenceCount(10);
-    init.SetMsgPlayableCount(50, 0);
+    init.SetMsgPlayableCount(50, 0, 0);
     init.SetMsgTrackCount(2);
     init.SetMsgEncodedStreamCount(2);
     init.SetMsgMetaTextCount(2);

@@ -271,7 +271,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     msgInit.SetMsgDecodedStreamCount(perStreamMsgCount);
     msgInit.SetMsgAudioPcmCount(msgAudioPcmCount, decodedAudioCount);
     msgInit.SetMsgSilenceCount(kMsgCountSilence);
-    msgInit.SetMsgPlayableCount(kMsgCountPlayablePcm, kMsgCountPlayableSilence);
+    msgInit.SetMsgPlayableCount(kMsgCountPlayablePcm, kMsgCountPlayableDsd, kMsgCountPlayableSilence);
     msgInit.SetMsgQuitCount(kMsgCountQuit);
     iMsgFactory = new MsgFactory(aInfoAggregator, msgInit);
 

@@ -9,7 +9,7 @@
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/Logger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/Codec/CodecController.h>
 #include <OpenHome/Media/Codec/CodecFactory.h>
 #include <OpenHome/Media/Codec/Container.h>
@@ -680,6 +680,7 @@ int CDECL main(int aArgc, char* aArgv[])
     static const TUint kMsgAudioPcmCount = 200;        // Allow for Split().
     static const TUint kMsgSilenceCount = 0;
     static const TUint kMsgPlayablePcmCount = 10;
+    static const TUint kMsgPlayableDsdCount = 0;
     static const TUint kMsgPlayableSilenceCount = 0;
     static const TUint kMsgDecodedStreamCount = 2;
     static const TUint kMsgTrackCount = 1;
@@ -715,7 +716,7 @@ int CDECL main(int aArgc, char* aArgv[])
     init.SetMsgDecodedStreamCount(kMsgDecodedStreamCount);
     init.SetMsgAudioPcmCount(kMsgAudioPcmCount, kDecodedAudioCount);
     init.SetMsgSilenceCount(kMsgSilenceCount);
-    init.SetMsgPlayableCount(kMsgPlayablePcmCount, kMsgPlayableSilenceCount);
+    init.SetMsgPlayableCount(kMsgPlayablePcmCount, kMsgPlayableDsdCount, kMsgPlayableSilenceCount);
     init.SetMsgQuitCount(kMsgQuitCount);
     MsgFactory* msgFactory = new MsgFactory(*infoAggregator, init);
 

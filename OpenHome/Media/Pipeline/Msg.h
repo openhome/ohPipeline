@@ -163,7 +163,8 @@ public:
     void Aggregate(DecodedAudio& aDecodedAudio);
 private:
     DecodedAudio(AllocatorBase& aAllocator);
-    void Construct(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
+    void ConstructPcm(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
+    void ConstructDsd(const Brx& aData);
     static void CopyToBigEndian16(const Brx& aData, TByte* aDest);
     static void CopyToBigEndian24(const Brx& aData, TByte* aDest);
     static void CopyToBigEndian32(const Brx& aData, TByte* aDest);
@@ -779,18 +780,44 @@ protected:
 
 class MsgPlayable;
 class MsgPlayablePcm;
+class MsgPlayableDsd;
 class MsgPlayableSilence;
 
-class MsgAudioPcm : public MsgAudio
+class MsgAudioDecoded : public MsgAudio
 {
     friend class MsgFactory;
 public:
     static const TUint64 kTrackOffsetInvalid;
+public:
+    TUint64 TrackOffset() const; // offset of the start of this msg from the start of its track.  FIXME no tests for this yet
+    MsgPlayable* CreatePlayable(); // removes ref, transfer ownership of DecodedAudio
+protected:
+    MsgAudioDecoded(AllocatorBase& aAllocator);
+protected: // from MsgAudio
+    MsgAudio* Clone() override; // create new MsgAudio, take ref to DecodedAudio, copy size/offset
+protected:
+    void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aBitDepth, TUint aChannels,
+                    TUint64 aTrackOffset, TUint aNumSubsamples,
+                    Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
+protected: // from MsgAudio
+    void SplitCompleted(MsgAudio& aRemaining) override;
+protected: // from Msg
+    void Clear() override;
+private:
+    virtual MsgPlayable* DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes) = 0;
+protected:
+    DecodedAudio* iAudioData;
+    Allocator<MsgPlayableSilence>* iAllocatorPlayableSilence;
+    TUint64 iTrackOffset;
+};
+
+class MsgAudioPcm : public MsgAudioDecoded
+{
+    friend class MsgFactory;
+public:
     static const TUint kUnityAttenuation;
 public:
     MsgAudioPcm(AllocatorBase& aAllocator);
-    TUint64 TrackOffset() const; // offset of the start of this msg from the start of its track.  FIXME no tests for this yet
-    MsgPlayable* CreatePlayable(); // removes ref, transfer ownership of DecodedAudio
     void Aggregate(MsgAudioPcm* aMsg); // append aMsg to the end of this msg, removes ref on aMsg
     void SetAttenuation(TUint aAttenuation);
     inline void AddLogPoint(const TChar* aId);
@@ -800,6 +827,8 @@ private:
     void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aBitDepth, TUint aChannels, TUint64 aTrackOffset,
                     Allocator<MsgPlayablePcm>& aAllocatorPlayablePcm,
                     Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
+private: // from MsgAudioDecoded
+    MsgPlayable* DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes) override;
 private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
@@ -807,11 +836,31 @@ private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
 private:
-    DecodedAudio* iAudioData;
     Allocator<MsgPlayablePcm>* iAllocatorPlayablePcm;
-    Allocator<MsgPlayableSilence>* iAllocatorPlayableSilence;
-    TUint64 iTrackOffset;
     TUint iAttenuation;
+};
+
+class MsgAudioDsd : public MsgAudioDecoded
+{
+    friend class MsgFactory;
+    static const TUint kBitDepth = 1;
+public:
+    MsgAudioDsd(AllocatorBase& aAllocator);
+public: // from MsgAudio
+    MsgAudio* Clone() override; // create new MsgAudio, take ref to DecodedAudio, copy size/offset
+private:
+    void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels, TUint64 aTrackOffset,
+                    Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
+                    Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
+private: // from MsgAudioDecoded
+    MsgPlayable* DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes) override;
+private: // from MsgAudio
+    MsgAudio* Allocate() override;
+    void SplitCompleted(MsgAudio& aRemaining) override;
+private: // from Msg
+    Msg* Process(IMsgProcessor& aProcessor) override;
+private:
+    Allocator<MsgPlayableDsd>* iAllocatorPlayableDsd;
 };
 
 class MsgPlayableSilence;
@@ -836,6 +885,7 @@ private:
 };
 
 class IPcmProcessor;
+class IDsdProcessor;
 
 /**
  * Holds decoded audio and can write it to a stream.
@@ -861,6 +911,7 @@ public:
      *                             padding around each sample) or if a ramp is being applied.
      */
     void Read(IPcmProcessor& aProcessor);
+    void Read(IDsdProcessor& aProcessor);
     virtual TBool TryLogTimestamps();
 protected:
     MsgPlayable(AllocatorBase& aAllocator);
@@ -874,7 +925,8 @@ private:
     TUint MsgJiffies() const;
     virtual MsgPlayable* Allocate() = 0;
     virtual void SplitCompleted(MsgPlayable& aRemaining);
-    virtual void ReadBlock(IPcmProcessor& aProcessor) = 0;
+    virtual void ReadBlock(IPcmProcessor& aProcessor);
+    virtual void ReadBlock(IDsdProcessor& aProcessor);
 protected:
     MsgPlayable* iNextPlayable;
     TUint iSize; // Bytes
@@ -904,13 +956,34 @@ private: // from Msg
     void Clear() override;
 private:
     Brn ApplyAttenuation(Brn aData);
+private:
     DecodedAudio* iAudioData;
     TUint iAttenuation;
+};
+
+class MsgPlayableDsd : public MsgPlayable
+{
+    friend class MsgAudioDsd;
+public:
+    MsgPlayableDsd(AllocatorBase& aAllocator);
+private:
+    void Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, TUint aSampleRate,
+                    TUint aNumChannels, TUint aOffsetBytes, const Media::Ramp& aRamp,
+                    Optional<IPipelineBufferObserver> aPipelineBufferObserver);
+private: // from MsgPlayable
+    MsgPlayable* Allocate() override;
+    void SplitCompleted(MsgPlayable& aRemaining) override;
+    void ReadBlock(IDsdProcessor& aProcessor) override;
+private: // from Msg
+    void Clear() override;
+private:
+    DecodedAudio* iAudioData;
 };
 
 class MsgPlayableSilence : public MsgPlayable
 {
     friend class MsgSilence;
+    friend class MsgAudioDecoded;
     friend class MsgAudioPcm;
 public:
     MsgPlayableSilence(AllocatorBase& aAllocator);
@@ -922,6 +995,7 @@ private: // from MsgPlayable
     MsgPlayable* Allocate() override;
     void SplitCompleted(MsgPlayable& aRemaining) override;
     void ReadBlock(IPcmProcessor& aProcessor) override;
+    void ReadBlock(IDsdProcessor& aProcessor) override;
 };
 
 /**
@@ -967,7 +1041,7 @@ public:
 };
 
 /**
- * Used to retrieve pcm audio data from a MsgPlayable
+ * Used to retrieve PCM audio data from a MsgPlayable
  */
 class IPcmProcessor
 {
@@ -1000,6 +1074,41 @@ public:
     /**
      * If this is called, the processor should pass on any buffered audio.
      */
+    virtual void Flush() = 0;
+};
+
+/**
+* Used to retrieve DSD audio data from a MsgPlayable
+*/
+class IDsdProcessor
+{
+public:
+    virtual ~IDsdProcessor() {}
+    /**
+    * Called once per call to MsgPlayable::Read.
+    *
+    * Will be called before any calls to ProcessFragment.
+    */
+    virtual void BeginBlock() = 0;
+    /**
+    * Copy a block of audio data.
+    *
+    * 1 bit per subsample. Subsamples are packed in blocks of 16 (i.e. a stereo
+    * track * has 16 subsamples for left followed by 16 for right).
+    *
+    * @param aData         Packed DSD data.  Will always be a complete number of samples.
+    * @param aNumChannels  Number of channels.
+    */
+    virtual void ProcessFragment(const Brx& aData, TUint aNumChannels) = 0;
+    /**
+    * Called once per call to MsgPlayable::Read.
+    *
+    * No more calls to ProcessFragment will be made after this.
+    */
+    virtual void EndBlock() = 0;
+    /**
+    * If this is called, the processor should pass on any buffered audio.
+    */
     virtual void Flush() = 0;
 };
 
@@ -1609,8 +1718,9 @@ public:
     inline void SetMsgDecodedStreamCount(TUint aCount);
     inline void SetMsgBitRateCount(TUint aCount);
     inline void SetMsgAudioPcmCount(TUint aCount, TUint aDecodedAudioCount);
+    inline void SetMsgAudioDsdCount(TUint aCount); // DecodedAudioCount defined with AudioPcmCount
     inline void SetMsgSilenceCount(TUint aCount);
-    inline void SetMsgPlayableCount(TUint aPcmCount, TUint aSilenceCount);
+    inline void SetMsgPlayableCount(TUint aPcmCount, TUint aDsdCount, TUint aSilenceCount);
     inline void SetMsgQuitCount(TUint aCount);
 private:
     TUint iMsgModeCount;
@@ -1629,8 +1739,10 @@ private:
     TUint iMsgBitRateCount;
     TUint iDecodedAudioCount;
     TUint iMsgAudioPcmCount;
+    TUint iMsgAudioDsdCount;
     TUint iMsgSilenceCount;
     TUint iMsgPlayablePcmCount;
+    TUint iMsgPlayableDsdCount;
     TUint iMsgPlayableSilenceCount;
     TUint iMsgQuitCount;
 };
@@ -1660,6 +1772,7 @@ public:
     MsgBitRate* CreateMsgBitRate(TUint aBitRate);
     MsgAudioPcm* CreateMsgAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset);
     MsgAudioPcm* CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset); // aAudio must contain big endian pcm data
+    MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset);
     MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels);
     MsgQuit* CreateMsgQuit();
 private:
@@ -1683,8 +1796,10 @@ private:
     Allocator<MsgDecodedStream> iAllocatorMsgDecodedStream;
     Allocator<MsgBitRate> iAllocatorMsgBitRate;
     Allocator<MsgAudioPcm> iAllocatorMsgAudioPcm;
+    Allocator<MsgAudioDsd> iAllocatorMsgAudioDsd;
     Allocator<MsgSilence> iAllocatorMsgSilence;
     Allocator<MsgPlayablePcm> iAllocatorMsgPlayablePcm;
+    Allocator<MsgPlayableDsd> iAllocatorMsgPlayableDsd;
     Allocator<MsgPlayableSilence> iAllocatorMsgPlayableSilence;
     Allocator<MsgQuit> iAllocatorMsgQuit;
 };

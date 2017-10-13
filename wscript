@@ -251,7 +251,7 @@ def build(bld):
                 'OpenHome/Media/Supply.cpp',
                 'OpenHome/Media/SupplyAggregator.cpp',
                 'OpenHome/Media/Utils/AnimatorBasic.cpp',
-                'OpenHome/Media/Utils/ProcessorPcmUtils.cpp',
+                'OpenHome/Media/Utils/ProcessorAudioUtils.cpp',
                 'OpenHome/Media/Utils/ClockPullerManual.cpp',
                 'OpenHome/Media/Codec/Mpeg4.cpp',
                 'OpenHome/Media/Codec/Container.cpp',

@@ -2,7 +2,7 @@
 #include <OpenHome/Media/Pipeline/PreDriver.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <string.h>
 #include <vector>
@@ -96,7 +96,7 @@ SuitePreDriver::SuitePreDriver()
     MsgFactoryInitParams init;
     init.SetMsgAudioPcmCount(10, 10);
     init.SetMsgSilenceCount(10);
-    init.SetMsgPlayableCount(10, 10);
+    init.SetMsgPlayableCount(10, 0, 10);
     init.SetMsgDecodedStreamCount(kMsgFormatCount);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);

@@ -164,6 +164,7 @@ class Pipeline : public IPipelineElementDownstream
 
     static const TUint kMsgCountSilence         = 410; // 2secs @ 5ms per msg + 10 spare
     static const TUint kMsgCountPlayablePcm     = 10;
+    static const TUint kMsgCountPlayableDsd     = 10;
     static const TUint kMsgCountPlayableSilence = 10;
     static const TUint kMsgCountFlush           = 16;
     static const TUint kMsgCountMode            = 20;

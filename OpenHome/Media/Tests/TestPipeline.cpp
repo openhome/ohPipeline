@@ -4,7 +4,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/Pipeline/RampArray.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/Codec/CodecController.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Shell.h>

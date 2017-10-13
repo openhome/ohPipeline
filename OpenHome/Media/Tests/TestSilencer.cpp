@@ -3,7 +3,7 @@
 #include <OpenHome/Media/Utils/Silencer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <list>
 
@@ -120,7 +120,7 @@ void SuiteSilencer::Setup()
     MsgFactoryInitParams init;
     init.SetMsgAudioPcmCount(10, 10);
     init.SetMsgSilenceCount(10);
-    init.SetMsgPlayableCount(10, 10);
+    init.SetMsgPlayableCount(10, 0, 10);
     init.SetMsgDecodedStreamCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iSilencer = new Silencer(*iMsgFactory, *this, kPriorityNormal, kSilenceJiffies, 2);

@@ -290,8 +290,10 @@ inline MsgFactoryInitParams::MsgFactoryInitParams()
     , iMsgBitRateCount(1)
     , iDecodedAudioCount(1)
     , iMsgAudioPcmCount(1)
+    , iMsgAudioDsdCount(1)
     , iMsgSilenceCount(1)
     , iMsgPlayablePcmCount(1)
+    , iMsgPlayableDsdCount(1)
     , iMsgPlayableSilenceCount(1)
     , iMsgQuitCount(1)
 {
@@ -354,13 +356,18 @@ inline void MsgFactoryInitParams::SetMsgAudioPcmCount(TUint aCount, TUint aDecod
     iMsgAudioPcmCount = aCount;
     iDecodedAudioCount = aDecodedAudioCount;
 }
+inline void MsgFactoryInitParams::SetMsgAudioDsdCount(TUint aCount)
+{
+    iMsgAudioDsdCount = aCount;
+}
 inline void MsgFactoryInitParams::SetMsgSilenceCount(TUint aCount)
 {
     iMsgSilenceCount = aCount;
 }
-inline void MsgFactoryInitParams::SetMsgPlayableCount(TUint aPcmCount, TUint aSilenceCount)
+inline void MsgFactoryInitParams::SetMsgPlayableCount(TUint aPcmCount, TUint aDsdCount, TUint aSilenceCount)
 {
     iMsgPlayablePcmCount = aPcmCount;
+    iMsgPlayableDsdCount = aDsdCount;
     iMsgPlayableSilenceCount = aSilenceCount;
 }
 inline void MsgFactoryInitParams::SetMsgQuitCount(TUint aCount)
