@@ -1889,6 +1889,19 @@ void MsgAudio::SplitCompleted(MsgAudio& /*aMsg*/)
 
 const TUint64 MsgAudioDecoded::kTrackOffsetInvalid = UINT64_MAX;
 
+void MsgAudioDecoded::Aggregate(MsgAudioDecoded* aMsg)
+{
+    ASSERT(aMsg->iSampleRate == iSampleRate);
+    ASSERT(aMsg->iBitDepth == iBitDepth);
+    ASSERT(aMsg->iNumChannels == iNumChannels);
+    ASSERT(aMsg->iTrackOffset == iTrackOffset + Jiffies()); // aMsg must logically follow this one
+    ASSERT(!iRamp.IsEnabled() && !aMsg->iRamp.IsEnabled()); // no ramps allowed
+
+    iAudioData->Aggregate(*(aMsg->iAudioData));
+    iSize += aMsg->Jiffies();
+    aMsg->RemoveRef();
+}
+
 TUint64 MsgAudioDecoded::TrackOffset() const
 {
     return iTrackOffset;
@@ -1973,19 +1986,6 @@ const TUint MsgAudioPcm::kUnityAttenuation = 256;
 MsgAudioPcm::MsgAudioPcm(AllocatorBase& aAllocator)
     : MsgAudioDecoded(aAllocator)
 {
-}
-
-void MsgAudioPcm::Aggregate(MsgAudioPcm* aMsg)
-{
-    ASSERT(aMsg->iSampleRate == iSampleRate);
-    ASSERT(aMsg->iBitDepth == iBitDepth);
-    ASSERT(aMsg->iNumChannels == iNumChannels);
-    ASSERT(aMsg->iTrackOffset == iTrackOffset+Jiffies());   // aMsg must logically follow this one
-    ASSERT(!iRamp.IsEnabled() && !aMsg->iRamp.IsEnabled()); // no ramps allowed
-
-    iAudioData->Aggregate(*(aMsg->iAudioData));
-    iSize += aMsg->Jiffies();
-    aMsg->RemoveRef();
 }
 
 MsgAudio* MsgAudioPcm::Clone()

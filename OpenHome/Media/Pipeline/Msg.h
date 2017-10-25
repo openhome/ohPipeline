@@ -806,6 +806,7 @@ class MsgAudioDecoded : public MsgAudio
 public:
     static const TUint64 kTrackOffsetInvalid;
 public:
+    void Aggregate(MsgAudioDecoded* aMsg); // append aMsg to the end of this msg, removes ref on aMsg
     TUint64 TrackOffset() const; // offset of the start of this msg from the start of its track.  FIXME no tests for this yet
     MsgPlayable* CreatePlayable(); // removes ref, transfer ownership of DecodedAudio
 protected:
@@ -835,7 +836,6 @@ public:
     static const TUint kUnityAttenuation;
 public:
     MsgAudioPcm(AllocatorBase& aAllocator);
-    void Aggregate(MsgAudioPcm* aMsg); // append aMsg to the end of this msg, removes ref on aMsg
     void SetAttenuation(TUint aAttenuation);
     inline void AddLogPoint(const TChar* aId);
 public: // from MsgAudio
