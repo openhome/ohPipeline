@@ -134,6 +134,7 @@ private:  // from IMsgProcessor
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
 
@@ -767,6 +768,12 @@ Msg* SuiteGeneratorSquare::ProcessMsg(MsgAudioPcm* aMsg)
     }
     playable->RemoveRef();
     return nullptr;
+}
+
+Msg* SuiteGeneratorAny::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    ASSERTS();
+    return aMsg;
 }
 
 Msg* SuiteGeneratorAny::ProcessMsg(MsgSilence* aMsg)

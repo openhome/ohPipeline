@@ -28,6 +28,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -148,6 +149,7 @@ Msg* SilencerMsgInProcessor::ProcessMsg(MsgWait* aMsg)                  { return
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgDecodedStream* aMsg)         { return aMsg; }
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgBitRate* aMsg)               { return aMsg; }
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgAudioPcm* aMsg)              { return aMsg; }
+Msg* SilencerMsgInProcessor::ProcessMsg(MsgAudioDsd* aMsg)              { return aMsg; }
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgSilence* aMsg)               { return aMsg; }
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgPlayable* aMsg)              { return aMsg; }
 

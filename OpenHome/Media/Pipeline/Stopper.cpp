@@ -328,6 +328,16 @@ Msg* Stopper::ProcessMsg(MsgBitRate* aMsg)
 
 Msg* Stopper::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    return ProcessAudio(aMsg);
+}
+
+Msg* Stopper::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessAudio(aMsg);
+}
+
+Msg* Stopper::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     if (iState == ERampingDown || iState == ERampingUp) {
         MsgAudio* split;
         if (aMsg->Jiffies() > iRemainingRampSize && iRemainingRampSize > 0) {

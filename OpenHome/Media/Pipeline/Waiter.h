@@ -50,9 +50,11 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
 private:
     void DoWait();
+    Msg* ProcessAudio(MsgAudioDecoded* aMsg);
     Msg* ProcessFlushable(Msg* aMsg);
     void HandleAudio();
     void NewStream();

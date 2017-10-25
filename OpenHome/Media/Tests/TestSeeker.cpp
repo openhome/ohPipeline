@@ -57,6 +57,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -74,6 +75,7 @@ private:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgHalt
        ,EMsgFlush
        ,EMsgWait
@@ -383,6 +385,12 @@ Msg* SuiteSeeker::ProcessMsg(MsgAudioPcm* aMsg)
     }
 
     return playable;
+}
+
+Msg* SuiteSeeker::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioPcm;
+    return aMsg;
 }
 
 Msg* SuiteSeeker::ProcessMsg(MsgSilence* /*aMsg*/)

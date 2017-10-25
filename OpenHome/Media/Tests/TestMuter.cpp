@@ -48,6 +48,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -67,6 +68,7 @@ private:
        ,EMsgStreamInterrupted
        ,EMsgDecodedStream
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -81,6 +83,7 @@ private:
     Msg* CreateTrack();
     Msg* CreateDecodedStream();
     Msg* CreateAudio();
+    Msg* CreateAudioDsd();
 private:
     void TestMsgsPassWhenRunning();
     void TestMuteImmediateWhenHalted();
@@ -328,6 +331,13 @@ Msg* SuiteMuter::ProcessMsg(MsgAudioPcm* aMsg)
     return playable;
 }
 
+Msg* SuiteMuter::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioDsd;
+    iJiffies += aMsg->Jiffies();
+    return aMsg;
+}
+
 Msg* SuiteMuter::ProcessMsg(MsgSilence* aMsg)
 {
     iLastPulledMsg = EMsgSilence;
@@ -432,6 +442,16 @@ Msg* SuiteMuter::CreateAudio()
     return audio;
 }
 
+Msg* SuiteMuter::CreateAudioDsd()
+{
+    TByte audioData[128];
+    (void)memset(audioData, 0x7f, sizeof audioData);
+    Brn audioBuf(audioData, sizeof audioData);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
+    iTrackOffset += audio->Jiffies();
+    return audio;
+}
+
 void SuiteMuter::TestMsgsPassWhenRunning()
 {
     iPendingMsgs.push_back(iMsgFactory->CreateMsgMode(Brx::Empty()));
@@ -439,6 +459,7 @@ void SuiteMuter::TestMsgsPassWhenRunning()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgDrain(Functor()));
     iPendingMsgs.push_back(CreateDecodedStream());
     iPendingMsgs.push_back(CreateAudio());
+    iPendingMsgs.push_back(CreateAudioDsd());
     TUint size = Jiffies::kPerMs * 3;
     iPendingMsgs.push_back(iMsgFactory->CreateMsgSilence(size, kSampleRate, 16, kNumChannels));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());
@@ -450,6 +471,7 @@ void SuiteMuter::TestMsgsPassWhenRunning()
     PullNext(EMsgDrain);
     PullNext(EMsgDecodedStream);
     PullNext(EMsgAudioPcm);
+    PullNext(EMsgAudioDsd);
     PullNext(EMsgSilence);
     PullNext(EMsgHalt);
     PullNext(EMsgStreamInterrupted);

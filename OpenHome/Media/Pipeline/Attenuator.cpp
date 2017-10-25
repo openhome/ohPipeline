@@ -20,6 +20,7 @@ const TUint Attenuator::kSupportedMsgTypes =   eMode
                                          | eDecodedStream
                                          | eBitRate
                                          | eAudioPcm
+                                         | eAudioDsd
                                          | eSilence
                                          | eQuit;
 

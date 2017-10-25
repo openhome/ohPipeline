@@ -2092,10 +2092,9 @@ void MsgAudioDsd::SplitCompleted(MsgAudio& aRemaining)
     remaining.iAllocatorPlayableDsd = iAllocatorPlayableDsd;
 }
 
-Msg* MsgAudioDsd::Process(IMsgProcessor& /*aProcessor*/)
+Msg* MsgAudioDsd::Process(IMsgProcessor& aProcessor)
 {
-    ASSERTS(); // FIXME
-    return this;
+    return aProcessor.ProcessMsg(this);
 }
 
 
@@ -2842,6 +2841,7 @@ void MsgReservoir::ProcessMsgIn(MsgWait* /*aMsg*/)              { }
 void MsgReservoir::ProcessMsgIn(MsgDecodedStream* /*aMsg*/)     { }
 void MsgReservoir::ProcessMsgIn(MsgBitRate* /*aMsg*/)           { }
 void MsgReservoir::ProcessMsgIn(MsgAudioPcm* /*aMsg*/)          { }
+void MsgReservoir::ProcessMsgIn(MsgAudioDsd* /*aMsg*/)          { }
 void MsgReservoir::ProcessMsgIn(MsgSilence* /*aMsg*/)           { }
 void MsgReservoir::ProcessMsgIn(MsgQuit* /*aMsg*/)              { }
 
@@ -2859,6 +2859,7 @@ Msg* MsgReservoir::ProcessMsgOut(MsgWait* aMsg)                 { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgDecodedStream* aMsg)        { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgBitRate* aMsg)              { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgAudioPcm* aMsg)             { return aMsg; }
+Msg* MsgReservoir::ProcessMsgOut(MsgAudioDsd* aMsg)             { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgSilence* aMsg)              { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgQuit* aMsg)                 { return aMsg; }
 
@@ -2911,9 +2912,20 @@ Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgBitRate* aMsg)            { r
 
 Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    ProcessAudio(aMsg);
+    return aMsg;
+}
+
+Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    ProcessAudio(aMsg);
+    return aMsg;
+}
+
+void MsgReservoir::ProcessorEnqueue::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     iQueue.iDecodedAudioCount++;
     iQueue.iJiffies += aMsg->Jiffies();
-    return aMsg;
 }
 
 Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgSilence* aMsg)
@@ -3028,6 +3040,13 @@ Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    (void)ProcessorEnqueue::ProcessMsg(aMsg);
+    iQueue.ProcessMsgIn(aMsg);
+    return aMsg;
+}
+
 Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgSilence* aMsg)
 {
     (void)ProcessorEnqueue::ProcessMsg(aMsg);
@@ -3130,9 +3149,20 @@ Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgBitRate* aMsg)
 
 Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    ProcessAudio(aMsg);
+    return iQueue.ProcessMsgOut(aMsg);
+}
+
+Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    ProcessAudio(aMsg);
+    return iQueue.ProcessMsgOut(aMsg);
+}
+
+void MsgReservoir::ProcessorQueueOut::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     iQueue.iDecodedAudioCount--;
     iQueue.iJiffies -= aMsg->Jiffies();
-    return iQueue.ProcessMsgOut(aMsg);
 }
 
 Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgSilence* aMsg)
@@ -3251,6 +3281,12 @@ Msg* PipelineElement::ProcessMsg(MsgBitRate* aMsg)
 Msg* PipelineElement::ProcessMsg(MsgAudioPcm* aMsg)
 {
     CheckSupported(eAudioPcm);
+    return aMsg;
+}
+
+Msg* PipelineElement::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    CheckSupported(eAudioDsd);
     return aMsg;
 }
 

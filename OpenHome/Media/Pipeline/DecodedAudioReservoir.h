@@ -28,6 +28,8 @@ public: // from IPipelineElementDownstream
     void Push(Msg* aMsg) override;
 private:
     void SetGorging(TBool aGorging, const TChar* aId);
+    void ProcessAudioIn(MsgAudioDecoded* aAudio);
+    Msg* ProcessAudioOut(MsgAudioDecoded* aAudio);
 private: // from MsgReservoir
     void ProcessMsgIn(MsgMode* aMsg) override;
     void ProcessMsgIn(MsgTrack* aMsg) override;
@@ -36,6 +38,7 @@ private: // from MsgReservoir
     void ProcessMsgIn(MsgHalt* aMsg) override;
     void ProcessMsgIn(MsgDecodedStream* aMsg) override;
     void ProcessMsgIn(MsgAudioPcm* aMsg) override;
+    void ProcessMsgIn(MsgAudioDsd* aMsg) override;
     void ProcessMsgIn(MsgSilence* aMsg) override;
     void ProcessMsgIn(MsgQuit* aMsg) override;
     Msg* ProcessMsgOut(MsgMode* aMsg) override;
@@ -46,6 +49,7 @@ private: // from MsgReservoir
     Msg* ProcessMsgOut(MsgFlush* aMsg) override;
     Msg* ProcessMsgOut(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsgOut(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsgOut(MsgAudioDsd* aMsg) override;
 private: // from IStreamHandler
     EStreamPlay OkToPlay(TUint aStreamId) override;
     TUint TrySeek(TUint aStreamId, TUint64 aOffset) override;

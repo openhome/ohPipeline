@@ -81,6 +81,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -193,7 +194,6 @@ Msg* ElementFileReader::Pull()
     ASSERT(iFile != nullptr);
     Msg* msg = nullptr;
     if (iMode == eMode) {
-        const Brn mode("Playlist");
         msg = iMsgFactory.CreateMsgMode(Brx::Empty());
         iMode = eTrack;
     }
@@ -455,6 +455,12 @@ Msg* ElementFileWriter::ProcessMsg(MsgAudioPcm* aMsg)
     }
 
     playable->RemoveRef();
+    return nullptr;
+}
+
+Msg* ElementFileWriter::ProcessMsg(MsgAudioDsd* /*aMsg*/)
+{
+    ASSERTS();
     return nullptr;
 }
 

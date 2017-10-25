@@ -20,6 +20,7 @@ const TUint MuterVolume::kSupportedMsgTypes =   eMode
                                               | eHalt
                                               | eDecodedStream
                                               | eAudioPcm
+                                              | eAudioDsd
                                               | eSilence
                                               | eQuit;
 const TUint MuterVolume::kJiffiesUntilMute = 10 * Jiffies::kPerMs;
@@ -137,6 +138,13 @@ Msg* MuterVolume::ProcessMsg(MsgHalt* aMsg)
 }
 
 Msg* MuterVolume::ProcessMsg(MsgAudioPcm* aMsg)
+{
+    iHalted = false;
+    ProcessAudio(aMsg);
+    return aMsg;
+}
+
+Msg* MuterVolume::ProcessMsg(MsgAudioDsd* aMsg)
 {
     iHalted = false;
     ProcessAudio(aMsg);

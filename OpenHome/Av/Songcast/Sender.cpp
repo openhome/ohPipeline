@@ -241,6 +241,13 @@ Msg* Sender::ProcessMsg(MsgAudioPcm* aMsg)
     return nullptr;
 }
 
+Msg* Sender::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    ASSERT(iStreamForbidden);
+    aMsg->RemoveRef();
+    return nullptr;
+}
+
 Msg* Sender::ProcessMsg(MsgSilence* aMsg)
 {
     ASSERT(iSampleRate != 0);
@@ -490,6 +497,12 @@ Msg* Sender::PlayableCreator::ProcessMsg(MsgBitRate* /*aMsg*/)
 Msg* Sender::PlayableCreator::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iPlayable = aMsg->CreatePlayable();
+    return nullptr;
+}
+
+Msg* Sender::PlayableCreator::ProcessMsg(MsgAudioDsd* /*aMsg*/)
+{
+    ASSERTS();
     return nullptr;
 }
 

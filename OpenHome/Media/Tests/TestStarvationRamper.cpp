@@ -54,6 +54,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -78,6 +79,7 @@ private:
        ,EMsgStreamInterrupted
        ,EMsgDecodedStream
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -321,6 +323,13 @@ Msg* SuiteStarvationRamper::ProcessMsg(MsgAudioPcm* aMsg)
         TEST(ramp.Direction() == Ramp::ENone);
     }
     iLastRampPos = ramp.End();
+    return aMsg;
+}
+
+Msg* SuiteStarvationRamper::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioPcm;
+    iJiffies += aMsg->Jiffies();
     return aMsg;
 }
 

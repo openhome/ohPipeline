@@ -62,6 +62,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -89,6 +90,7 @@ protected:
         EMsgDecodedStream,
         EMsgBitRate,
         EMsgAudioPcm,
+        EMsgAudioDsd,
         EMsgSilence,
         EMsgHalt,
         EMsgFlush,
@@ -242,6 +244,16 @@ Msg* SuiteVariableDelay::Pull()
     {
     case EMsgAudioPcm:
         return CreateAudio();
+    case EMsgAudioDsd:
+    {
+        TByte audioData[128];
+        (void)memset(audioData, 0x7f, sizeof audioData);
+        Brn audioBuf(audioData, sizeof audioData);
+        MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
+        iAudioMsgSizeJiffies = audio->Jiffies();
+        iTrackOffset += iAudioMsgSizeJiffies;
+        return audio;
+    }
     case EMsgSilence:
     {
         TUint size = kMsgSilenceSize;
@@ -427,6 +439,13 @@ Msg* SuiteVariableDelay::ProcessMsg(MsgAudioPcm* aMsg)
     return nullptr;
 }
 
+Msg* SuiteVariableDelay::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastMsg = EMsgAudioDsd;
+    iJiffies += aMsg->Jiffies();
+    return aMsg;
+}
+
 Msg* SuiteVariableDelay::ProcessMsg(MsgSilence* aMsg)
 {
     iLastMsg = EMsgSilence;
@@ -565,9 +584,9 @@ void SuiteVariableDelayLeft::TestAllMsgsPass()
 {
     /* 'AllMsgs' excludes encoded & playable audio - VariableDelay is assumed only
        useful to the portion of the pipeline that deals in decoded audio */
-    static const EMsgType msgs[] = { EMsgMode, EMsgTrack, EMsgDrain,
-                                     EMsgEncodedStream, EMsgMetaText, EMsgStreamInterrupted,
-                                     EMsgDecodedStream, EMsgBitRate, EMsgAudioPcm, EMsgSilence,
+    static const EMsgType msgs[] = { EMsgMode, EMsgTrack, EMsgDrain, EMsgEncodedStream,
+                                     EMsgMetaText, EMsgStreamInterrupted, EMsgDecodedStream,
+                                     EMsgBitRate, EMsgAudioPcm, EMsgAudioDsd, EMsgSilence,
                                      EMsgHalt, EMsgFlush, EMsgWait, EMsgDelay, EMsgQuit };
     for (TUint i=0; i<sizeof(msgs)/sizeof(msgs[0]); i++) {
         PullNext(msgs[i]);

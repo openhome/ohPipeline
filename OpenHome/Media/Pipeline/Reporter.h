@@ -44,7 +44,9 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
 private:
+    void ProcessAudio(MsgAudioDecoded* aMsg);
     void EventCallback();
 private:
     Mutex iLock;

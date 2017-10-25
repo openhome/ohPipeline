@@ -23,6 +23,7 @@ const TUint DecodedAudioAggregator::kSupportedMsgTypes =   eMode
                                                          | eDecodedStream
                                                          | eBitRate
                                                          | eAudioPcm
+                                                         | eAudioDsd
                                                          | eQuit;
 
 DecodedAudioAggregator::DecodedAudioAggregator(IPipelineElementDownstream& aDownstreamElement)

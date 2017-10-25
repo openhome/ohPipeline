@@ -19,6 +19,7 @@ const TUint Ramper::kSupportedMsgTypes =   eMode
                                          | eDecodedStream
                                          | eBitRate
                                          | eAudioPcm
+                                         | eAudioDsd
                                          | eSilence
                                          | eQuit;
 
@@ -88,6 +89,24 @@ Msg* Ramper::ProcessMsg(MsgDecodedStream* aMsg)
 
 Msg* Ramper::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    return ProcessAudio(aMsg);
+}
+
+Msg* Ramper::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessAudio(aMsg);
+}
+
+Msg* Ramper::ProcessMsg(MsgSilence* aMsg)
+{
+    iRamping = false;
+    iCurrentRampValue = Ramp::kMax;
+    iRemainingRampSize = 0;
+    return aMsg;
+}
+
+Msg* Ramper::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     if (iRamping) {
         MsgAudio* split;
         if (aMsg->Jiffies() > iRemainingRampSize) {
@@ -105,13 +124,5 @@ Msg* Ramper::ProcessMsg(MsgAudioPcm* aMsg)
             iRamping = false;
         }
     }
-    return aMsg;
-}
-
-Msg* Ramper::ProcessMsg(MsgSilence* aMsg)
-{
-    iRamping = false;
-    iCurrentRampValue = Ramp::kMax;
-    iRemainingRampSize = 0;
     return aMsg;
 }

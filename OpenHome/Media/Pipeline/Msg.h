@@ -670,7 +670,8 @@ private: // from Msg
 enum class AudioFormat
 {
     Pcm,
-    Dsd
+    Dsd,
+    Undefined
 };
 
 class DecodedStreamInfo
@@ -1051,6 +1052,7 @@ public:
     virtual Msg* ProcessMsg(MsgDecodedStream* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgBitRate* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgAudioPcm* aMsg) = 0;
+    virtual Msg* ProcessMsg(MsgAudioDsd* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgSilence* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgPlayable* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgQuit* aMsg) = 0;
@@ -1205,6 +1207,7 @@ private:
     virtual void ProcessMsgIn(MsgDecodedStream* aMsg);
     virtual void ProcessMsgIn(MsgBitRate* aMsg);
     virtual void ProcessMsgIn(MsgAudioPcm* aMsg);
+    virtual void ProcessMsgIn(MsgAudioDsd* aMsg);
     virtual void ProcessMsgIn(MsgSilence* aMsg);
     virtual void ProcessMsgIn(MsgQuit* aMsg);
     virtual Msg* ProcessMsgOut(MsgMode* aMsg);
@@ -1221,6 +1224,7 @@ private:
     virtual Msg* ProcessMsgOut(MsgDecodedStream* aMsg);
     virtual Msg* ProcessMsgOut(MsgBitRate* aMsg);
     virtual Msg* ProcessMsgOut(MsgAudioPcm* aMsg);
+    virtual Msg* ProcessMsgOut(MsgAudioDsd* aMsg);
     virtual Msg* ProcessMsgOut(MsgSilence* aMsg);
     virtual Msg* ProcessMsgOut(MsgQuit* aMsg);
 private:
@@ -1243,9 +1247,12 @@ private:
         Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
         Msg* ProcessMsg(MsgBitRate* aMsg) override;
         Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+        Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
         Msg* ProcessMsg(MsgSilence* aMsg) override;
         Msg* ProcessMsg(MsgPlayable* aMsg) override;
         Msg* ProcessMsg(MsgQuit* aMsg) override;
+    private:
+        void ProcessAudio(MsgAudioDecoded* aMsg);
     protected:
         MsgReservoir& iQueue;
     };
@@ -1268,6 +1275,7 @@ private:
         Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
         Msg* ProcessMsg(MsgBitRate* aMsg) override;
         Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+        Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
         Msg* ProcessMsg(MsgSilence* aMsg) override;
         Msg* ProcessMsg(MsgPlayable* aMsg) override;
         Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -1291,9 +1299,12 @@ private:
         Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
         Msg* ProcessMsg(MsgBitRate* aMsg) override;
         Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+        Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
         Msg* ProcessMsg(MsgSilence* aMsg) override;
         Msg* ProcessMsg(MsgPlayable* aMsg) override;
         Msg* ProcessMsg(MsgQuit* aMsg) override;
+    private:
+        void ProcessAudio(MsgAudioDecoded* aMsg);
     private:
         MsgReservoir& iQueue;
     };
@@ -1328,9 +1339,10 @@ protected:
        ,eDecodedStream      = 1 << 11
        ,eBitRate            = 1 << 12
        ,eAudioPcm           = 1 << 13
-       ,eSilence            = 1 << 14
-       ,ePlayable           = 1 << 15
-       ,eQuit               = 1 << 16
+       ,eAudioDsd           = 1 << 14
+       ,eSilence            = 1 << 15
+       ,ePlayable           = 1 << 16
+       ,eQuit               = 1 << 17
     };
 protected:
     PipelineElement(TUint aSupportedTypes);
@@ -1350,6 +1362,7 @@ protected: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -1824,4 +1837,3 @@ private:
 
 } // namespace Media
 } // namespace OpenHome
-

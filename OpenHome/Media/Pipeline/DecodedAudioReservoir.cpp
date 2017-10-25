@@ -178,10 +178,20 @@ void DecodedAudioReservoir::ProcessMsgIn(MsgDecodedStream* /*aMsg*/)
 
 void DecodedAudioReservoir::ProcessMsgIn(MsgAudioPcm* aMsg)
 {
+    ProcessAudioIn(aMsg);
+}
+
+void DecodedAudioReservoir::ProcessMsgIn(MsgAudioDsd* aMsg)
+{
+    ProcessAudioIn(aMsg);
+}
+
+void DecodedAudioReservoir::ProcessAudioIn(MsgAudioDecoded* aAudio)
+{
     BlockIfFull();
     AutoMutex _(iLock);
     if (iClockPuller != nullptr) {
-        aMsg->SetObserver(*iClockPuller);
+        aAudio->SetObserver(*iClockPuller);
     }
 }
 
@@ -271,6 +281,16 @@ Msg* DecodedAudioReservoir::ProcessMsgOut(MsgFlush* aMsg)
 
 Msg* DecodedAudioReservoir::ProcessMsgOut(MsgAudioPcm* aMsg)
 {
+    return ProcessAudioOut(aMsg);
+}
+
+Msg* DecodedAudioReservoir::ProcessMsgOut(MsgAudioDsd* aMsg)
+{
+    return ProcessAudioOut(aMsg);
+}
+
+Msg* DecodedAudioReservoir::ProcessAudioOut(MsgAudioDecoded* aMsg)
+{
     if (iDiscardJiffies == 0) {
         return aMsg;
     }
@@ -291,7 +311,7 @@ Msg* DecodedAudioReservoir::ProcessMsgOut(MsgAudioPcm* aMsg)
         const TUint64 sampleStart = (aMsg->TrackOffset() + aMsg->Jiffies()) / Jiffies::PerSample(s.SampleRate());
         auto stream = iMsgFactory.CreateMsgDecodedStream(s.StreamId(), s.BitRate(), s.BitDepth(), s.SampleRate(),
                                                          s.NumChannels(), s.CodecName(), s.TrackLength(),
-                                                         sampleStart, s.Lossless(), s.Seekable(), s.Live(),
+                                                         sampleStart, s.Lossless(), s.Seekable(), s.Live(), 
                                                          s.AnalogBypass(), s.Format(), s.Multiroom(), s.Profile(),
                                                          s.StreamHandler());
         EnqueueAtHead(stream);

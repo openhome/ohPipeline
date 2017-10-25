@@ -956,6 +956,12 @@ Msg* CodecController::ProcessMsg(MsgAudioPcm* /*aMsg*/)
     return nullptr;
 }
 
+Msg* CodecController::ProcessMsg(MsgAudioDsd* /*aMsg*/)
+{
+    ASSERTS(); // not expected at this stage of the pipeline
+    return nullptr;
+}
+
 Msg* CodecController::ProcessMsg(MsgSilence* /*aMsg*/)
 {
     ASSERTS(); // not expected at this stage of the pipeline

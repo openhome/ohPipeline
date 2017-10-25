@@ -39,6 +39,7 @@ private:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgPlayable
        ,EMsgQuit
@@ -54,6 +55,7 @@ private:
     void DecodedStreamPassedOn();
     void TrackWithoutAudioAllMsgsDiscarded();
     void SilenceUnblocksStreamMsgs();
+    void DsdUnblocksStreamMsgs();
     void ModeWithoutAudioAllMsgsDiscarded();
     void StreamWithoutAudioAllMsgsDiscarded();
     void HaltWithoutAudioDiscarded();
@@ -74,6 +76,7 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -104,6 +107,7 @@ SuitePruner::SuitePruner()
     AddTest(MakeFunctor(*this, &SuitePruner::DecodedStreamPassedOn), "DecodedStreamPassedOn");
     AddTest(MakeFunctor(*this, &SuitePruner::TrackWithoutAudioAllMsgsDiscarded), "TrackWithoutAudioAllMsgsDiscarded");
     AddTest(MakeFunctor(*this, &SuitePruner::SilenceUnblocksStreamMsgs), "SilenceUnblocksStreamMsgs");
+    AddTest(MakeFunctor(*this, &SuitePruner::DsdUnblocksStreamMsgs), "DsdUnblocksStreamMsgs");
     AddTest(MakeFunctor(*this, &SuitePruner::ModeWithoutAudioAllMsgsDiscarded), "ModeWithoutAudioAllMsgsDiscarded");
     AddTest(MakeFunctor(*this, &SuitePruner::StreamWithoutAudioAllMsgsDiscarded), "StreamWithoutAudioAllMsgsDiscarded");
     AddTest(MakeFunctor(*this, &SuitePruner::HaltWithoutAudioDiscarded), "HaltWithoutAudioDiscarded");
@@ -143,11 +147,12 @@ SuitePruner::EMsgType SuitePruner::DoPull()
 
 void SuitePruner::MsgsDiscarded()
 {
-    EMsgType msgs[] = { EMsgMode, EMsgTrack, EMsgDecodedStream, EMsgMetaText, EMsgWait, EMsgBitRate, EMsgAudioPcm };
+    EMsgType msgs[] = { EMsgMode, EMsgTrack, EMsgDecodedStream, EMsgMetaText, EMsgWait, EMsgBitRate, EMsgAudioPcm, EMsgAudioDsd };
     iPendingMsgs.assign(msgs, msgs+NUM_EMEMS(msgs));
     TEST(DoPull() == EMsgMode);
     TEST(DoPull() == EMsgDecodedStream);
     TEST(DoPull() == EMsgAudioPcm);
+    TEST(DoPull() == EMsgAudioDsd);
     TEST(iPendingMsgs.size() == 0);
 }
 
@@ -217,6 +222,15 @@ void SuitePruner::SilenceUnblocksStreamMsgs()
     iPendingMsgs.assign(msgs, msgs+NUM_EMEMS(msgs));
     TEST(DoPull() == EMsgDecodedStream);
     TEST(DoPull() == EMsgSilence);
+    TEST(iPendingMsgs.size() == 0);
+}
+
+void SuitePruner::DsdUnblocksStreamMsgs()
+{
+    EMsgType msgs[] = { EMsgTrack, EMsgDecodedStream, EMsgAudioDsd };
+    iPendingMsgs.assign(msgs, msgs + NUM_EMEMS(msgs));
+    TEST(DoPull() == EMsgDecodedStream);
+    TEST(DoPull() == EMsgAudioDsd);
     TEST(iPendingMsgs.size() == 0);
 }
 
@@ -345,6 +359,12 @@ Msg* SuitePruner::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* SuitePruner::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioDsd;
+    return aMsg;
+}
+
 Msg* SuitePruner::ProcessMsg(MsgSilence* aMsg)
 {
     iLastPulledMsg = EMsgSilence;
@@ -419,6 +439,15 @@ Msg* SuitePruner::Pull()
         (void)memset(encodedAudioData, 0xff, kDataBytes);
         Brn encodedAudioBuf(encodedAudioData, kDataBytes);
         MsgAudio* audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, kNumChannels, kSampleRate, 16, AudioDataEndian::Little, iTrackOffset);
+        iTrackOffset += audio->Jiffies();
+        return audio;
+    }
+    case EMsgAudioDsd:
+    {
+        TByte audioData[128];
+        (void)memset(audioData, 0x7f, sizeof audioData);
+        Brn audioBuf(audioData, sizeof audioData);
+        MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
         iTrackOffset += audio->Jiffies();
         return audio;
     }

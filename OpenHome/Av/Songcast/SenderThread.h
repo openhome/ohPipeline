@@ -39,6 +39,7 @@ private: // from Media::IMsgProcessor
     Media::Msg* ProcessMsg(Media::MsgDecodedStream* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgBitRate* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgAudioPcm* aMsg) override;
+    Media::Msg* ProcessMsg(Media::MsgAudioDsd* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgSilence* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgPlayable* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgQuit* aMsg) override;

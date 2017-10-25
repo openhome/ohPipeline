@@ -35,6 +35,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override        { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgBitRate* aMsg) override              { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override             { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override             { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgQuit* aMsg) override                 { ASSERTS(); return aMsg; }

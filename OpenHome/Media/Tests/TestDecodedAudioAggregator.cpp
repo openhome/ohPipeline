@@ -48,6 +48,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -65,6 +66,7 @@ protected:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -88,6 +90,7 @@ private:
     void TestTrackEncodedStreamTrack();
     void TestPcmIsExpectedSize();
     void TestRawPcmNotAggregated();
+    void TestDsdNotAggregated();
 private:
     static const TUint kWavHeaderBytes = 44;
     static const TUint kSampleRate = 44100;
@@ -135,6 +138,7 @@ SuiteDecodedAudioAggregator::SuiteDecodedAudioAggregator()
     AddTest(MakeFunctor(*this, &SuiteDecodedAudioAggregator::TestTrackEncodedStreamTrack), "TestTrackEncodedStreamTrack");
     AddTest(MakeFunctor(*this, &SuiteDecodedAudioAggregator::TestPcmIsExpectedSize), "TestPcmIsExpectedSize");
     AddTest(MakeFunctor(*this, &SuiteDecodedAudioAggregator::TestRawPcmNotAggregated), "TestRawPcmNotAggregated");
+    AddTest(MakeFunctor(*this, &SuiteDecodedAudioAggregator::TestDsdNotAggregated), "TestDsdNotAggregated");
 }
 
 void SuiteDecodedAudioAggregator::Setup()
@@ -323,6 +327,15 @@ Msg* SuiteDecodedAudioAggregator::ProcessMsg(MsgAudioPcm* aMsg)
     TEST(lastSubsample == 0x7f7f);
 
     return playable;
+}
+
+Msg* SuiteDecodedAudioAggregator::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastReceivedMsg = EMsgAudioDsd;
+    iMsgOffset = aMsg->TrackOffset();
+    iJiffies += aMsg->Jiffies();
+
+    return aMsg;
 }
 
 Msg* SuiteDecodedAudioAggregator::ProcessMsg(MsgSilence* aMsg)
@@ -550,6 +563,31 @@ void SuiteDecodedAudioAggregator::TestRawPcmNotAggregated()
     PullNext(EMsgDecodedStream);
     PullNext(EMsgAudioPcm);
     TEST(iJiffies == Jiffies::PerSample(48000));
+    TEST(iJiffies == iTrackOffset);
+}
+
+void SuiteDecodedAudioAggregator::TestDsdNotAggregated()
+{
+    Queue(iMsgFactory->CreateMsgMode(Brn("dummyMode")));
+    Queue(CreateTrack());
+    Queue(iMsgFactory->CreateMsgEncodedStream(Brx::Empty(), Brx::Empty(), 1 << 21, 0, ++iNextStreamId, iSeekable, false, Multiroom::Allowed, this));
+    Queue(CreateDecodedStream());
+
+    TByte decodedAudioData = 0x7f; // 4 samples for 1-bit stereo
+    Brn decodedAudioBuf(&decodedAudioData, 1);
+    const TUint kSampleRateDsd = 1411200;
+    auto audio = iMsgFactory->CreateMsgAudioDsd(decodedAudioBuf, 2, kSampleRateDsd, iTrackOffset);
+    const TUint kSamples = 4;
+    iTrackOffset += kSamples * Jiffies::PerSample(kSampleRateDsd);
+    iTrackOffsetBytes += 1;
+    Queue(audio);
+
+    PullNext(EMsgMode);
+    PullNext(EMsgTrack);
+    PullNext(EMsgEncodedStream);
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgAudioDsd);
+    TEST(iJiffies == kSamples * Jiffies::PerSample(kSampleRateDsd));
     TEST(iJiffies == iTrackOffset);
 }
 

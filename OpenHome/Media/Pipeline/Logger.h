@@ -33,10 +33,11 @@ public:
        ,EMsgDecodedStream       = 1 << 11
        ,EMsgBitRate             = 1 << 12
        ,EMsgAudioPcm            = 1 << 13
-       ,EMsgSilence             = 1 << 14
-       ,EMsgAudioRamped         = 1 << 15
-       ,EMsgPlayable            = 1 << 16
-       ,EMsgQuit                = 1 << 17
+       ,EMsgAudioDsd            = 1 << 14
+       ,EMsgSilence             = 1 << 15
+       ,EMsgAudioRamped         = 1 << 16
+       ,EMsgPlayable            = 1 << 17
+       ,EMsgQuit                = 1 << 18
        ,EMsgAll                 = 0x7fffffff
     };
 public:
@@ -64,10 +65,12 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private:
+    void LogAudioDecoded(MsgAudioDecoded& aAudio, const TChar* aType);
     void LogRamp(const Media::Ramp& aRamp);
     inline TBool IsEnabled(EMsgType aType) const;
 private:

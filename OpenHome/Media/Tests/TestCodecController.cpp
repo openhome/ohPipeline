@@ -84,6 +84,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -101,6 +102,7 @@ protected:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -512,6 +514,14 @@ Msg* SuiteCodecControllerBase::ProcessMsg(MsgAudioPcm* aMsg)
     TEST(lastSubsample == 0x7f7f);
 
     return playable;
+}
+
+Msg* SuiteCodecControllerBase::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastReceivedMsg = EMsgAudioDsd;
+    iMsgOffset = aMsg->TrackOffset();
+    iJiffies += aMsg->Jiffies();
+    return aMsg;
 }
 
 Msg* SuiteCodecControllerBase::ProcessMsg(MsgSilence* aMsg)

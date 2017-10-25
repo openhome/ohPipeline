@@ -15,6 +15,7 @@ const TUint AnalogBypassRamper::kSupportedMsgTypes =   eMode
                                                      | eHalt
                                                      | eDecodedStream
                                                      | eAudioPcm
+                                                     | eAudioDsd
                                                      | eSilence
                                                      | eQuit;
 
@@ -90,6 +91,21 @@ Msg* AnalogBypassRamper::ProcessMsg(MsgAudioPcm* aMsg)
         iHalted = false;
         iVolumeRamper->ApplyVolumeMultiplier(IAnalogBypassVolumeRamper::kMultiplierFull);
     }
+    return aMsg;
+}
+
+Msg* AnalogBypassRamper::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    const TUint rampMultiplier = aMsg->MedianRampMultiplier();
+    LOG(kVolume, "AnalogBypassRamper::ProcessMsg(MsgAudioDsd*) rampMultiplier: %u\n", rampMultiplier);
+    iVolumeRamper->ApplyVolumeMultiplier(rampMultiplier);
+
+    if (iHalted) {
+        LOG(kVolume, "AnalogBypassRamper::ProcessMsg(MsgAudioPcm*) iHalted rampMultiplier: %u\n", IAnalogBypassVolumeRamper::kMultiplierFull);
+        iHalted = false;
+        iVolumeRamper->ApplyVolumeMultiplier(IAnalogBypassVolumeRamper::kMultiplierFull);
+    }
+
     return aMsg;
 }
 

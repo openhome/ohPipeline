@@ -56,6 +56,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -65,6 +66,7 @@ private:
         ENone
        ,EMsgAudioEncoded
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgPlayable
        ,EMsgDecodedStream
@@ -283,6 +285,13 @@ Msg* SuiteSupply::ProcessMsg(MsgBitRate* aMsg)
 }
 
 Msg* SuiteSupply::ProcessMsg(MsgAudioPcm* aMsg)
+{
+    ASSERTS(); // don't expect this type of msg at the start of the pipeline
+    iLastMsg = EMsgAudioPcm;
+    return aMsg;
+}
+
+Msg* SuiteSupply::ProcessMsg(MsgAudioDsd* aMsg)
 {
     ASSERTS(); // don't expect this type of msg at the start of the pipeline
     iLastMsg = EMsgAudioPcm;

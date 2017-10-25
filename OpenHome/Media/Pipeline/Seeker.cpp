@@ -207,6 +207,16 @@ Msg* Seeker::ProcessMsg(MsgBitRate* aMsg)
 
 Msg* Seeker::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    return ProcessAudio(aMsg);
+}
+
+Msg* Seeker::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessAudio(aMsg);
+}
+
+Msg* Seeker::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     if (iDecodeDiscardUntilSeekPoint && iFlushEndJiffies == iStreamPosJiffies) {
         ASSERT(iState == EFlushing);
         iState = ERampingUp;

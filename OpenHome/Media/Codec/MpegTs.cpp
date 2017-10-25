@@ -425,6 +425,12 @@ Msg* StreamTerminatorDetector::ProcessMsg(MsgAudioPcm* /*aMsg*/)
     return nullptr;
 }
 
+Msg* StreamTerminatorDetector::ProcessMsg(MsgAudioDsd* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
 Msg* StreamTerminatorDetector::ProcessMsg(MsgSilence* /*aMsg*/)
 {
     ASSERTS();

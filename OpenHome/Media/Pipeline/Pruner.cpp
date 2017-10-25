@@ -21,6 +21,7 @@ const TUint Pruner::kSupportedMsgTypes =   eMode
                                          | eDecodedStream
                                          | eBitRate
                                          | eAudioPcm
+                                         | eAudioDsd
                                          | eSilence
                                          | eQuit;
 
@@ -140,6 +141,12 @@ Msg* Pruner::ProcessMsg(MsgBitRate* aMsg)
 }
 
 Msg* Pruner::ProcessMsg(MsgAudioPcm* aMsg)
+{
+    iConsumeHalts = false;
+    return TryQueueCancelWaiting(aMsg);
+}
+
+Msg* Pruner::ProcessMsg(MsgAudioDsd* aMsg)
 {
     iConsumeHalts = false;
     return TryQueueCancelWaiting(aMsg);

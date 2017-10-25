@@ -29,6 +29,7 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private:
@@ -36,9 +37,10 @@ private:
     TUint iSampleRate;
     TUint iBitDepth;
     TUint iNumChannels;
+    AudioFormat iFormat;
     Semaphore iShutdownSem;
-    TUint64 iSilenceSinceLastPcm;
-    TBool iSilenceSincePcm;
+    TUint64 iSilenceSinceLastAudio;
+    TBool iSilenceSinceAudio;
     TBool iModeHasPullableClock;
     TBool iQuit;
 };

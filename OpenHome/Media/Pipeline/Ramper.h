@@ -27,7 +27,10 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgHalt* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
+private:
+    Msg* ProcessAudio(MsgAudioDecoded* aMsg);
 private:
     IPipelineElementUpstream& iUpstreamElement;
     TUint iStreamId;

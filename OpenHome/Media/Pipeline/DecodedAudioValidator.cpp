@@ -19,6 +19,7 @@ const TUint DecodedAudioValidator::kSupportedMsgTypes =   eMode
                                                         | eDecodedStream
                                                         | eBitRate
                                                         | eAudioPcm
+                                                        | eAudioDsd
                                                         | eSilence
                                                         | eQuit;
 
@@ -109,6 +110,18 @@ Msg* DecodedAudioValidator::ProcessMsg(MsgDecodedStream* aMsg)
 
 Msg* DecodedAudioValidator::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    ProcessAudio(aMsg);
+    return aMsg;
+}
+
+Msg* DecodedAudioValidator::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    ProcessAudio(aMsg);
+    return aMsg;
+}
+
+void DecodedAudioValidator::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     const TUint64 streamPos = aMsg->TrackOffset();
     if (iExpectDecodedStreamBeforeAudio) {
         Log::Print("WARNING: discontinuity in audio (%s): expected DecodedStream before audio\n", iId);
@@ -124,5 +137,4 @@ Msg* DecodedAudioValidator::ProcessMsg(MsgAudioPcm* aMsg)
         }
         iStreamPos = streamPos + aMsg->Jiffies();
     }
-    return aMsg;
 }

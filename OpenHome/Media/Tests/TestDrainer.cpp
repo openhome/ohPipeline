@@ -42,6 +42,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -59,6 +60,7 @@ private:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -221,6 +223,12 @@ Msg* SuiteDrainer::ProcessMsg(MsgBitRate* aMsg)
 Msg* SuiteDrainer::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iLastPulledMsg = EMsgAudioPcm;
+    return aMsg;
+}
+
+Msg* SuiteDrainer::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioDsd;
     return aMsg;
 }
 

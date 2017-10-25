@@ -31,6 +31,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -78,6 +79,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -116,6 +118,7 @@ protected: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override        { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgBitRate* aMsg) override              { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override             { ASSERTS(); return aMsg; }
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override             { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgSilence* aMsg) override              { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgPlayable* aMsg) override             { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgQuit* aMsg) override                 { return aMsg; }
@@ -248,6 +251,12 @@ Msg* MsgCloner::ProcessMsg(MsgAudioPcm* /*aMsg*/)
     return nullptr;
 }
 
+Msg* MsgCloner::ProcessMsg(MsgAudioDsd* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
 Msg* MsgCloner::ProcessMsg(MsgSilence* /*aMsg*/)
 {
     ASSERTS();
@@ -353,6 +362,12 @@ Msg* RewinderBufferProcessor::ProcessMsg(MsgBitRate* /*aMsg*/)
 }
 
 Msg* RewinderBufferProcessor::ProcessMsg(MsgAudioPcm* /*aMsg*/)
+{
+    ASSERTS(); // only expect encoded audio at this stage of the pipeline
+    return nullptr;
+}
+
+Msg* RewinderBufferProcessor::ProcessMsg(MsgAudioDsd* /*aMsg*/)
 {
     ASSERTS(); // only expect encoded audio at this stage of the pipeline
     return nullptr;
@@ -550,6 +565,12 @@ Msg* Rewinder::ProcessMsg(MsgBitRate* /*aMsg*/)
 }
 
 Msg* Rewinder::ProcessMsg(MsgAudioPcm* /*aMsg*/)
+{
+    ASSERTS(); // only expect encoded audio at this stage of the pipeline
+    return nullptr;
+}
+
+Msg* Rewinder::ProcessMsg(MsgAudioDsd* /*aMsg*/)
 {
     ASSERTS(); // only expect encoded audio at this stage of the pipeline
     return nullptr;

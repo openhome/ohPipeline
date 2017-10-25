@@ -246,6 +246,7 @@ public:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgPlayable
        ,EMsgQuit
@@ -268,6 +269,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -319,6 +321,7 @@ public:
     {
         ENone
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgMode
        ,EMsgTrack
@@ -349,6 +352,7 @@ private:
     Msg* ProcessMsgAudioOut(MsgAudio* aMsgAudio);
 private: // from MsgQueueFlushable
     void ProcessMsgIn(MsgAudioPcm* aMsg) override;
+    void ProcessMsgIn(MsgAudioDsd* aMsg) override;
     void ProcessMsgIn(MsgSilence* aMsg) override;
     void ProcessMsgIn(MsgMode* aMsg) override;
     void ProcessMsgIn(MsgTrack* aMsg) override;
@@ -364,6 +368,7 @@ private: // from MsgQueueFlushable
     void ProcessMsgIn(MsgWait* aMsg) override;
     void ProcessMsgIn(MsgQuit* aMsg) override;
     Msg* ProcessMsgOut(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsgOut(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsgOut(MsgSilence* aMsg) override;
     Msg* ProcessMsgOut(MsgMode* aMsg) override;
     Msg* ProcessMsgOut(MsgTrack* aMsg) override;
@@ -2279,6 +2284,14 @@ void SuiteMsgProcessor::Test()
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgPlayable);
     playable->RemoveRef();
 
+    MsgAudioDsd* audioDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 0);
+    TEST(audioDsd == static_cast<Msg*>(audioDsd)->Process(processor));
+    TEST(processor.LastMsgType() == ProcessorMsgType::EMsgAudioDsd);
+    playable = audioDsd->CreatePlayable();
+    TEST(playable == static_cast<Msg*>(playable)->Process(processor));
+    TEST(processor.LastMsgType() == ProcessorMsgType::EMsgPlayable);
+    playable->RemoveRef();
+
     TUint silenceSize = Jiffies::kPerMs;
     MsgSilence* silence = iMsgFactory->CreateMsgSilence(silenceSize, 44100, 8, 2);
     TEST(silence == static_cast<Msg*>(silence)->Process(processor));
@@ -2445,6 +2458,12 @@ Msg* ProcessorMsgType::ProcessMsg(MsgBitRate* aMsg)
 Msg* ProcessorMsgType::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iLastMsgType = ProcessorMsgType::EMsgAudioPcm;
+    return aMsg;
+}
+
+Msg* ProcessorMsgType::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastMsgType = ProcessorMsgType::EMsgAudioDsd;
     return aMsg;
 }
 
@@ -2986,11 +3005,19 @@ void SuiteMsgReservoir::Test()
     (void)memset(encodedAudioData, 0xab, kDataBytes);
     Brn encodedAudioBuf(encodedAudioData, kDataBytes);
     audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, 2, 44100, 8, AudioDataEndian::Little, 0);
-    const TUint audioJiffies = audio->Jiffies();
+    const TUint audioPcmJiffies = audio->Jiffies();
     queue->Enqueue(audio);
-    TEST(queue->Jiffies() == jiffies + audioJiffies);
+    TEST(queue->Jiffies() == jiffies + audioPcmJiffies);
     jiffies = queue->Jiffies();
     TEST(queue->LastIn() == TestMsgReservoir::EMsgAudioPcm);
+    TEST(queue->LastOut() == TestMsgReservoir::ENone);
+
+    audio = iMsgFactory->CreateMsgAudioDsd(encodedAudioBuf, 2, 1411200, 0);
+    const TUint audioDsdJiffies = audio->Jiffies();
+    queue->Enqueue(audio);
+    TEST(queue->Jiffies() == jiffies + audioDsdJiffies);
+    jiffies = queue->Jiffies();
+    TEST(queue->LastIn() == TestMsgReservoir::EMsgAudioDsd);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
     msg = iMsgFactory->CreateMsgHalt();
@@ -3073,12 +3100,18 @@ void SuiteMsgReservoir::Test()
     msg = queue->Dequeue();
     TEST(queue->LastIn() == TestMsgReservoir::EMsgHalt);
     TEST(queue->LastOut() == TestMsgReservoir::EMsgAudioPcm);
-    TEST(queue->Jiffies() == jiffies - (audioJiffies/2));
+    TEST(queue->Jiffies() == jiffies - (audioPcmJiffies/2));
     jiffies = queue->Jiffies();
     msg->RemoveRef();
     msg = queue->Dequeue();
     TEST(queue->LastIn() == TestMsgReservoir::EMsgHalt);
     TEST(queue->LastOut() == TestMsgReservoir::EMsgAudioPcm);
+    TEST(queue->Jiffies() == audioDsdJiffies);
+    msg->RemoveRef();
+
+    msg = queue->Dequeue();
+    TEST(queue->LastIn() == TestMsgReservoir::EMsgHalt);
+    TEST(queue->LastOut() == TestMsgReservoir::EMsgAudioDsd);
     TEST(queue->Jiffies() == 0);
     msg->RemoveRef();
 
@@ -3110,10 +3143,15 @@ Msg* TestMsgReservoir::ProcessMsgAudioOut(MsgAudio* aMsgAudio)
     }
     return aMsgAudio;
 }
-    
+
 void TestMsgReservoir::ProcessMsgIn(MsgAudioPcm* /*aMsg*/)
 {
     iLastMsgIn = EMsgAudioPcm;
+}
+
+void TestMsgReservoir::ProcessMsgIn(MsgAudioDsd* /*aMsg*/)
+{
+    iLastMsgIn = EMsgAudioDsd;
 }
 
 void TestMsgReservoir::ProcessMsgIn(MsgSilence* /*aMsg*/)
@@ -3189,6 +3227,12 @@ void TestMsgReservoir::ProcessMsgIn(MsgQuit* /*aMsg*/)
 Msg* TestMsgReservoir::ProcessMsgOut(MsgAudioPcm* aMsg)
 {
     iLastMsgOut = EMsgAudioPcm;
+    return ProcessMsgAudioOut(aMsg);
+}
+
+Msg* TestMsgReservoir::ProcessMsgOut(MsgAudioDsd* aMsg)
+{
+    iLastMsgOut = EMsgAudioDsd;
     return ProcessMsgAudioOut(aMsg);
 }
 
@@ -3385,6 +3429,14 @@ Msg* SuitePipelineElement::CreateMsg(ProcessorMsgType::EMsgType aType)
         (void)memset(audioData, 0xab, kDataBytes);
         Brn audioBuf(audioData, kDataBytes);
         return iMsgFactory->CreateMsgAudioPcm(audioBuf, 2, 44100, 8, AudioDataEndian::Little, 0);
+    }
+    case ProcessorMsgType::EMsgAudioDsd:
+    {
+        const TUint kDataBytes = 256;
+        TByte audioData[kDataBytes];
+        (void)memset(audioData, 0xab, kDataBytes);
+        Brn audioBuf(audioData, kDataBytes);
+        return iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 0LL);
     }
     case ProcessorMsgType::EMsgSilence:
     {

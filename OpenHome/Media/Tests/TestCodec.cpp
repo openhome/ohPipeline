@@ -441,6 +441,12 @@ Msg* MsgProcessor::ProcessMsg(MsgAudioPcm* /*aMsg*/)
     ASSERTS();
     return nullptr;
 }
+Msg* MsgProcessor::ProcessMsg(MsgAudioDsd* /*aMsg*/)
+{
+    //LOG(kMedia, ">MsgProcessor::ProcessMsgAudioPcm\n");
+    ASSERTS();
+    return nullptr;
+}
 Msg* MsgProcessor::ProcessMsg(MsgSilence* /*aMsg*/)
 {
     //LOG(kMedia, ">MsgProcessor::ProcessMsgSilence\n");

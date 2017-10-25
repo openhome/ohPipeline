@@ -222,11 +222,16 @@ Msg* Logger::ProcessMsg(MsgAudioPcm* aMsg)
 {
     if (IsEnabled(EMsgAudioPcm) ||
         (IsEnabled(EMsgAudioRamped) && aMsg->Ramp().IsEnabled())) {
-        iBuf.SetBytes(0);
-        iBuf.AppendPrintf("Pipeline (%s): audioPcm {track offset: %llu, jiffies: %u", iId, aMsg->TrackOffset(), aMsg->Jiffies());
-        LogRamp(aMsg->Ramp());
-        iBuf.Append("}\n");
-        Log::Print(iBuf);
+        LogAudioDecoded(*aMsg, "audioPcm");
+    }
+    return aMsg;
+}
+
+Msg* Logger::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    if (IsEnabled(EMsgAudioDsd) ||
+        (IsEnabled(EMsgAudioRamped) && aMsg->Ramp().IsEnabled())) {
+        LogAudioDecoded(*aMsg, "audioDsd");
     }
     return aMsg;
 }
@@ -264,6 +269,15 @@ Msg* Logger::ProcessMsg(MsgQuit* aMsg)
     }
     iShutdownSem.Signal();
     return aMsg;
+}
+
+void Logger::LogAudioDecoded(MsgAudioDecoded& aAudio, const TChar* aType)
+{
+    iBuf.SetBytes(0);
+    iBuf.AppendPrintf("Pipeline (%s): %s {track offset: %llu, jiffies: %u", iId, aType, aAudio.TrackOffset(), aAudio.Jiffies());
+    LogRamp(aAudio.Ramp());
+    iBuf.Append("}\n");
+    Log::Print(iBuf);
 }
 
 void Logger::LogRamp(const Media::Ramp& aRamp)

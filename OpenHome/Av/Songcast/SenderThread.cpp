@@ -69,6 +69,7 @@ Msg* SenderThread::ProcessMsg(MsgWait* aMsg)              { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgDecodedStream* aMsg)     { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgBitRate* aMsg)           { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgAudioPcm* aMsg)          { return aMsg; }
+Msg* SenderThread::ProcessMsg(MsgAudioDsd* aMsg)          { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgSilence* aMsg)           { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgPlayable* aMsg)          { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgQuit* aMsg)

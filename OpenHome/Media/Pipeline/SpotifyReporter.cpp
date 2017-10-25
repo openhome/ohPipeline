@@ -202,6 +202,7 @@ const TUint SpotifyReporter::kSupportedMsgTypes =   eMode
                                                   | eDecodedStream
                                                   | eBitRate
                                                   | eAudioPcm
+                                                  | eAudioDsd
                                                   | eSilence
                                                   | eQuit;
 
