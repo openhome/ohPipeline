@@ -3,7 +3,7 @@
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Media/Pipeline/Pipeline.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Media/Pipeline/AnalogBypassRamper.h>
+#include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
@@ -21,7 +21,7 @@ class SuitePipelineConfig : public Suite
                           , private ISeekRestreamer
                           , private IUrlBlockWriter
                           , private IPipelineAnimator
-                          , private IAnalogBypassVolumeRamper
+                          , private IVolumeRamper
 {
 public:
     SuitePipelineConfig();
@@ -57,7 +57,7 @@ private: // from IUrlBlockWriter
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() override;
     TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) override;
-private: // from IAnalogBypassVolumeRamper
+private: // from IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
     enum EMsgType

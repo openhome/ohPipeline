@@ -214,7 +214,7 @@ def build(bld):
     # Library
     bld.stlib(
             source=[
-                'OpenHome/Media/Pipeline/AnalogBypassRamper.cpp',
+                'OpenHome/Media/Pipeline/VolumeRamper.cpp',
                 'OpenHome/Media/Pipeline/AudioDumper.cpp',
                 'OpenHome/Media/Pipeline/AudioReservoir.cpp',
                 'OpenHome/Media/Pipeline/DecodedAudioAggregator.cpp',
@@ -685,7 +685,7 @@ def build(bld):
                 #'OpenHome/Media/Tests/TestSpotifyReporter.cpp',
                 'OpenHome/Media/Tests/TestPreDriver.cpp',
                 'OpenHome/Media/Tests/TestPruner.cpp',
-                'OpenHome/Media/Tests/TestAnalogBypassRamper.cpp',
+                'OpenHome/Media/Tests/TestVolumeRamper.cpp',
                 'OpenHome/Media/Tests/TestMuter.cpp',
                 'OpenHome/Media/Tests/TestMuterVolume.cpp',
                 'OpenHome/Media/Tests/TestDrainer.cpp',
@@ -837,9 +837,9 @@ def build(bld):
             target='TestPruner',
             install_path=None)
     bld.program(
-            source='OpenHome/Media/Tests/TestAnalogBypassRamperMain.cpp',
+            source='OpenHome/Media/Tests/TestVolumeRamperMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-            target='TestAnalogBypassRamper',
+            target='TestVolumeRamper',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestMuterMain.cpp',

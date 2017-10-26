@@ -8,7 +8,7 @@
 #include <OpenHome/Media/Codec/CodecController.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Shell.h>
-#include <OpenHome/Media/Pipeline/AnalogBypassRamper.h>
+#include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
 
 #include <string.h>
@@ -61,7 +61,7 @@ class SuitePipeline : public Suite
                     , private ISeekRestreamer
                     , private IUrlBlockWriter
                     , private IPipelineAnimator
-                    , private IAnalogBypassVolumeRamper
+                    , private IVolumeRamper
 {
     static const TUint kBitDepth    = 24;
     static const TUint kSampleRate  = 192000;
@@ -129,7 +129,7 @@ private: // from IUrlBlockWriter
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() override;
     TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) override;
-private: // from IAnalogBypassVolumeRamper
+private: // from IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
     AllocatorInfoLogger iInfoAggregator;

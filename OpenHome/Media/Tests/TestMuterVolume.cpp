@@ -18,7 +18,7 @@ namespace Media {
 class SuiteMuterVolume : public SuiteUnitTest
                        , private IPipelineElementUpstream
                        , private IMsgProcessor
-                       , private IVolumeRamper
+                       , private IVolumeMuterStepped
 {
     static const TUint kExpectedFlushId = 5;
     static const TUint kSampleRate = 44100;
@@ -51,12 +51,12 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
-private: // from IVolumeRamper
-    IVolumeRamper::Status BeginMute() override;
-    IVolumeRamper::Status StepMute(TUint aJiffies) override;
+private: // from IVolumeMuterStepped
+    IVolumeMuterStepped::Status BeginMute() override;
+    IVolumeMuterStepped::Status StepMute(TUint aJiffies) override;
     void SetMuted() override;
-    IVolumeRamper::Status BeginUnmute() override;
-    IVolumeRamper::Status StepUnmute(TUint aJiffies) override;
+    IVolumeMuterStepped::Status BeginUnmute() override;
+    IVolumeMuterStepped::Status StepUnmute(TUint aJiffies) override;
     void SetUnmuted() override;
 private:
     enum EMsgType
@@ -321,16 +321,16 @@ Msg* SuiteMuterVolume::ProcessMsg(MsgQuit* aMsg)
     return aMsg;
 }
 
-IVolumeRamper::Status SuiteMuterVolume::BeginMute()
+IVolumeMuterStepped::Status SuiteMuterVolume::BeginMute()
 {
     iNotifiedMuted = iNotifiedUnmuted = false;
-    return iCompleteRamp ? IVolumeRamper::Status::eComplete : IVolumeRamper::Status::eInProgress;
+    return iCompleteRamp ? IVolumeMuterStepped::Status::eComplete : IVolumeMuterStepped::Status::eInProgress;
 }
 
-IVolumeRamper::Status SuiteMuterVolume::StepMute(TUint aJiffies)
+IVolumeMuterStepped::Status SuiteMuterVolume::StepMute(TUint aJiffies)
 {
     iRampDownJiffies += aJiffies;
-    return iCompleteRamp ? IVolumeRamper::Status::eComplete : IVolumeRamper::Status::eInProgress;
+    return iCompleteRamp ? IVolumeMuterStepped::Status::eComplete : IVolumeMuterStepped::Status::eInProgress;
 }
 
 void SuiteMuterVolume::SetMuted()
@@ -338,16 +338,16 @@ void SuiteMuterVolume::SetMuted()
     iNotifiedMuted = true;
 }
 
-IVolumeRamper::Status SuiteMuterVolume::BeginUnmute()
+IVolumeMuterStepped::Status SuiteMuterVolume::BeginUnmute()
 {
     iNotifiedMuted = iNotifiedUnmuted = false;
-    return iCompleteRamp ? IVolumeRamper::Status::eComplete : IVolumeRamper::Status::eInProgress;
+    return iCompleteRamp ? IVolumeMuterStepped::Status::eComplete : IVolumeMuterStepped::Status::eInProgress;
 }
 
-IVolumeRamper::Status SuiteMuterVolume::StepUnmute(TUint aJiffies)
+IVolumeMuterStepped::Status SuiteMuterVolume::StepUnmute(TUint aJiffies)
 {
     iRampUpJiffies += aJiffies;
-    return iCompleteRamp ? IVolumeRamper::Status::eComplete : IVolumeRamper::Status::eInProgress;
+    return iCompleteRamp ? IVolumeMuterStepped::Status::eComplete : IVolumeMuterStepped::Status::eInProgress;
 }
 
 void SuiteMuterVolume::SetUnmuted()

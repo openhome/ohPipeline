@@ -119,9 +119,9 @@ void PipelineManager::Add(UriProvider* aUriProvider)
     }
 }
 
-void PipelineManager::Start(IAnalogBypassVolumeRamper& aAnalogBypassVolumeRamper, IVolumeRamper& aVolumeRamper)
+void PipelineManager::Start(IVolumeRamper& aVolumeRamper, IVolumeMuterStepped& aVolumeMuter)
 {
-    iPipeline->Start(aAnalogBypassVolumeRamper, aVolumeRamper);
+    iPipeline->Start(aVolumeRamper, aVolumeMuter);
 }
 
 void PipelineManager::AddObserver(IPipelineObserver& aObserver)

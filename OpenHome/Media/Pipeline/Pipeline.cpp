@@ -29,7 +29,7 @@
 #include <OpenHome/Media/Pipeline/Logger.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Media/Pipeline/Muter.h>
-#include <OpenHome/Media/Pipeline/AnalogBypassRamper.h>
+#include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/PreDriver.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
@@ -466,9 +466,9 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     }
     ATTACH_ELEMENT(iDecodedAudioValidatorMuter, new DecodedAudioValidator(*upstream, "Muter"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator | EPipelineSupportElementsValidatorMinimal);
-    ATTACH_ELEMENT(iAnalogBypassRamper, new AnalogBypassRamper(*iMsgFactory, *upstream),
+    ATTACH_ELEMENT(iVolumeRamper, new VolumeRamper(*iMsgFactory, *upstream),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerAnalogBypassRamper, new Logger(*iAnalogBypassRamper, "AnalogBypassRamper"),
+    ATTACH_ELEMENT(iLoggerVolumeRamper, new Logger(*iVolumeRamper, "VolumeRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iPreDriver, new PreDriver(*upstream),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
@@ -510,7 +510,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerPruner->SetEnabled(true);
     //iLoggerStarvationRamper->SetEnabled(true);
     //iLoggerMuter->SetEnabled(true);
-    //iLoggerAnalogBypassRamper->SetEnabled(true);
+    //iLoggerVolumeRamper->SetEnabled(true);
 
     // A logger that is enabled will block waiting for MsgQuit in its dtor
     // ~Pipeline (below) relies on this to synchronise its destruction
@@ -539,7 +539,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerPruner->SetFilter(Logger::EMsgAll);
     //iLoggerStarvationRamper->SetFilter(Logger::EMsgAll);
     //iLoggerMuter->SetFilter(Logger::EMsgAll);
-    //iLoggerAnalogBypassRamper->SetFilter(Logger::EMsgAll);
+    //iLoggerVolumeRamper->SetFilter(Logger::EMsgAll);
     //iLoggerPreDriver->SetFilter(Logger::EMsgAll);
 }
 
@@ -554,8 +554,8 @@ Pipeline::~Pipeline()
     delete iMuteCounted;
     delete iLoggerPreDriver;
     delete iPreDriver;
-    delete iLoggerAnalogBypassRamper;
-    delete iAnalogBypassRamper;
+    delete iLoggerVolumeRamper;
+    delete iVolumeRamper;
     delete iDecodedAudioValidatorMuter;
     delete iLoggerMuter;
     delete iMuterVolume;
@@ -636,11 +636,11 @@ void Pipeline::AddCodec(Codec::CodecBase* aCodec)
     iCodecController->AddCodec(aCodec);
 }
 
-void Pipeline::Start(IAnalogBypassVolumeRamper& aAnalogBypassVolumeRamper, IVolumeRamper& aVolumeRamper)
+void Pipeline::Start(IVolumeRamper& aVolumeRamper, IVolumeMuterStepped& aVolumeMuter)
 {
-    iAnalogBypassRamper->SetVolumeRamper(aAnalogBypassVolumeRamper);
+    iVolumeRamper->SetVolumeRamper(aVolumeRamper);
     if (iMuterVolume != nullptr) {
-        iMuterVolume->Start(aVolumeRamper);
+        iMuterVolume->Start(aVolumeMuter);
     }
     iCodecController->Start();
 }

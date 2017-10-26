@@ -1,11 +1,11 @@
 #include <OpenHome/Private/TestFramework.h>
 
-extern void TestAnalogBypassRamper();
+extern void TestVolumeRamper();
 
 void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], Net::InitialisationParams* aInitParams)
 {
     Net::UpnpLibrary::InitialiseMinimal(aInitParams);
-    TestAnalogBypassRamper();
+    TestVolumeRamper();
     delete aInitParams;
     Net::UpnpLibrary::Close();
 }

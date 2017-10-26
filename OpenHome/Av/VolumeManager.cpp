@@ -435,27 +435,27 @@ void VolumeSourceUnityGain::AddUnityGainObserver(IUnityGainObserver& aObserver)
 }
 
 
-// AnalogBypassRamper
+// VolumeRamperPipeline
 
-AnalogBypassRamper::AnalogBypassRamper(IVolume& aVolume)
+VolumeRamperPipeline::VolumeRamperPipeline(IVolume& aVolume)
     : iVolume(aVolume)
     , iLock("ABVR")
     , iUpstreamVolume(0)
-    , iMultiplier(IAnalogBypassVolumeRamper::kMultiplierFull)
+    , iMultiplier(IVolumeRamper::kMultiplierFull)
 {
 }
 
-void AnalogBypassRamper::SetVolume(TUint aValue)
+void VolumeRamperPipeline::SetVolume(TUint aValue)
 {
-    LOG(kVolume, "AnalogBypassRamper::SetVolume aValue: %u\n", aValue);
+    LOG(kVolume, "VolumeRamperPipeline::SetVolume aValue: %u\n", aValue);
     AutoMutex _(iLock);
     iUpstreamVolume = aValue;
     SetVolume();
 }
 
-void AnalogBypassRamper::ApplyVolumeMultiplier(TUint aValue)
+void VolumeRamperPipeline::ApplyVolumeMultiplier(TUint aValue)
 {
-    LOG(kVolume, "AnalogBypassRamper::ApplyVolumeMultiplier aValue: %u\n", aValue);
+    LOG(kVolume, "VolumeRamperPipeline::ApplyVolumeMultiplier aValue: %u\n", aValue);
     AutoMutex _(iLock);
     if (iMultiplier == aValue) {
         return;
@@ -464,25 +464,25 @@ void AnalogBypassRamper::ApplyVolumeMultiplier(TUint aValue)
     SetVolume();
 }
 
-void AnalogBypassRamper::SetVolume()
+void VolumeRamperPipeline::SetVolume()
 {
-    if (iMultiplier == IAnalogBypassVolumeRamper::kMultiplierFull) {
+    if (iMultiplier == IVolumeRamper::kMultiplierFull) {
         iVolume.SetVolume(iUpstreamVolume);
     }
     else {
         TUint64 volume = iUpstreamVolume;
         volume *= iMultiplier;
-        volume /= IAnalogBypassVolumeRamper::kMultiplierFull;
+        volume /= IVolumeRamper::kMultiplierFull;
         iVolume.SetVolume((TUint)volume);
     }
 }
 
 
-// VolumeRamper
+// VolumeMuterStepped
 
-const TUint VolumeRamper::kJiffiesPerVolumeStep = 10 * Media::Jiffies::kPerMs;
+const TUint VolumeMuterStepped::kJiffiesPerVolumeStep = 10 * Media::Jiffies::kPerMs;
 
-VolumeRamper::VolumeRamper(IVolume& aVolume, TUint aMilliDbPerStep, TUint aThreadPriority)
+VolumeMuterStepped::VolumeMuterStepped(IVolume& aVolume, TUint aMilliDbPerStep, TUint aThreadPriority)
     : iVolume(aVolume)
     , iLock("VOLR")
     , iMilliDbPerStep(aMilliDbPerStep)
@@ -493,16 +493,16 @@ VolumeRamper::VolumeRamper(IVolume& aVolume, TUint aMilliDbPerStep, TUint aThrea
     , iStatus(Status::eRunning)
     , iMuted(false)
 {
-    iThread = new ThreadFunctor("VolumeRamper", MakeFunctor(*this, &VolumeRamper::Run), aThreadPriority);
+    iThread = new ThreadFunctor("VolumeMuterStepped", MakeFunctor(*this, &VolumeMuterStepped::Run), aThreadPriority);
     iThread->Start();
 }
 
-VolumeRamper::~VolumeRamper()
+VolumeMuterStepped::~VolumeMuterStepped()
 {
     delete iThread;
 }
 
-void VolumeRamper::SetVolume(TUint aValue)
+void VolumeMuterStepped::SetVolume(TUint aValue)
 {
     AutoMutex _(iLock);
     iUpstreamVolume = aValue;
@@ -512,7 +512,7 @@ void VolumeRamper::SetVolume(TUint aValue)
     }
 }
 
-inline TUint VolumeRamper::VolumeStepLocked() const
+inline TUint VolumeMuterStepped::VolumeStepLocked() const
 {
     // values and threshold for change copied from Linn volkano1
     if (iCurrentVolume < 20 * iMilliDbPerStep) {
@@ -521,24 +521,24 @@ inline TUint VolumeRamper::VolumeStepLocked() const
     return 2 * iMilliDbPerStep;
 }
 
-Media::IVolumeRamper::Status VolumeRamper::BeginMute()
+Media::IVolumeMuterStepped::Status VolumeMuterStepped::BeginMute()
 {
     AutoMutex _(iLock);
     if (iStatus == Status::eMuted) {
-        return IVolumeRamper::Status::eComplete;
+        return IVolumeMuterStepped::Status::eComplete;
     }
     else if (iStatus != Status::eMuting) {
         iJiffiesUntilStep = kJiffiesPerVolumeStep;
         iStatus = Status::eMuting;
     }
-    return IVolumeRamper::Status::eInProgress;
+    return IVolumeMuterStepped::Status::eInProgress;
 }
 
-Media::IVolumeRamper::Status VolumeRamper::StepMute(TUint aJiffies)
+Media::IVolumeMuterStepped::Status VolumeMuterStepped::StepMute(TUint aJiffies)
 {
     AutoMutex _(iLock);
     if (iStatus == Status::eMuted) {
-        return IVolumeRamper::Status::eComplete;
+        return IVolumeMuterStepped::Status::eComplete;
     }
     if (iJiffiesUntilStep <= aJiffies) {
         aJiffies -= iJiffiesUntilStep;
@@ -555,10 +555,10 @@ Media::IVolumeRamper::Status VolumeRamper::StepMute(TUint aJiffies)
         iJiffiesUntilStep = kJiffiesPerVolumeStep;
     }
     iJiffiesUntilStep -= aJiffies;
-    return IVolumeRamper::Status::eInProgress;
+    return IVolumeMuterStepped::Status::eInProgress;
 }
 
-void VolumeRamper::SetMuted()
+void VolumeMuterStepped::SetMuted()
 {
     AutoMutex _(iLock);
     iStatus = Status::eMuted;
@@ -568,24 +568,24 @@ void VolumeRamper::SetMuted()
     }
 }
 
-Media::IVolumeRamper::Status VolumeRamper::BeginUnmute()
+Media::IVolumeMuterStepped::Status VolumeMuterStepped::BeginUnmute()
 {
     AutoMutex _(iLock);
     if (iStatus == Status::eRunning) {
-        return IVolumeRamper::Status::eComplete;
+        return IVolumeMuterStepped::Status::eComplete;
     }
     else if (iStatus != Status::eUnmuting) {
         iJiffiesUntilStep = kJiffiesPerVolumeStep;
         iStatus = Status::eUnmuting;
     }
-    return IVolumeRamper::Status::eInProgress;
+    return IVolumeMuterStepped::Status::eInProgress;
 }
 
-Media::IVolumeRamper::Status VolumeRamper::StepUnmute(TUint aJiffies)
+Media::IVolumeMuterStepped::Status VolumeMuterStepped::StepUnmute(TUint aJiffies)
 {
     AutoMutex _(iLock);
     if (iStatus == Status::eRunning) {
-        return IVolumeRamper::Status::eComplete;
+        return IVolumeMuterStepped::Status::eComplete;
     }
     if (iJiffiesUntilStep <= aJiffies) {
         aJiffies -= iJiffiesUntilStep;
@@ -597,10 +597,10 @@ Media::IVolumeRamper::Status VolumeRamper::StepUnmute(TUint aJiffies)
         iJiffiesUntilStep = kJiffiesPerVolumeStep;
     }
     iJiffiesUntilStep -= aJiffies;
-    return IVolumeRamper::Status::eInProgress;
+    return IVolumeMuterStepped::Status::eInProgress;
 }
 
-void VolumeRamper::SetUnmuted()
+void VolumeMuterStepped::SetUnmuted()
 {
     AutoMutex _(iLock);
     iStatus = Status::eRunning;
@@ -610,7 +610,7 @@ void VolumeRamper::SetUnmuted()
     }
 }
 
-void VolumeRamper::Run()
+void VolumeMuterStepped::Run()
 {
     try {
         for (;;) {
@@ -1002,9 +1002,9 @@ VolumeManager::VolumeManager(VolumeConsumer& aVolumeConsumer, IMute* aMute, Volu
     const TUint milliDbPerStep = iVolumeConfig.VolumeMilliDbPerStep();
     const TUint volumeUnity = iVolumeConfig.VolumeUnity() * milliDbPerStep;
     iVolumeMuter = new VolumeMuter(*aVolumeConsumer.Volume());
-    iVolumeRamper = new VolumeRamper(*iVolumeMuter, milliDbPerStep, iVolumeConfig.ThreadPriority());
-    iAnalogBypassRamper = new AnalogBypassRamper(*iVolumeRamper);
-    iVolumeSurroundBoost = new VolumeSurroundBoost(*iAnalogBypassRamper);
+    iVolumeMuterStepped = new VolumeMuterStepped(*iVolumeMuter, milliDbPerStep, iVolumeConfig.ThreadPriority());
+    iVolumeRamperPipeline = new VolumeRamperPipeline(*iVolumeMuterStepped);
+    iVolumeSurroundBoost = new VolumeSurroundBoost(*iVolumeRamperPipeline);
     if (aVolumeConfig.VolumeControlEnabled() && aVolumeConsumer.Volume() != nullptr) {
         if (iVolumeConfig.AlwaysOn()) {
             iVolumeSourceUnityGain = new VolumeSourceUnityGain(*iVolumeSurroundBoost, volumeUnity);
@@ -1048,8 +1048,8 @@ VolumeManager::~VolumeManager()
     delete iVolumeSurroundBoost;
     delete iVolumeUnityGain;
     delete iVolumeSourceUnityGain;
-    delete iAnalogBypassRamper;
-    delete iVolumeRamper;
+    delete iVolumeRamperPipeline;
+    delete iVolumeMuterStepped;
     delete iVolumeMuter;
 }
 
@@ -1195,37 +1195,37 @@ void VolumeManager::SetFade(TInt aFade)
 
 void VolumeManager::ApplyVolumeMultiplier(TUint aValue)
 {
-    static_cast<IAnalogBypassVolumeRamper*>(iAnalogBypassRamper)->ApplyVolumeMultiplier(aValue);
+    static_cast<IVolumeRamper*>(iVolumeRamperPipeline)->ApplyVolumeMultiplier(aValue);
 }
 
-Media::IVolumeRamper::Status VolumeManager::BeginMute()
+Media::IVolumeMuterStepped::Status VolumeManager::BeginMute()
 {
-    return static_cast<IVolumeRamper*>(iVolumeRamper)->BeginMute();
+    return static_cast<IVolumeMuterStepped*>(iVolumeMuterStepped)->BeginMute();
 }
 
-Media::IVolumeRamper::Status VolumeManager::StepMute(TUint aJiffies)
+Media::IVolumeMuterStepped::Status VolumeManager::StepMute(TUint aJiffies)
 {
-    return static_cast<IVolumeRamper*>(iVolumeRamper)->StepMute(aJiffies);
+    return static_cast<IVolumeMuterStepped*>(iVolumeMuterStepped)->StepMute(aJiffies);
 }
 
 void VolumeManager::SetMuted()
 {
-    static_cast<IVolumeRamper*>(iVolumeRamper)->SetMuted();
+    static_cast<IVolumeMuterStepped*>(iVolumeMuterStepped)->SetMuted();
 }
 
-Media::IVolumeRamper::Status VolumeManager::BeginUnmute()
+Media::IVolumeMuterStepped::Status VolumeManager::BeginUnmute()
 {
-    return static_cast<IVolumeRamper*>(iVolumeRamper)->BeginUnmute();
+    return static_cast<IVolumeMuterStepped*>(iVolumeMuterStepped)->BeginUnmute();
 }
 
-Media::IVolumeRamper::Status VolumeManager::StepUnmute(TUint aJiffies)
+Media::IVolumeMuterStepped::Status VolumeManager::StepUnmute(TUint aJiffies)
 {
-    return static_cast<IVolumeRamper*>(iVolumeRamper)->StepUnmute(aJiffies);
+    return static_cast<IVolumeMuterStepped*>(iVolumeMuterStepped)->StepUnmute(aJiffies);
 }
 
 void VolumeManager::SetUnmuted()
 {
-    static_cast<IVolumeRamper*>(iVolumeRamper)->SetUnmuted();
+    static_cast<IVolumeMuterStepped*>(iVolumeMuterStepped)->SetUnmuted();
 }
 
 void VolumeManager::SetVolumeMuted(TBool aMuted)

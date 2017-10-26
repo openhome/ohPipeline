@@ -134,14 +134,14 @@ class Pruner;
 class StarvationRamper;
 class Muter;
 class MuterVolume;
-class IVolumeRamper;
+class IVolumeMuterStepped;
 class PreDriver;
 class ITrackObserver;
 class ISpotifyReporter;
 class ISpotifyTrackObserver;
 class IMimeTypeList;
-class AnalogBypassRamper;
-class IAnalogBypassVolumeRamper;
+class VolumeRamper;
+class IVolumeRamper;
 
 class Pipeline : public IPipelineElementDownstream
                , public IPipeline
@@ -176,7 +176,7 @@ public:
     virtual ~Pipeline();
     void AddContainer(Codec::ContainerBase* aContainer);
     void AddCodec(Codec::CodecBase* aCodec);
-    void Start(IAnalogBypassVolumeRamper& aAnalogBypassVolumeRamper, IVolumeRamper& aVolumeRamper);
+    void Start(IVolumeRamper& aVolumeRamper, IVolumeMuterStepped& aVolumeMuter);
     void Quit();
     MsgFactory& Factory();
     void Play();
@@ -311,8 +311,8 @@ private:
     IMute* iMuter;
     Logger* iLoggerMuter;
     DecodedAudioValidator* iDecodedAudioValidatorMuter;
-    AnalogBypassRamper* iAnalogBypassRamper;
-    Logger* iLoggerAnalogBypassRamper;
+    VolumeRamper* iVolumeRamper;
+    Logger* iLoggerVolumeRamper;
     PreDriver* iPreDriver;
     Logger* iLoggerPreDriver;
     IPipelineElementDownstream* iPipelineStart;
