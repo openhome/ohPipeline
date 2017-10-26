@@ -649,37 +649,62 @@ void CodecController::OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint
                                            aCodecName, aTrackLength, aSampleStart,
                                            aLossless, iSeekable, iLive, aAnalogBypass,
                                            AudioFormat::Pcm, iMultiroom, aProfile, this);
-    iLock.Wait();
-    iChannels = aNumChannels;
-    iSampleRate = aSampleRate;
-    iBitDepth = aBitDepth;
+    DoOutputDecodedStream(msg);
+}
 
-    // Handle when the new MsgDecodedStream should be output.
-    if (iPostSeekStreamInfo != nullptr) {
-        // There is either a seek in progress and a MsgDecodedStream is already
-        // pending, or a seek has just finished and a new MsgDecodedStream has
-        // come in before the pending one has been output.
-        //
-        // Clear the pending MsgDecodedStream before deciding what action to
-        // take for the new MsgDecodedStream.
-        iPostSeekStreamInfo->RemoveRef();
-        iPostSeekStreamInfo = nullptr;
+void CodecController::OutputDecodedStreamDsd(TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, SpeakerProfile aProfile)
+{
+    if (!Jiffies::IsValidSampleRate(aSampleRate)) {
+        THROW(CodecStreamFeatureUnsupported);
     }
+    if (aNumChannels > 2) {
+        Log::Print("ERROR: DSD stream with %u channels cannot be played\n", aNumChannels);
+        THROW(CodecStreamFeatureUnsupported);
+    }
+    static const TUint kBitDepth = 1;
+    const TUint bitRate = aSampleRate * aNumChannels;
+    auto msg =
+        iMsgFactory.CreateMsgDecodedStream(iStreamId, bitRate, kBitDepth, aSampleRate, aNumChannels,
+                                           aCodecName, aTrackLength, aSampleStart,
+                                           true, iSeekable, iLive, false,
+                                           AudioFormat::Dsd, Multiroom::Forbidden, aProfile, this);
+    DoOutputDecodedStream(msg);
+}
+
+void CodecController::DoOutputDecodedStream(MsgDecodedStream* aMsg)
+{
     TBool queue = true;
-    if (iSeekInProgress) {
-        // This message should not be directly queued. Cache it in
-        // iPostSeekStreamInfo.
-        iPostSeekStreamInfo = msg;
-        queue = false;
-    }
+    auto& stream = aMsg->StreamInfo();
+    {
+        AutoMutex _(iLock);
+        iChannels = stream.NumChannels();
+        iSampleRate = stream.SampleRate();
+        iBitDepth = stream.BitDepth();
 
-    iLock.Signal();
+        // Handle when the new MsgDecodedStream should be output.
+        if (iPostSeekStreamInfo != nullptr) {
+            // There is either a seek in progress and a MsgDecodedStream is already
+            // pending, or a seek has just finished and a new MsgDecodedStream has
+            // come in before the pending one has been output.
+            //
+            // Clear the pending MsgDecodedStream before deciding what action to
+            // take for the new MsgDecodedStream.
+            iPostSeekStreamInfo->RemoveRef();
+            iPostSeekStreamInfo = nullptr;
+        }
+        if (iSeekInProgress) {
+            // This message should not be directly queued. Cache it in
+            // iPostSeekStreamInfo.
+            iPostSeekStreamInfo = aMsg;
+            queue = false;
+        }
+
+        const TUint maxSamples = Jiffies::ToSamples(iMaxOutputJiffies, iSampleRate);
+        iMaxOutputBytes = (maxSamples * iBitDepth  * iChannels) / 8;
+    }
     if (queue) {
-        Queue(msg);
+        Queue(aMsg);
     }
-
-    const TUint maxSamples = Jiffies::ToSamples(iMaxOutputJiffies, aSampleRate);
-    iMaxOutputBytes = maxSamples * (aBitDepth/8) * aNumChannels;
 }
 
 void CodecController::OutputDelay(TUint aJiffies)
@@ -707,7 +732,7 @@ TUint64 CodecController::OutputAudioPcm(const Brx& aData, TUint aChannels, TUint
         const TUint bytes = std::min(iMaxOutputBytes, data.Bytes());
         Brn buf(p, bytes);
         MsgAudioPcm* audio = iMsgFactory.CreateMsgAudioPcm(buf, aChannels, aSampleRate, aBitDepth, aEndian, aTrackOffset);
-        const TUint64 jiffies = DoOutputAudioPcm(audio);
+        const TUint64 jiffies = DoOutputAudio(audio);
         aTrackOffset += jiffies;
         p += bytes;
         remaining -= bytes;
@@ -724,10 +749,10 @@ TUint64 CodecController::OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, 
     ASSERT(aBitDepth == iBitDepth);
     MsgAudioPcm* audio = iMsgFactory.CreateMsgAudioPcm(aMsg, aChannels, aSampleRate, aBitDepth, aTrackOffset);
     aMsg->RemoveRef();
-    return DoOutputAudioPcm(audio);
+    return DoOutputAudio(audio);
 }
 
-TUint64 CodecController::DoOutputAudioPcm(MsgAudio* aAudioMsg)
+TUint64 CodecController::DoOutputAudio(MsgAudio* aAudioMsg)
 {
     if (iExpectedFlushId != MsgFlush::kIdInvalid) {
         // Codec outputting audio while flush is pending
@@ -750,6 +775,34 @@ TUint64 CodecController::DoOutputAudioPcm(MsgAudio* aAudioMsg)
     const TUint jiffies= aAudioMsg->Jiffies();
     Queue(aAudioMsg);
     return jiffies;
+}
+
+TUint64 CodecController::OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset)
+{
+    ASSERT(aChannels == iChannels);
+    ASSERT(aSampleRate == iSampleRate);
+
+    if (aData.Bytes() == 0) {
+        // allow for codecs which had a tiny bit of data which was later rounded down to 0 samples
+        return 0;
+    }
+
+    Brn data(aData);
+    const TUint64 offsetBefore = aTrackOffset;
+    const TByte* p = data.Ptr();
+    TUint remaining = data.Bytes();
+    do {
+        const TUint bytes = std::min(iMaxOutputBytes, data.Bytes());
+        Brn buf(p, bytes);
+        auto audio = iMsgFactory.CreateMsgAudioDsd(buf, aChannels, aSampleRate, aTrackOffset);
+        const TUint64 jiffies = DoOutputAudio(audio);
+        aTrackOffset += jiffies;
+        p += bytes;
+        remaining -= bytes;
+        data.Set(p, remaining);
+    } while (remaining > 0);
+
+    return aTrackOffset - offsetBefore;
 }
 
 void CodecController::OutputBitRate(TUint aBitRate)
