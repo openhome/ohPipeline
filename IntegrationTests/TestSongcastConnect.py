@@ -76,8 +76,8 @@ Test Scenarios:
             - connect C to A    - no dropout on D
             - disconnect C      - no dropout on D
             - disconnect B      - D drops out - state-> waiting
-            
-        5) Checking audio on slave follows repeater (trac #3165)  
+
+        5) Checking audio on slave follows repeater (trac #3165)
             - Soundcard on D    (D=DS-1, A=DS-2, B=DS-3, C=DS-4)
             - A playing
             - C playing
@@ -85,7 +85,7 @@ Test Scenarios:
             - connect D to B    - audio on D = audio on C
             - connect B to C    - audio on D = audio on C
 """
-import _Paths
+import _Paths   # NOQA
 import CommonSongcastConnect as BASE
 import sys
 
