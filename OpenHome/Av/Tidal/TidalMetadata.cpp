@@ -106,7 +106,7 @@ Media::Track* TidalMetadata::TrackFromJson(const Brx& aMetadata)
     }
 }
 
-const Brx& TidalMetadata::FirstIdFromJson(const Brx& aJsonResponse, EIdType aType)
+Brn TidalMetadata::FirstIdFromJson(const Brx& aJsonResponse, EIdType aType)
 {
     try {
         JsonParser parser;
@@ -152,10 +152,10 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata)
     };
     static const TUint kNumTidal2DidlMappings = sizeof kTidal2Didl / sizeof kTidal2Didl[0];
 
-    static const Tidal2DidlTagMapping kTidalArray2Didl[] ={
+    //static const Tidal2DidlTagMapping kTidalArray2Didl[] ={
         //{ "artists", "upnp:artist", kNsUpnp, "" }, ??
-    };
-    static const TUint kNumTidalArray2DidlMappings = sizeof kTidalArray2Didl / sizeof kTidalArray2Didl[0];
+    //};
+    //static const TUint kNumTidalArray2DidlMappings = sizeof kTidalArray2Didl / sizeof kTidalArray2Didl[0];
 
     static const Tidal2DidlTagMapping kTidalObj2Didl[] ={
         { "album", "upnp:albumArtURI", kNsUpnp, "cover", true, eLow },
@@ -212,10 +212,10 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata)
         auto& mapping = kTidalObj2Didl[i];
         TryAddTagsFromObj(parser, mapping.iTidalKey, mapping.iDidlTag, mapping.iNs, mapping.iTidalSubKey, mapping.iIsImage, mapping.iResolution);
     }
-    for (TUint i=0; i<kNumTidalArray2DidlMappings; i++) {
-        auto& mapping = kTidalArray2Didl[i];
-        TryAddTagsFromArray(parser, mapping.iTidalKey, mapping.iDidlTag, mapping.iNs, mapping.iRole);
-    }
+    //for (TUint i=0; i<kNumTidalArray2DidlMappings; i++) {
+    //    auto& mapping = kTidalArray2Didl[i];
+    //    TryAddTagsFromArray(parser, mapping.iTidalKey, mapping.iDidlTag, mapping.iNs, mapping.iRole);
+    //}
     TryAppend("<res");
     TryAddAttribute("http-get:*:*:*", "protocolInfo");
     if (parser.HasKey("duration")) {

@@ -153,6 +153,139 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
     return success;
 }
 
+TBool Qobuz::TryGetId(WriterBwh& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType)
+{
+    iPathAndQuery.Replace(kVersionAndFormat);
+
+    iPathAndQuery.Append(QobuzMetadata::IdTypeToString(aType));
+    iPathAndQuery.Append("/search?query=");
+    Uri::Escape(iPathAndQuery, aQuery);
+
+    return TryGetResponse(aWriter, 1, 0); // return top hit
+}
+
+TBool Qobuz::TryGetIds(WriterBwh& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
+{
+    iPathAndQuery.Replace(kVersionAndFormat);
+
+    iPathAndQuery.Append(QobuzMetadata::IdTypeToString(aType));
+    switch (aType) {
+        case QobuzMetadata::eSmartNew:          iPathAndQuery.Append("/getFeatured?&type=new-releases"); break;
+        case QobuzMetadata::eSmartRecommended:  iPathAndQuery.Append("/getFeatured?&type=editor-picks"); break;
+        case QobuzMetadata::eSmartMostStreamed: iPathAndQuery.Append("/getFeatured?&type=most-streamed"); break;
+        case QobuzMetadata::eSmartBestSellers:  iPathAndQuery.Append("/getFeatured?&type=best-sellers"); break;
+        case QobuzMetadata::eSmartAwardWinning: iPathAndQuery.Append("/getFeatured?&type=press-awards"); break;
+        case QobuzMetadata::eSmartMostFeatured: iPathAndQuery.Append("/getFeatured?&type=most-featured"); break;
+        default: break;
+    }
+    if (aGenre.Bytes() > 0 && aGenre != QobuzMetadata::kGenreNone) {
+        if (Ascii::Contains(aGenre, ',')) {
+            iPathAndQuery.Append("&genre_ids=");
+        }
+        else {
+            iPathAndQuery.Append("&genre_id=");
+        }
+        iPathAndQuery.Append(aGenre);
+    }
+
+    return TryGetResponse(aWriter, aMaxAlbumsPerResponse, 0);
+}
+
+TBool Qobuz::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset)
+{
+    iPathAndQuery.Replace(kVersionAndFormat);
+
+    iPathAndQuery.Append(QobuzMetadata::IdTypeToString(aType));
+    if (aType == QobuzMetadata::eFavorites) {
+        iPathAndQuery.Append("/getTracks?&source=favorites");
+    }
+    else if (aType == QobuzMetadata::ePurchased) {
+        iPathAndQuery.Append("/getTracks?&source=purchases");
+    }
+    else if (aType == QobuzMetadata::ePurchasedTracks) {
+        // should not be required but collection endpoint not working correctly (only returns albums, no tracks)
+        iPathAndQuery.Append("/getUserPurchases?");
+    }
+    else if (aType == QobuzMetadata::eSavedPlaylist) {
+        iPathAndQuery.Append("/getTracks?&source=playlists");
+    }
+    else if (aType == QobuzMetadata::eCollection) {
+        iPathAndQuery.Append("/getTracks?"); // includes purchased, playlisted, and favorited tracks for authenticated user
+    }
+    else {
+        iPathAndQuery.Append("/get?");
+        iPathAndQuery.Append(QobuzMetadata::IdTypeToString(aType));
+        iPathAndQuery.Append("_id=");
+        iPathAndQuery.Append(aId);
+        if (aType == QobuzMetadata::eArtist || aType == QobuzMetadata::ePlaylist) {
+            iPathAndQuery.Append("&extra=tracks");
+        }
+    }
+
+    return TryGetResponse(aWriter, aLimit, aOffset);
+}
+
+TBool Qobuz::TryGetGenreList(WriterBwh& aWriter)
+{
+    iPathAndQuery.Replace(kVersionAndFormat);
+    iPathAndQuery.Append("genre/list?");
+
+    return TryGetResponse(aWriter, 50, 0);
+}
+
+TBool Qobuz::TryGetResponse(WriterBwh& aWriter, TUint aLimit, TUint aOffset)
+{
+    AutoMutex _(iLock);
+    TBool success = false;
+    if (!TryConnect()) {
+        LOG_ERROR(kMedia, "Qobuz::TryGetResponse - connection failure\n");
+        return false;
+    }
+    AutoSocketReader __(iSocket, iReaderUntil2);
+    iPathAndQuery.Append("&limit=");
+    Ascii::AppendDec(iPathAndQuery, aLimit);
+    iPathAndQuery.Append("&offset=");
+    Ascii::AppendDec(iPathAndQuery, aOffset);
+    iPathAndQuery.Append("&app_id=");
+    iPathAndQuery.Append(iAppId);
+    iPathAndQuery.Append("&user_auth_token=");
+    iPathAndQuery.Append(iAuthToken);
+    try {
+        LOG(kMedia, "Write Qobuz request: http://%.*s%.*s\n", PBUF(kHost), PBUF(iPathAndQuery));
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, iPathAndQuery);
+        if (code != 200) {
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetResponse.\n", code);
+            LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
+            LOG_ERROR(kPipeline, "Some/all of response is:\n");
+            Brn buf = iDechunker.Read(kReadBufferBytes);
+            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
+            THROW(ReaderError);
+        }  
+        
+        TUint count = iHeaderContentLength.ContentLength();
+        //Log::Print("Read Qobuz response (%d): ", count);
+        while(count > 0) {
+            Brn buf = iReaderUntil2.Read(kReadBufferBytes);
+        //    Log::Print(buf);
+            aWriter.Write(buf);
+            count -= buf.Bytes();
+        }   
+        //Log::Print("\n");     
+
+        success = true;
+    }
+    catch (HttpError&) {
+        LOG_ERROR(kPipeline, "HttpError in Qobuz::TryGetResponse\n");
+    }
+    catch (ReaderError&) {
+        LOG_ERROR(kPipeline, "ReaderError in Qobuz::TryGetResponse\n");
+    }
+    catch (WriterError&) {
+        LOG_ERROR(kPipeline, "WriterError in Qobuz::TryGetResponse\n");
+    }
+    return success;
+}
+
 void Qobuz::Interrupt(TBool aInterrupt)
 {
     iSocket.Interrupt(aInterrupt);

@@ -23,6 +23,7 @@
 #include <OpenHome/Media/MimeTypeList.h>
 #include <OpenHome/Av/Logger.h>
 #include <OpenHome/UnixTimestamp.h>
+#include <OpenHome/Av/TransportPins.h>
 
 #include <memory>
 
@@ -69,7 +70,7 @@ TBool MediaPlayerInitParams::ConfigAppEnabled() const
 
 // MediaPlayer
 
-MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
+MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::DvDeviceStandard& aDevice,
                          IStaticDataSource& aStaticDataSource,
                          IStoreReadWrite& aReadWriteStore,
                          PipelineInitParams* aPipelineInitParams,
@@ -78,6 +79,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
                          const Brx& aEntropy,
                          MediaPlayerInitParams* aInitParams)
     : iDvStack(aDvStack)
+    , iCpStack(aCpStack)
     , iDevice(aDevice)
     , iReadWriteStore(aReadWriteStore)
     , iConfigProductRoom(nullptr)
@@ -123,6 +125,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
                                              // so this attribute can't be added in the obvious location
     }
     iDebugManager = new DebugManager();
+    iTransportPins = new TransportPins(aDevice, aCpStack);
+    iDebugManager->Add(*iTransportPins);
 }
 
 MediaPlayer::~MediaPlayer()
@@ -155,6 +159,7 @@ MediaPlayer::~MediaPlayer()
     delete iLoggerBuffered;
     delete iUnixTimestamp;
     delete iDebugManager;
+    delete iTransportPins;
 }
 
 void MediaPlayer::Quit()
@@ -220,6 +225,11 @@ Environment& MediaPlayer::Env()
 Net::DvStack& MediaPlayer::DvStack()
 {
     return iDvStack;
+}
+
+Net::CpStack& MediaPlayer::CpStack()
+{
+    return iCpStack;
 }
 
 Net::DvDeviceStandard& MediaPlayer::Device()

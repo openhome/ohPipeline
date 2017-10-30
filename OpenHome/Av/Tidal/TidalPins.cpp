@@ -168,6 +168,9 @@ TBool TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType)
             parser.Parse(iJsonResponse.Buffer());
             if (parser.HasKey(Brn("totalNumberOfItems"))) { 
                 TUint tracks = parser.Num(Brn("totalNumberOfItems"));
+                if (tracks == 0) {
+                    return false;
+                }
                 if (tracks < total) {
                     total = tracks;
                 }
@@ -175,7 +178,6 @@ TBool TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType)
 
                 try {
                     for (;;) {
-                        JsonParser parserItem;
                         auto* track = tm.TrackFromJson(parserItems.NextObject());
                         if (track != nullptr) {
                             iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);

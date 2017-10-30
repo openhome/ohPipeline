@@ -63,6 +63,7 @@ class IVolumeManager;
 class IVolumeProfile;
 class ConfigStartupSource;
 class IRebootHandler;
+class TransportPins;
 
 class IMediaPlayer
 {
@@ -70,6 +71,7 @@ public:
     virtual ~IMediaPlayer() {}
     virtual Environment& Env() = 0;
     virtual Net::DvStack& DvStack() = 0;
+    virtual Net::CpStack& CpStack() = 0;
     virtual Net::DvDeviceStandard& Device() = 0;
     virtual Media::PipelineManager& Pipeline() = 0;
     virtual Media::TrackFactory& TrackFactory() = 0;
@@ -114,7 +116,7 @@ class MediaPlayer : public IMediaPlayer, private INonCopyable
 {
     static const TUint kTrackCount = 1200;
 public:
-    MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
+    MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::DvDeviceStandard& aDevice,
                 IStaticDataSource& aStaticDataSource,
                 Configuration::IStoreReadWrite& aReadWriteStore,
                 Media::PipelineInitParams* aPipelineInitParams,
@@ -133,6 +135,7 @@ public:
 public: // from IMediaPlayer
     Environment& Env() override;
     Net::DvStack& DvStack() override;
+    Net::CpStack& CpStack() override;
     Net::DvDeviceStandard& Device() override;
     Media::PipelineManager& Pipeline() override;
     Media::TrackFactory& TrackFactory() override;
@@ -155,6 +158,7 @@ public: // from IMediaPlayer
     DebugManager& GetDebugManager() override;
 private:
     Net::DvStack& iDvStack;
+    Net::CpStack& iCpStack;
     Net::DvDeviceStandard& iDevice;
     KvpStore* iKvpStore;
     Media::PipelineManager* iPipeline;
@@ -181,6 +185,7 @@ private:
     LoggerBuffered* iLoggerBuffered;
     IUnixTimestamp* iUnixTimestamp;
     DebugManager* iDebugManager;
+    Av::TransportPins* iTransportPins;
 };
 
 } // namespace Av

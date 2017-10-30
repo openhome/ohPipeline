@@ -298,8 +298,10 @@ def build(bld):
                 'Generated/DvAvOpenhomeOrgInfo1.cpp',
                 'OpenHome/Av/ProviderInfo.cpp',
                 'Generated/DvAvOpenhomeOrgTransport1.cpp',
+                'Generated/CpAvOpenhomeOrgTransport1.cpp',
                 'OpenHome/Av/TransportControl.cpp',
                 'OpenHome/Av/ProviderTransport.cpp',
+                'OpenHome/Av/TransportPins.cpp',
                 'Generated/DvAvOpenhomeOrgVolume3.cpp',
                 'OpenHome/Av/ProviderVolume.cpp',
                 'OpenHome/Av/Source.cpp',
@@ -355,6 +357,8 @@ def build(bld):
                 'OpenHome/Av/Tidal/TidalPins.cpp',
                 'OpenHome/Av/Tidal/ProtocolTidal.cpp',
                 'OpenHome/Av/Qobuz/Qobuz.cpp',
+                'OpenHome/Av/Qobuz/QobuzMetadata.cpp',
+                'OpenHome/Av/Qobuz/QobuzPins.cpp',
                 'OpenHome/Av/Qobuz/ProtocolQobuz.cpp'
             ],
             use=['OHNET', 'ohMediaPlayer'],
@@ -971,7 +975,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestMediaPlayerMain.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
+            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
             target='TestMediaPlayer',
             install_path=os.path.join(bld.path.abspath(), 'install', 'bin'))
     bld.program(

@@ -178,7 +178,6 @@ private:
     TUint iMinWebUiResourceThreads;
     TUint iMaxWebUiTabs;
     TUint iUiSendQueueSize;
-    Net::CpStack& iCpStack;
 };
 
 class TestMediaPlayerOptions

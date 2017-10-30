@@ -222,7 +222,7 @@ TBool Tidal::TryGetResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit
     aPathAndQuery.Append("&countryCode=");
     aPathAndQuery.Append(iCountryCode);
     try {
-        LOG(kMedia, "Write tidal request: https://api.tidal.com%.*s\n", PBUF(aPathAndQuery));
+        LOG(kMedia, "Write Tidal request: http://%.*s%.*s\n", PBUF(kHost), PBUF(aPathAndQuery));
         WriteRequestHeaders(Http::kMethodGet, aPathAndQuery, kPort);
 
         iReaderResponse.Read();

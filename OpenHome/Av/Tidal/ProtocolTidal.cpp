@@ -81,9 +81,9 @@ using namespace OpenHome::Media;
 using namespace OpenHome::Configuration;
 
 
-Protocol* ProtocolFactory::NewTidal(Environment& aEnv, const Brx& aToken, Av::IMediaPlayer& aMediaPlayer, Net::CpStack& aCpStack)
+Protocol* ProtocolFactory::NewTidal(Environment& aEnv, const Brx& aToken, Av::IMediaPlayer& aMediaPlayer)
 { // static
-    return new ProtocolTidal(aEnv, aToken, aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(), aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aCpStack, aMediaPlayer.GetDebugManager());
+    return new ProtocolTidal(aEnv, aToken, aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(), aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.GetDebugManager());
 }
 
 

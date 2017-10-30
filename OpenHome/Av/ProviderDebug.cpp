@@ -42,22 +42,23 @@ void ProviderDebug::DebugTest(IDvInvocation& aInvocation, const Brx& aaDebugType
     aInvocation.StartResponse();
 
     WriterAscii writer(aaDebugInfo);
-    TBool result = iDebugManager.Test(aaDebugType, aaDebugInput, writer);
 
     if (aaDebugType == Brn("help")) {
         writer.Write(Brn("forceassert (input: none)"));
         writer.Write(Brn(" "));
         writer.WriteNewline(); // can't get this to work
-        result = true;
+        iDebugManager.Test(aaDebugType, aaDebugInput, writer);
+        aaDebugInfo.WriteFlush();
+        aaDebugResult.Write(true);
+        aInvocation.EndResponse();
     }
-    else if (aaDebugType == Brn("forceassert")) {
+    else {
         writer.Write(Brn("Complete"));
-        result = true;
+        aaDebugInfo.WriteFlush();
+        aaDebugResult.Write(true);
+        aInvocation.EndResponse();
+        iDebugManager.Test(aaDebugType, aaDebugInput, writer);
     }
-
-    aaDebugInfo.WriteFlush();
-    aaDebugResult.Write(result);
-    aInvocation.EndResponse();
 
     // include this Debug afterwards so control point will not hang waiting for a response before the device asserts
     if (aaDebugType == Brn("forceassert")) {

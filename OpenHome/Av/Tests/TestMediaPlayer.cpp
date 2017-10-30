@@ -147,7 +147,6 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     , iMinWebUiResourceThreads(aMinWebUiResourceThreads)
     , iMaxWebUiTabs(aMaxWebUiTabs)
     , iUiSendQueueSize(aUiSendQueueSize)
-    , iCpStack(aCpStack)
 {
     Log::Print("Shell running on port %u\n", aDvStack.Env().Shell()->Port());
     iInfoLogger = new Media::AllocatorInfoLogger();
@@ -216,7 +215,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     pipelineInit->SetGorgerDuration(pipelineInit->DecodedReservoirJiffies());
     auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName));
     mpInit->EnableConfigApp();
-    iMediaPlayer = new MediaPlayer(aDvStack, *iDevice, *iRamStore,
+    iMediaPlayer = new MediaPlayer(aDvStack, aCpStack, *iDevice, *iRamStore,
                                    *iConfigRamStore, pipelineInit,
                                    volumeInit, volumeProfile,
                                    *iInfoLogger,
@@ -403,7 +402,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 
     // only add Tidal if we have a token to use with login
     if (iTidalId.Bytes() > 0) {
-        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, iTidalId, *iMediaPlayer, iCpStack));
+        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, iTidalId, *iMediaPlayer));
     }
     // ...likewise, only add Qobuz if we have ids for login
     if (iQobuzIdSecret.Bytes() > 0) {

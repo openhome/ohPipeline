@@ -32,7 +32,7 @@ public:
     static Protocol* NewFile(Environment& aEnv);
     static Protocol* NewTone(Environment& aEnv);
     static Protocol* NewRtsp(Environment& aEnv, const Brx& aGuid);
-    static Protocol* NewTidal(Environment& aEnv, const Brx& aToken, Av::IMediaPlayer& aMediaPlayer, Net::CpStack& aCpStack);
+    static Protocol* NewTidal(Environment& aEnv, const Brx& aToken, Av::IMediaPlayer& aMediaPlayer);
     static Protocol* NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av::IMediaPlayer& aMediaPlayer);
     static Protocol* NewCalmRadio(Environment& aEnv, const Brx& aUserAgent, Av::IMediaPlayer& aMediaPlayer); // UA is optional so can be empty
 };

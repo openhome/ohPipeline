@@ -13,6 +13,8 @@
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Av/Qobuz/Qobuz.h>
 #include <OpenHome/Media/SupplyAggregator.h>
+#include <OpenHome/Av/Qobuz/QobuzPins.h>
+#include <OpenHome/DebugManager.h>
 
 namespace OpenHome {
     class IUnixTimestamp;
@@ -24,7 +26,8 @@ class ProtocolQobuz : public Media::ProtocolNetwork, private IReader
 public:
     ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
                   Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser,
-                  IUnixTimestamp& aUnixTimestamp);
+                  IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
+                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, DebugManager& aDebugManger);
     ~ProtocolQobuz();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -50,6 +53,7 @@ private:
     TBool IsCurrentStream(TUint aStreamId) const;
 private:
     Qobuz* iQobuz;
+    QobuzPins* iPins;
     Media::SupplyAggregator* iSupply;
     Uri iUri;
     Bws<12> iTrackId;
@@ -87,7 +91,8 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
 { // static
     return new ProtocolQobuz(aMediaPlayer.Env(), aAppId, aAppSecret,
                              aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(),
-                             aMediaPlayer.UnixTimestamp());
+                             aMediaPlayer.UnixTimestamp(), aMediaPlayer.Device(), 
+                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.GetDebugManager());
 }
 
 
@@ -95,7 +100,8 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
 
 ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
                              Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser,
-                             IUnixTimestamp& aUnixTimestamp)
+                             IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
+                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, DebugManager& aDebugManger)
     : ProtocolNetwork(aEnv)
     , iSupply(nullptr)
     , iWriterRequest(iWriterBuf)
@@ -111,10 +117,14 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
 
     iQobuz = new Qobuz(aEnv, aAppId, aAppSecret, aCredentialsManager, aConfigInitialiser, aUnixTimestamp);
     aCredentialsManager.Add(iQobuz);
+
+    iPins = new QobuzPins(*iQobuz, aDevice, aTrackFactory, aCpStack);
+    aDebugManger.Add(*iPins);
 }
 
 ProtocolQobuz::~ProtocolQobuz()
 {
+    delete iPins;
     delete iSupply;
 }
 
