@@ -6,9 +6,9 @@ Parameters:
 
 Checks (what little) functionality offered by ConnectionManager service
 """
-import _Paths
+import _Paths   # NOQA
 import CommonConnectionManagerService as BASE
-import _ProtocolInfo                  as ProtocolInfo
+import _ProtocolInfo as ProtocolInfo
 import sys
 
 
@@ -18,7 +18,7 @@ class TestConnectionManagerService( BASE.CommonConnectionManagerService ):
         BASE.CommonConnectionManagerService.__init__( self )
         self.doc         = __doc__
         self.sourceProto = []
-        self.sinkProto   = ProtocolInfo.kProtocolInfo
+        self.sinkProto   = ProtocolInfo.ProtocolInfo()
 
 
 if __name__ == '__main__':
