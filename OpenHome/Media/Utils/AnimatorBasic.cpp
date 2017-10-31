@@ -134,7 +134,7 @@ void AnimatorBasic::DriverThread()
 void AnimatorBasic::ProcessAudio(MsgPlayable* aMsg)
 {
     iPlayable = nullptr;
-    const TUint numSamples = aMsg->Bytes() / ((iBitDepth/8) * iNumChannels);
+    const TUint numSamples = (aMsg->Bytes() * 8) / (iBitDepth * iNumChannels);
     TUint jiffies = numSamples * iJiffiesPerSample;
     if (jiffies > iPendingJiffies) {
         jiffies = iPendingJiffies;
