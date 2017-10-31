@@ -136,33 +136,37 @@ TBool Tidal::TryGetId(WriterBwh& aWriter, const Brx& aQuery, TidalMetadata::EIdT
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
 
+    pathAndQuery.Append("search/?query=");
+    Uri::Escape(pathAndQuery, aQuery);
+    pathAndQuery.Append("&types=");
+    pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+
+    return TryGetResponse(aWriter, pathAndQuery, 1, 0);
+}
+
+TBool Tidal::TryGetIds(WriterBwh& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
+{
+    Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
+
     if (aType == TidalMetadata::eMood) {
         // will return the most recently updated playlist for the given mood
         pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
         pathAndQuery.Append("/");
-        pathAndQuery.Append(aQuery);
-        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
-    }
-    else if (aType == TidalMetadata::eSmartExclusive) {
-        // will return the latest exclusive playlist
-        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
-        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
+        pathAndQuery.Append(aMood);
     }
     else if (aType == TidalMetadata::eSavedPlaylist) {
         // will return the latest saved playlist
         pathAndQuery.Append(TidalMetadata::kIdTypeUserSpecific);
         pathAndQuery.Append("/");
         pathAndQuery.Append(iUserId);
-        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
     }
-    else {
-        pathAndQuery.Append("search/?query=");
-        Uri::Escape(pathAndQuery, aQuery);
-        pathAndQuery.Append("&types=");
+    else if (aType == TidalMetadata::eSmartExclusive) {
+        // will return the latest exclusive playlist
         pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
     }
+    pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
 
-    return TryGetResponse(aWriter, pathAndQuery, 1, 0);
+    return TryGetResponse(aWriter, pathAndQuery, aMaxAlbumsPerResponse, 0);
 }
 
 TBool Tidal::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset)

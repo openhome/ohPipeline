@@ -25,6 +25,7 @@ class TidalPins
     : public IDebugTestHandler
 {
     static const TUint kTrackLimitPerRequest = 10;
+    static const TUint kMaxPlaylistsPerSmartType = 15; // limit playlists
     static const TUint kJsonResponseChunks = 4 * 1024;
 public:
     TidalPins(Tidal& aTidal, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, TUint aMaxTracks = ITrackDatabase::kMaxTracks);
@@ -43,13 +44,16 @@ public:
     TBool LoadTracksByRising(); // tidal smart playlist
     TBool LoadTracksByDiscovery(); // tidal smart playlist
     TBool LoadTracksByFavorites(); // user's favorited tracks
-    TBool LoadTracksBySavedPlaylist(); // user's most recently created/updated tidal playlist
+    TBool LoadTracksBySavedPlaylist(); // user's most recently created/updated tidal playlists
 
 public:  // IDebugTestHandler
     TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter);
 private:
-    TBool LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType);
+    TUint LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType, TUint aPlaylistId);
     TBool LoadTracksBySmartType(TidalMetadata::EIdType aType);
+    TBool LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aType);
+    TBool LoadTracksByMultiplePlaylists(TidalMetadata::EIdType aType);
+    TBool LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::EIdType aType);
     TBool IsValidId(const Brx& aRequest, TidalMetadata::EIdType aType);
     TBool IsValidUuid(const Brx& aRequest);
 private:

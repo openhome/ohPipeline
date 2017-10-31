@@ -43,6 +43,7 @@ public:
     TBool TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl);
     TBool TryLogout(const Brx& aSessionId);
     TBool TryGetId(WriterBwh& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType);
+    TBool TryGetIds(WriterBwh& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aMaxAlbumsPerResponse);
     TBool TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
