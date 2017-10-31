@@ -68,7 +68,7 @@ TBool TidalPins::LoadTracksByPlaylist(const Brx& aPlaylist)
     return TidalPins::LoadTracksByQuery(aPlaylist, TidalMetadata::ePlaylist);
 }
 
-TBool TidalPins::LoadTracksBySavedPlaylist()
+TBool TidalPins::LoadTracksBySavedPlaylists()
 {
     return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSavedPlaylist);
 }
@@ -378,7 +378,7 @@ TBool TidalPins::Test(const Brx& aType, const Brx& aInput, IWriterAscii& aWriter
     }
     else if (aType == Brn("tidalpin_savedplaylist")) {
         aWriter.Write(Brn("Complete"));
-        return LoadTracksBySavedPlaylist();
+        return LoadTracksBySavedPlaylists();
     }
     else if (aType == Brn("tidalpin_favorites")) {
         aWriter.Write(Brn("Complete"));

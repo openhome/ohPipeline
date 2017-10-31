@@ -44,7 +44,7 @@ public:
     TBool LoadTracksByRising(); // tidal smart playlist
     TBool LoadTracksByDiscovery(); // tidal smart playlist
     TBool LoadTracksByFavorites(); // user's favorited tracks
-    TBool LoadTracksBySavedPlaylist(); // user's most recently created/updated tidal playlists
+    TBool LoadTracksBySavedPlaylists(); // user's most recently created/updated tidal playlists
 
 public:  // IDebugTestHandler
     TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter);
