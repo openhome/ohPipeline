@@ -451,6 +451,18 @@ def build(bld):
             use=['OHNET'],
             target='CodecPcm')
 
+    # DSD
+    bld.stlib(
+            source=['OpenHome/Media/Codec/Dsd.cpp'],
+            use=['OHNET'],
+            target='CodecDsd')
+
+    # DSDDFF
+    bld.stlib(
+            source=['OpenHome/Media/Codec/DsdDff.cpp'],
+            use=['OHNET'],
+            target='CodecDsdDff')
+
     # AiffBase
     bld.stlib(
             source=['OpenHome/Media/Codec/AiffBase.cpp'],
@@ -733,7 +745,7 @@ def build(bld):
                 'OpenHome/Net/Odp/Tests/CpiDeviceOdp.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsd', 'CodecDsdDff',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
@@ -1111,6 +1123,8 @@ def bundle(ctx):
                  'CodecAiffBase',
                  'CodecAlacAppleBase',
                  'CodecAlacApple',
+                 'CodecDsd',
+                 'CodecDsdDff',
                  'CodecFlac',
                  'CodecMp3',
                  'CodecVorbis',
