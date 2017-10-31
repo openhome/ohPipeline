@@ -144,7 +144,7 @@ void CodecDsdDff::ProcessFverChunk()
 void CodecDsdDff::ProcessDsdChunk()
 {
     //Log::Print("CodecDsdDff::ProcessDsdChunk() \n");
-    TUint64 iAudioBytesTotal = ReadChunkHeader(Brn("DSD ")); // could be "DSD " or "DST "
+    iAudioBytesTotal = ReadChunkHeader(Brn("DSD ")); // could be "DSD " or "DST "
     iAudioBytesRemaining = iAudioBytesTotal;
     //Log::Print("CodecDsdDff::ProcessDsdChunk()   iAudioBytesTotal=%lld \n", iAudioBytesTotal);
 }
@@ -339,7 +339,7 @@ TUint64 CodecDsdDff::ReadChunkHeader(const Brx& aExpectedId)
             while(reminingBytes>0)
             {
                 iInputBuf.SetBytes(0);
-                iController->Read(iInputBuf, std::min(reminingBytes, (TUint64)kInputBufMaxBytes)); // read and discard unexpected chunk's data
+                iController->Read(iInputBuf, (TUint)std::min(reminingBytes, (TUint64)kInputBufMaxBytes)); // read and discard unexpected chunk's data
                 reminingBytes -= iInputBuf.Bytes();
             }
         }

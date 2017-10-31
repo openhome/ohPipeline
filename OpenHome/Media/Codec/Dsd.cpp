@@ -212,7 +212,7 @@ void CodecDsd::Process()
     }
 }
 
-TBool CodecDsd::TrySeek(TUint aStreamId, TUint64 aSample)
+TBool CodecDsd::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
 {
 /*
     const TUint64 bytePos = aSample * iChannelCount * (iBitDepth/8);
