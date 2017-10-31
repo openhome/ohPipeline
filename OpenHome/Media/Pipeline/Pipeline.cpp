@@ -60,6 +60,7 @@ PipelineInitParams::PipelineInitParams()
     , iMaxLatencyJiffies(kMaxLatencyDefault)
     , iSupportElements(EPipelineSupportElementsAll)
     , iMuter(kMuterDefault)
+    , iDsdSupported(kDsdSupportedDefault)
 {
     SetThreadPriorityMax(kThreadPriorityMax);
 }
@@ -142,6 +143,11 @@ void PipelineInitParams::SetMuter(MuterImpl aMuter)
     iMuter = aMuter;
 }
 
+void PipelineInitParams::SetDsdSupported(TBool aDsd)
+{
+    iDsdSupported = aDsd;
+}
+
 TUint PipelineInitParams::EncodedReservoirBytes() const
 {
     return iEncodedReservoirBytes;
@@ -217,6 +223,10 @@ PipelineInitParams::MuterImpl PipelineInitParams::Muter() const
     return iMuter;
 }
 
+TBool OpenHome::Media::PipelineInitParams::DsdSupported() const
+{
+    return iDsdSupported;
+}
 
 // Pipeline
 
@@ -270,6 +280,9 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     msgInit.SetMsgWaitCount(perStreamMsgCount);
     msgInit.SetMsgDecodedStreamCount(perStreamMsgCount);
     msgInit.SetMsgAudioPcmCount(msgAudioPcmCount, decodedAudioCount);
+    if (aInitParams->DsdSupported()) {
+        msgInit.SetMsgAudioDsdCount(msgAudioPcmCount);
+    }
     msgInit.SetMsgSilenceCount(kMsgCountSilence);
     msgInit.SetMsgPlayableCount(kMsgCountPlayablePcm, kMsgCountPlayableDsd, kMsgCountPlayableSilence);
     msgInit.SetMsgQuitCount(kMsgCountQuit);
