@@ -20,6 +20,7 @@ const TUint MuterVolume::kSupportedMsgTypes =   eMode
                                               | eHalt
                                               | eDecodedStream
                                               | eAudioPcm
+                                              | eAudioDsd
                                               | eSilence
                                               | eQuit;
 const TUint MuterVolume::kJiffiesUntilMute = 10 * Jiffies::kPerMs;
@@ -28,7 +29,7 @@ MuterVolume::MuterVolume(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUps
     : PipelineElement(kSupportedMsgTypes)
     , iMsgFactory(aMsgFactory)
     , iUpstream(aUpstream)
-    , iVolumeRamper(nullptr)
+    , iVolumeMuter(nullptr)
     , iLock("MPMT")
     , iSemMuted("MPMT", 0)
     , iState(State::eRunning)
@@ -36,12 +37,12 @@ MuterVolume::MuterVolume(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUps
 {
 }
 
-void MuterVolume::Start(IVolumeRamper& aVolumeRamper)
+void MuterVolume::Start(IVolumeMuterStepped& aVolumeMuter)
 {
     AutoMutex _(iLock);
-    iVolumeRamper = &aVolumeRamper;
+    iVolumeMuter = &aVolumeMuter;
     if (iState == State::eMuted) {
-        iVolumeRamper->SetMuted();
+        iVolumeMuter->SetMuted();
     }
 }
 
@@ -51,7 +52,7 @@ void MuterVolume::Mute()
     TBool block = false;
     {
         AutoMutex _(iLock);
-        if (iVolumeRamper == nullptr) { // not yet Start()ed
+        if (iVolumeMuter == nullptr) { // not yet Start()ed
             iState = State::eMuted;
         }
         else {
@@ -65,9 +66,9 @@ void MuterVolume::Mute()
             case State::eUnmutingRamp:
                 if (iHalted) {
                     iState = State::eMuted;
-                    iVolumeRamper->SetMuted();
+                    iVolumeMuter->SetMuted();
                 }
-                else if (iVolumeRamper->BeginMute() == IVolumeRamper::Status::eComplete) {
+                else if (iVolumeMuter->BeginMute() == IVolumeMuterStepped::Status::eComplete) {
                     iState = State::eMuted;
                 }
                 else {
@@ -91,7 +92,7 @@ void MuterVolume::Unmute()
 {
     LOG(kPipeline, "MuterVolume::Unmute\n");
     AutoMutex _(iLock);
-    if (iVolumeRamper == nullptr) { // not yet Start()ed
+    if (iVolumeMuter == nullptr) { // not yet Start()ed
         iState = State::eRunning;
     }
     else {
@@ -107,9 +108,9 @@ void MuterVolume::Unmute()
         case State::eMuted:
             if (iHalted) {
                 iState = State::eRunning;
-                iVolumeRamper->SetUnmuted();
+                iVolumeMuter->SetUnmuted();
             }
-            else if (iVolumeRamper->BeginUnmute() == IVolumeRamper::Status::eComplete) {
+            else if (iVolumeMuter->BeginUnmute() == IVolumeMuterStepped::Status::eComplete) {
                 iState = State::eRunning;
             }
             else {
@@ -143,6 +144,13 @@ Msg* MuterVolume::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* MuterVolume::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iHalted = false;
+    ProcessAudio(aMsg);
+    return aMsg;
+}
+
 Msg* MuterVolume::ProcessMsg(MsgSilence* aMsg)
 {
     ProcessAudio(aMsg);
@@ -155,13 +163,13 @@ void MuterVolume::ProcessAudio(MsgAudio* aMsg)
     switch (iState)
     {
     case State::eMutingRamp:
-        if (iVolumeRamper->StepMute(jiffies) == IVolumeRamper::Status::eComplete) {
+        if (iVolumeMuter->StepMute(jiffies) == IVolumeMuterStepped::Status::eComplete) {
             iState = State::eMutingWait;
             iJiffiesUntilMute = kJiffiesUntilMute;
         }
         break;
     case State::eUnmutingRamp:
-        if (iVolumeRamper->StepUnmute(jiffies) == IVolumeRamper::Status::eComplete) {
+        if (iVolumeMuter->StepUnmute(jiffies) == IVolumeMuterStepped::Status::eComplete) {
             iState = State::eRunning;
         }
         break;
@@ -193,11 +201,11 @@ void MuterVolume::PipelineHalted()
     case State::eMutingRamp:
     case State::eMutingWait:
         iState = State::eMuted;
-        iVolumeRamper->SetMuted();
+        iVolumeMuter->SetMuted();
         break;
     case State::eUnmutingRamp:
         iState = State::eRunning;
-        iVolumeRamper->SetUnmuted();
+        iVolumeMuter->SetUnmuted();
         break;
     case State::eMuted:
         break;

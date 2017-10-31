@@ -214,7 +214,7 @@ def build(bld):
     # Library
     bld.stlib(
             source=[
-                'OpenHome/Media/Pipeline/AnalogBypassRamper.cpp',
+                'OpenHome/Media/Pipeline/VolumeRamper.cpp',
                 'OpenHome/Media/Pipeline/AudioDumper.cpp',
                 'OpenHome/Media/Pipeline/AudioReservoir.cpp',
                 'OpenHome/Media/Pipeline/DecodedAudioAggregator.cpp',
@@ -251,7 +251,7 @@ def build(bld):
                 'OpenHome/Media/Supply.cpp',
                 'OpenHome/Media/SupplyAggregator.cpp',
                 'OpenHome/Media/Utils/AnimatorBasic.cpp',
-                'OpenHome/Media/Utils/ProcessorPcmUtils.cpp',
+                'OpenHome/Media/Utils/ProcessorAudioUtils.cpp',
                 'OpenHome/Media/Utils/ClockPullerManual.cpp',
                 'OpenHome/Media/Codec/Mpeg4.cpp',
                 'OpenHome/Media/Codec/Container.cpp',
@@ -450,6 +450,18 @@ def build(bld):
             source=['OpenHome/Media/Codec/Pcm.cpp'],
             use=['OHNET'],
             target='CodecPcm')
+
+    # DSD
+    bld.stlib(
+            source=['OpenHome/Media/Codec/Dsd.cpp'],
+            use=['OHNET'],
+            target='CodecDsd')
+
+    # DSDDFF
+    bld.stlib(
+            source=['OpenHome/Media/Codec/DsdDff.cpp'],
+            use=['OHNET'],
+            target='CodecDsdDff')
 
     # AiffBase
     bld.stlib(
@@ -685,7 +697,7 @@ def build(bld):
                 #'OpenHome/Media/Tests/TestSpotifyReporter.cpp',
                 'OpenHome/Media/Tests/TestPreDriver.cpp',
                 'OpenHome/Media/Tests/TestPruner.cpp',
-                'OpenHome/Media/Tests/TestAnalogBypassRamper.cpp',
+                'OpenHome/Media/Tests/TestVolumeRamper.cpp',
                 'OpenHome/Media/Tests/TestMuter.cpp',
                 'OpenHome/Media/Tests/TestMuterVolume.cpp',
                 'OpenHome/Media/Tests/TestDrainer.cpp',
@@ -733,7 +745,7 @@ def build(bld):
                 'OpenHome/Net/Odp/Tests/CpiDeviceOdp.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsd', 'CodecDsdDff',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
@@ -837,9 +849,9 @@ def build(bld):
             target='TestPruner',
             install_path=None)
     bld.program(
-            source='OpenHome/Media/Tests/TestAnalogBypassRamperMain.cpp',
+            source='OpenHome/Media/Tests/TestVolumeRamperMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-            target='TestAnalogBypassRamper',
+            target='TestVolumeRamper',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestMuterMain.cpp',
@@ -1111,6 +1123,8 @@ def bundle(ctx):
                  'CodecAiffBase',
                  'CodecAlacAppleBase',
                  'CodecAlacApple',
+                 'CodecDsd',
+                 'CodecDsdDff',
                  'CodecFlac',
                  'CodecMp3',
                  'CodecVorbis',

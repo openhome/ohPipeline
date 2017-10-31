@@ -2,7 +2,7 @@
 #include <OpenHome/Media/Pipeline/Reporter.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/Pipeline/ElementObserver.h>
 
 #include <string.h>
@@ -37,8 +37,7 @@ public:
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // from IPipelinePropertyObserver
-    void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,
-                    const ModeTransportControls& aTransportControls) override;
+    void NotifyMode(const Brx& aMode, const ModeInfo& aInfo, const ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
@@ -48,6 +47,7 @@ private:
     {
         ENone
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgPlayable
        ,EMsgDecodedStream
@@ -63,6 +63,7 @@ private:
 private:
     void RunTests();
     MsgAudio* CreateAudio();
+    MsgAudio* CreateAudioDsd();
 private:
     MsgFactory* iMsgFactory;
     TrackFactory* iTrackFactory;
@@ -260,6 +261,36 @@ void SuiteReporter::RunTests()
     TEST(iAudioFormatUpdates == expectedAudioFormatUpdates);
     TEST(iSeconds == expectedTimeSeconds);
 
+    // deliver 1s of DSD audio.  Check NotifyTime is called again.
+    // (Note that changing audio format without a new Track + DecodedStream is invalid in real use
+    // ...but works for tests).
+    iNextGeneratedMsg = EMsgAudioDsd;
+    while (iTrackOffset < 2 * Jiffies::kPerSecond) {
+        TEST(iModeUpdates == expectedModeUpdates);
+        TEST(iTrackUpdates == expectedTrackUpdates);
+        TEST(iMetaTextUpdates == expectedMetaTextUpdates);
+        TEST(iTimeUpdates == expectedTimeUpdates);
+        TEST(iAudioFormatUpdates == expectedAudioFormatUpdates);
+        TEST(iSeconds == expectedTimeSeconds);
+        msg = iReporter->Pull();
+        msg->RemoveRef();
+        Thread::Sleep(1); // tiny delay, leaving room for Reporter's observer thread to be scheduled
+    }
+    iSemTime.Wait(kTimeoutMs);
+    TEST(!iSemMode.Clear());
+    TEST(!iSemTrack.Clear());
+    TEST(!iSemStream.Clear());
+    TEST(!iSemMetatext.Clear());
+    TEST(!iSemTime.Clear());
+    expectedTimeUpdates++;
+    expectedTimeSeconds += 1;
+    TEST(iModeUpdates == expectedModeUpdates);
+    TEST(iTrackUpdates == expectedTrackUpdates);
+    TEST(iMetaTextUpdates == expectedMetaTextUpdates);
+    TEST(iTimeUpdates == expectedTimeUpdates);
+    TEST(iAudioFormatUpdates == expectedAudioFormatUpdates);
+    TEST(iSeconds == expectedTimeSeconds);
+
     // simulate seeking to 3.5s then deliver single audio msg.  Check NotifyTime is called.
     iTrackOffset = (3 * Jiffies::kPerSecond) + (Jiffies::kPerSecond / 2);
     iNextGeneratedMsg = EMsgDecodedStream;
@@ -335,6 +366,8 @@ Msg* SuiteReporter::Pull()
     {
     case EMsgAudioPcm:
         return CreateAudio();
+    case EMsgAudioDsd:
+        return CreateAudioDsd();
     case EMsgSilence:
     {
         TUint size = Jiffies::kPerMs * 10;
@@ -343,7 +376,7 @@ Msg* SuiteReporter::Pull()
     case EMsgDecodedStream:
     {
         const TUint64 sampleStart = iTrackOffset / Jiffies::PerSample(kSampleRate);
-        return iMsgFactory->CreateMsgDecodedStream(0, kBitRate, kBitDepth, kSampleRate, kNumChannels, Brn(kCodecName), kTrackLength, sampleStart, kLossless, false, false, false, Multiroom::Allowed, kProfile, nullptr);
+        return iMsgFactory->CreateMsgDecodedStream(0, kBitRate, kBitDepth, kSampleRate, kNumChannels, Brn(kCodecName), kTrackLength, sampleStart, kLossless, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
     }
     case EMsgMode:
         return iMsgFactory->CreateMsgMode(Brn(kMode));
@@ -377,6 +410,16 @@ MsgAudio* SuiteReporter::CreateAudio()
     (void)memset(encodedAudioData, 0xff, kDataBytes);
     Brn encodedAudioBuf(encodedAudioData, kDataBytes);
     MsgAudioPcm* audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, kNumChannels, kSampleRate, 16, AudioDataEndian::Little, iTrackOffset);
+    iTrackOffset += audio->Jiffies();
+    return audio;
+}
+
+MsgAudio* SuiteReporter::CreateAudioDsd()
+{
+    TByte audioData[128];
+    (void)memset(audioData, 0x7f, sizeof audioData);
+    Brn audioBuf(audioData, sizeof audioData);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
     iTrackOffset += audio->Jiffies();
     return audio;
 }
@@ -427,5 +470,3 @@ void TestReporter()
     runner.Add(new SuiteReporter());
     runner.Run();
 }
-
-

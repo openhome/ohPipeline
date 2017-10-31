@@ -207,6 +207,16 @@ Msg* Seeker::ProcessMsg(MsgBitRate* aMsg)
 
 Msg* Seeker::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    return ProcessAudio(aMsg);
+}
+
+Msg* Seeker::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessAudio(aMsg);
+}
+
+Msg* Seeker::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     if (iDecodeDiscardUntilSeekPoint && iFlushEndJiffies == iStreamPosJiffies) {
         ASSERT(iState == EFlushing);
         iState = ERampingUp;
@@ -218,10 +228,11 @@ Msg* Seeker::ProcessMsg(MsgAudioPcm* aMsg)
         const DecodedStreamInfo& info = iMsgStream->StreamInfo();
         const TUint64 numSamples = iStreamPosJiffies / Jiffies::PerSample(info.SampleRate());
         return iMsgFactory.CreateMsgDecodedStream(info.StreamId(), info.BitRate(), info.BitDepth(),
-            info.SampleRate(), info.NumChannels(), info.CodecName(),
-            info.TrackLength(), numSamples, info.Lossless(),
-            info.Seekable(), info.Live(), info.AnalogBypass(),
-            info.Multiroom(), info.Profile(), info.StreamHandler());
+                                                  info.SampleRate(), info.NumChannels(), info.CodecName(),
+                                                  info.TrackLength(), numSamples, info.Lossless(),
+                                                  info.Seekable(), info.Live(), info.AnalogBypass(),
+                                                  info.Format(), info.Multiroom(), info.Profile(),
+                                                  info.StreamHandler());
     }
 
     iStreamPosJiffies = aMsg->TrackOffset() + aMsg->Jiffies();

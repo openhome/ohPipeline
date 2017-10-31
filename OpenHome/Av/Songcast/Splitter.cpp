@@ -111,6 +111,11 @@ Msg* Splitter::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* Splitter::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return aMsg;
+}
+
 Msg* Splitter::ProcessMsg(MsgSilence* aMsg)
 {
     return aMsg;
@@ -220,6 +225,11 @@ Msg* Splitter::MsgCloner::ProcessMsg(MsgBitRate* aMsg)
 }
 
 Msg* Splitter::MsgCloner::ProcessMsg(MsgAudioPcm* aMsg)
+{
+    return aMsg->Clone();
+}
+
+Msg* Splitter::MsgCloner::ProcessMsg(MsgAudioDsd* aMsg)
 {
     return aMsg->Clone();
 }

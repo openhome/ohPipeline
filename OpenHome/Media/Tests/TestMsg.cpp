@@ -2,7 +2,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/RampArray.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <string.h>
 #include <vector>
@@ -82,6 +82,18 @@ public:
     void Test() override;
 private:
     void ValidateSilence(MsgPlayable* aMsg);
+private:
+    MsgFactory* iMsgFactory;
+    AllocatorInfoLogger iInfoAggregator;
+};
+
+class SuiteMsgAudioDsd : public Suite
+{
+    static const TUint kMsgCount = 8;
+public:
+    SuiteMsgAudioDsd();
+    ~SuiteMsgAudioDsd();
+    void Test() override;
 private:
     MsgFactory* iMsgFactory;
     AllocatorInfoLogger iInfoAggregator;
@@ -234,6 +246,7 @@ public:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgPlayable
        ,EMsgQuit
@@ -256,6 +269,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -307,6 +321,7 @@ public:
     {
         ENone
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgMode
        ,EMsgTrack
@@ -337,6 +352,7 @@ private:
     Msg* ProcessMsgAudioOut(MsgAudio* aMsgAudio);
 private: // from MsgQueueFlushable
     void ProcessMsgIn(MsgAudioPcm* aMsg) override;
+    void ProcessMsgIn(MsgAudioDsd* aMsg) override;
     void ProcessMsgIn(MsgSilence* aMsg) override;
     void ProcessMsgIn(MsgMode* aMsg) override;
     void ProcessMsgIn(MsgTrack* aMsg) override;
@@ -352,6 +368,7 @@ private: // from MsgQueueFlushable
     void ProcessMsgIn(MsgWait* aMsg) override;
     void ProcessMsgIn(MsgQuit* aMsg) override;
     Msg* ProcessMsgOut(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsgOut(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsgOut(MsgSilence* aMsg) override;
     Msg* ProcessMsgOut(MsgMode* aMsg) override;
     Msg* ProcessMsgOut(MsgTrack* aMsg) override;
@@ -781,7 +798,6 @@ void SuiteMsgAudio::Test()
     TEST(remaining != nullptr);
     TUint newJiffies = msg->Jiffies();
     TUint remainingJiffies = remaining->Jiffies();
-    remaining->RemoveRef();
     TEST(newJiffies > 0);
     TEST(remainingJiffies > 0);
     TEST(newJiffies < jiffies);
@@ -789,6 +805,7 @@ void SuiteMsgAudio::Test()
     TEST(newJiffies + remainingJiffies == jiffies);
     TEST(static_cast<MsgAudioPcm*>(msg)->TrackOffset() == Jiffies::kPerSecond);
     TEST(static_cast<MsgAudioPcm*>(remaining)->TrackOffset() == static_cast<MsgAudioPcm*>(msg)->TrackOffset() + msg->Jiffies());
+    remaining->RemoveRef();
 
     // Split pcm msg at invalid positions (0, > Jiffies()).  Check these assert.
     TEST_THROWS(remaining = msg->Split(0), AssertionFailed);
@@ -1010,7 +1027,7 @@ SuiteMsgPlayable::SuiteMsgPlayable()
     MsgFactoryInitParams init;
     init.SetMsgAudioPcmCount(kMsgCount, kMsgCount);
     init.SetMsgSilenceCount(kMsgCount);
-    init.SetMsgPlayableCount(kMsgCount, kMsgCount);
+    init.SetMsgPlayableCount(kMsgCount, kMsgCount, kMsgCount);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
 }
 
@@ -1296,7 +1313,7 @@ SuiteRamp::SuiteRamp()
     MsgFactoryInitParams init;
     init.SetMsgAudioPcmCount(kMsgCount, kMsgCount);
     init.SetMsgSilenceCount(kMsgCount);
-    init.SetMsgPlayableCount(kMsgCount, kMsgCount);
+    init.SetMsgPlayableCount(kMsgCount, kMsgCount, kMsgCount);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
 }
 
@@ -1664,6 +1681,117 @@ void SuiteRamp::Test()
 }
 
 
+// SuiteMsgAudioDsd
+
+SuiteMsgAudioDsd::SuiteMsgAudioDsd()
+    : Suite("Basic MsgAudio tests")
+{
+    MsgFactoryInitParams init;
+    init.SetMsgAudioPcmCount(kMsgCount, kMsgCount);
+    init.SetMsgAudioDsdCount(kMsgCount);
+    init.SetMsgSilenceCount(kMsgCount);
+    iMsgFactory = new MsgFactory(iInfoAggregator, init);
+}
+
+SuiteMsgAudioDsd::~SuiteMsgAudioDsd()
+{
+    delete iMsgFactory;
+}
+
+void SuiteMsgAudioDsd::Test()
+{
+    static const TUint dataSize = 1200;
+    Bwh data(dataSize, dataSize);
+    (void)memset((void*)data.Ptr(), 0xde, data.Bytes());
+
+    // Create a dsd msg using the same data at each supported sample rate.
+    // Check that lower sample rates report higher numbers of jiffies.
+    const TUint sampleRates[] = { 1411200, 2822400, 5644800 };
+    const TUint numRates = sizeof(sampleRates) / sizeof(sampleRates[0]);
+    TUint prevJiffies = 0xffffffff;
+    TUint jiffies;
+    MsgAudio* msg;
+    for (TUint i = 0; i<numRates; i++) {
+        msg = iMsgFactory->CreateMsgAudioDsd(data, 2, sampleRates[i], 0LL);
+        jiffies = msg->Jiffies();
+        msg->RemoveRef();
+        TEST(prevJiffies > jiffies);
+        prevJiffies = jiffies;
+    }
+
+    // Split dsd msg.  Check lengths of both parts are as expected.
+    msg = iMsgFactory->CreateMsgAudioDsd(data, 2, 2822400, Jiffies::kPerSecond);
+    static const TUint kSplitPos = 800;
+    jiffies = msg->Jiffies();
+    MsgAudio* remaining = msg->Split(kSplitPos);
+    TEST(remaining != nullptr);
+    TUint newJiffies = msg->Jiffies();
+    TUint remainingJiffies = remaining->Jiffies();
+    TEST(newJiffies > 0);
+    TEST(remainingJiffies > 0);
+    TEST(newJiffies < jiffies);
+    TEST(remainingJiffies < jiffies);
+    TEST(newJiffies + remainingJiffies == jiffies);
+    TEST(static_cast<MsgAudioDecoded*>(msg)->TrackOffset() == Jiffies::kPerSecond);
+    TEST(static_cast<MsgAudioDecoded*>(remaining)->TrackOffset() == static_cast<MsgAudioDecoded*>(msg)->TrackOffset() + msg->Jiffies());
+    remaining->RemoveRef();
+
+    // Split pcm msg at invalid positions (0, > Jiffies()).  Check these assert.
+    TEST_THROWS(remaining = msg->Split(0), AssertionFailed);
+    TEST_THROWS(remaining = msg->Split(msg->Jiffies()), AssertionFailed);
+    TEST_THROWS(remaining = msg->Split(msg->Jiffies() + 1), AssertionFailed);
+
+    // Clone dsd msg.  Check lengths of clone & parent match
+    MsgAudio* clone = msg->Clone();
+    jiffies = clone->Jiffies();
+    TEST(jiffies == msg->Jiffies());
+    TEST(static_cast<MsgAudioPcm*>(msg)->TrackOffset() == static_cast<MsgAudioPcm*>(clone)->TrackOffset());
+    msg->RemoveRef();
+    // confirm clone is usable after parent is destroyed
+    TEST(jiffies == clone->Jiffies());
+    clone->RemoveRef();
+
+    // Check creating zero-length msg asserts
+    TEST_THROWS(iMsgFactory->CreateMsgAudioDsd(Brx::Empty(), 2, 2822400, 0LL), AssertionFailed);
+
+    // convert to playable
+    msg = iMsgFactory->CreateMsgAudioDsd(data, 2, 2822400, 0LL);
+    auto playable = static_cast<MsgAudioDecoded*>(msg)->CreatePlayable();
+    ProcessorDsdBufTest processor;
+    playable->Read(processor);
+    Brn audio = processor.Buf();
+    for (TUint i = 0; i < audio.Bytes(); i++) {
+        TEST(audio[i] == 0xde);
+    }
+    playable->RemoveRef();
+
+    static const TByte kDsdSilence = 0x69; // FIXME - duplicated knowledge of format of silence
+    // MsgSilence supports dsd
+    jiffies = Jiffies::kPerMs * 3;
+    auto silence = iMsgFactory->CreateMsgSilence(jiffies, 2822400, 1, 2);
+    playable = silence->CreatePlayable();
+    playable->Read(processor);
+    audio.Set(processor.Buf());
+    for (TUint i = 0; i < audio.Bytes(); i++) {
+        TEST(audio[i] == kDsdSilence);
+    }
+    playable->RemoveRef();
+
+    // muted dsd converts to PlayableSilence
+    msg = iMsgFactory->CreateMsgAudioDsd(data, 2, 2822400, 0LL);
+    msg->SetMuted();
+    playable = static_cast<MsgAudioDecoded*>(msg)->CreatePlayable();
+    playable->Read(processor);
+    audio.Set(processor.Buf());
+    for (TUint i = 0; i < audio.Bytes(); i++) {
+        TEST(audio[i] == kDsdSilence);
+    }
+    playable->RemoveRef();
+
+    // clean destruction of class implies no leaked msgs
+}
+
+
 // SuiteAudioStream
 
 SuiteAudioStream::SuiteAudioStream()
@@ -2013,10 +2141,11 @@ void SuiteDecodedStream::Test()
     TBool lossless = true;
     TBool seekable = true;
     TBool live = true;
+    AudioFormat format = AudioFormat::Pcm;
     Media::Multiroom multiroom = Multiroom::Forbidden;
     SpeakerProfile profile(2);   // stereo
     IStreamHandler* handler = this;
-    MsgDecodedStream* msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, multiroom, profile, handler);
+    MsgDecodedStream* msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, format, multiroom, profile, handler);
     TEST(msg != nullptr);
     TEST(msg->StreamInfo().StreamId() == streamId);
     TEST(msg->StreamInfo().BitRate() == bitRate);
@@ -2029,6 +2158,7 @@ void SuiteDecodedStream::Test()
     TEST(msg->StreamInfo().Lossless() == lossless);
     TEST(msg->StreamInfo().Seekable() == seekable);
     TEST(msg->StreamInfo().Live() == live);
+    TEST(msg->StreamInfo().Format() == format);
     TEST(msg->StreamInfo().Multiroom() == multiroom);
     TEST(msg->StreamInfo().Profile() == profile);
     TEST(msg->StreamInfo().StreamHandler() == handler);
@@ -2062,9 +2192,10 @@ void SuiteDecodedStream::Test()
     lossless = false;
     seekable = false;
     live = false;
+    format = AudioFormat::Dsd;
     multiroom = Multiroom::Allowed;
     profile = SpeakerProfile(3, 2, 1);    // 5.1
-    msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, multiroom, profile, handler);
+    msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, format, multiroom, profile, handler);
     TEST(msg != nullptr);
     TEST(msg->StreamInfo().StreamId() == streamId);
     TEST(msg->StreamInfo().BitRate() == bitRate);
@@ -2077,6 +2208,7 @@ void SuiteDecodedStream::Test()
     TEST(msg->StreamInfo().Lossless() == lossless);
     TEST(msg->StreamInfo().Seekable() == seekable);
     TEST(msg->StreamInfo().Live() == live);
+    TEST(msg->StreamInfo().Format() == format);
     TEST(msg->StreamInfo().Multiroom() == multiroom);
     TEST(msg->StreamInfo().Profile() == profile);
     TEST(msg->StreamInfo().StreamHandler() == handler);
@@ -2152,6 +2284,14 @@ void SuiteMsgProcessor::Test()
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgPlayable);
     playable->RemoveRef();
 
+    MsgAudioDsd* audioDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 0);
+    TEST(audioDsd == static_cast<Msg*>(audioDsd)->Process(processor));
+    TEST(processor.LastMsgType() == ProcessorMsgType::EMsgAudioDsd);
+    playable = audioDsd->CreatePlayable();
+    TEST(playable == static_cast<Msg*>(playable)->Process(processor));
+    TEST(processor.LastMsgType() == ProcessorMsgType::EMsgPlayable);
+    playable->RemoveRef();
+
     TUint silenceSize = Jiffies::kPerMs;
     MsgSilence* silence = iMsgFactory->CreateMsgSilence(silenceSize, 44100, 8, 2);
     TEST(silence == static_cast<Msg*>(silence)->Process(processor));
@@ -2161,7 +2301,7 @@ void SuiteMsgProcessor::Test()
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgPlayable);
     playable->RemoveRef();
 
-    Msg* msg = iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, Multiroom::Allowed, SpeakerProfile(), nullptr);
+    Msg* msg = iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
     TEST(msg == msg->Process(processor));
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgDecodedStream);
     msg->RemoveRef();
@@ -2318,6 +2458,12 @@ Msg* ProcessorMsgType::ProcessMsg(MsgBitRate* aMsg)
 Msg* ProcessorMsgType::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iLastMsgType = ProcessorMsgType::EMsgAudioPcm;
+    return aMsg;
+}
+
+Msg* ProcessorMsgType::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastMsgType = ProcessorMsgType::EMsgAudioDsd;
     return aMsg;
 }
 
@@ -2807,7 +2953,7 @@ void SuiteMsgReservoir::Test()
     TEST(queue->EncodedStreamCount() == 1);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
-    msg = iMsgFactory->CreateMsgDecodedStream(3, 128, 16, 44100, 2, Brn("test codec"), 1<<16, 0, true, true, false, false, Multiroom::Allowed, SpeakerProfile(), nullptr);
+    msg = iMsgFactory->CreateMsgDecodedStream(3, 128, 16, 44100, 2, Brn("test codec"), 1<<16, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
     TEST(queue->DecodedStreamCount() == 0);
     queue->Enqueue(msg);
     TEST(queue->Jiffies() == 0);
@@ -2859,11 +3005,19 @@ void SuiteMsgReservoir::Test()
     (void)memset(encodedAudioData, 0xab, kDataBytes);
     Brn encodedAudioBuf(encodedAudioData, kDataBytes);
     audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, 2, 44100, 8, AudioDataEndian::Little, 0);
-    const TUint audioJiffies = audio->Jiffies();
+    const TUint audioPcmJiffies = audio->Jiffies();
     queue->Enqueue(audio);
-    TEST(queue->Jiffies() == jiffies + audioJiffies);
+    TEST(queue->Jiffies() == jiffies + audioPcmJiffies);
     jiffies = queue->Jiffies();
     TEST(queue->LastIn() == TestMsgReservoir::EMsgAudioPcm);
+    TEST(queue->LastOut() == TestMsgReservoir::ENone);
+
+    audio = iMsgFactory->CreateMsgAudioDsd(encodedAudioBuf, 2, 1411200, 0);
+    const TUint audioDsdJiffies = audio->Jiffies();
+    queue->Enqueue(audio);
+    TEST(queue->Jiffies() == jiffies + audioDsdJiffies);
+    jiffies = queue->Jiffies();
+    TEST(queue->LastIn() == TestMsgReservoir::EMsgAudioDsd);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
     msg = iMsgFactory->CreateMsgHalt();
@@ -2946,12 +3100,18 @@ void SuiteMsgReservoir::Test()
     msg = queue->Dequeue();
     TEST(queue->LastIn() == TestMsgReservoir::EMsgHalt);
     TEST(queue->LastOut() == TestMsgReservoir::EMsgAudioPcm);
-    TEST(queue->Jiffies() == jiffies - (audioJiffies/2));
+    TEST(queue->Jiffies() == jiffies - (audioPcmJiffies/2));
     jiffies = queue->Jiffies();
     msg->RemoveRef();
     msg = queue->Dequeue();
     TEST(queue->LastIn() == TestMsgReservoir::EMsgHalt);
     TEST(queue->LastOut() == TestMsgReservoir::EMsgAudioPcm);
+    TEST(queue->Jiffies() == audioDsdJiffies);
+    msg->RemoveRef();
+
+    msg = queue->Dequeue();
+    TEST(queue->LastIn() == TestMsgReservoir::EMsgHalt);
+    TEST(queue->LastOut() == TestMsgReservoir::EMsgAudioDsd);
     TEST(queue->Jiffies() == 0);
     msg->RemoveRef();
 
@@ -2983,10 +3143,15 @@ Msg* TestMsgReservoir::ProcessMsgAudioOut(MsgAudio* aMsgAudio)
     }
     return aMsgAudio;
 }
-    
+
 void TestMsgReservoir::ProcessMsgIn(MsgAudioPcm* /*aMsg*/)
 {
     iLastMsgIn = EMsgAudioPcm;
+}
+
+void TestMsgReservoir::ProcessMsgIn(MsgAudioDsd* /*aMsg*/)
+{
+    iLastMsgIn = EMsgAudioDsd;
 }
 
 void TestMsgReservoir::ProcessMsgIn(MsgSilence* /*aMsg*/)
@@ -3062,6 +3227,12 @@ void TestMsgReservoir::ProcessMsgIn(MsgQuit* /*aMsg*/)
 Msg* TestMsgReservoir::ProcessMsgOut(MsgAudioPcm* aMsg)
 {
     iLastMsgOut = EMsgAudioPcm;
+    return ProcessMsgAudioOut(aMsg);
+}
+
+Msg* TestMsgReservoir::ProcessMsgOut(MsgAudioDsd* aMsg)
+{
+    iLastMsgOut = EMsgAudioDsd;
     return ProcessMsgAudioOut(aMsg);
 }
 
@@ -3248,7 +3419,7 @@ Msg* SuitePipelineElement::CreateMsg(ProcessorMsgType::EMsgType aType)
     case ProcessorMsgType::EMsgWait:
         return iMsgFactory->CreateMsgWait();
     case ProcessorMsgType::EMsgDecodedStream:
-        return iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, Multiroom::Allowed, SpeakerProfile(), nullptr);
+        return iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
     case ProcessorMsgType::EMsgBitRate:
         return iMsgFactory->CreateMsgBitRate(1234);
     case ProcessorMsgType::EMsgAudioPcm:
@@ -3258,6 +3429,14 @@ Msg* SuitePipelineElement::CreateMsg(ProcessorMsgType::EMsgType aType)
         (void)memset(audioData, 0xab, kDataBytes);
         Brn audioBuf(audioData, kDataBytes);
         return iMsgFactory->CreateMsgAudioPcm(audioBuf, 2, 44100, 8, AudioDataEndian::Little, 0);
+    }
+    case ProcessorMsgType::EMsgAudioDsd:
+    {
+        const TUint kDataBytes = 256;
+        TByte audioData[kDataBytes];
+        (void)memset(audioData, 0xab, kDataBytes);
+        Brn audioBuf(audioData, kDataBytes);
+        return iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 0LL);
     }
     case ProcessorMsgType::EMsgSilence:
     {
@@ -3290,6 +3469,7 @@ void TestMsg()
     runner.Add(new SuiteRamp());
     runner.Add(new SuiteMsgAudio());
     runner.Add(new SuiteMsgPlayable());
+    runner.Add(new SuiteMsgAudioDsd());
     runner.Add(new SuiteAudioStream());
     runner.Add(new SuiteMetaText());
     runner.Add(new SuiteTrack());

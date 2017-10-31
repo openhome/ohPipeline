@@ -9,7 +9,7 @@
 namespace OpenHome {
 namespace Media {
 
-class IVolumeRamper
+class IVolumeMuterStepped
 {
 public:
     enum class Status
@@ -24,7 +24,7 @@ public:
     virtual Status BeginUnmute() = 0;
     virtual Status StepUnmute(TUint aJiffies) = 0;
     virtual void SetUnmuted() = 0;
-    virtual ~IVolumeRamper() {}
+    virtual ~IVolumeMuterStepped() {}
 };
 
 /*
@@ -39,7 +39,7 @@ class MuterVolume : public PipelineElement, public IPipelineElementUpstream, pub
     static const TUint kJiffiesUntilMute;
 public:
     MuterVolume(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
-    void Start(IVolumeRamper& aVolumeRamper);
+    void Start(IVolumeMuterStepped& aVolumeMuter);
 public: // from IMute
     void Mute() override;
     void Unmute() override;
@@ -48,6 +48,7 @@ private: // from IPipelineElementUpstream
 private: // IMsgProcessor
     Msg* ProcessMsg(MsgHalt* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
 private:
     void ProcessAudio(MsgAudio* aMsg);
@@ -64,7 +65,7 @@ private:
 private:
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstream;
-    IVolumeRamper* iVolumeRamper;
+    IVolumeMuterStepped* iVolumeMuter;
     Mutex iLock;
     Semaphore iSemMuted;
     State iState;
@@ -72,14 +73,14 @@ private:
     TBool iHalted;
 };
 
-class VolumeRamperStub : public IVolumeRamper
+class VolumeRamperStub : public IVolumeMuterStepped
 {
-private: // from IVolumeRamper
-    IVolumeRamper::Status BeginMute()                       { return IVolumeRamper::Status::eComplete; }
-    IVolumeRamper::Status StepMute(TUint /*aJiffies*/)      { return IVolumeRamper::Status::eComplete; }
+private: // from IVolumeMuterStepped
+    IVolumeMuterStepped::Status BeginMute()                       { return IVolumeMuterStepped::Status::eComplete; }
+    IVolumeMuterStepped::Status StepMute(TUint /*aJiffies*/)      { return IVolumeMuterStepped::Status::eComplete; }
     void SetMuted()                                         {}
-    IVolumeRamper::Status BeginUnmute()                     { return IVolumeRamper::Status::eComplete; }
-    IVolumeRamper::Status StepUnmute(TUint /*aJiffies*/)    { return IVolumeRamper::Status::eComplete; }
+    IVolumeMuterStepped::Status BeginUnmute()                     { return IVolumeMuterStepped::Status::eComplete; }
+    IVolumeMuterStepped::Status StepUnmute(TUint /*aJiffies*/)    { return IVolumeMuterStepped::Status::eComplete; }
     void SetUnmuted()                                       {}
 };
 

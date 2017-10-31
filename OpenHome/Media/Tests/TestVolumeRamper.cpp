@@ -1,9 +1,9 @@
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Private/SuiteUnitTest.h>
-#include <OpenHome/Media/Pipeline/AnalogBypassRamper.h>
+#include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <list>
 #include <limits.h>
@@ -15,20 +15,21 @@ using namespace OpenHome::Media;
 namespace OpenHome {
 namespace Media {
 
-class SuiteAnalogBypassRamper : public SuiteUnitTest
-                              , private IPipelineElementUpstream
-                              , private IMsgProcessor
-                              , private IAnalogBypassVolumeRamper
+class SuiteVolumeRamper : public SuiteUnitTest
+                        , private IPipelineElementUpstream
+                        , private IMsgProcessor
+                        , private IVolumeRamper
 {
     static const TUint kExpectedFlushId = 5;
     static const TUint kSampleRate = 44100;
     static const TUint kNumChannels = 2;
     static const SpeakerProfile kProfile;
-    static const TUint kVolumeMultiplierUninitialised = IAnalogBypassVolumeRamper::kMultiplierFull + 1;
+    static const TUint kVolumeMultiplierUninitialised = IVolumeRamper::kMultiplierFull + 1;
     static const TUint kRampDuration = Jiffies::kPerMs * 100;
+    static const TUint kRampDurationDsd = Jiffies::kPerMs * 20; // CreateAudioDsd outputs relatively short msgs
 public:
-    SuiteAnalogBypassRamper();
-    ~SuiteAnalogBypassRamper();
+    SuiteVolumeRamper();
+    ~SuiteVolumeRamper();
 private: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
@@ -49,10 +50,11 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
-private: // from IAnalogBypassVolumeRamper
+private: // from IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
     enum EMsgType
@@ -67,6 +69,7 @@ private:
        ,EMsgStreamInterrupted
        ,EMsgDecodedStream
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -79,6 +82,8 @@ private:
     Msg* CreateTrack();
     Msg* CreateDecodedStream();
     Msg* CreateAudio();
+    Msg* CreateAudioDsd();
+    Msg* ApplyRamp(MsgAudioDecoded* aAudio);
     void DrainCallback();
     void HaltCallback();
 private:
@@ -87,13 +92,14 @@ private:
     void TestMutesWhenDrainAcknowledged();
     void TestNoMuteWhenAudioBeforeHaltAcknowledged();
     void TestUnmutesOnNonBypassAudio();
-    void TestRampsVolumeDownOnAudioRampDown();
-    void TestRampsVolumeUpOnAudioRampUp();
+    void TestBypassRampsVolumeDownOnAudioRampDown();
+    void TestBypassRampsVolumeUpOnAudioRampUp();
+    void TestDsdRampsVolumeDownOnAudioRampDown();
 private:
     AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
     MsgFactory* iMsgFactory;
-    AnalogBypassRamper* iAnalogBypassRamper;
+    VolumeRamper* iVolumeRamper;
     EMsgType iNextMsg;
     EMsgType iLastPulledMsg;
     TUint64 iTrackOffset;
@@ -102,6 +108,7 @@ private:
     TBool iDeferDrainAcknowledgement;
     TBool iDeferHaltAcknowledgement;
     TBool iAnalogBypassEnable;
+    AudioFormat iFormat;
     Ramp::EDirection iRampDirection;
     TUint iRampPos;
     TUint iRampRemaining;
@@ -114,72 +121,77 @@ private:
 } // namespace OpenHome
 
 
-const SpeakerProfile SuiteAnalogBypassRamper::kProfile(2);
+const SpeakerProfile SuiteVolumeRamper::kProfile(2);
 
-SuiteAnalogBypassRamper::SuiteAnalogBypassRamper()
-    : SuiteUnitTest("AnalogBypassRamper")
+SuiteVolumeRamper::SuiteVolumeRamper()
+    : SuiteUnitTest("VolumeRamper")
 {
-    AddTest(MakeFunctor(*this, &SuiteAnalogBypassRamper::TestMsgsPass), "TestMsgsPass");
-    AddTest(MakeFunctor(*this, &SuiteAnalogBypassRamper::TestMutesWhenHaltAcknowledged), "TestMutesWhenHaltAcknowledged");
-    AddTest(MakeFunctor(*this, &SuiteAnalogBypassRamper::TestMutesWhenDrainAcknowledged), "TestMutesWhenDrainAcknowledged");
-    AddTest(MakeFunctor(*this, &SuiteAnalogBypassRamper::TestNoMuteWhenAudioBeforeHaltAcknowledged), "TestNoMuteWhenAudioBeforeHaltAcknowledged");
-    AddTest(MakeFunctor(*this, &SuiteAnalogBypassRamper::TestUnmutesOnNonBypassAudio), "TestUnmutesOnNonBypassAudio");
-    AddTest(MakeFunctor(*this, &SuiteAnalogBypassRamper::TestRampsVolumeDownOnAudioRampDown), "TestRampsVolumeDownOnAudioRampDown");
-    AddTest(MakeFunctor(*this, &SuiteAnalogBypassRamper::TestRampsVolumeUpOnAudioRampUp), "TestRampsVolumeUpOnAudioRampUp");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestMsgsPass), "TestMsgsPass");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestMutesWhenHaltAcknowledged), "TestMutesWhenHaltAcknowledged");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestMutesWhenDrainAcknowledged), "TestMutesWhenDrainAcknowledged");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestNoMuteWhenAudioBeforeHaltAcknowledged), "TestNoMuteWhenAudioBeforeHaltAcknowledged");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestUnmutesOnNonBypassAudio), "TestUnmutesOnNonBypassAudio");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestBypassRampsVolumeDownOnAudioRampDown), "TestBypassRampsVolumeDownOnAudioRampDown");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestBypassRampsVolumeUpOnAudioRampUp), "TestBypassRampsVolumeUpOnAudioRampUp");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestDsdRampsVolumeDownOnAudioRampDown), "TestDsdRampsVolumeDownOnAudioRampDown");
 }
 
-SuiteAnalogBypassRamper::~SuiteAnalogBypassRamper()
+SuiteVolumeRamper::~SuiteVolumeRamper()
 {
 }
 
-void SuiteAnalogBypassRamper::Setup()
+void SuiteVolumeRamper::Setup()
 {
     iTrackFactory = new TrackFactory(iInfoAggregator, 5);
     MsgFactoryInitParams init;
     init.SetMsgAudioPcmCount(2, 1);
+    init.SetMsgAudioDsdCount(2);
     init.SetMsgDrainCount(2);
     init.SetMsgHaltCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
-    iAnalogBypassRamper = new AnalogBypassRamper(*iMsgFactory, *this);
-    iAnalogBypassRamper->SetVolumeRamper(*this);
+    iVolumeRamper = new VolumeRamper(*iMsgFactory, *this);
+    iVolumeRamper->SetVolumeRamper(*this);
     iNextMsg = iLastPulledMsg = ENone;
     iTrackOffset = 0;
     iDrainAcknowledged = iHaltAcknowledged = iDeferDrainAcknowledgement = iDeferHaltAcknowledgement = false;
     iAnalogBypassEnable = false;
+    iFormat = AudioFormat::Pcm;
     iRampDirection = Ramp::ENone;
     iLastRampMultiplier = kVolumeMultiplierUninitialised;
     iLastDrainMsg = nullptr;
     iLastHaltMsg = nullptr;
 }
 
-void SuiteAnalogBypassRamper::TearDown()
+void SuiteVolumeRamper::TearDown()
 {
-    delete iAnalogBypassRamper;
+    delete iVolumeRamper;
     delete iMsgFactory;
     delete iTrackFactory;
 }
 
-Msg* SuiteAnalogBypassRamper::Pull()
+Msg* SuiteVolumeRamper::Pull()
 {
     switch (iNextMsg)
     {
     case EMsgMode:
         return iMsgFactory->CreateMsgMode(Brx::Empty());
     case EMsgDrain:
-        return iMsgFactory->CreateMsgDrain(MakeFunctor(*this, &SuiteAnalogBypassRamper::DrainCallback));
+        return iMsgFactory->CreateMsgDrain(MakeFunctor(*this, &SuiteVolumeRamper::DrainCallback));
     case EMsgStreamInterrupted:
         return iMsgFactory->CreateMsgStreamInterrupted();
     case EMsgDecodedStream:
-        return iMsgFactory->CreateMsgDecodedStream(1, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, iAnalogBypassEnable, Multiroom::Allowed, kProfile, nullptr);
+        return iMsgFactory->CreateMsgDecodedStream(1, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, iAnalogBypassEnable, iFormat, Multiroom::Allowed, kProfile, nullptr);
     case EMsgAudioPcm:
         return CreateAudio();
+    case EMsgAudioDsd:
+        return CreateAudioDsd();
     case EMsgSilence:
     {
         TUint size = Jiffies::kPerMs * 3;
         return iMsgFactory->CreateMsgSilence(size, kSampleRate, 24, kNumChannels);
     }
     case EMsgHalt:
-        return iMsgFactory->CreateMsgHalt(42, MakeFunctor(*this, &SuiteAnalogBypassRamper::HaltCallback));
+        return iMsgFactory->CreateMsgHalt(42, MakeFunctor(*this, &SuiteVolumeRamper::HaltCallback));
     case EMsgQuit:
         return iMsgFactory->CreateMsgQuit();
     default:
@@ -188,19 +200,19 @@ Msg* SuiteAnalogBypassRamper::Pull()
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgMode* aMsg)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgMode* aMsg)
 {
     iLastPulledMsg = EMsgMode;
     return aMsg;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgTrack* /*aMsg*/)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgTrack* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgDrain* aMsg)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgDrain* aMsg)
 {
     iLastPulledMsg = EMsgDrain;
     if (iDeferDrainAcknowledgement) {
@@ -211,37 +223,37 @@ Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgDrain* aMsg)
     return aMsg;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgDelay* /*aMsg*/)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgDelay* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgEncodedStream* /*aMsg*/)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgEncodedStream* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgMetaText* /*aMsg*/)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgMetaText* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgStreamInterrupted* aMsg)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgStreamInterrupted* aMsg)
 {
     iLastPulledMsg = EMsgStreamInterrupted;
     return aMsg;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgHalt* aMsg)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgHalt* aMsg)
 {
     iLastPulledMsg = EMsgHalt;
     if (iDeferHaltAcknowledgement) {
@@ -252,63 +264,69 @@ Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgHalt* aMsg)
     return aMsg;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgFlush* /*aMsg*/)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgFlush* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgWait* /*aMsg*/)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgWait* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgDecodedStream* aMsg)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgDecodedStream* aMsg)
 {
     iLastPulledMsg = EMsgDecodedStream;
     return aMsg;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgBitRate* /*aMsg*/)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgBitRate* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgAudioPcm* aMsg)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iLastPulledMsg = EMsgAudioPcm;
     return aMsg;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgSilence* aMsg)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioDsd;
+    return aMsg;
+}
+
+Msg* SuiteVolumeRamper::ProcessMsg(MsgSilence* aMsg)
 {
     iLastPulledMsg = EMsgSilence;
     return aMsg;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgPlayable* /*aMsg*/)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgPlayable* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteAnalogBypassRamper::ProcessMsg(MsgQuit* aMsg)
+Msg* SuiteVolumeRamper::ProcessMsg(MsgQuit* aMsg)
 {
     iLastPulledMsg = EMsgQuit;
     return aMsg;
 }
 
-void SuiteAnalogBypassRamper::ApplyVolumeMultiplier(TUint aValue)
+void SuiteVolumeRamper::ApplyVolumeMultiplier(TUint aValue)
 {
     iLastRampMultiplier = aValue;
 }
 
-void SuiteAnalogBypassRamper::PullNext(EMsgType aExpectedMsg)
+void SuiteVolumeRamper::PullNext(EMsgType aExpectedMsg)
 {
     iNextMsg = aExpectedMsg;
-    Msg* msg = static_cast<IPipelineElementUpstream*>(iAnalogBypassRamper)->Pull();
+    Msg* msg = static_cast<IPipelineElementUpstream*>(iVolumeRamper)->Pull();
     msg = msg->Process(*this);
     if (msg != nullptr) {
         msg->RemoveRef();
@@ -325,6 +343,7 @@ void SuiteAnalogBypassRamper::PullNext(EMsgType aExpectedMsg)
             , "MsgStreamInterrupted"
             , "MsgDecodedStream"
             , "MsgAudioPcm"
+            , "MsgAudioDsd"
             , "MsgSilence"
             , "MsgHalt"
             , "MsgFlush"
@@ -335,7 +354,7 @@ void SuiteAnalogBypassRamper::PullNext(EMsgType aExpectedMsg)
     TEST(iLastPulledMsg == aExpectedMsg);
 }
 
-Msg* SuiteAnalogBypassRamper::CreateAudio()
+Msg* SuiteVolumeRamper::CreateAudio()
 {
     static const TUint kDataBytes = 3 * 1024;
     TByte encodedAudioData[kDataBytes];
@@ -344,38 +363,55 @@ Msg* SuiteAnalogBypassRamper::CreateAudio()
     MsgAudioPcm* audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, kNumChannels, kSampleRate, 24, AudioDataEndian::Little, iTrackOffset);
     iTrackOffset += audio->Jiffies();
 
+    return ApplyRamp(audio);
+}
+
+Msg* SuiteVolumeRamper::CreateAudioDsd()
+{
+    TByte audioData[512];
+    (void)memset(audioData, 0x7f, sizeof audioData);
+    Brn audioBuf(audioData, sizeof audioData);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
+    iTrackOffset += audio->Jiffies();
+
+    return ApplyRamp(audio);
+}
+
+Msg* SuiteVolumeRamper::ApplyRamp(MsgAudioDecoded* aAudio)
+{
     if (iRampDirection != Ramp::ENone) {
-        if (iRampRemaining < audio->Jiffies()) {
-            audio->Split(iRampRemaining)->RemoveRef();
+        if (iRampRemaining < aAudio->Jiffies()) {
+            aAudio->Split(iRampRemaining)->RemoveRef();
         }
         MsgAudio* split = nullptr;
-        iRampPos = audio->SetRamp(iRampPos, iRampRemaining, iRampDirection, split);
+        iRampPos = aAudio->SetRamp(iRampPos, iRampRemaining, iRampDirection, split);
         ASSERT(split == nullptr);
         if (iRampRemaining == 0) {
             iRampDirection = Ramp::ENone;
         }
     }
 
-    return audio;
+    return aAudio;
 }
 
-void SuiteAnalogBypassRamper::DrainCallback()
+void SuiteVolumeRamper::DrainCallback()
 {
     iDrainAcknowledged = true;
 }
 
-void SuiteAnalogBypassRamper::HaltCallback()
+void SuiteVolumeRamper::HaltCallback()
 {
     iHaltAcknowledged = true;
 }
 
-void SuiteAnalogBypassRamper::TestMsgsPass()
+void SuiteVolumeRamper::TestMsgsPass()
 {
     const EMsgType msgs[] = { EMsgMode
                             , EMsgDrain
                             , EMsgStreamInterrupted
                             , EMsgDecodedStream
                             , EMsgAudioPcm
+                            , EMsgAudioDsd
                             , EMsgSilence
                             , EMsgHalt
                             , EMsgQuit
@@ -386,7 +422,7 @@ void SuiteAnalogBypassRamper::TestMsgsPass()
     }
 }
 
-void SuiteAnalogBypassRamper::TestMutesWhenHaltAcknowledged()
+void SuiteVolumeRamper::TestMutesWhenHaltAcknowledged()
 {
     TEST(!iHaltAcknowledged);
     TEST(iLastRampMultiplier == kVolumeMultiplierUninitialised);
@@ -397,10 +433,10 @@ void SuiteAnalogBypassRamper::TestMutesWhenHaltAcknowledged()
     iLastHaltMsg->ReportHalted();
     iLastHaltMsg->RemoveRef();
     TEST(iHaltAcknowledged);
-    TEST(iLastRampMultiplier == IAnalogBypassVolumeRamper::kMultiplierZero);
+    TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierZero);
 }
 
-void SuiteAnalogBypassRamper::TestMutesWhenDrainAcknowledged()
+void SuiteVolumeRamper::TestMutesWhenDrainAcknowledged()
 {
     TEST(!iDrainAcknowledged);
     TEST(iLastRampMultiplier == kVolumeMultiplierUninitialised);
@@ -411,11 +447,12 @@ void SuiteAnalogBypassRamper::TestMutesWhenDrainAcknowledged()
     iLastDrainMsg->ReportDrained();
     iLastDrainMsg->RemoveRef();
     TEST(iDrainAcknowledged);
-    TEST(iLastRampMultiplier == IAnalogBypassVolumeRamper::kMultiplierZero);
+    TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierZero);
 }
 
-void SuiteAnalogBypassRamper::TestNoMuteWhenAudioBeforeHaltAcknowledged()
+void SuiteVolumeRamper::TestNoMuteWhenAudioBeforeHaltAcknowledged()
 {
+/*
     iDeferHaltAcknowledgement = true;
     PullNext(EMsgHalt);
     TEST(!iHaltAcknowledged);
@@ -425,19 +462,20 @@ void SuiteAnalogBypassRamper::TestNoMuteWhenAudioBeforeHaltAcknowledged()
     iLastHaltMsg->RemoveRef();
     TEST(iHaltAcknowledged);
     TEST(iLastRampMultiplier == kVolumeMultiplierUninitialised);
+*/
 }
 
-void SuiteAnalogBypassRamper::TestUnmutesOnNonBypassAudio()
+void SuiteVolumeRamper::TestUnmutesOnNonBypassAudio()
 {
     PullNext(EMsgDecodedStream);
     PullNext(EMsgHalt);
     TEST(iHaltAcknowledged);
-    TEST(iLastRampMultiplier == IAnalogBypassVolumeRamper::kMultiplierZero);
+    TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierZero);
     PullNext(EMsgAudioPcm);
-    TEST(iLastRampMultiplier == IAnalogBypassVolumeRamper::kMultiplierFull);
+    TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierFull);
 }
 
-void SuiteAnalogBypassRamper::TestRampsVolumeDownOnAudioRampDown()
+void SuiteVolumeRamper::TestBypassRampsVolumeDownOnAudioRampDown()
 {
     iRampDirection = Ramp::EDown;
     iRampPos = Ramp::kMax;
@@ -452,10 +490,10 @@ void SuiteAnalogBypassRamper::TestRampsVolumeDownOnAudioRampDown()
 
     } while (iRampRemaining > 0);
     PullNext(EMsgHalt);
-    TEST(iLastRampMultiplier == IAnalogBypassVolumeRamper::kMultiplierZero);
+    TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierZero);
 }
 
-void SuiteAnalogBypassRamper::TestRampsVolumeUpOnAudioRampUp()
+void SuiteVolumeRamper::TestBypassRampsVolumeUpOnAudioRampUp()
 {
     iRampDirection = Ramp::EUp;
     iRampPos = Ramp::kMin;
@@ -471,14 +509,32 @@ void SuiteAnalogBypassRamper::TestRampsVolumeUpOnAudioRampUp()
 
     } while (iRampRemaining > 0);
     PullNext(EMsgAudioPcm);
-    TEST(IAnalogBypassVolumeRamper::kMultiplierFull - iLastRampMultiplier < IAnalogBypassVolumeRamper::kMultiplierFull/8);
+    TEST(IVolumeRamper::kMultiplierFull - iLastRampMultiplier < IVolumeRamper::kMultiplierFull/8);
+}
+
+void SuiteVolumeRamper::TestDsdRampsVolumeDownOnAudioRampDown()
+{
+    iRampDirection = Ramp::EDown;
+    iRampPos = Ramp::kMax;
+    iRampRemaining = kRampDurationDsd;
+    iAnalogBypassEnable = false;
+    iFormat = AudioFormat::Dsd;
+    PullNext(EMsgDecodedStream);
+    TUint prevRampMultiplier = iLastRampMultiplier;
+    do {
+        PullNext(EMsgAudioDsd);
+        TEST(prevRampMultiplier > iLastRampMultiplier);
+        prevRampMultiplier = iLastRampMultiplier;
+
+    } while (iRampRemaining > 0);
+    PullNext(EMsgHalt);
+    TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierZero);
 }
 
 
-
-void TestAnalogBypassRamper()
+void TestVolumeRamper()
 {
     Runner runner("Analog bypass ramper tests\n");
-    runner.Add(new SuiteAnalogBypassRamper());
+    runner.Add(new SuiteVolumeRamper());
     runner.Run();
 }

@@ -8,7 +8,7 @@
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Media/MuteManager.h>
-#include <OpenHome/Media/Pipeline/AnalogBypassRamper.h>
+#include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
 
 #include <functional>
@@ -354,15 +354,15 @@ private:
     std::vector<std::reference_wrapper<IUnityGainObserver>> iObservers;
 };
 
-class AnalogBypassRamper : public IVolume
-                         , public Media::IAnalogBypassVolumeRamper
-                         , private INonCopyable
+class VolumeRamperPipeline : public IVolume
+                           , public Media::IVolumeRamper
+                           , private INonCopyable
 {
 public:
-    AnalogBypassRamper(IVolume& aVolume);
+    VolumeRamperPipeline(IVolume& aVolume);
 private: // from IVolume
     void SetVolume(TUint aValue) override;
-private: // from Media::IAnalogBypassVolumeRamper
+private: // from Media::IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
     void SetVolume();
@@ -373,24 +373,24 @@ private:
     TUint iMultiplier;
 };
 
-class VolumeRamper : public IVolume
-                   , public Media::IVolumeRamper
-                   , private INonCopyable
+class VolumeMuterStepped : public IVolume
+                         , public Media::IVolumeMuterStepped
+                         , private INonCopyable
 {
-    friend class SuiteVolumeRamper;
+    friend class SuiteVolumeMuterStepped;
 
     static const TUint kJiffiesPerVolumeStep;
 public:
-    VolumeRamper(IVolume& aVolume, TUint aMilliDbPerStep, TUint aThreadPriority);
-    ~VolumeRamper();
+    VolumeMuterStepped(IVolume& aVolume, TUint aMilliDbPerStep, TUint aThreadPriority);
+    ~VolumeMuterStepped();
 private: // from IVolume
     void SetVolume(TUint aValue) override;
-private: // from Media::IVolumeRamper
-    Media::IVolumeRamper::Status BeginMute() override;
-    Media::IVolumeRamper::Status StepMute(TUint aJiffies) override;
+private: // from Media::IVolumeMuterStepped
+    Media::IVolumeMuterStepped::Status BeginMute() override;
+    Media::IVolumeMuterStepped::Status StepMute(TUint aJiffies) override;
     void SetMuted() override;
-    Media::IVolumeRamper::Status BeginUnmute() override;
-    Media::IVolumeRamper::Status StepUnmute(TUint aJiffies) override;
+    Media::IVolumeMuterStepped::Status BeginUnmute() override;
+    Media::IVolumeMuterStepped::Status StepUnmute(TUint aJiffies) override;
     void SetUnmuted() override;
 private:
     inline TUint VolumeStepLocked() const;
@@ -572,8 +572,8 @@ class IVolumeManager : public IVolumeReporter
                      , public IVolumeSourceOffset
                      , public IVolumeSurroundBoost
                      , public IVolumeSourceUnityGain
-                     , public Media::IAnalogBypassVolumeRamper
                      , public Media::IVolumeRamper
+                     , public Media::IVolumeMuterStepped
                      , public IVolumeMuter
                      , public Media::IMute
 {
@@ -620,14 +620,14 @@ private: // from IBalance
     void SetBalance(TInt aBalance) override;
 private: // from IFade
     void SetFade(TInt aFade) override;
-private: // from Media::IAnalogBypassVolumeRamper
-    void ApplyVolumeMultiplier(TUint aValue) override;
 private: // from Media::IVolumeRamper
-    Media::IVolumeRamper::Status BeginMute() override;
-    Media::IVolumeRamper::Status StepMute(TUint aJiffies) override;
+    void ApplyVolumeMultiplier(TUint aValue) override;
+private: // from Media::IVolumeMuterStepped
+    Media::IVolumeMuterStepped::Status BeginMute() override;
+    Media::IVolumeMuterStepped::Status StepMute(TUint aJiffies) override;
     void SetMuted() override;
-    Media::IVolumeRamper::Status BeginUnmute() override;
-    Media::IVolumeRamper::Status StepUnmute(TUint aJiffies) override;
+    Media::IVolumeMuterStepped::Status BeginUnmute() override;
+    Media::IVolumeMuterStepped::Status StepUnmute(TUint aJiffies) override;
     void SetUnmuted() override;
 private: // from IVolumeMuter
     void SetVolumeMuted(TBool aMuted) override;
@@ -637,8 +637,8 @@ private: // from Media::IMute
 private:
     VolumeConfig& iVolumeConfig;
     VolumeMuter* iVolumeMuter;
-    VolumeRamper* iVolumeRamper;
-    AnalogBypassRamper* iAnalogBypassRamper;
+    VolumeMuterStepped* iVolumeMuterStepped;
+    VolumeRamperPipeline* iVolumeRamperPipeline;
     VolumeSourceUnityGain* iVolumeSourceUnityGain;
     VolumeUnityGain* iVolumeUnityGain;
     VolumeSurroundBoost* iVolumeSurroundBoost;

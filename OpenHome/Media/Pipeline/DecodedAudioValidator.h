@@ -26,6 +26,9 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
+private:
+    void ProcessAudio(MsgAudioDecoded* aMsg);
 private:
     IPipelineElementUpstream* iUpstream;
     IPipelineElementDownstream* iDownstream;

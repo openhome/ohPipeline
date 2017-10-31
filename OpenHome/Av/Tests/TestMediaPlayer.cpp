@@ -213,6 +213,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     pipelineInit->SetStarvationRamperMinSize(100 * Jiffies::kPerMs); // larger StarvationRamper size useful for desktop
                                                                      // platforms with slightly unpredictable thread scheduling
     pipelineInit->SetGorgerDuration(pipelineInit->DecodedReservoirJiffies());
+    pipelineInit->SetDsdSupported(true);
     auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName));
     mpInit->EnableConfigApp();
     iMediaPlayer = new MediaPlayer(aDvStack, *iDevice, *iRamStore,
@@ -385,6 +386,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewAac(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAdts(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAlacApple(iMediaPlayer->MimeTypes()));
+    iMediaPlayer->Add(Codec::CodecFactory::NewDsd(iMediaPlayer->MimeTypes()));
+    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDff(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewPcm());
     iMediaPlayer->Add(Codec::CodecFactory::NewVorbis(iMediaPlayer->MimeTypes()));
     // RAOP source must be added towards end of source list.

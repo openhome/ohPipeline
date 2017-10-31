@@ -22,6 +22,7 @@ private:
     AudioDiscarder(MsgQueueLite& aQueue, TUint aMaxJiffies, TUint64& aTrackOffset);
     TUint Process();
     MsgAudio* ProcessAudio(MsgAudio* aMsg);
+    Msg* ProcessAudioDecoded(MsgAudioDecoded* aMsg);
 private: // from IMsgProcessor
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgTrack* aMsg) override;
@@ -37,6 +38,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -84,6 +86,12 @@ MsgAudio* AudioDiscarder::ProcessAudio(MsgAudio* aMsg)
     }
     return aMsg;
 }
+Msg* AudioDiscarder::ProcessAudioDecoded(MsgAudioDecoded* aMsg)
+{
+    auto audio = static_cast<MsgAudioDecoded*>(ProcessAudio(aMsg));
+    iTrackOffset = audio->TrackOffset() + audio->Jiffies();
+    return audio;
+}
 Msg* AudioDiscarder::ProcessMsg(MsgMode* aMsg)                { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgTrack* aMsg)               { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgDrain* aMsg)               { ASSERTS(); return aMsg; }
@@ -99,9 +107,11 @@ Msg* AudioDiscarder::ProcessMsg(MsgDecodedStream* aMsg)       { ASSERTS(); retur
 Msg* AudioDiscarder::ProcessMsg(MsgBitRate* aMsg)             { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgAudioPcm* aMsg)
 {
-    MsgAudioPcm* audio = static_cast<MsgAudioPcm*>(ProcessAudio(aMsg));
-    iTrackOffset = audio->TrackOffset() + audio->Jiffies();
-    return audio;
+    return ProcessAudioDecoded(aMsg);
+}
+Msg* AudioDiscarder::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessAudioDecoded(aMsg);
 }
 Msg* AudioDiscarder::ProcessMsg(MsgSilence* aMsg)
 {
@@ -127,6 +137,7 @@ const TUint VariableDelayBase::kSupportedMsgTypes =   eMode
                                                     | eDecodedStream
                                                     | eBitRate
                                                     | eAudioPcm
+                                                    | eAudioDsd
                                                     | eSilence
                                                     | eQuit;
 
@@ -323,9 +334,10 @@ MsgDecodedStream* VariableDelayBase::UpdateDecodedStream(TUint64 aTrackOffset)
     auto s = iDecodedStream->StreamInfo();
     const auto sampleStart = Jiffies::ToSamples(aTrackOffset, s.SampleRate());
     auto stream = iMsgFactory.CreateMsgDecodedStream(s.StreamId(), s.BitRate(), s.BitDepth(), s.SampleRate(),
-        s.NumChannels(), s.CodecName(), s.TrackLength(),
-        sampleStart, s.Lossless(), s.Seekable(), s.Live(),
-        s.AnalogBypass(), s.Multiroom(), s.Profile(), s.StreamHandler());
+                                                     s.NumChannels(), s.CodecName(), s.TrackLength(),
+                                                     sampleStart, s.Lossless(), s.Seekable(), s.Live(),
+                                                     s.AnalogBypass(), s.Format(), s.Multiroom(),
+                                                     s.Profile(), s.StreamHandler());
     iDecodedStream->RemoveRef();
     iDecodedStream = stream;
     iDecodedStream->AddRef();
@@ -417,6 +429,16 @@ Msg* VariableDelayBase::ProcessMsg(MsgDecodedStream* aMsg)
 
 Msg* VariableDelayBase::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    return ProcessAudioDecoded(aMsg);
+}
+
+Msg* VariableDelayBase::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessAudioDecoded(aMsg);
+}
+
+Msg* VariableDelayBase::ProcessAudioDecoded(MsgAudioDecoded* aMsg)
+{
     if (iWaitForAudioBeforeGeneratingSilence) {
         iWaitForAudioBeforeGeneratingSilence = false;
         iQueue.EnqueueAtHead(aMsg);
@@ -427,7 +449,7 @@ Msg* VariableDelayBase::ProcessMsg(MsgAudioPcm* aMsg)
         iStatus = ERampedDown;
     }
 
-    MsgAudioPcm* msg = aMsg;
+    auto msg = aMsg;
     switch (iStatus)
     {
     case EStarting:

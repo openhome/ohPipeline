@@ -3,7 +3,7 @@
 #include <OpenHome/Media/Pipeline/Skipper.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <list>
 #include <limits.h>
@@ -53,6 +53,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -70,6 +71,7 @@ private:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -83,6 +85,7 @@ private:
     Msg* CreateEncodedStream();
     Msg* CreateDecodedStream();
     Msg* CreateAudio();
+    Msg* CreateAudioDsd();
     Msg* CreateSilence(TUint aJiffies);
     void TestAllMsgsPassWhileNotSkipping();
     void TestRemoveStreamRampAudioRampsDown();
@@ -344,6 +347,13 @@ Msg* SuiteSkipper::ProcessMsg(MsgAudioPcm* aMsg)
     return playable;
 }
 
+Msg* SuiteSkipper::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioDsd;
+    iJiffies += aMsg->Jiffies();
+    return aMsg;
+}
+
 Msg* SuiteSkipper::ProcessMsg(MsgSilence* aMsg)
 {
     iLastPulledMsg = EMsgSilence;
@@ -395,7 +405,7 @@ Msg* SuiteSkipper::CreateEncodedStream()
 
 Msg* SuiteSkipper::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, Multiroom::Allowed, kProfile, this);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this);
 }
 
 Msg* SuiteSkipper::CreateAudio()
@@ -405,6 +415,16 @@ Msg* SuiteSkipper::CreateAudio()
     (void)memset(encodedAudioData, 0x7f, kDataBytes);
     Brn encodedAudioBuf(encodedAudioData, kDataBytes);
     MsgAudioPcm* audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, kNumChannels, kSampleRate, 24, AudioDataEndian::Little, iTrackOffset);
+    iTrackOffset += audio->Jiffies();
+    return audio;
+}
+
+Msg* SuiteSkipper::CreateAudioDsd()
+{
+    TByte audioData[128];
+    (void)memset(audioData, 0x7f, sizeof audioData);
+    Brn audioBuf(audioData, sizeof audioData);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
     iTrackOffset += audio->Jiffies();
     return audio;
 }
@@ -426,6 +446,7 @@ void SuiteSkipper::TestAllMsgsPassWhileNotSkipping()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgStreamInterrupted());
     iPendingMsgs.push_back(CreateDecodedStream());
     iPendingMsgs.push_back(CreateAudio());
+    iPendingMsgs.push_back(CreateAudioDsd());
     iPendingMsgs.push_back(CreateSilence(Jiffies::kPerMs * 3));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgBitRate(100));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());
@@ -443,6 +464,7 @@ void SuiteSkipper::TestAllMsgsPassWhileNotSkipping()
     PullNext(EMsgStreamInterrupted);
     PullNext(EMsgDecodedStream);
     PullNext(EMsgAudioPcm);
+    PullNext(EMsgAudioDsd);
     PullNext(EMsgSilence);
     PullNext(EMsgBitRate);
     PullNext(EMsgHalt);

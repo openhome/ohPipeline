@@ -3,7 +3,7 @@
 #include <OpenHome/Media/Utils/Silencer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <list>
 
@@ -64,6 +64,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -120,7 +121,7 @@ void SuiteSilencer::Setup()
     MsgFactoryInitParams init;
     init.SetMsgAudioPcmCount(10, 10);
     init.SetMsgSilenceCount(10);
-    init.SetMsgPlayableCount(10, 10);
+    init.SetMsgPlayableCount(10, 0, 10);
     init.SetMsgDecodedStreamCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iSilencer = new Silencer(*iMsgFactory, *this, kPriorityNormal, kSilenceJiffies, 2);
@@ -255,7 +256,7 @@ MsgPlayable* SuiteSilencer::CreateAudio()
 
 Msg* SuiteSilencer::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(0, 128000, iBitDepth, iSampleRate, iNumChannels, Brn("dummy codec"), (TUint64)1<<31, 0, false, false, false, false, Multiroom::Allowed, iProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(0, 128000, iBitDepth, iSampleRate, iNumChannels, Brn("dummy codec"), (TUint64)1<<31, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, iProfile, nullptr);
 }
 
 void SuiteSilencer::PullNext(EMsgType aExpectedMsg)
@@ -371,6 +372,12 @@ Msg* SuiteSilencer::ProcessMsg(MsgBitRate* /*aMsg*/)
 }
 
 Msg* SuiteSilencer::ProcessMsg(MsgAudioPcm* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
+Msg* SuiteSilencer::ProcessMsg(MsgAudioDsd* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;

@@ -5,7 +5,7 @@
 #include <OpenHome/Media/Pipeline/EncodedAudioReservoir.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/ClockPuller.h>
 #include <OpenHome/Functor.h>
 
@@ -51,6 +51,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -61,6 +62,7 @@ private:
     {
         ENone
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgPlayable
        ,EMsgDecodedStream
        ,EMsgBitRate
@@ -139,6 +141,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -219,6 +222,7 @@ private:
         , EMsgDecodedStream
         , EMsgBitRate
         , EMsgAudioPcm
+        , EMsgAudioDsd
         , EMsgSilence
         , EMsgPlayable
         , EMsgQuit
@@ -238,6 +242,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -462,7 +467,7 @@ TBool SuiteAudioReservoir::EnqueueMsg(EMsgType aType)
     }
     case EMsgDecodedStream:
         iTrackOffset = 0;
-        msg = iMsgFactory->CreateMsgDecodedStream(0, 0, 16, kSampleRate, kNumChannels, Brx::Empty(), 0, 0, false, false, false, false, Multiroom::Allowed, kProfile, nullptr);
+        msg = iMsgFactory->CreateMsgDecodedStream(0, 0, 16, kSampleRate, kNumChannels, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
         break;
     case EMsgBitRate:
         msg = iMsgFactory->CreateMsgBitRate(1);
@@ -626,6 +631,15 @@ Msg* SuiteAudioReservoir::ProcessMsg(MsgAudioPcm* aMsg)
     return nullptr;
 }
 
+Msg* SuiteAudioReservoir::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastMsg = EMsgAudioDsd;
+    iLastPulledJiffies = aMsg->Jiffies();
+    iLastPulledTrackPos += iLastPulledJiffies;
+    aMsg->RemoveRef();
+    return nullptr;
+}
+
 Msg* SuiteAudioReservoir::ProcessMsg(MsgSilence* /*aMsg*/)
 {
     ASSERTS(); // MsgSilence not used in this test
@@ -748,6 +762,7 @@ Msg* SuiteEncodedReservoir::ProcessMsg(MsgWait* aMsg)              { ASSERTS(); 
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgDecodedStream* aMsg)     { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgBitRate* aMsg)           { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgAudioPcm* aMsg)          { ASSERTS(); return aMsg; }
+Msg* SuiteEncodedReservoir::ProcessMsg(MsgAudioDsd* aMsg)          { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgSilence* aMsg)           { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgPlayable* aMsg)          { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgQuit* aMsg)              { ASSERTS(); return aMsg; }
@@ -1044,6 +1059,12 @@ Msg* SuiteGorger::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* SuiteGorger::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioDsd;
+    return aMsg;
+}
+
 Msg* SuiteGorger::ProcessMsg(MsgSilence* aMsg)
 {
     iLastPulledMsg = EMsgSilence;
@@ -1098,7 +1119,7 @@ Msg* SuiteGorger::CreateTrack()
 
 Msg* SuiteGorger::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, Multiroom::Allowed, kProfile, this);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this);
 }
 
 Msg* SuiteGorger::CreateAudio()

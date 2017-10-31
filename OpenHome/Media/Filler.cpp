@@ -507,6 +507,12 @@ Msg* Filler::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* Filler::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    ASSERTS();
+    return aMsg;
+}
+
 Msg* Filler::ProcessMsg(MsgSilence* aMsg)
 {
     ASSERTS();

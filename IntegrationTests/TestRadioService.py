@@ -3,7 +3,7 @@
 
 Parameters:
     arg#1 - DUT ['local' for internal SoftPlayer on loopback]
-    arg#2 - test mode 
+    arg#2 - test mode
               - all       execute all tests
               - fixed     check reporting of fixed data
               - presets   check setup/reporting of preset channels and ID lists
@@ -14,9 +14,9 @@ Suite of tests to check the operation of the Radio service. Checks all aspects
 of this service EXCEPT actual playback of the radio channels (which is tested
 in the TestRadioPlayback test script)
 """
-import _Paths
+import _Paths   # NOQA
 import CommonRadioService as BASE
-import _ProtocolInfo      as ProtocolInfo
+import _ProtocolInfo as ProtocolInfo
 import sys
 
 
@@ -26,7 +26,7 @@ class TestRadioService( BASE.CommonRadioService ):
         BASE.CommonRadioService.__init__( self )
         self.doc          = __doc__
         self.tuneInBrowse = 'Browse.ashx?c=presets&formats=aac,ogg,hls'
-        self.protocolInfo = ProtocolInfo.kProtocolInfo
+        self.protocolInfo = ProtocolInfo.ProtocolInfo()
 
 
 if __name__ == '__main__':

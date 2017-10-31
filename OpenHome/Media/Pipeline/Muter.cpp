@@ -20,6 +20,7 @@ const TUint Muter::kSupportedMsgTypes =   eMode
                                         | eHalt
                                         | eDecodedStream
                                         | eAudioPcm
+                                        | eAudioDsd
                                         | eSilence
                                         | eQuit;
 
@@ -159,6 +160,38 @@ Msg* Muter::ProcessMsg(MsgHalt* aMsg)
 
 Msg* Muter::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    return ProcessAudio(aMsg);
+}
+
+Msg* Muter::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessAudio(aMsg);
+}
+
+Msg* Muter::ProcessMsg(MsgSilence* aMsg)
+{
+    switch (iState)
+    {
+    case eRunning:
+    case eMuting:
+    case eMuted:
+        break;
+    case eRampingDown:
+        iState = eMuting;
+        iRemainingRampSize = 0;
+        iCurrentRampValue = Ramp::kMin;
+        break;
+    case eRampingUp:
+        iState = eRunning;
+        iRemainingRampSize = 0;
+        iCurrentRampValue = Ramp::kMax;
+        break;
+    }
+    return aMsg;
+}
+
+Msg* Muter::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     iHalting = iHalted = false;
     MsgAudio* msg = aMsg;
     switch (iState)
@@ -209,28 +242,6 @@ Msg* Muter::ProcessMsg(MsgAudioPcm* aMsg)
     }
 
     return msg;
-}
-
-Msg* Muter::ProcessMsg(MsgSilence* aMsg)
-{
-    switch (iState)
-    {
-    case eRunning:
-    case eMuting:
-    case eMuted:
-        break;
-    case eRampingDown:
-        iState = eMuting;
-        iRemainingRampSize = 0;
-        iCurrentRampValue = Ramp::kMin;
-        break;
-    case eRampingUp:
-        iState = eRunning;
-        iRemainingRampSize = 0;
-        iCurrentRampValue = Ramp::kMax;
-        break;
-    }
-    return aMsg;
 }
 
 void Muter::PipelineHalted()

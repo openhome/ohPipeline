@@ -4,11 +4,11 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/Pipeline/RampArray.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/Codec/CodecController.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Shell.h>
-#include <OpenHome/Media/Pipeline/AnalogBypassRamper.h>
+#include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
 
 #include <string.h>
@@ -61,7 +61,7 @@ class SuitePipeline : public Suite
                     , private ISeekRestreamer
                     , private IUrlBlockWriter
                     , private IPipelineAnimator
-                    , private IAnalogBypassVolumeRamper
+                    , private IVolumeRamper
 {
     static const TUint kBitDepth    = 24;
     static const TUint kSampleRate  = 192000;
@@ -115,6 +115,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -128,7 +129,7 @@ private: // from IUrlBlockWriter
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() override;
     TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) override;
-private: // from IAnalogBypassVolumeRamper
+private: // from IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
     AllocatorInfoLogger iInfoAggregator;
@@ -828,6 +829,12 @@ Msg* SuitePipeline::ProcessMsg(MsgBitRate* /*aMsg*/)
 }
 
 Msg* SuitePipeline::ProcessMsg(MsgAudioPcm* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
+Msg* SuitePipeline::ProcessMsg(MsgAudioDsd* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;

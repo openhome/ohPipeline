@@ -3,7 +3,7 @@
 #include <OpenHome/Media/Pipeline/Seeker.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <list>
 #include <limits.h>
@@ -57,6 +57,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -74,6 +75,7 @@ private:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgHalt
        ,EMsgFlush
        ,EMsgWait
@@ -385,6 +387,12 @@ Msg* SuiteSeeker::ProcessMsg(MsgAudioPcm* aMsg)
     return playable;
 }
 
+Msg* SuiteSeeker::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioPcm;
+    return aMsg;
+}
+
 Msg* SuiteSeeker::ProcessMsg(MsgSilence* /*aMsg*/)
 {
     ASSERTS();
@@ -434,7 +442,7 @@ Msg* SuiteSeeker::CreateEncodedStream()
 Msg* SuiteSeeker::CreateDecodedStream()
 {
     const TUint64 sampleStart = iTrackOffset / Jiffies::PerSample(kSampleRate);
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), iTrackLengthJiffies, sampleStart, true, iSeekable, false, false, Multiroom::Allowed, kProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), iTrackLengthJiffies, sampleStart, true, iSeekable, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
 }
 
 Msg* SuiteSeeker::CreateAudio()

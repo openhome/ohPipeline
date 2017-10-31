@@ -2,7 +2,7 @@
 #include <OpenHome/Media/Pipeline/PreDriver.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <string.h>
 #include <vector>
@@ -40,6 +40,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -58,12 +59,14 @@ private:
        ,EMsgWait
        ,EMsgDecodedStream
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgPlayable
        ,EMsgQuit
     };
 private:
     MsgAudioPcm* CreateAudio();
+    MsgAudioDsd* CreateAudioDsd();
 private:
     MsgFactory* iMsgFactory;
     TrackFactory* iTrackFactory;
@@ -96,7 +99,7 @@ SuitePreDriver::SuitePreDriver()
     MsgFactoryInitParams init;
     init.SetMsgAudioPcmCount(10, 10);
     init.SetMsgSilenceCount(10);
-    init.SetMsgPlayableCount(10, 10);
+    init.SetMsgPlayableCount(10, 1, 10);
     init.SetMsgDecodedStreamCount(kMsgFormatCount);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
@@ -129,6 +132,11 @@ void SuitePreDriver::Test()
 
     // Send Audio; check it is passed on.
     iNextGeneratedMsg = EMsgAudioPcm;
+    iPreDriver->Pull()->Process(*this)->RemoveRef();
+    TEST(iLastMsg == EMsgPlayable);
+
+    // Send DSD; check it is passed on.
+    iNextGeneratedMsg = EMsgAudioDsd;
     iPreDriver->Pull()->Process(*this)->RemoveRef();
     TEST(iLastMsg == EMsgPlayable);
 
@@ -231,9 +239,11 @@ Msg* SuitePreDriver::Pull()
         return iMsgFactory->CreateMsgWait();
     case EMsgDecodedStream:
         iNextGeneratedMsg = EMsgSilence;
-        return iMsgFactory->CreateMsgDecodedStream(0, 128000, iBitDepth, iSampleRate, iNumChannels, Brn("dummy codec"), (TUint64)1<<31, 0, false, false, false, false, Multiroom::Allowed, iProfile, nullptr);
+        return iMsgFactory->CreateMsgDecodedStream(0, 128000, iBitDepth, iSampleRate, iNumChannels, Brn("dummy codec"), (TUint64)1<<31, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, iProfile, nullptr);
     case EMsgAudioPcm:
         return CreateAudio();
+    case EMsgAudioDsd:
+        return CreateAudioDsd();
     case EMsgSilence:
     {
         TUint size = iNextMsgSilenceSize;
@@ -256,6 +266,16 @@ MsgAudioPcm* SuitePreDriver::CreateAudio()
     (void)memset(encodedAudioData, 0xff, kDataBytes);
     Brn encodedAudioBuf(encodedAudioData, kDataBytes);
     MsgAudioPcm* audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, iNumChannels, kSampleRate, 16, AudioDataEndian::Little, iTrackOffset);
+    iTrackOffset += audio->Jiffies();
+    return audio;
+}
+
+MsgAudioDsd* SuitePreDriver::CreateAudioDsd()
+{
+    TByte audioData[128];
+    (void)memset(audioData, 0x7f, sizeof audioData);
+    Brn audioBuf(audioData, sizeof audioData);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
     iTrackOffset += audio->Jiffies();
     return audio;
 }
@@ -342,6 +362,12 @@ Msg* SuitePreDriver::ProcessMsg(MsgBitRate* /*aMsg*/)
 }
 
 Msg* SuitePreDriver::ProcessMsg(MsgAudioPcm* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
+Msg* SuitePreDriver::ProcessMsg(MsgAudioDsd* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;

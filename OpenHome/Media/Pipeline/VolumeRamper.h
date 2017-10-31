@@ -10,23 +10,23 @@ namespace OpenHome {
 namespace Media {
 
 
-class IAnalogBypassVolumeRamper
+class IVolumeRamper
 {
 public:
     static const TUint kMultiplierFull = 1u<<15;
     static const TUint kMultiplierZero = 0;
 public:
     virtual void ApplyVolumeMultiplier(TUint aValue) = 0;
-    virtual ~IAnalogBypassVolumeRamper() {}
+    virtual ~IVolumeRamper() {}
 };
 
-class AnalogBypassRamper : public PipelineElement, public IPipelineElementUpstream, private INonCopyable
+class VolumeRamper : public PipelineElement, public IPipelineElementUpstream, private INonCopyable
 {
     static const TUint kSupportedMsgTypes;
 public:
-    AnalogBypassRamper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
-    ~AnalogBypassRamper();
-    void SetVolumeRamper(IAnalogBypassVolumeRamper& aVolumeRamper);
+    VolumeRamper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
+    ~VolumeRamper();
+    void SetVolumeRamper(IVolumeRamper& aVolumeRamper);
 private: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // IMsgProcessor
@@ -34,8 +34,10 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgHalt* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
 private:
+    void ProcessAudio(MsgAudioDecoded* aMsg);
     void Drained();
     void Halted();
     void CheckForHalted();
@@ -43,12 +45,12 @@ private:
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstream;
     Mutex iLock;
-    IAnalogBypassVolumeRamper* iVolumeRamper;
+    IVolumeRamper* iVolumeRamper;
     MsgDrain* iMsgDrain;
     MsgHalt* iMsgHalt;
     TBool iHalting;
     TBool iHalted;
-    TBool iAnalogBypassEnabled;
+    TBool iEnabled;
 };
 
 } // namespace Media

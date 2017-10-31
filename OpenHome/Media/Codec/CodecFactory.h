@@ -20,6 +20,8 @@ public:
     static CodecBase* NewAdts(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewFlac(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewMp3(IMimeTypeList& aMimeTypeList);
+    static CodecBase* NewDsd(IMimeTypeList& aMimeTypeList);
+    static CodecBase* NewDsdDff(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewPcm();
     static CodecBase* NewRaop();
     static CodecBase* NewVorbis(IMimeTypeList& aMimeTypeList);

@@ -3,7 +3,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Private/Arch.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <list>
 #include <limits.h>
@@ -48,6 +48,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -65,6 +66,7 @@ protected:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -88,6 +90,7 @@ private:
     void TestTrackEncodedStreamTrack();
     void TestPcmIsExpectedSize();
     void TestRawPcmNotAggregated();
+    void TestDsdAggregated();
 private:
     static const TUint kWavHeaderBytes = 44;
     static const TUint kSampleRate = 44100;
@@ -135,6 +138,7 @@ SuiteDecodedAudioAggregator::SuiteDecodedAudioAggregator()
     AddTest(MakeFunctor(*this, &SuiteDecodedAudioAggregator::TestTrackEncodedStreamTrack), "TestTrackEncodedStreamTrack");
     AddTest(MakeFunctor(*this, &SuiteDecodedAudioAggregator::TestPcmIsExpectedSize), "TestPcmIsExpectedSize");
     AddTest(MakeFunctor(*this, &SuiteDecodedAudioAggregator::TestRawPcmNotAggregated), "TestRawPcmNotAggregated");
+    AddTest(MakeFunctor(*this, &SuiteDecodedAudioAggregator::TestDsdAggregated), "TestDsdAggregated");
 }
 
 void SuiteDecodedAudioAggregator::Setup()
@@ -144,8 +148,9 @@ void SuiteDecodedAudioAggregator::Setup()
     MsgFactoryInitParams init;
     init.SetMsgAudioEncodedCount(400, 400);
     init.SetMsgAudioPcmCount(100, 100);
+    init.SetMsgAudioDsdCount(10);
     init.SetMsgSilenceCount(10);
-    init.SetMsgPlayableCount(50, 0);
+    init.SetMsgPlayableCount(50, 0, 0);
     init.SetMsgDecodedStreamCount(2);
     init.SetMsgTrackCount(2);
     init.SetMsgEncodedStreamCount(2);
@@ -325,6 +330,15 @@ Msg* SuiteDecodedAudioAggregator::ProcessMsg(MsgAudioPcm* aMsg)
     return playable;
 }
 
+Msg* SuiteDecodedAudioAggregator::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastReceivedMsg = EMsgAudioDsd;
+    iMsgOffset = aMsg->TrackOffset();
+    iJiffies += aMsg->Jiffies();
+
+    return aMsg;
+}
+
 Msg* SuiteDecodedAudioAggregator::ProcessMsg(MsgSilence* aMsg)
 {
     iLastReceivedMsg = EMsgSilence;
@@ -387,7 +401,7 @@ Msg* SuiteDecodedAudioAggregator::CreateEncodedStream()
 MsgDecodedStream* SuiteDecodedAudioAggregator::CreateDecodedStream()
 {
     static const TUint kBitrate = 256;
-    return iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, kBitrate, kBitDepth, kSampleRate, kChannels, Brn("Dummy"), 0, 0, true, true, false, false, Multiroom::Allowed, kProfile, this);
+    return iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, kBitrate, kBitDepth, kSampleRate, kChannels, Brn("Dummy"), 0, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this);
 }
 
 MsgFlush* SuiteDecodedAudioAggregator::CreateFlush()
@@ -551,6 +565,38 @@ void SuiteDecodedAudioAggregator::TestRawPcmNotAggregated()
     PullNext(EMsgAudioPcm);
     TEST(iJiffies == Jiffies::PerSample(48000));
     TEST(iJiffies == iTrackOffset);
+}
+
+void SuiteDecodedAudioAggregator::TestDsdAggregated()
+{
+    Queue(iMsgFactory->CreateMsgMode(Brn("dummyMode")));
+    Queue(CreateTrack());
+    Queue(iMsgFactory->CreateMsgEncodedStream(Brx::Empty(), Brx::Empty(), 1 << 21, 0, ++iNextStreamId, iSeekable, false, Multiroom::Allowed, this));
+    Queue(iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, 256, 1, 1411200, 2, Brn("DSD"),
+                                              0, 0, true, true, false, false,
+                                              AudioFormat::Dsd, Multiroom::Forbidden, kProfile, this));
+    TByte decodedAudioData = 0x7f; // 4 samples for 1-bit stereo
+    Brn decodedAudioBuf(&decodedAudioData, 1);
+    const TUint kSampleRateDsd = 1411200;
+    const TUint kSamples = 4;
+    static const TUint kNumDsdMsg = 5;
+    for (TUint i = 0; i < kNumDsdMsg; i++) {
+        auto audio = iMsgFactory->CreateMsgAudioDsd(decodedAudioBuf, 2, kSampleRateDsd, iTrackOffset);
+        Queue(audio);
+        iTrackOffset += kSamples * Jiffies::PerSample(kSampleRateDsd);
+        iTrackOffsetBytes += 1;
+    }
+    // queue another Track to force the above DSD to be passed on before AudioData::kMaxBytes are aggregated
+    Queue(CreateTrack());
+
+    PullNext(EMsgMode);
+    PullNext(EMsgTrack);
+    PullNext(EMsgEncodedStream);
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgAudioDsd);
+    TEST(iJiffies == kNumDsdMsg * kSamples * Jiffies::PerSample(kSampleRateDsd));
+    TEST(iJiffies == iTrackOffset);
+    PullNext(EMsgTrack);
 }
 
 

@@ -3,7 +3,7 @@
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 #include <list>
 #include <limits.h>
@@ -18,7 +18,7 @@ namespace Media {
 class SuiteMuterVolume : public SuiteUnitTest
                        , private IPipelineElementUpstream
                        , private IMsgProcessor
-                       , private IVolumeRamper
+                       , private IVolumeMuterStepped
 {
     static const TUint kExpectedFlushId = 5;
     static const TUint kSampleRate = 44100;
@@ -47,15 +47,16 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
-private: // from IVolumeRamper
-    IVolumeRamper::Status BeginMute() override;
-    IVolumeRamper::Status StepMute(TUint aJiffies) override;
+private: // from IVolumeMuterStepped
+    IVolumeMuterStepped::Status BeginMute() override;
+    IVolumeMuterStepped::Status StepMute(TUint aJiffies) override;
     void SetMuted() override;
-    IVolumeRamper::Status BeginUnmute() override;
-    IVolumeRamper::Status StepUnmute(TUint aJiffies) override;
+    IVolumeMuterStepped::Status BeginUnmute() override;
+    IVolumeMuterStepped::Status StepUnmute(TUint aJiffies) override;
     void SetUnmuted() override;
 private:
     enum EMsgType
@@ -70,6 +71,7 @@ private:
        ,EMsgStreamInterrupted
        ,EMsgDecodedStream
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -84,6 +86,7 @@ private:
     Msg* CreateTrack();
     Msg* CreateDecodedStream();
     Msg* CreateAudio();
+    Msg* CreateAudioDsd();
     void PullAudioMsg();
     void AcknowledgeDeferredHalt();
 private:
@@ -293,6 +296,13 @@ Msg* SuiteMuterVolume::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* SuiteMuterVolume::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioDsd;
+    iJiffies += aMsg->Jiffies();
+    return aMsg;
+}
+
 Msg* SuiteMuterVolume::ProcessMsg(MsgSilence* aMsg)
 {
     iLastPulledMsg = EMsgSilence;
@@ -311,16 +321,16 @@ Msg* SuiteMuterVolume::ProcessMsg(MsgQuit* aMsg)
     return aMsg;
 }
 
-IVolumeRamper::Status SuiteMuterVolume::BeginMute()
+IVolumeMuterStepped::Status SuiteMuterVolume::BeginMute()
 {
     iNotifiedMuted = iNotifiedUnmuted = false;
-    return iCompleteRamp ? IVolumeRamper::Status::eComplete : IVolumeRamper::Status::eInProgress;
+    return iCompleteRamp ? IVolumeMuterStepped::Status::eComplete : IVolumeMuterStepped::Status::eInProgress;
 }
 
-IVolumeRamper::Status SuiteMuterVolume::StepMute(TUint aJiffies)
+IVolumeMuterStepped::Status SuiteMuterVolume::StepMute(TUint aJiffies)
 {
     iRampDownJiffies += aJiffies;
-    return iCompleteRamp ? IVolumeRamper::Status::eComplete : IVolumeRamper::Status::eInProgress;
+    return iCompleteRamp ? IVolumeMuterStepped::Status::eComplete : IVolumeMuterStepped::Status::eInProgress;
 }
 
 void SuiteMuterVolume::SetMuted()
@@ -328,16 +338,16 @@ void SuiteMuterVolume::SetMuted()
     iNotifiedMuted = true;
 }
 
-IVolumeRamper::Status SuiteMuterVolume::BeginUnmute()
+IVolumeMuterStepped::Status SuiteMuterVolume::BeginUnmute()
 {
     iNotifiedMuted = iNotifiedUnmuted = false;
-    return iCompleteRamp ? IVolumeRamper::Status::eComplete : IVolumeRamper::Status::eInProgress;
+    return iCompleteRamp ? IVolumeMuterStepped::Status::eComplete : IVolumeMuterStepped::Status::eInProgress;
 }
 
-IVolumeRamper::Status SuiteMuterVolume::StepUnmute(TUint aJiffies)
+IVolumeMuterStepped::Status SuiteMuterVolume::StepUnmute(TUint aJiffies)
 {
     iRampUpJiffies += aJiffies;
-    return iCompleteRamp ? IVolumeRamper::Status::eComplete : IVolumeRamper::Status::eInProgress;
+    return iCompleteRamp ? IVolumeMuterStepped::Status::eComplete : IVolumeMuterStepped::Status::eInProgress;
 }
 
 void SuiteMuterVolume::SetUnmuted()
@@ -405,7 +415,7 @@ Msg* SuiteMuterVolume::CreateTrack()
 
 Msg* SuiteMuterVolume::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, Multiroom::Allowed, kProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
 }
 
 Msg* SuiteMuterVolume::CreateAudio()
@@ -415,6 +425,16 @@ Msg* SuiteMuterVolume::CreateAudio()
     (void)memset(encodedAudioData, 0x7f, kDataBytes);
     Brn encodedAudioBuf(encodedAudioData, kDataBytes);
     MsgAudioPcm* audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, kNumChannels, kSampleRate, 24, AudioDataEndian::Little, iTrackOffset);
+    iTrackOffset += audio->Jiffies();
+    return audio;
+}
+
+Msg* SuiteMuterVolume::CreateAudioDsd()
+{
+    TByte audioData[128];
+    (void)memset(audioData, 0x7f, sizeof audioData);
+    Brn audioBuf(audioData, sizeof audioData);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
     iTrackOffset += audio->Jiffies();
     return audio;
 }
@@ -439,6 +459,7 @@ void SuiteMuterVolume::TestMsgsPassWhenRunning()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgDrain(Functor()));
     iPendingMsgs.push_back(CreateDecodedStream());
     iPendingMsgs.push_back(CreateAudio());
+    iPendingMsgs.push_back(CreateAudioDsd());
     TUint size = Jiffies::kPerMs * 3;
     iPendingMsgs.push_back(iMsgFactory->CreateMsgSilence(size, kSampleRate, 16, kNumChannels));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());
@@ -450,6 +471,7 @@ void SuiteMuterVolume::TestMsgsPassWhenRunning()
     PullNext(EMsgDrain);
     PullNext(EMsgDecodedStream);
     PullNext(EMsgAudioPcm);
+    PullNext(EMsgAudioDsd);
     PullNext(EMsgSilence);
     PullNext(EMsgHalt);
     PullNext(EMsgStreamInterrupted);

@@ -1,4 +1,4 @@
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
@@ -38,7 +38,6 @@ void ProcessorPcmBufTest::BeginBlock()
 {
     iBuf.SetBytes(0);
 }
-
 
 void ProcessorPcmBufTest::ProcessFragment8(const Brx& aData, TUint /*aNumChannels*/)
 {
@@ -179,5 +178,50 @@ void ProcessorAggregateUnpacked::EndBlock()
 }
 
 void ProcessorAggregateUnpacked::Flush()
+{
+}
+
+
+// ProcessorDsdBufTest
+
+Brn ProcessorDsdBufTest::Buf() const
+{
+    return Brn(iBuf);
+}
+
+const TByte* ProcessorDsdBufTest::Ptr() const
+{
+    return iBuf.Ptr();
+}
+
+ProcessorDsdBufTest::ProcessorDsdBufTest()
+    : iBuf(kBufferGranularity)
+{
+}
+
+void ProcessorDsdBufTest::CheckSize(TUint aAdditionalBytes)
+{
+    while (iBuf.Bytes() + aAdditionalBytes > iBuf.MaxBytes()) {
+        const TUint size = iBuf.MaxBytes() + kBufferGranularity;
+        iBuf.Grow(size);
+    }
+}
+
+void ProcessorDsdBufTest::BeginBlock()
+{
+    iBuf.SetBytes(0);
+}
+
+void ProcessorDsdBufTest::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/)
+{
+    CheckSize(aData.Bytes());
+    iBuf.Append(aData);
+}
+
+void ProcessorDsdBufTest::EndBlock()
+{
+}
+
+void ProcessorDsdBufTest::Flush()
 {
 }

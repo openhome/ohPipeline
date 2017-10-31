@@ -3,7 +3,7 @@
 #include <OpenHome/Media/Pipeline/Waiter.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Net/Private/Globals.h>
 #include <OpenHome/Media/Pipeline/ElementObserver.h>
 
@@ -54,6 +54,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -71,6 +72,7 @@ private:
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -83,6 +85,7 @@ private:
     Msg* CreateEncodedStream();
     Msg* CreateDecodedStream();
     Msg* CreateAudio();
+    Msg* CreateAudioDsd();
     Msg* CreateSilence(TUint aJiffies);
 
     void TestWaitFromPlayingRampDown();
@@ -350,6 +353,12 @@ Msg* SuiteWaiter::ProcessMsg(MsgAudioPcm* aMsg)
     return playable;
 }
 
+Msg* SuiteWaiter::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioDsd;
+    return aMsg;
+}
+
 Msg* SuiteWaiter::ProcessMsg(MsgSilence* aMsg)
 {
     iLastPulledMsg = EMsgSilence;
@@ -393,7 +402,7 @@ Msg* SuiteWaiter::CreateEncodedStream()
 
 Msg* SuiteWaiter::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, iLiveStream, false, Multiroom::Allowed, kProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, iLiveStream, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
 }
 
 Msg* SuiteWaiter::CreateAudio()
@@ -403,6 +412,16 @@ Msg* SuiteWaiter::CreateAudio()
     (void)memset(encodedAudioData, 0x7f, kDataBytes);
     Brn encodedAudioBuf(encodedAudioData, kDataBytes);
     MsgAudioPcm* audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, kNumChannels, kSampleRate, 24, AudioDataEndian::Little, iTrackOffset);
+    iTrackOffset += audio->Jiffies();
+    return audio;
+}
+
+Msg* SuiteWaiter::CreateAudioDsd()
+{
+    TByte audioData[128];
+    (void)memset(audioData, 0x7f, sizeof audioData);
+    Brn audioBuf(audioData, sizeof audioData);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
     iTrackOffset += audio->Jiffies();
     return audio;
 }
@@ -546,6 +565,8 @@ void SuiteWaiter::TestMsgsPassWhilePlaying()
     PullNext(EMsgDecodedStream);
     iPendingMsgs.push_back(CreateAudio());
     PullNext(EMsgAudioPcm);
+    iPendingMsgs.push_back(CreateAudioDsd());
+    PullNext(EMsgAudioDsd);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgMetaText(Brx::Empty()));
     PullNext(EMsgMetaText);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgStreamInterrupted());

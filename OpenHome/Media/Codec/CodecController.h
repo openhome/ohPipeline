@@ -125,6 +125,22 @@ public:
                                      const Brx& aCodecName, TUint64 aLength, TUint64 aSampleStart, TBool aLossless,
                                      SpeakerProfile aProfile, TBool aAnalogBypass = false) = 0;
     /**
+    * Notify the pipeline of a new DSD stream or a discontinuity in the current stream.
+    *
+    * Must be called before any other Output function at the start of a stream,  This is
+    * typically done from either StreamInitialise() or Process().  Must also be called after
+    * a successful seek.  Should not be called at any other times.
+    *
+    * @param[in] aSampleRate    The sample rate of the decoded stream.
+    * @param[in] aNumChannels   The number of channels in the decoded stream.  Must be in the range [2..8].
+    * @param[in] aCodecName     The name of the codec.  Reported to UI code; not used by the pipeline.
+    * @param[in] aLength        Number of bytes in the encoded stream.  Reported to UI code; not used by the pipeline.
+    * @param[in] aSampleStart   The first sample number in the next audio data to be output.  0 at the start of a stream.
+    * @param[in] aProfile       Speaker profile (channel allocation) of the decoded stream
+    */
+    virtual void OutputDecodedStreamDsd(TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName,
+                                        TUint64 aLength, TUint64 aSampleStart, SpeakerProfile aProfile) = 0;
+    /**
      * Notify the pipeline of a change in delay (latency).
      *
      * Only used for audio formats which embed latency requirements with audio data.
@@ -139,7 +155,7 @@ public:
      *
      * @param[in] aData          PCM audio data.  Must contain an exact number of samples.
      *                           i.e. aData.Bytes() % (aChannels * aBitDepth/8) == 0
-     * @param[in] aChannels      Number of channels.  Must be in the range [2..8].
+     * @param[in] aChannels      Number of channels.  Must be in the range [1..8].
      * @param[in] aSampleRate    Sample rate.
      * @param[in] aBitDepth      Number of bits of audio for a single sample for a single channel.
      * @param[in] aEndian        Endianness of audio data.
@@ -162,6 +178,17 @@ public:
      * @return     Number of jiffies of audio contained in aMsg.
      */
     virtual TUint64 OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset) = 0;
+    /**
+    * Add a block of DSD audio to the pipeline.
+    *
+    * @param[in] aData          DSD audio data.  Must contain an exact number of samples.
+    * @param[in] aChannels      Number of channels.
+    * @param[in] aSampleRate    Sample rate.
+    * @param[in] aTrackOffset   Offset (in jiffies) into the stream at the start of aData.
+    *
+    * @return     Number of jiffies of audio contained in aData.
+    */
+    virtual TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset) = 0;
     /**
      * Notify the pipeline of a change in bit rate.
      *
@@ -337,7 +364,8 @@ private:
     TBool QueueTrackData() const;
     void ReleaseAudioEncoded();
     TBool DoRead(Bwx& aBuf, TUint aBytes);
-    TUint64 DoOutputAudioPcm(MsgAudio* aAudioMsg);
+    void DoOutputDecodedStream(MsgDecodedStream* aMsg);
+    TUint64 DoOutputAudio(MsgAudio* aAudioMsg);
 private: // ISeeker
     void StartSeek(TUint aStreamId, TUint aSecondsAbsolute, ISeekObserver& aObserver, TUint& aHandle) override;
 private: // ICodecController
@@ -349,9 +377,11 @@ private: // ICodecController
     TUint64 StreamLength() const override;
     TUint64 StreamPos() const override;
     void OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, SpeakerProfile aProfile, TBool aAnalogBypass) override;
+    void OutputDecodedStreamDsd(TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aLength, TUint64 aSampleStart, SpeakerProfile aProfile) override;
     void OutputDelay(TUint aJiffies) override;
     TUint64 OutputAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset) override;
     TUint64 OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset) override;
+    TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset) override;
     void OutputBitRate(TUint aBitRate) override;
     void OutputWait() override;
     void OutputHalt() override;
@@ -372,6 +402,7 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;

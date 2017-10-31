@@ -153,7 +153,7 @@ void SupplyAggregatorJiffies::OutputPcmStream(const Brx& aUri, TUint64 aTotalByt
     // FIXME - no metatext available
     TUint ignore = kMaxPcmDataJiffies;
     const TUint jiffiesPerSample = Jiffies::PerSample(aPcmStream.SampleRate());
-    iDataMaxBytes = Jiffies::ToBytes(ignore, jiffiesPerSample, aPcmStream.NumChannels(), aPcmStream.BitDepth() / 8);
+    iDataMaxBytes = Jiffies::ToBytes(ignore, jiffiesPerSample, aPcmStream.NumChannels(), aPcmStream.BitDepth());
     MsgEncodedStream* msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes, 0, aStreamId, aSeekable, aLive, aMultiroom, &aStreamHandler, aPcmStream);
     Output(msg);
 }

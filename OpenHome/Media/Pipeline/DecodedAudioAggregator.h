@@ -33,14 +33,15 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private:
     static TBool AggregatorFull(TUint aBytes, TUint aJiffies);
-    MsgAudioPcm* TryAggregate(MsgAudioPcm* aMsg);
+    MsgAudioDecoded* TryAggregate(MsgAudioDecoded* aMsg);
     void OutputAggregatedAudio();
 private:
     IPipelineElementDownstream& iDownstreamElement;
-    MsgAudioPcm* iDecodedAudio;
+    MsgAudioDecoded* iDecodedAudio;
     TUint iChannels;
     TUint iSampleRate;
     TUint iBitDepth;

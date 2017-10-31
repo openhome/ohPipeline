@@ -34,8 +34,10 @@ private: // from IPipelineElementUpstream
 private: // IMsgProcessor
     Msg* ProcessMsg(MsgHalt* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
 private:
+    Msg* ProcessAudio(MsgAudioDecoded* aMsg);
     void PipelineHalted();
 private:
     enum EState

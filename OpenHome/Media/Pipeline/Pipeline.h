@@ -53,6 +53,7 @@ public:
     void SetMaxLatency(TUint aJiffies);
     void SetSupportElements(TUint aElements); // EPipelineSupportElements members OR'd together
     void SetMuter(MuterImpl aMuter);
+    void SetDsdSupported(TBool aDsd);
     // getters
     TUint EncodedReservoirBytes() const;
     TUint DecodedReservoirJiffies() const;
@@ -69,6 +70,7 @@ public:
     TUint MaxLatencyJiffies() const;
     TUint SupportElements() const;
     MuterImpl Muter() const;
+    TBool DsdSupported() const;
 private:
     PipelineInitParams();
 private:
@@ -87,6 +89,7 @@ private:
     TUint iMaxLatencyJiffies;
     TUint iSupportElements;
     MuterImpl iMuter;
+    TBool iDsdSupported;
 private:
     static const TUint kEncodedReservoirSizeBytes       = 1536 * 1024;
     static const TUint kDecodedReservoirSize            = Jiffies::kPerMs * 2000;
@@ -100,6 +103,7 @@ private:
     static const TUint kThreadPriorityMax               = kPriorityHighest - 1;
     static const TUint kMaxLatencyDefault               = Jiffies::kPerMs * 2000;
     static const MuterImpl kMuterDefault                = MuterImpl::eRampSamples;
+    static const TBool kDsdSupportedDefault             = false;
 };
 
 namespace Codec {
@@ -134,14 +138,14 @@ class Pruner;
 class StarvationRamper;
 class Muter;
 class MuterVolume;
-class IVolumeRamper;
+class IVolumeMuterStepped;
 class PreDriver;
 class ITrackObserver;
 class ISpotifyReporter;
 class ISpotifyTrackObserver;
 class IMimeTypeList;
-class AnalogBypassRamper;
-class IAnalogBypassVolumeRamper;
+class VolumeRamper;
+class IVolumeRamper;
 
 class Pipeline : public IPipelineElementDownstream
                , public IPipeline
@@ -164,6 +168,7 @@ class Pipeline : public IPipelineElementDownstream
 
     static const TUint kMsgCountSilence         = 410; // 2secs @ 5ms per msg + 10 spare
     static const TUint kMsgCountPlayablePcm     = 10;
+    static const TUint kMsgCountPlayableDsd     = 10;
     static const TUint kMsgCountPlayableSilence = 10;
     static const TUint kMsgCountFlush           = 16;
     static const TUint kMsgCountMode            = 20;
@@ -175,7 +180,7 @@ public:
     virtual ~Pipeline();
     void AddContainer(Codec::ContainerBase* aContainer);
     void AddCodec(Codec::CodecBase* aCodec);
-    void Start(IAnalogBypassVolumeRamper& aAnalogBypassVolumeRamper, IVolumeRamper& aVolumeRamper);
+    void Start(IVolumeRamper& aVolumeRamper, IVolumeMuterStepped& aVolumeMuter);
     void Quit();
     MsgFactory& Factory();
     void Play();
@@ -310,8 +315,8 @@ private:
     IMute* iMuter;
     Logger* iLoggerMuter;
     DecodedAudioValidator* iDecodedAudioValidatorMuter;
-    AnalogBypassRamper* iAnalogBypassRamper;
-    Logger* iLoggerAnalogBypassRamper;
+    VolumeRamper* iVolumeRamper;
+    Logger* iLoggerVolumeRamper;
     PreDriver* iPreDriver;
     Logger* iLoggerPreDriver;
     IPipelineElementDownstream* iPipelineStart;

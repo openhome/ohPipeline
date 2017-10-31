@@ -3,7 +3,7 @@
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/Pipeline/ElementObserver.h>
 
 #include <list>
@@ -54,6 +54,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -78,6 +79,7 @@ private:
        ,EMsgStreamInterrupted
        ,EMsgDecodedStream
        ,EMsgAudioPcm
+       ,EMsgAudioDsd
        ,EMsgSilence
        ,EMsgHalt
        ,EMsgFlush
@@ -324,6 +326,13 @@ Msg* SuiteStarvationRamper::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* SuiteStarvationRamper::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iLastPulledMsg = EMsgAudioPcm;
+    iJiffies += aMsg->Jiffies();
+    return aMsg;
+}
+
 Msg* SuiteStarvationRamper::ProcessMsg(MsgSilence* aMsg)
 {
     iLastPulledMsg = EMsgSilence;
@@ -436,7 +445,7 @@ Msg* SuiteStarvationRamper::CreateTrack()
 
 Msg* SuiteStarvationRamper::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, iBitDepth, iSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, Multiroom::Allowed, kProfile, this);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, iBitDepth, iSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this);
 }
 
 Msg* SuiteStarvationRamper::CreateAudio()

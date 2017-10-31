@@ -20,6 +20,7 @@ const TUint SampleRateValidator::kSupportedMsgTypes =   eMode
                                                       | eDecodedStream
                                                       | eBitRate
                                                       | eAudioPcm
+                                                      | eAudioDsd
                                                       | eSilence
                                                       | eQuit;
 
@@ -96,6 +97,11 @@ Msg* SampleRateValidator::ProcessMsg(MsgDecodedStream* aMsg)
 }
 
 Msg* SampleRateValidator::ProcessMsg(MsgAudioPcm* aMsg)
+{
+    return ProcessFlushable(aMsg);
+}
+
+Msg* SampleRateValidator::ProcessMsg(MsgAudioDsd* aMsg)
 {
     return ProcessFlushable(aMsg);
 }

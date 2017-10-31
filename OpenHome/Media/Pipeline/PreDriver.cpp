@@ -17,6 +17,7 @@ const TUint PreDriver::kSupportedMsgTypes =   eMode
                                             | eHalt
                                             | eDecodedStream
                                             | eAudioPcm
+                                            | eAudioDsd
                                             | eSilence
                                             | eQuit;
 
@@ -26,9 +27,10 @@ PreDriver::PreDriver(IPipelineElementUpstream& aUpstreamElement)
     , iSampleRate(0)
     , iBitDepth(0)
     , iNumChannels(0)
+    , iFormat(AudioFormat::Undefined)
     , iShutdownSem("PDSD", 0)
-    , iSilenceSinceLastPcm(0)
-    , iSilenceSincePcm(false)
+    , iSilenceSinceLastAudio(0)
+    , iSilenceSinceAudio(false)
     , iModeHasPullableClock(false)
     , iQuit(false)
 {
@@ -45,11 +47,11 @@ Msg* PreDriver::Pull()
     do {
         msg = iUpstreamElement.Pull();
         ASSERT(msg != nullptr);
-        const TBool silenceSincePcm = iSilenceSincePcm;
+        const TBool silenceSincePcm = iSilenceSinceAudio;
         msg = msg->Process(*this);
-        if (silenceSincePcm && !iSilenceSincePcm) {
-            const TUint ms = Jiffies::ToMs(iSilenceSinceLastPcm);
-            iSilenceSinceLastPcm = 0;
+        if (silenceSincePcm && !iSilenceSinceAudio) {
+            const TUint ms = Jiffies::ToMs(iSilenceSinceLastAudio);
+            iSilenceSinceLastAudio = 0;
             LOG(kPipeline, "PreDriver: silence since last audio - %ums\n", ms);
         }
         if (iQuit) {
@@ -74,8 +76,8 @@ Msg* PreDriver::ProcessMsg(MsgMode* aMsg)
 
 Msg* PreDriver::ProcessMsg(MsgDrain* aMsg)
 {
-    iSilenceSinceLastPcm = 0;
-    iSilenceSincePcm = false;
+    iSilenceSinceLastAudio = 0;
+    iSilenceSinceAudio = false;
     return aMsg;
 }
 
@@ -88,9 +90,10 @@ Msg* PreDriver::ProcessMsg(MsgStreamInterrupted* aMsg)
 Msg* PreDriver::ProcessMsg(MsgDecodedStream* aMsg)
 {
     const DecodedStreamInfo& stream = aMsg->StreamInfo();
-    if (stream.SampleRate()  == iSampleRate &&
-        stream.BitDepth()    == iBitDepth   &&
-        stream.NumChannels() == iNumChannels) {
+    if (stream.SampleRate()  == iSampleRate  &&
+        stream.BitDepth()    == iBitDepth    &&
+        stream.NumChannels() == iNumChannels &&
+        stream.Format()      == iFormat) {
         // no change in format.  Discard this msg
         aMsg->RemoveRef();
         return nullptr;
@@ -98,20 +101,27 @@ Msg* PreDriver::ProcessMsg(MsgDecodedStream* aMsg)
     iSampleRate = stream.SampleRate();
     iBitDepth = stream.BitDepth();
     iNumChannels = stream.NumChannels();
+    iFormat = stream.Format();
 
     return aMsg;
 }
 
 Msg* PreDriver::ProcessMsg(MsgAudioPcm* aMsg)
 {
-    iSilenceSincePcm = false;
+    iSilenceSinceAudio = false;
+    return aMsg->CreatePlayable();
+}
+
+Msg* PreDriver::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    iSilenceSinceAudio = false;
     return aMsg->CreatePlayable();
 }
 
 Msg* PreDriver::ProcessMsg(MsgSilence* aMsg)
 {
-    iSilenceSincePcm = true;
-    iSilenceSinceLastPcm += aMsg->Jiffies();
+    iSilenceSinceAudio = true;
+    iSilenceSinceLastAudio += aMsg->Jiffies();
     return aMsg->CreatePlayable();
 }
 

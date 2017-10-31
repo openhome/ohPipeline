@@ -22,6 +22,7 @@ const TUint TrackInspector::kSupportedMsgTypes =   eMode
                                                  | eDecodedStream
                                                  | eBitRate
                                                  | eAudioPcm
+                                                 | eAudioDsd
                                                  | eSilence
                                                  | eQuit;
 

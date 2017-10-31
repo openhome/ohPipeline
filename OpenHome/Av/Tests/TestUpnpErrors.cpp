@@ -88,14 +88,14 @@ private: // from IVolumeSurroundAttenuator
 private: // from IVolumeSourceUnityGain
     void SetUnityGain(TBool aEnable) override;
     void AddUnityGainObserver(IUnityGainObserver& aObserver) override;
-private: // from IAnalogBypassVolumeRamper
+private: // from IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
-private: // from Media::IVolumeRamper
-    Media::IVolumeRamper::Status BeginMute() override;
-    Media::IVolumeRamper::Status StepMute(TUint aJiffies) override;
+private: // from Media::IVolumeMuterStepped
+    Media::IVolumeMuterStepped::Status BeginMute() override;
+    Media::IVolumeMuterStepped::Status StepMute(TUint aJiffies) override;
     void SetMuted() override;
-    Media::IVolumeRamper::Status BeginUnmute() override;
-    Media::IVolumeRamper::Status StepUnmute(TUint aJiffies) override;
+    Media::IVolumeMuterStepped::Status BeginUnmute() override;
+    Media::IVolumeMuterStepped::Status StepUnmute(TUint aJiffies) override;
     void SetUnmuted() override;
 private: // from IVolumeMuter
     void SetVolumeMuted(TBool aMuted) override;
@@ -230,11 +230,11 @@ void DummyVolumeManager::SetVolumeBoost(TInt /*aValue*/)             {}
 void DummyVolumeManager::SetUnityGain(TBool /*aEnable*/)             {}
 void DummyVolumeManager::AddUnityGainObserver(IUnityGainObserver&)   {}
 void DummyVolumeManager::ApplyVolumeMultiplier(TUint /*aValue*/)     {}
-Media::IVolumeRamper::Status DummyVolumeManager::BeginMute()         { return Media::IVolumeRamper::Status::eComplete; }
-Media::IVolumeRamper::Status DummyVolumeManager::StepMute(TUint /*aJiffies*/)   { return Media::IVolumeRamper::Status::eComplete; }
+Media::IVolumeMuterStepped::Status DummyVolumeManager::BeginMute()   { return Media::IVolumeMuterStepped::Status::eComplete; }
+Media::IVolumeMuterStepped::Status DummyVolumeManager::StepMute(TUint /*aJiffies*/)   { return Media::IVolumeMuterStepped::Status::eComplete; }
 void DummyVolumeManager::SetMuted()                                  {}
-Media::IVolumeRamper::Status DummyVolumeManager::BeginUnmute()       { return Media::IVolumeRamper::Status::eComplete; }
-Media::IVolumeRamper::Status DummyVolumeManager::StepUnmute(TUint /*aJiffies*/) { return Media::IVolumeRamper::Status::eComplete; }
+Media::IVolumeMuterStepped::Status DummyVolumeManager::BeginUnmute() { return Media::IVolumeMuterStepped::Status::eComplete; }
+Media::IVolumeMuterStepped::Status DummyVolumeManager::StepUnmute(TUint /*aJiffies*/) { return Media::IVolumeMuterStepped::Status::eComplete; }
 void DummyVolumeManager::SetUnmuted()                                {}
 void DummyVolumeManager::SetVolumeMuted(TBool /*aMuted*/)            {}
 void DummyVolumeManager::Mute()                                      {}

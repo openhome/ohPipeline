@@ -9,7 +9,7 @@
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/Logger.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/Codec/CodecController.h>
 #include <OpenHome/Media/Codec/CodecFactory.h>
 #include <OpenHome/Media/Codec/Container.h>
@@ -81,6 +81,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -193,7 +194,6 @@ Msg* ElementFileReader::Pull()
     ASSERT(iFile != nullptr);
     Msg* msg = nullptr;
     if (iMode == eMode) {
-        const Brn mode("Playlist");
         msg = iMsgFactory.CreateMsgMode(Brx::Empty());
         iMode = eTrack;
     }
@@ -458,6 +458,12 @@ Msg* ElementFileWriter::ProcessMsg(MsgAudioPcm* aMsg)
     return nullptr;
 }
 
+Msg* ElementFileWriter::ProcessMsg(MsgAudioDsd* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
 Msg* ElementFileWriter::ProcessMsg(MsgSilence* /*aMsg*/)
 {
     ASSERTS();
@@ -680,6 +686,7 @@ int CDECL main(int aArgc, char* aArgv[])
     static const TUint kMsgAudioPcmCount = 200;        // Allow for Split().
     static const TUint kMsgSilenceCount = 0;
     static const TUint kMsgPlayablePcmCount = 10;
+    static const TUint kMsgPlayableDsdCount = 0;
     static const TUint kMsgPlayableSilenceCount = 0;
     static const TUint kMsgDecodedStreamCount = 2;
     static const TUint kMsgTrackCount = 1;
@@ -715,7 +722,7 @@ int CDECL main(int aArgc, char* aArgv[])
     init.SetMsgDecodedStreamCount(kMsgDecodedStreamCount);
     init.SetMsgAudioPcmCount(kMsgAudioPcmCount, kDecodedAudioCount);
     init.SetMsgSilenceCount(kMsgSilenceCount);
-    init.SetMsgPlayableCount(kMsgPlayablePcmCount, kMsgPlayableSilenceCount);
+    init.SetMsgPlayableCount(kMsgPlayablePcmCount, kMsgPlayableDsdCount, kMsgPlayableSilenceCount);
     init.SetMsgQuitCount(kMsgQuitCount);
     MsgFactory* msgFactory = new MsgFactory(*infoAggregator, init);
 

@@ -111,7 +111,8 @@ enum class AudioDataEndian
 class AudioData : public Allocated
 {
 public: 
-    static const TUint kMaxBytes = 7680; // max of 2ms/10ch/96/32 and 5ms/2ch/192/24 (latter for Songcast, supporting earliest receiver)
+    static const TUint kMaxBytes = 8192; // max of 8k (DSD), 2ms/10ch/96/32 and 5ms/2ch/192/24
+                                         // (latter for Songcast, supporting earliest receiver)
 public:
     AudioData(AllocatorBase& aAllocator);
     const TByte* Ptr(TUint aOffsetBytes) const;
@@ -163,7 +164,8 @@ public:
     void Aggregate(DecodedAudio& aDecodedAudio);
 private:
     DecodedAudio(AllocatorBase& aAllocator);
-    void Construct(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
+    void ConstructPcm(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
+    void ConstructDsd(const Brx& aData);
     static void CopyToBigEndian16(const Brx& aData, TByte* aDest);
     static void CopyToBigEndian24(const Brx& aData, TByte* aDest);
     static void CopyToBigEndian32(const Brx& aData, TByte* aDest);
@@ -182,7 +184,7 @@ public:
 public:
     static TBool IsValidSampleRate(TUint aSampleRate);
     static TUint PerSample(TUint aSampleRate);
-    static TUint ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBytesPerSubsample);
+    static TUint ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample);
     static void RoundDown(TUint& aJiffies, TUint aSampleRate);
     static void RoundUp(TUint& aJiffies, TUint aSampleRate);
     static TUint ToSongcastTime(TUint aJiffies, TUint aSampleRate);
@@ -194,22 +196,25 @@ public:
     static TUint SongcastTicksPerSecond(TUint aSampleRate);
 private:
     //Number of jiffies per sample
-    static const TUint kJiffies7350   = kPerSecond / 7350;
-    static const TUint kJiffies8000   = kPerSecond / 8000;
-    static const TUint kJiffies11025  = kPerSecond / 11025;
-    static const TUint kJiffies12000  = kPerSecond / 12000;
-    static const TUint kJiffies14700  = kPerSecond / 14700;
-    static const TUint kJiffies16000  = kPerSecond / 16000;
-    static const TUint kJiffies22050  = kPerSecond / 22050;
-    static const TUint kJiffies24000  = kPerSecond / 24000;
-    static const TUint kJiffies29400  = kPerSecond / 29400;
-    static const TUint kJiffies32000  = kPerSecond / 32000;
-    static const TUint kJiffies44100  = kPerSecond / 44100;
-    static const TUint kJiffies48000  = kPerSecond / 48000;
-    static const TUint kJiffies88200  = kPerSecond / 88200;
-    static const TUint kJiffies96000  = kPerSecond / 96000;
-    static const TUint kJiffies176400 = kPerSecond / 176400;
-    static const TUint kJiffies192000 = kPerSecond / 192000;
+    static const TUint kJiffies7350    = kPerSecond / 7350;
+    static const TUint kJiffies8000    = kPerSecond / 8000;
+    static const TUint kJiffies11025   = kPerSecond / 11025;
+    static const TUint kJiffies12000   = kPerSecond / 12000;
+    static const TUint kJiffies14700   = kPerSecond / 14700;
+    static const TUint kJiffies16000   = kPerSecond / 16000;
+    static const TUint kJiffies22050   = kPerSecond / 22050;
+    static const TUint kJiffies24000   = kPerSecond / 24000;
+    static const TUint kJiffies29400   = kPerSecond / 29400;
+    static const TUint kJiffies32000   = kPerSecond / 32000;
+    static const TUint kJiffies44100   = kPerSecond / 44100;
+    static const TUint kJiffies48000   = kPerSecond / 48000;
+    static const TUint kJiffies88200   = kPerSecond / 88200;
+    static const TUint kJiffies96000   = kPerSecond / 96000;
+    static const TUint kJiffies176400  = kPerSecond / 176400;
+    static const TUint kJiffies192000  = kPerSecond / 192000;
+    static const TUint kJiffies1411200 = kPerSecond / 1411200; // DSD only from here on
+    static const TUint kJiffies2822400 = kPerSecond / 2822400;
+    static const TUint kJiffies5644800 = kPerSecond / 5644800;
 
     static const TUint kSongcastTicksPerSec44k = 44100 * 256;
     static const TUint kSongcastTicksPerSec48k = 48000 * 256;
@@ -663,6 +668,13 @@ private: // from Msg
     Msg* Process(IMsgProcessor& aProcessor) override;
 };
 
+enum class AudioFormat
+{
+    Pcm,
+    Dsd,
+    Undefined
+};
+
 class DecodedStreamInfo
 {
     friend class MsgDecodedStream;
@@ -680,11 +692,16 @@ public:
     inline TBool Live() const;
     inline TBool AnalogBypass() const;
     inline Media::Multiroom Multiroom() const;
+    inline AudioFormat Format() const;
     inline const SpeakerProfile& Profile() const;
     inline IStreamHandler* StreamHandler() const;
 private:
     DecodedStreamInfo();
-    void Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
+    void Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels,
+             const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart,
+             TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass,
+             AudioFormat aFormat, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile,
+             IStreamHandler* aStreamHandler);
 private:
     TUint iStreamId;
     TUint iBitRate;
@@ -698,6 +715,7 @@ private:
     TBool iSeekable;
     TBool iLive;
     TBool iAnalogBypass;
+    AudioFormat iFormat;
     Media::Multiroom iMultiroom;
     SpeakerProfile iProfile;
     IStreamHandler* iStreamHandler;
@@ -713,7 +731,11 @@ public:
     MsgDecodedStream(AllocatorBase& aAllocator);
     const DecodedStreamInfo& StreamInfo() const;
 private:
-    void Initialise(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
+    void Initialise(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels,
+                    const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart,
+                    TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass,
+                    AudioFormat aFormat, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile,
+                    IStreamHandler* aStreamHandler);
 private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
@@ -726,6 +748,21 @@ class IPipelineBufferObserver
 public:
     virtual ~IPipelineBufferObserver() {}
     virtual void Update(TInt aDelta) = 0;
+};
+
+class MsgBitRate : public Msg
+{
+    friend class MsgFactory;
+public:
+    MsgBitRate(AllocatorBase& aAllocator);
+    TUint BitRate() const;
+private:
+    void Initialise(TUint aBitRate);
+private: // from Msg
+    void Clear() override;
+    Msg* Process(IMsgProcessor& aProcessor) override;
+private:
+    TUint iBitRate;
 };
 
 class MsgAudio : public Msg
@@ -759,36 +796,47 @@ protected:
     IPipelineBufferObserver* iPipelineBufferObserver;
 };
 
-class MsgBitRate : public Msg
-{
-    friend class MsgFactory;
-public:
-    MsgBitRate(AllocatorBase& aAllocator);
-    TUint BitRate() const;
-private:
-    void Initialise(TUint aBitRate);
-private: // from Msg
-    void Clear() override;
-    Msg* Process(IMsgProcessor& aProcessor) override;
-private:
-    TUint iBitRate;
-};
-
 class MsgPlayable;
 class MsgPlayablePcm;
+class MsgPlayableDsd;
 class MsgPlayableSilence;
 
-class MsgAudioPcm : public MsgAudio
+class MsgAudioDecoded : public MsgAudio
 {
     friend class MsgFactory;
 public:
     static const TUint64 kTrackOffsetInvalid;
+public:
+    void Aggregate(MsgAudioDecoded* aMsg); // append aMsg to the end of this msg, removes ref on aMsg
+    TUint64 TrackOffset() const; // offset of the start of this msg from the start of its track.  FIXME no tests for this yet
+    MsgPlayable* CreatePlayable(); // removes ref, transfer ownership of DecodedAudio
+protected:
+    MsgAudioDecoded(AllocatorBase& aAllocator);
+protected: // from MsgAudio
+    MsgAudio* Clone() override; // create new MsgAudio, take ref to DecodedAudio, copy size/offset
+protected:
+    void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aBitDepth, TUint aChannels,
+                    TUint64 aTrackOffset, TUint aNumSubsamples,
+                    Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
+protected: // from MsgAudio
+    void SplitCompleted(MsgAudio& aRemaining) override;
+protected: // from Msg
+    void Clear() override;
+private:
+    virtual MsgPlayable* DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes) = 0;
+protected:
+    DecodedAudio* iAudioData;
+    Allocator<MsgPlayableSilence>* iAllocatorPlayableSilence;
+    TUint64 iTrackOffset;
+};
+
+class MsgAudioPcm : public MsgAudioDecoded
+{
+    friend class MsgFactory;
+public:
     static const TUint kUnityAttenuation;
 public:
     MsgAudioPcm(AllocatorBase& aAllocator);
-    TUint64 TrackOffset() const; // offset of the start of this msg from the start of its track.  FIXME no tests for this yet
-    MsgPlayable* CreatePlayable(); // removes ref, transfer ownership of DecodedAudio
-    void Aggregate(MsgAudioPcm* aMsg); // append aMsg to the end of this msg, removes ref on aMsg
     void SetAttenuation(TUint aAttenuation);
     inline void AddLogPoint(const TChar* aId);
 public: // from MsgAudio
@@ -797,6 +845,8 @@ private:
     void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aBitDepth, TUint aChannels, TUint64 aTrackOffset,
                     Allocator<MsgPlayablePcm>& aAllocatorPlayablePcm,
                     Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
+private: // from MsgAudioDecoded
+    MsgPlayable* DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes) override;
 private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
@@ -804,11 +854,31 @@ private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
 private:
-    DecodedAudio* iAudioData;
     Allocator<MsgPlayablePcm>* iAllocatorPlayablePcm;
-    Allocator<MsgPlayableSilence>* iAllocatorPlayableSilence;
-    TUint64 iTrackOffset;
     TUint iAttenuation;
+};
+
+class MsgAudioDsd : public MsgAudioDecoded
+{
+    friend class MsgFactory;
+    static const TUint kBitDepth = 1;
+public:
+    MsgAudioDsd(AllocatorBase& aAllocator);
+public: // from MsgAudio
+    MsgAudio* Clone() override; // create new MsgAudio, take ref to DecodedAudio, copy size/offset
+private:
+    void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels, TUint64 aTrackOffset,
+                    Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
+                    Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
+private: // from MsgAudioDecoded
+    MsgPlayable* DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes) override;
+private: // from MsgAudio
+    MsgAudio* Allocate() override;
+    void SplitCompleted(MsgAudio& aRemaining) override;
+private: // from Msg
+    Msg* Process(IMsgProcessor& aProcessor) override;
+private:
+    Allocator<MsgPlayableDsd>* iAllocatorPlayableDsd;
 };
 
 class MsgPlayableSilence;
@@ -833,6 +903,7 @@ private:
 };
 
 class IPcmProcessor;
+class IDsdProcessor;
 
 /**
  * Holds decoded audio and can write it to a stream.
@@ -858,6 +929,7 @@ public:
      *                             padding around each sample) or if a ramp is being applied.
      */
     void Read(IPcmProcessor& aProcessor);
+    void Read(IDsdProcessor& aProcessor);
     virtual TBool TryLogTimestamps();
 protected:
     MsgPlayable(AllocatorBase& aAllocator);
@@ -871,7 +943,8 @@ private:
     TUint MsgJiffies() const;
     virtual MsgPlayable* Allocate() = 0;
     virtual void SplitCompleted(MsgPlayable& aRemaining);
-    virtual void ReadBlock(IPcmProcessor& aProcessor) = 0;
+    virtual void ReadBlock(IPcmProcessor& aProcessor);
+    virtual void ReadBlock(IDsdProcessor& aProcessor);
 protected:
     MsgPlayable* iNextPlayable;
     TUint iSize; // Bytes
@@ -901,13 +974,34 @@ private: // from Msg
     void Clear() override;
 private:
     Brn ApplyAttenuation(Brn aData);
+private:
     DecodedAudio* iAudioData;
     TUint iAttenuation;
+};
+
+class MsgPlayableDsd : public MsgPlayable
+{
+    friend class MsgAudioDsd;
+public:
+    MsgPlayableDsd(AllocatorBase& aAllocator);
+private:
+    void Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, TUint aSampleRate,
+                    TUint aNumChannels, TUint aOffsetBytes, const Media::Ramp& aRamp,
+                    Optional<IPipelineBufferObserver> aPipelineBufferObserver);
+private: // from MsgPlayable
+    MsgPlayable* Allocate() override;
+    void SplitCompleted(MsgPlayable& aRemaining) override;
+    void ReadBlock(IDsdProcessor& aProcessor) override;
+private: // from Msg
+    void Clear() override;
+private:
+    DecodedAudio* iAudioData;
 };
 
 class MsgPlayableSilence : public MsgPlayable
 {
     friend class MsgSilence;
+    friend class MsgAudioDecoded;
     friend class MsgAudioPcm;
 public:
     MsgPlayableSilence(AllocatorBase& aAllocator);
@@ -919,6 +1013,7 @@ private: // from MsgPlayable
     MsgPlayable* Allocate() override;
     void SplitCompleted(MsgPlayable& aRemaining) override;
     void ReadBlock(IPcmProcessor& aProcessor) override;
+    void ReadBlock(IDsdProcessor& aProcessor) override;
 };
 
 /**
@@ -958,13 +1053,14 @@ public:
     virtual Msg* ProcessMsg(MsgDecodedStream* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgBitRate* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgAudioPcm* aMsg) = 0;
+    virtual Msg* ProcessMsg(MsgAudioDsd* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgSilence* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgPlayable* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgQuit* aMsg) = 0;
 };
 
 /**
- * Used to retrieve pcm audio data from a MsgPlayable
+ * Used to retrieve PCM audio data from a MsgPlayable
  */
 class IPcmProcessor
 {
@@ -997,6 +1093,41 @@ public:
     /**
      * If this is called, the processor should pass on any buffered audio.
      */
+    virtual void Flush() = 0;
+};
+
+/**
+* Used to retrieve DSD audio data from a MsgPlayable
+*/
+class IDsdProcessor
+{
+public:
+    virtual ~IDsdProcessor() {}
+    /**
+    * Called once per call to MsgPlayable::Read.
+    *
+    * Will be called before any calls to ProcessFragment.
+    */
+    virtual void BeginBlock() = 0;
+    /**
+    * Copy a block of audio data.
+    *
+    * 1 bit per subsample. Subsamples are packed in blocks of 16 (i.e. a stereo
+    * track * has 16 subsamples for left followed by 16 for right).
+    *
+    * @param aData         Packed DSD data.  Will always be a complete number of samples.
+    * @param aNumChannels  Number of channels.
+    */
+    virtual void ProcessFragment(const Brx& aData, TUint aNumChannels) = 0;
+    /**
+    * Called once per call to MsgPlayable::Read.
+    *
+    * No more calls to ProcessFragment will be made after this.
+    */
+    virtual void EndBlock() = 0;
+    /**
+    * If this is called, the processor should pass on any buffered audio.
+    */
     virtual void Flush() = 0;
 };
 
@@ -1062,6 +1193,7 @@ protected:
     TUint DecodedStreamCount() const;
     TUint EncodedAudioCount() const;
     TUint DecodedAudioCount() const;
+    TUint NumMsgs() const; // Test use only
 private:
     virtual void ProcessMsgIn(MsgMode* aMsg);
     virtual void ProcessMsgIn(MsgTrack* aMsg);
@@ -1077,6 +1209,7 @@ private:
     virtual void ProcessMsgIn(MsgDecodedStream* aMsg);
     virtual void ProcessMsgIn(MsgBitRate* aMsg);
     virtual void ProcessMsgIn(MsgAudioPcm* aMsg);
+    virtual void ProcessMsgIn(MsgAudioDsd* aMsg);
     virtual void ProcessMsgIn(MsgSilence* aMsg);
     virtual void ProcessMsgIn(MsgQuit* aMsg);
     virtual Msg* ProcessMsgOut(MsgMode* aMsg);
@@ -1093,6 +1226,7 @@ private:
     virtual Msg* ProcessMsgOut(MsgDecodedStream* aMsg);
     virtual Msg* ProcessMsgOut(MsgBitRate* aMsg);
     virtual Msg* ProcessMsgOut(MsgAudioPcm* aMsg);
+    virtual Msg* ProcessMsgOut(MsgAudioDsd* aMsg);
     virtual Msg* ProcessMsgOut(MsgSilence* aMsg);
     virtual Msg* ProcessMsgOut(MsgQuit* aMsg);
 private:
@@ -1115,9 +1249,12 @@ private:
         Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
         Msg* ProcessMsg(MsgBitRate* aMsg) override;
         Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+        Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
         Msg* ProcessMsg(MsgSilence* aMsg) override;
         Msg* ProcessMsg(MsgPlayable* aMsg) override;
         Msg* ProcessMsg(MsgQuit* aMsg) override;
+    private:
+        void ProcessAudio(MsgAudioDecoded* aMsg);
     protected:
         MsgReservoir& iQueue;
     };
@@ -1140,6 +1277,7 @@ private:
         Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
         Msg* ProcessMsg(MsgBitRate* aMsg) override;
         Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+        Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
         Msg* ProcessMsg(MsgSilence* aMsg) override;
         Msg* ProcessMsg(MsgPlayable* aMsg) override;
         Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -1163,9 +1301,12 @@ private:
         Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
         Msg* ProcessMsg(MsgBitRate* aMsg) override;
         Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+        Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
         Msg* ProcessMsg(MsgSilence* aMsg) override;
         Msg* ProcessMsg(MsgPlayable* aMsg) override;
         Msg* ProcessMsg(MsgQuit* aMsg) override;
+    private:
+        void ProcessAudio(MsgAudioDecoded* aMsg);
     private:
         MsgReservoir& iQueue;
     };
@@ -1200,9 +1341,10 @@ protected:
        ,eDecodedStream      = 1 << 11
        ,eBitRate            = 1 << 12
        ,eAudioPcm           = 1 << 13
-       ,eSilence            = 1 << 14
-       ,ePlayable           = 1 << 15
-       ,eQuit               = 1 << 16
+       ,eAudioDsd           = 1 << 14
+       ,eSilence            = 1 << 15
+       ,ePlayable           = 1 << 16
+       ,eQuit               = 1 << 17
     };
 protected:
     PipelineElement(TUint aSupportedTypes);
@@ -1222,6 +1364,7 @@ protected: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -1606,8 +1749,9 @@ public:
     inline void SetMsgDecodedStreamCount(TUint aCount);
     inline void SetMsgBitRateCount(TUint aCount);
     inline void SetMsgAudioPcmCount(TUint aCount, TUint aDecodedAudioCount);
+    inline void SetMsgAudioDsdCount(TUint aCount); // DecodedAudioCount defined with AudioPcmCount
     inline void SetMsgSilenceCount(TUint aCount);
-    inline void SetMsgPlayableCount(TUint aPcmCount, TUint aSilenceCount);
+    inline void SetMsgPlayableCount(TUint aPcmCount, TUint aDsdCount, TUint aSilenceCount);
     inline void SetMsgQuitCount(TUint aCount);
 private:
     TUint iMsgModeCount;
@@ -1626,8 +1770,10 @@ private:
     TUint iMsgBitRateCount;
     TUint iDecodedAudioCount;
     TUint iMsgAudioPcmCount;
+    TUint iMsgAudioDsdCount;
     TUint iMsgSilenceCount;
     TUint iMsgPlayablePcmCount;
+    TUint iMsgPlayableDsdCount;
     TUint iMsgPlayableSilenceCount;
     TUint iMsgQuitCount;
 };
@@ -1652,11 +1798,12 @@ public:
     MsgHalt* CreateMsgHalt(TUint aId, Functor aCallback);
     MsgFlush* CreateMsgFlush(TUint aId);
     MsgWait* CreateMsgWait();
-    MsgDecodedStream* CreateMsgDecodedStream(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
+    MsgDecodedStream* CreateMsgDecodedStream(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass, AudioFormat aFormat, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler);
     MsgDecodedStream* CreateMsgDecodedStream(MsgDecodedStream* aMsg, IStreamHandler* aStreamHandler);
     MsgBitRate* CreateMsgBitRate(TUint aBitRate);
     MsgAudioPcm* CreateMsgAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset);
     MsgAudioPcm* CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset); // aAudio must contain big endian pcm data
+    MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset);
     MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels);
     MsgQuit* CreateMsgQuit();
 private:
@@ -1680,8 +1827,10 @@ private:
     Allocator<MsgDecodedStream> iAllocatorMsgDecodedStream;
     Allocator<MsgBitRate> iAllocatorMsgBitRate;
     Allocator<MsgAudioPcm> iAllocatorMsgAudioPcm;
+    Allocator<MsgAudioDsd> iAllocatorMsgAudioDsd;
     Allocator<MsgSilence> iAllocatorMsgSilence;
     Allocator<MsgPlayablePcm> iAllocatorMsgPlayablePcm;
+    Allocator<MsgPlayableDsd> iAllocatorMsgPlayableDsd;
     Allocator<MsgPlayableSilence> iAllocatorMsgPlayableSilence;
     Allocator<MsgQuit> iAllocatorMsgQuit;
 };
@@ -1690,4 +1839,3 @@ private:
 
 } // namespace Media
 } // namespace OpenHome
-

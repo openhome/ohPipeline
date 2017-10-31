@@ -205,6 +205,16 @@ Msg* Skipper::ProcessMsg(MsgBitRate* aMsg)
 
 Msg* Skipper::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    return ProcessAudio(aMsg);
+}
+
+Msg* Skipper::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessAudio(aMsg);
+}
+
+Msg* Skipper::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     if (!iRunning) {
         LOG(kMedia, "Skipper::ProcessMsg(MsgAudioPcm* ), setting iRunning=true\n");
         iRunning = true;

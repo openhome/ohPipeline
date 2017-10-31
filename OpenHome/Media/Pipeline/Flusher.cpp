@@ -201,6 +201,11 @@ Msg* Flusher::ProcessMsg(MsgAudioPcm* aMsg)
     return ProcessFlushable(aMsg);
 }
 
+Msg* Flusher::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessFlushable(aMsg);
+}
+
 Msg* Flusher::ProcessMsg(MsgSilence* aMsg)
 {
     return ProcessFlushable(aMsg);

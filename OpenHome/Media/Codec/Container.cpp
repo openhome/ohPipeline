@@ -319,6 +319,11 @@ Msg* MsgAudioEncodedCache::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* MsgAudioEncodedCache::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return aMsg;
+}
+
 Msg* MsgAudioEncodedCache::ProcessMsg(MsgSilence* aMsg)
 {
     return aMsg;
@@ -788,6 +793,12 @@ Msg* ContainerController::ProcessMsg(MsgAudioPcm* /*aMsg*/)
     return nullptr;
 }
 
+Msg* ContainerController::ProcessMsg(MsgAudioDsd* /*aMsg*/)
+{
+    ASSERTS(); // only expect encoded audio at this stage of the pipeline
+    return nullptr;
+}
+
 Msg* ContainerController::ProcessMsg(MsgSilence* /*aMsg*/)
 {
     ASSERTS(); // only expect encoded audio at this stage of the pipeline
@@ -981,6 +992,11 @@ Msg* MsgAudioEncodedRecogniser::ProcessMsg(MsgAudioPcm* aMsg)
     return aMsg;
 }
 
+Msg* MsgAudioEncodedRecogniser::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return aMsg;
+}
+
 Msg* MsgAudioEncodedRecogniser::ProcessMsg(MsgSilence* aMsg)
 {
     return aMsg;
@@ -1094,6 +1110,12 @@ Msg* MsgEncodedStreamRecogniser::ProcessMsg(MsgBitRate* aMsg)
 }
 
 Msg* MsgEncodedStreamRecogniser::ProcessMsg(MsgAudioPcm* aMsg)
+{
+    ASSERT(iRecognisedMsgEncodedStream == false);
+    return aMsg;
+}
+
+Msg* MsgEncodedStreamRecogniser::ProcessMsg(MsgAudioDsd* aMsg)
 {
     ASSERT(iRecognisedMsgEncodedStream == false);
     return aMsg;

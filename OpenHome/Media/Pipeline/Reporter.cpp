@@ -23,6 +23,7 @@ const TUint Reporter::kSupportedMsgTypes =   eMode
                                            | eDecodedStream
                                            | eBitRate
                                            | eAudioPcm
+                                           | eAudioDsd
                                            | eSilence
                                            | eQuit;
 
@@ -157,6 +158,18 @@ Msg* Reporter::ProcessMsg(MsgBitRate* aMsg)
 
 Msg* Reporter::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    ProcessAudio(aMsg);
+    return aMsg;
+}
+
+Msg* Reporter::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    ProcessAudio(aMsg);
+    return aMsg;
+}
+
+void Reporter::ProcessAudio(MsgAudioDecoded* aMsg)
+{
     AutoMutex _(iLock);
     TBool reportChange = false;
     iJiffies += aMsg->Jiffies();
@@ -169,7 +182,6 @@ Msg* Reporter::ProcessMsg(MsgAudioPcm* aMsg)
         iNotifyTime= true;
         iObserverThread.Schedule(iEventId);
     }
-    return aMsg;
 }
 
 void Reporter::EventCallback()

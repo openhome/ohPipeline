@@ -24,6 +24,7 @@ const TUint Waiter::kSupportedMsgTypes =   eMode
                                          | eDecodedStream
                                          | eBitRate
                                          | eAudioPcm
+                                         | eAudioDsd
                                          | eSilence
                                          | eQuit;
 
@@ -164,6 +165,16 @@ Msg* Waiter::ProcessMsg(MsgDecodedStream* aMsg)
 }
 
 Msg* Waiter::ProcessMsg(MsgAudioPcm* aMsg)
+{
+    return ProcessAudio(aMsg);
+}
+
+Msg* Waiter::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return ProcessAudio(aMsg);
+}
+
+Msg* Waiter::ProcessAudio(MsgAudioDecoded* aMsg)
 {
     HandleAudio();
     if (iState == ERampingDown || iState == ERampingUp) {

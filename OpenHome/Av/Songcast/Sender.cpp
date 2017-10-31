@@ -220,9 +220,12 @@ Msg* Sender::ProcessMsg(MsgDecodedStream* aMsg)
     iFirstChannelIndex = FirstChannelToSend(numChannels);
 
     iOhmSender->SetTrackPosition(samplesTotal, streamInfo.SampleStart());
-    iOhmSenderDriver->SetAudioFormat(iSampleRate, streamInfo.BitRate(), std::min(numChannels, (TUint)2),
-                                     bitDepth, streamInfo.Lossless(), streamInfo.CodecName(),
-                                     streamInfo.SampleStart());
+    if (!iStreamForbidden) {
+        iOhmSenderDriver->SetAudioFormat(iSampleRate, streamInfo.BitRate(),
+                                         std::min(numChannels, (TUint)2), bitDepth,
+                                         streamInfo.Lossless(), streamInfo.CodecName(),
+                                         streamInfo.SampleStart());
+    }
     iOhmSender->NotifyBroadcastAllowed(!iStreamForbidden);
 
     return aMsg;
@@ -238,6 +241,13 @@ Msg* Sender::ProcessMsg(MsgAudioPcm* aMsg)
 {
     ASSERT(iSampleRate != 0);
     ProcessAudio(aMsg);
+    return nullptr;
+}
+
+Msg* Sender::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    ASSERT(iStreamForbidden);
+    aMsg->RemoveRef();
     return nullptr;
 }
 
@@ -490,6 +500,12 @@ Msg* Sender::PlayableCreator::ProcessMsg(MsgBitRate* /*aMsg*/)
 Msg* Sender::PlayableCreator::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iPlayable = aMsg->CreatePlayable();
+    return nullptr;
+}
+
+Msg* Sender::PlayableCreator::ProcessMsg(MsgAudioDsd* /*aMsg*/)
+{
+    ASSERTS();
     return nullptr;
 }
 

@@ -85,6 +85,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
@@ -356,6 +357,12 @@ Msg* SuiteRewinder::ProcessMsg(MsgBitRate* /*aMsg*/)
 }
 
 Msg* SuiteRewinder::ProcessMsg(MsgAudioPcm* /*aMsg*/)
+{
+    ASSERTS(); /* only expect to deal with encoded audio at this stage of the pipeline */
+    return nullptr;
+}
+
+Msg* SuiteRewinder::ProcessMsg(MsgAudioDsd* /*aMsg*/)
 {
     ASSERTS(); /* only expect to deal with encoded audio at this stage of the pipeline */
     return nullptr;

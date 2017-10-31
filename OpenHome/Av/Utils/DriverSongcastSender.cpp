@@ -7,7 +7,7 @@
 #include <OpenHome/OsWrapper.h>
 #include <OpenHome/Av/Songcast/OhmSender.h>
 #include <OpenHome/Private/Timer.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Av/Songcast/ZoneHandler.h>
@@ -182,7 +182,7 @@ void DriverSongcastSender::SendAudio(MsgPlayable* aMsg)
         iAudioSent = true;
         if (jiffies > iJiffiesToSend) {
             jiffies = iJiffiesToSend;
-            const TUint bytes = Jiffies::ToBytes(jiffies, iJiffiesPerSample, iNumChannels, (iBitDepth/8));
+            const TUint bytes = Jiffies::ToBytes(jiffies, iJiffiesPerSample, iNumChannels, iBitDepth);
             if (bytes == 0) {
                 iPlayable = aMsg;
                 return;

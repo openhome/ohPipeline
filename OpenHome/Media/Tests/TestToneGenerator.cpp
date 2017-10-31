@@ -7,7 +7,7 @@
 #include <OpenHome/Media/Codec/Container.h>
 #include <OpenHome/Media/Codec/CodecFactory.h>
 #include <OpenHome/Media/Codec/CodecController.h>
-#include <OpenHome/Media/Utils/ProcessorPcmUtils.h>
+#include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Buffer.h>
@@ -134,6 +134,7 @@ private:  // from IMsgProcessor
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgBitRate* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
 
@@ -151,6 +152,7 @@ private:
     static const TUint kMsgCountAudioPcm        = 768;
     static const TUint kMsgCountSilence         = 512;
     static const TUint kMsgCountPlayablePcm     = 1024;
+    static const TUint kMsgCountPlayableDsd     = 1;
     static const TUint kMsgCountPlayableSilence = 1024;
     static const TUint kMsgCountEncodedStream   = 20;
     static const TUint kMsgCountTrack           = 20;
@@ -516,7 +518,7 @@ void SuiteGeneratorAny::Setup()
     init.SetMsgDecodedStreamCount(kMsgCountDecodedStream);
     init.SetMsgAudioPcmCount(kMsgCountAudioPcm, kMsgCountDecodedAudio);
     init.SetMsgSilenceCount(kMsgCountSilence);
-    init.SetMsgPlayableCount(kMsgCountPlayablePcm, kMsgCountPlayableSilence);
+    init.SetMsgPlayableCount(kMsgCountPlayablePcm, kMsgCountPlayableDsd, kMsgCountPlayableSilence);
     init.SetMsgQuitCount(kMsgCountQuit);
     iMsgFactory = new MsgFactory(*iAllocatorInfoLogger, init);
 
@@ -766,6 +768,12 @@ Msg* SuiteGeneratorSquare::ProcessMsg(MsgAudioPcm* aMsg)
     }
     playable->RemoveRef();
     return nullptr;
+}
+
+Msg* SuiteGeneratorAny::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    ASSERTS();
+    return aMsg;
 }
 
 Msg* SuiteGeneratorAny::ProcessMsg(MsgSilence* aMsg)
