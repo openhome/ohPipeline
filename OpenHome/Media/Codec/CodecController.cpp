@@ -792,7 +792,9 @@ TUint64 CodecController::OutputAudioDsd(const Brx& aData, TUint aChannels, TUint
     const TByte* p = data.Ptr();
     TUint remaining = data.Bytes();
     do {
-        const TUint bytes = std::min(iMaxOutputBytes, data.Bytes());
+        // We don't songcast DSD so have no need to split audio into 5ms chunkc
+        // Instead, pack as much audio as we can into as few msgs as possible
+        const TUint bytes = std::min(AudioData::kMaxBytes, data.Bytes());
         Brn buf(p, bytes);
         auto audio = iMsgFactory.CreateMsgAudioDsd(buf, aChannels, aSampleRate, aTrackOffset);
         const TUint64 jiffies = DoOutputAudio(audio);

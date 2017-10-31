@@ -2827,6 +2827,11 @@ TUint MsgReservoir::DecodedAudioCount() const
     return iDecodedAudioCount;
 }
 
+TUint MsgReservoir::NumMsgs() const
+{
+    return iQueue.NumMsgs();
+}
+
 void MsgReservoir::ProcessMsgIn(MsgMode* /*aMsg*/)              { }
 void MsgReservoir::ProcessMsgIn(MsgTrack* /*aMsg*/)             { }
 void MsgReservoir::ProcessMsgIn(MsgDrain* /*aMsg*/)             { }
