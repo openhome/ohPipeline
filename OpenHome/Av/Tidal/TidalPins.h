@@ -26,7 +26,7 @@ class TidalPins
 {
     static const TUint kTrackLimitPerRequest = 10;
     static const TUint kMaxPlaylistsPerSmartType = 15; // limit playlists in loop
-    static const TUint kMaxFavoriteAlbums = 30; // limit albums in loop
+    static const TUint kMaxFavoriteAlbums = 50; // limit albums in loop
     static const TUint kJsonResponseChunks = 4 * 1024;
 public:
     TidalPins(Tidal& aTidal, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, TUint aMaxTracks = ITrackDatabase::kMaxTracks);
