@@ -220,9 +220,12 @@ Msg* Sender::ProcessMsg(MsgDecodedStream* aMsg)
     iFirstChannelIndex = FirstChannelToSend(numChannels);
 
     iOhmSender->SetTrackPosition(samplesTotal, streamInfo.SampleStart());
-    iOhmSenderDriver->SetAudioFormat(iSampleRate, streamInfo.BitRate(), std::min(numChannels, (TUint)2),
-                                     bitDepth, streamInfo.Lossless(), streamInfo.CodecName(),
-                                     streamInfo.SampleStart());
+    if (!iStreamForbidden) {
+        iOhmSenderDriver->SetAudioFormat(iSampleRate, streamInfo.BitRate(),
+                                         std::min(numChannels, (TUint)2), bitDepth,
+                                         streamInfo.Lossless(), streamInfo.CodecName(),
+                                         streamInfo.SampleStart());
+    }
     iOhmSender->NotifyBroadcastAllowed(!iStreamForbidden);
 
     return aMsg;
