@@ -179,12 +179,13 @@ void CodecDsd::Process()
         Log::Print("  iBitRate = %u\n", iBitRate);
         Log::Print("  iTrackStart = %llu\n", iTrackStart);
         Log::Print("  iTrackOffset = %llu\n", iTrackOffset);
-        Log::Print("  iTrackLengthJiffies = %llu\n", iTrackLengthJiffies);
+        Log::Print("  iTrackLengthJiffies = %llu (%llu secs)\n", iTrackLengthJiffies, iTrackLengthJiffies/Jiffies::kPerSecond);
         Log::Print("  iBlockSizePerChannel = %u\n", iBlockSizePerChannel);
         Log::Print("  iFormatVersion = %u\n", iFormatVersion);
         Log::Print("  iFormatId = %u\n", iFormatId);
         Log::Print("  iChannelType = %u\n", iChannelType);
         Log::Print("  iSampleCount = %llu\n", iSampleCount);
+
 
         SendMsgDecodedStream(0);
         iInputBuffer.SetBytes(0);
@@ -342,8 +343,8 @@ void CodecDsd::ProcessFmtChunk()
     iBitDepth = Converter::LeUint32At(iInputBuffer, 32);
     iSampleCount = LeUint64At(iInputBuffer, 36);
     iBlockSizePerChannel = Converter::LeUint32At(iInputBuffer, 44);
-    //reserved = Converter::LeUint32At(iInputBuffer, 48);
-
+    iTrackLengthJiffies = iSampleCount * Jiffies::PerSample(iSampleRate);
+    
     if (!StreamIsValid())
     {
         THROW(CodecStreamCorrupt);
@@ -362,8 +363,6 @@ void CodecDsd::ProcessDataChunk()
 
     iAudioBytesTotal = (TUint32)LeUint64At(iInputBuffer, 4)-12;
     iAudioBytesRemaining = iAudioBytesTotal;
-
-    iTrackLengthJiffies = (iSampleCount * Jiffies::kPerSecond) / iSampleRate;
 }
 
 void CodecDsd::ProcessMetadataChunk()
@@ -373,7 +372,7 @@ void CodecDsd::ProcessMetadataChunk()
 
 void CodecDsd::SendMsgDecodedStream(TUint64 aStartSample)
 {
-    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("Dsd"), iAudioBytesTotal, aStartSample, DeriveProfile(iChannelCount));
+    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("Dsd"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
 }
 
 

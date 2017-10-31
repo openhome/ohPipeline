@@ -246,13 +246,8 @@ void CodecDsdDff::StreamInitialise()
     Log::Print("  iSampleCount = %llu\n", iSampleCount);
 
     // now fake some values to get it through "PCM" stream validation in pipeline:
-    iBitDepth = 16;
-    iSampleRate /= 16;
-    iSampleCount /= 16;
-    iBitRate = iSampleRate * 16;
-
-    iTrackLengthJiffies = (iSampleCount * Jiffies::kPerSecond) / iSampleRate;
-
+    iTrackLengthJiffies = iSampleCount * Jiffies::PerSample(iSampleRate);
+    
     SendMsgDecodedStream(0);
 }
 
@@ -301,7 +296,7 @@ TBool CodecDsdDff::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
 
 void CodecDsdDff::SendMsgDecodedStream(TUint64 aStartSample)
 {
-    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("Dsd"), iAudioBytesTotal, aStartSample, DeriveProfile(iChannelCount));
+    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("Dsd"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
 }
 
 void CodecDsdDff::ReadId(const Brx& aId)
