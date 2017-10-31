@@ -73,11 +73,6 @@ TBool TidalPins::LoadTracksBySavedPlaylists()
     return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSavedPlaylist);
 }
 
-TBool TidalPins::LoadTracksByFavorites()
-{
-    return TidalPins::LoadTracksByQuery(TidalMetadata::kIdTypeUserSpecific, TidalMetadata::eFavorites);
-}
-
 TBool TidalPins::LoadTracksByGenre(const Brx& aGenre)
 {
     return TidalPins::LoadTracksByQuery(aGenre, TidalMetadata::eGenre);
@@ -126,6 +121,65 @@ TBool TidalPins::LoadTracksBySmartType(TidalMetadata::EIdType aType)
 TBool TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::EIdType aType)
 {
     return LoadTracksByMultiplePlaylists(Brx::Empty(), aType);
+}
+
+TBool TidalPins::LoadTracksByFavorites()
+{
+    AutoMutex _(iLock);
+    JsonParser parser;
+    iCpPlaylist->SyncDeleteAll();
+    Bwh albumIds[kMaxFavoriteAlbums];
+    TUint lastId = 0;
+
+    try {
+        // load favorite tracks
+        lastId = LoadTracksById(TidalMetadata::kIdTypeUserSpecific, TidalMetadata::eFavorites, lastId);
+
+        // request favorite albums (returned as list - place an arbitrary limit on the number of albums to return for now)
+        iJsonResponse.Reset();
+        TBool success = iTidal.TryGetIds(iJsonResponse, TidalMetadata::kIdTypeUserSpecific, TidalMetadata::eFavorites, kMaxFavoriteAlbums); // send request to Tidal
+        if (!success) {
+            return false;
+        }
+        
+        // response is list of albums, so need to loop through albums
+        parser.Reset();
+        parser.Parse(iJsonResponse.Buffer());
+        TUint idCount = 0;
+        if (parser.HasKey(Brn("totalNumberOfItems"))) {
+            TUint albums = parser.Num(Brn("totalNumberOfItems"));
+            if (albums == 0) {
+                return false;
+            }
+            auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
+            JsonParser parserItem;
+            try {
+                for (TUint i = 0; i < kMaxFavoriteAlbums; i++) {
+                    parserItem.Parse(parserItems.NextObject());
+
+                    JsonParser parserAlbum;
+                    parserAlbum.Parse(parserItem.String(Brn("item")));
+
+                    albumIds[i].Grow(20);
+                    albumIds[i].ReplaceThrow(parserAlbum.String(Brn("id"))); // parse response from Tidal
+                    idCount++;
+                    if (albumIds[i].Bytes() == 0) {
+                        return false;
+                    }
+                }
+            }
+            catch (JsonArrayEnumerationComplete&) {}
+            for (TUint j = 0; j < idCount; j++) {
+                lastId = LoadTracksById(albumIds[j], TidalMetadata::eAlbum, lastId);
+            }  
+        }
+    }   
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in TidalPins::LoadTracksByFavorites\n", ex.Message());
+        return false;
+    }
+
+    return true;
 }
 
 TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::EIdType aType)
@@ -292,7 +346,7 @@ TBool TidalPins::IsValidId(const Brx& aRequest, TidalMetadata::EIdType aType) {
     if (aType == TidalMetadata::ePlaylist) {
         return IsValidUuid(aRequest);
     }
-    else if (aType == TidalMetadata::eGenre || aRequest == TidalMetadata::kIdTypeUserSpecific || aRequest == TidalMetadata::kIdTypeSmart) {
+    else if (aType == TidalMetadata::eGenre || aRequest == TidalMetadata::kIdTypeSmart) {
         return true;
     }
     // artist/album/track

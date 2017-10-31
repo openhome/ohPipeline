@@ -153,18 +153,28 @@ TBool Tidal::TryGetIds(WriterBwh& aWriter, const Brx& aMood, TidalMetadata::EIdT
         pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
         pathAndQuery.Append("/");
         pathAndQuery.Append(aMood);
+        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
     }
     else if (aType == TidalMetadata::eSavedPlaylist) {
         // will return the latest saved playlist
         pathAndQuery.Append(TidalMetadata::kIdTypeUserSpecific);
         pathAndQuery.Append("/");
         pathAndQuery.Append(iUserId);
+        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
     }
     else if (aType == TidalMetadata::eSmartExclusive) {
         // will return the latest exclusive playlist
         pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
     }
-    pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
+    else if (aType == TidalMetadata::eFavorites) {
+        pathAndQuery.Append(TidalMetadata::kIdTypeUserSpecific);
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(iUserId);
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+        pathAndQuery.Append(Brn("/albums?order=NAME&orderDirection=ASC"));
+    }
 
     return TryGetResponse(aWriter, pathAndQuery, aMaxAlbumsPerResponse, 0);
 }
