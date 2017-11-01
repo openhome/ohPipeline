@@ -16,7 +16,7 @@ namespace OpenHome {
 namespace Media {
 namespace Codec {
 
-class CodecDsd : public CodecBase
+class CodecDsdDsf : public CodecBase
 {
 private:
     static const TUint kDataBlockBytes = 4096;
@@ -32,7 +32,7 @@ private:
     static const TUint64 kChunkDataHeaderBytes = 12;  // 4 for ID, 8 for data byte count
 
 public:
-    CodecDsd(IMimeTypeList& aMimeTypeList);
+    CodecDsdDsf(IMimeTypeList& aMimeTypeList);
 private: // from CodecBase
     TBool Recognise(const EncodedStreamInfo& aStreamInfo) override;
     void StreamInitialise() override;
@@ -85,17 +85,16 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 using namespace OpenHome::Media::Codec;
 
-CodecBase* CodecFactory::NewDsd(IMimeTypeList& aMimeTypeList)
+CodecBase* CodecFactory::NewDsdDsf(IMimeTypeList& aMimeTypeList)
 { // static
-    return new CodecDsd(aMimeTypeList);
+    return new CodecDsdDsf(aMimeTypeList);
 }
 
-CodecDsd::CodecDsd(IMimeTypeList& aMimeTypeList)
+CodecDsdDsf::CodecDsdDsf(IMimeTypeList& aMimeTypeList)
     :CodecBase("DSD", kCostLow)
     ,iHeaderSizeBytes(kChunkDsdBytes+kChunkFmtHeaderBytes+kChunkDataHeaderBytes) // increased later once we know size of fmt chunk
 {
-    aMimeTypeList.Add("audio/dsd");
-    aMimeTypeList.Add("audio/x-dsd");
+    aMimeTypeList.Add("audio/dsf");
     aMimeTypeList.Add("audio/x-dsf");
 
     iOutputBuffer.SetBytes(iOutputBuffer.MaxBytes());
@@ -103,7 +102,7 @@ CodecDsd::CodecDsd(IMimeTypeList& aMimeTypeList)
 }
 
 
-void CodecDsd::CheckReinterleave()
+void CodecDsdDsf::CheckReinterleave()
 {
     Log::Print("DSD CheckReinterleave:\n");
     iInputBuffer.SetBytes(0);
@@ -121,7 +120,7 @@ void CodecDsd::CheckReinterleave()
 }
 
 
-void CodecDsd::ShowBufLeader() const
+void CodecDsdDsf::ShowBufLeader() const
 {
     Log::Print("LF: ");
     Log::PrintHex(iInputBuffer.Split(0, 20));
@@ -137,7 +136,7 @@ void CodecDsd::ShowBufLeader() const
 }
 
 
-void CodecDsd::StreamInitialise()
+void CodecDsdDsf::StreamInitialise()
 {
     iChannelCount = 0;
     iSampleRate = 0;
@@ -155,7 +154,7 @@ void CodecDsd::StreamInitialise()
     iInitialAudio = true;
 }
 
-void CodecDsd::ReinterleaveToOutputBuffer()
+void CodecDsdDsf::ReinterleaveToOutputBuffer()
 {
     const TByte* lPtr = iInputBuffer.Ptr();
     const TByte* rPtr = lPtr + kDataBlockBytes;
@@ -173,7 +172,7 @@ void CodecDsd::ReinterleaveToOutputBuffer()
     }
 }
 
-void CodecDsd::Process()
+void CodecDsdDsf::Process()
 {
     if (iChannelCount == 0)  // first call
     {
@@ -223,7 +222,7 @@ void CodecDsd::Process()
     }
 }
 
-TBool CodecDsd::TrySeek(TUint aStreamId, TUint64 aSample)
+TBool CodecDsdDsf::TrySeek(TUint aStreamId, TUint64 aSample)
 {
     aSample &= kSampleBlockRoundingMask; // round down to block boundary
     TUint64 bytePos = (aSample * iChannelCount * iBitDepth / 8);
@@ -245,7 +244,7 @@ TBool CodecDsd::TrySeek(TUint aStreamId, TUint64 aSample)
 
 
 
-TBool CodecDsd::Recognise(const EncodedStreamInfo& aStreamInfo)
+TBool CodecDsdDsf::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
 	if (aStreamInfo.RawPcm())
     {
@@ -255,9 +254,9 @@ TBool CodecDsd::Recognise(const EncodedStreamInfo& aStreamInfo)
     return ReadChunkId(Brn("DSD "));
 }
 
-void CodecDsd::ProcessHeader()
+void CodecDsdDsf::ProcessHeader()
 {
-    LOG(kMedia, "CodecDsd::ProcessHeader()\n");
+    LOG(kMedia, "CodecDsdDsf::ProcessHeader()\n");
 
     // format of DSD header taken from http://dsd-guide.com/sites/default/files/white-papers/DSFFileFormatSpec_E.pdf
 
@@ -274,7 +273,7 @@ void CodecDsd::ProcessHeader()
 
 }
 
-void CodecDsd::ProcessDsdChunk()
+void CodecDsdDsf::ProcessDsdChunk()
 {
     //We shouldn't be in the dsd codec unless this says 'DSD '
     //This isn't a track corrupt issue as it was previously checked by Recognise
@@ -290,7 +289,7 @@ void CodecDsd::ProcessDsdChunk()
     iFileSize = LeUint64At(iInputBuffer, 12);
 }
 
-void CodecDsd::ProcessFmtChunk()
+void CodecDsdDsf::ProcessFmtChunk()
 {
     if(!ReadChunkId(Brn("fmt ")))
     {
@@ -322,7 +321,7 @@ void CodecDsd::ProcessFmtChunk()
 
 }
 
-void CodecDsd::ProcessDataChunk()
+void CodecDsdDsf::ProcessDataChunk()
 {
     if(!ReadChunkId(Brn("data")))
     {
@@ -335,18 +334,18 @@ void CodecDsd::ProcessDataChunk()
     iAudioBytesRemaining = iAudioBytesTotal;
 }
 
-void CodecDsd::ProcessMetadataChunk()
+void CodecDsdDsf::ProcessMetadataChunk()
 {
 
 }
 
-void CodecDsd::SendMsgDecodedStream(TUint64 aStartSample)
+void CodecDsdDsf::SendMsgDecodedStream(TUint64 aStartSample)
 {
     iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("Dsd"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
 }
 
 
-TUint64 CodecDsd::LeUint64At(Brx& aBuf, TUint aOffset)
+TUint64 CodecDsdDsf::LeUint64At(Brx& aBuf, TUint aOffset)
 {
     TUint64 val = Converter::LeUint32At(aBuf, aOffset);
     val += ((TUint64)Converter::LeUint32At(aBuf, aOffset+4))<<32;
@@ -354,7 +353,7 @@ TUint64 CodecDsd::LeUint64At(Brx& aBuf, TUint aOffset)
 }
 
 
-TUint8 CodecDsd::ReverseBits8(TUint8 aData)
+TUint8 CodecDsdDsf::ReverseBits8(TUint8 aData)
 {
     aData = (((aData & 0xaa) >> 1) | ((aData & 0x55) << 1));
     aData = (((aData & 0xcc) >> 2) | ((aData & 0x33) << 2));
@@ -362,7 +361,7 @@ TUint8 CodecDsd::ReverseBits8(TUint8 aData)
 }
 
 
-TBool CodecDsd::ReadChunkId(const Brx& aId)
+TBool CodecDsdDsf::ReadChunkId(const Brx& aId)
 {
     iInputBuffer.SetBytes(0);
     iController->Read(iInputBuffer, 4);
@@ -370,7 +369,7 @@ TBool CodecDsd::ReadChunkId(const Brx& aId)
     return (iInputBuffer == aId);
 }
 
-TBool CodecDsd::StreamIsValid() const
+TBool CodecDsdDsf::StreamIsValid() const
 {
     if (iFileSize == 0)
     {

@@ -453,7 +453,7 @@ def build(bld):
 
     # DSD
     bld.stlib(
-            source=['OpenHome/Media/Codec/Dsd.cpp'],
+            source=['OpenHome/Media/Codec/DsdDsf.cpp'],
             use=['OHNET'],
             target='CodecDsd')
 
