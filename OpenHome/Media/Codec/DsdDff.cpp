@@ -20,8 +20,16 @@ class CodecDsdDff : public CodecBase
 {
 private:
     static const TUint kBlockSize = 1024;
-    static const TUint kInputBufMaxBytes = 2*kBlockSize; //DecodedAudio::kMaxBytes;
+    static const TUint kInputBufMaxBytes = 2*kBlockSize; 
     static const TUint kOutputBufMaxBytes = 2*kBlockSize; 
+    static const TUint64 kSampleBlockRoundingMask = ~(kInputBufMaxBytes-1);  
+    
+    static const TUint64 kChunkFRM8HeaderBytes = 16; // 4 for ID, 8 for data byte count, 4 for form type ID
+    static const TUint64 kChunkFverBytes = 16;  // 4 for ID, 8 for data byte count, 4 data bytes
+    static const TUint64 kChunkFverDataBytes = 4;  
+    static const TUint64 kChunkPropHeaderBytes = 12;  // 4 for ID, 8 for data byte count
+    static const TUint64 kChunkDsdHeaderBytes = 12;  // 4 for ID, 8 for data byte count
+ 
 
 public:
     CodecDsdDff(IMimeTypeList& aMimeTypeList);
@@ -53,10 +61,11 @@ private:
     TUint64 iAudioBytesRemaining;
     TUint64 iFileSize;
     TUint iBitRate;
-    TUint64 iTrackStart;
-    TUint64 iTrackOffset;
+    //TUint64 iTrackStart;
+    TUint64 iTrackOffsetJiffies;
     TUint64 iTrackLengthJiffies;
     TUint64 iSampleCount;
+    TUint64 iFileHeaderSizeBytes;
 };
 
 } // namespace Codec
@@ -74,7 +83,8 @@ CodecBase* CodecFactory::NewDsdDff(IMimeTypeList& aMimeTypeList)
 }
 
 CodecDsdDff::CodecDsdDff(IMimeTypeList& aMimeTypeList)
-    : CodecBase("DSDDFF", kCostLow)
+    :CodecBase("DSDDFF", kCostLow)
+    ,iFileHeaderSizeBytes(kChunkFRM8HeaderBytes+kChunkFverBytes+kChunkPropHeaderBytes+kChunkDsdHeaderBytes) // increased later once we know size of prop chunk
 {
     aMimeTypeList.Add("audio/dff");
     aMimeTypeList.Add("audio/x-dff");
@@ -131,14 +141,14 @@ void CodecDsdDff::ProcessFormChunk()
 void CodecDsdDff::ProcessFverChunk()
 {
     // version - (ChunkSize=4) bytes  example // 0x01050000 version 1.5.0.0 DSDIFF
-    TUint64 chunkBytes = ReadChunkHeader(Brn("FVER"));
+    TUint64 chunkDataBytes = ReadChunkHeader(Brn("FVER"));
 
-    if (chunkBytes != 4) // this chunk size always = 4
+    if (chunkDataBytes != kChunkFverDataBytes) // this chunk size always = 4
     {
         Log::Print("CodecDsdDff::ProcessFverChunk()  corrupt! \n");
         THROW(CodecStreamCorrupt);
     }
-    iController->Read(iInputBuf, (TUint)chunkBytes); // read version string
+    iController->Read(iInputBuf, (TUint)chunkDataBytes); // read version string
 }
 
 void CodecDsdDff::ProcessDsdChunk()
@@ -153,18 +163,23 @@ void CodecDsdDff::ProcessPropChunk()
 {
     // container chunk  - contains a number of "local"" chunks
 
-    TUint64 propChunkBytes = ReadChunkHeader(Brn("PROP"));
-    if (propChunkBytes < 4)
+    TUint64 propChunkDataBytes = ReadChunkHeader(Brn("PROP"));
+    if (propChunkDataBytes < 4)
     {
         THROW(CodecStreamCorrupt);
     }
+    
+    iFileHeaderSizeBytes += propChunkDataBytes;
+    
+    TUint64 propChunkRemainingBytes = propChunkDataBytes;
+
     ReadId(Brn("SND "));
 
-    propChunkBytes -= 4;
+    propChunkRemainingBytes -= 4;
 
     TUint64 bytesRead = 0;
 
-    while(bytesRead<propChunkBytes)
+    while(bytesRead<propChunkRemainingBytes)
     {
         TUint64 localChunkDataBytes = ReadChunkHeader(); // reads 12 bytes
         iController->Read(iInputBuf, (TUint)localChunkDataBytes);
@@ -208,8 +223,6 @@ void CodecDsdDff::ProcessPropChunk()
 }
 
 
-
-
 void CodecDsdDff::StreamInitialise()
 {
     //Log::Print("CodecDsdDff::StreamInitialise()  \n");
@@ -220,8 +233,8 @@ void CodecDsdDff::StreamInitialise()
     iBitRate = 0;
     iAudioBytesTotal = 0;
     iAudioBytesRemaining = 0;
-    iTrackStart = 0;
-    iTrackOffset = 0;
+    //iTrackStart = 0;
+    iTrackOffsetJiffies = 0;
     iTrackLengthJiffies = 0;
 
     ProcessFormChunk(); // Could throw CodecStreamEnded/CodecStreamCorrupt.
@@ -237,8 +250,8 @@ void CodecDsdDff::StreamInitialise()
     Log::Print("  iAudioBytesRemaining = %llu\n", iAudioBytesRemaining);
     Log::Print("  iFileSize = %llu\n", iFileSize);
     Log::Print("  iBitRate = %u\n", iBitRate);
-    Log::Print("  iTrackStart = %llu\n", iTrackStart);
-    Log::Print("  iTrackOffset = %llu\n", iTrackOffset);
+    //Log::Print("  iTrackStart = %llu\n", iTrackStart);
+    Log::Print("  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
     Log::Print("  iTrackLengthJiffies = %llu\n", iTrackLengthJiffies);
     //Log::Print("  iFormatVersion = %u\n", iFormatVersion);
     //Log::Print("  iFormatId = %u\n", iFormatId);
@@ -264,7 +277,7 @@ void CodecDsdDff::Process()
 
     TransferToOutputBuffer();
 
-    iTrackOffset += iController->OutputAudioDsd(iOutputBuf, iChannelCount, iSampleRate, iTrackOffset);
+    iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuf, iChannelCount, iSampleRate, iTrackOffsetJiffies);
     iAudioBytesRemaining -= iInputBuf.Bytes();
 }
 
@@ -276,7 +289,8 @@ void CodecDsdDff::TransferToOutputBuffer()
 
     TUint loopCount = kBlockSize/2;
 
-    for (TUint i = 0 ; i < loopCount ; ++i) {
+    for (TUint i = 0 ; i < loopCount ; ++i) 
+    {
         // pack left channel
         oPtr[0] = inPtr[0];
         oPtr[1] = inPtr[2];
@@ -289,14 +303,29 @@ void CodecDsdDff::TransferToOutputBuffer()
     }
 }
 
-TBool CodecDsdDff::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
+TBool CodecDsdDff::TrySeek(TUint aStreamId, TUint64 aSample)
 {
-    return false;
+    aSample &= kSampleBlockRoundingMask; // round down to block boundary
+    TUint64 bytePos = (aSample * iChannelCount * iBitDepth / 8);
+    bytePos += iFileHeaderSizeBytes; // account for header bytes
+
+    if (!iController->TrySeekTo(aStreamId, bytePos))
+    {
+        return false;
+    }
+    
+    iTrackOffsetJiffies = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate; 
+    
+    iInputBuf.SetBytes(0);
+    SendMsgDecodedStream(aSample);
+
+    return true;
 }
+
 
 void CodecDsdDff::SendMsgDecodedStream(TUint64 aStartSample)
 {
-    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("Dsd"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
+    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("DsdDff"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
 }
 
 void CodecDsdDff::ReadId(const Brx& aId)

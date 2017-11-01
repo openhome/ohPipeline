@@ -20,8 +20,16 @@ class CodecDsd : public CodecBase
 {
 private:
     static const TUint kDataBlockBytes = 4096;
-    static const TUint kInputBufBytes = 2*kDataBlockBytes; // 2 channels
-    static const TUint kOutputBufBytes = 2*kDataBlockBytes; // allow for expansion to 24bits
+    static const TUint kInputBufMaxBytes = 2*kDataBlockBytes; // 2 channels
+    static const TUint kOutputBufMaxBytes = kInputBufMaxBytes; 
+    static const TUint64 kSampleBlockRoundingMask = ~(kInputBufMaxBytes-1);  
+
+    static const TUint64 kChunkDsdHeaderBytes = 12;
+    static const TUint64 kChunkDsdDataBytes = 28;
+    static const TUint64 kChunkDsdBytes = kChunkDsdHeaderBytes+kChunkDsdDataBytes;
+    
+    static const TUint64 kChunkFmtHeaderBytes = 12;  // 4 for ID, 8 for data byte count, 4 data bytes
+    static const TUint64 kChunkDataHeaderBytes = 12;  // 4 for ID, 8 for data byte count
 
 public:
     CodecDsd(IMimeTypeList& aMimeTypeList);
@@ -48,8 +56,8 @@ private:
     static TUint8 ReverseBits8(TUint8 aData);
 
 private:
-    Bws<kInputBufBytes> iInputBuffer;
-    Bws<kOutputBufBytes> iOutputBuffer; 
+    Bws<kInputBufMaxBytes> iInputBuffer;
+    Bws<kOutputBufMaxBytes> iOutputBuffer; 
     TUint iChannelCount;
     TUint iSampleRate;
     TUint iBitDepth;
@@ -58,7 +66,7 @@ private:
     TUint64 iFileSize;
     TUint iBitRate;
     TUint64 iTrackStart;
-    TUint64 iTrackOffset;
+    TUint64 iTrackOffsetJiffies;
     TUint64 iTrackLengthJiffies;
     TUint iBlockSizePerChannel;
     TUint iFormatVersion;
@@ -66,6 +74,7 @@ private:
     TUint iChannelType;
     TUint64 iSampleCount;
     TBool iInitialAudio;
+    TUint64 iHeaderSizeBytes;
 };
 
 } // namespace Codec
@@ -82,7 +91,8 @@ CodecBase* CodecFactory::NewDsd(IMimeTypeList& aMimeTypeList)
 }
 
 CodecDsd::CodecDsd(IMimeTypeList& aMimeTypeList)
-    : CodecBase("DSD", kCostLow)
+    :CodecBase("DSD", kCostLow)
+    ,iHeaderSizeBytes(kChunkDsdBytes+kChunkFmtHeaderBytes+kChunkDataHeaderBytes) // increased later once we know size of fmt chunk
 {
     aMimeTypeList.Add("audio/dsd");
     aMimeTypeList.Add("audio/x-dsd");
@@ -139,7 +149,7 @@ void CodecDsd::StreamInitialise()
     iAudioBytesRemaining = 0;
     iFileSize = 0;
     iTrackStart = 0;
-    iTrackOffset = 0;
+    iTrackOffsetJiffies = 0;
     iInputBuffer.SetBytes(0);
 
     iInitialAudio = true;
@@ -178,7 +188,7 @@ void CodecDsd::Process()
         Log::Print("  iFileSize = %llu\n", iFileSize);
         Log::Print("  iBitRate = %u\n", iBitRate);
         Log::Print("  iTrackStart = %llu\n", iTrackStart);
-        Log::Print("  iTrackOffset = %llu\n", iTrackOffset);
+        Log::Print("  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
         Log::Print("  iTrackLengthJiffies = %llu (%llu secs)\n", iTrackLengthJiffies, iTrackLengthJiffies/Jiffies::kPerSecond);
         Log::Print("  iBlockSizePerChannel = %u\n", iBlockSizePerChannel);
         Log::Print("  iFormatVersion = %u\n", iFormatVersion);
@@ -208,71 +218,31 @@ void CodecDsd::Process()
         }
 
 
-        iTrackOffset += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, iTrackOffset);
+        iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, iTrackOffsetJiffies);
         iAudioBytesRemaining -= iInputBuffer.Bytes();
     }
 }
 
-TBool CodecDsd::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
+TBool CodecDsd::TrySeek(TUint aStreamId, TUint64 aSample)
 {
-/*
-    const TUint64 bytePos = aSample * iChannelCount * (iBitDepth/8);
-    if (!iController->TrySeekTo(aStreamId, bytePos)) {
+    aSample &= kSampleBlockRoundingMask; // round down to block boundary
+    TUint64 bytePos = (aSample * iChannelCount * iBitDepth / 8);
+    bytePos += iHeaderSizeBytes; // account for header bytyes
+
+    if (!iController->TrySeekTo(aStreamId, bytePos))
+    {
         return false;
     }
-    iTrackOffset = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate;
+    
+    iTrackOffsetJiffies = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate; 
+    
     iInputBuffer.SetBytes(0);
     SendMsgDecodedStream(aSample);
-*/
-    return true;
-}
 
-/*
-TUint64 CodecPcm::ToJiffies(TUint64 aSample)
-{
-    return ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate;
-}
-
-
-TBool CodecWav::TrySeek(TUint aStreamId, TUint64 aSample)
-{
-    const TUint byteDepth = iBitDepth/8;
-    const TUint64 bytePos = aSample * iNumChannels * byteDepth;
-
-    // Some bounds checking.
-    const TUint64 seekPosJiffies = Jiffies::PerSample(iSampleRate)*aSample;
-    if (seekPosJiffies > iTrackLengthJiffies) {
-        return false;
-    }
-
-    if (!iController->TrySeekTo(aStreamId, iTrackStart + bytePos)) {
-        return false;
-    }
-    iTrackOffset = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate;
-    if(iFileSize != 0) {    // UI should not allow seeking within streamed audio, but check before updating track length anyhow
-        iAudioBytesRemaining = iAudioBytesTotal - (TUint)(aSample * iNumChannels * byteDepth);
-    }
-
-    iReadBuf.SetBytes(0);
-    SendMsgDecodedStream(aSample);
     return true;
 }
 
 
-TBool CodecPcm::TrySeek(TUint aStreamId, TUint64 aSample)
-{
-    const TUint64 bytePos = aSample * iNumChannels * (iBitDepth/8);
-    if (!iController->TrySeekTo(aStreamId, bytePos)) {
-        return false;
-    }
-    iTrackOffset = ToJiffies(aSample);
-    iReadBuf.SetBytes(0);
-    SendMsgDecodedStream(aSample);
-    return true;
-}
-
-
-*/
 
 
 TBool CodecDsd::Recognise(const EncodedStreamInfo& aStreamInfo)
@@ -312,7 +282,7 @@ void CodecDsd::ProcessDsdChunk()
 
     iController->Read(iInputBuffer, 24);
 
-    if(LeUint64At(iInputBuffer, 4) != 28) //DSD chunk size must be 28
+    if(LeUint64At(iInputBuffer, 4) != kChunkDsdDataBytes) //DSD chunk size must be 28
     {
         THROW(CodecStreamCorrupt);
     }
@@ -329,8 +299,8 @@ void CodecDsd::ProcessFmtChunk()
 
     iController->Read(iInputBuffer, 8);
 
-
     TUint64 chunkBytes = LeUint64At(iInputBuffer, 4);
+    iHeaderSizeBytes += chunkBytes;
 
     // Read in remainder of "fmt " chunk.
     iController->Read(iInputBuffer, (TUint32)chunkBytes-12);
@@ -386,8 +356,6 @@ TUint64 CodecDsd::LeUint64At(Brx& aBuf, TUint aOffset)
 
 TUint8 CodecDsd::ReverseBits8(TUint8 aData)
 {
-    //return aData;
-
     aData = (((aData & 0xaa) >> 1) | ((aData & 0x55) << 1));
     aData = (((aData & 0xcc) >> 2) | ((aData & 0x33) << 2));
     return((aData >> 4) | (aData << 4));
