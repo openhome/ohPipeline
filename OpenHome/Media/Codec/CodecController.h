@@ -114,7 +114,7 @@ public:
      * @param[in] aSampleRate    The sample rate of the decoded stream.
      * @param[in] aNumChannels   The number of channels in the decoded stream.  Must be in the range [2..8].
      * @param[in] aCodecName     The name of the codec.  Reported to UI code; not used by the pipeline.
-     * @param[in] aLength        Number of bytes in the encoded stream.  Reported to UI code; not used by the pipeline.
+     * @param[in] aLength        Number of jiffies in the decoded stream.  Reported to UI code; not used by the pipeline.
      * @param[in] aSampleStart   The first sample number in the next audio data to be output.  0 at the start of a stream.
      * @param[in] aLossless      Whether the stream is in a lossless format.  Reported to UI code; not used by the pipeline.
      * @param[in] aProfile       Speaker profile (channel allocation) of the decoded stream
@@ -134,7 +134,7 @@ public:
     * @param[in] aSampleRate    The sample rate of the decoded stream.
     * @param[in] aNumChannels   The number of channels in the decoded stream.  Must be in the range [2..8].
     * @param[in] aCodecName     The name of the codec.  Reported to UI code; not used by the pipeline.
-    * @param[in] aLength        Number of bytes in the encoded stream.  Reported to UI code; not used by the pipeline.
+    * @param[in] aLength        Number of jiffies in the decoded stream.  Reported to UI code; not used by the pipeline.
     * @param[in] aSampleStart   The first sample number in the next audio data to be output.  0 at the start of a stream.
     * @param[in] aProfile       Speaker profile (channel allocation) of the decoded stream
     */
