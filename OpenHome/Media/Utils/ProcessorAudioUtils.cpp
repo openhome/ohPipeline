@@ -212,7 +212,7 @@ void ProcessorDsdBufTest::BeginBlock()
     iBuf.SetBytes(0);
 }
 
-void ProcessorDsdBufTest::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/)
+void ProcessorDsdBufTest::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/, TUint /*aSampleBlockBits*/)
 {
     CheckSize(aData.Bytes());
     iBuf.Append(aData);

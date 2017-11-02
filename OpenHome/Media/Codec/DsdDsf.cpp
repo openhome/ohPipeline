@@ -31,6 +31,8 @@ private:
     static const TUint64 kChunkFmtHeaderBytes = 12;  // 4 for ID, 8 for data byte count, 4 data bytes
     static const TUint64 kChunkDataHeaderBytes = 12;  // 4 for ID, 8 for data byte count
 
+    static const TUint kSampleBlockBits = 32; // audio is written out as 16x left, then 16x right
+
 public:
     CodecDsdDsf(IMimeTypeList& aMimeTypeList);
 private: // from CodecBase
@@ -217,7 +219,7 @@ void CodecDsdDsf::Process()
         }
 
 
-        iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, iTrackOffsetJiffies);
+        iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, kSampleBlockBits, iTrackOffsetJiffies);
         iAudioBytesRemaining -= iInputBuffer.Bytes();
     }
 }

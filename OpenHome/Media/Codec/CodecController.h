@@ -181,14 +181,17 @@ public:
     /**
     * Add a block of DSD audio to the pipeline.
     *
-    * @param[in] aData          DSD audio data.  Must contain an exact number of samples.
-    * @param[in] aChannels      Number of channels.
-    * @param[in] aSampleRate    Sample rate.
-    * @param[in] aTrackOffset   Offset (in jiffies) into the stream at the start of aData.
+    * @param[in] aData             DSD audio data.  Must contain an exact number of samples.
+    * @param[in] aChannels         Number of channels.
+    * @param[in] aSampleRate       Sample rate.
+    * @param[in] aSampleBlockBits  Block size (in bits) of DSD data.  2 for stereo where left/right
+    *                              channels are interleaved, 16 for stereo with one byte of left
+    *                              subsamples followed by one byte of right subsamples, etc.
+    * @param[in] aTrackOffset      Offset (in jiffies) into the stream at the start of aData.
     *
     * @return     Number of jiffies of audio contained in aData.
     */
-    virtual TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset) = 0;
+    virtual TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) = 0;
     /**
      * Notify the pipeline of a change in bit rate.
      *
@@ -381,7 +384,7 @@ private: // ICodecController
     void OutputDelay(TUint aJiffies) override;
     TUint64 OutputAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset) override;
     TUint64 OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset) override;
-    TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset) override;
+    TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) override;
     void OutputBitRate(TUint aBitRate) override;
     void OutputWait() override;
     void OutputHalt() override;

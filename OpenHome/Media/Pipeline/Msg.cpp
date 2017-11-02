@@ -2061,10 +2061,12 @@ MsgAudio* MsgAudioDsd::Clone()
 {
     auto clone = static_cast<MsgAudioDsd*>(MsgAudioDecoded::Clone());
     clone->iAllocatorPlayableDsd = iAllocatorPlayableDsd;
+    clone->iSampleBlockBits = iSampleBlockBits;
     return clone;
 }
 
-void MsgAudioDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels, TUint64 aTrackOffset,
+void MsgAudioDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels,
+                             TUint aSampleBlockBits, TUint64 aTrackOffset,
                              Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
                              Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence)
 {
@@ -2072,13 +2074,15 @@ void MsgAudioDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUi
     MsgAudioDecoded::Initialise(aDecodedAudio, aSampleRate, kBitDepth, aChannels,
                                 aTrackOffset, numSubsamples, aAllocatorPlayableSilence);
     iAllocatorPlayableDsd = &aAllocatorPlayableDsd;
+    iSampleBlockBits = aSampleBlockBits;
 }
 
 MsgPlayable* MsgAudioDsd::DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes)
 {
     auto playable = iAllocatorPlayableDsd->Allocate();
     Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
-    playable->Initialise(iAudioData, aSizeBytes, iSampleRate, iNumChannels, aOffsetBytes, iRamp, bufferObserver);
+    playable->Initialise(iAudioData, aSizeBytes, iSampleRate, iNumChannels,
+                         iSampleBlockBits, aOffsetBytes, iRamp, bufferObserver);
     return playable;
 }
 
@@ -2092,6 +2096,12 @@ void MsgAudioDsd::SplitCompleted(MsgAudio& aRemaining)
     MsgAudioDecoded::SplitCompleted(aRemaining);
     MsgAudioDsd& remaining = static_cast<MsgAudioDsd&>(aRemaining);
     remaining.iAllocatorPlayableDsd = iAllocatorPlayableDsd;
+}
+
+void MsgAudioDsd::Clear()
+{
+    iSampleBlockBits = 0;
+    MsgAudioDecoded::Clear();
 }
 
 Msg* MsgAudioDsd::Process(IMsgProcessor& aProcessor)
@@ -2474,20 +2484,21 @@ MsgPlayableDsd::MsgPlayableDsd(AllocatorBase& aAllocator)
 }
 
 void MsgPlayableDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, TUint aSampleRate,
-                                TUint aNumChannels, TUint aOffsetBytes, const Media::Ramp& aRamp,
-                                Optional<IPipelineBufferObserver> aPipelineBufferObserver)
+                                TUint aNumChannels, TUint aSampleBlockBits, TUint aOffsetBytes,
+                                const Media::Ramp& aRamp, Optional<IPipelineBufferObserver> aPipelineBufferObserver)
 {
     MsgPlayable::Initialise(aSizeBytes, aSampleRate, 1, aNumChannels,
                             aOffsetBytes, aRamp, aPipelineBufferObserver);
     iAudioData = aDecodedAudio;
     iAudioData->AddRef();
+    iSampleBlockBits = aSampleBlockBits;
 }
 
 void MsgPlayableDsd::ReadBlock(IDsdProcessor& aProcessor)
 {
     Brn audioBuf(iAudioData->Ptr(iOffset), iSize);
     ASSERT(!iRamp.IsEnabled());
-    aProcessor.ProcessFragment(audioBuf, iNumChannels);
+    aProcessor.ProcessFragment(audioBuf, iNumChannels, iSampleBlockBits);
 }
 
 MsgPlayable* MsgPlayableDsd::Allocate()
@@ -2561,7 +2572,7 @@ void MsgPlayableSilence::ReadBlock(IDsdProcessor& aProcessor)
     do {
         TUint bytes = (remainingBytes > DecodedAudio::kMaxBytes ? DecodedAudio::kMaxBytes : remainingBytes);
         Brn audioBuf(silence, bytes);
-        aProcessor.ProcessFragment(audioBuf, iNumChannels);
+        aProcessor.ProcessFragment(audioBuf, iNumChannels, 2);
         remainingBytes -= bytes;
     } while (remainingBytes > 0);
 }
@@ -3539,13 +3550,13 @@ MsgAudioPcm* MsgFactory::CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChann
                              aChannels, aSampleRate, aBitDepth, aTrackOffset);
 }
 
-MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset)
+MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset)
 {
     auto decodedAudio = static_cast<DecodedAudio*>(iAllocatorAudioData.Allocate());
     decodedAudio->ConstructDsd(aData);
     auto audioDsd = iAllocatorMsgAudioDsd.Allocate();
     try {
-        audioDsd->Initialise(decodedAudio, aSampleRate, aChannels, aTrackOffset,
+        audioDsd->Initialise(decodedAudio, aSampleRate, aChannels, aSampleBlockBits, aTrackOffset,
                              iAllocatorMsgPlayableDsd, iAllocatorMsgPlayableSilence);
     }
     catch (AssertionFailed&) { // test code helper

@@ -867,7 +867,8 @@ public:
 public: // from MsgAudio
     MsgAudio* Clone() override; // create new MsgAudio, take ref to DecodedAudio, copy size/offset
 private:
-    void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels, TUint64 aTrackOffset,
+    void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels,
+                    TUint aSampleBlockBits, TUint64 aTrackOffset,
                     Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
                     Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
 private: // from MsgAudioDecoded
@@ -876,9 +877,11 @@ private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
 private: // from Msg
+    void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
 private:
     Allocator<MsgPlayableDsd>* iAllocatorPlayableDsd;
+    TUint iSampleBlockBits;
 };
 
 class MsgPlayableSilence;
@@ -986,8 +989,8 @@ public:
     MsgPlayableDsd(AllocatorBase& aAllocator);
 private:
     void Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, TUint aSampleRate,
-                    TUint aNumChannels, TUint aOffsetBytes, const Media::Ramp& aRamp,
-                    Optional<IPipelineBufferObserver> aPipelineBufferObserver);
+                    TUint aNumChannels, TUint aSampleBlockBits, TUint aOffsetBytes,
+                    const Media::Ramp& aRamp, Optional<IPipelineBufferObserver> aPipelineBufferObserver);
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
     void SplitCompleted(MsgPlayable& aRemaining) override;
@@ -996,6 +999,7 @@ private: // from Msg
     void Clear() override;
 private:
     DecodedAudio* iAudioData;
+    TUint iSampleBlockBits;
 };
 
 class MsgPlayableSilence : public MsgPlayable
@@ -1115,10 +1119,13 @@ public:
     * 1 bit per subsample. Subsamples are packed in blocks of 16 (i.e. a stereo
     * track * has 16 subsamples for left followed by 16 for right).
     *
-    * @param aData         Packed DSD data.  Will always be a complete number of samples.
-    * @param aNumChannels  Number of channels.
+    * @param aData             Packed DSD data.  Will always be a complete number of samples.
+    * @param aNumChannels      Number of channels.
+    * @param aSampleBlockBits  Block size (in bits) of DSD data.  2 for stereo where left/right
+    *                          channels are interleaved, 16 for stereo with one byte of left
+    *                          subsamples followed by one byte of right subsamples, etc.
     */
-    virtual void ProcessFragment(const Brx& aData, TUint aNumChannels) = 0;
+    virtual void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSampleBlockBits) = 0;
     /**
     * Called once per call to MsgPlayable::Read.
     *
@@ -1803,7 +1810,7 @@ public:
     MsgBitRate* CreateMsgBitRate(TUint aBitRate);
     MsgAudioPcm* CreateMsgAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset);
     MsgAudioPcm* CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset); // aAudio must contain big endian pcm data
-    MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset);
+    MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset);
     MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels);
     MsgQuit* CreateMsgQuit();
 private:

@@ -209,7 +209,7 @@ void SuiteSampleRateValidator::PushMsg(EMsgType aType)
     case EMsgAudioDsd:
     {
         Brn audioBuf(iAudioData, sizeof(iAudioData));
-        auto msgDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, kChannels, kSampleRateDsd, iTrackOffsetTx);
+        auto msgDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, kChannels, kSampleRateDsd, 2, iTrackOffsetTx);
         iTrackOffsetTx += msgDsd->Jiffies();
         msg = msgDsd;
     }
