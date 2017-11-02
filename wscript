@@ -228,7 +228,6 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Muter.cpp',
                 'OpenHome/Media/Pipeline/MuterVolume.cpp',
                 'OpenHome/Media/Pipeline/PreDriver.cpp',
-                'OpenHome/Media/Pipeline/Pruner.cpp',
                 'OpenHome/Media/Pipeline/Attenuator.cpp',
                 'OpenHome/Media/Pipeline/Ramper.cpp',
                 'OpenHome/Media/Pipeline/Reporter.cpp',
@@ -455,7 +454,7 @@ def build(bld):
     bld.stlib(
             source=['OpenHome/Media/Codec/DsdDsf.cpp'],
             use=['OHNET'],
-            target='CodecDsd')
+            target='CodecDsdDsf')
 
     # DSDDFF
     bld.stlib(
@@ -696,7 +695,6 @@ def build(bld):
                 'OpenHome/Media/Tests/TestReporter.cpp',
                 #'OpenHome/Media/Tests/TestSpotifyReporter.cpp',
                 'OpenHome/Media/Tests/TestPreDriver.cpp',
-                'OpenHome/Media/Tests/TestPruner.cpp',
                 'OpenHome/Media/Tests/TestVolumeRamper.cpp',
                 'OpenHome/Media/Tests/TestMuter.cpp',
                 'OpenHome/Media/Tests/TestMuterVolume.cpp',
@@ -745,7 +743,7 @@ def build(bld):
                 'OpenHome/Net/Odp/Tests/CpiDeviceOdp.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsd', 'CodecDsdDff',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
@@ -842,11 +840,6 @@ def build(bld):
             source='OpenHome/Media/Tests/TestPreDriverMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestPreDriver',
-            install_path=None)
-    bld.program(
-            source='OpenHome/Media/Tests/TestPrunerMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-            target='TestPruner',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestVolumeRamperMain.cpp',
@@ -1123,7 +1116,7 @@ def bundle(ctx):
                  'CodecAiffBase',
                  'CodecAlacAppleBase',
                  'CodecAlacApple',
-                 'CodecDsd',
+                 'CodecDsdDsf',
                  'CodecDsdDff',
                  'CodecFlac',
                  'CodecMp3',

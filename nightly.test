@@ -21,7 +21,6 @@ tests = '''
     TestTrackInspector
     TestRamper
     TestReporter
-    TestPruner
     TestStarvationRamper
     TestMuter
     TestMuterVolume
