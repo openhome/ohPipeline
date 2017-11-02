@@ -24,7 +24,6 @@
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Pipeline/Router.h>
 #include <OpenHome/Media/Pipeline/Drainer.h>
-#include <OpenHome/Media/Pipeline/Pruner.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
 #include <OpenHome/Media/Pipeline/Logger.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
@@ -441,12 +440,6 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorDelay2, new DecodedAudioValidator(*upstream, "VariableDelay2"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
-    ATTACH_ELEMENT(iPruner, new Pruner(*upstream),
-                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerPruner, new Logger(*iPruner, "Pruner"),
-                   upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iDecodedAudioValidatorPruner, new DecodedAudioValidator(*upstream, "Pruner"),
-                   upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     ATTACH_ELEMENT(iStarvationRamper,
                    new StarvationRamper(*iMsgFactory, *upstream, *this, *iEventThread,
                                         aInitParams->StarvationRamperMinJiffies(),
@@ -520,7 +513,6 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerAttenuator->SetEnabled(true);
     //iLoggerDrainer->SetEnabled(true);
     //iLoggerVariableDelay2->SetEnabled(true);
-    //iLoggerPruner->SetEnabled(true);
     //iLoggerStarvationRamper->SetEnabled(true);
     //iLoggerMuter->SetEnabled(true);
     //iLoggerVolumeRamper->SetEnabled(true);
@@ -549,7 +541,6 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerAttenuator->SetFilter(Logger::EMsgAll);
     //iLoggerDrainer->SetFilter(Logger::EMsgAll);
     //iLoggerVariableDelay2->SetFilter(Logger::EMsgAll);
-    //iLoggerPruner->SetFilter(Logger::EMsgAll);
     //iLoggerStarvationRamper->SetFilter(Logger::EMsgAll);
     //iLoggerMuter->SetFilter(Logger::EMsgAll);
     //iLoggerVolumeRamper->SetFilter(Logger::EMsgAll);
@@ -577,9 +568,6 @@ Pipeline::~Pipeline()
     delete iRampValidatorStarvationRamper;
     delete iLoggerStarvationRamper;
     delete iStarvationRamper;
-    delete iDecodedAudioValidatorPruner;
-    delete iLoggerPruner;
-    delete iPruner;
     delete iLoggerAttenuator;
     delete iAttenuator;
     delete iDecodedAudioValidatorDelay2;

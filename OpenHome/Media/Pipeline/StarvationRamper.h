@@ -107,21 +107,29 @@ private:
     void StartFlywheelRamp();
     void NewStream();
     void ProcessAudioOut(MsgAudio* aMsg);
+    void ApplyRamp(MsgAudioDecoded* aMsg);
     void SetBuffering(TBool aBuffering);
     void EventCallback();
 private: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // from MsgReservoir
+    void ProcessMsgIn(MsgTrack* aMsg) override;
     void ProcessMsgIn(MsgDelay* aMsg) override;
+    void ProcessMsgIn(MsgHalt* aMsg) override;
+    void ProcessMsgIn(MsgDecodedStream* aMsg) override;
     void ProcessMsgIn(MsgQuit* aMsg) override;
     Msg* ProcessMsgOut(MsgMode* aMsg) override;
     Msg* ProcessMsgOut(MsgTrack* aMsg) override;
     Msg* ProcessMsgOut(MsgDrain* aMsg) override;
     Msg* ProcessMsgOut(MsgDelay* aMsg) override;
+    Msg* ProcessMsgOut(MsgMetaText* aMsg) override;
     Msg* ProcessMsgOut(MsgHalt* aMsg) override;
     Msg* ProcessMsgOut(MsgFlush* aMsg) override;
+    Msg* ProcessMsgOut(MsgWait* aMsg) override;
     Msg* ProcessMsgOut(MsgDecodedStream* aMsg) override;
+    Msg* ProcessMsgOut(MsgBitRate* aMsg) override;
     Msg* ProcessMsgOut(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsgOut(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsgOut(MsgSilence* aMsg) override;
 private:
     enum class State {
@@ -160,11 +168,14 @@ private:
     TUint iSampleRate;
     TUint iBitDepth;
     TUint iNumChannels;
+    AudioFormat iFormat;
     TUint iCurrentRampValue;
     TUint iRemainingRampSize;
     TUint iTargetFlushId;
     TUint iLastPulledAudioRampValue;
     TUint iEventId;
+    std::atomic<TUint> iTrackStreamCount;
+    std::atomic<TUint> iHaltCount;
     std::atomic<bool> iEventBuffering;
     TBool iLastEventBuffering;
 };

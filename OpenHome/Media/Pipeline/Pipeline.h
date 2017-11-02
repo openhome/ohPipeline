@@ -134,7 +134,6 @@ class Router;
 class Attenuator;
 class Drainer;
 class VariableDelayRight;
-class Pruner;
 class StarvationRamper;
 class Muter;
 class MuterVolume;
@@ -303,9 +302,6 @@ private:
     Logger* iLoggerVariableDelay2;
     RampValidator* iRampValidatorDelay2;
     DecodedAudioValidator* iDecodedAudioValidatorDelay2;
-    Pruner* iPruner;
-    Logger* iLoggerPruner;
-    DecodedAudioValidator* iDecodedAudioValidatorPruner;
     StarvationRamper* iStarvationRamper;
     Logger* iLoggerStarvationRamper;
     RampValidator* iRampValidatorStarvationRamper;
