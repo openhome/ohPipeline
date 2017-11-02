@@ -16,15 +16,23 @@ namespace OpenHome {
 namespace Media {
 namespace Codec {
 
-class CodecDsd : public CodecBase
+class CodecDsdDsf : public CodecBase
 {
 private:
     static const TUint kDataBlockBytes = 4096;
-    static const TUint kInputBufBytes = 2*kDataBlockBytes; // 2 channels
-    static const TUint kOutputBufBytes = 2*kDataBlockBytes; // allow for expansion to 24bits
+    static const TUint kInputBufMaxBytes = 2*kDataBlockBytes; // 2 channels
+    static const TUint kOutputBufMaxBytes = kInputBufMaxBytes; 
+    static const TUint64 kSampleBlockRoundingMask = ~(kInputBufMaxBytes-1);  
+
+    static const TUint64 kChunkDsdHeaderBytes = 12;
+    static const TUint64 kChunkDsdDataBytes = 28;
+    static const TUint64 kChunkDsdBytes = kChunkDsdHeaderBytes+kChunkDsdDataBytes;
+    
+    static const TUint64 kChunkFmtHeaderBytes = 12;  // 4 for ID, 8 for data byte count, 4 data bytes
+    static const TUint64 kChunkDataHeaderBytes = 12;  // 4 for ID, 8 for data byte count
 
 public:
-    CodecDsd(IMimeTypeList& aMimeTypeList);
+    CodecDsdDsf(IMimeTypeList& aMimeTypeList);
 private: // from CodecBase
     TBool Recognise(const EncodedStreamInfo& aStreamInfo) override;
     void StreamInitialise() override;
@@ -48,8 +56,8 @@ private:
     static TUint8 ReverseBits8(TUint8 aData);
 
 private:
-    Bws<kInputBufBytes> iInputBuffer;
-    Bws<kOutputBufBytes> iOutputBuffer; 
+    Bws<kInputBufMaxBytes> iInputBuffer;
+    Bws<kOutputBufMaxBytes> iOutputBuffer; 
     TUint iChannelCount;
     TUint iSampleRate;
     TUint iBitDepth;
@@ -58,7 +66,7 @@ private:
     TUint64 iFileSize;
     TUint iBitRate;
     TUint64 iTrackStart;
-    TUint64 iTrackOffset;
+    TUint64 iTrackOffsetJiffies;
     TUint64 iTrackLengthJiffies;
     TUint iBlockSizePerChannel;
     TUint iFormatVersion;
@@ -66,6 +74,7 @@ private:
     TUint iChannelType;
     TUint64 iSampleCount;
     TBool iInitialAudio;
+    TUint64 iHeaderSizeBytes;
 };
 
 } // namespace Codec
@@ -76,16 +85,16 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 using namespace OpenHome::Media::Codec;
 
-CodecBase* CodecFactory::NewDsd(IMimeTypeList& aMimeTypeList)
+CodecBase* CodecFactory::NewDsdDsf(IMimeTypeList& aMimeTypeList)
 { // static
-    return new CodecDsd(aMimeTypeList);
+    return new CodecDsdDsf(aMimeTypeList);
 }
 
-CodecDsd::CodecDsd(IMimeTypeList& aMimeTypeList)
-    : CodecBase("DSD", kCostLow)
+CodecDsdDsf::CodecDsdDsf(IMimeTypeList& aMimeTypeList)
+    :CodecBase("DSD", kCostLow)
+    ,iHeaderSizeBytes(kChunkDsdBytes+kChunkFmtHeaderBytes+kChunkDataHeaderBytes) // increased later once we know size of fmt chunk
 {
-    aMimeTypeList.Add("audio/dsd");
-    aMimeTypeList.Add("audio/x-dsd");
+    aMimeTypeList.Add("audio/dsf");
     aMimeTypeList.Add("audio/x-dsf");
 
     iOutputBuffer.SetBytes(iOutputBuffer.MaxBytes());
@@ -93,7 +102,7 @@ CodecDsd::CodecDsd(IMimeTypeList& aMimeTypeList)
 }
 
 
-void CodecDsd::CheckReinterleave()
+void CodecDsdDsf::CheckReinterleave()
 {
     Log::Print("DSD CheckReinterleave:\n");
     iInputBuffer.SetBytes(0);
@@ -111,7 +120,7 @@ void CodecDsd::CheckReinterleave()
 }
 
 
-void CodecDsd::ShowBufLeader() const
+void CodecDsdDsf::ShowBufLeader() const
 {
     Log::Print("LF: ");
     Log::PrintHex(iInputBuffer.Split(0, 20));
@@ -127,7 +136,7 @@ void CodecDsd::ShowBufLeader() const
 }
 
 
-void CodecDsd::StreamInitialise()
+void CodecDsdDsf::StreamInitialise()
 {
     iChannelCount = 0;
     iSampleRate = 0;
@@ -139,13 +148,13 @@ void CodecDsd::StreamInitialise()
     iAudioBytesRemaining = 0;
     iFileSize = 0;
     iTrackStart = 0;
-    iTrackOffset = 0;
+    iTrackOffsetJiffies = 0;
     iInputBuffer.SetBytes(0);
 
     iInitialAudio = true;
 }
 
-void CodecDsd::ReinterleaveToOutputBuffer()
+void CodecDsdDsf::ReinterleaveToOutputBuffer()
 {
     const TByte* lPtr = iInputBuffer.Ptr();
     const TByte* rPtr = lPtr + kDataBlockBytes;
@@ -163,7 +172,7 @@ void CodecDsd::ReinterleaveToOutputBuffer()
     }
 }
 
-void CodecDsd::Process()
+void CodecDsdDsf::Process()
 {
     if (iChannelCount == 0)  // first call
     {
@@ -178,13 +187,14 @@ void CodecDsd::Process()
         Log::Print("  iFileSize = %llu\n", iFileSize);
         Log::Print("  iBitRate = %u\n", iBitRate);
         Log::Print("  iTrackStart = %llu\n", iTrackStart);
-        Log::Print("  iTrackOffset = %llu\n", iTrackOffset);
-        Log::Print("  iTrackLengthJiffies = %llu\n", iTrackLengthJiffies);
+        Log::Print("  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
+        Log::Print("  iTrackLengthJiffies = %llu (%llu secs)\n", iTrackLengthJiffies, iTrackLengthJiffies/Jiffies::kPerSecond);
         Log::Print("  iBlockSizePerChannel = %u\n", iBlockSizePerChannel);
         Log::Print("  iFormatVersion = %u\n", iFormatVersion);
         Log::Print("  iFormatId = %u\n", iFormatId);
         Log::Print("  iChannelType = %u\n", iChannelType);
         Log::Print("  iSampleCount = %llu\n", iSampleCount);
+
 
         SendMsgDecodedStream(0);
         iInputBuffer.SetBytes(0);
@@ -207,74 +217,34 @@ void CodecDsd::Process()
         }
 
 
-        iTrackOffset += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, iTrackOffset);
+        iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, iTrackOffsetJiffies);
         iAudioBytesRemaining -= iInputBuffer.Bytes();
     }
 }
 
-TBool CodecDsd::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
+TBool CodecDsdDsf::TrySeek(TUint aStreamId, TUint64 aSample)
 {
-/*
-    const TUint64 bytePos = aSample * iChannelCount * (iBitDepth/8);
-    if (!iController->TrySeekTo(aStreamId, bytePos)) {
+    aSample &= kSampleBlockRoundingMask; // round down to block boundary
+    TUint64 bytePos = (aSample * iChannelCount * iBitDepth / 8);
+    bytePos += iHeaderSizeBytes; // account for header bytyes
+
+    if (!iController->TrySeekTo(aStreamId, bytePos))
+    {
         return false;
     }
-    iTrackOffset = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate;
+    
+    iTrackOffsetJiffies = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate; 
+    
     iInputBuffer.SetBytes(0);
     SendMsgDecodedStream(aSample);
-*/
-    return true;
-}
 
-/*
-TUint64 CodecPcm::ToJiffies(TUint64 aSample)
-{
-    return ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate;
-}
-
-
-TBool CodecWav::TrySeek(TUint aStreamId, TUint64 aSample)
-{
-    const TUint byteDepth = iBitDepth/8;
-    const TUint64 bytePos = aSample * iNumChannels * byteDepth;
-
-    // Some bounds checking.
-    const TUint64 seekPosJiffies = Jiffies::PerSample(iSampleRate)*aSample;
-    if (seekPosJiffies > iTrackLengthJiffies) {
-        return false;
-    }
-
-    if (!iController->TrySeekTo(aStreamId, iTrackStart + bytePos)) {
-        return false;
-    }
-    iTrackOffset = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate;
-    if(iFileSize != 0) {    // UI should not allow seeking within streamed audio, but check before updating track length anyhow
-        iAudioBytesRemaining = iAudioBytesTotal - (TUint)(aSample * iNumChannels * byteDepth);
-    }
-
-    iReadBuf.SetBytes(0);
-    SendMsgDecodedStream(aSample);
     return true;
 }
 
 
-TBool CodecPcm::TrySeek(TUint aStreamId, TUint64 aSample)
-{
-    const TUint64 bytePos = aSample * iNumChannels * (iBitDepth/8);
-    if (!iController->TrySeekTo(aStreamId, bytePos)) {
-        return false;
-    }
-    iTrackOffset = ToJiffies(aSample);
-    iReadBuf.SetBytes(0);
-    SendMsgDecodedStream(aSample);
-    return true;
-}
 
 
-*/
-
-
-TBool CodecDsd::Recognise(const EncodedStreamInfo& aStreamInfo)
+TBool CodecDsdDsf::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
 	if (aStreamInfo.RawPcm())
     {
@@ -284,9 +254,9 @@ TBool CodecDsd::Recognise(const EncodedStreamInfo& aStreamInfo)
     return ReadChunkId(Brn("DSD "));
 }
 
-void CodecDsd::ProcessHeader()
+void CodecDsdDsf::ProcessHeader()
 {
-    LOG(kMedia, "CodecDsd::ProcessHeader()\n");
+    LOG(kMedia, "CodecDsdDsf::ProcessHeader()\n");
 
     // format of DSD header taken from http://dsd-guide.com/sites/default/files/white-papers/DSFFileFormatSpec_E.pdf
 
@@ -303,7 +273,7 @@ void CodecDsd::ProcessHeader()
 
 }
 
-void CodecDsd::ProcessDsdChunk()
+void CodecDsdDsf::ProcessDsdChunk()
 {
     //We shouldn't be in the dsd codec unless this says 'DSD '
     //This isn't a track corrupt issue as it was previously checked by Recognise
@@ -311,7 +281,7 @@ void CodecDsd::ProcessDsdChunk()
 
     iController->Read(iInputBuffer, 24);
 
-    if(LeUint64At(iInputBuffer, 4) != 28) //DSD chunk size must be 28
+    if(LeUint64At(iInputBuffer, 4) != kChunkDsdDataBytes) //DSD chunk size must be 28
     {
         THROW(CodecStreamCorrupt);
     }
@@ -319,7 +289,7 @@ void CodecDsd::ProcessDsdChunk()
     iFileSize = LeUint64At(iInputBuffer, 12);
 }
 
-void CodecDsd::ProcessFmtChunk()
+void CodecDsdDsf::ProcessFmtChunk()
 {
     if(!ReadChunkId(Brn("fmt ")))
     {
@@ -328,8 +298,8 @@ void CodecDsd::ProcessFmtChunk()
 
     iController->Read(iInputBuffer, 8);
 
-
     TUint64 chunkBytes = LeUint64At(iInputBuffer, 4);
+    iHeaderSizeBytes += chunkBytes;
 
     // Read in remainder of "fmt " chunk.
     iController->Read(iInputBuffer, (TUint32)chunkBytes-12);
@@ -342,8 +312,8 @@ void CodecDsd::ProcessFmtChunk()
     iBitDepth = Converter::LeUint32At(iInputBuffer, 32);
     iSampleCount = LeUint64At(iInputBuffer, 36);
     iBlockSizePerChannel = Converter::LeUint32At(iInputBuffer, 44);
-    //reserved = Converter::LeUint32At(iInputBuffer, 48);
-
+    iTrackLengthJiffies = iSampleCount * Jiffies::PerSample(iSampleRate);
+    
     if (!StreamIsValid())
     {
         THROW(CodecStreamCorrupt);
@@ -351,7 +321,7 @@ void CodecDsd::ProcessFmtChunk()
 
 }
 
-void CodecDsd::ProcessDataChunk()
+void CodecDsdDsf::ProcessDataChunk()
 {
     if(!ReadChunkId(Brn("data")))
     {
@@ -362,22 +332,20 @@ void CodecDsd::ProcessDataChunk()
 
     iAudioBytesTotal = (TUint32)LeUint64At(iInputBuffer, 4)-12;
     iAudioBytesRemaining = iAudioBytesTotal;
-
-    iTrackLengthJiffies = (iSampleCount * Jiffies::kPerSecond) / iSampleRate;
 }
 
-void CodecDsd::ProcessMetadataChunk()
+void CodecDsdDsf::ProcessMetadataChunk()
 {
 
 }
 
-void CodecDsd::SendMsgDecodedStream(TUint64 aStartSample)
+void CodecDsdDsf::SendMsgDecodedStream(TUint64 aStartSample)
 {
-    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("Dsd"), iAudioBytesTotal, aStartSample, DeriveProfile(iChannelCount));
+    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("Dsd"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
 }
 
 
-TUint64 CodecDsd::LeUint64At(Brx& aBuf, TUint aOffset)
+TUint64 CodecDsdDsf::LeUint64At(Brx& aBuf, TUint aOffset)
 {
     TUint64 val = Converter::LeUint32At(aBuf, aOffset);
     val += ((TUint64)Converter::LeUint32At(aBuf, aOffset+4))<<32;
@@ -385,17 +353,15 @@ TUint64 CodecDsd::LeUint64At(Brx& aBuf, TUint aOffset)
 }
 
 
-TUint8 CodecDsd::ReverseBits8(TUint8 aData)
+TUint8 CodecDsdDsf::ReverseBits8(TUint8 aData)
 {
-    //return aData;
-
     aData = (((aData & 0xaa) >> 1) | ((aData & 0x55) << 1));
     aData = (((aData & 0xcc) >> 2) | ((aData & 0x33) << 2));
     return((aData >> 4) | (aData << 4));
 }
 
 
-TBool CodecDsd::ReadChunkId(const Brx& aId)
+TBool CodecDsdDsf::ReadChunkId(const Brx& aId)
 {
     iInputBuffer.SetBytes(0);
     iController->Read(iInputBuffer, 4);
@@ -403,7 +369,7 @@ TBool CodecDsd::ReadChunkId(const Brx& aId)
     return (iInputBuffer == aId);
 }
 
-TBool CodecDsd::StreamIsValid() const
+TBool CodecDsdDsf::StreamIsValid() const
 {
     if (iFileSize == 0)
     {

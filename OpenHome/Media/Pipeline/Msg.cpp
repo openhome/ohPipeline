@@ -189,6 +189,8 @@ Allocated::~Allocated()
 
 // AudioData
 
+const TUint AudioData::kMaxBytes;
+
 AudioData::AudioData(AllocatorBase& aAllocator)
     : Allocated(aAllocator)
 {
