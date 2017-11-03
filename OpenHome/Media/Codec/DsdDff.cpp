@@ -83,7 +83,7 @@ CodecBase* CodecFactory::NewDsdDff(IMimeTypeList& aMimeTypeList)
 }
 
 CodecDsdDff::CodecDsdDff(IMimeTypeList& aMimeTypeList)
-    :CodecBase("DSDDFF", kCostLow)
+    :CodecBase("DSD-DFF", kCostLow)
     ,iFileHeaderSizeBytes(kChunkFRM8HeaderBytes+kChunkFverBytes+kChunkPropHeaderBytes+kChunkDsdHeaderBytes) // increased later once we know size of prop chunk
 {
     aMimeTypeList.Add("audio/dff");

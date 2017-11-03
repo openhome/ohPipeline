@@ -91,7 +91,7 @@ CodecBase* CodecFactory::NewDsdDsf(IMimeTypeList& aMimeTypeList)
 }
 
 CodecDsdDsf::CodecDsdDsf(IMimeTypeList& aMimeTypeList)
-    :CodecBase("DSD", kCostLow)
+    :CodecBase("DSD-DSF", kCostLow)
     ,iHeaderSizeBytes(kChunkDsdBytes+kChunkFmtHeaderBytes+kChunkDataHeaderBytes) // increased later once we know size of fmt chunk
 {
     aMimeTypeList.Add("audio/dsf");
@@ -341,7 +341,7 @@ void CodecDsdDsf::ProcessMetadataChunk()
 
 void CodecDsdDsf::SendMsgDecodedStream(TUint64 aStartSample)
 {
-    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("Dsd"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
+    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("DsdDsf"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
 }
 
 
