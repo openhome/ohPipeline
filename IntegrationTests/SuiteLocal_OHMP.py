@@ -1,4 +1,4 @@
-"""SuiteLocal - suite of all tests for MediaPlayer testing using local (to 
+"""SuiteLocal - suite of all tests for MediaPlayer testing using local (to
                 individual tests)  SoftPlayer(s) as DUT(s)
 
 Parameters:
@@ -13,7 +13,7 @@ loopback and standard adapter devices within single process space)
  - Network interface to use for testing defined in test configuration XML
  - SoftPlayer instance(s) created/destryed as required
  - iTunes server must be available (for Airplay testing)
- - UPnP media server with reqd. playlists must be available (for playlist soaks) 
+ - UPnP media server with reqd. playlists must be available (for playlist soaks)
 """
 import _Paths
 import BaseSuite as Suite
@@ -51,8 +51,8 @@ except:
     os._exit( -1 )
 radio2    = config.Get( 'tunein.user.o2' )
 radio4    = config.Get( 'tunein.user.o4' )
-plEnc     = config.Get( 'playlist.enc-free' )
-plMix     = config.Get( 'playlist.mixed-free' )
+plEnc     = config.Get( 'playlist.enc-free-dsd' )
+plMix     = config.Get( 'playlist.mixed-free-dsd' )
 server    = config.Get( 'mediaserver.name' )
 tidalId   = config.Get( 'tidal.id' )
 tidalUser = config.Get( 'tidal.user' )
