@@ -44,7 +44,6 @@ ConfigAppMediaPlayer::ConfigAppMediaPlayer(IInfoAggregator& aInfoAggregator,
     AddConfigChoiceConditional(Brn("Sender.Enabled"));
     AddConfigChoiceConditional(Brn("Sender.Mode"));
     AddConfigChoiceConditional(Brn("Source.NetAux.Auto"));
-    AddConfigChoiceConditional(Av::VolumeConfig::kKeyStartupEnabled);
     AddConfigChoiceConditional(Qobuz::kConfigKeySoundQuality);
     AddConfigChoiceConditional(Brn("qobuz.com.Enabled"));
     AddConfigChoiceConditional(Brn("tidalhifi.com.SoundQuality"));
