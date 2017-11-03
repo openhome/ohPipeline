@@ -823,7 +823,8 @@ void SuiteMsgAudio::Test()
     clone->RemoveRef();
 
     // Aggregate 2 msgs. Check their combined lengths are reported.
-    static const TUint dataSizeHalfDecodedAudio = DecodedAudio::kMaxBytes/2;
+    TUint dataSizeHalfDecodedAudio = DecodedAudio::kMaxBytes/2;
+    dataSizeHalfDecodedAudio -= dataSizeHalfDecodedAudio % 12; // round down to an integer number of samples for 8/16/24 bits with 1/2 channels
     static const TUint secondOffsetSamples = dataSizeHalfDecodedAudio / 2; // iBitDepth = 8 bits = 1 byte
     static const TUint secondsOffsetJiffies = Jiffies::PerSample(44100) * secondOffsetSamples;
     Bwh data1(dataSizeHalfDecodedAudio, dataSizeHalfDecodedAudio);
