@@ -929,6 +929,23 @@ void SuiteMsgAudio::Test()
     msg->RemoveRef();
     playable->RemoveRef();
 
+    // Silence msgs in DSD streams should align to client-specified boundaries
+    const TUint sr = 1411200;
+    const TUint jps = Jiffies::PerSample(sr);
+    const TUint blockSizeBytes = 4;
+    const TUint minSamples = 16; // assumes 2 channels
+    const TUint minJiffies = minSamples * jps;
+    jiffies = jps;
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, blockSizeBytes);
+    TEST(jiffies == msg->Jiffies());
+    TEST(jiffies == minJiffies);
+    msg->RemoveRef();
+    jiffies = jps * (minSamples + 1);
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, blockSizeBytes);
+    TEST(jiffies == msg->Jiffies());
+    TEST(jiffies == minJiffies);
+    msg->RemoveRef();
+
     // IPipelineBufferObserver
     BufferObserver bufferObserver;
     const auto msgSize = 2 * Jiffies::kPerMs;

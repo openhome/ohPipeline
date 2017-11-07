@@ -2173,6 +2173,29 @@ void MsgSilence::Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth,
     iOffset = 0;
 }
 
+void MsgSilence::InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes, Allocator<MsgPlayableSilence>& aAllocatorPlayable)
+{
+    ASSERT(aBlockSizeBytes != 0);
+    MsgAudio::Initialise(aSampleRate, 1, aChannels);
+    iAllocatorPlayable = &aAllocatorPlayable;
+    TUint jiffies = aJiffies;
+    Jiffies::RoundDown(jiffies, aSampleRate);
+    if (jiffies == 0) {
+        Jiffies::RoundUp(jiffies, aSampleRate);
+    }
+    const TUint jiffiesPerSample = Jiffies::PerSample(aSampleRate);
+    TUint bytes = Jiffies::ToBytes(jiffies, jiffiesPerSample, aChannels, 1);
+    TUint rounded = bytes - bytes % aBlockSizeBytes;
+    if (rounded == 0) {
+        rounded = bytes + aBlockSizeBytes - 1;
+        rounded -= rounded % aBlockSizeBytes;
+    }
+    const TUint numSamples = (rounded * 8) / aChannels;
+    aJiffies = numSamples * jiffiesPerSample;
+    iSize = aJiffies;
+    iOffset = 0;
+}
+
 
 // MsgPlayable
 
@@ -3571,6 +3594,13 @@ MsgSilence* MsgFactory::CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate,
 {
     MsgSilence* msg = iAllocatorMsgSilence.Allocate();
     msg->Initialise(aSizeJiffies, aSampleRate, aBitDepth, aChannels, iAllocatorMsgPlayableSilence);
+    return msg;
+}
+
+MsgSilence* MsgFactory::CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes)
+{
+    MsgSilence* msg = iAllocatorMsgSilence.Allocate();
+    msg->InitialiseDsd(aSizeJiffies, aSampleRate, aChannels, aBlockSizeBytes, iAllocatorMsgPlayableSilence);
     return msg;
 }
 

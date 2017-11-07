@@ -53,8 +53,9 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private: // from IPipelineAnimator
-    TUint PipelineAnimatorBufferJiffies() override;
-    TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) override;
+    TUint PipelineAnimatorBufferJiffies() const override;
+    TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
+    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
 private:
     enum EMsgType
     {
@@ -356,15 +357,20 @@ Msg* SuiteMuter::ProcessMsg(MsgQuit* aMsg)
     return aMsg;
 }
 
-TUint SuiteMuter::PipelineAnimatorBufferJiffies()
+TUint SuiteMuter::PipelineAnimatorBufferJiffies() const
 {
     return Jiffies::kPerMs * 7;
 }
 
-TUint SuiteMuter::PipelineAnimatorDelayJiffies(TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/)
+TUint SuiteMuter::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const
 {
     ASSERTS();
     return 0;
+}
+
+TUint SuiteMuter::PipelineAnimatorDsdBlockSizeBytes() const
+{
+    return 1;
 }
 
 void SuiteMuter::PullNext()

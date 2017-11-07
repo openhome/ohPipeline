@@ -16,6 +16,8 @@
 
 EXCEPTION(SampleRateInvalid);
 EXCEPTION(SampleRateUnsupported);
+EXCEPTION(BitDepthUnsupported);
+EXCEPTION(FormatUnsupported);
 
 #undef TIMESTAMP_LOGGING_ENABLE
 
@@ -897,6 +899,7 @@ public: // from MsgAudio
     MsgAudio* Clone() override;
 private:
     void Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels, Allocator<MsgPlayableSilence>& aAllocatorPlayable);
+    void InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes, Allocator<MsgPlayableSilence>& aAllocatorPlayable);
 private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
@@ -1695,12 +1698,15 @@ public:
      * @return     Delay currently applied beyond the pipeline in Jiffies.
      *             See Jiffies class for time conversion utilities.
      */
-    virtual TUint PipelineAnimatorBufferJiffies() = 0;
+    virtual TUint PipelineAnimatorBufferJiffies() const = 0;
     /**
      * Report any post-pipeline delay.
      *
-     * Throws SampleRateUnsupported is aSampleRate is not supported.
+     * Throws FormatUnsupported if aFormat is not supported.
+     * Throws SampleRateUnsupported if aSampleRate is not supported.
+     * Throws BitDepthUnsupported if aBitDepth is not supported.
      *
+     * @param[in] aFormat           Audio format of the stream.
      * @param[in] aSampleRate       Sample rate (in Hz).
      * @param[in] aBitDepth         Bit depth (8, 16, 24 or 32).
      * @param[in] aNumChannels      Number of channels [1..8].
@@ -1708,7 +1714,14 @@ public:
      * @return     Delay applied beyond the pipeline in Jiffies.
      *             See Jiffies class for time conversion utilities.
      */
-    virtual TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) = 0;
+    virtual TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const = 0;
+    /**
+     * Report sample packing requirements for DSD
+     *
+     * @return     Granularity of DSD data.  (Effectively, the points that audio can be split at.)
+     *             Throws FormatUnsupported if DSD is not supported.
+     */
+    virtual TUint PipelineAnimatorDsdBlockSizeBytes() const = 0;
 };
 
 class IPipeline : public IPipelineElementUpstream
@@ -1813,6 +1826,7 @@ public:
     MsgAudioPcm* CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset); // aAudio must contain big endian pcm data
     MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset);
     MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels);
+    MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes);
     MsgQuit* CreateMsgQuit();
 private:
     EncodedAudio* CreateEncodedAudio(const Brx& aData);

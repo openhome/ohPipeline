@@ -79,7 +79,8 @@ Msg* SampleRateValidator::ProcessMsg(MsgDecodedStream* aMsg)
     const DecodedStreamInfo& streamInfo = aMsg->StreamInfo();
     try {
         ASSERT(iAnimator != nullptr);
-        (void)iAnimator->PipelineAnimatorDelayJiffies(streamInfo.SampleRate(),
+        (void)iAnimator->PipelineAnimatorDelayJiffies(streamInfo.Format(),
+                                                      streamInfo.SampleRate(),
                                                       streamInfo.BitDepth(),
                                                       streamInfo.NumChannels());
         iFlushing = false;

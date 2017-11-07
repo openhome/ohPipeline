@@ -164,8 +164,9 @@ public:
 private: // from SuiteVariableDelay
     void DoSetup() override;
 private: // from IPipelineAnimator
-    TUint PipelineAnimatorBufferJiffies() override;
-    TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) override;
+    TUint PipelineAnimatorBufferJiffies() const override;
+    TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
+    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
 private:
     void TestDelayShorterThanMinimum();
     void TestAnimatorCalledOnStreamChange();
@@ -173,7 +174,7 @@ private:
     void TestClockPuller();
 private:
     TUint iAnimatorDelayJiffies;
-    TUint iNumAnimatorDelayJiffiesCalls;
+    mutable TUint iNumAnimatorDelayJiffiesCalls;
 };
 
 } // namespace Media
@@ -934,16 +935,21 @@ void SuiteVariableDelayRight::DoSetup()
     iNumAnimatorDelayJiffiesCalls = 0;
 }
 
-TUint SuiteVariableDelayRight::PipelineAnimatorBufferJiffies()
+TUint SuiteVariableDelayRight::PipelineAnimatorBufferJiffies() const
 {
     ASSERTS();
     return 0;
 }
 
-TUint SuiteVariableDelayRight::PipelineAnimatorDelayJiffies(TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/)
+TUint SuiteVariableDelayRight::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const
 {
     iNumAnimatorDelayJiffiesCalls++;
     return iAnimatorDelayJiffies;
+}
+
+TUint SuiteVariableDelayRight::PipelineAnimatorDsdBlockSizeBytes() const
+{
+    return 1;
 }
 
 void SuiteVariableDelayRight::TestDelayShorterThanMinimum()

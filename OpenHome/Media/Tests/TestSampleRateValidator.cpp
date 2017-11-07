@@ -86,8 +86,9 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private: // from IPipelineAnimator
-    TUint PipelineAnimatorBufferJiffies() override;
-    TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) override;
+    TUint PipelineAnimatorBufferJiffies() const override;
+    TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
+    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
 private: // from IStreamHandler
     EStreamPlay OkToPlay(TUint aStreamId) override;
     TUint TrySeek(TUint aStreamId, TUint64 aOffset) override;
@@ -452,17 +453,22 @@ Msg* SuiteSampleRateValidator::ProcessMsg(MsgQuit* aMsg)
     return aMsg;
 }
 
-TUint SuiteSampleRateValidator::PipelineAnimatorBufferJiffies()
+TUint SuiteSampleRateValidator::PipelineAnimatorBufferJiffies() const
 {
     return 0;
 }
 
-TUint SuiteSampleRateValidator::PipelineAnimatorDelayJiffies(TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/)
+TUint SuiteSampleRateValidator::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const
 {
     if (!iRateSupported) {
         THROW(SampleRateUnsupported);
     }
     return Jiffies::kPerMs * 5;
+}
+
+TUint SuiteSampleRateValidator::PipelineAnimatorDsdBlockSizeBytes() const
+{
+    return 1;
 }
 
 EStreamPlay SuiteSampleRateValidator::OkToPlay(TUint /*aStreamId*/)

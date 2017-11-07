@@ -55,8 +55,9 @@ private: // from ISeekRestreamer
 private: // from IUrlBlockWriter
     TBool TryGet(IWriter& aWriter, const Brx& aUrl, TUint64 aOffset, TUint aBytes) override;
 private: // from IPipelineAnimator
-    TUint PipelineAnimatorBufferJiffies() override;
-    TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) override;
+    TUint PipelineAnimatorBufferJiffies() const override;
+    TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
+    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
 private: // from IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
@@ -217,14 +218,19 @@ TBool SuitePipelineConfig::TryGet(IWriter& /*aWriter*/, const Brx& /*aUrl*/, TUi
     return false;
 }
 
-TUint SuitePipelineConfig::PipelineAnimatorBufferJiffies()
+TUint SuitePipelineConfig::PipelineAnimatorBufferJiffies() const
 {
     return 0;
 }
 
-TUint SuitePipelineConfig::PipelineAnimatorDelayJiffies(TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/)
+TUint SuitePipelineConfig::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const
 {
     return 0;
+}
+
+TUint SuitePipelineConfig::PipelineAnimatorDsdBlockSizeBytes() const
+{
+    return 1;
 }
 
 void SuitePipelineConfig::ApplyVolumeMultiplier(TUint /*aValue*/)
