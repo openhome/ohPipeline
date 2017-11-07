@@ -768,6 +768,11 @@ private:
     TUint iBitRate;
 };
 
+class MsgPlayable;
+class MsgPlayablePcm;
+class MsgPlayableDsd;
+class MsgPlayableSilence;
+
 class MsgAudio : public Msg
 {
     friend class MsgFactory;
@@ -775,6 +780,7 @@ public:
     void SetObserver(IPipelineBufferObserver& aPipelineBufferObserver);
     MsgAudio* Split(TUint aJiffies); // returns block after aAt
     virtual MsgAudio* Clone(); // create new MsgAudio, copy size/offset
+    virtual MsgPlayable* CreatePlayable() = 0;
     TUint Jiffies() const;
     TUint SetRamp(TUint aStart, TUint& aRemainingDuration, Ramp::EDirection aDirection, MsgAudio*& aSplit); // returns iRamp.End()
     void ClearRamp();
@@ -799,11 +805,6 @@ protected:
     IPipelineBufferObserver* iPipelineBufferObserver;
 };
 
-class MsgPlayable;
-class MsgPlayablePcm;
-class MsgPlayableDsd;
-class MsgPlayableSilence;
-
 class MsgAudioDecoded : public MsgAudio
 {
     friend class MsgFactory;
@@ -812,7 +813,6 @@ public:
 public:
     void Aggregate(MsgAudioDecoded* aMsg); // append aMsg to the end of this msg, removes ref on aMsg
     TUint64 TrackOffset() const; // offset of the start of this msg from the start of its track.  FIXME no tests for this yet
-    MsgPlayable* CreatePlayable(); // removes ref, transfer ownership of DecodedAudio
 protected:
     MsgAudioDecoded(AllocatorBase& aAllocator);
 protected: // from MsgAudio
@@ -825,8 +825,6 @@ protected: // from MsgAudio
     void SplitCompleted(MsgAudio& aRemaining) override;
 protected: // from Msg
     void Clear() override;
-private:
-    virtual MsgPlayable* DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes) = 0;
 protected:
     DecodedAudio* iAudioData;
     Allocator<MsgPlayableSilence>* iAllocatorPlayableSilence;
@@ -844,12 +842,11 @@ public:
     inline void AddLogPoint(const TChar* aId);
 public: // from MsgAudio
     MsgAudio* Clone() override; // create new MsgAudio, take ref to DecodedAudio, copy size/offset
+    MsgPlayable* CreatePlayable() override; // removes ref, transfer ownership of DecodedAudio
 private:
     void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aBitDepth, TUint aChannels, TUint64 aTrackOffset,
                     Allocator<MsgPlayablePcm>& aAllocatorPlayablePcm,
                     Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
-private: // from MsgAudioDecoded
-    MsgPlayable* DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes) override;
 private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
@@ -869,13 +866,12 @@ public:
     MsgAudioDsd(AllocatorBase& aAllocator);
 public: // from MsgAudio
     MsgAudio* Clone() override; // create new MsgAudio, take ref to DecodedAudio, copy size/offset
+    MsgPlayable* CreatePlayable() override; // removes ref, transfer ownership of DecodedAudio
 private:
     void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels,
                     TUint aSampleBlockBits, TUint64 aTrackOffset,
                     Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
                     Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
-private: // from MsgAudioDecoded
-    MsgPlayable* DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes) override;
 private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
@@ -1009,8 +1005,8 @@ private:
 class MsgPlayableSilence : public MsgPlayable
 {
     friend class MsgSilence;
-    friend class MsgAudioDecoded;
     friend class MsgAudioPcm;
+    friend class MsgAudioDsd;
 public:
     MsgPlayableSilence(AllocatorBase& aAllocator);
 private:

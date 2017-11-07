@@ -1909,32 +1909,6 @@ TUint64 MsgAudioDecoded::TrackOffset() const
     return iTrackOffset;
 }
 
-MsgPlayable* MsgAudioDecoded::CreatePlayable()
-{
-    TUint offsetJiffies = iOffset;
-    const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-    const TUint offsetBytes = Jiffies::ToBytes(offsetJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
-    TUint sizeJiffies = iSize + (iOffset - offsetJiffies);
-    const TUint sizeBytes = Jiffies::ToBytes(sizeJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
-    // both size & offset will be rounded down if they don't fall on a sample boundary
-    // we don't risk losing any data doing this as the start and end of each DecodedAudio's data fall on sample boundaries
-
-    MsgPlayable* playable;
-    if (iRamp.Direction() != Ramp::EMute) {
-        playable = DoCreatePlayable(sizeBytes, offsetBytes);
-    }
-    else {
-        MsgPlayableSilence* silence = iAllocatorPlayableSilence->Allocate();
-        Media::Ramp noRamp;
-        Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
-        silence->Initialise(sizeBytes, iSampleRate, iBitDepth, iNumChannels, noRamp, bufferObserver);
-        playable = silence;
-    }
-    iPipelineBufferObserver = nullptr;
-    RemoveRef();
-    return playable;
-}
-
 MsgAudioDecoded::MsgAudioDecoded(AllocatorBase& aAllocator)
     : MsgAudio(aAllocator)
 {
@@ -1998,6 +1972,36 @@ MsgAudio* MsgAudioPcm::Clone()
     return clone;
 }
 
+MsgPlayable* MsgAudioPcm::CreatePlayable()
+{
+    TUint offsetJiffies = iOffset;
+    const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
+    const TUint offsetBytes = Jiffies::ToBytes(offsetJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
+    TUint sizeJiffies = iSize + (iOffset - offsetJiffies);
+    const TUint sizeBytes = Jiffies::ToBytes(sizeJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
+    // both size & offset will be rounded down if they don't fall on a sample boundary
+    // we don't risk losing any data doing this as the start and end of each DecodedAudio's data fall on sample boundaries
+
+    MsgPlayable* playable;
+    if (iRamp.Direction() != Ramp::EMute) {
+        auto playablePcm = iAllocatorPlayablePcm->Allocate();
+        Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
+        playablePcm->Initialise(iAudioData, sizeBytes, iSampleRate, iBitDepth, iNumChannels,
+                                offsetBytes, iAttenuation, iRamp, bufferObserver);
+        playable = playablePcm;
+    }
+    else {
+        MsgPlayableSilence* silence = iAllocatorPlayableSilence->Allocate();
+        Media::Ramp noRamp;
+        Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
+        silence->Initialise(sizeBytes, iSampleRate, iBitDepth, iNumChannels, noRamp, bufferObserver);
+        playable = silence;
+    }
+    iPipelineBufferObserver = nullptr;
+    RemoveRef();
+    return playable;
+}
+
 void MsgAudioPcm::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aBitDepth, TUint aChannels, TUint64 aTrackOffset,
                              Allocator<MsgPlayablePcm>& aAllocatorPlayablePcm,
                              Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence)
@@ -2018,14 +2022,6 @@ void MsgAudioPcm::SplitCompleted(MsgAudio& aRemaining)
     MsgAudioPcm& remaining = static_cast<MsgAudioPcm&>(aRemaining);
     remaining.iAllocatorPlayablePcm = iAllocatorPlayablePcm;
     remaining.iAttenuation = iAttenuation;
-}
-
-MsgPlayable* MsgAudioPcm::DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes)
-{
-    auto playable = iAllocatorPlayablePcm->Allocate();
-    Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
-    playable->Initialise(iAudioData, aSizeBytes, iSampleRate, iBitDepth, iNumChannels, aOffsetBytes, iAttenuation, iRamp, bufferObserver);
-    return playable;
 }
 
 MsgAudio* MsgAudioPcm::Allocate()
@@ -2065,6 +2061,39 @@ MsgAudio* MsgAudioDsd::Clone()
     return clone;
 }
 
+MsgPlayable* MsgAudioDsd::CreatePlayable()
+{
+    TUint offsetJiffies = iOffset;
+    const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
+    TUint offsetBytes = Jiffies::ToBytes(offsetJiffies, jiffiesPerSample, iNumChannels, 1);
+    const TUint sampleBlockBytes = (iSampleBlockBits + 7) / 8;
+    offsetBytes -= offsetBytes % sampleBlockBytes;
+    TUint sizeJiffies = iSize + (iOffset - offsetJiffies);
+    TUint sizeBytes = Jiffies::ToBytes(sizeJiffies, jiffiesPerSample, iNumChannels, 1);
+    sizeBytes -= sizeBytes % sampleBlockBytes;
+    // both size & offset will be rounded down if they don't fall on a block boundary
+    // we don't risk losing any data doing this as the start and end of each DecodedAudio's data fall on block boundaries
+
+    MsgPlayable* playable;
+    if (iRamp.Direction() != Ramp::EMute) {
+        auto playableDsd = iAllocatorPlayableDsd->Allocate();
+        Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
+        playableDsd->Initialise(iAudioData, sizeBytes, iSampleRate, iNumChannels,
+                                iSampleBlockBits, offsetBytes, iRamp, bufferObserver);
+        playable = playableDsd;
+    }
+    else {
+        MsgPlayableSilence* silence = iAllocatorPlayableSilence->Allocate();
+        Media::Ramp noRamp;
+        Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
+        silence->Initialise(sizeBytes, iSampleRate, iBitDepth, iNumChannels, noRamp, bufferObserver);
+        playable = silence;
+    }
+    iPipelineBufferObserver = nullptr;
+    RemoveRef();
+    return playable;
+}
+
 void MsgAudioDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels,
                              TUint aSampleBlockBits, TUint64 aTrackOffset,
                              Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
@@ -2077,15 +2106,6 @@ void MsgAudioDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUi
     iSampleBlockBits = aSampleBlockBits;
 }
 
-MsgPlayable* MsgAudioDsd::DoCreatePlayable(TUint aSizeBytes, TUint aOffsetBytes)
-{
-    auto playable = iAllocatorPlayableDsd->Allocate();
-    Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
-    playable->Initialise(iAudioData, aSizeBytes, iSampleRate, iNumChannels,
-                         iSampleBlockBits, aOffsetBytes, iRamp, bufferObserver);
-    return playable;
-}
-
 MsgAudio* MsgAudioDsd::Allocate()
 {
     return static_cast<Allocator<MsgAudioDsd>&>(iAllocator).Allocate();
@@ -2096,6 +2116,7 @@ void MsgAudioDsd::SplitCompleted(MsgAudio& aRemaining)
     MsgAudioDecoded::SplitCompleted(aRemaining);
     MsgAudioDsd& remaining = static_cast<MsgAudioDsd&>(aRemaining);
     remaining.iAllocatorPlayableDsd = iAllocatorPlayableDsd;
+    remaining.iSampleBlockBits = iSampleBlockBits;
 }
 
 void MsgAudioDsd::Clear()
@@ -2280,7 +2301,9 @@ void MsgPlayable::Read(IPcmProcessor& aProcessor)
     aProcessor.BeginBlock();
     MsgPlayable* playable = this;
     while (playable != nullptr) {
-        playable->ReadBlock(aProcessor);
+        if (iSize > 0) {
+            playable->ReadBlock(aProcessor);
+        }
         playable = playable->iNextPlayable;
     }
     aProcessor.EndBlock();

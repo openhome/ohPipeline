@@ -1806,6 +1806,24 @@ void SuiteMsgAudioDsd::Test()
     }
     playable->RemoveRef();
 
+    // split at non-block boundary
+    TByte data2[4] = { 0 };
+    Brn data2Buf(&data2[0], sizeof data2);
+    const TUint sr = 1411200;
+    const TUint jps = Jiffies::PerSample(sr);
+    const TUint blockSizeBytes = 4;
+    const TUint minSamples = 16; // assumes 2 channels
+    const TUint minJiffies = minSamples * jps;
+    jiffies = jps;
+    msg = iMsgFactory->CreateMsgAudioDsd(data2Buf, 2, sr, 32, 0LL);
+    auto split = msg->Split(jps);
+    playable = msg->CreatePlayable();
+    TEST(playable->Bytes() == 0);
+    playable->RemoveRef();
+    playable = split->CreatePlayable();
+    TEST(playable->Bytes() == sizeof data2);
+    playable->RemoveRef();
+
     // clean destruction of class implies no leaked msgs
 }
 
