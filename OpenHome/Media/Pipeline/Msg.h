@@ -890,9 +890,9 @@ class MsgSilence : public MsgAudio
     friend class MsgFactory;
 public:
     MsgSilence(AllocatorBase& aAllocator);
-    MsgPlayable* CreatePlayable(); // removes ref
 public: // from MsgAudio
     MsgAudio* Clone() override;
+    MsgPlayable* CreatePlayable() override; // removes ref
 private:
     void Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels, Allocator<MsgPlayableSilence>& aAllocatorPlayable);
     void InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes, Allocator<MsgPlayableSilence>& aAllocatorPlayable);
