@@ -1,11 +1,11 @@
 #include <OpenHome/Private/TestFramework.h>
 
-extern void TestSampleRateValidator();
+extern void TestStreamValidator();
 
 void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], Net::InitialisationParams* aInitParams)
 {
     Net::UpnpLibrary::InitialiseMinimal(aInitParams);
-    TestSampleRateValidator();
+    TestStreamValidator();
     delete aInitParams;
     Net::UpnpLibrary::Close();
 }

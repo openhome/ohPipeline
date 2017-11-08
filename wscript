@@ -235,7 +235,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/RampValidator.cpp',
                 'OpenHome/Media/Pipeline/Rewinder.cpp',
                 'OpenHome/Media/Pipeline/Router.cpp',
-                'OpenHome/Media/Pipeline/SampleRateValidator.cpp',
+                'OpenHome/Media/Pipeline/StreamValidator.cpp',
                 'OpenHome/Media/Pipeline/Seeker.cpp',
                 'OpenHome/Media/Pipeline/Skipper.cpp',
                 'OpenHome/Media/Pipeline/StarvationRamper.cpp',
@@ -680,7 +680,7 @@ def build(bld):
                 'OpenHome/Av/Tests/RamStore.cpp',
                 'OpenHome/Media/Tests/TestMsg.cpp',
                 'OpenHome/Media/Tests/TestStarvationRamper.cpp',
-                'OpenHome/Media/Tests/TestSampleRateValidator.cpp',
+                'OpenHome/Media/Tests/TestStreamValidator.cpp',
                 'OpenHome/Media/Tests/TestSeeker.cpp',
                 'OpenHome/Media/Tests/TestSkipper.cpp',
                 'OpenHome/Media/Tests/TestStopper.cpp',
@@ -762,9 +762,9 @@ def build(bld):
             target='TestStarvationRamper',
             install_path=None)
     bld.program(
-            source='OpenHome/Media/Tests/TestSampleRateValidatorMain.cpp',
+            source='OpenHome/Media/Tests/TestStreamValidatorMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-            target='TestSampleRateValidator',
+            target='TestStreamValidator',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestSeekerMain.cpp',

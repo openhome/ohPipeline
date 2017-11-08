@@ -15,7 +15,7 @@ tests = '''
     TestSupplyAggregator
     TestAudioReservoir
     TestVariableDelay
-    TestSampleRateValidator
+    TestStreamValidator
     TestSeeker
     TestSkipper
     TestStopper

@@ -6,13 +6,13 @@
 namespace OpenHome {
 namespace Media {
 
-class SampleRateValidator : public PipelineElement, public IPipelineElementDownstream, private INonCopyable
+class StreamValidator : public PipelineElement, public IPipelineElementDownstream, private INonCopyable
 {
-    friend class SuiteSampleRateValidator;
+    friend class SuiteStreamValidator;
 
     static const TUint kSupportedMsgTypes;
 public:
-    SampleRateValidator(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownstreamElement);
+    StreamValidator(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownstreamElement);
     void SetAnimator(IPipelineAnimator& aPipelineAnimator);
 private: // from IPipelineElementDownstream
     void Push(Msg* aMsg) override;
