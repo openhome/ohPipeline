@@ -11,7 +11,7 @@
 #include <OpenHome/Media/Codec/MpegTs.h>
 #include <OpenHome/Media/Pipeline/DecodedAudioValidator.h>
 #include <OpenHome/Media/Pipeline/DecodedAudioAggregator.h>
-#include <OpenHome/Media/Pipeline/SampleRateValidator.h>
+#include <OpenHome/Media/Pipeline/StreamValidator.h>
 #include <OpenHome/Media/Pipeline/DecodedAudioReservoir.h>
 #include <OpenHome/Media/Pipeline/Ramper.h>
 #include <OpenHome/Media/Pipeline/RampValidator.h>
@@ -332,13 +332,13 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     ATTACH_ELEMENT(iDecodedAudioAggregator, new DecodedAudioAggregator(*downstream),
                    downstream, elementsSupported, EPipelineSupportElementsMandatory);
 
-    ATTACH_ELEMENT(iLoggerSampleRateValidator, new Logger("Sample Rate Validator", *iDecodedAudioAggregator),
+    ATTACH_ELEMENT(iLoggerStreamValidator, new Logger("StreamValidator", *iDecodedAudioAggregator),
                    downstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iSampleRateValidator, new SampleRateValidator(*iMsgFactory, *downstream),
+    ATTACH_ELEMENT(iStreamValidator, new StreamValidator(*iMsgFactory, *downstream),
                    downstream, elementsSupported, EPipelineSupportElementsMandatory);
 
     // construct push logger slightly out of sequence
-    ATTACH_ELEMENT(iRampValidatorCodec, new RampValidator("Codec Controller", *iSampleRateValidator),
+    ATTACH_ELEMENT(iRampValidatorCodec, new RampValidator("Codec Controller", *iStreamValidator),
                    downstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iLoggerCodecController, new Logger("Codec Controller", *downstream),
                    downstream, elementsSupported, EPipelineSupportElementsLogger);
@@ -497,7 +497,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerEncodedAudioReservoir->SetEnabled(true);
     //iLoggerContainer->SetEnabled(true);
     //iLoggerCodecController->SetEnabled(true);
-    //iLoggerSampleRateValidator->SetEnabled(true);
+    //iLoggerStreamValidator->SetEnabled(true);
     //iLoggerDecodedAudioAggregator->SetEnabled(true);
     //iLoggerDecodedAudioReservoir->SetEnabled(true);
     //iLoggerRamper->SetEnabled(true);
@@ -525,7 +525,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerEncodedAudioReservoir->SetFilter(Logger::EMsgAll);
     //iLoggerContainer->SetFilter(Logger::EMsgAll);
     //iLoggerCodecController->SetFilter(Logger::EMsgAll);
-    //iLoggerSampleRateValidator->SetFilter(Logger::EMsgAll);
+    //iLoggerStreamValidator->SetFilter(Logger::EMsgAll);
     //iLoggerDecodedAudioAggregator->SetFilter(Logger::EMsgAll);
     //iLoggerDecodedAudioReservoir->SetFilter(Logger::EMsgAll);
     //iLoggerRamper->SetFilter(Logger::EMsgAll);
@@ -613,8 +613,8 @@ Pipeline::~Pipeline()
     delete iDecodedAudioReservoir;
     delete iLoggerDecodedAudioAggregator;
     delete iDecodedAudioAggregator;
-    delete iLoggerSampleRateValidator;
-    delete iSampleRateValidator;
+    delete iLoggerStreamValidator;
+    delete iStreamValidator;
     delete iRampValidatorCodec;
     delete iLoggerCodecController;
     delete iLoggerContainer;
@@ -845,7 +845,7 @@ Msg* Pipeline::Pull()
 
 void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
 {
-    iSampleRateValidator->SetAnimator(aAnimator);
+    iStreamValidator->SetAnimator(aAnimator);
     iVariableDelay1->SetAnimator(aAnimator);
     iVariableDelay2->SetAnimator(aAnimator);
     if (iMuterSamples != nullptr) {
