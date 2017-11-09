@@ -22,14 +22,9 @@ private:
     static const TUint kDataBlockBytes = 4096;
     static const TUint kInputBufMaxBytes = 2*kDataBlockBytes; // 2 channels
     static const TUint kOutputBufMaxBytes = kInputBufMaxBytes; 
-    static const TUint64 kSampleBlockRoundingMask = ~(kInputBufMaxBytes-1);  
 
-    static const TUint64 kChunkDsdHeaderBytes = 12;
-    static const TUint64 kChunkDsdDataBytes = 28;
-    static const TUint64 kChunkDsdBytes = kChunkDsdHeaderBytes+kChunkDsdDataBytes;
-    
-    static const TUint64 kChunkFmtHeaderBytes = 12;  // 4 for ID, 8 for data byte count, 4 data bytes
-    static const TUint64 kChunkDataHeaderBytes = 12;  // 4 for ID, 8 for data byte count
+    static const TUint64 kChunkHeaderBytes = 12;
+    static const TUint64 kChunkDsdBytes = 28;
 
     static const TUint kSampleBlockBits = 32; // audio is written out as 16x left, then 16x right
 
@@ -76,7 +71,7 @@ private:
     TUint iChannelType;
     TUint64 iSampleCount;
     TBool iInitialAudio;
-    TUint64 iHeaderSizeBytes;
+    TUint64 iChunkFmtBytes;
 };
 
 } // namespace Codec
@@ -94,7 +89,6 @@ CodecBase* CodecFactory::NewDsdDsf(IMimeTypeList& aMimeTypeList)
 
 CodecDsdDsf::CodecDsdDsf(IMimeTypeList& aMimeTypeList)
     :CodecBase("DSD-DSF", kCostLow)
-    ,iHeaderSizeBytes(kChunkDsdBytes+kChunkFmtHeaderBytes+kChunkDataHeaderBytes) // increased later once we know size of fmt chunk
 {
     aMimeTypeList.Add("audio/dsf");
     aMimeTypeList.Add("audio/x-dsf");
@@ -226,11 +220,17 @@ void CodecDsdDsf::Process()
 
 TBool CodecDsdDsf::TrySeek(TUint aStreamId, TUint64 aSample)
 {
-    aSample &= kSampleBlockRoundingMask; // round down to block boundary
-    TUint64 bytePos = (aSample * iChannelCount * iBitDepth / 8);
-    bytePos += iHeaderSizeBytes; // account for header bytyes
+    // data is in 8192 byte blocks (stereo data)
+    // each byte contains 8 subsamples (4 samples) 
+    // 8192*4 = 32768 (0x8000) samples per block 
 
-    if (!iController->TrySeekTo(aStreamId, bytePos))
+    aSample &= ~(0x7fff); // round sample down to nearest block
+    
+    TUint64 bytePos = (aSample * iChannelCount / 8);
+       
+    TUint64 headerSize = kChunkDsdBytes+iChunkFmtBytes+kChunkHeaderBytes; 
+
+    if (!iController->TrySeekTo(aStreamId, bytePos+headerSize))
     {
         return false;
     }
@@ -242,9 +242,6 @@ TBool CodecDsdDsf::TrySeek(TUint aStreamId, TUint64 aSample)
 
     return true;
 }
-
-
-
 
 TBool CodecDsdDsf::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
@@ -279,32 +276,32 @@ void CodecDsdDsf::ProcessDsdChunk()
 {
     //We shouldn't be in the dsd codec unless this says 'DSD '
     //This isn't a track corrupt issue as it was previously checked by Recognise
-    ASSERT(ReadChunkId(Brn("DSD ")));
+    ASSERT(ReadChunkId(Brn("DSD "))); // sets iInputBuffer bytes to 0
 
     iController->Read(iInputBuffer, 24);
 
-    if(LeUint64At(iInputBuffer, 4) != kChunkDsdDataBytes) //DSD chunk size must be 28
+    if(LeUint64At(iInputBuffer, 4) != kChunkDsdBytes) //DSD chunk size must be 28
     {
         THROW(CodecStreamCorrupt);
     }
 
-    iFileSize = LeUint64At(iInputBuffer, 12);
+    iFileSize = LeUint64At(iInputBuffer, kChunkHeaderBytes);
 }
 
 void CodecDsdDsf::ProcessFmtChunk()
 {
-    if(!ReadChunkId(Brn("fmt ")))
+    if(!ReadChunkId(Brn("fmt "))) // sets iInputBuffer bytes to 0
     {
         THROW(CodecStreamCorrupt);
     }
 
     iController->Read(iInputBuffer, 8);
 
-    TUint64 chunkBytes = LeUint64At(iInputBuffer, 4);
-    iHeaderSizeBytes += chunkBytes;
+    iChunkFmtBytes = LeUint64At(iInputBuffer, 4);
+    TUint64 chunkFmtDataBytes = iChunkFmtBytes-kChunkHeaderBytes;
 
     // Read in remainder of "fmt " chunk.
-    iController->Read(iInputBuffer, (TUint32)chunkBytes-12);
+    iController->Read(iInputBuffer, (TUint32)chunkFmtDataBytes);
 
     iFormatVersion = Converter::LeUint32At(iInputBuffer, 12);
     iFormatId = Converter::LeUint32At(iInputBuffer, 16);
@@ -325,14 +322,14 @@ void CodecDsdDsf::ProcessFmtChunk()
 
 void CodecDsdDsf::ProcessDataChunk()
 {
-    if(!ReadChunkId(Brn("data")))
+    if(!ReadChunkId(Brn("data"))) // sets iInputBuffer bytes to 0
     {
         THROW(CodecStreamCorrupt);
     }
 
     iController->Read(iInputBuffer, 8);
 
-    iAudioBytesTotal = (TUint32)LeUint64At(iInputBuffer, 4)-12;
+    iAudioBytesTotal = (TUint32)LeUint64At(iInputBuffer, 4)-kChunkHeaderBytes;
     iAudioBytesRemaining = iAudioBytesTotal;
 }
 
