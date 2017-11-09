@@ -24,6 +24,7 @@
 #include <OpenHome/Av/Logger.h>
 #include <OpenHome/UnixTimestamp.h>
 #include <OpenHome/Av/TransportPins.h>
+#include <OpenHome/Av/PodcastPins.h>
 
 #include <memory>
 
@@ -126,7 +127,9 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     }
     iDebugManager = new DebugManager();
     iTransportPins = new TransportPins(aDevice, aCpStack);
+    iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack);
     iDebugManager->Add(*iTransportPins);
+    iDebugManager->Add(*iPodcastPins);
 }
 
 MediaPlayer::~MediaPlayer()
@@ -160,6 +163,7 @@ MediaPlayer::~MediaPlayer()
     delete iUnixTimestamp;
     delete iDebugManager;
     delete iTransportPins;
+    delete iPodcastPins;
 }
 
 void MediaPlayer::Quit()

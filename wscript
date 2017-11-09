@@ -302,6 +302,8 @@ def build(bld):
                 'OpenHome/Av/TransportControl.cpp',
                 'OpenHome/Av/ProviderTransport.cpp',
                 'OpenHome/Av/TransportPins.cpp',
+                'OpenHome/Av/PodcastPins.cpp',
+                'Generated/CpAvOpenhomeOrgRadio1.cpp',
                 'Generated/DvAvOpenhomeOrgVolume3.cpp',
                 'OpenHome/Av/ProviderVolume.cpp',
                 'OpenHome/Av/Source.cpp',

@@ -64,6 +64,7 @@ class IVolumeProfile;
 class ConfigStartupSource;
 class IRebootHandler;
 class TransportPins;
+class PodcastPins;
 
 class IMediaPlayer
 {
@@ -186,6 +187,7 @@ private:
     IUnixTimestamp* iUnixTimestamp;
     DebugManager* iDebugManager;
     Av::TransportPins* iTransportPins;
+    Av::PodcastPins* iPodcastPins;
 };
 
 } // namespace Av
