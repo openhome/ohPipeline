@@ -22,6 +22,9 @@ private:
     static const TUint kDataBlockBytes = 4096;
     static const TUint kInputBufMaxBytes = 2*kDataBlockBytes; // 2 channels
     static const TUint kOutputBufMaxBytes = kInputBufMaxBytes; 
+    static const TUint kSubSamplesPerByte = 8;
+    static const TUint kSamplesPerByte = kSubSamplesPerByte/2;
+    static const TUint64 kSampleBlockRoundingMask = ~((kInputBufMaxBytes*kSamplesPerByte)-1);  
 
     static const TUint64 kChunkHeaderBytes = 12;
     static const TUint64 kChunkDsdBytes = 28;
@@ -220,17 +223,12 @@ void CodecDsdDsf::Process()
 
 TBool CodecDsdDsf::TrySeek(TUint aStreamId, TUint64 aSample)
 {
-    // data is in 8192 byte blocks (stereo data)
-    // each byte contains 8 subsamples (4 samples) 
-    // 8192*4 = 32768 (0x8000) samples per block 
-
-    aSample &= ~(0x7fff); // round sample down to nearest block
-    
+    aSample &= kSampleBlockRoundingMask; // round sample down to nearest block
     TUint64 bytePos = (aSample * iChannelCount / 8);
        
-    TUint64 headerSize = kChunkDsdBytes+iChunkFmtBytes+kChunkHeaderBytes; 
+    TUint64 headerBytes = kChunkDsdBytes+iChunkFmtBytes+kChunkHeaderBytes; 
 
-    if (!iController->TrySeekTo(aStreamId, bytePos+headerSize))
+    if (!iController->TrySeekTo(aStreamId, bytePos+headerBytes))
     {
         return false;
     }

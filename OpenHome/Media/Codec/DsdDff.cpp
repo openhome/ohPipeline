@@ -22,7 +22,9 @@ private:
     static const TUint kBlockSize = 1024;
     static const TUint kInputBufMaxBytes = 2*kBlockSize; 
     static const TUint kOutputBufMaxBytes = 2*kBlockSize; 
-    static const TUint64 kSampleBlockRoundingMask = ~(kInputBufMaxBytes-1);  
+    static const TUint kSubSamplesPerByte = 8;
+    static const TUint kSamplesPerByte = kSubSamplesPerByte/2;
+    static const TUint64 kSampleBlockRoundingMask = ~((kInputBufMaxBytes*kSamplesPerByte)-1);  
     
     static const TUint64 kChunkFRM8HeaderBytes = 16; // 4 for ID, 8 for data byte count, 4 for form type ID
     static const TUint64 kChunkFverBytes = 16;  // 4 for ID, 8 for data byte count, 4 data bytes
@@ -307,10 +309,10 @@ void CodecDsdDff::TransferToOutputBuffer()
 TBool CodecDsdDff::TrySeek(TUint aStreamId, TUint64 aSample)
 {
     aSample &= kSampleBlockRoundingMask; // round down to block boundary
-    TUint64 bytePos = (aSample * iChannelCount * iBitDepth / 8);
-    bytePos += iFileHeaderSizeBytes; // account for header bytes
 
-    if (!iController->TrySeekTo(aStreamId, bytePos))
+    TUint64 bytePos = (aSample * iChannelCount / 8);
+
+    if (!iController->TrySeekTo(aStreamId, bytePos+iFileHeaderSizeBytes))
     {
         return false;
     }
