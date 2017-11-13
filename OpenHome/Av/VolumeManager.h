@@ -147,8 +147,7 @@ class VolumeUser : public IVolume, private IStandbyHandler, private INonCopyable
 public:
     static const Brn kStartupVolumeKey;
 public:
-    VolumeUser(IVolume& aVolume, Configuration::IConfigManager& aConfigReader, IPowerManager& aPowerManager,
-               StoreInt& aStoreUserVolume, TUint aMaxVolume, TUint aMilliDbPerStep);
+    VolumeUser(IVolume& aVolume, Configuration::IConfigManager& aConfigReader, IPowerManager& aPowerManager, TUint aMaxVolume, TUint aMilliDbPerStep);
     ~VolumeUser();
 public: // from IVolume
     void SetVolume(TUint aVolume) override;
@@ -157,17 +156,12 @@ private: // from IStandbyHandler
     void StandbyDisabled(StandbyDisableReason aReason) override;
 private:
     void StartupVolumeChanged(Configuration::ConfigNum::KvpNum& aKvp);
-    void StartupVolumeEnabledChanged(Configuration::ConfigChoice::KvpChoice& aKvp);
     void ApplyStartupVolume();
 private:
     IVolume& iVolume;
     Configuration::ConfigNum& iConfigStartupVolume;
-    Configuration::ConfigChoice& iConfigStartupVolumeEnabled;
     IStandbyObserver* iStandbyObserver;
     TUint iSubscriberIdStartupVolume;
-    TUint iSubscriberIdStartupVolumeEnabled;
-    StoreInt& iStoreUserVolume;
-    TBool iStartupVolumeEnabled;
     TBool iStartupVolumeReported;
     TUint iStartupVolume;
     const TUint iMaxVolume;
@@ -515,9 +509,7 @@ private:
 class VolumeConfig : public IVolumeProfile
 {
 public:
-    static const Brn kKeyStartupVolume;
     static const Brn kKeyStartupValue;
-    static const Brn kKeyStartupEnabled;
     static const Brn kKeyLimit;
     static const Brn kKeyEnabled;
     static const Brn kKeyBalance;
@@ -525,9 +517,8 @@ public:
     static const TInt kValueMuted   = 1;
     static const TInt kValueUnmuted = 0;
 public:
-    VolumeConfig(Configuration::IStoreReadWrite& aStore, Configuration::IConfigInitialiser& aConfigInit, IPowerManager& aPowerManager, const IVolumeProfile& aProfile);
+    VolumeConfig(Configuration::IConfigInitialiser& aConfigInit, const IVolumeProfile& aProfile);
     ~VolumeConfig();
-    StoreInt& StoreUserVolume();
     TBool VolumeControlEnabled() const;
 public: // from IVolumeProfile
     TUint VolumeMax() const override;
@@ -544,9 +535,7 @@ public: // from IVolumeProfile
 private:
     void EnabledChanged(Configuration::ConfigChoice::KvpChoice& aKvp);
 private:
-    StoreInt iStoreUserVolume;
     Configuration::ConfigNum* iVolumeStartup;
-    Configuration::ConfigChoice* iVolumeStartupEnabled;
     Configuration::ConfigNum* iVolumeLimit;
     Configuration::ConfigChoice* iVolumeEnabled;
     Configuration::ConfigNum* iBalance;
