@@ -22,6 +22,7 @@ private:
     static const TUint kDataBlockBytes = 4096;
     static const TUint kInputBufMaxBytes = 2*kDataBlockBytes; // 2 channels
     static const TUint kOutputBufMaxBytes = kInputBufMaxBytes; 
+
     static const TUint kSubSamplesPerByte = 8;
     static const TUint kSamplesPerByte = kSubSamplesPerByte/2;
     static const TUint64 kSampleBlockRoundingMask = ~((kInputBufMaxBytes*kSamplesPerByte)-1);  
@@ -182,10 +183,10 @@ void CodecDsdDsf::Process()
         Log::Print("  iSampleRate = %u\n", iSampleRate);
         Log::Print("  iBitDepth = %u\n", iBitDepth);
         Log::Print("  iAudioBytesTotal = %llu\n", iAudioBytesTotal);
-        Log::Print("  iAudioBytesRemaining = %llu\n", iAudioBytesRemaining);
+        Log::Print("  iAudioBytesRemaining = %llu   (%lld blocks)\n", iAudioBytesRemaining, iAudioBytesRemaining/kInputBufMaxBytes);
         Log::Print("  iFileSize = %llu\n", iFileSize);
         Log::Print("  iBitRate = %u\n", iBitRate);
-        Log::Print("  iTrackStart = %llu\n", iTrackStart);
+        //Log::Print("  iTrackStart = %llu\n", iTrackStart);
         Log::Print("  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
         Log::Print("  iTrackLengthJiffies = %llu (%llu secs)\n", iTrackLengthJiffies, iTrackLengthJiffies/Jiffies::kPerSecond);
         Log::Print("  iBlockSizePerChannel = %u\n", iBlockSizePerChannel);
@@ -206,7 +207,9 @@ void CodecDsdDsf::Process()
         }
 
         iInputBuffer.SetBytes(0);
-        iController->Read(iInputBuffer, iInputBuffer.MaxBytes());
+        iController->Read(iInputBuffer, std::min((TUint64)iInputBuffer.MaxBytes(), iAudioBytesRemaining) );
+        //Log::Print("CodecDsdDsf::Process()  iAudioBytesRemaining= %llx (%lld)  blocks = %lld (rem = %lld)    read %d bytes ##############\n", iAudioBytesRemaining, iAudioBytesRemaining, iAudioBytesRemaining/kInputBufMaxBytes, iAudioBytesRemaining%kInputBufMaxBytes, iInputBuffer.Bytes());
+        //ASSERT(iInputBuffer.Bytes()==kInputBufMaxBytes);
 
         ReinterleaveToOutputBuffer();
 
@@ -215,9 +218,9 @@ void CodecDsdDsf::Process()
             iInitialAudio = false;
         }
 
-
         iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, kSampleBlockBits, iTrackOffsetJiffies);
-        iAudioBytesRemaining -= iInputBuffer.Bytes();
+        iAudioBytesRemaining -= kInputBufMaxBytes;
+
     }
 }
 
@@ -225,7 +228,10 @@ TBool CodecDsdDsf::TrySeek(TUint aStreamId, TUint64 aSample)
 {
     aSample &= kSampleBlockRoundingMask; // round sample down to nearest block
     TUint64 bytePos = (aSample * iChannelCount / 8);
-       
+
+    ASSERT(bytePos%kInputBufMaxBytes==0);
+
+
     TUint64 headerBytes = kChunkDsdBytes+iChunkFmtBytes+kChunkHeaderBytes; 
 
     if (!iController->TrySeekTo(aStreamId, bytePos+headerBytes))
@@ -233,7 +239,9 @@ TBool CodecDsdDsf::TrySeek(TUint aStreamId, TUint64 aSample)
         return false;
     }
     
-    iTrackOffsetJiffies = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate; 
+    iTrackOffsetJiffies = (TUint64)aSample * Jiffies::PerSample(iSampleRate);
+
+    iAudioBytesRemaining = iAudioBytesTotal-bytePos;
     
     iInputBuffer.SetBytes(0);
     SendMsgDecodedStream(aSample);
@@ -327,7 +335,7 @@ void CodecDsdDsf::ProcessDataChunk()
 
     iController->Read(iInputBuffer, 8);
 
-    iAudioBytesTotal = (TUint32)LeUint64At(iInputBuffer, 4)-kChunkHeaderBytes;
+    iAudioBytesTotal = LeUint64At(iInputBuffer, 4)-kChunkHeaderBytes;
     iAudioBytesRemaining = iAudioBytesTotal;
 }
 
