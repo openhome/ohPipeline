@@ -506,7 +506,7 @@ void SuiteDecodedAudioAggregator::TestPcmIsExpectedSize()
 {
     static const TUint kMaxMsgBytes = 64;
     static const TUint kSamplesPerMsg = 16;
-    static const TUint kAudioBytes = DecodedAudio::kMaxBytes - (DecodedAudio::kMaxBytes % kSamplesPerMsg);
+    static const TUint kAudioBytes = DecodedAudio::kMaxBytes - (DecodedAudio::kMaxBytes % kMaxMsgBytes);
     static const TUint64 kJiffiesPerMsg = (Jiffies::kPerSecond / kSampleRate) * kSamplesPerMsg;
     static const TUint kMaxDecodedBufferedMs = 5;   // dependant on value in CodecController
     static const TUint kMaxDecodedBufferedJiffies = Jiffies::kPerMs * kMaxDecodedBufferedMs;
