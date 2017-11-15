@@ -207,7 +207,7 @@ void CodecDsdDsf::Process()
         }
 
         iInputBuffer.SetBytes(0);
-        iController->Read(iInputBuffer, std::min((TUint64)iInputBuffer.MaxBytes(), iAudioBytesRemaining) );
+        iController->Read(iInputBuffer, std::min(iInputBuffer.MaxBytes(), (TUint32)iAudioBytesRemaining) );
         //Log::Print("CodecDsdDsf::Process()  iAudioBytesRemaining= %llx (%lld)  blocks = %lld (rem = %lld)    read %d bytes ##############\n", iAudioBytesRemaining, iAudioBytesRemaining, iAudioBytesRemaining/kInputBufMaxBytes, iAudioBytesRemaining%kInputBufMaxBytes, iInputBuffer.Bytes());
         //ASSERT(iInputBuffer.Bytes()==kInputBufMaxBytes);
 
