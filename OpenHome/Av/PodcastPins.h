@@ -23,11 +23,32 @@ EXCEPTION(ITunesRequestInvalid);
 namespace OpenHome {
     class Environment;
     class JsonParser;
+    class Parser;
 namespace Configuration {
     class IConfigInitialiser;
     class ConfigChoice;
 }
 namespace Av {
+    class PodcastInfo
+    {
+    public:
+        PodcastInfo(const Brx& aJsonObj, const Brx& aId);
+        ~PodcastInfo();
+        const Brx& Name();
+        const Brx& FeedUrl();
+        const Brx& Artist();
+        const Brx& ArtworkUrl();
+        const Brx& Id();
+    private:
+        void Parse(const Brx& aJsonObj);
+    private:
+        Bwh iName;
+        Bwh iFeedUrl;
+        Bwh iArtist;
+        Bwh iArtworkUrl;
+        Bwh iId;
+    };
+
     class PodcastEpisode
     {
     public:
@@ -37,8 +58,10 @@ namespace Av {
         const Brx& Url();
         const Brx& ReleaseDate();
         TUint Duration();
+        static Brn GetNextXmlValueByTag(OpenHome::Parser& aParser, const Brx& aTag);
     private:
         void Parse(const Brx& aXmlItem);
+        static Brn GetFirstXmlAttribute(const Brx& aXml, const Brx& aAttribute);
     private:
         Bwh iTitle;
         Bwh iUrl;
@@ -49,29 +72,22 @@ namespace Av {
     class ITunes;
     class ITunesMetadata : private OpenHome::INonCopyable
     {
-        static const TUint kXmlResponseChunks = 4 * 1024;
-
         static const OpenHome::Brn kNsDc;
         static const OpenHome::Brn kNsUpnp;
         static const OpenHome::Brn kNsOh;
     public:
         static const OpenHome::Brn kMediaTypePodcast;
     public:
-        ITunesMetadata(ITunes& aITunes, OpenHome::Media::TrackFactory& aTrackFactory);
-        OpenHome::Media::Track* TrackFromJson(const OpenHome::Brx& aMetadata);
+        ITunesMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
+        Media::Track* GetNextEpisode(PodcastInfo& aPodcast, const Brx& aXmlItem);
         static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse);
-        PodcastEpisode* GetLatestEpisodeFromFeed(const Brx& aFeedUrl);
     private:
-        void ParseITunesMetadata(const OpenHome::Brx& aMetadata);
-        TBool TryGetResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
-        TBool TryConnect(Uri& aUri);
-        void WriteRequestHeaders(const Brx& aMethod, Uri& aFeedUri, TUint aContentLength = 0);
+        void ParseITunesMetadata(PodcastInfo& aPodcast, const OpenHome::Brx& aMetadata);
+
         void TryAddAttribute(OpenHome::JsonParser& aParser,
                              const TChar* aITunesKey, const TChar* aDidlAttr);
         void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
-        void TryAddTagsFromArray(OpenHome::JsonParser& aParser,
-                                 const OpenHome::Brx& aITunesKey, const OpenHome::Brx& aDidlTag,
-                                 const OpenHome::Brx& aNs, const OpenHome::Brx& aRole);
+
         void TryAddTag(OpenHome::JsonParser& aParser, const OpenHome::Brx& aITunesKey,
                        const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs);
         void TryAddTag(const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs,
@@ -79,18 +95,16 @@ namespace Av {
         void TryAppend(const TChar* aStr);
         void TryAppend(const OpenHome::Brx& aBuf);
     private:
-        ITunes& iTunes;
         OpenHome::Media::TrackFactory& iTrackFactory;
         OpenHome::Media::BwsTrackUri iTrackUri;
         OpenHome::Media::BwsTrackMetaData iMetaDataDidl;
-        WriterBwh iXmlResponse;
     };
 
 class ITunes
 {
-    friend class ITunesMetadata;
-    
-    static const TUint kReadBufferBytes = 8 * 1024;
+    static const TUint kReadBufferBytes = 4 * 1024;
+    static const TUint kSingleEpisodesBlockSize = 3; // 1 block is kReadBufferBytes
+    static const TUint kMultipleEpisodesBlockSize = 100; // 1 block is kReadBufferBytes
     static const TUint kWriteBufferBytes = 1024;
     static const TUint kConnectTimeoutMs = 10000; // FIXME - should read this + ProtocolNetwork's equivalent from a single client-changable location
     static const Brn kHost;
@@ -101,17 +115,15 @@ public:
     ITunes(Environment& aEnv);
     ~ITunes();
 
-    TBool TryGetId(WriterBwh& aWriter, const Brx& aQuery);
+    TBool TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery);
     TBool TryGetPodcastById(WriterBwh& aWriter, const Brx& aId);
+    TBool TryGetPodcastEpisodeInfo(WriterBwh& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly);
     void Interrupt(TBool aInterrupt);
-    static Brn GetFirstValue(const Brx& aXml, const Brx& aTag);
-    static Brn GetFirstAttribute(const Brx& aXml, const Brx& aAttribute);
 private:
-    TBool TryConnect(TUint aPort);
-    TBool TryGetResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit);
-    void WriteRequestHeaders(const Brx& aMethod, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
-    static Brn ReadInt(ReaderUntil& aReader, const Brx& aTag);
-    static Brn ReadString(ReaderUntil& aReader, const Brx& aTag);
+    TBool TryConnect(const Brx& aHost, TUint aPort);
+    TBool TryGetJsonResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit);
+    TBool TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
+    void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
 private:
     Mutex iLock;
     Environment& iEnv;
@@ -128,14 +140,13 @@ class PodcastPins
     : public IDebugTestHandler
 {
     static const TUint kJsonResponseChunks = 4 * 1024;
+    static const TUint kXmlResponseChunks = 4 * 1024;
 public:
     PodcastPins(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack);
     ~PodcastPins();
 
     TBool LoadPodcastLatest(const Brx& aQuery); // iTunes id or search string (single episode - radio single)
     TBool LoadPodcastList(const Brx& aQuery); // iTunes id or search string (episode list - playlist)
-
-    // iTunes podcast attribute options: titleTerm, languageTerm, authorTerm, genreIndex, artistTerm, ratingIndex, keywordsTerm, descriptionTerm (default is all)
 
 public:  // IDebugTestHandler
     TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter);
@@ -147,6 +158,7 @@ private:
     Mutex iLock;
     ITunes* iITunes;
     WriterBwh iJsonResponse;
+    WriterBwh iXmlResponse;
     Media::TrackFactory& iTrackFactory;
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
