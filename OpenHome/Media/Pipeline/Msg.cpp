@@ -287,7 +287,26 @@ EncodedAudio::EncodedAudio(AllocatorBase& aAllocator)
 
 TUint EncodedAudio::Append(const Brx& aData)
 {
-    const TUint avail = iData.MaxBytes() - iData.Bytes();
+    return DoAppend(aData, iData.MaxBytes());
+}
+
+TUint EncodedAudio::Append(const Brx& aData, TUint aMaxBytes)
+{
+    ASSERT(aMaxBytes <= iData.MaxBytes());
+    return DoAppend(aData, aMaxBytes);
+}
+
+void EncodedAudio::Construct(const Brx& aData)
+{
+    ASSERT(Append(aData) == aData.Bytes());
+}
+
+TUint EncodedAudio::DoAppend(const Brx& aData, TUint aMaxBytes)
+{
+    if (iData.Bytes() >= aMaxBytes) {
+        return 0;
+    }
+    const TUint avail = aMaxBytes - iData.Bytes();
     if (avail < aData.Bytes()) {
         Brn data(aData.Ptr(), avail);
         iData.Append(data);
@@ -295,11 +314,6 @@ TUint EncodedAudio::Append(const Brx& aData)
     }
     iData.Append(aData);
     return aData.Bytes();
-}
-
-void EncodedAudio::Construct(const Brx& aData)
-{
-    ASSERT(Append(aData) == aData.Bytes());
 }
 
 
@@ -1425,6 +1439,14 @@ TUint MsgAudioEncoded::Append(const Brx& aData)
 {
     ASSERT(iNextAudio == nullptr);
     const TUint consumed = iAudioData->Append(aData);
+    iSize += consumed;
+    return consumed;
+}
+
+TUint MsgAudioEncoded::Append(const Brx& aData, TUint aMaxBytes)
+{
+    ASSERT(iNextAudio == nullptr);
+    const TUint consumed = iAudioData->Append(aData, aMaxBytes);
     iSize += consumed;
     return consumed;
 }
