@@ -727,6 +727,20 @@ void SuiteMsgAudioEncoded::Test()
     TEST(consumed == EncodedAudio::kMaxBytes % buf.Bytes());
     msg->RemoveRef();
 
+    // Append truncates at client-specified point
+    msg = iMsgFactory->CreateMsgAudioEncoded(buf);
+    consumed = msg->Append(buf, buf.Bytes() + 1);
+    TEST(consumed == 1);
+    msg->RemoveRef();
+
+    // Append copes with client-specified limit being less than current msg occupancy
+    msg = iMsgFactory->CreateMsgAudioEncoded(buf);
+    consumed = msg->Append(buf, buf.Bytes() - 1);
+    TEST(consumed == 0);
+    consumed = msg->Append(buf, buf.Bytes());
+    TEST(consumed == 0);
+    msg->RemoveRef();
+
     // validate ref counting of chained msgs (see #5167)
     msg = iMsgFactory->CreateMsgAudioEncoded(buf);
     msg->AddRef();

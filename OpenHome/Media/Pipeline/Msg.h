@@ -154,9 +154,11 @@ class EncodedAudio : public AudioData
     friend class MsgFactory;
 public:
     TUint Append(const Brx& aData); // returns number of bytes appended
+    TUint Append(const Brx& aData, TUint aMaxBytes); // returns number of bytes appended
 private:
     EncodedAudio(AllocatorBase& aAllocator);
     void Construct(const Brx& aData);
+    TUint DoAppend(const Brx& aData, TUint aMaxBytes);
 };
 
 class DecodedAudio : public AudioData
@@ -598,6 +600,7 @@ public:
     MsgAudioEncoded* Split(TUint aBytes); // returns block after aBytes
     void Add(MsgAudioEncoded* aMsg); // combines MsgAudioEncoded instances so they report larger sizes etc
     TUint Append(const Brx& aData); // Appends a Data to existing msg.  Returns index into aData where copying terminated.
+    TUint Append(const Brx& aData, TUint aMaxBytes); // Appends a Data to existing msg.  Returns index into aData where copying terminated.
     TUint Bytes() const;
     void CopyTo(TByte* aPtr);
     MsgAudioEncoded* Clone();
