@@ -49,12 +49,14 @@ private:
     TBool ReadChunkId(const OpenHome::Brx& aBuf);
     void SendMsgDecodedStream(TUint64 aStartSample);
     TBool StreamIsValid() const;
-    void ReinterleaveToOutputBuffer();
+    void TransferToOutputBuffer();
     void CheckReinterleave();
     void ShowBufLeader() const;
 
     static TUint64 LeUint64At(Brx& aBuf, TUint aOffset);
     static TUint8 ReverseBits8(TUint8 aData);
+    static void LogBuf(const Brx& aBuf);
+
 
 private:
     Bws<kInputBufMaxBytes> iInputBuffer;
@@ -74,6 +76,7 @@ private:
     TUint iFormatId;
     TUint iChannelType;
     TUint64 iSampleCount;
+    TUint64 iAudioBytesTotalPlayable;
     TBool iInitialAudio;
     TUint64 iChunkFmtBytes;
 };
@@ -115,7 +118,7 @@ void CodecDsdDsf::CheckReinterleave()
         iInputBuffer.Append((TByte)((i&0x7f) | 0x80));
     }
 
-    ReinterleaveToOutputBuffer();
+    TransferToOutputBuffer();
     ShowBufLeader();
 }
 
@@ -146,6 +149,8 @@ void CodecDsdDsf::StreamInitialise()
 
     iAudioBytesTotal = 0;
     iAudioBytesRemaining = 0;
+    iAudioBytesTotalPlayable = 0;
+
     iFileSize = 0;
     iTrackStart = 0;
     iTrackOffsetJiffies = 0;
@@ -154,7 +159,7 @@ void CodecDsdDsf::StreamInitialise()
     iInitialAudio = true;
 }
 
-void CodecDsdDsf::ReinterleaveToOutputBuffer()
+void CodecDsdDsf::TransferToOutputBuffer()
 {
     const TByte* lPtr = iInputBuffer.Ptr();
     const TByte* rPtr = lPtr + kDataBlockBytes;
@@ -170,6 +175,22 @@ void CodecDsdDsf::ReinterleaveToOutputBuffer()
         *oPtr++ = ReverseBits8(*rPtr++);
         *oPtr++ = ReverseBits8(*rPtr++);
     }
+
+    if (iAudioBytesRemaining==0) // end of stream, truncate if padding present
+    {
+        TUint audioBytesPadding = iAudioBytesTotal-iAudioBytesTotalPlayable;
+        iOutputBuffer.SetBytes(iInputBuffer.MaxBytes()-audioBytesPadding); // discard audio padding bytes
+    }
+}
+
+void CodecDsdDsf::LogBuf(const Brx& aBuf)
+{
+    Log::Print("\nLogBuf bytes= %d\n", aBuf.Bytes());
+    for(TUint i=0; i<aBuf.Bytes(); ++i)
+    {
+        Log::Print("%x ", aBuf[i]);
+    }
+    Log::Print("\n\n");
 }
 
 void CodecDsdDsf::Process()
@@ -194,7 +215,7 @@ void CodecDsdDsf::Process()
         Log::Print("  iFormatId = %u\n", iFormatId);
         Log::Print("  iChannelType = %u\n", iChannelType);
         Log::Print("  iSampleCount = %llu\n", iSampleCount);
-
+        Log::Print("  iAudioBytesTotalPlayable = %llu\n", iAudioBytesTotalPlayable);
 
         SendMsgDecodedStream(0);
         iInputBuffer.SetBytes(0);
@@ -208,10 +229,9 @@ void CodecDsdDsf::Process()
 
         iInputBuffer.SetBytes(0);
         iController->Read(iInputBuffer, std::min(iInputBuffer.MaxBytes(), (TUint32)iAudioBytesRemaining) );
-        //Log::Print("CodecDsdDsf::Process()  iAudioBytesRemaining= %llx (%lld)  blocks = %lld (rem = %lld)    read %d bytes ##############\n", iAudioBytesRemaining, iAudioBytesRemaining, iAudioBytesRemaining/kInputBufMaxBytes, iAudioBytesRemaining%kInputBufMaxBytes, iInputBuffer.Bytes());
-        //ASSERT(iInputBuffer.Bytes()==kInputBufMaxBytes);
+        iAudioBytesRemaining -= kInputBufMaxBytes;
 
-        ReinterleaveToOutputBuffer();
+        TransferToOutputBuffer();
 
         if (iInitialAudio) {
             ShowBufLeader();
@@ -219,7 +239,6 @@ void CodecDsdDsf::Process()
         }
 
         iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, kSampleBlockBits, iTrackOffsetJiffies);
-        iAudioBytesRemaining -= kInputBufMaxBytes;
 
     }
 }
@@ -318,7 +337,9 @@ void CodecDsdDsf::ProcessFmtChunk()
     iSampleCount = LeUint64At(iInputBuffer, 36);
     iBlockSizePerChannel = Converter::LeUint32At(iInputBuffer, 44);
     iTrackLengthJiffies = iSampleCount * Jiffies::PerSample(iSampleRate);
-    
+
+    iAudioBytesTotalPlayable = iSampleCount/4;  // *2/8  (2 channels, 8 samples per byte)
+
     if (!StreamIsValid())
     {
         THROW(CodecStreamCorrupt);

@@ -24,7 +24,7 @@ private:
     static const TUint kOutputBufMaxBytes = 2*kBlockSize; 
     static const TUint kSubSamplesPerByte = 8;
     static const TUint kSamplesPerByte = kSubSamplesPerByte/2;
-    static const TUint64 kSampleBlockRoundingMask = ~((kInputBufMaxBytes*kSamplesPerByte)-1);  
+    static const TUint64 kSampleBlockRoundingMask = ~(0xff); // round down to nearset block of 8 samples (1 byte)  
     
     static const TUint64 kChunkFRM8HeaderBytes = 16; // 4 for ID, 8 for data byte count, 4 for form type ID
     static const TUint64 kChunkFverBytes = 16;  // 4 for ID, 8 for data byte count, 4 data bytes
@@ -236,13 +236,12 @@ void CodecDsdDff::StreamInitialise()
     iBitRate = 0;
     iAudioBytesTotal = 0;
     iAudioBytesRemaining = 0;
-    //iTrackStart = 0;
     iTrackOffsetJiffies = 0;
     iTrackLengthJiffies = 0;
 
     ProcessFormChunk(); // Could throw CodecStreamEnded/CodecStreamCorrupt.
 
-    iSampleCount = iAudioBytesTotal * 8 / 2; // *8 samples per byte, /2 stereo samples
+    iSampleCount = iAudioBytesTotal * 4; // *8 samples per byte, /2 stereo samples
 
 
     Log::Print("DSDDFF:\n");
@@ -253,15 +252,10 @@ void CodecDsdDff::StreamInitialise()
     Log::Print("  iAudioBytesRemaining = %llu\n", iAudioBytesRemaining);
     Log::Print("  iFileSize = %llu\n", iFileSize);
     Log::Print("  iBitRate = %u\n", iBitRate);
-    //Log::Print("  iTrackStart = %llu\n", iTrackStart);
     Log::Print("  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
     Log::Print("  iTrackLengthJiffies = %llu\n", iTrackLengthJiffies);
-    //Log::Print("  iFormatVersion = %u\n", iFormatVersion);
-    //Log::Print("  iFormatId = %u\n", iFormatId);
-    //Log::Print("  iChannelType = %u\n", iChannelType);
     Log::Print("  iSampleCount = %llu\n", iSampleCount);
 
-    // now fake some values to get it through "PCM" stream validation in pipeline:
     iTrackLengthJiffies = iSampleCount * Jiffies::PerSample(iSampleRate);
     
     SendMsgDecodedStream(0);
@@ -270,27 +264,26 @@ void CodecDsdDff::StreamInitialise()
 void CodecDsdDff::Process()
 {
     if (iAudioBytesRemaining == 0)
-    {  // check for end of file
-        //Log::Print("CodecDsdDff::Process()  CodecStreamEnded  \n");
+    {  
         THROW(CodecStreamEnded);
     }
 
     iInputBuf.SetBytes(0);
-    iController->Read(iInputBuf, iInputBuf.MaxBytes());
+    TUint32 bytesToRead = std::min(iInputBuf.MaxBytes(), (TUint32)iAudioBytesRemaining);
+    iController->Read(iInputBuf, bytesToRead);
 
+    iAudioBytesRemaining -= iInputBuf.Bytes();
     TransferToOutputBuffer();
 
     iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuf, iChannelCount, iSampleRate, kSampleBlockBits, iTrackOffsetJiffies);
-    iAudioBytesRemaining -= iInputBuf.Bytes();
 }
 
 void CodecDsdDff::TransferToOutputBuffer()
 {
-    LOG(kCodec, ">CodecDsdDff::TransferToOutputBuffer()\n");
     const TByte* inPtr = iInputBuf.Ptr();
     TByte* oPtr = const_cast<TByte*>(iOutputBuf.Ptr());
 
-    TUint loopCount = kBlockSize/2;
+    TUint loopCount = iInputBuf.Bytes()/4;
 
     for (TUint i = 0 ; i < loopCount ; ++i) 
     {
@@ -304,6 +297,8 @@ void CodecDsdDff::TransferToOutputBuffer()
         oPtr += 4;
         inPtr += 4;
     }
+
+    iOutputBuf.SetBytes(iInputBuf.Bytes());
 }
 
 TBool CodecDsdDff::TrySeek(TUint aStreamId, TUint64 aSample)
@@ -317,8 +312,9 @@ TBool CodecDsdDff::TrySeek(TUint aStreamId, TUint64 aSample)
         return false;
     }
     
+    iAudioBytesRemaining = iAudioBytesTotal-bytePos;
     iTrackOffsetJiffies = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate; 
-    
+
     iInputBuf.SetBytes(0);
     SendMsgDecodedStream(aSample);
 
@@ -343,6 +339,7 @@ void CodecDsdDff::ReadId(const Brx& aId)
 
 TUint64 CodecDsdDff::ReadChunkHeader(const Brx& aExpectedId)
 {
+    
     TUint64 dataByteCount = 0;
 
     for(;;)
@@ -377,6 +374,12 @@ TUint64 CodecDsdDff::ReadChunkHeader(const Brx& aExpectedId)
 
 TUint64 CodecDsdDff::ReadChunkHeader()
 {
+    // Header format:
+    //
+    // ID - 4 bytes
+    // Chunk data size in bytes - 8 bytes 
+    // Chunk data - n bytes (n=Chunk data size)
+
     iInputBuf.SetBytes(0);
     iController->Read(iInputBuf, 12);
     TUint64 dataByteCount = BeUint64At(iInputBuf, 4);
