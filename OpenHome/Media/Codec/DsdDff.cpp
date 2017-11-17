@@ -24,7 +24,7 @@ private:
     static const TUint kOutputBufMaxBytes = 2*kBlockSize; 
     static const TUint kSubSamplesPerByte = 8;
     static const TUint kSamplesPerByte = kSubSamplesPerByte/2;
-    static const TUint64 kSampleBlockRoundingMask = ~(0xff); // round down to nearset block of 8 samples (1 byte)  
+    static const TUint64 kSampleBlockRoundingMask = ~((TUint64)0xff); // round down to nearset block of 8 samples (1 byte)  
     
     static const TUint64 kChunkFRM8HeaderBytes = 16; // 4 for ID, 8 for data byte count, 4 for form type ID
     static const TUint64 kChunkFverBytes = 16;  // 4 for ID, 8 for data byte count, 4 data bytes
