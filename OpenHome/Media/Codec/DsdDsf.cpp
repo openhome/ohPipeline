@@ -176,8 +176,8 @@ void CodecDsdDsf::TransferToOutputBuffer()
 
     if (iAudioBytesRemaining==0) // end of stream, truncate if padding present
     {
-        TUint audioBytesPadding = iAudioBytesTotal-iAudioBytesTotalPlayable;
-        iOutputBuffer.SetBytes(iInputBuffer.MaxBytes()-audioBytesPadding); // discard audio padding bytes
+        TUint64 audioBytesPadding = iAudioBytesTotal-iAudioBytesTotalPlayable;
+        iOutputBuffer.SetBytes(iInputBuffer.MaxBytes()-(TUint)audioBytesPadding); // discard audio padding bytes
     }
 }
 

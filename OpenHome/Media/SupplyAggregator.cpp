@@ -106,7 +106,7 @@ SupplyAggregatorBytes::SupplyAggregatorBytes(MsgFactory& aMsgFactory, IPipelineE
 
 void SupplyAggregatorBytes::SetMaxBytes(TUint aMaxBytes)
 {
-    ASSERT(aMaxBytes < AudioData::kMaxBytes);
+    ASSERT(aMaxBytes <= AudioData::kMaxBytes);
     iDataMaxBytes = aMaxBytes;
 }
 
