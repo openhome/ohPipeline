@@ -413,6 +413,12 @@ void CodecController::CodecThread()
         }
         catch (CodecStreamStopped&) {}
         catch (CodecStreamFlush&) {}
+        catch (AssertionFailed&) {
+            throw;
+        }
+        catch (Exception& ex) {
+            LOG_ERROR(kPipeline, "WARNING: codec threw %s\n", ex.Message());
+        }
         if (iActiveCodec != nullptr) {
             iActiveCodec->StreamCompleted();
         }
