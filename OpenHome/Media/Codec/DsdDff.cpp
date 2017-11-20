@@ -24,15 +24,9 @@ private:
     static const TUint kOutputBufMaxBytes = 2*kBlockSize; 
     static const TUint kSubSamplesPerByte = 8;
     static const TUint kSamplesPerByte = kSubSamplesPerByte/2;
-    static const TUint64 kSampleBlockRoundingMask = ~(0xff); // round down to nearset block of 8 samples (1 byte)  
-    
-    static const TUint64 kChunkFRM8HeaderBytes = 16; // 4 for ID, 8 for data byte count, 4 for form type ID
-    static const TUint64 kChunkFverBytes = 16;  // 4 for ID, 8 for data byte count, 4 data bytes
-    static const TUint64 kChunkFverDataBytes = 4;  
-    static const TUint64 kChunkPropHeaderBytes = 12;  // 4 for ID, 8 for data byte count
-    static const TUint64 kChunkDsdHeaderBytes = 12;  // 4 for ID, 8 for data byte count
- 
+    static const TUint64 kSampleBlockRoundingMask = ~(kInputBufMaxBytes-1); // round down to nearset block of 8 samples (1 byte)  
     static const TUint kSampleBlockBits = 32; // audio is written out as 16x left, then 16x right
+    static const TUint64 kChunkHeaderBytes = 12; 
 
 public:
     CodecDsdDff(IMimeTypeList& aMimeTypeList);
@@ -62,9 +56,8 @@ private:
     TUint iBitDepth;
     TUint64 iAudioBytesTotal;
     TUint64 iAudioBytesRemaining;
-    TUint64 iFileSize;
+    TUint64 iFileSizeBytes;
     TUint iBitRate;
-    //TUint64 iTrackStart;
     TUint64 iTrackOffsetJiffies;
     TUint64 iTrackLengthJiffies;
     TUint64 iSampleCount;
@@ -87,11 +80,9 @@ CodecBase* CodecFactory::NewDsdDff(IMimeTypeList& aMimeTypeList)
 
 CodecDsdDff::CodecDsdDff(IMimeTypeList& aMimeTypeList)
     :CodecBase("DSD-DFF", kCostLow)
-    ,iFileHeaderSizeBytes(kChunkFRM8HeaderBytes+kChunkFverBytes+kChunkPropHeaderBytes+kChunkDsdHeaderBytes) // increased later once we know size of prop chunk
 {
     aMimeTypeList.Add("audio/dff");
     aMimeTypeList.Add("audio/x-dff");
-    iOutputBuf.SetBytes(iOutputBuf.MaxBytes());
 }
 
 
@@ -130,11 +121,12 @@ void CodecDsdDff::ProcessFormChunk()
     // ChunkSize - 8 bytes
     // ID="DSD " - 4 bytes
 
-    iFileSize = ReadChunkHeader(Brn("FRM8")) + 12;
+    TUint64 chunkDataBytes = ReadChunkHeader(Brn("FRM8"));
+    iFileSizeBytes = kChunkHeaderBytes+chunkDataBytes;
 
     ReadId(Brn("DSD "));
+    iFileHeaderSizeBytes += kChunkHeaderBytes+4;    
 
-    // could also read ChunkSize here and check that it's a sensible value
     ProcessFverChunk();
     ProcessPropChunk();
     ProcessDsdChunk();
@@ -145,36 +137,39 @@ void CodecDsdDff::ProcessFverChunk()
 {
     // version - (ChunkSize=4) bytes  example // 0x01050000 version 1.5.0.0 DSDIFF
     TUint64 chunkDataBytes = ReadChunkHeader(Brn("FVER"));
+    iFileHeaderSizeBytes += kChunkHeaderBytes+chunkDataBytes;    
 
-    if (chunkDataBytes != kChunkFverDataBytes) // this chunk size always = 4
+    if (chunkDataBytes != 4) // this chunk size always = 4
     {
         Log::Print("CodecDsdDff::ProcessFverChunk()  corrupt! \n");
         THROW(CodecStreamCorrupt);
     }
     iController->Read(iInputBuf, (TUint)chunkDataBytes); // read version string
+
 }
 
 void CodecDsdDff::ProcessDsdChunk()
 {
     //Log::Print("CodecDsdDff::ProcessDsdChunk() \n");
     iAudioBytesTotal = ReadChunkHeader(Brn("DSD ")); // could be "DSD " or "DST "
+    iFileHeaderSizeBytes += kChunkHeaderBytes;   
     iAudioBytesRemaining = iAudioBytesTotal;
-    //Log::Print("CodecDsdDff::ProcessDsdChunk()   iAudioBytesTotal=%lld \n", iAudioBytesTotal);
+    Log::Print("CodecDsdDff::ProcessDsdChunk()   iAudioBytesTotal=%lld \n", iAudioBytesTotal);
 }
 
 void CodecDsdDff::ProcessPropChunk()
 {
     // container chunk  - contains a number of "local"" chunks
 
-    TUint64 propChunkDataBytes = ReadChunkHeader(Brn("PROP"));
-    if (propChunkDataBytes < 4)
+    TUint64 chunkDataBytes = ReadChunkHeader(Brn("PROP"));
+    iFileHeaderSizeBytes += kChunkHeaderBytes+chunkDataBytes;    
+    if (chunkDataBytes < 4)
     {
         THROW(CodecStreamCorrupt);
     }
     
-    iFileHeaderSizeBytes += propChunkDataBytes;
     
-    TUint64 propChunkRemainingBytes = propChunkDataBytes;
+    TUint64 propChunkRemainingBytes = chunkDataBytes;
 
     ReadId(Brn("SND "));
 
@@ -229,6 +224,7 @@ void CodecDsdDff::ProcessPropChunk()
 void CodecDsdDff::StreamInitialise()
 {
     //Log::Print("CodecDsdDff::StreamInitialise()  \n");
+    iFileHeaderSizeBytes = 0;
     iChannelCount = 0;
     iSampleCount = 0;
     iBitDepth = 0;
@@ -250,7 +246,7 @@ void CodecDsdDff::StreamInitialise()
     Log::Print("  iBitDepth = %u\n", iBitDepth);
     Log::Print("  iAudioBytesTotal = %llu\n", iAudioBytesTotal);
     Log::Print("  iAudioBytesRemaining = %llu\n", iAudioBytesRemaining);
-    Log::Print("  iFileSize = %llu\n", iFileSize);
+    Log::Print("  iFileSizeBytes = %llu\n", iFileSizeBytes);
     Log::Print("  iBitRate = %u\n", iBitRate);
     Log::Print("  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
     Log::Print("  iTrackLengthJiffies = %llu\n", iTrackLengthJiffies);

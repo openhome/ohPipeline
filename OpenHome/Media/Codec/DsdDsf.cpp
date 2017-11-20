@@ -99,9 +99,6 @@ CodecDsdDsf::CodecDsdDsf(IMimeTypeList& aMimeTypeList)
 {
     aMimeTypeList.Add("audio/dsf");
     aMimeTypeList.Add("audio/x-dsf");
-
-    iOutputBuffer.SetBytes(iOutputBuffer.MaxBytes());
-    //CheckReinterleave();
 }
 
 
@@ -119,7 +116,7 @@ void CodecDsdDsf::CheckReinterleave()
     }
 
     TransferToOutputBuffer();
-    ShowBufLeader();
+    //ShowBufLeader();
 }
 
 
@@ -155,6 +152,7 @@ void CodecDsdDsf::StreamInitialise()
     iTrackStart = 0;
     iTrackOffsetJiffies = 0;
     iInputBuffer.SetBytes(0);
+    iOutputBuffer.SetBytes(iOutputBuffer.MaxBytes());
 
     iInitialAudio = true;
 }
@@ -234,7 +232,7 @@ void CodecDsdDsf::Process()
         TransferToOutputBuffer();
 
         if (iInitialAudio) {
-            ShowBufLeader();
+            //ShowBufLeader();
             iInitialAudio = false;
         }
 
