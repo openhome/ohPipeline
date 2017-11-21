@@ -176,8 +176,26 @@ void CodecDsdDsf::TransferToOutputBuffer()
 
     if (iAudioBytesRemaining==0) // end of stream, truncate if padding present
     {
-        TUint64 audioBytesPadding = iAudioBytesTotal-iAudioBytesTotalPlayable;
-        iOutputBuffer.SetBytes(iInputBuffer.MaxBytes()-(TUint)audioBytesPadding); // discard audio padding bytes
+        const TUint audioBytesPadding = (TUint)(iAudioBytesTotal-iAudioBytesTotalPlayable);
+        
+        TUint outputBufferBytes = iOutputBuffer.MaxBytes()-audioBytesPadding; 
+        
+        //Log::Print("CodecDsdDsf::TransferToOutputBuffer()  iAudioBytesTotal=%llx    iAudioBytesTotalPlayable=%llx     outputBufferBytes=%x  ######################################\n", iAudioBytesTotal, iAudioBytesTotalPlayable, outputBufferBytes);
+
+        ASSERT ( (outputBufferBytes%2) == 0); // this shouldn't happen 
+        
+        if ( (outputBufferBytes%4) != 0) // stream ends with only a half a word
+        {
+            //Log::Print("CodecDsdDsf::TransferToOutputBuffer()   padding partial word at end of stream  ########################## \n");
+            // Pad partial end word, (DSD) with silence, to make a full word
+            const TByte kDsdSilence = 0x69;
+            outputBufferBytes += 2; // increase output byte count to accommodate padding
+            iOutputBuffer[outputBufferBytes-1] = kDsdSilence; // left channel
+            iOutputBuffer[outputBufferBytes-3] = kDsdSilence; // right channel
+        }
+
+        iOutputBuffer.SetBytes(outputBufferBytes); // discard audio padding bytes
+        //LogBuf(iOutputBuffer);
     }
 }
 
@@ -337,6 +355,10 @@ void CodecDsdDsf::ProcessFmtChunk()
     iTrackLengthJiffies = iSampleCount * Jiffies::PerSample(iSampleRate);
 
     iAudioBytesTotalPlayable = iSampleCount/4;  // *2/8  (2 channels, 8 samples per byte)
+    if ((iAudioBytesTotalPlayable%2) !=0)
+    {
+        THROW(CodecStreamCorrupt);
+    }
 
     if (!StreamIsValid())
     {
@@ -355,6 +377,11 @@ void CodecDsdDsf::ProcessDataChunk()
     iController->Read(iInputBuffer, 8);
 
     iAudioBytesTotal = LeUint64At(iInputBuffer, 4)-kChunkHeaderBytes;
+    if ((iAudioBytesTotal%2) !=0)
+    {
+        THROW(CodecStreamCorrupt);
+    }
+
     iAudioBytesRemaining = iAudioBytesTotal;
 }
 
