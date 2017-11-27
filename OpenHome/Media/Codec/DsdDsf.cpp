@@ -354,11 +354,13 @@ void CodecDsdDsf::ProcessFmtChunk()
     iBlockSizePerChannel = Converter::LeUint32At(iInputBuffer, 44);
     iTrackLengthJiffies = iSampleCount * Jiffies::PerSample(iSampleRate);
 
-    iAudioBytesTotalPlayable = iSampleCount/4;  // *2/8  (2 channels, 8 samples per byte)
-    if ((iAudioBytesTotalPlayable%2) !=0)
+    if ( (iSampleCount%8) != 0)
     {
-        THROW(CodecStreamCorrupt);
-    }
+        iSampleCount &= ~(0x7);
+        Log::Print("CodecDsdDsf::ProcessFmtChunk  stream contains a partial 8 bit sample block - truncating, may cause glitch \n");
+    }   
+    
+    iAudioBytesTotalPlayable = 2*(iSampleCount/8);  // *2/8  (2 channels, 8 samples per byte)
 
     if (!StreamIsValid())
     {
