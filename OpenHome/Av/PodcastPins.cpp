@@ -518,7 +518,13 @@ TBool ITunes::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
         LOG_ERROR(kPipeline, "HttpError in ITunesMetadata::TryGetResponse\n");
     }
     catch (ReaderError&) {
-        LOG_ERROR(kPipeline, "ReaderError in ITunesMetadata::TryGetResponse\n");
+        if ( aWriter.Buffer().Bytes() > 0 ) {
+            // lazy reading of xml has to account for this, particularly when there is no content length header and the length of the feed is less than our 'count'
+            success = true;
+        }
+        else {
+            LOG_ERROR(kPipeline, "ReaderError in ITunesMetadata::TryGetResponse\n");
+        }    
     }
     catch (WriterError&) {
         LOG_ERROR(kPipeline, "WriterError in ITunesMetadata::TryGetResponse\n");
@@ -762,8 +768,11 @@ void PodcastEpisode::Parse(const Brx& aXmlItem)
             iUrl.ReplaceThrow(Brn("http"));
             iUrl.AppendThrow(url.Split(5, url.Bytes()-5));
         }
-        else {
+        else if (url.BeginsWith(Brn("http"))) {
             iUrl.ReplaceThrow(url);
+        }
+        else {
+            THROW(UriError);
         }
         Converter::FromXmlEscaped(iUrl);
     }

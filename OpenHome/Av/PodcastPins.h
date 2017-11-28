@@ -102,9 +102,9 @@ namespace Av {
 
 class ITunes
 {
-    static const TUint kReadBufferBytes = 4 * 1024;
-    static const TUint kSingleEpisodesBlockSize = 3; // 1 block is kReadBufferBytes
-    static const TUint kMultipleEpisodesBlockSize = 100; // 1 block is kReadBufferBytes
+    static const TUint kReadBufferBytes = 8 * 1024;
+    static const TUint kSingleEpisodesBlockSize = 2; // 1 block is kReadBufferBytes
+    static const TUint kMultipleEpisodesBlockSize = 50; // 1 block is kReadBufferBytes
     static const TUint kWriteBufferBytes = 1024;
     static const TUint kConnectTimeoutMs = 10000; // FIXME - should read this + ProtocolNetwork's equivalent from a single client-changable location
     static const Brn kHost;
@@ -139,8 +139,8 @@ private:
 class PodcastPins
     : public IDebugTestHandler
 {
-    static const TUint kJsonResponseChunks = 4 * 1024;
-    static const TUint kXmlResponseChunks = 4 * 1024;
+    static const TUint kJsonResponseChunks = 8 * 1024;
+    static const TUint kXmlResponseChunks = 8 * 1024;
 public:
     PodcastPins(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack);
     ~PodcastPins();
