@@ -32,15 +32,6 @@ namespace OpenHome {
     class ITimerFactory;
 namespace Media {
 
-class ISemaphore
-{
-public:
-    virtual void Wait() = 0;
-    virtual TBool Clear() = 0;
-    virtual void Signal() = 0;
-    virtual ~ISemaphore() {}
-};
-
 class IHlsPlaylistProvider
 {
 public:

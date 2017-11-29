@@ -22,18 +22,6 @@
 namespace OpenHome {
 namespace Media {
 
-class SemaphoreGeneric : public ISemaphore
-{
-public:
-    SemaphoreGeneric(const TChar* aName, TUint aCount);
-public: // from ISemaphore
-    void Wait() override;
-    TBool Clear() override;
-    void Signal() override;
-private:
-    Semaphore iSem;
-};
-
 class ProtocolHls : public Protocol
 {
 public:
@@ -56,7 +44,7 @@ private:
 private:
     TimerFactory iTimerFactory;
     Supply* iSupply;
-    SemaphoreGeneric iSemReaderM3u;
+    Semaphore iSemReaderM3u;
     PlaylistProvider iPlaylistProvider;
     HlsReloadTimer iReloadTimer;
     HlsM3uReader iM3uReader;
@@ -90,29 +78,6 @@ Protocol* ProtocolFactory::NewHls(Environment& aEnv, const Brx& aUserAgent)
      * of objects passed in.
      */
     return new ProtocolHls(aEnv, aUserAgent);
-}
-
-
-// SemaphoreGeneric
-
-SemaphoreGeneric::SemaphoreGeneric(const TChar* aName, TUint aCount)
-    : iSem(aName, aCount)
-{
-}
-
-void SemaphoreGeneric::Wait()
-{
-    iSem.Wait();
-}
-
-TBool SemaphoreGeneric::Clear()
-{
-    return iSem.Clear();
-}
-
-void SemaphoreGeneric::Signal()
-{
-    return iSem.Signal();
 }
 
 
