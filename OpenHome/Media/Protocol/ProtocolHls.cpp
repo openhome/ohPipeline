@@ -116,6 +116,52 @@ void SemaphoreGeneric::Signal()
 }
 
 
+// HttpHeaderConnection
+
+const Brn Media::HttpHeaderConnection::kConnectionClose("close");
+const Brn Media::HttpHeaderConnection::kConnectionKeepAlive("keep-alive");
+const Brn Media::HttpHeaderConnection::kConnectionUpgrade("upgrade");
+
+TBool Media::HttpHeaderConnection::Close() const
+{
+    return (Received() ? iClose : false);
+}
+
+TBool Media::HttpHeaderConnection::KeepAlive() const
+{
+    return (Received() ? iKeepAlive : false);
+}
+
+TBool Media::HttpHeaderConnection::Upgrade() const
+{
+    return (Received() ? iUpgrade : false);
+}
+
+TBool Media::HttpHeaderConnection::Recognise(const Brx& aHeader)
+{
+    return Ascii::CaseInsensitiveEquals(aHeader, Http::kHeaderConnection);
+}
+
+void Media::HttpHeaderConnection::Process(const Brx& aValue)
+{
+    iClose = false;
+    iKeepAlive = false;
+    iUpgrade = false;
+    if (Ascii::CaseInsensitiveEquals(aValue, kConnectionClose)) {
+        iClose = true;
+        SetReceived();
+    }
+    else if (Ascii::CaseInsensitiveEquals(aValue, kConnectionKeepAlive)) {
+        iKeepAlive = true;
+        SetReceived();
+    }
+    else if (Ascii::CaseInsensitiveEquals(aValue, kConnectionUpgrade)) {
+        iUpgrade = true;
+        SetReceived();
+    }
+}
+
+
 // HttpSocket::ReaderUntilDynamic
     
 HttpSocket::ReaderUntilDynamic::ReaderUntilDynamic(TUint aMaxBytes, IReader& aReader)    : ReaderUntil(aMaxBytes, aReader)
@@ -167,7 +213,9 @@ HttpSocket::HttpSocket(Environment& aEnv, const Brx& aUserAgent, TUint aReadBuff
     , iContentLength(-1)
     , iBytesRemaining(-1)
     , iMethod(Http::kMethodGet)
+    , iPersistConnection(true)
 {
+    iReaderResponse.AddHeader(iHeaderConnection);
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderLocation);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
@@ -209,6 +257,13 @@ void HttpSocket::SetUri(const Uri& aUri)
             iEndpoint.Replace(ep);
         }
 
+        LOG(kMedia, "HttpSocket::SetUri iPersistConnection: %u\n", iPersistConnection);
+        if (!iPersistConnection) {
+            // Previous response required that this connection not be re-used.
+            // Call Disconnect() here in case, for some unknown reason, previous client of this HttpSocket didn't read until end of stream and trigger Disconnect() in the Read() method, or in case there was some error in stream length, or for any other reason.
+            Disconnect();
+        }
+
         // Set iUri here, as disconnect may have cleared it.
         try {
             iUri.Replace(aUri.AbsoluteUri());
@@ -225,6 +280,7 @@ void HttpSocket::SetUri(const Uri& aUri)
         iCode = -1;
         iContentLength = -1;
         iBytesRemaining = -1;
+        iPersistConnection = true;
         try {
             //iWriterRequest.WriteFlush();
             //iWriteBuffer.WriteFlush();
@@ -319,6 +375,7 @@ void HttpSocket::Disconnect()
     iContentLength = -1;
     iBytesRemaining = -1;
     iUri.Clear();
+    iPersistConnection = true;
 
     try {
         iEndpoint.SetAddress(0);
@@ -379,6 +436,12 @@ Brn HttpSocket::Read(TUint aBytes)
         if (iBytesRemaining == 0) {
             // End-of-stream signifier.
             iBytesRemaining = -1;
+
+            if (!iPersistConnection) {
+                // We're done reading from this stream and cannot re-use connection. Close connection and free up underlying resources.
+                Disconnect();
+            }
+
             return Brx::Empty();
         }
         if (iBytesRemaining > 0) {
@@ -389,12 +452,29 @@ Brn HttpSocket::Read(TUint aBytes)
         }
     }
 
-    auto buf = iDechunker.Read(bytes);
-    // If reading from a stream of known length, update bytes remaining.
-    if (iBytesRemaining > 0) {
-        iBytesRemaining -= buf.Bytes();
+    ;
+    try {
+        Brn buf = iDechunker.Read(bytes);
+        // If reading from a stream of known length, update bytes remaining.
+        if (iBytesRemaining > 0) {
+            iBytesRemaining -= buf.Bytes();
+        }
+
+        // Dechunker returns a buffer of 0 bytes in length when end-of-stream reached (conforming to IReader interface).
+        if (buf.Bytes() == 0) {
+            if (!iPersistConnection) {
+                // We're done reading from this stream and cannot re-use connection. Close connection and free up underlying resources.
+                Disconnect();
+            }
+        }
+
+        return buf;
     }
-    return buf;
+    catch (const ReaderError&) {
+        // Break in stream. Close connection.
+        Disconnect();
+        throw;
+    }
 }
 
 void HttpSocket::ReadFlush()
@@ -512,6 +592,22 @@ void HttpSocket::ProcessResponse()
                     }
                     iResponseReceived = true;
                     iCode = code;
+
+                    // See https://tools.ietf.org/html/rfc7230#section-6.3 for persistence evaluation logic.
+                    iPersistConnection = true;
+                    if (iHeaderConnection.Close()) {
+                        iPersistConnection = false;
+                    }
+                    else if (iReaderResponse.Version() == Http::EVersion::eHttp11) {
+                        iPersistConnection = true;
+                    }
+                    else if (iReaderResponse.Version() == Http::EVersion::eHttp10 && iHeaderConnection.KeepAlive()) {
+                        iPersistConnection = true;
+                    }
+                    else {
+                        iPersistConnection = false;
+                    }
+
                     return;
                 }
             }

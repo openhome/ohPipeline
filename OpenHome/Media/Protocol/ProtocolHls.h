@@ -83,6 +83,26 @@ public:
     virtual ~ISegmentProvider() {}
 };
 
+// FIXME - the changes in this class (parsing and reporting of the presence of "keep-alive" option) should really be rolled into ohNet's HttpHeaderConnection class.
+class HttpHeaderConnection : public HttpHeader
+{
+public:
+    static const Brn kConnectionClose;
+    static const Brn kConnectionKeepAlive;
+    static const Brn kConnectionUpgrade;
+public:
+    TBool Close() const;
+    TBool KeepAlive() const;
+    TBool Upgrade() const;
+private:
+    virtual TBool Recognise(const Brx& aHeader);
+    virtual void Process(const Brx& aValue);
+private:
+    TBool iClose;
+    TBool iKeepAlive;
+    TBool iUpgrade;
+};
+
 /*
  * Helper class to make sending HTTP requests to and reading HTTP responses from socket simpler.
  *
@@ -197,6 +217,7 @@ private:
     const TUint iReceiveTimeoutMs;
     const TBool iFollowRedirects;
     SocketTcpClient iTcpClient;
+    HttpHeaderConnection iHeaderConnection;
     HttpHeaderContentLength iHeaderContentLength;
     HttpHeaderLocation iHeaderLocation;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
@@ -215,6 +236,7 @@ private:
     Brn iMethod;
     Uri iUri;
     Endpoint iEndpoint;
+    TBool iPersistConnection;
 };
 
 /*
