@@ -1702,7 +1702,7 @@ void SuiteHlsSegmentStreamer::TestEndOfStreamReadMoreThan()
 
 
 
-void TestProtocolHls(Environment& aEnv)
+void TestProtocolHls(Environment& /*aEnv*/)
 {
     Runner runner("HLS tests\n");
     runner.Add(new SuiteHlsSegmentDescriptor());

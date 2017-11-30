@@ -881,8 +881,9 @@ IReader& PlaylistProvider::Reload()
 {
     LOG(kMedia, ">PlaylistProvider::Reload\n");
     try {
-        return iLoader.Load(iUri);
+        auto& reader = iLoader.Load(iUri);
         LOG(kMedia, "<PlaylistProvider::Reload reloaded\n");
+        return reader;
     }
     catch (const UriLoaderError&) {
         LOG(kMedia, "<PlaylistProvider::Reload caught UriLoaderError\n");
