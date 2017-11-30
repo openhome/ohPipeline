@@ -441,8 +441,6 @@ class HlsM3uReader : public ISegmentUriProvider
 public:
     static const TUint64 kSeqNumFirstInPlaylist = 0;
 private:
-    static const TUint kMaxM3uVersion = 2;
-    static const TUint kMillisecondsPerSecond = 1000;
     static const TUint kMaxLineBytes = 2048;
 public:
     HlsM3uReader(IHlsPlaylistProvider& aProvider, IHlsReloadTimer& aReloadTimer);
