@@ -240,7 +240,7 @@ private:
 class ReaderProxy : public IReader
 {
 public:
-    ReaderProxy(const TChar* aId);
+    ReaderProxy();
     TBool IsReaderSet() const;
     void SetReader(IReader& aReader);
     void Clear();
@@ -249,7 +249,6 @@ public: // from IReader
     void ReadFlush() override;
     void ReadInterrupt() override;
 private:
-    const TChar* iId;
     IReader* iReader;
     mutable Mutex iLock;
 };
@@ -390,7 +389,6 @@ private:
     void PreProcess();
     void ReadNextLine();
 private:
-    IReader* iReader;
     ReaderProxy iReaderProxy;
     ReaderLogger iReaderLogger;
     ReaderUntilS<kMaxLineBytes> iReaderUntil;

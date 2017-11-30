@@ -593,9 +593,8 @@ void HttpSocket::ProcessResponse()
 
 // ReaderProxy
 
-ReaderProxy::ReaderProxy(const TChar* aId)
-    : iId(aId)
-    , iReader(nullptr)
+ReaderProxy::ReaderProxy()
+    : iReader(nullptr)
     , iLock("RPRL")
 {
 }
@@ -1020,7 +1019,7 @@ const TUint HlsPlaylistParser::kMaxM3uVersion;
 const TUint HlsPlaylistParser::kMaxLineBytes;
 
 HlsPlaylistParser::HlsPlaylistParser()
-    : iReaderProxy("HlsPlaylistParser")
+    : iReaderProxy()
     , iReaderLogger("HlsPlaylistParser", iReaderProxy)
     , iReaderUntil(iReaderLogger)
     , iTargetDurationMs(0)
@@ -1486,7 +1485,7 @@ void HlsM3uReader::ReloadVariantPlaylist()
 
 SegmentStreamer::SegmentStreamer(ISegmentProvider& aProvider)
     : iProvider(aProvider)
-    , iReader("SegmentStreamer")
+    , iReader()
     , iInterrupted(false)
     , iError(false)
     , iStreamEnded(false)
