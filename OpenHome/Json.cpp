@@ -914,6 +914,11 @@ void WriterJsonObject::WriteString(const TChar* aKey, const Brx& aValue)
     WriteString(Brn(aKey), aValue);
 }
 
+void WriterJsonObject::WriteString(const Brx& aKey, const TChar* aValue)
+{
+    WriteString(aKey, Brn(aValue));
+}
+
 void WriterJsonObject::WriteString(const Brx& aKey, const Brx& aValue)
 {
     CheckStarted();

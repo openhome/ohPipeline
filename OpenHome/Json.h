@@ -175,6 +175,7 @@ public:
     void WriteInt(const Brx& aKey, TInt aValue);
     void WriteString(const TChar* aKey, const TChar* aValue);
     void WriteString(const TChar* aKey, const Brx& aValue);
+    void WriteString(const Brx& aKey, const TChar* aValue);
     void WriteString(const Brx& aKey, const Brx& aValue);
     void WriteBool(const TChar* aKey, TBool aValue);
     void WriteBool(const Brx& aKey, TBool aValue);
