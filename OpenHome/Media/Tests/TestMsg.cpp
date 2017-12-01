@@ -960,6 +960,22 @@ void SuiteMsgAudio::Test()
     TEST(jiffies == minJiffies);
     msg->RemoveRef();
 
+    // Attenuation (RAOP only)
+    {
+        const TByte b = 0x7f;
+        TByte sample[] = { b, b, b, b };
+        Brn sampleBuf(sample, sizeof sample);
+        auto pcm = iMsgFactory->CreateMsgAudioPcm(sampleBuf, 2, 44100, 16, AudioDataEndian::Little, Jiffies::kPerSecond);
+        pcm->SetAttenuation(MsgAudioPcm::kUnityAttenuation / 4);
+        playable = pcm->CreatePlayable();
+        playable->Read(pcmProcessor);
+        playable->RemoveRef();
+        ptr = pcmProcessor.Ptr();
+        const TInt16 subsample = (ptr[0] << 8) + ptr[1];
+        TInt16 expected = ((b << 8) + b) / 4;
+        TEST(subsample == expected);
+    }
+
     // IPipelineBufferObserver
     BufferObserver bufferObserver;
     const auto msgSize = 2 * Jiffies::kPerMs;
