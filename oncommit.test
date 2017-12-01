@@ -31,7 +31,7 @@ tests = '''
     TestContentProcessor
     #3519 TestPipeline
     TestPipelineConfig
-    #4963 TestProtocolHls
+    TestProtocolHls
     TestProtocolHttp
     TestCodec               -s {ws_hostname} -p {ws_port} -t quick
     TestCodecController
