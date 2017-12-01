@@ -2422,20 +2422,20 @@ void MsgPlayablePcm::Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, T
 
 Brn MsgPlayablePcm::ApplyAttenuation(Brn aData)
 {
-    // Note: A static buffer is used here for performance reasons.
-    // This method must only be called from a single thread to ensure data validity.
-    static Bws<AudioData::kMaxBytes> attenuatedData;
-
     if(iAttenuation != MsgAudioPcm::kUnityAttenuation) {
         switch (iBitDepth) {
         case 16:
             {
-                TInt16* source = (TInt16*)aData.Ptr();
-                TInt16* dest = (TInt16*)attenuatedData.Ptr();
-                TUint samples = aData.Bytes()/2;
-                attenuatedData.SetBytes(aData.Bytes());
-                for(TUint i = 0; i < samples; i++) {
-                    dest[i] = (TInt16)((TInt32)source[i] * iAttenuation / MsgAudioPcm::kUnityAttenuation);
+                TByte *source = (TByte *)aData.Ptr();
+                TUint samples = aData.Bytes()/2;  // Number of 16-bit samples
+                for(TUint sampleIndex = 0; sampleIndex < samples; sampleIndex++) {
+                    TInt16 sample;
+                    TUint byteIndex = sampleIndex << 1; // multiply with 2
+                    sample = source[byteIndex] << 8;
+                    sample += source[byteIndex+1];
+                    TInt attenuatedSample = sample * iAttenuation / MsgAudioPcm::kUnityAttenuation;
+                    source[byteIndex] = attenuatedSample >> 8;
+                    source[byteIndex+1] = (TByte)attenuatedSample;
                 }
             }
             break;
@@ -2444,11 +2444,8 @@ Brn MsgPlayablePcm::ApplyAttenuation(Brn aData)
             ASSERTS();  //only supports 16 bit data (for AirPlay)
             break;
         }
-        return Brn(attenuatedData);  // return modified data buffer
     }
-    else {
-        return aData;           // return original data buffer
-    }
+    return aData;           // return original data buffer
 }
 
 void MsgPlayablePcm::ReadBlock(IPcmProcessor& aProcessor)
