@@ -382,14 +382,8 @@ void DviOdp::Action()
         LOG_ERROR(kOdp, "Odp: no action specified\n");
         THROW(OdpError);
     }
-    Brn args;
-    try {
-        args.Set(iParserReq.StringOptional(Odp::kKeyArguments));
-    }
-    catch (JsonKeyNotFound&) {
-        LOG_ERROR(kOdp, "Odp: no arguments specified\n");
-        THROW(OdpError);
-    }
+    Brn args = iParserReq.StringOptional(Odp::kKeyArguments);
+    iCorrelationId.Set(iParserReq.StringOptional(Odp::kKeyCorrelationId));
     try {
         iArgs.clear();
         auto parserArgs = JsonParserArray::Create(args);
@@ -432,6 +426,7 @@ void DviOdp::Action()
     catch (...) {
         ASSERTS(); // don't expect InvokeDirect to throw anything other than InvocationError
     }
+    iCorrelationId.Set(Brx::Empty());
     iSession.WriteEnd();
     iWriter = nullptr;
 }
@@ -742,6 +737,9 @@ void DviOdp::InvocationWriteStart()
     iWriterResponse.WriteString(Odp::kKeyType, Odp::kTypeActionResponse);
     auto writerErr = iWriterResponse.CreateObject(Odp::kKeyError);
     writerErr.WriteEnd();
+    if (iCorrelationId.Bytes() > 0) {
+        iWriterResponse.WriteString(Odp::kKeyCorrelationId, iCorrelationId);
+    }
     iWriterResponseArgs = iWriterResponse.CreateArray(Odp::kKeyArguments);
 }
 
