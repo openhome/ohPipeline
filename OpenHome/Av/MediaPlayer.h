@@ -93,6 +93,8 @@ public:
     virtual IUnixTimestamp& UnixTimestamp() = 0;
     virtual ITransportRepeatRandom& TransportRepeatRandom() = 0;
     virtual DebugManager& GetDebugManager() = 0;
+    virtual Av::TransportPins& GetTransportPins() = 0;
+    virtual Av::PodcastPins& GetPodcastPins() = 0;
 };
 
 
@@ -157,6 +159,8 @@ public: // from IMediaPlayer
     IUnixTimestamp& UnixTimestamp() override;
     ITransportRepeatRandom& TransportRepeatRandom() override;
     DebugManager& GetDebugManager() override;
+    Av::TransportPins& GetTransportPins() override;
+    Av::PodcastPins& GetPodcastPins() override;
 private:
     Net::DvStack& iDvStack;
     Net::CpStack& iCpStack;

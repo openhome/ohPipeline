@@ -26,12 +26,20 @@ public:
     virtual ~IDebugTestHandler() {}
 };
 
+class IDebugEventObserver {
+public:
+    virtual void DebugValueChanged(const Brx& aValue) = 0;
+    virtual ~IDebugEventObserver() {}
+};
+
 class DebugManager : IDebugHandler, IDebugTestHandler
 {
 public:
     DebugManager();
     void Add(IDebugHandler& aHandler);
     void Add(IDebugTestHandler& aTestHandler);
+    void AddObserver(IDebugEventObserver& aObserver);
+    void TestEvent(const Brx&  aEventDescription, const Brx& aValue);
     // IDebugHandler
     virtual void Dump(const OpenHome::Brx& aString, OpenHome::IWriterAscii& aBuffer);
     // IDebugTestHandler
@@ -39,6 +47,8 @@ public:
 private:
     std::list<IDebugHandler*> iHandlers;
     std::list<IDebugTestHandler*> iTestHandlers;
+    std::vector<IDebugEventObserver*> iObservers;
+    OpenHome::Bwh iEventValue;
 };
 
 } // namespace OpenHome

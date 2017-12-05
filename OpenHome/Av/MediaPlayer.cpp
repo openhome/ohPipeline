@@ -127,7 +127,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     }
     iDebugManager = new DebugManager();
     iTransportPins = new TransportPins(aDevice, aCpStack);
-    iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack);
+    iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack, iReadWriteStore);
     iDebugManager->Add(*iTransportPins);
     iDebugManager->Add(*iPodcastPins);
 }
@@ -331,4 +331,14 @@ ITransportRepeatRandom& MediaPlayer::TransportRepeatRandom()
 DebugManager& MediaPlayer::GetDebugManager()
 {
     return *iDebugManager; 
+}
+
+TransportPins& MediaPlayer::GetTransportPins()
+{
+    return *iTransportPins; 
+}
+
+PodcastPins& MediaPlayer::GetPodcastPins()
+{
+    return *iPodcastPins; 
 }

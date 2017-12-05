@@ -238,6 +238,8 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     initParams->SetMaxServerThreadsLongPoll(aMaxWebUiTabs);
     initParams->SetSendQueueSize(aUiSendQueueSize);
     iAppFramework = new WebAppFramework(aDvStack.Env(), initParams);
+
+    iTestPodcastPinsEvent = new TestPodcastPinsEvent(iMediaPlayer->GetPodcastPins(), iMediaPlayer->GetDebugManager());
 }
 
 TestMediaPlayer::~TestMediaPlayer()
@@ -260,6 +262,7 @@ TestMediaPlayer::~TestMediaPlayer()
         delete iStoreFileWriter;
     }
     delete iConfigRamStore;
+    delete iTestPodcastPinsEvent;
 }
 
 void TestMediaPlayer::SetPullableClock(Media::IPullableClock& aPullableClock)

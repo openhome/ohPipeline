@@ -1,5 +1,7 @@
 #include <OpenHome/DebugManager.h>
 
+#include <algorithm>
+
 using namespace OpenHome;
 
 // DebugManager
@@ -35,4 +37,21 @@ TBool DebugManager::Test(const Brx& aType, const Brx& aInput, IWriterAscii& aWri
         result |= r->Test(aType, aInput, aWriter);
     }
     return result;
+}
+
+void DebugManager::AddObserver(IDebugEventObserver& aObserver)
+{
+    iObservers.push_back(&aObserver);
+}
+
+void DebugManager::TestEvent(const Brx&  aEventDescription, const Brx& aValue)
+{
+    Bwh val(aEventDescription.Bytes() + aValue.Bytes() + 2);
+    val.Replace(aEventDescription);
+    val.Append(": ");
+    val.Append(aValue);
+    for (auto it=iObservers.begin(); it!=iObservers.end(); ++it) {
+        // notify event that new episoide is available for given IDs
+        (*it)->DebugValueChanged(val);
+    }
 }

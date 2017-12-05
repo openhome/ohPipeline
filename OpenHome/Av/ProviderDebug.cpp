@@ -14,9 +14,14 @@ ProviderDebug::ProviderDebug(DvDevice& aDevice, RingBufferLogger& aLogger, Optio
     , iLogPoster(aLogPoster)
     , iDebugManager(aDebugManager)
 {
+    EnablePropertyDebugEvent();
+
     EnableActionGetLog();
     EnableActionSendLog();
     EnableActionDebugTest();
+
+    (void)SetPropertyDebugEvent(Brx::Empty());
+    iDebugManager.AddObserver(*this);
 }
 
 void ProviderDebug::GetLog(IDvInvocation& aInvocation, IDvInvocationResponseString& aLog)
@@ -52,6 +57,12 @@ void ProviderDebug::DebugTest(IDvInvocation& aInvocation, const Brx& aaDebugType
         aaDebugResult.Write(true);
         aInvocation.EndResponse();
     }
+    else if (aaDebugType == Brn("podcastpin_checkfornew")) {
+        TBool result = iDebugManager.Test(aaDebugType, aaDebugInput, writer);
+        aaDebugInfo.WriteFlush();
+        aaDebugResult.Write(result);
+        aInvocation.EndResponse();
+    }
     else {
         writer.Write(Brn("Complete"));
         aaDebugInfo.WriteFlush();
@@ -73,4 +84,9 @@ void ProviderDebug::DebugDump(Net::IDvInvocation& aInvocation, const Brx& aaDebu
     iDebugManager.Dump(aaDebugType, writer);
     aaDebugInfo.WriteFlush();
     aInvocation.EndResponse();
+}
+
+void ProviderDebug::DebugValueChanged(const Brx& aValue)
+{
+    SetPropertyDebugEvent(aValue);
 }

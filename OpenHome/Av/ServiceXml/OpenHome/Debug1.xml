@@ -75,5 +75,9 @@
       <name>A_ARG_TYPE_Bool</name>
       <dataType>boolean</dataType>
     </stateVariable>
+    <stateVariable sendEvents="yes">
+      <name>DebugEvent</name>
+      <dataType>string</dataType>
+    </stateVariable>
   </serviceStateTable>
 </scpd>
