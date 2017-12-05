@@ -149,7 +149,6 @@ private:
     TBool iInterceptMode;
     TBool iPipelineTrackSeen;
     TBool iGeneratedTrackPending;
-    TBool iMetadataPending;
     TUint iPendingFlushId;
     mutable Mutex iLock;
 };

@@ -222,7 +222,6 @@ SpotifyReporter::SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, Msg
     , iInterceptMode(false)
     , iPipelineTrackSeen(false)
     , iGeneratedTrackPending(false)
-    , iMetadataPending(false)
     , iPendingFlushId(MsgFlush::kIdInvalid)
     , iLock("SARL")
 {
@@ -280,7 +279,6 @@ Msg* SpotifyReporter::Pull()
                 // unless in Spotify mode, and seen a MsgTrack and MsgDecodedStream
                 // arrive via pipeline.
                 if (iPipelineTrackSeen && iDecodedStream != nullptr) {
-
                     // If new metadata is available, generate a new MsgTrack
                     // with that metadata.
                     if (iGeneratedTrackPending) {
@@ -300,7 +298,6 @@ Msg* SpotifyReporter::Pull()
                             // (e.g., source has switched away from Spotify and
                             // back again) but Spotify is still on same track, so
                             // hasn't evented out new metadata.
-                            iMetadataPending = false;
                         }
 
                         Track* track = iTrackFactory.CreateTrack(iTrackUri, metadata);
@@ -322,31 +319,6 @@ Msg* SpotifyReporter::Pull()
                             UpdateDecodedStream(*streamMsg);
                             return iDecodedStream;
                         }
-                    }
-                    else if (iDecodedStream != nullptr && iMetadataPending && iMetadata != nullptr) {
-                        // No change in track or stream, but new metadata for this track available.
-                        // Metadata has either changed, or has been delayed.
-
-                        const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
-                        const TUint bitDepth = info.BitDepth();
-                        const TUint channels = info.NumChannels();
-                        const TUint sampleRate = info.SampleRate();
-
-                        BwsTrackMetaData metadata;
-                        WriterBuffer writerBuffer(metadata);
-                        SpotifyDidlLiteWriter metadataWriter(iTrackUri, iMetadata->Metadata());
-                        metadataWriter.Write(writerBuffer, bitDepth, channels, sampleRate);
-                        // Keep metadata cached here, in case pipeline restarts
-                        // (e.g., source has switched away from Spotify and
-                        // back again) but Spotify is still on same track, so
-                        // hasn't evented out new metadata.
-                        iMetadataPending = false;
-
-                        Track* track = iTrackFactory.CreateTrack(iTrackUri, metadata);
-                        const TBool startOfStream = false;  // Report false as don't want downstream elements to re-enter any stream detection mode.
-                        auto trackMsg = iMsgFactory.CreateMsgTrack(*track, startOfStream);
-                        track->RemoveRef();
-                        return trackMsg;
                     }
                 }
             }
