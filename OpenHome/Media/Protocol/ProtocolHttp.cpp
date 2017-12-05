@@ -463,6 +463,7 @@ ProtocolStreamResult ProtocolHttp::DoStream()
             if (!iHeaderLocation.Received()) {
                 return EProtocolStreamErrorUnrecoverable;
             }
+            LOG(kMedia, "ProtocolHttp::DoStream redirect. code: %u, iHeaderLocation.Location(): %.*s\n", code, PBUF(iHeaderLocation.Location()));
             iUri.Replace(iHeaderLocation.Location());
             continue;
         }
