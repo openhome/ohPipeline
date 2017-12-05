@@ -793,7 +793,7 @@ void SuiteSpotifyReporter::TestMsgModeResets()
     const TUint samplesExpected = kDataBytes/kByteDepth;
 
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), 1234, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
@@ -840,7 +840,7 @@ void SuiteSpotifyReporter::TestSubSamples()
 
     // Set up sequence.
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), 1234, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
@@ -885,7 +885,7 @@ void SuiteSpotifyReporter::TestSampleRateChange()
 
     // Set up sequence.
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), 1234, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
@@ -969,7 +969,7 @@ void SuiteSpotifyReporter::TestNumChannelsChange()
 
     // Set up sequence.
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), 1234, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
@@ -1042,7 +1042,7 @@ void SuiteSpotifyReporter::TestInvalidSampleRate()
 {
     const TUint sampleRate = 0; // Invalid sample rate.
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), 1234, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
@@ -1070,7 +1070,7 @@ void SuiteSpotifyReporter::TestInvalidNumChannels()
     const SpeakerProfile profile(0);
 
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), 1234, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
@@ -1099,7 +1099,7 @@ void SuiteSpotifyReporter::TestPassThroughInjectTrack()
     const TUint kDurationMs = 1234;
 
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), kDurationMs, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
     static const TUint kSeekMs = 500;
     iReporter->TrackOffsetChanged(kSeekMs);
 
@@ -1145,7 +1145,7 @@ void SuiteSpotifyReporter::TestModeSpotifyTrackInjected()
     static const Brn kSpotifyTrackUri("spotify://");
     const TUint kDurationMs = 1234;
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), kDurationMs, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
     static const TUint kSeekMs = 500; // Sample 22050 @ 44.1KHz.
     iReporter->TrackOffsetChanged(kSeekMs);
 
@@ -1198,7 +1198,7 @@ void SuiteSpotifyReporter::TestModeSpotifyTrackInjected()
     // Inject a MsgTrack.
     const TUint kDuration2 = 5678;
     metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), kDuration2, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
     // TrackOffsetChanged call should come in around same time as TrackChanged() call. In this case, moving to start of new track.
     iReporter->TrackOffsetChanged(0);
 
@@ -1230,7 +1230,7 @@ void SuiteSpotifyReporter::TestModeSpotifySeek()
     static const Brn kSpotifyTrackUri("spotify://");
     const TUint kDuration = 1234;
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), kDuration, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
     static const TUint kSeekMs = 500; // Sample 22050 @ 44.1KHz.
     iReporter->TrackOffsetChanged(kSeekMs);
 
@@ -1318,7 +1318,7 @@ void SuiteSpotifyReporter::TestModeSpotifySyncLost()
 
     // Set up sequence.
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), 1234, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
     iReporter->TrackOffsetChanged(0);
 
     // Send in a Spotify MsgMode.
@@ -1397,7 +1397,7 @@ void SuiteSpotifyReporter::TestModeSpotifyMetadataChanged()
 
     // Set up sequence.
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), 1234, 320);
-    iReporter->TrackChanged(metadata);
+    iReporter->MetadataChanged(metadata);
     iReporter->TrackOffsetChanged(0);
 
     // Send in a Spotify MsgMode.
