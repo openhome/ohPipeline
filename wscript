@@ -693,7 +693,7 @@ def build(bld):
                 'OpenHome/Media/Tests/TestRamper.cpp',
                 'OpenHome/Media/Tests/TestFlywheelRamper.cpp',
                 'OpenHome/Media/Tests/TestReporter.cpp',
-                #'OpenHome/Media/Tests/TestSpotifyReporter.cpp',
+                'OpenHome/Media/Tests/TestSpotifyReporter.cpp',
                 'OpenHome/Media/Tests/TestPreDriver.cpp',
                 'OpenHome/Media/Tests/TestVolumeRamper.cpp',
                 'OpenHome/Media/Tests/TestMuter.cpp',
@@ -831,11 +831,11 @@ def build(bld):
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestReporter',
             install_path=None)
-    #bld.program(
-    #        source='OpenHome/Media/Tests/TestSpotifyReporterMain.cpp',
-    #        use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-    #        target='TestSpotifyReporter',
-    #        install_path=None)
+    bld.program(
+            source='OpenHome/Media/Tests/TestSpotifyReporterMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestSpotifyReporter',
+            install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestPreDriverMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],

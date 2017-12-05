@@ -11,7 +11,7 @@ using namespace OpenHome::Media;
 
 // SpotifyDidlLiteWriter
 
-SpotifyDidlLiteWriter::SpotifyDidlLiteWriter(const Brx& aUri, ISpotifyMetadata& aMetadata)
+SpotifyDidlLiteWriter::SpotifyDidlLiteWriter(const Brx& aUri, const ISpotifyMetadata& aMetadata)
     : iUri(aUri)
     , iMetadata(aMetadata)
 {
@@ -222,6 +222,7 @@ SpotifyReporter::SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, Msg
     , iInterceptMode(false)
     , iPipelineTrackSeen(false)
     , iGeneratedTrackPending(false)
+    , iMetadataPending(false)
     , iPendingFlushId(MsgFlush::kIdInvalid)
     , iLock("SARL")
 {
@@ -231,7 +232,7 @@ SpotifyReporter::~SpotifyReporter()
 {
     AutoMutex _(iLock);
     if (iMetadata != nullptr) {
-        iMetadata->Destroy();
+        iMetadata->RemoveReference();
     }
     if (iDecodedStream != nullptr) {
         iDecodedStream->RemoveRef();
@@ -279,25 +280,30 @@ Msg* SpotifyReporter::Pull()
                 // unless in Spotify mode, and seen a MsgTrack and MsgDecodedStream
                 // arrive via pipeline.
                 if (iPipelineTrackSeen && iDecodedStream != nullptr) {
+
                     // If new metadata is available, generate a new MsgTrack
                     // with that metadata.
-                    if (iGeneratedTrackPending && iMetadata != nullptr) {
+                    if (iGeneratedTrackPending) {
                         iGeneratedTrackPending = false;
                         const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
                         const TUint bitDepth = info.BitDepth();
                         const TUint channels = info.NumChannels();
                         const TUint sampleRate = info.SampleRate();
 
+                        // Metadata should be available in most cases. However, don't delay track message if it isn't.
                         BwsTrackMetaData metadata;
-                        WriterBuffer writerBuffer(metadata);
-                        SpotifyDidlLiteWriter metadataWriter(iTrackUri, *iMetadata);
-                        metadataWriter.Write(writerBuffer, bitDepth, channels, sampleRate);
-                        // Keep metadata cached here, in case pipeline restarts
-                        // (e.g., source has switched away from Spotify and
-                        // back again) but Spotify is still on same track, so
-                        // hasn't evented out new metadata.
-                        Track* track = iTrackFactory.CreateTrack(iTrackUri, metadata);
+                        if (iMetadata != nullptr) {
+                            WriterBuffer writerBuffer(metadata);
+                            SpotifyDidlLiteWriter metadataWriter(iTrackUri, iMetadata->Metadata());
+                            metadataWriter.Write(writerBuffer, bitDepth, channels, sampleRate);
+                            // Keep metadata cached here, in case pipeline restarts
+                            // (e.g., source has switched away from Spotify and
+                            // back again) but Spotify is still on same track, so
+                            // hasn't evented out new metadata.
+                            iMetadataPending = false;
+                        }
 
+                        Track* track = iTrackFactory.CreateTrack(iTrackUri, metadata);
                         const TBool startOfStream = false;  // Report false as don't want downstream elements to re-enter any stream detection mode.
                         auto trackMsg = iMsgFactory.CreateMsgTrack(*track, startOfStream);
                         track->RemoveRef();
@@ -316,6 +322,31 @@ Msg* SpotifyReporter::Pull()
                             UpdateDecodedStream(*streamMsg);
                             return iDecodedStream;
                         }
+                    }
+                    else if (iDecodedStream != nullptr && iMetadataPending && iMetadata != nullptr) {
+                        // No change in track or stream, but new metadata for this track available.
+                        // Metadata has either changed, or has been delayed.
+
+                        const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
+                        const TUint bitDepth = info.BitDepth();
+                        const TUint channels = info.NumChannels();
+                        const TUint sampleRate = info.SampleRate();
+
+                        BwsTrackMetaData metadata;
+                        WriterBuffer writerBuffer(metadata);
+                        SpotifyDidlLiteWriter metadataWriter(iTrackUri, iMetadata->Metadata());
+                        metadataWriter.Write(writerBuffer, bitDepth, channels, sampleRate);
+                        // Keep metadata cached here, in case pipeline restarts
+                        // (e.g., source has switched away from Spotify and
+                        // back again) but Spotify is still on same track, so
+                        // hasn't evented out new metadata.
+                        iMetadataPending = false;
+
+                        Track* track = iTrackFactory.CreateTrack(iTrackUri, metadata);
+                        const TBool startOfStream = false;  // Report false as don't want downstream elements to re-enter any stream detection mode.
+                        auto trackMsg = iMsgFactory.CreateMsgTrack(*track, startOfStream);
+                        track->RemoveRef();
+                        return trackMsg;
                     }
                 }
             }
@@ -355,21 +386,43 @@ void SpotifyReporter::Flush(TUint aFlushId)
     iPendingFlushId = aFlushId;
 }
 
-void SpotifyReporter::TrackChanged(Media::ISpotifyMetadata* aMetadata)
+void SpotifyReporter::TrackChanged(Media::ISpotifyMetadataAllocated* aMetadata)
 {
     AutoMutex _(iLock);
     // If there is already pending metadata, it's now invalid.
     if (iMetadata != nullptr) {
-        iMetadata->Destroy();
+        iMetadata->RemoveReference();
         iMetadata = nullptr;
     }
-    iMetadata = aMetadata;
-    iTrackDurationMs = iMetadata->DurationMs();
+    iMetadata = aMetadata;  // aMetadata may be nullptr.
+    if (iMetadata != nullptr) {
+        iTrackDurationMs = iMetadata->Metadata().DurationMs();
+    }
     iGeneratedTrackPending = true; // Pick up new metadata.
     iMsgDecodedStreamPending = true;
 
     // Any start offset will be updated via call to TrackOffsetChanged, be it
     // because track is starting from non-zero position or a seek occurred.
+}
+
+void SpotifyReporter::MetadataChanged(Media::ISpotifyMetadataAllocated* aMetadata)
+{
+    AutoMutex _(iLock);
+    // If there is already pending metadata, it's now invalid.
+    if (iMetadata != nullptr) {
+        iMetadata->RemoveReference();
+        iMetadata = nullptr;
+    }
+    iMetadata = aMetadata;  // aMetadata may be nullptr.
+    if (iMetadata != nullptr) {
+        iTrackDurationMs = iMetadata->Metadata().DurationMs();
+    }
+    iGeneratedTrackPending = true; // Pick up new metadata.
+    iMsgDecodedStreamPending = true;
+
+    // If this metadata is being delivered as part of a track change, any start offset (be it zero or non-zero) will be updated via call to ::TrackOffsetChanged(). ::TrackOffsetChanged() will also be called if a seek occurred.
+
+    // If this metadata arrives mid-track (i.e., because retrieval of the new metadata has been delayed, or the metadata has actually changed mid-track) the start sample for the new MsgDecodedStream should already be (roughly) correct without any extra book-keeping, as long as calls to ::TrackPosition() are being made, which update iStartOffset to avoid any playback time sync issues.
 }
 
 void SpotifyReporter::TrackOffsetChanged(TUint aOffsetMs)
@@ -431,7 +484,6 @@ Msg* SpotifyReporter::ProcessMsg(MsgTrack* aMsg)
     if (!iInterceptMode) {
         return aMsg;
     }
-
     iTrackUri.Replace(aMsg->Track().Uri()); // Cache URI for reuse in out-of-band MsgTracks.
     iPipelineTrackSeen = true;              // Only matters when in iInterceptMode. Ensures in-band MsgTrack is output before any are generated from out-of-band notifications.
     iGeneratedTrackPending = true;
