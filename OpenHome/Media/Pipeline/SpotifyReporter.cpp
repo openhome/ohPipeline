@@ -283,7 +283,7 @@ Msg* SpotifyReporter::Pull()
                     // with that metadata.
                     if (iGeneratedTrackPending) {
                         iGeneratedTrackPending = false;
-                        const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
+                        const DecodedStreamInfo& info = iDecodedStream->StreamInfo(); // iDecodedStream is checked in outer if block, so is not nullptr.
                         const TUint bitDepth = info.BitDepth();
                         const TUint channels = info.NumChannels();
                         const TUint sampleRate = info.SampleRate();
@@ -307,18 +307,11 @@ Msg* SpotifyReporter::Pull()
                         return trackMsg;
                     }
                     else if (iMsgDecodedStreamPending) {
-                        /*
-                         * If iDecodedStream == nullptr, means still need to pull first
-                         * MsgDecodedStream of Spotify stream from upstream element.
-                         * Return control to keep pulling from upstream until first
-                         * MsgDecodedStream is eventually pulled.
-                         */
-                        if (iDecodedStream != nullptr) {
-                            iMsgDecodedStreamPending = false;
-                            auto streamMsg = CreateMsgDecodedStreamLocked();
-                            UpdateDecodedStream(*streamMsg);
-                            return iDecodedStream;
-                        }
+                        // iDecodedStream is checked in outer if block, so is not nullptr.
+                        iMsgDecodedStreamPending = false;
+                        auto streamMsg = CreateMsgDecodedStreamLocked();
+                        UpdateDecodedStream(*streamMsg);
+                        return iDecodedStream;
                     }
                 }
             }
