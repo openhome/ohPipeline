@@ -46,7 +46,6 @@ public:
 class ISpotifyTrackObserver
 {
 public:
-    virtual void TrackChanged(Media::ISpotifyMetadataAllocated* aMetadata) = 0;
     virtual void MetadataChanged(Media::ISpotifyMetadataAllocated* aMetadata) = 0;
     /*
      * Should be called when track offset has actively changed (e.g., due to a
@@ -119,7 +118,6 @@ public: // from ISpotifyReporter
     TUint64 SubSamples() const override;
     void Flush(TUint aFlushId) override;
 public: // from ISpotifyTrackObserver
-    void TrackChanged(Media::ISpotifyMetadataAllocated* aMetadata) override;
     void MetadataChanged(Media::ISpotifyMetadataAllocated* aMetadata) override;
     void TrackOffsetChanged(TUint aOffsetMs) override;
     void TrackPosition(TUint aPositionMs) override;

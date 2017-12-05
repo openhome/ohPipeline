@@ -351,25 +351,6 @@ void SpotifyReporter::Flush(TUint aFlushId)
     iPendingFlushId = aFlushId;
 }
 
-void SpotifyReporter::TrackChanged(Media::ISpotifyMetadataAllocated* aMetadata)
-{
-    AutoMutex _(iLock);
-    // If there is already pending metadata, it's now invalid.
-    if (iMetadata != nullptr) {
-        iMetadata->RemoveReference();
-        iMetadata = nullptr;
-    }
-    iMetadata = aMetadata;  // aMetadata may be nullptr.
-    if (iMetadata != nullptr) {
-        iTrackDurationMs = iMetadata->Metadata().DurationMs();
-    }
-    iGeneratedTrackPending = true; // Pick up new metadata.
-    iMsgDecodedStreamPending = true;
-
-    // Any start offset will be updated via call to TrackOffsetChanged, be it
-    // because track is starting from non-zero position or a seek occurred.
-}
-
 void SpotifyReporter::MetadataChanged(Media::ISpotifyMetadataAllocated* aMetadata)
 {
     AutoMutex _(iLock);
