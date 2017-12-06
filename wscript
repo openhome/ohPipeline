@@ -888,12 +888,12 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestProtocolHttpMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
             target='TestProtocolHttp',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestCodecMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
             target='TestCodec',
             install_path=None)
     bld.program(
