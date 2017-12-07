@@ -31,6 +31,7 @@ public:
     static const Brn kKeyAction;
     static const Brn kKeyUserAgent;
     static const Brn kKeyArguments;
+    static const Brn kKeyCorrelationId;
     static const Brn kKeyError;
     static const Brn kKeySid;
     static const Brn kKeyProperties;

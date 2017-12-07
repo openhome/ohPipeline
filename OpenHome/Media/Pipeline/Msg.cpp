@@ -2420,40 +2420,27 @@ void MsgPlayablePcm::Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, T
     iAttenuation = aAttenuation;
 }
 
-Brn MsgPlayablePcm::ApplyAttenuation(Brn aData)
+void MsgPlayablePcm::ApplyAttenuation(Bwx& aData)
 {
-    // Note: A static buffer is used here for performance reasons.
-    // This method must only be called from a single thread to ensure data validity.
-    static Bws<AudioData::kMaxBytes> attenuatedData;
-
-    if(iAttenuation != MsgAudioPcm::kUnityAttenuation) {
-        switch (iBitDepth) {
-        case 16:
-            {
-                TInt16* source = (TInt16*)aData.Ptr();
-                TInt16* dest = (TInt16*)attenuatedData.Ptr();
-                TUint samples = aData.Bytes()/2;
-                attenuatedData.SetBytes(aData.Bytes());
-                for(TUint i = 0; i < samples; i++) {
-                    dest[i] = (TInt16)((TInt32)source[i] * iAttenuation / MsgAudioPcm::kUnityAttenuation);
-                }
-            }
-            break;
-
-        default:
-            ASSERTS();  //only supports 16 bit data (for AirPlay)
-            break;
-        }
-        return Brn(attenuatedData);  // return modified data buffer
+    if (iAttenuation == MsgAudioPcm::kUnityAttenuation) {
+        return;
     }
-    else {
-        return aData;           // return original data buffer
+    ASSERT(iBitDepth == 16);
+    TByte* ptr = (TByte*)aData.Ptr();
+    const TUint samples = aData.Bytes() / 2;
+    for (TUint sampleIndex = 0; sampleIndex < samples; sampleIndex++) {
+        TInt16 sample = *ptr << 8;
+        sample += *(ptr + 1);
+        TInt16 attenuatedSample = (TInt16)(((TInt)sample) * iAttenuation / MsgAudioPcm::kUnityAttenuation);
+        *ptr++ = (TByte)(attenuatedSample >> 8);
+        *ptr++ = (TByte)attenuatedSample;
     }
 }
 
 void MsgPlayablePcm::ReadBlock(IPcmProcessor& aProcessor)
 {
-    Brn audioBuf = ApplyAttenuation(Brn(iAudioData->Ptr(iOffset), iSize));
+    Bwn audioBuf(iAudioData->Ptr(iOffset), iSize, iSize);
+    ApplyAttenuation(audioBuf);
 
     const TUint numChannels = iNumChannels;
     const TUint bitDepth = iBitDepth;

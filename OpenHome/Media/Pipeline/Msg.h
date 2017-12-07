@@ -980,7 +980,7 @@ private: // from MsgPlayable
 private: // from Msg
     void Clear() override;
 private:
-    Brn ApplyAttenuation(Brn aData);
+    void ApplyAttenuation(Bwx& aData);
 private:
     DecodedAudio* iAudioData;
     TUint iAttenuation;

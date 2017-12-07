@@ -5,6 +5,8 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Private/Network.h>
+#include <OpenHome/SocketSsl.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Parser.h>
@@ -34,10 +36,13 @@ private:
     std::vector<IServerObserver*> iServerObservers;
 };
 
-class ProtocolHttp : public ProtocolNetwork
-                   , private IReader
-                   , private IIcyObserver
+class ProtocolHttp : public Protocol , private IReader , private IIcyObserver
 {
+    static const Brn kSchemeHttp;
+    static const Brn kSchemeHttps;
+    static const TUint kReadBufferBytes = 6 * 1024;
+    static const TUint kWriteBufferBytes = 1024;
+    static const TUint kConnectTimeoutMs = 3000;
     static const TUint kMaxUserAgentBytes = 64;
     static const TUint kMaxContentRecognitionBytes = 100;
 public:
@@ -61,6 +66,9 @@ private: // from IReader
 private: // from IIcyObserver
     void NotifyIcyData(const Brx& aIcyData) override;
 private:
+    TBool Connect(const Uri& aUri);
+    TInt PortFromUri(const Uri& aUri) const;
+    void Close();
     void Reinitialise(const Brx& aUri);
     ProtocolStreamResult DoStream();
     ProtocolGetResult DoGet(IWriter& aWriter, TUint64 aOffset, TUint aBytes);
@@ -72,6 +80,10 @@ private:
     TBool ContinueStreaming(ProtocolStreamResult aResult);
     TBool IsCurrentStream(TUint aStreamId) const;
 private:
+    Mutex iLock;
+    SocketSsl iSocket;
+    Srs<kReadBufferBytes> iReaderBuf;
+    Sws<kWriteBufferBytes> iWriterBuf;
     SupplyAggregator* iSupply;
     WriterHttpRequest iWriterRequest;
     ReaderUntilS<2048> iReaderUntil;
@@ -184,6 +196,10 @@ void HeaderServer::RemoveServerObserver(IServerObserver& aObserver)
 
 
 // ProtocolHttp
+
+const Brn ProtocolHttp::kSchemeHttp("http");
+const Brn ProtocolHttp::kSchemeHttps("https");
+
 ProtocolHttp::ProtocolHttp(Environment& aEnv, const Brx& aUserAgent)
     : ProtocolHttp(aEnv, aUserAgent, nullptr)
 {
@@ -191,7 +207,11 @@ ProtocolHttp::ProtocolHttp(Environment& aEnv, const Brx& aUserAgent)
 }
 
 ProtocolHttp::ProtocolHttp(Environment& aEnv, const Brx& aUserAgent, Optional<IServerObserver> aServerObserver)
-    : ProtocolNetwork(aEnv)
+    : Protocol(aEnv)
+    , iLock("PHTP")
+    , iSocket(aEnv, kReadBufferBytes)
+    , iReaderBuf(iSocket)
+    , iWriterBuf(iSocket)
     , iSupply(nullptr)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
@@ -244,7 +264,7 @@ void ProtocolHttp::Interrupt(TBool aInterrupt)
             iStopped = true;
             iSem.Signal(); // no need to check iLive - iSem will be cleared when this protocol is next reused anyway
         }
-        iTcpClient.Interrupt(aInterrupt);
+        iSocket.Interrupt(aInterrupt);
     }
     iLock.Signal();
 }
@@ -252,7 +272,8 @@ void ProtocolHttp::Interrupt(TBool aInterrupt)
 ProtocolStreamResult ProtocolHttp::Stream(const Brx& aUri)
 {
     Reinitialise(aUri);
-    if (iUri.Scheme() != Brn("http")) {
+    const Brx& scheme = iUri.Scheme();
+    if (scheme != kSchemeHttp && scheme != kSchemeHttps) {
         return EProtocolErrorNotSupported;
     }
     LOG(kMedia, "ProtocolHttp::Stream(%.*s)\n", PBUF(aUri));
@@ -333,13 +354,13 @@ ProtocolGetResult ProtocolHttp::Get(IWriter& aWriter, const Brx& aUri, TUint64 a
     }
 
     Close();
-    if (!Connect(iUri, 80)) {
+    if (!Connect(iUri)) {
         LOG(kMedia, "ProtocolHttp::Get Connection failure\n");
         return EProtocolGetErrorUnrecoverable;
     }
 
     ProtocolGetResult res = DoGet(aWriter, aOffset, aBytes);
-    iTcpClient.Interrupt(false);
+    iSocket.Interrupt(false);
     Close();
     LOG(kMedia, "< ProtocolHttp::Get\n");
     return res;
@@ -389,7 +410,7 @@ TUint ProtocolHttp::TrySeek(TUint aStreamId, TUint64 aOffset)
         iNextFlushId = iFlushIdProvider->NextFlushId();
     }
 
-    iTcpClient.Interrupt(true);
+    iSocket.Interrupt(true);
     return iNextFlushId;
 }
 
@@ -407,7 +428,7 @@ TUint ProtocolHttp::TryStop(TUint aStreamId)
         iNextFlushId = iFlushIdProvider->NextFlushId();
     }
     iStopped = true;
-    iTcpClient.Interrupt(true);
+    iSocket.Interrupt(true);
     if (iLive) {
         iSem.Signal();
     }
@@ -434,6 +455,57 @@ void ProtocolHttp::ReadInterrupt()
 void ProtocolHttp::NotifyIcyData(const Brx& aIcyData)
 {
     iSupply->OutputMetadata(aIcyData);
+}
+
+TBool ProtocolHttp::Connect(const Uri& aUri)
+{
+    Endpoint endpoint;
+    try {
+        endpoint.SetAddress(aUri.Host());
+        const TInt port = PortFromUri(aUri);
+        endpoint.SetPort(port);
+    }
+    catch (NetworkError&) {
+        LOG(kMedia, "<ProtocolHttp::Connect error setting address and port\n");
+        return false;
+    }
+
+    const TBool isSecure = aUri.Scheme() == kSchemeHttps;
+    iSocket.SetSecure(isSecure);
+
+    try {
+        iSocket.Connect(endpoint, kConnectTimeoutMs);
+    }
+    catch (NetworkTimeout&) {
+        Close();
+        LOG(kMedia, "<ProtocolHttp::Connect timeout connecting\n");
+        return false;
+    }
+    catch (NetworkError&) {
+        Close();
+        LOG(kMedia, "<ProtocolHttp::Connect error connecting\n");
+        return false;
+    }
+
+    LOG(kMedia, "<ProtocolHttp::Connect\n");
+    return true;
+}
+
+TInt ProtocolHttp::PortFromUri(const Uri& aUri) const
+{
+    TInt port = aUri.Port();
+    if (port != -1) {
+        return port;
+    }
+    if (aUri.Scheme() == kSchemeHttps) {
+        return 443;
+    }
+    return 80;
+}
+
+void ProtocolHttp::Close()
+{
+    iSocket.Close();
 }
 
 void ProtocolHttp::Reinitialise(const Brx& aUri)
@@ -505,7 +577,7 @@ ProtocolGetResult ProtocolHttp::DoGet(IWriter& aWriter, TUint64 aOffset, TUint a
     try {
         LOG(kMedia, "ProtocolHttp::DoGet send request\n");
         iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
-        const TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+        const TUint port = PortFromUri(iUri);
         Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
         Http::WriteHeaderConnectionClose(iWriterRequest);
         TUint64 last = aOffset+aBytes;
@@ -610,10 +682,9 @@ void ProtocolHttp::StartStream()
 TUint ProtocolHttp::WriteRequest(TUint64 aOffset)
 {
     iContentRecogBuf.ReadFlush();
-    //iTcpClient.LogVerbose(true);
+    //iSocket.LogVerbose(true);
     Close();
-    TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
-    if (!Connect(iUri, port)) {
+    if (!Connect(iUri)) {
         LOG(kMedia, "ProtocolHttp::WriteRequest Connection failure\n");
         return 0;
     }
@@ -641,7 +712,7 @@ TUint ProtocolHttp::WriteRequest(TUint64 aOffset)
     try {
         LOG(kMedia, "ProtocolHttp::WriteRequest send request\n");
         iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
-        port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+        const TInt port = PortFromUri(iUri);
         Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
         if (iUserAgent.Bytes() > 0) {
             iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);
@@ -661,9 +732,9 @@ TUint ProtocolHttp::WriteRequest(TUint64 aOffset)
 
     try {
         LOG(kMedia, "ProtocolHttp::WriteRequest read response\n");
-        //iTcpClient.LogVerbose(true);
+        //iSocket.LogVerbose(true);
         iReaderResponse.Read();
-        //iTcpClient.LogVerbose(false);
+        //iSocket.LogVerbose(false);
     }
     catch(HttpError&) {
         LOG(kMedia, "ProtocolHttp::WriteRequest http error\n");
