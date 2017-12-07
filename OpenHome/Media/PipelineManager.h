@@ -316,6 +316,7 @@ private:
 private:
     Mutex iLock;
     Mutex iPublicLock;
+    Mutex iLockObs;
     Pipeline* iPipeline;
     ProtocolManager* iProtocolManager;
     TUint iFillerPriority;
