@@ -184,14 +184,14 @@ void ScdMsgReady::Process(IScdMsgProcessor& aProcessor)
 
 void ScdMsgReady::Externalise(IWriter& aWriter) const
 {
-    const TUint bytes = ScdHeader::kHeaderBytes + 8; // +8 for 2* TUint
+    const TUint bytes = ScdHeader::kHeaderBytes + 4; // +4 for 2* TUint16
     ScdHeader header(ScdHeader::kTypeReady, bytes);
     header.Externalise(aWriter);
 
     WriterBinary writer(aWriter);
     writer.WriteUint16Be(iVersionMajor);
     writer.WriteUint16Be(iVersionMinor);
-    
+
     aWriter.WriteFlush();
 }
 
@@ -626,8 +626,8 @@ void ScdMsgAudio::Clear()
     iNumSamples = 0;
     iAudio.Replace(Brx::Empty());
 }
-    
-    
+
+
 // ScdMsgMetatext
 
 const Brx& ScdMsgMetatextDidl::Metatext() const
