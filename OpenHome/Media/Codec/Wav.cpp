@@ -42,6 +42,7 @@ private:
     TUint iAudioBytesRemaining;
     TUint iFileSize;
     TUint iBitRate;
+    TUint iSampleBoundaryBytes;
     TUint64 iTrackStart;
     TUint64 iTrackOffset;
     TUint64 iTrackLengthJiffies;
@@ -100,6 +101,7 @@ void CodecWav::StreamInitialise()
     iNumChannels = 0;
     iSampleRate = 0;
     iBitDepth = 0;
+    iSampleBoundaryBytes = 0;
     iAudioBytesTotal = 0;
     iAudioBytesRemaining = 0;
     iFileSize = 0;
@@ -129,7 +131,7 @@ void CodecWav::Process()
             bytes = std::min(bytes, iAudioBytesRemaining);
         }
         // It's possible that data read into buffer, or value of iAudioBytesRemaining, does not end on a sensible sample boundary.
-        const TUint remainder = bytes % (iNumChannels * (iBitDepth/8));
+        const TUint remainder = bytes % iSampleBoundaryBytes;
         bytes -= remainder;
         const Brn outBuf(iReadBuf.Ptr(), bytes); // Do this to avoid truncating iReadBuf length to "bytes" here, as still need access to remainder of iReadBuf.
 
@@ -143,8 +145,7 @@ void CodecWav::Process()
 
 TBool CodecWav::TrySeek(TUint aStreamId, TUint64 aSample)
 {
-    const TUint byteDepth = iBitDepth/8;
-    const TUint64 bytePos = aSample * iNumChannels * byteDepth;
+    const TUint64 bytePos = aSample * iSampleBoundaryBytes;
 
     // Some bounds checking.
     const TUint64 seekPosJiffies = Jiffies::PerSample(iSampleRate)*aSample;
@@ -157,7 +158,10 @@ TBool CodecWav::TrySeek(TUint aStreamId, TUint64 aSample)
     }
     iTrackOffset = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate;
     if(iFileSize != 0) {    // UI should not allow seeking within streamed audio, but check before updating track length anyhow
-        iAudioBytesRemaining = iAudioBytesTotal - (TUint)(aSample * iNumChannels * byteDepth);
+        iAudioBytesRemaining = iAudioBytesTotal - (TUint)(aSample * iSampleBoundaryBytes);
+        // Truncate iAudioBytesRemaining to a sensible sample boundary.
+        const TUint remaining = iAudioBytesRemaining % iSampleBoundaryBytes;
+        iAudioBytesRemaining -= remaining;
     }
 
     iReadBuf.SetBytes(0);
@@ -234,6 +238,8 @@ void CodecWav::ProcessFmtChunk()
     iBitRate = byteRate * 8;
     //const TUint blockAlign = Converter::LeUint16At(iReadBuf, 12);
     iBitDepth = Converter::LeUint16At(iReadBuf, 14);
+    // Calculate a sample boundary that will keep pipeline happy.
+    iSampleBoundaryBytes = iNumChannels * (iBitDepth/8);
 
     //TUint bitStorage = 0;
     //switch(iBitDepth) {
@@ -279,9 +285,14 @@ void CodecWav::ProcessDataChunk()
         iAudioBytesTotal = dataChunkBytes;
     }
     iAudioBytesRemaining = iAudioBytesTotal;
+    // Truncate iAudioBytesRemaining to a sensible sample boundary.
+    // This avoids scenario where files may have miscellaneous data beyond audio data, which could result in Process() call never removing any data from read buffer at end of audio data because iAudioBytesRemaining > 0 && iAudioBytesRemaining < iSampleBoundaryBytes, so it fills read buffer and requests more data on next call.
+    const TUint remaining = iAudioBytesRemaining % iSampleBoundaryBytes;    // "fmt " chunk must come before "data" chunk, so iSampleBoundaryBytes should be initialised.
+    iAudioBytesRemaining -= remaining;
+
     iTrackStart += 8;
 
-    const TUint numSamples = iAudioBytesTotal / (iNumChannels * (iBitDepth/8));
+    const TUint numSamples = iAudioBytesRemaining / iSampleBoundaryBytes;
     iTrackLengthJiffies = ((TUint64)numSamples * Jiffies::kPerSecond) / iSampleRate;
 }
 
