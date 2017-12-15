@@ -54,6 +54,7 @@ namespace Web {
 namespace Av {
     class FriendlyNameHandler;
     class RamStore;
+    class IPlaylistLoader;
 namespace Test {
 
 class VolumeProfile : public IVolumeProfile
@@ -154,6 +155,7 @@ protected:
     Media::AllocatorInfoLogger* iInfoLogger;
     Net::DvDeviceStandard* iDevice;
     Net::DvDevice* iDeviceUpnpAv;
+    IPlaylistLoader* iPlaylistLoader;
 private:
     Semaphore iSemShutdown;
     Semaphore iDisabled;

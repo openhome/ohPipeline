@@ -134,6 +134,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
                                  const TChar* aStoreFile, TUint aOdpPort,
                                  TUint aMinWebUiResourceThreads, TUint aMaxWebUiTabs, TUint aUiSendQueueSize)
     : iPullableClock(nullptr)
+    , iPlaylistLoader(nullptr)
     , iSemShutdown("TMPS", 0)
     , iDisabled("test", 0)
     , iTuneInPartnerId(aTuneInPartnerId)
@@ -422,7 +423,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(ProtocolFactory::NewCalmRadio(aEnv, iUserAgent, *iMediaPlayer));
 
     // Add sources
-    iMediaPlayer->Add(SourceFactory::NewPlaylist(*iMediaPlayer));
+    iMediaPlayer->Add(SourceFactory::NewPlaylist(*iMediaPlayer, Optional<IPlaylistLoader>(iPlaylistLoader)));
     if (iTuneInPartnerId.Bytes() == 0) {
         iMediaPlayer->Add(SourceFactory::NewRadio(*iMediaPlayer));
     }

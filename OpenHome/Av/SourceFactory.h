@@ -15,13 +15,14 @@ namespace Av {
 
 class ISource;
 class IMediaPlayer;
+class IPlaylistLoader;
 class IOhmTimestamper;
 class IOhmMsgProcessor;
 
 class SourceFactory
 {
 public:
-    static ISource* NewPlaylist(IMediaPlayer& aMediaPlayer);
+    static ISource* NewPlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoader> aPlaylistLoader);
     static ISource* NewRadio(IMediaPlayer& aMediaPlayer);
     static ISource* NewRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId);
     static ISource* NewUpnpAv(IMediaPlayer& aMediaPlayer, Net::DvDevice& aDevice);
