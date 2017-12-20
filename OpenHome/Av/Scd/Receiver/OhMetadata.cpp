@@ -129,25 +129,35 @@ void OhMetadata::Parse()
     }
     TryAppend("<res");
     if (TryGetValue("duration", val)) {
-        TryAppend(" duration=\"");
-        TUint duration = Ascii::Uint(val);
-        const TUint secs = duration % 60;
-        duration /= 60;
-        const TUint mins = duration % 60;
-        const TUint hours = duration / 60;
-        Bws<32> formatted;
-        formatted.AppendPrintf("%u:%02u:%02u.000", hours, mins, secs);
-        TryAppend(formatted);
-        TryAppend("\"");
+        try {
+            TUint duration = Ascii::Uint(val);
+            TryAppend(" duration=\"");
+            const TUint secs = duration % 60;
+            duration /= 60;
+            const TUint mins = duration % 60;
+            const TUint hours = duration / 60;
+            Bws<32> formatted;
+            formatted.AppendPrintf("%u:%02u:%02u.000", hours, mins, secs);
+            TryAppend(formatted);
+            TryAppend("\"");
+        }
+        catch (AsciiError&) {
+            LOG_ERROR(kScd, "OhMetadata - AsciiError parsing duration of %.*s\n", PBUF(val));
+        }
     }
     if (TryGetValue("bitRate", val)) {
-        TryAppend(" bitrate=\"");
-        TUint bitRate = Ascii::Uint(val);
-        bitRate /= 8; // DIDL-Lite bitrate attribute actually refers to a byte rate!
-        Bws<Ascii::kMaxUintStringBytes> brBuf;
-        (void)Ascii::AppendDec(brBuf, bitRate);
-        TryAppend(brBuf);
-        TryAppend("\"");
+        try {
+            TUint bitRate = Ascii::Uint(val);
+            TryAppend(" bitrate=\"");
+            bitRate /= 8; // DIDL-Lite bitrate attribute actually refers to a byte rate!
+            Bws<Ascii::kMaxUintStringBytes> brBuf;
+            (void)Ascii::AppendDec(brBuf, bitRate);
+            TryAppend(brBuf);
+            TryAppend("\"");
+        }
+        catch (AsciiError&) {
+            LOG_ERROR(kScd, "OhMetadata - AsciiError parsing bitRate of %.*s\n", PBUF(val));
+        }
     }
     TryAddAttribute("bitDepth", "bitsPerSample");
     TryAddAttribute("sampleRate", "sampleFrequency");
