@@ -5,7 +5,10 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Converter.h>
+#include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Stream.h>
+#include <OpenHome/Media/Debug.h>
+#include <OpenHome/Av/Debug.h>
 
 namespace OpenHome {
 namespace Scd {
