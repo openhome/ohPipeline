@@ -320,12 +320,18 @@ void Credential::PasswordChanged(Configuration::KeyValuePair<const Brx&>& aKvp)
 
 void Credential::EnableChanged(Configuration::KeyValuePair<TUint>& aKvp)
 {
-    AutoMutex _(iLock);
-    iEnabled = (aKvp.Value() == kEnableYes);
-    iObserver.CredentialChanged();
-    if (!iModerationTimerStarted) {
+    TBool requestTimer = false;
+    {
+        AutoMutex _(iLock);
+        iEnabled = (aKvp.Value() == kEnableYes);
+        iObserver.CredentialChanged();
+        if (!iModerationTimerStarted) {
+            requestTimer = true;
+            iModerationTimerStarted = true;
+        }
+    }
+    if (requestTimer) {
         iModerationTimer->FireIn(kEventModerationMs);
-        iModerationTimerStarted = true;
     }
 }
 
