@@ -72,7 +72,8 @@ int CDECL main(int aArgc, char* aArgv[])
             0,   // MetadataDidl
             5,   // MetadataOh,
             5,   // Format,
-            100, // Audio,
+            100, // AudioOut,
+            0,   // AudioIn,
             0,   // MetatextDidl,
             5,   // MetatextOh,
             1,   // Halt,
