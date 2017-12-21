@@ -106,7 +106,7 @@ void ScdSupply::OutputAudio()
     ASSERT(iAudio.size() > 0);
     ASSERT(iAudio.size() % iBytesPerSample == 0);
     const TUint numSamples = iAudio.size() / iBytesPerSample;
-    auto msg = iFactory.CreateMsgAudio(iAudio, numSamples);
+    auto msg = iFactory.CreateMsgAudioOut(iAudio, numSamples);
     iQueue.Enqueue(msg);
     iAudio.clear();
 }

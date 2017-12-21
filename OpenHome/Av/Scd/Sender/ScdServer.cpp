@@ -105,12 +105,17 @@ void ScdSession::Process(ScdMsgFormat& aMsg)
     iSampleStart = aMsg.SampleStart();
 }
 
-void ScdSession::Process(ScdMsgAudio& aMsg)
+void ScdSession::Process(ScdMsgAudioOut& aMsg)
 {
     ASSERT(iFormat != nullptr);
     iSampleStart += aMsg.NumSamples();
-    //Log::Print("ScdMsgAudio - samples=%u, total=%llu\n", aMsg.NumSamples(), iSampleStart);
+    //Log::Print("ScdMsgAudioOut - samples=%u, total=%llu\n", aMsg.NumSamples(), iSampleStart);
     //Thread::Sleep(1000);
+}
+
+void ScdSession::Process(ScdMsgAudioIn& /*aMsg*/)
+{
+    ASSERTS();
 }
 
 void ScdSession::Process(ScdMsgMetatextDidl& aMsg)

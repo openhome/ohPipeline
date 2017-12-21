@@ -27,7 +27,8 @@ ProtocolScd::ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory)
                   1, // MetadataDidl
                   1, // MetadataOh
                   2, // Format
-                  1, // Audio
+                  0, // AudioOut
+                  1, // AudioIn
                   1, // MetatextDidl
                   1, // MetatextOh
                   1, // Halt
@@ -189,14 +190,19 @@ void ProtocolScd::Process(ScdMsgFormat& aMsg)
     iFormatReqd = false;
 }
 
-void ProtocolScd::Process(ScdMsgAudio& aMsg)
+void ProtocolScd::Process(ScdMsgAudioOut& /*aMsg*/)
 {
-    //Log::Print("ScdMsgAudio - samples = %u\n", aMsg.NumSamples());
+    ASSERTS();
+}
+
+void ProtocolScd::Process(ScdMsgAudioIn& aMsg)
+{
+    //Log::Print("ScdMsgAudioIn - samples = %u\n", aMsg.NumSamples());
     if (iFormatReqd) {
         OutputStream();
         iFormatReqd = false;
     }
-    iSupply->OutputData(aMsg.Audio());
+    iSupply->OutputData(aMsg.NumSamples(), iReaderBuf);
 }
 
 void ProtocolScd::Process(ScdMsgMetatextDidl& aMsg)

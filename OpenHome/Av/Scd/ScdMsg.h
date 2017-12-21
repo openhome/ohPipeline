@@ -53,7 +53,8 @@ class ScdMsgReady;
 class ScdMsgMetadataDidl;
 class ScdMsgMetadataOh;
 class ScdMsgFormat;
-class ScdMsgAudio;
+class ScdMsgAudioOut;
+class ScdMsgAudioIn;
 class ScdMsgMetatextDidl;
 class ScdMsgMetatextOh;
 class ScdMsgHalt;
@@ -71,7 +72,8 @@ public:
     virtual void Process(ScdMsgMetadataDidl& aMsg) = 0;
     virtual void Process(ScdMsgMetadataOh& aMsg) = 0;
     virtual void Process(ScdMsgFormat& aMsg) = 0;
-    virtual void Process(ScdMsgAudio& aMsg) = 0;
+    virtual void Process(ScdMsgAudioOut& aMsg) = 0;
+    virtual void Process(ScdMsgAudioIn& aMsg) = 0;
     virtual void Process(ScdMsgMetatextDidl& aMsg) = 0;
     virtual void Process(ScdMsgMetatextOh& aMsg) = 0;
     virtual void Process(ScdMsgHalt& aMsg) = 0;
@@ -248,7 +250,7 @@ private:
     Bws<kMaxCodecNameBytes> iCodecName;
 };
 
-class ScdMsgAudio : public ScdMsg
+class ScdMsgAudioOut : public ScdMsg
 {
     friend class ScdMsgFactory;
 public:
@@ -257,9 +259,8 @@ public:
     TUint NumSamples() const;
     const Brx& Audio() const;
 private:
-    ScdMsgAudio(IScdMsgAllocator& aAllocator);
+    ScdMsgAudioOut(IScdMsgAllocator& aAllocator);
     void Initialise(const std::string& aAudio, TUint aNumSamples);
-    void Initialise(IReader& aReader, const ScdHeader& aHeader);
 private: // from ScdMsg
     void Process(IScdMsgProcessor& aProcessor) override;
     void Externalise(IWriter& aWriter) const override;
@@ -267,6 +268,24 @@ private: // from ScdMsg
 private:
     TUint iNumSamples;
     Bws<kMaxBytes> iAudio;
+};
+
+class ScdMsgAudioIn : public ScdMsg
+{
+    friend class ScdMsgFactory;
+public:
+    TUint NumSamples() const;
+    IReader& Audio();
+private:
+    ScdMsgAudioIn(IScdMsgAllocator& aAllocator);
+    void Initialise(IReader& aReader, const ScdHeader& aHeader);
+private: // from ScdMsg
+    void Process(IScdMsgProcessor& aProcessor) override;
+    void Externalise(IWriter& aWriter) const override;
+    void Clear() override;
+private:
+    TUint iNumSamples;
+    IReader* iReader;
 };
 
 class ScdMsgMetatextDidl : public ScdMsg
@@ -350,7 +369,8 @@ public:
                   TUint aCountMetadataDidl,
                   TUint aCountMetadataOh,
                   TUint aCountFormat,
-                  TUint aCountAudio,
+                  TUint aCountAudioOut,
+                  TUint aCountAudioIn,
                   TUint aCountMetatextDidl,
                   TUint aCountMetatextOh,
                   TUint aCountHalt,
@@ -366,7 +386,7 @@ public:
                                   TBool aSeekable, TBool aLossless, TBool aLive,
                                   TBool aBroadcastAllowed, const std::string& aCodecName);
     ScdMsgFormat* CreateMsgFormat(ScdMsgFormat& aFormat, TUint64 aSampleStart);
-    ScdMsgAudio* CreateMsgAudio(const std::string& aAudio, TUint aNumSamples);
+    ScdMsgAudioOut* CreateMsgAudioOut(const std::string& aAudio, TUint aNumSamples);
     ScdMsgMetatextDidl* CreateMsgMetatextDidl(const std::string& aMetatext);
     ScdMsgMetatextOh* CreateMsgMetatextOh(const OpenHomeMetadata& aMetatext);
     ScdMsgHalt* CreateMsgHalt();
@@ -379,7 +399,7 @@ private:
     ScdMsgMetadataDidl* CreateMsgMetadataDidl(IReader& aReader, const ScdHeader& aHeader);
     ScdMsgMetadataOh* CreateMsgMetadataOh(IReader& aReader, const ScdHeader& aHeader);
     ScdMsgFormat* CreateMsgFormat(IReader& aReader, const ScdHeader& aHeader);
-    ScdMsgAudio* CreateMsgAudio(IReader& aReader, const ScdHeader& aHeader);
+    ScdMsgAudioIn* CreateMsgAudioIn(IReader& aReader, const ScdHeader& aHeader);
     ScdMsgMetatextDidl* CreateMsgMetatextDidl(IReader& aReader, const ScdHeader& aHeader);
     ScdMsgMetatextOh* CreateMsgMetatextOh(IReader& aReader, const ScdHeader& aHeader);
     ScdMsgHalt* CreateMsgHalt(IReader& aReader, const ScdHeader& aHeader);
@@ -391,7 +411,8 @@ private: // from IScdMsgProcessor
     void Process(ScdMsgMetadataDidl& aMsg) override;
     void Process(ScdMsgMetadataOh& aMsg) override;
     void Process(ScdMsgFormat& aMsg) override;
-    void Process(ScdMsgAudio& aMsg) override;
+    void Process(ScdMsgAudioOut& aMsg) override;
+    void Process(ScdMsgAudioIn& aMsg) override;
     void Process(ScdMsgMetatextDidl& aMsg) override;
     void Process(ScdMsgMetatextOh& aMsg) override;
     void Process(ScdMsgHalt& aMsg) override;
@@ -403,7 +424,8 @@ private:
     Fifo<ScdMsgMetadataDidl*>* iFifoMetadataDidl;
     Fifo<ScdMsgMetadataOh*>* iFifoMetadataOh;
     Fifo<ScdMsgFormat*>* iFifoFormat;
-    Fifo<ScdMsgAudio*>* iFifoAudio;
+    Fifo<ScdMsgAudioOut*>* iFifoAudioOut;
+    Fifo<ScdMsgAudioIn*>* iFifoAudioIn;
     Fifo<ScdMsgMetatextDidl*>* iFifoMetatextDidl;
     Fifo<ScdMsgMetatextOh*>* iFifoMetatextOh;
     Fifo<ScdMsgHalt*>* iFifoHalt;
