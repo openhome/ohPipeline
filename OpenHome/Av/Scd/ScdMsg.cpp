@@ -726,7 +726,7 @@ ScdMsgMetatextOh::ScdMsgMetatextOh(IScdMsgAllocator& aAllocator)
 
 void ScdMsgMetatextOh::Initialise(IReader& aReader, const ScdHeader& aHeader)
 {
-    ASSERT(aHeader.Type() == ScdHeader::kTypeMetadataOh);
+    ASSERT(aHeader.Type() == ScdHeader::kTypeMetatextOh);
     ScdMsgKvp::Initialise(aReader, aHeader.Bytes());
 }
 
