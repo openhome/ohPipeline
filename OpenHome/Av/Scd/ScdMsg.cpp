@@ -277,7 +277,7 @@ void ScdMsgKvp::Initialise(const OpenHomeMetadata& aKvps)
     const TByte* ptr = iBuf.Ptr();
     for (auto p : aKvps) {
         Brn key = BufferFromString(p.first);
-        Brn val = BufferFromString(p.first);
+        Brn val = BufferFromString(p.second);
         iBuf.Append(key);
         iBuf.Append(val);
         key.Set(ptr, key.Bytes());

@@ -177,7 +177,6 @@ protected:
     void Initialise(const OpenHomeMetadata& aKvps);
     void Initialise(IReader& aReader, TUint aBytes);
     void DoExternalise(IWriter& aWriter, TUint aType) const;
-private:
 private: // from ScdMsg
     void Clear() override;
 protected:
