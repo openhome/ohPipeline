@@ -4,6 +4,7 @@ import sys
 import os
 import shutil
 
+
 from waflib.Node import Node
 
 from wafmodules.filetasks import (
@@ -1085,15 +1086,16 @@ def build(bld):
             ],
             use=['OHNET', 'ohMediaPlayer'],
             target='ScdSender')
-    #bld.program(
-    #        source=[
-    #            'OpenHome/Av/Scd/Sender/Demo/WavSender.cpp',
-    #            'OpenHome/Av/Scd/Sender/Demo/DirScanner.cpp',
-    #            'OpenHome/Av/Scd/Sender/Demo/WavSenderMain.cpp'
-    #            ],
-    #        use=['OHNET', 'ScdSender', 'ohMediaPlayer'],
-    #        target='WavSender',
-    #        install_path=None)
+    if bld.env.dest_platform == 'Windows-x86':
+        bld.program(
+                source=[
+                    'OpenHome/Av/Scd/Sender/Demo/WavSender.cpp',
+                    'OpenHome/Av/Scd/Sender/Demo/DirScanner.cpp',
+                    'OpenHome/Av/Scd/Sender/Demo/WavSenderMain.cpp'
+                    ],
+                use=['OHNET', 'ScdSender', 'ohMediaPlayer'],
+                target='WavSender',
+                install_path=None)
 
 # Bundles
 def bundle(ctx):
