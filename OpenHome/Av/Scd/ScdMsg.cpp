@@ -1029,7 +1029,7 @@ ScdMsg* ScdMsgFactory::CreateMsg(IReader& aReader)
         header.Internalise(aReader);
     }
     catch (Exception& ex) {
-        Log::Print("Exception: %s from %s:%u\n", ex.Message(), ex.File(), ex.Line());
+        LOG_ERROR(kScd, "Exception: %s from %s:%u\n", ex.Message(), ex.File(), ex.Line());
         throw;
     }
     ScdMsg* msg = nullptr;
@@ -1064,13 +1064,13 @@ ScdMsg* ScdMsgFactory::CreateMsg(IReader& aReader)
             msg = CreateMsgDisconnect(aReader, header);
             break;
         default:
-            Log::Print("ScdMsgFactory::CreateMsg - unknown msg type: %u\n", header.Type());
+            LOG_ERROR(kScd, "ScdMsgFactory::CreateMsg - unknown msg type: %u\n", header.Type());
             THROW(ScdError); // unknown msg type, assume this implies an unsupported protocol version
             break;
         }
     }
     catch (Exception& ex) {
-        Log::Print("Exception: %s (type=%u) from %s:%u\n", ex.Message(), header.Type(), ex.File(), ex.Line());
+        LOG_ERROR(kScd, "Exception: %s (type=%u) from %s:%u\n", ex.Message(), header.Type(), ex.File(), ex.Line());
         throw;
     }
     return msg;
