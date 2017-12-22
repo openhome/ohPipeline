@@ -173,8 +173,7 @@ void OhMetadata::Parse()
     }
     TryAppend("</res>");
     if (TryGetValue("type", val)) {
-        TryAddTag(Brn("upnp:class"), kNsUpnp, Brx::Empty(),
-                  Brn("object.item.audioItem.musicTrack"));
+        TryAppendTag(Brn("upnp:class"), kNsUpnp, Brx::Empty(), val);
     }
     TryAppend("</item>");
     TryAppend("</DIDL-Lite>");
