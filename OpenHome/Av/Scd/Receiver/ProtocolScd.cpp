@@ -89,9 +89,15 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
                     iStarted = true;
                     break;
                 }
-                if (!iStarted) {
-                    LOG(kMedia, "ProtocolScd - failed to connect to sender\n");
-                    return EProtocolStreamErrorUnrecoverable;
+                else {
+                    if (!iStarted) {
+                        LOG(kMedia, "ProtocolScd - failed to connect to sender\n");
+                        return EProtocolStreamErrorUnrecoverable;
+                    }
+                    AutoMutex _(iLock);
+                    if (iStopped) {
+                        THROW(ScdError);
+                    }
                 }
                 Thread::Sleep(500); /* This code runs in a fairly high priority thread.
                                        Avoid it busy-looping, preventing action invocation
@@ -114,7 +120,7 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
             throw;
         }
         catch (Exception& ex) {
-            if (!iExit) {
+            if (!iExit && !iStopped) {
                 LOG_ERROR(kMedia, "Exception - %s - in ProtocolScd::Stream\n", ex.Message());
             }
         }
