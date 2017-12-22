@@ -748,6 +748,11 @@ ScdMsgHalt::ScdMsgHalt(IScdMsgAllocator& aAllocator)
 {
 }
 
+void ScdMsgHalt::Initialise()
+{
+    ScdMsg::Initialise();
+}
+
 void ScdMsgHalt::Process(IScdMsgProcessor& aProcessor)
 {
     aProcessor.Process(*this);
@@ -765,6 +770,11 @@ void ScdMsgHalt::Externalise(IWriter& aWriter) const
 ScdMsgDisconnect::ScdMsgDisconnect(IScdMsgAllocator& aAllocator)
     : ScdMsg(aAllocator)
 {
+}
+
+void ScdMsgDisconnect::Initialise()
+{
+    ScdMsg::Initialise();
 }
 
 void ScdMsgDisconnect::Process(IScdMsgProcessor& aProcessor)
@@ -1001,12 +1011,14 @@ ScdMsgMetatextOh* ScdMsgFactory::CreateMsgMetatextOh(const OpenHomeMetadata& aMe
 ScdMsgHalt* ScdMsgFactory::CreateMsgHalt()
 {
     auto msg = iFifoHalt->Read();
+    msg->Initialise();
     return msg;
 }
 
 ScdMsgDisconnect* ScdMsgFactory::CreateMsgDisconnect()
 {
     auto msg = iFifoDisconnect->Read();
+    msg->Initialise();
     return msg;
 }
 
@@ -1158,12 +1170,14 @@ ScdMsgMetatextOh* ScdMsgFactory::CreateMsgMetatextOh(IReader& aReader, const Scd
 ScdMsgHalt* ScdMsgFactory::CreateMsgHalt(IReader& /*aReader*/, const ScdHeader& /*aHeader*/)
 {
     auto msg = iFifoHalt->Read();
+    msg->Initialise();
     return msg;
 }
 
 ScdMsgDisconnect* ScdMsgFactory::CreateMsgDisconnect(IReader& /*aReader*/, const ScdHeader& /*aHeader*/)
 {
     auto msg = iFifoDisconnect->Read();
+    msg->Initialise();
     return msg;
 }
 

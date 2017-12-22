@@ -324,6 +324,7 @@ class ScdMsgHalt : public ScdMsg
     friend class ScdMsgFactory;
 private:
     ScdMsgHalt(IScdMsgAllocator& aAllocator);
+    void Initialise();
 private: // from ScdMsg
     void Process(IScdMsgProcessor& aProcessor) override;
     void Externalise(IWriter& aWriter) const override;
@@ -334,6 +335,7 @@ class ScdMsgDisconnect : public ScdMsg
     friend class ScdMsgFactory;
 private:
     ScdMsgDisconnect(IScdMsgAllocator& aAllocator);
+    void Initialise();
 private: // from ScdMsg
     void Process(IScdMsgProcessor& aProcessor) override;
     void Externalise(IWriter& aWriter) const override;
