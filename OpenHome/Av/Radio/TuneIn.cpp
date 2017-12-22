@@ -145,8 +145,10 @@ void RadioPresetsTuneIn::RefreshThread()
             DoRefresh(); // doesn't throw
             iSocket.Close();
         }
-        catch (NetworkError&) {
+        catch (AssertionFailed&) {
+            throw;
         }
+        catch (Exception&) {}
     }
 }
 
