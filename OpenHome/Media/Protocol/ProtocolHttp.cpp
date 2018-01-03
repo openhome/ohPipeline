@@ -418,6 +418,7 @@ TUint ProtocolHttp::TryStop(TUint aStreamId)
 {
     AutoMutex _(iLock);
     if (!IsCurrentStream(aStreamId)) {
+        LOG(kMedia, "ProtocolHttp::TryStop(%u), iStreamId=%u\n", aStreamId, iStreamId);
         return MsgFlush::kIdInvalid;
     }
 
@@ -427,6 +428,7 @@ TUint ProtocolHttp::TryStop(TUint aStreamId)
             our main thread gets a chance to issue a Flush */
         iNextFlushId = iFlushIdProvider->NextFlushId();
     }
+    LOG(kMedia, "ProtocolHttp::TryStop(%u), iStreamId=%u, iNextFlushId=%u\n", aStreamId, iStreamId, iNextFlushId);
     iStopped = true;
     iSocket.Interrupt(true);
     if (iLive) {
