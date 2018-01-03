@@ -125,6 +125,7 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
             }
         }
     }
+    Close();
     iSupply->Flush();
     {
         AutoMutex _(iLock);

@@ -175,7 +175,10 @@ void ProtocolNetwork::Close()
     if (iSocketIsOpen) {
         LOG(kMedia, "ProtocolNetwork::Close\n");
         iSocketIsOpen = false;
-        iTcpClient.Close();
+        try {
+            iTcpClient.Close();
+        }
+        catch (NetworkError&) {}
     }
 }
 
