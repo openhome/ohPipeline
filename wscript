@@ -261,7 +261,6 @@ def build(bld):
                 'OpenHome/Media/Protocol/Protocol.cpp',
                 'OpenHome/Media/Protocol/ProtocolHls.cpp',
                 'OpenHome/Media/Protocol/ProtocolHttp.cpp',
-                'OpenHome/Media/Protocol/ProtocolHttps.cpp',
                 'OpenHome/Media/Protocol/ProtocolFile.cpp',
                 'OpenHome/Media/Protocol/ProtocolTone.cpp',
                 'OpenHome/Media/Protocol/Icy.cpp',
