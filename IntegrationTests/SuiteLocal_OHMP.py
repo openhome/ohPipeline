@@ -123,6 +123,9 @@ tests = [
     ['TestAirplayFunctions', 'local'],
     ['TestAirplayDropout', 'local', '1800'],
 
+    # Songcast Direct (Roon)
+    [ 'TestScd',                      'local'                                                                                        ],
+
     # Sources
     [ 'TestSourceSelect',             'local'                                                                                        ],
 
