@@ -391,7 +391,10 @@ ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory
     , iAudioServer(iServerManager.Find(aAudioId), *this, aThreadPriorityAudioServer)
     , iControlServer(iServerManager.Find(aControlId), *this, aThreadPriorityControlServer)
     , iSupply(nullptr)
-    , iStopped(false)
+    , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
+    , iNextFlushId(MsgFlush::kIdInvalid)
+    , iActive(false)
+    , iStopped(true)
     , iLockRaop("PRAL")
     , iSem("PRAS", 0)
     , iResendRangeRequester(iControlServer)
@@ -786,22 +789,27 @@ void ProtocolRaop::ProcessPacket(const RaopPacketAudio& aPacket)
     //LOG(kMedia, "ProtocolRaop::ProcessPacket validSession: %u, shouldFlush: %u\n", validSession, shouldFlush);
 
     if (validSession && !shouldFlush) {
-        IRepairable* repairable = iRepairableAllocator.Allocate(aPacket);
         try {
-            iRepairer.OutputAudio(*repairable);
+            IRepairable* repairable = iRepairableAllocator.Allocate(aPacket);
+            try {
+                iRepairer.OutputAudio(*repairable);
+            }
+            catch (const RepairerBufferFull&) {
+                LOG(kPipeline, "ProtocolRaop::ProcessPacket(const RaopPacketAudio&) RepairerBufferFull\n");
+                // Set state so that no more audio is output until a MsgDrain followed by a MsgEncodedStream.
+                AutoMutex a(iLockRaop);
+                iDiscontinuity = true;
+                iSem.Signal();
+            }
+            catch (const RepairerStreamRestarted&) {
+                LOG(kPipeline, "ProtocolRaop::ProcessPacket(const RaopPacketAudio&) RepairerStreamRestarted\n");
+                AutoMutex a(iLockRaop);
+                iDiscontinuity = true;
+                iSem.Signal();
+            }
         }
-        catch (RepairerBufferFull&) {
-            LOG(kPipeline, "ProtocolRaop::ProcessPacket RepairerBufferFull\n");
-            // Set state so that no more audio is output until a MsgDrain followed by a MsgEncodedStream.
-            AutoMutex a(iLockRaop);
-            iDiscontinuity = true;
-            iSem.Signal();
-        }
-        catch (RepairerStreamRestarted&) {
-            LOG(kPipeline, "ProtocolRaop::ProcessPacket RepairerStreamRestarted\n");
-            AutoMutex a(iLockRaop);
-            iDiscontinuity = true;
-            iSem.Signal();
+        catch (const RaopAllocationFailure&) {
+            LOG(kPipeline, "ProtocolRaop::ProcessPacket(const RaopPacketAudio&) RaopAllocationFailure aPacket.Header().Seq(): %u, aPacket.Payload().Bytes(): %u\n", aPacket.Header().Seq(), aPacket.Payload().Bytes());
         }
     }
 }
@@ -832,22 +840,27 @@ void ProtocolRaop::ProcessPacket(const RaopPacketResendResponse& aPacket)
     //LOG(kMedia, "ProtocolRaop::ProcessPacket validSession: %u, shouldFlush: %u\n", validSession, shouldFlush);
 
     if (validSession && !shouldFlush) {
-        IRepairable* repairable = iRepairableAllocator.Allocate(aPacket);
         try {
-            iRepairer.OutputAudio(*repairable);
+            IRepairable* repairable = iRepairableAllocator.Allocate(aPacket);
+            try {
+                iRepairer.OutputAudio(*repairable);
+            }
+            catch (RepairerBufferFull&) {
+                LOG(kPipeline, "ProtocolRaop::ProcessPacket(const RaopPacketResendResponse&) RepairerBufferFull\n");
+                // Set state so that no more audio is output until a MsgDrain followed by a MsgEncodedStream.
+                AutoMutex a(iLockRaop);
+                iDiscontinuity = true;
+                iSem.Signal();
+            }
+            catch (RepairerStreamRestarted&) {
+                LOG(kPipeline, "ProtocolRaop::ProcessPacket(const RaopPacketResendResponse&) RepairerStreamRestarted\n");
+                AutoMutex a(iLockRaop);
+                iDiscontinuity = true;
+                iSem.Signal();
+            }
         }
-        catch (RepairerBufferFull&) {
-            LOG(kPipeline, "ProtocolRaop::ProcessPacket RepairerBufferFull\n");
-            // Set state so that no more audio is output until a MsgDrain followed by a MsgEncodedStream.
-            AutoMutex a(iLockRaop);
-            iDiscontinuity = true;
-            iSem.Signal();
-        }
-        catch (RepairerStreamRestarted&) {
-            LOG(kPipeline, "ProtocolRaop::ProcessPacket RepairerStreamRestarted\n");
-            AutoMutex a(iLockRaop);
-            iDiscontinuity = true;
-            iSem.Signal();
+        catch (const RaopAllocationFailure&) {
+            LOG(kPipeline, "ProtocolRaop::ProcessPacket(const RaopPacketResendResponse&) RaopAllocationFailure aPacket.AudioPacket().Header().Seq(): %u, aPacket.AudioPacket().Payload().Bytes(): %u\n", aPacket.AudioPacket().Header().Seq(), aPacket.AudioPacket().Payload().Bytes());
         }
     }
 }
@@ -930,7 +943,7 @@ TUint ProtocolRaop::TryStop(TUint aStreamId)
             iSem.Signal();
         }
     }
-    return (stop? iNextFlushId : MsgFlush::kIdInvalid);
+    return (stop ? iNextFlushId : MsgFlush::kIdInvalid);
 }
 
 void ProtocolRaop::NotifyStarving(const Brx& aMode, TUint aStreamId, TBool aStarving)
