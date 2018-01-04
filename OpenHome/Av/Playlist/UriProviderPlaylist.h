@@ -71,7 +71,6 @@ private:
     TUint ParseCommand(const Brx& aCommand) const;
     Media::Track* ProcessCommandId(const Brx& aCommand);
     Media::Track* ProcessCommandIndex(const Brx& aCommand);
-    void ProcessCommandJukebox(const Brx& aCommand);
     void ProcessCommandPlaylist(const Brx& aCommand);
 private:
     enum EPendingDirection

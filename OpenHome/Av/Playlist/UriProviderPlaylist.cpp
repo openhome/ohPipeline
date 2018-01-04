@@ -22,10 +22,7 @@ using namespace OpenHome::Media;
 
 const Brn UriProviderPlaylist::kCommandId("id");
 const Brn UriProviderPlaylist::kCommandIndex("index");
-const Brn UriProviderPlaylist::kCommandJukebox("jukebox");
 const Brn UriProviderPlaylist::kCommandPlaylist("playlist");
-const Brn UriProviderPlaylist::kJukeboxMethodReplace("replace");
-const Brn UriProviderPlaylist::kJukeboxMethodInsert("insert");
 const Brn UriProviderPlaylist::kPlaylistMethodReplace("replace");
 const Brn UriProviderPlaylist::kPlaylistMethodInsert("insert");
 
@@ -200,10 +197,7 @@ void UriProviderPlaylist::MoveTo(const Brx& aCommand)
             parser.Parse(aCommand);
             Brn mode = parser.String("mode");
             Brn cmd = parser.String("command");
-            if (mode == kCommandJukebox) {
-                ProcessCommandJukebox(cmd);
-            }
-            else if (mode == kCommandPlaylist) {
+            if (mode == kCommandPlaylist) {
                 ProcessCommandPlaylist(aCommand);
             }
             else {
@@ -283,35 +277,6 @@ Track* UriProviderPlaylist::ProcessCommandIndex(const Brx& aCommand)
         THROW(FillerInvalidCommand);
     }
     return track;
-}
-
-void UriProviderPlaylist::ProcessCommandJukebox(const Brx& aCommand)
-{
-    if (iPlaylistLoader == nullptr) {
-        THROW(FillerInvalidCommand);
-    }
-    JsonParser parser;
-    parser.Parse(aCommand);
-    Brn method = parser.String("method");
-    const TUint jukeboxId = (TUint)parser.Num("id");
-    TUint insertAfterId = ITrackDatabase::kTrackIdNone;
-    if (method == kJukeboxMethodReplace) {
-        iDbWriter.DeleteAll();
-    }
-    else if (method == kJukeboxMethodInsert) {
-        insertAfterId = (TUint)parser.Num("insertPos");
-    }
-    else {
-        THROW(FillerInvalidCommand);
-    }
-
-    { // block GetNext until something has been added
-        AutoMutex _(iLockLoader);
-        iLoaderWait = true;
-        iLoaderIdBefore = insertAfterId;
-    }
-
-    iPlaylistLoader->LoadJukebox(jukeboxId, insertAfterId);
 }
 
 void UriProviderPlaylist::ProcessCommandPlaylist(const Brx& aCommand)
