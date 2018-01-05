@@ -1269,6 +1269,13 @@ void SuiteMsgPlayable::Test()
     playable->RemoveRef();
     remainingPlayable->RemoveRef();
 
+    // Create multi-channel silence msg.  Check it can be read correctly.
+    size = Jiffies::kPerMs;
+    silence = iMsgFactory->CreateMsgSilence(size, 192000, 32, 10);
+    playable = silence->CreatePlayable();
+    TEST(playable->Bytes() == Jiffies::ToSamples(size, 192000) * 40);
+    ValidateSilence(playable);
+
     // Create silence msg, split at 1 jiffy (non-sample boundary).  Check initial msg has 0 Bytes() but can Write() its content
     silence = iMsgFactory->CreateMsgSilence(size, 44100, 8, 1);
     MsgSilence* remainingSilence = (MsgSilence*)silence->Split(1);

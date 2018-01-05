@@ -2595,7 +2595,7 @@ void MsgPlayableSilence::ReadBlock(IPcmProcessor& aProcessor)
 {
     static const TByte silence[DecodedAudio::kMaxBytes] = { 0 };
     TUint remainingBytes = iSize;
-    const TUint maxBytes = DecodedAudio::kMaxBytes / (iNumChannels * iBitDepth / 8);
+    const TUint maxBytes = DecodedAudio::kMaxBytes - (DecodedAudio::kMaxBytes % (iNumChannels * iBitDepth / 8));
     do {
         TUint bytes = (remainingBytes > maxBytes? maxBytes : remainingBytes);
         Brn audioBuf(silence, bytes);
