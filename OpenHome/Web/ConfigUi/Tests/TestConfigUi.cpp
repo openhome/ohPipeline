@@ -703,7 +703,7 @@ void SuiteConfigMessageText::TestSend()
     static const Brn value("abc");
     WritableJsonEmpty nullInfo;
     std::vector<Bws<10>> langList;
-    ConfigText configText(*iConfigManager, Brn("Config.Text.Key"), 25, value);
+    ConfigText configText(*iConfigManager, Brn("Config.Text.Key"), 0, 25, value);
     ConfigUiValText configUiText(configText, nullInfo);
 
     Bws<128> valJson(Brn("\"abc\""));
@@ -716,7 +716,7 @@ void SuiteConfigMessageText::TestSend()
         "\"key\":\"Config.Text.Key\","
         "\"value\":\"abc\","
         "\"type\":\"text\","
-        "\"meta\":{\"default\":\"abc\",\"maxlength\":25},"
+        "\"meta\":{\"default\":\"abc\",\"minlength\":0,\"maxlength\":25},"
         "\"info\":{}}");
     TEST(buf == expectedBuf);
     msg->Destroy();
@@ -728,7 +728,7 @@ void SuiteConfigMessageText::TestSendEscapedChars()
     static const Brn value("a\rb\bc");
     WritableJsonEmpty nullInfo;
     std::vector<Bws<10>> langList;
-    ConfigText configText(*iConfigManager, Brn("\nConfig.\rText.\tKey"), 25, value);
+    ConfigText configText(*iConfigManager, Brn("\nConfig.\rText.\tKey"), 0, 25, value);
     ConfigUiValText configUiText(configText, nullInfo);
 
     Bws<128> valJson(Brn("\"a\\rb\\bc\""));
@@ -741,7 +741,7 @@ void SuiteConfigMessageText::TestSendEscapedChars()
         "\"key\":\"\\nConfig.\\rText.\\tKey\","
         "\"value\":\"a\\rb\\bc\","
         "\"type\":\"text\","
-        "\"meta\":{\"default\":\"a\\rb\\bc\",\"maxlength\":25},"
+        "\"meta\":{\"default\":\"a\\rb\\bc\",\"minlength\":0,\"maxlength\":25},"
         "\"info\":{}}");
     TEST(buf == expectedBuf);
     msg->Destroy();
@@ -752,7 +752,7 @@ void SuiteConfigMessageText::TestSendAdditional()
     static const Brn value("abc");
     const WritableJsonInfo info(true);
     std::vector<Bws<10>> langList;
-    ConfigText configText(*iConfigManager, Brn("Config.Text.Key"), 25, value);
+    ConfigText configText(*iConfigManager, Brn("Config.Text.Key"), 0, 25, value);
     ConfigUiValText configUiText(configText, info);
 
     Bws<128> valJson(Brn("\"abc\""));
@@ -765,7 +765,7 @@ void SuiteConfigMessageText::TestSendAdditional()
         "\"key\":\"Config.Text.Key\","
         "\"value\":\"abc\","
         "\"type\":\"text\","
-        "\"meta\":{\"default\":\"abc\",\"maxlength\":25},"
+        "\"meta\":{\"default\":\"abc\",\"minlength\":0,\"maxlength\":25},"
         "\"info\":{\"reboot-required\":true}}");
     TEST(buf == expectedBuf);
     msg->Destroy();

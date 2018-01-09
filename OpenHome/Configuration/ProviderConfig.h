@@ -27,11 +27,13 @@ class ProviderConfig : public Net::DvProviderAvOpenhomeOrgConfig2
     static const TUint kErrorCodeValueOutOfRange;
     static const TUint kErrorCodeInvalidSelection;
     static const TUint kErrorCodeValueTooLong;
+    static const TUint kErrorCodeValueTooShort;
     static const Brn kErrorDescInvalidKey;
     static const Brn kErrorDescNotANumber;
     static const Brn kErrorDescValueOutOfRange;
     static const Brn kErrorDescInvalidSelection;
     static const Brn kErrorDescValueTooLong;
+    static const Brn kErrorDescValueTooShort;
 public:
     ProviderConfig(Net::DvDevice& aDevice, Configuration::IConfigManager& aConfigManager);
 private: // from DvProviderAvOpenhomeOrgConfiguration1

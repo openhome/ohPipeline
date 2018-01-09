@@ -18,6 +18,7 @@ class ISource
     friend class Product;
 public:
     static const TUint kMaxSystemNameBytes = 20;
+    static const TUint kMinSourceNameBytes = 1;
     static const TUint kMaxSourceNameBytes = 20;
     static const TUint kMaxSourceTypeBytes = 20;
     static const TUint kMaxAttributesBytes = 100;

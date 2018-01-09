@@ -33,6 +33,7 @@ class RadioPresetsTuneIn
 private:
     static const TUint kReadBufBytes = Media::kTrackMetaDataMaxBytes + 1024;
     static const TUint kWriteBufBytes = 1024;
+    static const TUint kMinUserNameBytes = 0;
     static const TUint kMaxUserNameBytes = 64;
     static const TUint kMaxPartnerIdBytes = 64;
     static const TUint kReadResponseTimeoutMs = 30 * 1000; // 30 seconds

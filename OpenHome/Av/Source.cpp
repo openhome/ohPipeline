@@ -132,7 +132,7 @@ void SourceBase::Initialise(IProduct& aProduct, IConfigInitialiser& aConfigInit,
         iConfigName = &aConfigManagerReader.GetText(key);
         iConfigNameCreated = false;
     } else {
-        iConfigName = new ConfigText(aConfigInit, key, ISource::kMaxSourceNameBytes, iName);
+        iConfigName = new ConfigText(aConfigInit, key, ISource::kMinSourceNameBytes, ISource::kMaxSourceNameBytes, iName);
         iConfigNameCreated = true;
     }
     iConfigNameSubscriptionId = iConfigName->Subscribe(MakeFunctorConfigText(*this, &SourceBase::NameChanged));

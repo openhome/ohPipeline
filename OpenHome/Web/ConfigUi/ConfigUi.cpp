@@ -444,6 +444,10 @@ void ConfigTab::Receive(const Brx& aKey, const Brx& aValue)
             LOG(kHttp, "ConfigTab::Receive caught ConfigValueOutOfRange \n\taKey: %.*s\n\taValue: %.*s\n", PBUF(aKey), PBUF(aValue));
             //ASSERTS();
         }
+        catch (ConfigValueTooShort&) {
+            LOG(kHttp, "ConfigTab::Receive caught ConfigValueTooShort \n\taKey: %.*s\n\taValue: %.*s\n", PBUF(aKey), PBUF(aValue));
+            //ASSERTS();
+        }
         catch (ConfigValueTooLong&) {
             LOG(kHttp, "ConfigTab::Receive caught ConfigValueTooLong \n\taKey: %.*s\n\taValue: %.*s\n", PBUF(aKey), PBUF(aValue));
             //ASSERTS();
@@ -861,6 +865,9 @@ void ConfigUiValText::WriteMeta(IWriter& aWriter, ILanguageResourceManager& /*aL
     Json::Escape(aWriter, iText.Default());
     aWriter.Write(Brn("\""));
     aWriter.Write(Brn(","));
+    aWriter.Write(Brn("\"minlength\":"));
+    Ascii::StreamWriteUint(aWriter, iText.MinLength());
+    aWriter.Write(Brn(","));
     aWriter.Write(Brn("\"maxlength\":"));
     Ascii::StreamWriteUint(aWriter, iText.MaxLength());
     aWriter.Write('}');
@@ -1263,6 +1270,9 @@ void ConfigUiValStartupSource::WriteMeta(IWriter& aWriter, ILanguageResourceMana
     aWriter.Write(Brn("\""));
     Json::Escape(aWriter, iText.Default());
     aWriter.Write(Brn("\""));
+    aWriter.Write(Brn(","));
+    aWriter.Write(Brn("\"minlength\":"));
+    Ascii::StreamWriteUint(aWriter, iText.MinLength());
     aWriter.Write(Brn(","));
     aWriter.Write(Brn("\"maxlength\":"));
     Ascii::StreamWriteUint(aWriter, iText.MaxLength());

@@ -271,14 +271,18 @@ void ConfigChoice::Write(KeyValuePair<TUint>& aKvp)
 
 // ConfigText
 
-ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
+ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
     : ConfigVal(aManager, aKey, aRebootRequired)
+    , iMinLength(aMinLength)
     , iDefault(aDefault)
     , iText(aMaxLength)
     , iMutex("CVTM")
 {
+    ASSERT(aDefault.Bytes() >= aMinLength);
     ASSERT(aMaxLength <= kMaxBytes);
-    ASSERT(IsValid(iDefault));
+
+    ASSERT(iDefault.Bytes() >= iMinLength);
+    ASSERT(iDefault.Bytes() <= iText.MaxBytes());
 
     Bwh initialBuf(aMaxLength);
     try {
@@ -308,6 +312,11 @@ ConfigText::~ConfigText()
     iConfigManager.Remove(*this);
 }
 
+TUint ConfigText::MinLength() const
+{
+    return iMinLength;
+}
+
 TUint ConfigText::MaxLength() const
 {
     return iText.MaxBytes();
@@ -315,7 +324,10 @@ TUint ConfigText::MaxLength() const
 
 void ConfigText::Set(const Brx& aText)
 {
-    if (!IsValid(aText)) {
+    if (aText.Bytes() < iMinLength) {
+        THROW(ConfigValueTooShort);
+    }
+    if (aText.Bytes() > iText.MaxBytes()) {
         THROW(ConfigValueTooLong);
     }
 
@@ -324,14 +336,6 @@ void ConfigText::Set(const Brx& aText)
         iText.Replace(aText);
         NotifySubscribers(iText);
     }
-}
-
-TBool ConfigText::IsValid(const Brx& aVal) const
-{
-    if (aVal.Bytes() > iText.MaxBytes()) {
-        return false;
-    }
-    return true;
 }
 
 const Brx& ConfigText::Default() const

@@ -100,8 +100,8 @@ int CDECL main(int aArgc, char* aArgv[])
     ConfigManager* confMgr = new ConfigManager(*configRamStore);
 
     // ConfigAppBasic expects Product.Name and Room.Name ConfigVals.
-    ConfigText* productName = new ConfigText(*confMgr, Av::Product::kConfigIdNameBase, 50, Brn("Product Name"));
-    ConfigText* productRoom = new ConfigText(*confMgr, Av::Product::kConfigIdRoomBase, 50, Brn("Product Room"));
+    ConfigText* productName = new ConfigText(*confMgr, Av::Product::kConfigIdNameBase, Av::Product::kMinNameBytes, Av::Product::kMaxNameBytes, Brn("Product Name"));
+    ConfigText* productRoom = new ConfigText(*confMgr, Av::Product::kConfigIdRoomBase, Av::Product::kMinRoomBytes, Av::Product::kMaxRoomBytes, Brn("Product Room"));
 
     confMgr->Print();
     confMgr->Open();

@@ -99,7 +99,9 @@ public:
     static const Brn kConfigIdAutoPlay;
     static const TUint kAutoPlayDisable;
     static const TUint kAutoPlayEnable;
+    static const TUint kMinNameBytes = 1;
     static const TUint kMaxNameBytes = 20;
+    static const TUint kMinRoomBytes = 1;
     static const TUint kMaxRoomBytes = 40;
     static const TUint kMaxSourceXmlBytes = 1024 * 3;
     static const TUint kMaxUriBytes = 128;

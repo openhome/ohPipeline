@@ -98,8 +98,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
                                                    iReadWriteStore); // must be created before any config values
     }
     iPowerManager = new OpenHome::PowerManager(*iConfigManager);
-    iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase, Product::kMaxRoomBytes, aInitParams->DefaultRoom());
-    iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase, Product::kMaxNameBytes, aInitParams->DefaultName());
+    iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase, Product::kMinRoomBytes, Product::kMaxRoomBytes, aInitParams->DefaultRoom());
+    iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase, Product::kMinNameBytes, Product::kMaxNameBytes, aInitParams->DefaultName());
     std::vector<TUint> choices;
     choices.push_back(Product::kAutoPlayDisable);
     choices.push_back(Product::kAutoPlayEnable);
