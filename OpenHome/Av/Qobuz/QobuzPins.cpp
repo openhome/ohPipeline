@@ -303,7 +303,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TU
     return currId;
 }
 
-TBool QobuzPins::IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aType) {
+TBool QobuzPins::IsValidId(const Brx& aRequest, QobuzMetadata::EIdType /*aType*/) {
     if (aRequest == QobuzMetadata::kIdTypeUserSpecific) {
         return true; // no additional user input
     }

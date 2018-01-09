@@ -155,7 +155,7 @@ Brn QobuzMetadata::GenreIdFromJson(const Brx& aJsonResponse, const Brx& aGenre)
     return Brx::Empty();
 }
 
-void QobuzMetadata::ParseQobuzMetadata(const Brx& aJsonResponse, const Brx& aTrackObj, EIdType aType)
+void QobuzMetadata::ParseQobuzMetadata(const Brx& aJsonResponse, const Brx& aTrackObj, EIdType /*aType*/)
 {
     static const Qobuz2DidlTagMapping kQobuz2Didl[] ={
         { "title", "dc:title", kNsDc },
