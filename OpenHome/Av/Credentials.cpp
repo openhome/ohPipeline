@@ -127,11 +127,11 @@ Credential::Credential(Environment& aEnv, ICredentialConsumer* aConsumer, ICrede
     Bws<64> key(aConsumer->Id());
     key.Append('.');
     key.Append(Brn("Username"));
-    iConfigUsername = new ConfigText(aConfigInitialiser, key, ConfigText::kMaxBytes, Brx::Empty());
+    iConfigUsername = new ConfigText(aConfigInitialiser, key, 0, ConfigText::kMaxBytes, Brx::Empty());
     key.Replace(iConsumer->Id());
     key.Append('.');
     key.Append(Brn("Password"));
-    iConfigPassword = new ConfigText(aConfigInitialiser, key, ConfigText::kMaxBytes, Brx::Empty());
+    iConfigPassword = new ConfigText(aConfigInitialiser, key, 0, ConfigText::kMaxBytes, Brx::Empty());
     key.Replace(iConsumer->Id());
     key.Append('.');
     key.Append(Brn("Enabled"));
@@ -179,6 +179,9 @@ void Credential::Set(const Brx& aUsername)
     try {
         iConfigUsername->Set(aUsername);
     }
+    catch (ConfigValueTooShort&) {
+        ASSERTS(); // Credentials min lengths are set to 0 in constructor, so this exception should never be thrown.
+    }
     catch (ConfigValueTooLong&) {
         THROW(CredentialsTooLong);
     }
@@ -191,6 +194,9 @@ void Credential::Set(const Brx& aUsername, const Brx& aPassword)
     try {
         iConfigUsername->Set(aUsername);
         iConfigPassword->Set(aPassword);
+    }
+    catch (ConfigValueTooShort&) {
+        ASSERTS(); // Credentials min lengths are set to 0 in constructor, so this exception should never be thrown.
     }
     catch (ConfigValueTooLong&) {
         THROW(CredentialsTooLong);

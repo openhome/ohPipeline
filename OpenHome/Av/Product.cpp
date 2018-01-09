@@ -29,7 +29,7 @@ const Brn ConfigStartupSource::kLastUsed("Last Used");
 
 ConfigStartupSource::ConfigStartupSource(Configuration::IConfigInitialiser& aConfigInit)
 {
-    iSourceStartup = new ConfigText(aConfigInit, kKeySource, Product::kMaxNameBytes, kLastUsed);
+    iSourceStartup = new ConfigText(aConfigInit, kKeySource, Product::kMinNameBytes, Product::kMaxNameBytes, kLastUsed);
 }
 
 ConfigStartupSource::~ConfigStartupSource()

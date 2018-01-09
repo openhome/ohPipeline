@@ -112,6 +112,8 @@ const TUint ProviderConfigApp::kErrorCodeInvalidSelection = 803;
 const Brn ProviderConfigApp::kErrorDescInvalidSelection("Expected value selected from list of options");
 const TUint ProviderConfigApp::kErrorCodeValueTooLong = 804;
 const Brn ProviderConfigApp::kErrorDescValueTooLong("Value too long");
+const TUint ProviderConfigApp::kErrorCodeValueTooShort = 805;
+const Brn ProviderConfigApp::kErrorDescValueTooShort("Value too short");
 
 const Brn ProviderConfigApp::kRebootReason("FacDef");
 
@@ -341,6 +343,9 @@ void ProviderConfigApp::SetValue(IDvInvocation& aInvocation, const Brx& aKey, co
     }
     catch (ConfigValueTooLong&) {
         aInvocation.Error(kErrorCodeValueTooLong, kErrorDescValueTooLong);
+    }
+    catch (ConfigValueTooShort&) {
+        aInvocation.Error(kErrorCodeValueTooShort, kErrorDescValueTooShort);
     }
 
     aInvocation.StartResponse();

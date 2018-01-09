@@ -17,6 +17,7 @@ EXCEPTION(ConfigKeyExists);
 EXCEPTION(ConfigNotANumber);
 EXCEPTION(ConfigValueOutOfRange);
 EXCEPTION(ConfigInvalidSelection);
+EXCEPTION(ConfigValueTooShort);
 EXCEPTION(ConfigValueTooLong);
 
 namespace OpenHome {
@@ -401,23 +402,23 @@ public:
     typedef FunctorGeneric<KeyValuePair<const Brx&>&> FunctorConfigText;
     typedef KeyValuePair<const Brx&> KvpText;
 public:
-    ConfigText(IConfigInitialiser& aManager, const Brx& aKey,
+    ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength,
                TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired = false);
     ~ConfigText();
+    TUint MinLength() const;
     TUint MaxLength() const;
-    void Set(const Brx& aText); // THROWS ConfigValueTooLong
-private:
-    TBool IsValid(const Brx& aVal) const;
+    void Set(const Brx& aText); // THROWS ConfigValueTooShort, ConfigValueTooLong
 public: // from ConfigVal
     const Brx& Default() const override;
     TUint Subscribe(FunctorConfigText aFunctor) override;
     void Serialise(IWriter& aWriter) const override;
-    void Deserialise(const Brx& aString) override;   // THROWS ConfigValueTooLong
+    void Deserialise(const Brx& aString) override;   // THROWS ConfigValueTooShort, ConfigValueTooLong
 private: // from ConfigVal
     void Write(KvpText& aKvp) override;
 private:
     inline TBool operator==(const ConfigText& aText) const;
 private:
+    const TUint iMinLength;
     const Bwh iDefault;
     Bwh iText;
     mutable Mutex iMutex;

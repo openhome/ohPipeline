@@ -30,11 +30,13 @@ class ProviderConfigApp : public Net::DvProviderAvOpenhomeOrgConfigApp1
     static const TUint kErrorCodeValueOutOfRange;
     static const TUint kErrorCodeInvalidSelection;
     static const TUint kErrorCodeValueTooLong;
+    static const TUint kErrorCodeValueTooShort;
     static const Brn kErrorDescInvalidKey;
     static const Brn kErrorDescNotANumber;
     static const Brn kErrorDescValueOutOfRange;
     static const Brn kErrorDescInvalidSelection;
     static const Brn kErrorDescValueTooLong;
+    static const Brn kErrorDescValueTooShort;
     static const Brn kRebootReason;
 public:
     ProviderConfigApp(Net::DvDevice& aDevice,
