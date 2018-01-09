@@ -257,7 +257,7 @@ void ProtocolHttp::Initialise(MsgFactory& aMsgFactory, IPipelineElementDownstrea
 
 void ProtocolHttp::Interrupt(TBool aInterrupt)
 {
-    iLock.Wait();
+    AutoMutex _(iLock);
     if (iActive) {
         LOG(kMedia, "ProtocolHttp::Interrupt(%u)\n", aInterrupt);
         if (aInterrupt) {
@@ -266,7 +266,6 @@ void ProtocolHttp::Interrupt(TBool aInterrupt)
         }
         iSocket.Interrupt(aInterrupt);
     }
-    iLock.Signal();
 }
 
 ProtocolStreamResult ProtocolHttp::Stream(const Brx& aUri)
@@ -331,13 +330,18 @@ ProtocolStreamResult ProtocolHttp::Stream(const Brx& aUri)
     }
 
     iSupply->Flush();
-    iLock.Wait();
-    if ((iStopped || iSeek) && iNextFlushId != MsgFlush::kIdInvalid) {
-        iSupply->OutputFlush(iNextFlushId);
+    TUint nextFlushId = MsgFlush::kIdInvalid;
+    {
+        AutoMutex _(iLock);
+        if ((iStopped || iSeek) && iNextFlushId != MsgFlush::kIdInvalid) {
+            nextFlushId = iNextFlushId;
+        }
+        // clear iStreamId to prevent TrySeek or TryStop returning a valid flush id
+        iStreamId = IPipelineIdProvider::kStreamIdInvalid;
     }
-    // clear iStreamId to prevent TrySeek or TryStop returning a valid flush id
-    iStreamId = IPipelineIdProvider::kStreamIdInvalid;
-    iLock.Signal();
+    if (nextFlushId != MsgFlush::kIdInvalid) {
+        iSupply->OutputFlush(nextFlushId);
+    }
 
     return res;
 }
