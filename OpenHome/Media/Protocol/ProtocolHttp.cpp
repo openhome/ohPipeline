@@ -329,6 +329,7 @@ ProtocolStreamResult ProtocolHttp::Stream(const Brx& aUri)
         }
     }
 
+    Close();
     iSupply->Flush();
     TUint nextFlushId = MsgFlush::kIdInvalid;
     {
