@@ -278,6 +278,6 @@ void ProtocolScd::OutputStream()
         iStreamId = iIdProvider->NextStreamId();
     }
     iSupply->OutputPcmStream(Brx::Empty(), bytesTotal,
-                             iStreamFormat->Seekable(), iStreamFormat->Live(),
+                             false/*iStreamFormat->Seekable()*/, iStreamFormat->Live(),
                              broadcast, *this, iStreamId, pcmStream);
 }
