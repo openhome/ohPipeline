@@ -264,7 +264,6 @@ void ProtocolScd::OutputStream()
     }
 
     const TUint bytesPerSample =   (iStreamFormat->BitDepth() / 8)
-                                 * iStreamFormat->SampleRate()
                                  * iStreamFormat->NumChannels();
     const TUint64 bytesTotal = iStreamFormat->SamplesTotal() * bytesPerSample;
     PcmStreamInfo pcmStream;
