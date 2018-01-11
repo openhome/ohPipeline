@@ -79,6 +79,7 @@ private:
     WriterBwh iData;
     TBool iEnabled;
     TBool iModerationTimerStarted;
+    TBool iStatusUpdatePending;
 };
 
 } // namespace Av
@@ -122,6 +123,7 @@ Credential::Credential(Environment& aEnv, ICredentialConsumer* aConsumer, ICrede
     , iData(kGranularityData)
     , iEnabled(true)
     , iModerationTimerStarted(false)
+    , iStatusUpdatePending(false)
 {
     iModerationTimer = new Timer(aEnv, MakeFunctor(*this, &Credential::ModerationTimerCallback), "Credential");
     Bws<64> key(aConsumer->Id());
@@ -346,13 +348,18 @@ void Credential::ModerationTimerCallback()
     AutoMutex _(iLock);
     iModerationTimerStarted = false;
     ReportChangesLocked();
-    if (iEnabled) {
+    if (iEnabled && !iStatusUpdatePending) {
         iFifoCredentialsChanged.Write(this);
+        iStatusUpdatePending = true;
     }
 }
 
 void Credential::CheckStatus()
 {
+    {
+        AutoMutex _(iLock);
+        iStatusUpdatePending = false;
+    }
     iConsumer->UpdateStatus();
 }
 
