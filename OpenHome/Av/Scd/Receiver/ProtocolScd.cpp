@@ -78,11 +78,8 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
         iFormatReqd = true;
     }
 
-    for (; !iExit && !iStopped;) {
+    for (; !iExit && !iStopped && !iUnrecoverableError;) {
         try {
-            if (iUnrecoverableError) {
-                return EProtocolStreamErrorUnrecoverable;
-            }
             for (;;) {
                 Close();
                 if (Connect(iUri, 0)) { // slightly dodgy - relies on implementation ignoring iUri's scheme
@@ -134,7 +131,13 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
         }
         // clear iStreamId to prevent TrySeek or TryStop returning a valid flush id
         iStreamId = IPipelineIdProvider::kStreamIdInvalid;
-        return iStopped? EProtocolStreamStopped : EProtocolStreamSuccess;
+        if (iUnrecoverableError) {
+            return EProtocolStreamErrorUnrecoverable;
+        }
+        if (iStopped) {
+            return EProtocolStreamStopped;
+        }
+        return EProtocolStreamSuccess;
     }
 }
 
