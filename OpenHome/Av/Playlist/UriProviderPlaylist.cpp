@@ -198,7 +198,7 @@ void UriProviderPlaylist::MoveTo(const Brx& aCommand)
             Brn mode = parser.String("mode");
             Brn cmd = parser.String("command");
             if (mode == kCommandPlaylist) {
-                ProcessCommandPlaylist(aCommand);
+                ProcessCommandPlaylist(cmd);
             }
             else {
                 LOG_ERROR(kPipeline, "UriProviderPlaylist - unsupported command - %.*s\n", PBUF(aCommand));
