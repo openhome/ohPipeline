@@ -345,6 +345,7 @@ void DviOdp::Process(const Brx& aJsonRequest)
     Brn typeBuf;
     try {
         typeBuf.Set(iParserReq.String(Odp::kKeyType));
+        iCorrelationId.Set(iParserReq.StringOptional(Odp::kKeyCorrelationId));
     }
     catch (JsonKeyNotFound&) {
         LOG_ERROR(kOdp, "Odp: No type on request\n%.*s\n", PBUF(aJsonRequest));
@@ -363,6 +364,7 @@ void DviOdp::Process(const Brx& aJsonRequest)
         LOG_ERROR(kOdp, "Odp: Unknown type on request - %.*s\n", PBUF(typeBuf));
         THROW(OdpError);
     }
+    iCorrelationId.Set(Brx::Empty());
 }
 
 void DviOdp::LogParseErrorThrow(const TChar* aEx, const Brx& aJson)
@@ -383,7 +385,6 @@ void DviOdp::Action()
         THROW(OdpError);
     }
     Brn args = iParserReq.StringOptional(Odp::kKeyArguments);
-    iCorrelationId.Set(iParserReq.StringOptional(Odp::kKeyCorrelationId));
     try {
         iArgs.clear();
         auto parserArgs = JsonParserArray::Create(args);
@@ -426,7 +427,6 @@ void DviOdp::Action()
     catch (...) {
         ASSERTS(); // don't expect InvokeDirect to throw anything other than InvocationError
     }
-    iCorrelationId.Set(Brx::Empty());
     iSession.WriteEnd();
     iWriter = nullptr;
 }
@@ -468,6 +468,9 @@ void DviOdp::Subscribe()
         writerErr.WriteInt(Odp::kKeyCode, code);
         writerErr.WriteString(Odp::kKeyDescription, desc);
         writerErr.WriteEnd();
+        if (iCorrelationId.Bytes() > 0) {
+            writer.WriteString(Odp::kKeyCorrelationId, iCorrelationId);
+        }
         auto writerSid = writer.CreateObject(Odp::kKeySid);
         writerSid.WriteEnd();
         writer.WriteEnd();
@@ -497,6 +500,9 @@ void DviOdp::Subscribe()
     writerService.WriteEnd();
     auto writerError = writer.CreateObject(Odp::kKeyError);
     writerError.WriteEnd();
+    if (iCorrelationId.Bytes() > 0) {
+        writer.WriteString(Odp::kKeyCorrelationId, iCorrelationId);
+    }
     writer.WriteString(Odp::kKeySid, subscription->Sid());
     writer.WriteEnd();
     iResponseEnded = true;
@@ -525,6 +531,9 @@ void DviOdp::Unsubscribe()
     iResponseStarted = true;
     WriterJsonObject writer(*iWriter);
     writer.WriteString(Odp::kKeyType, Odp::kTypeUnsubscribeResponse);
+    if (iCorrelationId.Bytes() > 0) {
+        writer.WriteString(Odp::kKeyCorrelationId, iCorrelationId);
+    }
     writer.WriteEnd();
     iResponseEnded = true;
     iSession.WriteEnd();
@@ -721,6 +730,9 @@ void DviOdp::InvocationReportError(TUint aCode, const Brx& aDescription)
     writerErr.WriteInt(Odp::kKeyCode, (TInt)aCode);
     writerErr.WriteString(Odp::kKeyDescription, aDescription);
     writerErr.WriteEnd();
+    if (iCorrelationId.Bytes() > 0) {
+        writer.WriteString(Odp::kKeyCorrelationId, iCorrelationId);
+    }
     auto writerArgs = writer.CreateObject(Odp::kKeyArguments);
     writerArgs.WriteEnd();
     writer.WriteEnd();
