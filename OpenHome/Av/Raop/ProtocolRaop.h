@@ -325,7 +325,7 @@ template <TUint S> class Repairable : public IRepairableAllocatable
 {
 public:
     Repairable(IRaopRepairableDeallocator& aDeallocator)
-        : iDeallocator(aDeallocator), iFrame(0), iResend(0) {}
+        : iDeallocator(aDeallocator), iFrame(0), iResend(false) {}
 
 public: // from IRepairableAllocatable
     TUint Frame() const override { return iFrame; }
