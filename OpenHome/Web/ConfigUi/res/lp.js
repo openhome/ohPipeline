@@ -5,8 +5,10 @@ WebUi = function() {
 
     // Create a wrapper for XMLHttpRequest that will automatically include any
     // URI resource prefix in open() calls.
-    var HttpRequest = function()
+    var HttpRequest = function(aId, aType)
     {
+        this.iId = aId;
+        this.iType = aType;
         this.iRequest = null;
         this.iPrefix = HttpRequest.GetResourcePrefix();
         // XMLHttpRequest construction taken from
@@ -19,6 +21,23 @@ WebUi = function() {
         {// code for IE6, IE5
             this.iRequest = new ActiveXObject("Microsoft.XMLHTTP");
         }
+    }
+
+    HttpRequest.EType = {
+        eCreate     : "Initialising long polling",
+        eLongPoll   : "Long polling",
+        eTerminate  : "Terminating long polling",
+        eUpdate     : "Sending update",
+    };
+
+    HttpRequest.prototype.Id = function()
+    {
+        return this.iId;
+    }
+
+    HttpRequest.prototype.Type = function()
+    {
+        return this.iType;
     }
 
     HttpRequest.prototype.ReadyState = function()
@@ -66,6 +85,16 @@ WebUi = function() {
         this.iRequest.addEventListener(aEvent, aCallback, aCapture);
     }
 
+    HttpRequest.prototype.SetTimeout = function(aTimeoutMs)
+    {
+        this.iRequest.timeout = aTimeoutMs;
+    }
+
+    HttpRequest.prototype.Abort = function()
+    {
+        this.iRequest.abort();
+    }
+
     HttpRequest.GetResourcePrefix = function()
     {
         var url = document.URL;
@@ -78,75 +107,199 @@ WebUi = function() {
         }
     }
 
-    var CreateResponseCallback = function(aLongPoll, aRequest)
-    {
-        return function() {
-            aLongPoll.ProcessResponse(aRequest);
-        }
-    }
-
-    // When "this.SendCreate" is passed into a setTimeout call, in SendCreate()
-    // "this" ends up pointing to a Window object instead of a LongPoll object.
-    // Create this closure to pass into setTimeout to resolve the issue.
-    var CreateRetryFunction = function(aLongPoll)
-    {
-        return function() {
-           aLongPoll.SendCreate();
-        }
-    }
 
     var LongPoll = function(aCallbackStarted, aCallbackSuccess, aCallbackFailure)
     {
         this.kRetryTimeoutMs = 1000;
         this.kSessionIdStart = 0;
         this.kSessionIdInvalid = Number.MAX_SAFE_INTEGER;
+        this.kResponseTimeoutMs = 10000; // Long poll duration is 5s. Pick a time greater than that to avoid false-positive timeouts.
+
         this.iSessionId = this.kSessionIdStart;
+        this.iNextRequestId = 1;
+        this.iPendingRequestsLongPoll = [];
+        this.iPendingRequestsUpdate = [];
         this.iCallbackStarted = aCallbackStarted;
         this.iCallbackSuccess = aCallbackSuccess;
         this.iCallbackFailure = aCallbackFailure;
-        this.iPollTimeout = null;
-
-
-        this.EStates = {
-            eCreate : "initialising long polling",
-            eLongPoll: "performing long polling",
-            eTerminate: "terminating long polling",
-        };
     }
 
-    LongPoll.prototype.StartPollTimeout = function()
+    LongPoll.prototype.NewCreateRequest = function()
     {
-        console.log("StartPollTimeout");
-        this.iPollTimeout = setTimeout(CreateRetryFunction(this), 20000);
+        var request = new HttpRequest(this.iNextRequestId++, HttpRequest.EType.eCreate);
+        this.AddRequest(request);
+        return request;
     }
 
-    LongPoll.prototype.StopPollTimeout = function()
+    LongPoll.prototype.NewLongPollRequest = function()
     {
-        console.log("StopPollTimeout");
-        if (this.iPollTimeout != null)
-        {
-            clearTimeout(this.iPollTimeout);
+        var request = new HttpRequest(this.iNextRequestId++, HttpRequest.EType.eLongPoll);
+        this.AddRequest(request);
+        return request;
+    }
+
+    LongPoll.prototype.NewTerminateRequest = function()
+    {
+        var request = new HttpRequest(this.iNextRequestId++, HttpRequest.EType.eTerminate);
+        this.AddRequest(request); // Ensures all pending "long poll" calls are cancelled before this is sent. Especially important when trying to terminate a session, as don't want a pending long poll request to trigger another "lp" or a new "lpcreate" request (which could then override this "lpterminate" request).
+        return request;
+    }
+
+    LongPoll.prototype.NewUpdateRequest = function()
+    {
+        var request = new HttpRequest(this.iNextRequestId++, HttpRequest.EType.eUpdate);
+        this.AddRequest(request);
+        return request;
+    }
+
+    LongPoll.prototype.AddRequest = function(aRequest)
+    {
+        if (aRequest.Type() == HttpRequest.EType.eCreate
+                || aRequest.Type() == HttpRequest.EType.eLongPoll
+                || aRequest.Type() == HttpRequest.EType.eTerminate) {
+            console.log("LongPoll.AddRequest long poll request");
+            this.AddLongPollRequest(aRequest);
+        }
+        else if (aRequest.Type() == HttpRequest.EType.eUpdate) {
+            console.log("LongPoll.AddRequest update request");
+            this.AddUpdateRequest(aRequest);
         }
     }
 
-    LongPoll.prototype.RestartPollTimeout = function()
+    LongPoll.prototype.AddLongPollRequest = function(aRequest)
     {
-        this.StopPollTimeout();
-        this.StartPollTimeout();
+        // There should only ever be one "long polling" message (this covers
+        // "lpcreate", "lp" and "lpterminate") active at any time during a long
+        // polling session.
+        this.AbortAllLongPollRequests();
+        this.iPendingRequestsLongPoll.push(aRequest);
     }
 
-    LongPoll.CreateLongPollRequest = function(aLongPoll)
+    LongPoll.prototype.AddUpdateRequest = function(aRequest)
     {
-        var request = new HttpRequest();
-        // An alternative to observing all onreadystatechange callbacks and
-        // filtering would be to observe onerror and onload callbacks.
-        // Note: must not mix the two approaches, as onreadystatechange receives callbacks for all events.
-        request.SetOnReadyStateChange(CreateResponseCallback(aLongPoll, request));
-        return request;
+        this.iPendingRequestsUpdate.push(aRequest);
+    }
+
+    /*
+    LongPoll.prototype.RemoveRequest = function(aRequest)
+    {
+        var pos = this.iPendingRequests.findIndex(
+            function(aElement, aIndex, aArray) {
+                return aElement.Id() == aRequest.Id();
+            }
+        );
+
+        if (pos > -1) {
+            this.iPendingRequests.splice(pos, 1);
+        }
+    }
+    */
+
+    LongPoll.prototype.PendingLongPollRequestIndex = function(aRequest)
+    {
+        // Returns index of aRequest if it is in pending requests list; -1 otherwise.
+        return this.iPendingRequestsLongPoll.findIndex(
+            function(aElement, aIndex, aArray) {
+                return aElement.Id() == aRequest.Id();
+            }
+        );
+    }
+
+    LongPoll.prototype.PendingUpdateRequestIndex = function(aRequest)
+    {
+        // Returns index of aRequest if it is in pending requests list; -1 otherwise.
+        return this.iPendingRequestsUpdate.findIndex(
+            function(aElement, aIndex, aArray) {
+                return aElement.Id() == aRequest.Id();
+            }
+        );
+    }
+
+    LongPoll.prototype.AbortAllLongPollRequests = function()
+    {
+        console.log("LongPoll.AbortAllLongPollRequests iPendingRequestsLongPoll.length: %d", this.iPendingRequestsLongPoll.length);
+        while (this.iPendingRequestsLongPoll.length > 0) {
+            var req = this.iPendingRequestsLongPoll.shift();
+            req.Abort();
+        }
+    }
+
+    LongPoll.prototype.AbortAllUpdateRequests = function()
+    {
+        console.log("LongPoll.AbortAllUpdateRequests iPendingRequestsUpdate.length: %d", this.iPendingRequestsUpdate.length);
+        while (this.iPendingRequestsUpdate.length > 0) {
+            var req = this.iPendingRequestsUpdate.shift();
+            req.Abort();
+        }
+    }
+
+    LongPoll.prototype.AbortAllRequests = function()
+    {
+        this.AbortAllLongPollRequests();
+        this.AbortAllUpdateRequests();
+    }
+
+    LongPoll.prototype.ResponseSuccess = function(aRequest)
+    {
+        console.log("LongPoll.ResponseSuccess aRequest.Id(): %d", aRequest.Id());
+        var longPoll = this;
+        var longPollRequestIdx = this.PendingLongPollRequestIndex(aRequest);
+        var updateRequestIdx = this.PendingUpdateRequestIndex(aRequest);
+        if (longPollRequestIdx > -1) {
+            console.log("LongPoll.ResponseSuccess from pending long poll request: %s", aRequest.Type());
+            // Long poll request is in pending list. Act on it.
+            this.iPendingRequestsLongPoll.splice(longPollRequestIdx, 1);
+
+            if (aRequest.Type() == HttpRequest.EType.eCreate) {
+                console.log("LongPoll.ResponseSuccess received reponse to eCreate call. Sending eLongPoll");
+                setTimeout(function SendPollCallback() {longPoll.SendPoll();}, 1);
+            }
+            else if (aRequest.Type() == HttpRequest.EType.eLongPoll) {
+                console.log("LongPoll.ResponseSuccess received reponse to eLongPoll call. Sending eLongPoll");
+                setTimeout(function SendPollCallback() {longPoll.SendPoll();}, 1);
+            }
+            else {
+                // Nothing further to do for eTerminate types.
+            }
+        }
+        else if (updateRequestIdx > -1) {
+            console.log("LongPoll.ResponseSuccess from pending update request: %s", aRequest.Type());
+            // Update request is in pending list. Remove it.
+            // Nothing further to do.
+            this.iPendingRequestsUpdate.splice(updateRequestIdx, 1);
+        }
+        else {
+            console.log("LongPoll.ResponseSuccess from non-pending request: %s", aRequest.Type());
+        }
+    }
+
+    LongPoll.prototype.ResponseError = function(aRequest)
+    {
+        var longPoll = this;
+        if (this.PendingLongPollRequestIndex(aRequest) > -1
+                || this.PendingUpdateRequestIndex(aRequest) > -1) {
+            console.log("LongPoll.ResponseError from pending request: %s", aRequest.Type());
+            // Request is in pending list. Act on it.
+            //this.iPendingRequests.splice(pos, 1);
+            // If any request fails (including an update) want to restart long
+            // polling. Cancel all outstanding requests.
+            this.AbortAllRequests();
+
+            // Current message type doesn't actually matter. For any failure
+            // (including a failure to send an update), we're going to attempt
+            // to recreate the long polling session.
+            this.iSessionId = this.kSessionIdStart;
+            console.log("LongPoll.ResponseError sending new eCreate in %d ms", this.kRetryTimeoutMs);
+            setTimeout(function SendCreateCallback() {longPoll.SendCreate();}, this.kRetryTimeoutMs);
+        }
+        else {
+            console.log("LongPoll.ResponseError from non-pending request: %s", aRequest.Type());
+        }
     }
 
     LongPoll.prototype.Terminate = function()
     {
+        this.AbortAllRequests();
         if (this.iSessionId !== this.kSessionIdStart
             && this.iSessionId !== this.kSessionIdInvalid) {
             this.SendTerminate();
@@ -160,129 +313,174 @@ WebUi = function() {
         return sessionId;
     }
 
-    LongPoll.prototype.SendSessionId = function(aRequest)
-    {
-        var sessionId = this.ConstructSessionId();
-        console.log("sessionId: "+sessionId);
-        aRequest.SetRequestHeader("Content-type", "text/plain");
-        //aRequest.SetRequestHeader("Connection", "close");
-        aRequest.Send(sessionId+"\r\n");
-    }
-
     LongPoll.prototype.SendCreate = function()
     {
         console.log("LongPoll.SendCreate \n");
-        this.StopPollTimeout();
-        var request = new HttpRequest();
+        var longPoll = this;
+        var request = longPoll.NewCreateRequest();
 
-        var Response = function(aLongPoll)
-        {
-            if (request.ReadyState() == 4)
-            {
-                if (request.Status() == 200)
-                {
-                    var lines = request.ResponseText().split("\r\n");
-                    var session = lines[1].split(":");
-                    if (session.length == 2)
-                    {
-                        var sessionVal = session[1].split(" ");
-                        if ( (session[0] == "session-id") && (sessionVal.length == 2) )
-                        {
-                            aLongPoll.iSessionId = parseInt(sessionVal[1].trim());
-                            aLongPoll.iCallbackStarted();
-                            aLongPoll.SendPoll();
-                            return;
+        request.SetOnReadyStateChange(
+            function SendCreateCallback() {
+                console.log("readyState: %d, status: %d", request.ReadyState(), request.Status());
+                if (request.ReadyState() == 4) {
+                    if (request.Status() == 200) {
+                        console.log("LongPoll.SendCreate success.");
+                        var lines = request.ResponseText().split("\r\n");
+                        var session = lines[1].split(":");
+                        if (session.length == 2) {
+                            var sessionVal = session[1].split(" ");
+                            if ((session[0] == "session-id") && (sessionVal.length == 2)) {
+                                longPoll.iSessionId = parseInt(sessionVal[1].trim());
+                                longPoll.iCallbackStarted();
+                                longPoll.ResponseSuccess(request);
+                                return;
+                            }
                         }
                     }
+                    else {
+                        // Covers status of 0, i.e., network issues, including request timeout.
+                        longPoll.ResponseError(request);
+                    }
                 }
-                else
-                {
-                    // Covers status of 0, i.e., network issues.
-                    CreateRetry(aLongPoll);
+                else if (request.ReadyState() == 0) {
+                    // Unable to send request for some reason.
+                    longPoll.ResponseError(request);
                 }
             }
-            else if (request.ReadyState() == 0)
-            {
-                // Unable to send request for some reason.
-                CreateRetry(aLongPoll);
-            }
-        }
+        );
 
-
-        var CreateRetry = function(aLongPoll)
-        {
-            console.log("LongPoll.CreateFailure");
-            // this is actually a "pre-timeout" (ie delay before calling CreateRetryFunction)
-            setTimeout(CreateRetryFunction(aLongPoll), aLongPoll.kRetryTimeoutMs);
-        }
-
-        var CreateResponseCallback = function(aLongPoll)
-        {
-            return function() {
-                Response(aLongPoll);
-            }
-        }
-
-        request.SetOnReadyStateChange(CreateResponseCallback(this));
         request.Open("POST", "lpcreate", true);
+        request.SetTimeout(this.kResponseTimeoutMs);
         request.SetRequestHeader("Content-type", "text/plain");
         request.Send();
     }
 
-    LongPoll.prototype.SendTerminate = function(aAsynchronous)
+    LongPoll.prototype.SendTerminate = function()
     {
         // This should only be called when a browser tab closes.
-        // Therefore, can't rely on asynchronous requests, so use a synchronous request.
-        var request = LongPoll.CreateLongPollRequest(this);
-        request.Open("POST", "lpterminate", aAsynchronous); // "false" makes request synchronous
-        this.SendSessionId(request);
+        var longPoll = this;
+        var request = longPoll.NewTerminateRequest();
+
+        request.SetOnReadyStateChange(
+            function SendTerminateCallback() {
+                if (request.ReadyState() == 4) {
+                    if (request.Status() == 200) {
+                        /*if (longPoll.iSessionId == longPoll.kSessionIdInvalid) {
+                            console.log("LongPoll.SendTerminate.SendTerminateCallback received response for invalid session: %d.", longPoll.iSessionId);
+                            longPoll.ResponseError(request);
+                            return;
+                        }
+                        */
+                        longPoll.ResponseSuccess(request);
+                    }
+                    else {
+                        // Covers status of 0, i.e., network issues.
+                        longPoll.ResponseError(request);
+                    }
+                }
+                else if (request.ReadyState() == 0) {
+                    // Unable to send request for some reason.
+                    longPoll.ResponseError(request);
+                }
+            }
+        );
+
+        request.Open("POST", "lpterminate", true);
+        request.SetTimeout(this.kResponseTimeoutMs);
+        var sessionId = this.ConstructSessionId();
+        request.SetRequestHeader("Content-type", "text/plain");
+        request.Send(sessionId+"\r\n");
     }
 
-    LongPoll.prototype.SendPoll = function()
-    {
+    LongPoll.prototype.SendPoll = function() {
         console.log("LongPoll.SendPoll\n");
-        this.RestartPollTimeout();
-        var request = LongPoll.CreateLongPollRequest(this);
+        var longPoll = this;
+        var request = longPoll.NewLongPollRequest();
+
+        request.SetOnReadyStateChange(
+            function LongPollCallback() {
+                console.log('LongPoll.SendPoll.LongPollCallback ReadyState: %d, Status: %d', request.ReadyState(), request.Status());
+                if (request.ReadyState() == 4) {
+                    if (request.Status() == 200) {
+                        if (longPoll.iSessionId == longPoll.kSessionIdInvalid) {
+                            console.log("LongPoll.SendPoll.LongPollCallback received response for invalid session: %d.", longPoll.iSessionId);
+                            longPoll.ResponseError(request);
+                            return;
+                        }
+
+                        var lines = this.responseText.split("\r\n");
+                        //var request = lines[0];
+                        console.log("LongPoll.SendPoll.LongPollCallback responseText: " + this.responseText);
+
+                        // Split string after request line, as the response (i.e., any JSON) may contain newlines.
+                        var json = this.responseText.substring(lines[0].length+2);    // +2 to account for stripped \r\n
+                        console.log('LongPoll.SendPoll.Response json:\n' + json);
+                        try {
+                            longPoll.ParseResponse(json);
+                            longPoll.ResponseSuccess(request);
+                            return;
+                        }
+                        catch (err) {
+                            console.log("LongPoll.prototype.SendPoll.Response " + err);
+                            longPoll.ResponseError(request);
+                            // FIXME - as web page is no longer usable at this point (as long polls have been terminated), replace with a custom error page (that encourages user to reload, and/or also trigger a probe request that will attempt to reload the page if the user doesn't manually reload)?
+                        }
+                    }
+                    else {
+                        // Covers status of 0, i.e., network issues.
+                        longPoll.ResponseError(request);
+                    }
+                }
+                else if (this.readyState == 0) {
+                    // Unable to send request for some reason.
+                    longPoll.ResponseError(request);
+                }
+            }
+        );
+
         request.Open("POST", "lp", true);
-        this.SendSessionId(request);
+        request.SetTimeout(this.kResponseTimeoutMs);
+        var sessionId = this.ConstructSessionId();
+        console.log("sessionId: %s", sessionId);
+        request.SetRequestHeader("Content-type", "text/plain");
+        request.Send(sessionId+"\r\n");
     }
 
     LongPoll.prototype.SendUpdate = function(aString, aCallbackResponse, aCallbackError)
     {
         console.log("LongPoll.SendUpdate " + aString);
-        var request = new HttpRequest();
-        var sessionId = this.ConstructSessionId();
+        var longPoll = this;
+        var request = longPoll.NewUpdateRequest();
 
-        var Response = function(aLongPoll) {
-            if (aLongPoll.iSessionId == aLongPoll.kSessionIdInvalid) {
-                console.log("Invalid session ID (response arrived after session terminated). Notifying upper layer of success.");
-                aCallbackResponse(aString, "");
-                return;
-            }
-            if (request.ReadyState() == 4) {
-                if (request.Status() == 200) {
-                    aCallbackResponse(aString, request.ResponseText());
+        request.SetOnReadyStateChange(
+            function SendUpdateCallback() {
+                if (request.ReadyState() == 4) {
+                    if (request.Status() == 200) {
+                        if (longPoll.iSessionId == longPoll.kSessionIdInvalid) {
+                            console.log("LongPoll.SendUpdate.SendUpdateCallback received response for invalid session: %d.", longPoll.iSessionId);
+                            longPoll.ResponseError(request);
+                            return;
+                        }
+                        aCallbackResponse(aString, request.ResponseText());
+                        longPoll.ResponseSuccess(request);
+                    }
+                    else {
+                        // Covers status of 0, i.e., network issues.
+                        aCallbackError(aString, request.ResponseText(), request.Status());
+                        longPoll.ResponseError(request);
+                    }
                 }
-                else {
-                    // Covers status of 0, i.e., network issues.
+                else if (request.ReadyState() == 0) {
+                    // Unable to send request for some reason.
                     aCallbackError(aString, request.ResponseText(), request.Status());
+                    longPoll.ResponseError(request);
                 }
             }
-            else if (request.ReadyState() == 0) {
-                // Unable to send request for some reason.
-                aCallbackError(aString, request.ResponseText(), request.Status());
-            }
-        }
+        );
 
-        var CreateResponseCallback = function(aLongPoll)
-        {
-            return function() {
-                Response(aLongPoll);
-            }
-        }
-
-        request.SetOnReadyStateChange(CreateResponseCallback(this));
         request.Open("POST", "update", true);
+        request.SetTimeout(this.kResponseTimeoutMs);
+        var sessionId = this.ConstructSessionId();
         request.SetRequestHeader("Content-type", "text/plain");
         //request.setRequestHeader("Connection", "close");
         request.Send(sessionId+"\r\n"+aString+"\r\n");
@@ -290,19 +488,16 @@ WebUi = function() {
 
     LongPoll.prototype.Start = function()
     {
+        this.iSessionId = this.kSessionIdStart;
         this.SendCreate();
     }
 
-    LongPoll.prototype.Restart = function(aWaitMs)
+    LongPoll.prototype.Restart = function()
     {
         console.log("LongPoll.Restart this.iSessionId: " + this.iSessionId + " this.kSessionIdInvalid " + this.kSessionIdInvalid);
-        if (this.iSessionId !== this.kSessionIdInvalid) {
-            var asynchronous = true;
-            this.iSessionId = this.kSessionIdStart;
-        }
-
+        this.AbortAllRequests();
         // Delay before trying to reconnect.
-        setTimeout(CreateRetryFunction(this), aWaitMs);
+        setTimeout(this.Start, this.kRetryTimeoutMs);
     }
 
     LongPoll.prototype.ParseResponse = function(aResponse)
@@ -324,75 +519,6 @@ WebUi = function() {
             }
 
         }
-    }
-
-    LongPoll.prototype.ProcessResponse = function(aRequest)
-    {
-        // A Terminate() call could be made in the period between a longpoll
-        // being sent and its response being received.
-        // In that case, the terminate call will have reset the state to
-        // eCreate. If long polling fails, it will also fall back to being in
-        // the eCreate state until a new session is established.
-
-        if (this.iSessionId == this.kSessionIdInvalid) {
-            // Not an active session, so don't process this response or call any handlers.
-            return;
-        }
-
-        if (aRequest != null) {
-            if (aRequest.ReadyState() == 4) {
-                if (aRequest.Status() != 200) {
-                    // Response was not OK.
-                    this.ResponseFailure(aRequest); // Handles retry.
-                    return;
-                }
-
-                var lines = aRequest.ResponseText().split("\r\n");
-                var request = lines[0];
-
-                if (request == 'lp') {
-                    // FIXME - check session ID?
-                    // Split string after request line, as the response (i.e., any JSON) may contain newlines.
-                    var json = aRequest.ResponseText().substring(lines[0].length+2);    // +2 to account for stripped \r\n
-                    console.log('LongPoll.prototype.ProcessResponse json:\n' + json);
-                    try {
-                        this.ParseResponse(json);
-                        console.log("LongPoll.ProcessResponse sending next lp request\n");
-                        this.SendPoll();
-                        return;
-                    }
-                    catch (err) {
-                        console.log("LongPoll.ProcessResponse " + err + ". Trying to re-establish session");
-                        // FIXME - as web page is no longer usable at this point (as long polls have been terminated),
-                        // replace with a custom error page (that encourages user to reload, and/or also trigger a probe // request that will attempt to reload the page if the user doesn't manually reload)?
-                    }
-                }
-                else if (request == 'lpterminate') {
-                    // Session has been ended. Don't attempt to send anything futher.
-                    return;
-                }
-                // Everything falls through to here if invalid response.
-                //setTimeout(CreateRetryFunction(this), this.kRetryTimeoutMs);
-            }
-            else if (aRequest.ReadyState() === 0) {
-                // Error.
-                this.ResponseFailure(aRequest); // Handles retry.
-            }
-            else {
-                // AJAX request readyState iterates from 1..4 as it is processed.
-                // If state is not yet 4, it is not ready to be handled here.
-            }
-        }
-        else {
-            //setTimeout(CreateRetryFunction(this), this.kRetryTimeoutMs);
-        }
-    }
-
-    LongPoll.prototype.ResponseFailure = function()
-    {
-        this.iCallbackFailure();
-        console.log("LongPoll.ResponseFailure");
-        setTimeout(CreateRetryFunction(this), this.kRetryTimeoutMs);
     }
 
     return {
@@ -447,7 +573,7 @@ WebUi = function() {
             if (gLongPoll == null) {
                 alert("Error: WebUi.RestartLongPolling(): StartLongPolling() must have been called prior to RestartLongPolling()");
             }
-            gLongPoll.Restart(5000);
+            gLongPoll.Restart();
         },
 
         /**
