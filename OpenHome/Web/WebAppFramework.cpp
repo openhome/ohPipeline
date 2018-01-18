@@ -108,7 +108,7 @@ void FrameworkTabHandler::LongPoll(IWriter& aWriter)
                 // appropriate action.
                 msg->Destroy();
                 iSemWrite.Signal();
-                if(cancelTimer) {
+                if (cancelTimer) {
                     iTimer.Cancel();
                 }
                 throw;
@@ -126,12 +126,10 @@ void FrameworkTabHandler::LongPoll(IWriter& aWriter)
                 slotsZero = true;
             }
         }
-        if(cancelTimer)
-        {
+        if (cancelTimer) {
             iTimer.Cancel();
         }
-        if(slotsZero)
-        {
+        if (slotsZero) {
             return;
         }
     }
@@ -951,6 +949,135 @@ void WebAppFramework::CurrentAdapterChanged()
 }
 
 
+// WriterHttpResponseContentLengthUnknown
+
+WriterHttpResponseContentLengthUnknown::WriterHttpResponseContentLengthUnknown(IWriter& aWriter)
+    : iWriter(aWriter)
+    , iWriterResponse(iWriter)
+    , iWriterChunked(iWriter)
+{
+    // Default to HTTP/1.1, so set up for chunked output.
+    iWriterChunked.SetChunked(true);
+}
+
+void WriterHttpResponseContentLengthUnknown::WriteHeader(Http::EVersion aVersion, HttpStatus aStatus, const Brx& aContentType)
+{
+    /*
+     * In HTTP/1.0, if content length is not known, it appears to be valid to merely omit the content-length header in a response, and use the fact that the connection must be closed at the end of the response to identify end-of-response.
+     *
+     * In HTTP/1.1, chunking must be used if content-length is not known in advance.
+     */
+    ASSERT(aVersion == Http::eHttp10 || aVersion == Http::eHttp11);
+
+    iWriterResponse.WriteStatus(aStatus, aVersion);
+
+    if (aContentType.Bytes() > 0) {
+        //iWriterResponse.WriteHeader(Http::kHeaderContentType, aContentType);
+        IWriterAscii& writer = iWriterResponse.WriteHeaderField(Http::kHeaderContentType);
+        writer.Write(aContentType);
+        writer.WriteFlush();
+    }
+
+    if (aVersion == Http::eHttp11) {
+        iWriterResponse.WriteHeader(Http::kHeaderTransferEncoding, Http::kTransferEncodingChunked);
+        iWriterChunked.SetChunked(true);
+    }
+    else {
+        iWriterChunked.SetChunked(false);
+    }
+
+    // Always going to close connection, regardless of HTTP/1.0 or HTTP/1.1.
+    iWriterResponse.WriteHeader(Http::kHeaderConnection, Http::kConnectionClose);
+    iWriterResponse.WriteFlush();
+}
+
+void WriterHttpResponseContentLengthUnknown::Write(TByte aValue)
+{
+    iWriterChunked.Write(aValue);
+}
+
+void WriterHttpResponseContentLengthUnknown::Write(const Brx& aBuffer)
+{
+    iWriterChunked.Write(aBuffer);
+}
+
+void WriterHttpResponseContentLengthUnknown::WriteFlush()
+{
+    iWriterChunked.WriteFlush();
+}
+
+
+// WriterLongPollResponse
+
+WriterLongPollResponse::WriterLongPollResponse(WriterHttpResponseContentLengthUnknown& aWriter)
+    : iWriter(aWriter)
+{
+}
+
+void WriterLongPollResponse::WriteHeader(Http::EVersion aVersion)
+{
+    const Brn contentType("text/plain; charset=\"utf-8\"");
+    iWriter.WriteHeader(aVersion, HttpStatus::kOk, contentType);
+}
+
+void WriterLongPollResponse::Write(TByte aValue)
+{
+    iWriter.Write(aValue);
+}
+
+void WriterLongPollResponse::Write(const Brx& aBuffer)
+{
+    iWriter.Write(aBuffer);
+}
+
+void WriterLongPollResponse::WriteFlush()
+{
+    iWriter.WriteFlush();
+}
+
+
+// WriterLongPollDelayed
+
+WriterLongPollDelayed::WriterLongPollDelayed(WriterLongPollResponse& aWriter, Http::EVersion aVersion)
+    : iWriter(aWriter)
+    , iVersion(aVersion)
+    , iStarted(false)
+{
+}
+
+void WriterLongPollDelayed::Write(TByte aValue)
+{
+    WriteHeaderIfNotWritten();
+    iWriter.Write(aValue);
+}
+
+void WriterLongPollDelayed::Write(const Brx& aBuffer)
+{
+    WriteHeaderIfNotWritten();
+    iWriter.Write(aBuffer);
+}
+
+void WriterLongPollDelayed::WriteFlush()
+{
+    WriteHeaderIfNotWritten();
+    iWriter.WriteFlush();
+}
+
+void WriterLongPollDelayed::WriteHeader()
+{
+    iWriter.WriteHeader(iVersion);
+    iWriter.Write(Brn("lp\r\n"));
+}
+
+void WriterLongPollDelayed::WriteHeaderIfNotWritten()
+{
+    if (!iStarted) {
+        iStarted = true;
+        WriteHeader();
+    }
+}
+
+
 // HttpSession
 
 HttpSession::HttpSession(Environment& aEnv, IWebAppManager& aAppManager, ITabManager& aTabManager, IResourceManager& aResourceManager)
@@ -969,7 +1096,8 @@ HttpSession::HttpSession(Environment& aEnv, IWebAppManager& aAppManager, ITabMan
     iReaderChunked = new ReaderHttpChunked(*iReaderUntilPreChunker);
     iReaderUntil = new ReaderUntilS<kMaxRequestBytes>(*iReaderChunked);
     iWriterBuffer = new Sws<kMaxResponseBytes>(*this);
-    iWriterResponse = new WriterHttpResponse(*iWriterBuffer);
+    iWriterResponse = new WriterHttpResponseContentLengthUnknown(*iWriterBuffer);
+    iWriterResponseLongPoll = new WriterLongPollResponse(*iWriterResponse);
 
     iReaderRequest->AddMethod(Http::kMethodGet);
     iReaderRequest->AddMethod(Http::kMethodPost);
@@ -983,6 +1111,7 @@ HttpSession::HttpSession(Environment& aEnv, IWebAppManager& aAppManager, ITabMan
 
 HttpSession::~HttpSession()
 {
+    delete iWriterResponseLongPoll;
     delete iWriterResponse;
     delete iWriterBuffer;
     delete iReaderUntil;
@@ -1003,6 +1132,9 @@ void HttpSession::Run()
     iErrorStatus = &HttpStatus::kOk;
     iReaderRequest->Flush();
     iResourceWriterHeadersOnly = false;
+
+    Http::EVersion version = Http::eHttp11; // Default to HTTP/1.1.
+
     // check headers
     try {
         try {
@@ -1011,6 +1143,25 @@ void HttpSession::Run()
         catch (HttpError&) {
             Error(HttpStatus::kBadRequest);
         }
+
+        version = iReaderRequest->Version();
+        if (version != Http::eHttp10 && version != Http::eHttp11) {
+            Error(HttpStatus::kHttpVersionNotSupported);
+        }
+
+        /*
+         * See:
+         *
+         * https://tools.ietf.org/html/rfc7230#section-5.4
+         *
+         * "A client MUST send a Host header field in all HTTP/1.1 request messages...A server MUST respond with a 400 (Bad Request) status code to any HTTP/1.1 request message that lacks a Host header field..."
+         */
+        if (version == Http::eHttp11) {
+            if (!iHeaderHost.Received()) {
+                Error(HttpStatus::kBadRequest);
+            }
+        }
+
         if (iReaderRequest->MethodNotAllowed()) {
             Error(HttpStatus::kMethodNotAllowed);
         }
@@ -1075,9 +1226,7 @@ void HttpSession::Run()
             if (iErrorStatus == &HttpStatus::kOk) {
                 iErrorStatus = &HttpStatus::kNotFound;
             }
-            iWriterResponse->WriteStatus(*iErrorStatus, Http::eHttp11);
-            Http::WriteHeaderConnectionClose(*iWriterResponse);
-            iWriterResponse->WriteFlush();
+            iWriterResponse->WriteHeader(version, *iErrorStatus, Brx::Empty());
             // FIXME - serve up some kind of error page in case browser does not display its own?
         }
         else if (!iResponseEnded) {
@@ -1095,13 +1244,6 @@ void HttpSession::Error(const HttpStatus& aStatus)
 
 void HttpSession::Get()
 {
-    auto reqVersion = iReaderRequest->Version();
-    if (reqVersion == Http::eHttp11) {
-        if (!iHeaderHost.Received()) {
-            Error(HttpStatus::kBadRequest);
-        }
-    }
-
     // Try access requested resource.
     const Brx& uri = iReaderRequest->Uri();
     IResourceHandler* resourceHandler = iResourceManager.CreateResourceHandler(uri);    // throws ResourceInvalid
@@ -1112,20 +1254,11 @@ void HttpSession::Get()
 
         // Write response headers.
         iResponseStarted = true;
-        iWriterResponse->WriteStatus(HttpStatus::kOk, reqVersion);
-        IWriterAscii& writer = iWriterResponse->WriteHeaderField(Http::kHeaderContentType);
-        writer.Write(mimeType);
-        //writer.Write(Brn("; charset=\"utf-8\""));
-        writer.WriteFlush();
-        iWriterResponse->WriteHeader(Http::kHeaderConnection, Http::kConnectionClose);
-        const TUint len = resourceHandler->Bytes();
-        ASSERT(len > 0);    // Resource handler reporting incorrect byte count or corrupt resource.
-        Http::WriteHeaderContentLength(*iWriterResponse, len);
-        iWriterResponse->WriteFlush();
+        iWriterResponse->WriteHeader(iReaderRequest->Version(), HttpStatus::kOk, mimeType);
 
         // Write content.
-        resourceHandler->Write(*iWriterBuffer);
-        iWriterBuffer->WriteFlush(); // FIXME - move into iResourceWriter.Write()?
+        resourceHandler->Write(*iWriterResponse);
+        iWriterResponse->WriteFlush(); // FIXME - move into iResourceWriter.Write()?
         resourceHandler->Destroy();
         iResponseEnded = true;
     }
@@ -1138,17 +1271,12 @@ void HttpSession::Get()
 
 void HttpSession::Post()
 {
-    if (iReaderRequest->Version() == Http::eHttp11) {
-        if (!iHeaderHost.Received()) {
-            Error(HttpStatus::kBadRequest);
-        }
-    }
-
     const Brx& uri = iReaderRequest->Uri();
     Parser uriParser(uri);
     uriParser.Next('/');    // skip leading '/'
     Brn uriPrefix = uriParser.Next('/');
     Brn uriTail = uriParser.Next('?'); // Read up to query string (if any).
+    const auto version = iReaderRequest->Version();
 
     // Try retrieve IWebApp using assumed prefix, in case it was actually the
     // URI tail and there is no prefix as the assumed app is the default app.
@@ -1168,14 +1296,14 @@ void HttpSession::Post()
             IWebApp& app = iAppManager.GetApp(uriPrefix);
             TUint id = iTabManager.CreateTab(app, iHeaderAcceptLanguage.LanguageList());
             iResponseStarted = true;
-            WriteLongPollHeaders();
+            iWriterResponseLongPoll->WriteHeader(version);
             Bws<sizeof(id)> idBuf;
             Ascii::AppendDec(idBuf, id);
-            iWriterBuffer->Write(Brn("lpcreate\r\n"));
-            iWriterBuffer->Write(Brn("session-id: "));
-            iWriterBuffer->Write(idBuf);
-            iWriterBuffer->Write(Brn("\r\n"));
-            iWriterBuffer->WriteFlush();
+            iWriterResponseLongPoll->Write(Brn("lpcreate\r\n"));
+            iWriterResponseLongPoll->Write(Brn("session-id: "));
+            iWriterResponseLongPoll->Write(idBuf);
+            iWriterResponseLongPoll->Write(Brn("\r\n"));
+            iWriterResponseLongPoll->WriteFlush();
             iResponseEnded = true;
         }
         catch (InvalidAppPrefix&) {
@@ -1220,10 +1348,16 @@ void HttpSession::Post()
             //Log::Print("lp session-id: %u\n", sessionId);
             try {
                 iResponseStarted = true;
-                WriteLongPollHeaders();
-                iWriterBuffer->Write(Brn("lp\r\n"));
-                iTabManager.LongPoll(sessionId, *iWriterBuffer);    // May write no data and can throw WriterError.
-                iWriterBuffer->WriteFlush();
+
+                // Want to give 200 response iff tab is valid. Use special LongPollResponseWriter helper for that purpose.
+                // If InvalidTabId is thrown (which should be done before any attempt to start writing data), WriterLongPollDelayed will not write any 200 response, and error handling code here can provide correct response code.
+
+                // Long-polling holds connection open for 5s before returning. When using (HTTP/1.1) chunked encoding, if HTTP header is written immediately, and (message body and) last-chunk identifier is written after those 5, there is no problem. When using (HTTP/1.0) response with no content-length (because we do not know content-length in advance) and HTTP header is written immediately, many clients appear to close connection shortly after that, instead of waiting the 5s until this (returns an optional message body and) closes the socket. As the 5s delay is intended to be a way of rate-limiting polling calls, that is violated, and client will send next request immediately, resulting in what is essentially a denial-of-service attack.
+                // So, use WriterLongPollDelayed to delay writing of HTTP header until there is a message body to send, or 5s timeout is reached.
+                WriterLongPollDelayed writer(*iWriterResponseLongPoll, version);
+                iTabManager.LongPoll(sessionId, writer);    // May write no data and can throw WriterError.
+                // Tab was valid. Call LongPollResponseWriter::WriteFlush() to ensure data is output (and that headers are written!).
+                writer.WriteFlush();
                 iResponseEnded = true;
             }
             catch (InvalidTabId&) {
@@ -1270,8 +1404,8 @@ void HttpSession::Post()
             try {
                 iTabManager.Destroy(sessionId);
                 iResponseStarted = true;
-                WriteLongPollHeaders();
-                iWriterBuffer->WriteFlush();
+                iWriterResponseLongPoll->WriteHeader(version);
+                iWriterResponseLongPoll->WriteFlush();
                 iResponseEnded = true;
             }
             catch (InvalidTabId&) {
@@ -1318,13 +1452,8 @@ void HttpSession::Post()
             try {
                 iTabManager.Receive(sessionId, update);
                 iResponseStarted = true;
-                iWriterResponse->WriteStatus(HttpStatus::kOk, Http::eHttp11);
-                //IWriterAscii& writer = iWriterResponse->WriteHeaderField(Http::kHeaderContentType);
-                // FIXME - need to provide content-type if adding this header
-                //writer.WriteFlush();
-                iWriterResponse->WriteHeader(Http::kHeaderConnection, Http::kConnectionClose);
+                iWriterResponse->WriteHeader(version, HttpStatus::kOk, Brx::Empty());
                 iWriterResponse->WriteFlush();
-                iWriterBuffer->WriteFlush();
                 iResponseEnded = true;
             }
             catch (InvalidTabId&) {
@@ -1339,17 +1468,6 @@ void HttpSession::Post()
     else {
         Error(HttpStatus::kNotFound);
     }
-}
-
-void HttpSession::WriteLongPollHeaders()
-{
-    iWriterResponse->WriteStatus(HttpStatus::kOk, Http::eHttp11);
-    IWriterAscii& writer = iWriterResponse->WriteHeaderField(Http::kHeaderContentType);
-    writer.Write(Brn("text/plain"));
-    writer.Write(Brn("; charset=\"utf-8\""));
-    writer.WriteFlush();
-    iWriterResponse->WriteHeader(Http::kHeaderConnection, Http::kConnectionClose);
-    iWriterResponse->WriteFlush();
 }
 
 

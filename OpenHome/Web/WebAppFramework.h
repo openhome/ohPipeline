@@ -445,6 +445,77 @@ private:
     mutable Mutex iMutex;
 };
 
+/*
+ * Class used for writing HTTP/1.0 and HTTP/1.1 responses where content length is unknown in advance.
+ *
+ * For HTTP/1.0, omits content-length header and streams data out, closing connection at end of transmission.
+ * For HTTP/1.1, uses chunked transfer encoding.
+ *
+ * Usage:
+ * - Call WriteHttpHeaders() to output HTTP response headers.
+ * - Call Write() methods to write message body (if any).
+ * - Call WriteFlush() when complete.
+ *
+ * As long as the sequence above is followed, a single instance of this class can be re-used to write any number of responses.
+ */
+class WriterHttpResponseContentLengthUnknown : public IWriter
+{
+public:
+    WriterHttpResponseContentLengthUnknown(IWriter& aWriter);
+    void WriteHeader(Http::EVersion aVersion, HttpStatus aStatus, const Brx& aContentType);
+public: // from IWriter
+    void Write(TByte aValue) override;
+    void Write(const Brx& aBuffer) override;
+    void WriteFlush() override;
+private:
+    IWriter& iWriter;
+    WriterHttpResponse iWriterResponse;
+    WriterHttpChunked iWriterChunked;
+};
+
+class WriterLongPollResponse : public IWriter
+{
+public:
+    WriterLongPollResponse(WriterHttpResponseContentLengthUnknown& aWriter);
+    void WriteHeader(Http::EVersion aVersion);
+public: // from IWriter
+    void Write(TByte aValue) override;
+    void Write(const Brx& aBuffer) override;
+    void WriteFlush() override;
+private:
+    WriterHttpResponseContentLengthUnknown& iWriter;
+};
+
+/*
+ * The LongPoll() calls on FrameworkTabs take an IWriter, so that they can write out any pending updates.
+ *
+ * However, the LongPoll() method (and other methods) don't know about the format of headers for response messages, so these must be written elsewhere before the LongPoll() method writes out any pending updates.
+ *
+ * Additionally, it is not known if the desired tab to be LongPoll()ed actually exists until the call is made (at which point an exception is thrown).
+ *
+ * To allow calling of the LongPoll() method, passing in an IWriter, and only writing success headers if the tab exists, this class will write the headers on the first call to any of the methods from the IWriter interface. That is the "delayed" part of this class.
+ *
+ * Long-polling holds connection open for 5s before returning. When using (HTTP/1.1) chunked encoding, if HTTP header is written immediately, and (message body and) last-chunk identifier is written after those 5, there is no problem. When using (HTTP/1.0) response with no content-length (because we do not know content-length in advance) and HTTP header is written immediately, many clients appear to close connection shortly after that, instead of waiting the 5s until this (returns an optional message body and) closes the socket. As the 5s delay is intended to be a way of rate-limiting polling calls, that is violated, and client will send next request immediately, resulting in what is essentially a denial-of-service attack.
+ *
+ * Delaying writing of the headers until (optional update data is ready or) the 5s timeout has been reached appears to be a workaround for the above scenario.
+ */
+class WriterLongPollDelayed : public IWriter
+{
+public:
+    WriterLongPollDelayed(WriterLongPollResponse& aWriter, Http::EVersion aVersion);
+public: // from IWriter
+    void Write(TByte aValue) override;
+    void Write(const Brx& aBuffer) override;
+    void WriteFlush() override;
+private:
+    void WriteHeader();
+    void WriteHeaderIfNotWritten();
+private:
+    WriterLongPollResponse& iWriter;
+    const Http::EVersion iVersion;
+    TBool iStarted;
+};
+
 /**
  * HttpSession that handles serving files (via GET), processing POST requests
  * and allows long polling.
@@ -468,7 +539,6 @@ private:
     void Error(const HttpStatus& aStatus);
     void Get();
     void Post();
-    void WriteLongPollHeaders();
 private:
     IWebAppManager& iAppManager;
     ITabManager& iTabManager;
@@ -479,7 +549,8 @@ private:
     ReaderHttpChunked* iReaderChunked;
     ReaderUntil* iReaderUntil;
     Sws<kMaxResponseBytes>* iWriterBuffer;
-    WriterHttpResponse* iWriterResponse;
+    WriterHttpResponseContentLengthUnknown* iWriterResponse;
+    WriterLongPollResponse* iWriterResponseLongPoll;
     HttpHeaderHost iHeaderHost;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
     HttpHeaderConnection iHeaderConnection;
