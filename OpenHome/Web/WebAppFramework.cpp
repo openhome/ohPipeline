@@ -1129,6 +1129,9 @@ void HttpSession::StartSession()
 
 void HttpSession::Run()
 {
+    // Try limit hammering of server from misbehaving clients or other bad actors.
+    Thread::Sleep(kModerationTimeMs);
+
     iErrorStatus = &HttpStatus::kOk;
     iReaderRequest->Flush();
     iResourceWriterHeadersOnly = false;

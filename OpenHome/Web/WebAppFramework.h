@@ -528,6 +528,7 @@ private:
     static const TUint kReadTimeoutMs = 5 * 1000;
     static const TUint kPollTimeoutMs = 5 * 1000;
     static const TUint kPollPeriodTimeoutMs = 5*1000;
+    static const TUint kModerationTimeMs = 10;  // Time to delay before servicing request, to limit effect of misbehaving clients (or other bad actors) that may be hammering server.
 public:
     HttpSession(Environment& aEnv, IWebAppManager& aAppManager, ITabManager& aTabManager, IResourceManager& aResourceManager);
     ~HttpSession();
