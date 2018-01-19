@@ -21,6 +21,7 @@ private:
     void Cb2();
     void Cb3();
     void Cb4();
+    void Cb5();
 private:
     void TestScheduleThenRun();
     void TestScheduleRunRepeat();
@@ -30,15 +31,17 @@ private:
     void TestScheduleCancelScheduleRun();
     void TestScheduleWhilePending();
     void TestScheduleWhileRunning();
+    void TestScheduleFromCallback();
 private:
     ThreadPool::PriorityQueue* iQueue;
-    IThreadPoolHandle* iHandleCbs[4];
+    IThreadPoolHandle* iHandleCbs[5];
     Semaphore iSemCb1;
     Semaphore iSemCb2Entry;
     Semaphore iSemCb2Exit;
     Semaphore iSemCb3;
     Semaphore iSemCb4;
-    TUint iCountCbs[4];
+    Semaphore iSemCb5;
+    TUint iCountCbs[5];
 };
 
 class SuiteThreadPool : public Suite
@@ -77,6 +80,7 @@ SuitePriorityQueue::SuitePriorityQueue()
     , iSemCb2Exit("SPQ3", 0)
     , iSemCb3("SPQ4", 0)
     , iSemCb4("SPQ5", 0)
+    , iSemCb5("SPQ6", 0)
 {
     AddTest(MakeFunctor(*this, &SuitePriorityQueue::TestScheduleThenRun), "TestScheduleThenRun");
     AddTest(MakeFunctor(*this, &SuitePriorityQueue::TestScheduleRunRepeat), "TestScheduleRunRepeat");
@@ -86,6 +90,7 @@ SuitePriorityQueue::SuitePriorityQueue()
     AddTest(MakeFunctor(*this, &SuitePriorityQueue::TestScheduleCancelScheduleRun), "TestScheduleCancelScheduleRun");
     AddTest(MakeFunctor(*this, &SuitePriorityQueue::TestScheduleWhilePending), "TestScheduleWhilePending");
     AddTest(MakeFunctor(*this, &SuitePriorityQueue::TestScheduleWhileRunning), "TestScheduleWhileRunning");
+    AddTest(MakeFunctor(*this, &SuitePriorityQueue::TestScheduleFromCallback), "TestScheduleFromCallback");
 }
 
 void SuitePriorityQueue::Setup()
@@ -95,17 +100,19 @@ void SuitePriorityQueue::Setup()
     iHandleCbs[1] = iQueue->CreateHandle(MakeFunctor(*this, &SuitePriorityQueue::Cb2), "Cb2");
     iHandleCbs[2] = iQueue->CreateHandle(MakeFunctor(*this, &SuitePriorityQueue::Cb3), "Cb3");
     iHandleCbs[3] = iQueue->CreateHandle(MakeFunctor(*this, &SuitePriorityQueue::Cb4), "Cb4");
+    iHandleCbs[4] = iQueue->CreateHandle(MakeFunctor(*this, &SuitePriorityQueue::Cb5), "Cb5");
     (void)iSemCb1.Clear();
     (void)iSemCb2Entry.Clear();
     (void)iSemCb2Exit.Clear();
     (void)iSemCb3.Clear();
     (void)iSemCb4.Clear();
-    iCountCbs[0] = iCountCbs[1] = iCountCbs[2] = iCountCbs[3] = 0;
+    (void)iSemCb5.Clear();
+    iCountCbs[0] = iCountCbs[1] = iCountCbs[2] = iCountCbs[3] = iCountCbs[4] = 0;
 }
 
 void SuitePriorityQueue::TearDown()
 {
-    for (TUint i = 0; i < 4; i++) {
+    for (TUint i = 0; i < 5; i++) {
         iHandleCbs[i]->Destroy();
     }
     delete iQueue;
@@ -134,6 +141,15 @@ void SuitePriorityQueue::Cb4()
 {
     iCountCbs[3]++;
     iSemCb4.Signal();
+}
+
+void SuitePriorityQueue::Cb5()
+{
+    if ((iCountCbs[4] & 1) == 0) {
+        TEST(iHandleCbs[4]->TrySchedule());
+    }
+    iCountCbs[4]++;
+    iSemCb5.Signal();
 }
 
 void SuitePriorityQueue::TestScheduleThenRun()
@@ -231,6 +247,14 @@ void SuitePriorityQueue::TestScheduleWhileRunning()
     iSemCb2Entry.Wait();
     iSemCb2Exit.Signal();
     TEST(iCountCbs[1] == 2);
+}
+
+void SuitePriorityQueue::TestScheduleFromCallback()
+{
+    TEST(iHandleCbs[4]->TrySchedule());
+    iSemCb5.Wait();
+    iSemCb5.Wait();
+    TEST(iCountCbs[4] == 2);
 }
 
 

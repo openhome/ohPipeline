@@ -142,11 +142,13 @@ ThreadPool::PriorityQueue::~PriorityQueue()
     for (auto it = iThreads.begin(); it != iThreads.end(); ++it) {
         delete *it;
     }
-    auto h = iHead;
-    while (h != nullptr) {
-        auto next = h->iNext;
-        h->RemoveRef();
-        h = next;
+    if (iHead != nullptr) {
+        Log::Print("ThreadPool::PriorityQueue handles leaked:\n");
+        auto h = iHead;
+        while (h != nullptr) {
+            Log::Print("\t%s\n", h->iId);
+            h = h->iNext;
+        }
     }
 }
 
@@ -239,9 +241,9 @@ void ThreadPool::PoolThread::Run()
 {
     for (;;) {
         auto cb = iQueueReader.Dequeue();
-        CheckForKill();
         if (cb != nullptr) {
             cb->Run();
         }
+        CheckForKill();
     }
 }
