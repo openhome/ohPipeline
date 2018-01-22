@@ -1,15 +1,14 @@
 #include <OpenHome/Private/SuiteUnitTest.h>
 #include <OpenHome/Private/Thread.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/FriendlyNameAdapter.h>
 #include <OpenHome/Net/Private/DviStack.h>
 
 
-
 namespace OpenHome {
 namespace Av {
 namespace Test {
-
 
 class MockProductNameObservable : public IProductNameObservable
 {
@@ -49,6 +48,7 @@ private:
     Net::DvStack& iDvStack;
     FriendlyNameManager* iFriendlyNameManager;
     MockProductNameObservable* iObservable;
+    ThreadPool iThreadPool;
 };
 
 } // namespace Test
@@ -106,6 +106,7 @@ void MockFriendlyNameObserver::FriendlyNameChanged(const Brx& aFriendlyName)
 SuiteFriendlyNameManager::SuiteFriendlyNameManager(CpStack& /* aCpStack */, DvStack& aDvStack)
     : SuiteUnitTest("SuiteFriendlyNameManager")
     , iDvStack(aDvStack)
+    , iThreadPool(1, 1, 1)
 {
     AddTest(MakeFunctor(*this, &SuiteFriendlyNameManager::TestRegisterDeregister), "TestRegisterDeregister");
     AddTest(MakeFunctor(*this, &SuiteFriendlyNameManager::TestUpdate), "TestUpdate");
@@ -222,7 +223,7 @@ void SuiteFriendlyNameManager::TestDvUpdate()
     iObservable->SetProductName(Brn("Product"));
 
     // construct updaters for different device types
-    auto updater1 = new FriendlyNameAttributeUpdater(*iFriendlyNameManager, dvDevice1);
+    auto updater1 = new FriendlyNameAttributeUpdater(*iFriendlyNameManager, iThreadPool, dvDevice1);
 
     // check initial updates
     TEST(WaitForNameChange(dvDevice1, Brn("Room:Product")) == true);

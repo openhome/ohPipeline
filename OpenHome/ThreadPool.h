@@ -14,7 +14,7 @@ class IThreadPoolHandle
 {
 public:
     virtual void Destroy() = 0;
-    virtual TBool TrySchedule() = 0;
+    virtual TBool TrySchedule() = 0; // returns true if a callback was scheduled or false if one was already outstanding
     virtual void Cancel() = 0;
 protected:
     virtual ~IThreadPoolHandle() {}
@@ -120,6 +120,25 @@ private:
     std::unique_ptr<PriorityQueue> iQueueHigh;
     std::unique_ptr<PriorityQueue> iQueueMed;
     std::unique_ptr<PriorityQueue> iQueueLow;
+};
+
+
+class MockThreadPoolSync : public IThreadPool
+{
+public: // from IThreadPool
+    IThreadPoolHandle* CreateHandle(Functor aCb, const TChar* aId, ThreadPoolPriority aPriority) override;
+private:
+    class Handle : public IThreadPoolHandle
+    {
+    public:
+        Handle(Functor aCb);
+    public: // from IThreadPoolHandle
+        void Destroy() override;
+        TBool TrySchedule() override;
+        void Cancel() override;
+    private:
+        Functor iCb;
+    };
 };
 
 } // namespace OpenHome

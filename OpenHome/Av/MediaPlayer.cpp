@@ -9,6 +9,7 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Av/KvpStore.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/ProviderTime.h>
 #include <OpenHome/Av/ProviderInfo.h>
@@ -42,6 +43,9 @@ MediaPlayerInitParams* MediaPlayerInitParams::New(const Brx& aDefaultRoom, const
 MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName)
     : iDefaultRoom(aDefaultRoom)
     , iDefaultName(aDefaultName)
+    , iThreadPoolHigh(1)
+    , iThreadPoolMedium(1)
+    , iThreadPoolLow(1)
     , iConfigAppEnable(false)
 {
 }
@@ -49,6 +53,13 @@ MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx&
 void MediaPlayerInitParams::EnableConfigApp()
 {
     iConfigAppEnable = true;
+}
+
+void MediaPlayerInitParams::SetThreadPoolSize(TUint aCountHigh, TUint aCountMedium, TUint aCountLow)
+{
+    iThreadPoolHigh = aCountHigh;
+    iThreadPoolMedium = aCountMedium;
+    iThreadPoolLow = aCountLow;
 }
 
 const Brx& MediaPlayerInitParams::DefaultRoom() const
@@ -64,6 +75,21 @@ const Brx& MediaPlayerInitParams::DefaultName() const
 TBool MediaPlayerInitParams::ConfigAppEnabled() const
 {
     return iConfigAppEnable;
+}
+
+TUint MediaPlayerInitParams::ThreadPoolCountHigh() const
+{
+    return iThreadPoolHigh;
+}
+
+TUint MediaPlayerInitParams::ThreadPoolCountMedium() const
+{
+    return iThreadPoolMedium;
+}
+
+TUint MediaPlayerInitParams::ThreadPoolCountLow() const
+{
+    return iThreadPoolLow;
 }
 
 
@@ -98,6 +124,9 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
                                                    iReadWriteStore); // must be created before any config values
     }
     iPowerManager = new OpenHome::PowerManager(*iConfigManager);
+    iThreadPool = new OpenHome::ThreadPool(aInitParams->ThreadPoolCountHigh(),
+                                           aInitParams->ThreadPoolCountMedium(),
+                                           aInitParams->ThreadPoolCountLow());
     iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase, Product::kMinRoomBytes, Product::kMaxRoomBytes, aInitParams->DefaultRoom());
     iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase, Product::kMinNameBytes, Product::kMaxNameBytes, aInitParams->DefaultName());
     std::vector<TUint> choices;
@@ -146,6 +175,7 @@ MediaPlayer::~MediaPlayer()
     delete iConfigAutoPlay;
     delete iConfigProductRoom;
     delete iConfigProductName;
+    delete iThreadPool;
     delete iPowerManager;
     delete iProviderConfigApp;
     delete iConfigManager;
@@ -258,6 +288,11 @@ IConfigInitialiser& MediaPlayer::ConfigInitialiser()
 IPowerManager& MediaPlayer::PowerManager()
 {
     return *iPowerManager;
+}
+
+IThreadPool& MediaPlayer::ThreadPool()
+{
+    return *iThreadPool;
 }
 
 Product& MediaPlayer::Product()

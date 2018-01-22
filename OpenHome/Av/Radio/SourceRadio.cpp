@@ -98,9 +98,13 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
         iTuneIn = nullptr;
     }
     else {
-        iTuneIn = new RadioPresetsTuneIn(aMediaPlayer.Env(), aTuneInPartnerId,
-                                         *iPresetDatabase, aMediaPlayer.ConfigInitialiser(),
-                                         aMediaPlayer.CredentialsManager(), mimeTypes);
+        iTuneIn = new RadioPresetsTuneIn(aMediaPlayer.Env(),
+                                         aTuneInPartnerId,
+                                         *iPresetDatabase,
+                                         aMediaPlayer.ConfigInitialiser(),
+                                         aMediaPlayer.CredentialsManager(),
+                                         aMediaPlayer.ThreadPool(),
+                                         mimeTypes);
     }
 }
 
