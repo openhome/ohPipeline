@@ -1,7 +1,7 @@
 #include <OpenHome/Av/FriendlyNameAdapter.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Private/Standard.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Net/Core/DvDevice.h>
@@ -11,14 +11,14 @@ using namespace OpenHome::Av;
 
 
 FriendlyNameAttributeUpdater::FriendlyNameAttributeUpdater(IFriendlyNameObservable& aFriendlyNameObservable,
+                                                           IThreadPool& aThreadPool,
                                                            Net::DvDevice& aDvDevice)
     : iFriendlyNameObservable(aFriendlyNameObservable)
     , iDvDevice(aDvDevice)
     , iLock("DNCL")
 {
-    iThread = new ThreadFunctor("UpnpNameChanger", MakeFunctor(*this, &FriendlyNameAttributeUpdater::Run));
-    iThread->Start();
-
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &FriendlyNameAttributeUpdater::Run),
+        "UpnpNameChanger", ThreadPoolPriority::Medium);
     iId = iFriendlyNameObservable.RegisterFriendlyNameObserver(
         MakeFunctorGeneric<const Brx&>(*this, &FriendlyNameAttributeUpdater::Observer));
 }
@@ -26,7 +26,7 @@ FriendlyNameAttributeUpdater::FriendlyNameAttributeUpdater(IFriendlyNameObservab
 FriendlyNameAttributeUpdater::~FriendlyNameAttributeUpdater()
 {
     iFriendlyNameObservable.DeregisterFriendlyNameObserver(iId);
-    delete iThread;
+    iThreadPoolHandle->Destroy();
 }
 
 void FriendlyNameAttributeUpdater::Observer(const Brx& aNewFriendlyName)
@@ -35,23 +35,17 @@ void FriendlyNameAttributeUpdater::Observer(const Brx& aNewFriendlyName)
     if (iFullName!=aNewFriendlyName)
     {
         iFullName.Replace(aNewFriendlyName);
-        iThread->Signal();
+        (void)iThreadPoolHandle->TrySchedule();
     }
 
 }
 
 void FriendlyNameAttributeUpdater::Run()
 {
-    try {
-        Bws<kMaxNameBytes+1> fullName; // +1 for nul terminator added by PtrZ()
-        for (;;) {
-            iThread->Wait();
-            {
-                AutoMutex a(iLock);
-                fullName.Replace(iFullName);
-            }
-            iDvDevice.SetAttribute("Upnp.FriendlyName", fullName.PtrZ());
-        }
+    Bws<kMaxNameBytes+1> fullName; // +1 for nul terminator added by PtrZ()
+    {
+        AutoMutex a(iLock);
+        fullName.Replace(iFullName);
     }
-    catch (ThreadKill&) {}
+    iDvDevice.SetAttribute("Upnp.FriendlyName", fullName.PtrZ());
 }
