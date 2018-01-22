@@ -414,7 +414,6 @@ void DviOdp::Action()
         LogParseErrorThrow("JsonKeyNotFound", args);
     }
 
-    iWriter = &iSession.WriteLock();
     AutoOdpSession _(iSession);
     try {
         iService->InvokeDirect(*this, actionName);
@@ -723,6 +722,7 @@ void DviOdp::InvocationReportError(TUint aCode, const Brx& aDescription)
     if (iResponseStarted) {
         THROW(InvocationError);
     }
+    iWriter = &iSession.WriteLock();
     iResponseStarted = true;
     WriterJsonObject writer(*iWriter);
     writer.WriteString(Odp::kKeyType, Odp::kTypeActionResponse);
@@ -744,6 +744,7 @@ void DviOdp::InvocationReportError(TUint aCode, const Brx& aDescription)
 
 void DviOdp::InvocationWriteStart()
 {
+    iWriter = &iSession.WriteLock();
     iResponseStarted = true;
     iWriterResponse.Set(*iWriter);
     iWriterResponse.WriteString(Odp::kKeyType, Odp::kTypeActionResponse);
