@@ -247,3 +247,41 @@ void ThreadPool::PoolThread::Run()
         CheckForKill();
     }
 }
+
+
+// MockThreadPoolSync
+IThreadPoolHandle* MockThreadPoolSync::CreateHandle(Functor aCb, const TChar* /*aId*/, ThreadPoolPriority /*aPriority*/)
+{
+    return new MockThreadPoolSync::Handle(aCb);
+}
+
+// MockThreadPoolSync::Handle
+
+MockThreadPoolSync::Handle::Handle(Functor aCb)
+    : iCb(aCb)
+{
+}
+
+void MockThreadPoolSync::Handle::Destroy()
+{
+    delete this;
+}
+
+TBool MockThreadPoolSync::Handle::TrySchedule()
+{
+    try {
+        if (iCb) {
+            iCb();
+        }
+    }
+    catch (AssertionFailed&) {
+        throw;
+    }
+    catch (Exception&) {
+    }
+    return true;
+}
+
+void MockThreadPoolSync::Handle::Cancel()
+{
+}
