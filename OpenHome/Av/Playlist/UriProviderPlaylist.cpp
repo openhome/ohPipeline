@@ -330,15 +330,24 @@ void UriProviderPlaylist::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TU
         // allow additional loop round the playlist in case the new track is the only one that is playable
         iFirstFailedTrackId = ITrackDatabase::kTrackIdNone;
     }
+    TBool consumed = false;
     {
         AutoMutex _(iLockLoader);
         if (iLoaderWait && aIdBefore == iLoaderIdBefore) {
             iLoaderWait = false;
             iSemLoader.Signal();
+            consumed = true;
         }
     }
 
-    iDbObserver.NotifyTrackInserted(aTrack, aIdBefore, aIdAfter);
+    if (!consumed) {
+        /* iDbObserver (SourcePlaylist) calls StopPrefetch for the first track added to an empty playlist.
+           This conflicts with async loading of a saved playlist (the thing that caused iLoaderWait to be
+           set).  Avoid this by now by not passing the notification on.
+           A better approach may be to refactor SourcePlaylist to move all of its database observation
+           login into the uri provider. */
+        iDbObserver.NotifyTrackInserted(aTrack, aIdBefore, aIdAfter);
+    }
 }
 
 void UriProviderPlaylist::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aAfter)
