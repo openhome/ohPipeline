@@ -313,6 +313,7 @@ def build(bld):
                 'Generated/DvAvOpenhomeOrgConfigApp1.cpp',
                 'OpenHome/Configuration/ProviderConfigApp.cpp',
                 'OpenHome/PowerManager.cpp',
+                'OpenHome/ThreadPool.cpp',
                 'OpenHome/Av/Credentials.cpp',
                 'Generated/DvAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Av/ProviderCredentials.cpp',
@@ -738,6 +739,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestCredentials.cpp',
                 'Generated/CpAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Tests/TestJson.cpp',
+                'OpenHome/Tests/TestThreadPool.cpp',
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
                 'OpenHome/Net/Odp/Tests/CpiDeviceOdp.cpp',
@@ -1030,6 +1032,11 @@ def build(bld):
             source='OpenHome/Tests/TestJsonMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestJson',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Tests/TestThreadPoolMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestThreadPool',
             install_path=None)
     bld.program(
             source='OpenHome/Av/Qobuz/TestQobuz.cpp',

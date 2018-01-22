@@ -225,9 +225,9 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     iPipelineObserver = new LoggingPipelineObserver();
     iMediaPlayer->Pipeline().AddObserver(*iPipelineObserver);
 
-    iFnUpdaterStandard = new FriendlyNameAttributeUpdater(iMediaPlayer->FriendlyNameObservable(), *iDevice);
+    iFnUpdaterStandard = new FriendlyNameAttributeUpdater(iMediaPlayer->FriendlyNameObservable(), iMediaPlayer->ThreadPool(), *iDevice);
     iFnManagerUpnpAv = new FriendlyNameManagerUpnpAv(iMediaPlayer->Product());
-    iFnUpdaterUpnpAv = new FriendlyNameAttributeUpdater(*iFnManagerUpnpAv, *iDeviceUpnpAv);
+    iFnUpdaterUpnpAv = new FriendlyNameAttributeUpdater(*iFnManagerUpnpAv, iMediaPlayer->ThreadPool(), *iDeviceUpnpAv);
 
     // Register with the PowerManager
     IPowerManager& powerManager = iMediaPlayer->PowerManager();

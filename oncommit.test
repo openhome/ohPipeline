@@ -51,6 +51,7 @@ tests = '''
     TestWaiter
     TestUriProviderRepeater
     TestJson
+    TestThreadPool
     TestRaop
     TestSpotifyReporter
     TestVolumeManager

@@ -7,6 +7,7 @@
 #include <OpenHome/Private/Timer.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Functor.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
@@ -37,9 +38,13 @@ typedef struct MimeTuneInPair
     const TChar* iTuneInFormat;
 } MimeTuneInPair;
 
-RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv, const Brx& aPartnerId,
-                                       IPresetDatabaseWriter& aDbWriter, IConfigInitialiser& aConfigInit,
-                                       Credentials& aCredentialsManager, Media::MimeTypeList& aMimeTypeList)
+RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv,
+                                       const Brx& aPartnerId,
+                                       IPresetDatabaseWriter& aDbWriter,
+                                       IConfigInitialiser& aConfigInit,
+                                       Credentials& aCredentialsManager,
+                                       IThreadPool& aThreadPool,
+                                       Media::MimeTypeList& aMimeTypeList)
     : iLock("RPTI")
     , iEnv(aEnv)
     , iDbWriter(aDbWriter)
@@ -77,8 +82,8 @@ RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv, const Brx& aPartnerId,
     Log::Print("\n");
 
     iReaderResponse.AddHeader(iHeaderContentLength);
-    iRefreshThread = new ThreadFunctor("TuneInRefresh", MakeFunctor(*this, &RadioPresetsTuneIn::RefreshThread));
-    iRefreshThread->Start();
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &RadioPresetsTuneIn::DoRefresh),
+                                                 "TuneInRefresh", ThreadPoolPriority::Low);
     iRefreshTimer = new Timer(aEnv, MakeFunctor(*this, &RadioPresetsTuneIn::TimerCallback), "RadioPresetsTuneIn");
 
     // Get username from store.
@@ -95,10 +100,10 @@ RadioPresetsTuneIn::~RadioPresetsTuneIn()
     // FIXME - not remotely threadsafe atm
     iSocket.Interrupt(true);
     iRefreshTimer->Cancel();
+    iThreadPoolHandle->Destroy();
     iConfigUsername->Unsubscribe(iListenerId);
     iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iNacnId);
     delete iConfigUsername;
-    delete iRefreshThread;
     delete iRefreshTimer;
 }
 
@@ -122,7 +127,7 @@ void RadioPresetsTuneIn::UsernameChanged(KeyValuePair<const Brx&>& aKvp)
 
 void RadioPresetsTuneIn::Refresh()
 {
-    iRefreshThread->Signal();
+    (void)iThreadPoolHandle->TrySchedule();
 }
 
 void RadioPresetsTuneIn::CurrentAdapterChanged()
@@ -135,27 +140,13 @@ void RadioPresetsTuneIn::TimerCallback()
     Refresh();
 }
 
-void RadioPresetsTuneIn::RefreshThread()
-{
-    for (;;) {
-        iRefreshThread->Wait();
-        iRefreshTimer->FireIn(kRefreshRateMs);
-        try {
-            iSocket.Open(iEnv);
-            DoRefresh(); // doesn't throw
-            iSocket.Close();
-        }
-        catch (AssertionFailed&) {
-            throw;
-        }
-        catch (Exception&) {}
-    }
-}
-
 void RadioPresetsTuneIn::DoRefresh()
 {
+    TBool socketOpened = false;
     TBool startedUpdates = false;
     try {
+        iSocket.Open(iEnv);
+        socketOpened = true;
         Endpoint ep(80, iRequestUri.Host());
         iSocket.Connect(ep, 20 * 1000); // hard-coded timeout.  Ignores .InitParams().TcpConnectTimeoutMs() on the assumption that is set for lan connections
 
@@ -352,15 +343,16 @@ void RadioPresetsTuneIn::DoRefresh()
             }
         }
     }
-    catch (NetworkError&) {
+    catch (AssertionFailed&) {
+        throw;
     }
-    catch (NetworkTimeout&) {
-    }
-    catch (WriterError&) {
-    }
-    catch (HttpError&) {
-    }
-    catch (ReaderError&) {
+    catch (Exception&) {
+        if (socketOpened) {
+            try {
+                iSocket.Close();
+            }
+            catch (Exception&) {}
+        }
     }
     if (startedUpdates) {
         iDbWriter.EndSetPresets();
