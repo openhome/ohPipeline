@@ -112,7 +112,7 @@ private:
 public:
     TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                     const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
-                    const TChar* aStoreFile, TUint aOdpPort=0,
+                    const TChar* aStoreFile, TUint aOdpPort=0, TUint aWebUiPort=0,
                     TUint aMinWebUiResourceThreads=kMinWebUiResourceThreads, TUint aMaxWebUiTabs=kMaxWebUiTabs, TUint aUiSendQueueSize=kUiSendQueueSize);
     virtual ~TestMediaPlayer();
     void SetPullableClock(Media::IPullableClock& aPullableClock);
@@ -201,6 +201,7 @@ public:
     const TestFramework::OptionBool& ClockPull() const;
     const TestFramework::OptionString& StoreFile() const;
     const TestFramework::OptionUint& OptionOdp() const;
+    const TestFramework::OptionUint& OptionWebUi() const;
 private:
     TestFramework::OptionParser iParser;
     TestFramework::OptionString iOptionRoom;
@@ -216,6 +217,7 @@ private:
     TestFramework::OptionBool iOptionClockPull;
     TestFramework::OptionString iOptionStoreFile;
     TestFramework::OptionUint iOptionOdp;
+    TestFramework::OptionUint iOptionWebUi;
 };
 
 // Not very nice, but only to allow reusable test functions.
