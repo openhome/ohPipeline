@@ -180,10 +180,11 @@ void PipelineManager::Play()
 
 void PipelineManager::PlayAs(const Brx& aMode, const Brx& aCommand)
 {
+    iFiller->Prepare(aMode, aCommand);
     AutoMutex _(iPublicLock);
     LOG(kPipeline, "PipelineManager::PlayAs(%.*s, %.*s)\n", PBUF(aMode), PBUF(aCommand));
     RemoveAllLocked();
-    iFiller->Play(aMode, aCommand);
+    iFiller->Play(aMode);
     iPipeline->Play();
 }
 

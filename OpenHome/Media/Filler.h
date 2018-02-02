@@ -79,6 +79,8 @@ public:
     void Play(const Brx& aMode, TUint aTrackId);
     void PlayLater(const Brx& aMode, TUint aTrackId);
     void Play(const Brx& aMode, const Brx& aCommand);
+    void Play(const Brx& aMode);
+    void Prepare(const Brx& aMode, const Brx& aCommand);
     TUint Stop(); // Stops filler and encourages protocols to stop.  Returns haltId iff filler was active
     TUint Flush(); // Stops filler, encourages protocols to stop.  Returns flushId.  MsgFlush will be delivered once protocol is stopped.
     void Next(const Brx& aMode);
