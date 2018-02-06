@@ -57,11 +57,9 @@ void UriProviderScd::BeginLater(TUint aTrackId)
 EStreamPlay UriProviderScd::GetNext(Track*& aTrack)
 {
     AutoMutex _(iLock);
-    aTrack = iTrack;
-    if (aTrack != nullptr) {
-        aTrack->AddRef();
-    }
-    return (iTrack == nullptr) ? ePlayNo : iCanPlay;
+    aTrack = iTrack; // transfer ownership of any reference
+    iTrack = nullptr;
+    return (aTrack == nullptr) ? ePlayNo : iCanPlay;
 }
 
 TUint UriProviderScd::CurrentTrackId() const

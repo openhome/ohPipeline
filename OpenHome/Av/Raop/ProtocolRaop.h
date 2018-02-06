@@ -15,6 +15,7 @@ EXCEPTION(InvalidRaopPacket)
 EXCEPTION(RepairerBufferFull)
 EXCEPTION(RepairerStreamRestarted)
 EXCEPTION(RaopPacketUnavailable);
+EXCEPTION(RaopAllocationFailure);
 
 namespace OpenHome {
     class Timer;
@@ -309,6 +310,7 @@ public: // from IRepairable
     virtual void Destroy() = 0;
 public:
     virtual void Set(TUint aFrame, TBool aResend, const Brx& aData) = 0;
+    virtual void Clear() = 0;
     virtual ~IRepairableAllocatable() {}
 };
 
@@ -323,7 +325,7 @@ template <TUint S> class Repairable : public IRepairableAllocatable
 {
 public:
     Repairable(IRaopRepairableDeallocator& aDeallocator)
-        : iDeallocator(aDeallocator), iFrame(0), iResend(0) {}
+        : iDeallocator(aDeallocator), iFrame(0), iResend(false) {}
 
 public: // from IRepairableAllocatable
     TUint Frame() const override { return iFrame; }
@@ -332,9 +334,20 @@ public: // from IRepairableAllocatable
     void Destroy() override { iDeallocator.Deallocate(this); }
     void Set(TUint aFrame, TBool aResend, const Brx& aData) override
     {
+        if (aData.Bytes() > iData.MaxBytes()) {
+            LOG(kPipeline, "Repairable::Set aFrame: %u, aResend: %s, aData.Bytes(): %u, iData.MaxBytes(): %u\n", aFrame, PBool(aResend), aData.Bytes(), iData.MaxBytes());
+            THROW(RaopAllocationFailure);
+        }
+
         iFrame = aFrame;
         iResend = aResend;
         iData.Replace(aData);
+    }
+    void Clear() override
+    {
+        iFrame = 0;
+        iResend = false;
+        iData.Replace(Brx::Empty());
     }
 private:
     IRaopRepairableDeallocator& iDeallocator;
@@ -349,7 +362,13 @@ template <TUint RepairableCount,TUint DataBytes> class RaopRepairableAllocator :
 public:
     RaopRepairableAllocator();
     ~RaopRepairableAllocator();
+    /*
+     * Throws RaopAllocationFailure.
+     */
     IRepairable* Allocate(const RaopPacketAudio& aPacket);
+    /*
+     * Throws RaopAllocationFailure.
+     */
     IRepairable* Allocate(const RaopPacketResendResponse& aPacket);
 public: // fromIRaopRepairableDeallocator
     void Deallocate(IRepairableAllocatable* aRepairable) override;
@@ -398,7 +417,7 @@ template <TUint RepairableCount, TUint DataBytes> IRepairable* RaopRepairableAll
 template <TUint RepairableCount, TUint DataBytes> void RaopRepairableAllocator<RepairableCount,DataBytes>::Deallocate(IRepairableAllocatable* aRepairable)
 {
     AutoMutex a(iLock);
-    aRepairable->Set(0, false, Brx::Empty());
+    aRepairable->Clear();
     iFifo.Write(aRepairable);
 }
 

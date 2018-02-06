@@ -14,14 +14,13 @@ tests = '''
     TestSupplyAggregator
     TestAudioReservoir
     TestVariableDelay
-    TestSampleRateValidator
+    TestStreamValidator
     TestSeeker
     TestSkipper
     TestStopper
     TestTrackInspector
     TestRamper
     TestReporter
-    TestPruner
     TestStarvationRamper
     TestMuter
     TestMuterVolume
@@ -51,8 +50,9 @@ tests = '''
     TestWaiter
     TestUriProviderRepeater
     TestJson
+    TestThreadPool
     TestRaop
-    #TestSpotifyReporter
+    TestSpotifyReporter
     TestVolumeManager
     TestWebAppFramework
     #TestConfigUi

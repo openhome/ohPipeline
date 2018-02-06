@@ -275,7 +275,7 @@ MsgAudioDsd* SuitePreDriver::CreateAudioDsd()
     TByte audioData[128];
     (void)memset(audioData, 0x7f, sizeof audioData);
     Brn audioBuf(audioData, sizeof audioData);
-    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, iTrackOffset);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 2, iTrackOffset);
     iTrackOffset += audio->Jiffies();
     return audio;
 }

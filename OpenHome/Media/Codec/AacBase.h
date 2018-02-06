@@ -52,7 +52,7 @@ private:
 protected:
     Bws<kInputBufBytes> iInBuf;
     Bws<kMaxDecodedBytesPerFrame> iDecodedBuf;
-    Bws<DecodedAudio::kMaxBytes> iOutBuf;
+    Bws<7680> iOutBuf; // see #5602 before changing buffer size
     TUint iFrameCounter;
 
     TUint iSampleRate;

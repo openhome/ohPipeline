@@ -24,6 +24,7 @@ const Brn Odp::kKeyService("service");
 const Brn Odp::kKeyAction("action");
 const Brn Odp::kKeyUserAgent("userAgent");
 const Brn Odp::kKeyArguments("arguments");
+const Brn Odp::kKeyCorrelationId("correlationId");
 const Brn Odp::kKeyError("error");
 const Brn Odp::kKeySid("sid");
 const Brn Odp::kKeyProperties("properties");

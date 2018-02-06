@@ -17,6 +17,8 @@
 
 namespace OpenHome {
     class Environment;
+    class IThreadPool;
+    class IThreadPoolHandle;
     class Parser;
 namespace Configuration {
     class IConfigInitialiser;
@@ -33,6 +35,7 @@ class RadioPresetsTuneIn
 private:
     static const TUint kReadBufBytes = Media::kTrackMetaDataMaxBytes + 1024;
     static const TUint kWriteBufBytes = 1024;
+    static const TUint kMinUserNameBytes = 0;
     static const TUint kMaxUserNameBytes = 64;
     static const TUint kMaxPartnerIdBytes = 64;
     static const TUint kReadResponseTimeoutMs = 30 * 1000; // 30 seconds
@@ -47,7 +50,8 @@ private:
 public:
     RadioPresetsTuneIn(Environment& aEnv, const Brx& aPartnerId,
                        IPresetDatabaseWriter& aDbWriter, Configuration::IConfigInitialiser& aConfigInit,
-                       Credentials& aCredentialsManager, Media::MimeTypeList& aMimeTypeList);
+                       Credentials& aCredentialsManager, IThreadPool& aThreadPool,
+                       Media::MimeTypeList& aMimeTypeList);
     ~RadioPresetsTuneIn();
     void Refresh();
 private:
@@ -55,7 +59,6 @@ private:
     void UsernameChanged(Configuration::KeyValuePair<const Brx&>& aKvp);
     void CurrentAdapterChanged();
     void TimerCallback();
-    void RefreshThread();
     void DoRefresh();
     TBool ReadElement(Parser& aParser, const TChar* aKey, Bwx& aValue);
     TBool ValidateKey(Parser& aParser, const TChar* aKey, TBool aLogErrors);
@@ -64,7 +67,6 @@ private:
     Mutex iLock;
     Environment& iEnv;
     IPresetDatabaseWriter& iDbWriter;
-    ThreadFunctor* iRefreshThread;
     SocketTcpClient iSocket;
     Uri iRequestUri;
     Sws<kWriteBufBytes> iWriteBuffer;
@@ -74,6 +76,7 @@ private:
     ReaderHttpResponse iReaderResponse;
     HttpHeaderContentLength iHeaderContentLength;
     Timer* iRefreshTimer;
+    IThreadPoolHandle* iThreadPoolHandle;
     Bws<40> iSupportedFormats;
     // Following members provide temp storage used while converting OPML elements to Didl-Lite
     Bws<Media::kTrackMetaDataMaxBytes> iDidlLite;

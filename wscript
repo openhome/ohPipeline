@@ -4,6 +4,7 @@ import sys
 import os
 import shutil
 
+
 from waflib.Node import Node
 
 from wafmodules.filetasks import (
@@ -228,7 +229,6 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Muter.cpp',
                 'OpenHome/Media/Pipeline/MuterVolume.cpp',
                 'OpenHome/Media/Pipeline/PreDriver.cpp',
-                'OpenHome/Media/Pipeline/Pruner.cpp',
                 'OpenHome/Media/Pipeline/Attenuator.cpp',
                 'OpenHome/Media/Pipeline/Ramper.cpp',
                 'OpenHome/Media/Pipeline/Reporter.cpp',
@@ -236,7 +236,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/RampValidator.cpp',
                 'OpenHome/Media/Pipeline/Rewinder.cpp',
                 'OpenHome/Media/Pipeline/Router.cpp',
-                'OpenHome/Media/Pipeline/SampleRateValidator.cpp',
+                'OpenHome/Media/Pipeline/StreamValidator.cpp',
                 'OpenHome/Media/Pipeline/Seeker.cpp',
                 'OpenHome/Media/Pipeline/Skipper.cpp',
                 'OpenHome/Media/Pipeline/StarvationRamper.cpp',
@@ -261,7 +261,6 @@ def build(bld):
                 'OpenHome/Media/Protocol/Protocol.cpp',
                 'OpenHome/Media/Protocol/ProtocolHls.cpp',
                 'OpenHome/Media/Protocol/ProtocolHttp.cpp',
-                'OpenHome/Media/Protocol/ProtocolHttps.cpp',
                 'OpenHome/Media/Protocol/ProtocolFile.cpp',
                 'OpenHome/Media/Protocol/ProtocolTone.cpp',
                 'OpenHome/Media/Protocol/Icy.cpp',
@@ -319,6 +318,7 @@ def build(bld):
                 'Generated/DvAvOpenhomeOrgConfigApp1.cpp',
                 'OpenHome/Configuration/ProviderConfigApp.cpp',
                 'OpenHome/PowerManager.cpp',
+                'OpenHome/ThreadPool.cpp',
                 'OpenHome/Av/Credentials.cpp',
                 'Generated/DvAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Av/ProviderCredentials.cpp',
@@ -460,6 +460,18 @@ def build(bld):
             source=['OpenHome/Media/Codec/Pcm.cpp'],
             use=['OHNET'],
             target='CodecPcm')
+
+    # DSD
+    bld.stlib(
+            source=['OpenHome/Media/Codec/DsdDsf.cpp'],
+            use=['OHNET'],
+            target='CodecDsdDsf')
+
+    # DSDDFF
+    bld.stlib(
+            source=['OpenHome/Media/Codec/DsdDff.cpp'],
+            use=['OHNET'],
+            target='CodecDsdDff')
 
     # AiffBase
     bld.stlib(
@@ -679,7 +691,7 @@ def build(bld):
                 'OpenHome/Av/Tests/RamStore.cpp',
                 'OpenHome/Media/Tests/TestMsg.cpp',
                 'OpenHome/Media/Tests/TestStarvationRamper.cpp',
-                'OpenHome/Media/Tests/TestSampleRateValidator.cpp',
+                'OpenHome/Media/Tests/TestStreamValidator.cpp',
                 'OpenHome/Media/Tests/TestSeeker.cpp',
                 'OpenHome/Media/Tests/TestSkipper.cpp',
                 'OpenHome/Media/Tests/TestStopper.cpp',
@@ -692,9 +704,8 @@ def build(bld):
                 'OpenHome/Media/Tests/TestRamper.cpp',
                 'OpenHome/Media/Tests/TestFlywheelRamper.cpp',
                 'OpenHome/Media/Tests/TestReporter.cpp',
-                #'OpenHome/Media/Tests/TestSpotifyReporter.cpp',
+                'OpenHome/Media/Tests/TestSpotifyReporter.cpp',
                 'OpenHome/Media/Tests/TestPreDriver.cpp',
-                'OpenHome/Media/Tests/TestPruner.cpp',
                 'OpenHome/Media/Tests/TestVolumeRamper.cpp',
                 'OpenHome/Media/Tests/TestMuter.cpp',
                 'OpenHome/Media/Tests/TestMuterVolume.cpp',
@@ -737,12 +748,13 @@ def build(bld):
                 'OpenHome/Av/Tests/TestCredentials.cpp',
                 'Generated/CpAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Tests/TestJson.cpp',
+                'OpenHome/Tests/TestThreadPool.cpp',
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
                 'OpenHome/Net/Odp/Tests/CpiDeviceOdp.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
@@ -761,9 +773,9 @@ def build(bld):
             target='TestStarvationRamper',
             install_path=None)
     bld.program(
-            source='OpenHome/Media/Tests/TestSampleRateValidatorMain.cpp',
+            source='OpenHome/Media/Tests/TestStreamValidatorMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-            target='TestSampleRateValidator',
+            target='TestStreamValidator',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestSeekerMain.cpp',
@@ -830,20 +842,15 @@ def build(bld):
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestReporter',
             install_path=None)
-    #bld.program(
-    #        source='OpenHome/Media/Tests/TestSpotifyReporterMain.cpp',
-    #        use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-    #        target='TestSpotifyReporter',
-    #        install_path=None)
+    bld.program(
+            source='OpenHome/Media/Tests/TestSpotifyReporterMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestSpotifyReporter',
+            install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestPreDriverMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestPreDriver',
-            install_path=None)
-    bld.program(
-            source='OpenHome/Media/Tests/TestPrunerMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-            target='TestPruner',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestVolumeRamperMain.cpp',
@@ -892,12 +899,12 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestProtocolHttpMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
             target='TestProtocolHttp',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestCodecMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
             target='TestCodec',
             install_path=None)
     bld.program(
@@ -1036,6 +1043,11 @@ def build(bld):
             target='TestJson',
             install_path=None)
     bld.program(
+            source='OpenHome/Tests/TestThreadPoolMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestThreadPool',
+            install_path=None)
+    bld.program(
             source='OpenHome/Av/Qobuz/TestQobuz.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
             target='TestQobuz',
@@ -1089,15 +1101,16 @@ def build(bld):
             ],
             use=['OHNET', 'ohMediaPlayer'],
             target='ScdSender')
-    #bld.program(
-    #        source=[
-    #            'OpenHome/Av/Scd/Sender/Demo/WavSender.cpp',
-    #            'OpenHome/Av/Scd/Sender/Demo/DirScanner.cpp',
-    #            'OpenHome/Av/Scd/Sender/Demo/WavSenderMain.cpp'
-    #            ],
-    #        use=['OHNET', 'ScdSender', 'ohMediaPlayer'],
-    #        target='WavSender',
-    #        install_path=None)
+    if bld.env.dest_platform == 'Windows-x86':
+        bld.program(
+                source=[
+                    'OpenHome/Av/Scd/Sender/Demo/WavSender.cpp',
+                    'OpenHome/Av/Scd/Sender/Demo/DirScanner.cpp',
+                    'OpenHome/Av/Scd/Sender/Demo/WavSenderMain.cpp'
+                    ],
+                use=['OHNET', 'ScdSender', 'ohMediaPlayer'],
+                target='WavSender',
+                install_path=None)
 
 # Bundles
 def bundle(ctx):
@@ -1120,6 +1133,8 @@ def bundle(ctx):
                  'CodecAiffBase',
                  'CodecAlacAppleBase',
                  'CodecAlacApple',
+                 'CodecDsdDsf',
+                 'CodecDsdDff',
                  'CodecFlac',
                  'CodecMp3',
                  'CodecVorbis',

@@ -385,10 +385,13 @@ StarvationRamper::StarvationRamper(MsgFactory& aMsgFactory, IPipelineElementUpst
     , iSampleRate(0)
     , iBitDepth(0)
     , iNumChannels(0)
+    , iFormat(AudioFormat::Undefined)
     , iCurrentRampValue(Ramp::kMin)
     , iRemainingRampSize(0)
     , iTargetFlushId(MsgFlush::kIdInvalid)
     , iLastPulledAudioRampValue(Ramp::kMax)
+    , iTrackStreamCount(0)
+    , iHaltCount(0)
     , iLastEventBuffering(false)
 {
     ASSERT(iEventBuffering.is_lock_free());
@@ -519,6 +522,12 @@ void StarvationRamper::ProcessAudioOut(MsgAudio* aMsg)
         iStreamHandler->NotifyStarving(iMode, iStreamId, false);
     }
 
+    if (iFormat == AudioFormat::Dsd) {
+        // following code prepares for later use of FlywheelRamper.
+        // This isn't available for DSD so prep can be skipped.
+        return;
+    }
+
     iLastPulledAudioRampValue = aMsg->Ramp().End();
 
     auto clone = aMsg->Clone();
@@ -533,6 +542,32 @@ void StarvationRamper::ProcessAudioOut(MsgAudio* aMsg)
         else {
             iRecentAudio.EnqueueAtHead(audio);
             iRecentAudioJiffies += audio->Jiffies();
+        }
+    }
+}
+
+void StarvationRamper::ApplyRamp(MsgAudioDecoded* aMsg)
+{
+    if (aMsg->Jiffies() > iRemainingRampSize) {
+        MsgAudio* remaining = aMsg->Split(iRemainingRampSize);
+        EnqueueAtHead(remaining);
+    }
+    MsgAudio* split;
+    auto direction = iState == State::RampingUp ? Ramp::EUp : Ramp::EDown;
+    iCurrentRampValue = aMsg->SetRamp(iCurrentRampValue, iRemainingRampSize, direction, split);
+    if (split != nullptr) {
+        EnqueueAtHead(split);
+    }
+    if (iRemainingRampSize == 0) {
+        if (iState == State::RampingUp) {
+            iState = State::Running;
+        }
+        else if (iTargetFlushId != MsgFlush::kIdInvalid) {
+            iState = State::Flushing;
+        }
+        else {
+            iState = State::FlywheelRamping; // FIXME - cheat to have a Halt generated but
+                                             // not processed before start moves to RampingUp
         }
     }
 }
@@ -592,9 +627,24 @@ Msg* StarvationRamper::Pull()
     return msg;
 }
 
+void StarvationRamper::ProcessMsgIn(MsgTrack* /*aMsg*/)
+{
+    iTrackStreamCount++;
+}
+
 void StarvationRamper::ProcessMsgIn(MsgDelay* aMsg)
 {
     iMaxJiffies = aMsg->DelayJiffies();
+}
+
+void StarvationRamper::ProcessMsgIn(MsgHalt* /*aMsg*/)
+{
+    iHaltCount++;
+}
+
+void StarvationRamper::ProcessMsgIn(MsgDecodedStream* /*aMsg*/)
+{
+    iTrackStreamCount++;
 }
 
 void StarvationRamper::ProcessMsgIn(MsgQuit* /*aMsg*/)
@@ -612,7 +662,9 @@ Msg* StarvationRamper::ProcessMsgOut(MsgMode* aMsg)
 Msg* StarvationRamper::ProcessMsgOut(MsgTrack* aMsg)
 {
     NewStream();
-    return aMsg;
+    iTrackStreamCount--;
+    aMsg->RemoveRef();
+    return nullptr;
 }
 
 Msg* StarvationRamper::ProcessMsgOut(MsgDrain* aMsg)
@@ -633,12 +685,19 @@ Msg* StarvationRamper::ProcessMsgOut(MsgDelay* aMsg)
     return nullptr;
 }
 
+Msg* StarvationRamper::ProcessMsgOut(MsgMetaText* aMsg)
+{
+    aMsg->RemoveRef();
+    return nullptr;
+}
+
 Msg* StarvationRamper::ProcessMsgOut(MsgHalt* aMsg)
 {
     // set Halted state on both entry and exit of this msg
     // ...on entry to avoid us starting a ramp down before outputting a Halt
     // ...on exit in case Halted state from entry was reset by outputting Audio
     iState = State::Halted;
+    iHaltCount--;
     return aMsg;
 }
 
@@ -659,9 +718,16 @@ Msg* StarvationRamper::ProcessMsgOut(MsgFlush* aMsg)
     return nullptr;
 }
 
+Msg* StarvationRamper::ProcessMsgOut(MsgWait* aMsg)
+{
+    aMsg->RemoveRef();
+    return nullptr;
+}
+
 Msg* StarvationRamper::ProcessMsgOut(MsgDecodedStream* aMsg)
 {
     NewStream();
+    iTrackStreamCount--;
 
     auto streamInfo = aMsg->StreamInfo();
     iStreamId = streamInfo.StreamId();
@@ -669,8 +735,15 @@ Msg* StarvationRamper::ProcessMsgOut(MsgDecodedStream* aMsg)
     iSampleRate = streamInfo.SampleRate();
     iBitDepth = streamInfo.BitDepth();
     iNumChannels = streamInfo.NumChannels();
+    iFormat = streamInfo.Format();
     iCurrentRampValue = Ramp::kMax;
     return aMsg;
+}
+
+Msg* StarvationRamper::ProcessMsgOut(MsgBitRate* aMsg)
+{
+    aMsg->RemoveRef();
+    return nullptr;
 }
 
 Msg* StarvationRamper::ProcessMsgOut(MsgAudioPcm* aMsg)
@@ -703,6 +776,60 @@ Msg* StarvationRamper::ProcessMsgOut(MsgAudioPcm* aMsg)
                 iState = State::Flushing;
             }
         }
+    }
+
+    ProcessAudioOut(aMsg);
+    SetBuffering(false);
+
+    return aMsg;
+}
+
+Msg* StarvationRamper::ProcessMsgOut(MsgAudioDsd* aMsg)
+{
+    if (iState == State::Starting || iState == State::Halted) {
+        iState = State::Running;
+    }
+
+    if (aMsg->Jiffies() > kMaxAudioOutJiffies) {
+        auto split = aMsg->Split(kMaxAudioOutJiffies);
+        EnqueueAtHead(split);
+    }
+
+    switch (iState)
+    {
+    case State::Running:
+        if (Jiffies() <= kRampDownJiffies &&
+            iHaltCount.load() == 0 && iTrackStreamCount.load() == 0) {
+            iState = State::RampingDown;
+            iCurrentRampValue = Ramp::kMax;
+            iRemainingRampSize = aMsg->Jiffies() + Jiffies();
+            ApplyRamp(aMsg);
+        }
+        break;
+    case State::RampingDown:
+        ApplyRamp(aMsg);
+        break;
+    case State::RampingUp:
+        if (Jiffies() <= kRampDownJiffies &&
+            iHaltCount.load() == 0 && iTrackStreamCount.load() == 0) {
+            // less audio than would be required for an emergency ramp from Running
+            // ...ramp back down to silence immediately
+            if (iCurrentRampValue == Ramp::kMin) {
+                aMsg->SetMuted();
+            }
+            else {
+                iState = State::RampingDown;
+                // leave iCurrentRampValue unchanged
+                iRemainingRampSize = aMsg->Jiffies() + Jiffies(); // ramp down over all remaining audio
+                ApplyRamp(aMsg);
+            }
+        }
+        else {
+            ApplyRamp(aMsg);
+        }
+        break;
+    default:
+        break;
     }
 
     ProcessAudioOut(aMsg);

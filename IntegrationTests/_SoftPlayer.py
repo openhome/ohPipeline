@@ -1,10 +1,11 @@
 """Utility to execute standalone TestMediaPlayer executable
 """
-import _Paths
+import _Paths   # NOQA
 import CommonSoftPlayer as BASE
 import Config
 import os
 import platform
+import time
 
 _platform = platform.system()
 if _platform in ['Windows', 'cli']:
@@ -17,8 +18,10 @@ class SoftPlayer( BASE.CommonSoftPlayer ):
 
     def __init__( self, **kw ):
         """Constructor for Airplay Dropout test"""
-        BASE.CommonSoftPlayer.__init__( self, kExe, **kw )
         self.doc = __doc__
+        odpPort  = BASE.GetOdpPort( **kw )
+        BASE.CommonSoftPlayer.__init__( self, kExe, aOdpPort=odpPort, **kw )
+        time.sleep( 5 )
 
 
 if __name__ == '__main__':

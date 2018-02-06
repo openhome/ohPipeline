@@ -835,25 +835,30 @@ void OhmSender::CurrentSubnetChanged()
 void OhmSender::Start()
 {
     // always called with the start/stop mutex locked
-    if (!iStarted) {
-        if (iMulticast && !iUnicastOverride) {
-            iSocketOhm.OpenMulticast(iInterface, kTtl, iMulticastEndpoint);
-            iTargetEndpoint.Replace(iMulticastEndpoint);
-            iTargetInterface = iInterface;
-            iThreadMulticast->Signal();
-        }
-        else {
-            iSocketOhm.OpenUnicast(iInterface, kTtl);
-            if (Debug::TestLevel(Debug::kSongcast)) {
-                Endpoint::EndpointBuf buf;
-                iSocketOhm.This().AppendEndpoint(buf);
-                Log::Print("OHU sender running on %s\n", buf.Ptr());
+    try {
+        if (!iStarted) {
+            if (iMulticast && !iUnicastOverride) {
+                iSocketOhm.OpenMulticast(iInterface, kTtl, iMulticastEndpoint);
+                iTargetEndpoint.Replace(iMulticastEndpoint);
+                iTargetInterface = iInterface;
+                iThreadMulticast->Signal();
             }
-            iTargetInterface = iInterface;
-            iThreadUnicast->Signal();
+            else {
+                iSocketOhm.OpenUnicast(iInterface, kTtl);
+                if (Debug::TestLevel(Debug::kSongcast)) {
+                    Endpoint::EndpointBuf buf;
+                    iSocketOhm.This().AppendEndpoint(buf);
+                    Log::Print("OHU sender running on %s\n", buf.Ptr());
+                }
+                iTargetInterface = iInterface;
+                iThreadUnicast->Signal();
+            }
+            iStarted = true;
+            UpdateUri();
         }
-        iStarted = true;
-        UpdateUri();
+    }
+    catch (NetworkError&) {
+        LOG_ERROR(kSongcast, "OhmSender::Start() failed to open iSocketOhm\n");
     }
 }
 

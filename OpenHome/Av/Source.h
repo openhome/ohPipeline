@@ -18,6 +18,7 @@ class ISource
     friend class Product;
 public:
     static const TUint kMaxSystemNameBytes = 20;
+    static const TUint kMinSourceNameBytes = 1;
     static const TUint kMaxSourceNameBytes = 20;
     static const TUint kMaxSourceTypeBytes = 20;
     static const TUint kMaxAttributesBytes = 100;
@@ -33,6 +34,7 @@ public:
     virtual void SetVisible(TBool aVisible) = 0;
     virtual void StandbyEnabled() = 0;
     virtual void PipelineStopped() = 0;
+    virtual TBool IsActive() const = 0;
 private:
     virtual void Initialise(IProduct& aProduct, Configuration::IConfigInitialiser& aConfigInit, Configuration::IConfigManager& aConfigManagerReader, TUint aId) = 0;
 };
@@ -57,10 +59,10 @@ protected: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
     void SetVisible(TBool aVisible) override;
+    TBool IsActive() const override;
 protected:
     SourceBase(const Brx& aSystemName, const TChar* aType, TBool aIsVisibleByDefault = true);
     ~SourceBase();
-    TBool IsActive() const;
     /*
      * Takes product out of standby and activates this source, if not already
      * active.

@@ -80,9 +80,9 @@ bool WavSender::TryParseHeader(uint32_t& aAudioBytes)
     metadata.push_back(std::pair<std::string, std::string>("uri", iFilename));
     metadata.push_back(std::pair<std::string, std::string>("title", iFilename));
     iSupply.OutputMetadataOh(metadata);
-    const TUint64 samplesTotal = static_cast<TUint64>(subChunk2Size) / (numChannels * bitDepth);
-    iSupply.OutputFormat(bitDepth, sampleRate, numChannels, byteRate*8,
-                         0LL, samplesTotal,
+    const TUint64 samplesTotal = static_cast<TUint64>(subChunk2Size) / (numChannels * bitDepth/8);
+    iSupply.OutputFormat(bitDepth, sampleRate, numChannels, IScdSupply::Endian::Little,
+                         byteRate*8, 0LL, samplesTotal,
                          true /*seekable*/, true /*lossless*/,
                          false/*live*/, true/*broadcastAllowed*/,
                          "WAV");

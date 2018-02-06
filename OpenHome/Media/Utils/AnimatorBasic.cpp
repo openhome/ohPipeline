@@ -134,7 +134,7 @@ void AnimatorBasic::DriverThread()
 void AnimatorBasic::ProcessAudio(MsgPlayable* aMsg)
 {
     iPlayable = nullptr;
-    const TUint numSamples = aMsg->Bytes() / ((iBitDepth/8) * iNumChannels);
+    const TUint numSamples = (aMsg->Bytes() * 8) / (iBitDepth * iNumChannels);
     TUint jiffies = numSamples * iJiffiesPerSample;
     if (jiffies > iPendingJiffies) {
         jiffies = iPendingJiffies;
@@ -221,12 +221,18 @@ TUint AnimatorBasic::MaxPull() const
     return kMaxPull;
 }
 
-TUint AnimatorBasic::PipelineAnimatorBufferJiffies()
+TUint AnimatorBasic::PipelineAnimatorBufferJiffies() const
 {
     return 0;
 }
 
-TUint AnimatorBasic::PipelineAnimatorDelayJiffies(TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/)
+TUint AnimatorBasic::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/,
+                                                  TUint /*aBitDepth*/, TUint /*aNumChannels*/) const
 {
     return 0;
+}
+
+TUint AnimatorBasic::PipelineAnimatorDsdBlockSizeBytes() const
+{
+    return 1;
 }

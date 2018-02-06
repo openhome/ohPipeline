@@ -73,6 +73,11 @@ void SourceBase::SetVisible(TBool aVisible)
     iVisible = aVisible;
 }
 
+TBool SourceBase::IsActive() const
+{
+    return iActive;
+}
+
 SourceBase::SourceBase(const Brx& aSystemName, const TChar* aType, TBool aIsVisibleByDefault)
     : iActive(false)
     , iLock("SRCM")
@@ -107,20 +112,13 @@ SourceBase::~SourceBase()
     }
 }
 
-TBool SourceBase::IsActive() const
-{
-    return iActive;
-}
-
 void SourceBase::ActivateIfNotActive()
 {
-    iActive = true;
     iProduct->ActivateIfNotActive(*this, true);
 }
 
 void SourceBase::ActivateIfNotActiveNoPrefetch()
 {
-    iActive = true;
     iProduct->ActivateIfNotActive(*this, false);
 }
 
@@ -134,7 +132,7 @@ void SourceBase::Initialise(IProduct& aProduct, IConfigInitialiser& aConfigInit,
         iConfigName = &aConfigManagerReader.GetText(key);
         iConfigNameCreated = false;
     } else {
-        iConfigName = new ConfigText(aConfigInit, key, ISource::kMaxSourceNameBytes, iName);
+        iConfigName = new ConfigText(aConfigInit, key, ISource::kMinSourceNameBytes, ISource::kMaxSourceNameBytes, iName);
         iConfigNameCreated = true;
     }
     iConfigNameSubscriptionId = iConfigName->Subscribe(MakeFunctorConfigText(*this, &SourceBase::NameChanged));

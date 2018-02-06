@@ -56,6 +56,8 @@ const TUint ProviderConfig::kErrorCodeInvalidSelection = 803;
 const Brn ProviderConfig::kErrorDescInvalidSelection("Expected value selected from list of options");
 const TUint ProviderConfig::kErrorCodeValueTooLong = 804;
 const Brn ProviderConfig::kErrorDescValueTooLong("Value too long");
+const TUint ProviderConfig::kErrorCodeValueTooShort = 805;
+const Brn ProviderConfig::kErrorDescValueTooShort("Value too short");
 
 ProviderConfig::ProviderConfig(DvDevice& aDevice, IConfigManager& aConfigManager)
     : DvProviderAvOpenhomeOrgConfig2(aDevice)
@@ -96,6 +98,9 @@ void ProviderConfig::SetValue(IDvInvocation& aInvocation, const Brx& aKey, const
     }
     catch (ConfigValueTooLong&) {
         aInvocation.Error(kErrorCodeValueTooLong, kErrorDescValueTooLong);
+    }
+    catch (ConfigValueTooShort&) {
+        aInvocation.Error(kErrorCodeValueTooShort, kErrorDescValueTooShort);
     }
 
     aInvocation.StartResponse();

@@ -9,6 +9,7 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Av/KvpStore.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/ProviderTime.h>
 #include <OpenHome/Av/ProviderInfo.h>
@@ -44,6 +45,9 @@ MediaPlayerInitParams* MediaPlayerInitParams::New(const Brx& aDefaultRoom, const
 MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName)
     : iDefaultRoom(aDefaultRoom)
     , iDefaultName(aDefaultName)
+    , iThreadPoolHigh(1)
+    , iThreadPoolMedium(1)
+    , iThreadPoolLow(1)
     , iConfigAppEnable(false)
 {
 }
@@ -51,6 +55,13 @@ MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx&
 void MediaPlayerInitParams::EnableConfigApp()
 {
     iConfigAppEnable = true;
+}
+
+void MediaPlayerInitParams::SetThreadPoolSize(TUint aCountHigh, TUint aCountMedium, TUint aCountLow)
+{
+    iThreadPoolHigh = aCountHigh;
+    iThreadPoolMedium = aCountMedium;
+    iThreadPoolLow = aCountLow;
 }
 
 const Brx& MediaPlayerInitParams::DefaultRoom() const
@@ -66,6 +77,21 @@ const Brx& MediaPlayerInitParams::DefaultName() const
 TBool MediaPlayerInitParams::ConfigAppEnabled() const
 {
     return iConfigAppEnable;
+}
+
+TUint MediaPlayerInitParams::ThreadPoolCountHigh() const
+{
+    return iThreadPoolHigh;
+}
+
+TUint MediaPlayerInitParams::ThreadPoolCountMedium() const
+{
+    return iThreadPoolMedium;
+}
+
+TUint MediaPlayerInitParams::ThreadPoolCountLow() const
+{
+    return iThreadPoolLow;
 }
 
 
@@ -101,8 +127,11 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
                                                    iReadWriteStore); // must be created before any config values
     }
     iPowerManager = new OpenHome::PowerManager(*iConfigManager);
-    iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase, Product::kMaxRoomBytes, aInitParams->DefaultRoom());
-    iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase, Product::kMaxNameBytes, aInitParams->DefaultName());
+    iThreadPool = new OpenHome::ThreadPool(aInitParams->ThreadPoolCountHigh(),
+                                           aInitParams->ThreadPoolCountMedium(),
+                                           aInitParams->ThreadPoolCountLow());
+    iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase, Product::kMinRoomBytes, Product::kMaxRoomBytes, aInitParams->DefaultRoom());
+    iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase, Product::kMinNameBytes, Product::kMaxNameBytes, aInitParams->DefaultName());
     std::vector<TUint> choices;
     choices.push_back(Product::kAutoPlayDisable);
     choices.push_back(Product::kAutoPlayEnable);
@@ -110,7 +139,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     iProduct = new Av::Product(aDvStack.Env(), aDevice, *iKvpStore, iReadWriteStore, *iConfigManager, *iConfigManager, *iPowerManager);
     iFriendlyNameManager = new Av::FriendlyNameManager(*iProduct);
     iPipeline = new PipelineManager(aPipelineInitParams, aInfoAggregator, *iTrackFactory);
-    iVolumeConfig = new VolumeConfig(aReadWriteStore, *iConfigManager, *iPowerManager, aVolumeProfile);
+    iVolumeConfig = new VolumeConfig(*iConfigManager, aVolumeProfile);
     iVolumeManager = new Av::VolumeManager(aVolumeConsumer, iPipeline, *iVolumeConfig, aDevice, *iProduct, *iConfigManager, *iPowerManager);
     iCredentials = new Credentials(aDvStack.Env(), aDevice, aReadWriteStore, aEntropy, *iConfigManager);
     iProduct->AddAttribute("Credentials");
@@ -154,6 +183,7 @@ MediaPlayer::~MediaPlayer()
     delete iConfigAutoPlay;
     delete iConfigProductRoom;
     delete iConfigProductName;
+    delete iThreadPool;
     delete iPowerManager;
     delete iProviderConfigApp;
     delete iConfigManager;
@@ -274,6 +304,11 @@ IConfigInitialiser& MediaPlayer::ConfigInitialiser()
 IPowerManager& MediaPlayer::PowerManager()
 {
     return *iPowerManager;
+}
+
+IThreadPool& MediaPlayer::ThreadPool()
+{
+    return *iThreadPool;
 }
 
 Product& MediaPlayer::Product()

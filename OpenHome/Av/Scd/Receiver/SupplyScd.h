@@ -6,6 +6,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 
 namespace OpenHome {
+    class IReader;
 namespace Scd {
 
 class SupplyScd : public Media::ISupply, private INonCopyable
@@ -15,6 +16,7 @@ public:
     SupplyScd(Media::MsgFactory& aMsgFactory,
               Media::IPipelineElementDownstream& aDownStreamElement);
     virtual ~SupplyScd();
+    void OutputData(TUint aNumSamples, IReader& aReader);
     void Flush();
     void Discard();
 public: // from Media::ISupply
@@ -35,7 +37,10 @@ private:
     Media::MsgFactory& iMsgFactory;
     Media::IPipelineElementDownstream& iDownStreamElement;
     Media::MsgAudioEncoded* iAudioEncoded;
+    TUint iBytesPerSample;
+    TUint iSamplesCapacity;
     TUint iBytesPerAudioMsg;
+    Bws<Media::AudioData::kMaxBytes> iAudioBuf;
 };
 
 };  // namespace Scd

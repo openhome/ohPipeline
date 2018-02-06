@@ -53,6 +53,7 @@ public:
     void SetMaxLatency(TUint aJiffies);
     void SetSupportElements(TUint aElements); // EPipelineSupportElements members OR'd together
     void SetMuter(MuterImpl aMuter);
+    void SetDsdSupported(TBool aDsd);
     // getters
     TUint EncodedReservoirBytes() const;
     TUint DecodedReservoirJiffies() const;
@@ -69,6 +70,7 @@ public:
     TUint MaxLatencyJiffies() const;
     TUint SupportElements() const;
     MuterImpl Muter() const;
+    TBool DsdSupported() const;
 private:
     PipelineInitParams();
 private:
@@ -87,6 +89,7 @@ private:
     TUint iMaxLatencyJiffies;
     TUint iSupportElements;
     MuterImpl iMuter;
+    TBool iDsdSupported;
 private:
     static const TUint kEncodedReservoirSizeBytes       = 1536 * 1024;
     static const TUint kDecodedReservoirSize            = Jiffies::kPerMs * 2000;
@@ -100,6 +103,7 @@ private:
     static const TUint kThreadPriorityMax               = kPriorityHighest - 1;
     static const TUint kMaxLatencyDefault               = Jiffies::kPerMs * 2000;
     static const MuterImpl kMuterDefault                = MuterImpl::eRampSamples;
+    static const TBool kDsdSupportedDefault             = false;
 };
 
 namespace Codec {
@@ -113,7 +117,7 @@ class AudioDumper;
 class EncodedAudioReservoir;
 class Logger;
 class DecodedAudioValidator;
-class SampleRateValidator;
+class StreamValidator;
 class DecodedAudioAggregator;
 class DecodedAudioReservoir;
 class Ramper;
@@ -130,7 +134,6 @@ class Router;
 class Attenuator;
 class Drainer;
 class VariableDelayRight;
-class Pruner;
 class StarvationRamper;
 class Muter;
 class MuterVolume;
@@ -253,8 +256,8 @@ private:
     Codec::CodecController* iCodecController;
     Logger* iLoggerCodecController;
     RampValidator* iRampValidatorCodec;
-    SampleRateValidator* iSampleRateValidator;
-    Logger* iLoggerSampleRateValidator;
+    StreamValidator* iStreamValidator;
+    Logger* iLoggerStreamValidator;
     DecodedAudioAggregator* iDecodedAudioAggregator;
     Logger* iLoggerDecodedAudioAggregator;
     DecodedAudioReservoir* iDecodedAudioReservoir;
@@ -299,9 +302,6 @@ private:
     Logger* iLoggerVariableDelay2;
     RampValidator* iRampValidatorDelay2;
     DecodedAudioValidator* iDecodedAudioValidatorDelay2;
-    Pruner* iPruner;
-    Logger* iLoggerPruner;
-    DecodedAudioValidator* iDecodedAudioValidatorPruner;
     StarvationRamper* iStarvationRamper;
     Logger* iLoggerStarvationRamper;
     RampValidator* iRampValidatorStarvationRamper;

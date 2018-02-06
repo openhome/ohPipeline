@@ -27,7 +27,8 @@ ProtocolScd::ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory)
                   1, // MetadataDidl
                   1, // MetadataOh
                   2, // Format
-                  1, // Audio
+                  0, // AudioOut
+                  1, // AudioIn
                   1, // MetatextDidl
                   1, // MetatextOh
                   1, // Halt
@@ -77,20 +78,23 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
         iFormatReqd = true;
     }
 
-    for (; !iExit && !iStopped;) {
+    for (; !iExit && !iStopped && !iUnrecoverableError;) {
         try {
-            if (iUnrecoverableError) {
-                return EProtocolStreamErrorUnrecoverable;
-            }
             for (;;) {
                 Close();
                 if (Connect(iUri, 0)) { // slightly dodgy - relies on implementation ignoring iUri's scheme
                     iStarted = true;
                     break;
                 }
-                if (!iStarted) {
-                    LOG(kMedia, "ProtocolScd - failed to connect to sender\n");
-                    return EProtocolStreamErrorUnrecoverable;
+                else {
+                    if (!iStarted) {
+                        LOG(kMedia, "ProtocolScd - failed to connect to sender\n");
+                        return EProtocolStreamErrorUnrecoverable;
+                    }
+                    AutoMutex _(iLock);
+                    if (iStopped) {
+                        THROW(ScdError);
+                    }
                 }
                 Thread::Sleep(500); /* This code runs in a fairly high priority thread.
                                        Avoid it busy-looping, preventing action invocation
@@ -113,11 +117,12 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
             throw;
         }
         catch (Exception& ex) {
-            if (!iExit) {
+            if (!iExit && !iStopped) {
                 LOG_ERROR(kMedia, "Exception - %s - in ProtocolScd::Stream\n", ex.Message());
             }
         }
     }
+    Close();
     iSupply->Flush();
     {
         AutoMutex _(iLock);
@@ -126,7 +131,13 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
         }
         // clear iStreamId to prevent TrySeek or TryStop returning a valid flush id
         iStreamId = IPipelineIdProvider::kStreamIdInvalid;
-        return iStopped? EProtocolStreamStopped : EProtocolStreamSuccess;
+        if (iUnrecoverableError) {
+            return EProtocolStreamErrorUnrecoverable;
+        }
+        if (iStopped) {
+            return EProtocolStreamStopped;
+        }
+        return EProtocolStreamSuccess;
     }
 }
 
@@ -189,14 +200,19 @@ void ProtocolScd::Process(ScdMsgFormat& aMsg)
     iFormatReqd = false;
 }
 
-void ProtocolScd::Process(ScdMsgAudio& aMsg)
+void ProtocolScd::Process(ScdMsgAudioOut& /*aMsg*/)
 {
-    //Log::Print("ScdMsgAudio - samples = %u\n", aMsg.NumSamples());
+    ASSERTS();
+}
+
+void ProtocolScd::Process(ScdMsgAudioIn& aMsg)
+{
+    //Log::Print("ScdMsgAudioIn - samples = %u\n", aMsg.NumSamples());
     if (iFormatReqd) {
         OutputStream();
         iFormatReqd = false;
     }
-    iSupply->OutputData(aMsg.Audio());
+    iSupply->OutputData(aMsg.NumSamples(), iReaderBuf);
 }
 
 void ProtocolScd::Process(ScdMsgMetatextDidl& aMsg)
@@ -251,7 +267,6 @@ void ProtocolScd::OutputStream()
     }
 
     const TUint bytesPerSample =   (iStreamFormat->BitDepth() / 8)
-                                 * iStreamFormat->SampleRate()
                                  * iStreamFormat->NumChannels();
     const TUint64 bytesTotal = iStreamFormat->SamplesTotal() * bytesPerSample;
     PcmStreamInfo pcmStream;
@@ -266,6 +281,6 @@ void ProtocolScd::OutputStream()
         iStreamId = iIdProvider->NextStreamId();
     }
     iSupply->OutputPcmStream(Brx::Empty(), bytesTotal,
-                             iStreamFormat->Seekable(), iStreamFormat->Live(),
+                             false/*iStreamFormat->Seekable()*/, iStreamFormat->Live(),
                              broadcast, *this, iStreamId, pcmStream);
 }

@@ -11,7 +11,7 @@
 #include <OpenHome/Media/Codec/MpegTs.h>
 #include <OpenHome/Media/Pipeline/DecodedAudioValidator.h>
 #include <OpenHome/Media/Pipeline/DecodedAudioAggregator.h>
-#include <OpenHome/Media/Pipeline/SampleRateValidator.h>
+#include <OpenHome/Media/Pipeline/StreamValidator.h>
 #include <OpenHome/Media/Pipeline/DecodedAudioReservoir.h>
 #include <OpenHome/Media/Pipeline/Ramper.h>
 #include <OpenHome/Media/Pipeline/RampValidator.h>
@@ -24,7 +24,6 @@
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Pipeline/Router.h>
 #include <OpenHome/Media/Pipeline/Drainer.h>
-#include <OpenHome/Media/Pipeline/Pruner.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
 #include <OpenHome/Media/Pipeline/Logger.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
@@ -60,6 +59,7 @@ PipelineInitParams::PipelineInitParams()
     , iMaxLatencyJiffies(kMaxLatencyDefault)
     , iSupportElements(EPipelineSupportElementsAll)
     , iMuter(kMuterDefault)
+    , iDsdSupported(kDsdSupportedDefault)
 {
     SetThreadPriorityMax(kThreadPriorityMax);
 }
@@ -142,6 +142,11 @@ void PipelineInitParams::SetMuter(MuterImpl aMuter)
     iMuter = aMuter;
 }
 
+void PipelineInitParams::SetDsdSupported(TBool aDsd)
+{
+    iDsdSupported = aDsd;
+}
+
 TUint PipelineInitParams::EncodedReservoirBytes() const
 {
     return iEncodedReservoirBytes;
@@ -217,6 +222,10 @@ PipelineInitParams::MuterImpl PipelineInitParams::Muter() const
     return iMuter;
 }
 
+TBool OpenHome::Media::PipelineInitParams::DsdSupported() const
+{
+    return iDsdSupported;
+}
 
 // Pipeline
 
@@ -270,6 +279,9 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     msgInit.SetMsgWaitCount(perStreamMsgCount);
     msgInit.SetMsgDecodedStreamCount(perStreamMsgCount);
     msgInit.SetMsgAudioPcmCount(msgAudioPcmCount, decodedAudioCount);
+    if (aInitParams->DsdSupported()) {
+        msgInit.SetMsgAudioDsdCount(msgAudioPcmCount);
+    }
     msgInit.SetMsgSilenceCount(kMsgCountSilence);
     msgInit.SetMsgPlayableCount(kMsgCountPlayablePcm, kMsgCountPlayableDsd, kMsgCountPlayableSilence);
     msgInit.SetMsgQuitCount(kMsgCountQuit);
@@ -320,13 +332,13 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     ATTACH_ELEMENT(iDecodedAudioAggregator, new DecodedAudioAggregator(*downstream),
                    downstream, elementsSupported, EPipelineSupportElementsMandatory);
 
-    ATTACH_ELEMENT(iLoggerSampleRateValidator, new Logger("Sample Rate Validator", *iDecodedAudioAggregator),
+    ATTACH_ELEMENT(iLoggerStreamValidator, new Logger("StreamValidator", *iDecodedAudioAggregator),
                    downstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iSampleRateValidator, new SampleRateValidator(*iMsgFactory, *downstream),
+    ATTACH_ELEMENT(iStreamValidator, new StreamValidator(*iMsgFactory, *downstream),
                    downstream, elementsSupported, EPipelineSupportElementsMandatory);
 
     // construct push logger slightly out of sequence
-    ATTACH_ELEMENT(iRampValidatorCodec, new RampValidator("Codec Controller", *iSampleRateValidator),
+    ATTACH_ELEMENT(iRampValidatorCodec, new RampValidator("Codec Controller", *iStreamValidator),
                    downstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iLoggerCodecController, new Logger("Codec Controller", *downstream),
                    downstream, elementsSupported, EPipelineSupportElementsLogger);
@@ -428,12 +440,6 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorDelay2, new DecodedAudioValidator(*upstream, "VariableDelay2"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
-    ATTACH_ELEMENT(iPruner, new Pruner(*upstream),
-                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerPruner, new Logger(*iPruner, "Pruner"),
-                   upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iDecodedAudioValidatorPruner, new DecodedAudioValidator(*upstream, "Pruner"),
-                   upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     ATTACH_ELEMENT(iStarvationRamper,
                    new StarvationRamper(*iMsgFactory, *upstream, *this, *iEventThread,
                                         aInitParams->StarvationRamperMinJiffies(),
@@ -491,7 +497,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerEncodedAudioReservoir->SetEnabled(true);
     //iLoggerContainer->SetEnabled(true);
     //iLoggerCodecController->SetEnabled(true);
-    //iLoggerSampleRateValidator->SetEnabled(true);
+    //iLoggerStreamValidator->SetEnabled(true);
     //iLoggerDecodedAudioAggregator->SetEnabled(true);
     //iLoggerDecodedAudioReservoir->SetEnabled(true);
     //iLoggerRamper->SetEnabled(true);
@@ -507,7 +513,6 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerAttenuator->SetEnabled(true);
     //iLoggerDrainer->SetEnabled(true);
     //iLoggerVariableDelay2->SetEnabled(true);
-    //iLoggerPruner->SetEnabled(true);
     //iLoggerStarvationRamper->SetEnabled(true);
     //iLoggerMuter->SetEnabled(true);
     //iLoggerVolumeRamper->SetEnabled(true);
@@ -520,7 +525,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerEncodedAudioReservoir->SetFilter(Logger::EMsgAll);
     //iLoggerContainer->SetFilter(Logger::EMsgAll);
     //iLoggerCodecController->SetFilter(Logger::EMsgAll);
-    //iLoggerSampleRateValidator->SetFilter(Logger::EMsgAll);
+    //iLoggerStreamValidator->SetFilter(Logger::EMsgAll);
     //iLoggerDecodedAudioAggregator->SetFilter(Logger::EMsgAll);
     //iLoggerDecodedAudioReservoir->SetFilter(Logger::EMsgAll);
     //iLoggerRamper->SetFilter(Logger::EMsgAll);
@@ -536,7 +541,6 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerAttenuator->SetFilter(Logger::EMsgAll);
     //iLoggerDrainer->SetFilter(Logger::EMsgAll);
     //iLoggerVariableDelay2->SetFilter(Logger::EMsgAll);
-    //iLoggerPruner->SetFilter(Logger::EMsgAll);
     //iLoggerStarvationRamper->SetFilter(Logger::EMsgAll);
     //iLoggerMuter->SetFilter(Logger::EMsgAll);
     //iLoggerVolumeRamper->SetFilter(Logger::EMsgAll);
@@ -564,9 +568,6 @@ Pipeline::~Pipeline()
     delete iRampValidatorStarvationRamper;
     delete iLoggerStarvationRamper;
     delete iStarvationRamper;
-    delete iDecodedAudioValidatorPruner;
-    delete iLoggerPruner;
-    delete iPruner;
     delete iLoggerAttenuator;
     delete iAttenuator;
     delete iDecodedAudioValidatorDelay2;
@@ -612,8 +613,8 @@ Pipeline::~Pipeline()
     delete iDecodedAudioReservoir;
     delete iLoggerDecodedAudioAggregator;
     delete iDecodedAudioAggregator;
-    delete iLoggerSampleRateValidator;
-    delete iSampleRateValidator;
+    delete iLoggerStreamValidator;
+    delete iStreamValidator;
     delete iRampValidatorCodec;
     delete iLoggerCodecController;
     delete iLoggerContainer;
@@ -844,7 +845,8 @@ Msg* Pipeline::Pull()
 
 void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
 {
-    iSampleRateValidator->SetAnimator(aAnimator);
+    iStreamValidator->SetAnimator(aAnimator);
+    iVariableDelay1->SetAnimator(aAnimator);
     iVariableDelay2->SetAnimator(aAnimator);
     if (iMuterSamples != nullptr) {
         iMuterSamples->SetAnimator(aAnimator);

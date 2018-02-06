@@ -184,14 +184,14 @@ void ScdMsgReady::Process(IScdMsgProcessor& aProcessor)
 
 void ScdMsgReady::Externalise(IWriter& aWriter) const
 {
-    const TUint bytes = ScdHeader::kHeaderBytes + 8; // +8 for 2* TUint
+    const TUint bytes = ScdHeader::kHeaderBytes + 4; // +4 for 2* TUint16
     ScdHeader header(ScdHeader::kTypeReady, bytes);
     header.Externalise(aWriter);
 
     WriterBinary writer(aWriter);
     writer.WriteUint16Be(iVersionMajor);
     writer.WriteUint16Be(iVersionMinor);
-    
+
     aWriter.WriteFlush();
 }
 
@@ -277,7 +277,7 @@ void ScdMsgKvp::Initialise(const OpenHomeMetadata& aKvps)
     const TByte* ptr = iBuf.Ptr();
     for (auto p : aKvps) {
         Brn key = BufferFromString(p.first);
-        Brn val = BufferFromString(p.first);
+        Brn val = BufferFromString(p.second);
         iBuf.Append(key);
         iBuf.Append(val);
         key.Set(ptr, key.Bytes());
@@ -570,45 +570,36 @@ void ScdMsgFormat::Clear()
 }
 
 
-// ScdMsgAudio
+// ScdMsgAudioOut
 
-TUint ScdMsgAudio::NumSamples() const
+TUint ScdMsgAudioOut::NumSamples() const
 {
     return iNumSamples;
 }
 
-const Brx& ScdMsgAudio::Audio() const
+const Brx& ScdMsgAudioOut::Audio() const
 {
     return iAudio;
 }
 
-ScdMsgAudio::ScdMsgAudio(IScdMsgAllocator& aAllocator)
+ScdMsgAudioOut::ScdMsgAudioOut(IScdMsgAllocator& aAllocator)
     : ScdMsg(aAllocator)
 {
 }
 
-void ScdMsgAudio::Initialise(const std::string& aAudio, TUint aNumSamples)
+void ScdMsgAudioOut::Initialise(const std::string& aAudio, TUint aNumSamples)
 {
     ScdMsg::Initialise();
     iNumSamples = aNumSamples;
     iAudio.Replace(BufferFromString(aAudio));
 }
 
-void ScdMsgAudio::Initialise(IReader& aReader, const ScdHeader& aHeader)
-{
-    ScdMsg::Initialise();
-    ASSERT(aHeader.Type() == ScdHeader::kTypeAudio);
-    ReaderBinary rb(aReader);
-    iNumSamples = rb.ReadUintBe(2);
-    ReaderProtocol::Read(aReader, aHeader.Bytes() - 2, iAudio);
-}
-
-void ScdMsgAudio::Process(IScdMsgProcessor& aProcessor)
+void ScdMsgAudioOut::Process(IScdMsgProcessor& aProcessor)
 {
     aProcessor.Process(*this);
 }
 
-void ScdMsgAudio::Externalise(IWriter& aWriter) const
+void ScdMsgAudioOut::Externalise(IWriter& aWriter) const
 {
     const TUint bytes = ScdHeader::kHeaderBytes + 2 + iAudio.Bytes();
     ScdHeader header(ScdHeader::kTypeAudio, bytes);
@@ -621,13 +612,57 @@ void ScdMsgAudio::Externalise(IWriter& aWriter) const
     aWriter.WriteFlush();
 }
 
-void ScdMsgAudio::Clear()
+void ScdMsgAudioOut::Clear()
 {
     iNumSamples = 0;
     iAudio.Replace(Brx::Empty());
 }
-    
-    
+
+
+// ScdMsgAudioIn
+
+TUint ScdMsgAudioIn::NumSamples() const
+{
+    return iNumSamples;
+}
+
+IReader& ScdMsgAudioIn::Audio()
+{
+    ASSERT(iReader != nullptr);
+    return *iReader;
+}
+
+ScdMsgAudioIn::ScdMsgAudioIn(IScdMsgAllocator& aAllocator)
+    : ScdMsg(aAllocator)
+{
+}
+
+void ScdMsgAudioIn::Initialise(IReader& aReader, const ScdHeader& aHeader)
+{
+    ScdMsg::Initialise();
+    ASSERT(aHeader.Type() == ScdHeader::kTypeAudio);
+    ReaderBinary rb(aReader);
+    iNumSamples = rb.ReadUintBe(2);
+    iReader = &aReader;
+}
+
+void ScdMsgAudioIn::Process(IScdMsgProcessor& aProcessor)
+{
+    aProcessor.Process(*this);
+}
+
+void ScdMsgAudioIn::Externalise(IWriter& /*aWriter*/) const
+{
+    ASSERTS(); // unsupported - use ScdMsgAudioOut for writable audio msgs
+}
+
+void ScdMsgAudioIn::Clear()
+{
+    iNumSamples = 0;
+    iReader = nullptr;
+}
+
+
 // ScdMsgMetatext
 
 const Brx& ScdMsgMetatextDidl::Metatext() const
@@ -691,7 +726,7 @@ ScdMsgMetatextOh::ScdMsgMetatextOh(IScdMsgAllocator& aAllocator)
 
 void ScdMsgMetatextOh::Initialise(IReader& aReader, const ScdHeader& aHeader)
 {
-    ASSERT(aHeader.Type() == ScdHeader::kTypeMetadataOh);
+    ASSERT(aHeader.Type() == ScdHeader::kTypeMetatextOh);
     ScdMsgKvp::Initialise(aReader, aHeader.Bytes());
 }
 
@@ -713,6 +748,11 @@ ScdMsgHalt::ScdMsgHalt(IScdMsgAllocator& aAllocator)
 {
 }
 
+void ScdMsgHalt::Initialise()
+{
+    ScdMsg::Initialise();
+}
+
 void ScdMsgHalt::Process(IScdMsgProcessor& aProcessor)
 {
     aProcessor.Process(*this);
@@ -730,6 +770,11 @@ void ScdMsgHalt::Externalise(IWriter& aWriter) const
 ScdMsgDisconnect::ScdMsgDisconnect(IScdMsgAllocator& aAllocator)
     : ScdMsg(aAllocator)
 {
+}
+
+void ScdMsgDisconnect::Initialise()
+{
+    ScdMsg::Initialise();
 }
 
 void ScdMsgDisconnect::Process(IScdMsgProcessor& aProcessor)
@@ -773,7 +818,8 @@ ScdMsgFactory::ScdMsgFactory(TUint aCountReady,
                              TUint aCountMetadataDidl,
                              TUint aCountMetadataOh,
                              TUint aCountFormat,
-                             TUint aCountAudio,
+                             TUint aCountAudioOut,
+                             TUint aCountAudioIn,
                              TUint aCountMetatextDidl,
                              TUint aCountMetatextOh,
                              TUint aCountHalt,
@@ -784,7 +830,8 @@ ScdMsgFactory::ScdMsgFactory(TUint aCountReady,
     , iFifoMetadataDidl(nullptr)
     , iFifoMetadataOh(nullptr)
     , iFifoFormat(nullptr)
-    , iFifoAudio(nullptr)
+    , iFifoAudioOut(nullptr)
+    , iFifoAudioIn(nullptr)
     , iFifoMetatextDidl(nullptr)
     , iFifoMetatextOh(nullptr)
     , iFifoHalt(nullptr)
@@ -814,10 +861,16 @@ ScdMsgFactory::ScdMsgFactory(TUint aCountReady,
             iFifoFormat->Write(new ScdMsgFormat(*this));
         }
     }
-    if (aCountAudio != 0) {
-        iFifoAudio = new Fifo<ScdMsgAudio*>(aCountAudio);
-        for (TUint i=0; i<aCountAudio; i++) {
-            iFifoAudio->Write(new ScdMsgAudio(*this));
+    if (aCountAudioOut != 0) {
+        iFifoAudioOut = new Fifo<ScdMsgAudioOut*>(aCountAudioOut);
+        for (TUint i=0; i<aCountAudioOut; i++) {
+            iFifoAudioOut->Write(new ScdMsgAudioOut(*this));
+        }
+    }
+    if (aCountAudioIn != 0) {
+        iFifoAudioIn = new Fifo<ScdMsgAudioIn*>(aCountAudioIn);
+        for (TUint i = 0; i<aCountAudioIn; i++) {
+            iFifoAudioIn->Write(new ScdMsgAudioIn(*this));
         }
     }
     if (aCountMetatextDidl != 0) {
@@ -864,9 +917,13 @@ ScdMsgFactory::~ScdMsgFactory()
     for (TUint i=0; i<slots; i++) {
         delete iFifoFormat->Read();
     }
-    slots = iFifoAudio? iFifoAudio->Slots() : 0;
+    slots = iFifoAudioOut? iFifoAudioOut->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
-        delete iFifoAudio->Read();
+        delete iFifoAudioOut->Read();
+    }
+    slots = iFifoAudioIn? iFifoAudioIn->Slots() : 0;
+    for (TUint i = 0; i<slots; i++) {
+        delete iFifoAudioIn->Read();
     }
     slots = iFifoMetatextDidl? iFifoMetatextDidl->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
@@ -930,9 +987,9 @@ ScdMsgFormat* ScdMsgFactory::CreateMsgFormat(ScdMsgFormat& aFormat, TUint64 aSam
     return msg;
 }
 
-ScdMsgAudio* ScdMsgFactory::CreateMsgAudio(const std::string& aAudio, TUint aNumSamples)
+ScdMsgAudioOut* ScdMsgFactory::CreateMsgAudioOut(const std::string& aAudio, TUint aNumSamples)
 {
-    auto msg = iFifoAudio->Read();
+    auto msg = iFifoAudioOut->Read();
     msg->Initialise(aAudio, aNumSamples);
     return msg;
 }
@@ -954,52 +1011,67 @@ ScdMsgMetatextOh* ScdMsgFactory::CreateMsgMetatextOh(const OpenHomeMetadata& aMe
 ScdMsgHalt* ScdMsgFactory::CreateMsgHalt()
 {
     auto msg = iFifoHalt->Read();
+    msg->Initialise();
     return msg;
 }
 
 ScdMsgDisconnect* ScdMsgFactory::CreateMsgDisconnect()
 {
     auto msg = iFifoDisconnect->Read();
+    msg->Initialise();
     return msg;
 }
 
 ScdMsg* ScdMsgFactory::CreateMsg(IReader& aReader)
 {
     ScdHeader header;
-    header.Internalise(aReader);
+    try {
+        header.Internalise(aReader);
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kScd, "Exception: %s from %s:%u\n", ex.Message(), ex.File(), ex.Line());
+        throw;
+    }
     ScdMsg* msg = nullptr;
-    switch (header.Type())
-    {
-    case ScdHeader::kTypeReady:
-        msg = CreateMsgReady(aReader, header);
-        break;
-    case ScdHeader::kTypeMetadataDidl:
-        msg = CreateMsgMetadataDidl(aReader, header);
-        break;
-    case ScdHeader::kTypeMetadataOh:
-        msg = CreateMsgMetadataOh(aReader, header);
-        break;
-    case ScdHeader::kTypeFormat:
-        msg = CreateMsgFormat(aReader, header);
-        break;
-    case ScdHeader::kTypeAudio:
-        msg = CreateMsgAudio(aReader, header);
-        break;
-    case ScdHeader::kTypeMetatextDidl:
-        msg = CreateMsgMetatextDidl(aReader, header);
-        break;
-    case ScdHeader::kTypeMetatextOh:
-        msg = CreateMsgMetatextOh(aReader, header);
-        break;
-    case ScdHeader::kTypeHalt:
-        msg = CreateMsgHalt(aReader, header);
-        break;
-    case ScdHeader::kTypeDisconnect:
-        msg = CreateMsgDisconnect(aReader, header);
-        break;
-    default:
-        THROW(ScdError); // unknown msg type, assume this implies an unsupported protocol version
-        break;
+    try {
+        switch (header.Type())
+        {
+        case ScdHeader::kTypeReady:
+            msg = CreateMsgReady(aReader, header);
+            break;
+        case ScdHeader::kTypeMetadataDidl:
+            msg = CreateMsgMetadataDidl(aReader, header);
+            break;
+        case ScdHeader::kTypeMetadataOh:
+            msg = CreateMsgMetadataOh(aReader, header);
+            break;
+        case ScdHeader::kTypeFormat:
+            msg = CreateMsgFormat(aReader, header);
+            break;
+        case ScdHeader::kTypeAudio:
+            msg = CreateMsgAudioIn(aReader, header);
+            break;
+        case ScdHeader::kTypeMetatextDidl:
+            msg = CreateMsgMetatextDidl(aReader, header);
+            break;
+        case ScdHeader::kTypeMetatextOh:
+            msg = CreateMsgMetatextOh(aReader, header);
+            break;
+        case ScdHeader::kTypeHalt:
+            msg = CreateMsgHalt(aReader, header);
+            break;
+        case ScdHeader::kTypeDisconnect:
+            msg = CreateMsgDisconnect(aReader, header);
+            break;
+        default:
+            LOG_ERROR(kScd, "ScdMsgFactory::CreateMsg - unknown msg type: %u\n", header.Type());
+            THROW(ScdError); // unknown msg type, assume this implies an unsupported protocol version
+            break;
+        }
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kScd, "Exception: %s (type=%u) from %s:%u\n", ex.Message(), header.Type(), ex.File(), ex.Line());
+        throw;
     }
     return msg;
 }
@@ -1056,9 +1128,9 @@ ScdMsgFormat* ScdMsgFactory::CreateMsgFormat(IReader& aReader, const ScdHeader& 
     return msg;
 }
 
-ScdMsgAudio* ScdMsgFactory::CreateMsgAudio(IReader& aReader, const ScdHeader& aHeader)
+ScdMsgAudioIn* ScdMsgFactory::CreateMsgAudioIn(IReader& aReader, const ScdHeader& aHeader)
 {
-    auto msg = iFifoAudio->Read();
+    auto msg = iFifoAudioIn->Read();
     try {
         msg->Initialise(aReader, aHeader);
     }
@@ -1098,12 +1170,14 @@ ScdMsgMetatextOh* ScdMsgFactory::CreateMsgMetatextOh(IReader& aReader, const Scd
 ScdMsgHalt* ScdMsgFactory::CreateMsgHalt(IReader& /*aReader*/, const ScdHeader& /*aHeader*/)
 {
     auto msg = iFifoHalt->Read();
+    msg->Initialise();
     return msg;
 }
 
 ScdMsgDisconnect* ScdMsgFactory::CreateMsgDisconnect(IReader& /*aReader*/, const ScdHeader& /*aHeader*/)
 {
     auto msg = iFifoDisconnect->Read();
+    msg->Initialise();
     return msg;
 }
 
@@ -1135,9 +1209,14 @@ void ScdMsgFactory::Process(ScdMsgFormat& aMsg)
     iFifoFormat->Write(&aMsg);
 }
 
-void ScdMsgFactory::Process(ScdMsgAudio& aMsg)
+void ScdMsgFactory::Process(ScdMsgAudioOut& aMsg)
 {
-    iFifoAudio->Write(&aMsg);
+    iFifoAudioOut->Write(&aMsg);
+}
+
+void ScdMsgFactory::Process(ScdMsgAudioIn& aMsg)
+{
+    iFifoAudioIn->Write(&aMsg);
 }
 
 void ScdMsgFactory::Process(ScdMsgMetatextDidl& aMsg)

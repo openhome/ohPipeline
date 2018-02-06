@@ -152,6 +152,7 @@ VariableDelayBase::VariableDelayBase(MsgFactory& aMsgFactory, IPipelineElementUp
     , iMsgFactory(aMsgFactory)
     , iLock("VDEL")
     , iClockPuller(nullptr)
+    , iAnimator(nullptr)
     , iDelayJiffies(0)
     , iDelayAdjustment(0)
     , iDecodedStream(nullptr)
@@ -161,6 +162,7 @@ VariableDelayBase::VariableDelayBase(MsgFactory& aMsgFactory, IPipelineElementUp
     , iWaitForAudioBeforeGeneratingSilence(false)
     , iPendingStream(nullptr)
     , iTargetFlushId(MsgFlush::kIdInvalid)
+    , iDsdBlockSize(0)
 {
     ResetStatusAndRamp();
 }
@@ -170,6 +172,15 @@ VariableDelayBase::~VariableDelayBase()
     if (iDecodedStream != nullptr) {
         iDecodedStream->RemoveRef();
     }
+}
+
+void VariableDelayBase::SetAnimator(IPipelineAnimator& aAnimator)
+{
+    iAnimator = &aAnimator;
+    try {
+        iDsdBlockSize = aAnimator.PipelineAnimatorDsdBlockSizeBytes();
+    }
+    catch (FormatUnsupported&) {}
 }
 
 Msg* VariableDelayBase::Pull()
@@ -203,7 +214,13 @@ Msg* VariableDelayBase::DoPull()
     if ((iStatus == EStarting || iStatus == ERampedDown) && iDelayAdjustment > 0) {
         TUint size = ((TUint)iDelayAdjustment > kMaxMsgSilenceDuration? kMaxMsgSilenceDuration : (TUint)iDelayAdjustment);
         auto stream = iDecodedStream->StreamInfo();
-        auto silence = iMsgFactory.CreateMsgSilence(size, stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
+        MsgSilence* silence;
+        if (stream.Format() == AudioFormat::Pcm) {
+            silence = iMsgFactory.CreateMsgSilence(size, stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
+        }
+        else {
+            silence = iMsgFactory.CreateMsgSilenceDsd(size, stream.SampleRate(), stream.NumChannels(), iDsdBlockSize);
+        }
         if (iClockPuller != nullptr) {
             silence->SetObserver(*iClockPuller);
         }
@@ -606,7 +623,6 @@ VariableDelayRight::VariableDelayRight(MsgFactory& aMsgFactory,
                                        TUint aRampDuration, TUint aMinDelay)
     : VariableDelayBase(aMsgFactory, aUpstreamElement, aRampDuration, "right")
     , iMinDelay(aMinDelay)
-    , iAnimator(nullptr)
     , iDelayJiffiesTotal(0)
     , iPostPipelineLatencyChanged(false)
     , iAnimatorLatency(0)
@@ -615,11 +631,6 @@ VariableDelayRight::VariableDelayRight(MsgFactory& aMsgFactory,
     , iNumChannels(0)
 {
     ASSERT(iPostPipelineLatencyChanged.is_lock_free());
-}
-
-void VariableDelayRight::SetAnimator(IPipelineAnimator& aAnimator)
-{
-    iAnimator = &aAnimator;
 }
 
 Msg* VariableDelayRight::Pull()
@@ -693,13 +704,15 @@ void VariableDelayRight::AdjustDelayForAnimatorLatency()
         if (iSampleRate != 0) {
             auto streamInfo = iDecodedStream->StreamInfo();
             ASSERT(iAnimator != nullptr);
-            iAnimatorLatency = iAnimator->PipelineAnimatorDelayJiffies(iSampleRate, iBitDepth, iNumChannels);
+            iAnimatorLatency = iAnimator->PipelineAnimatorDelayJiffies(streamInfo.Format(), iSampleRate, iBitDepth, iNumChannels);
             TUint delayJiffies = (iAnimatorLatency >= iDelayJiffiesTotal? 0 : iDelayJiffiesTotal - iAnimatorLatency);
             delayJiffies = std::max(delayJiffies, iMinDelay);
             HandleDelayChange(delayJiffies);
         }
     }
+    catch (FormatUnsupported&) {}
     catch (SampleRateUnsupported&) {}
+    catch (BitDepthUnsupported&) {}
 }
 
 void VariableDelayRight::StartClockPuller()

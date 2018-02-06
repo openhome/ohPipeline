@@ -2,18 +2,22 @@
 #include <OpenHome/Av/Scd/Sender/Demo/WavSender.h>
 
 #include <string>
-#include <filesystem>
+#include <experimental/filesystem>
 
 using namespace OpenHome;
 using namespace OpenHome::Scd;
 using namespace OpenHome::Scd::Sender;
 using namespace OpenHome::Scd::Sender::Demo;
 
-void DirScanner::Run(std::string& aPath, IScdSupply& aSupply)
+using namespace std;
+
+void DirScanner::Run(string& aPath, IScdSupply& aSupply)
 {
-    for (auto& p: std::experimental::filesystem::v1::directory_iterator(aPath)) {
-        std::cout << p.path().filename() << std::endl;
-        WavSender sender(p, aSupply);
+    experimental::filesystem::path path(aPath);
+    for (auto& p: experimental::filesystem::v1::directory_iterator(path)) {
+        auto filename = p.path().string();
+        cout << filename << endl;
+        WavSender sender(filename, aSupply);
         sender.Run();
     }
 }

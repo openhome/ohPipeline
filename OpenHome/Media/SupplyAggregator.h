@@ -37,10 +37,13 @@ class SupplyAggregatorBytes : public SupplyAggregator
 {
 public:
     SupplyAggregatorBytes(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownStreamElement);
+    void SetMaxBytes(TUint aMaxBytes);
 public: // from ISupply
     void OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId) override;
     void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId, const PcmStreamInfo& aPcmStream) override;
     void OutputData(const Brx& aData) override;
+private:
+    TUint iDataMaxBytes;
 };
 
 class SupplyAggregatorJiffies : public SupplyAggregator

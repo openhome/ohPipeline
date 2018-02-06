@@ -44,18 +44,21 @@ void ProcessorPcmBufTest::ProcessFragment8(const Brx& aData, TUint /*aNumChannel
     ProcessFragment(aData);
 }
 
-void ProcessorPcmBufTest::ProcessFragment16(const Brx& aData, TUint /*aNumChannels*/)
+void ProcessorPcmBufTest::ProcessFragment16(const Brx& aData, TUint aNumChannels)
 {
+    ASSERT(aData.Bytes() % (2 * aNumChannels) == 0);
     ProcessFragment(aData);
 }
 
-void ProcessorPcmBufTest::ProcessFragment24(const Brx& aData, TUint /*aNumChannels*/)
+void ProcessorPcmBufTest::ProcessFragment24(const Brx& aData, TUint aNumChannels)
 {
+    ASSERT(aData.Bytes() % (3 * aNumChannels) == 0);
     ProcessFragment(aData);
 }
 
-void ProcessorPcmBufTest::ProcessFragment32(const Brx& aData, TUint /*aNumChannels*/)
+void ProcessorPcmBufTest::ProcessFragment32(const Brx& aData, TUint aNumChannels)
 {
+    ASSERT(aData.Bytes() % (4 * aNumChannels) == 0);
     ProcessFragment(aData);
 }
 
@@ -212,7 +215,7 @@ void ProcessorDsdBufTest::BeginBlock()
     iBuf.SetBytes(0);
 }
 
-void ProcessorDsdBufTest::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/)
+void ProcessorDsdBufTest::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/, TUint /*aSampleBlockBits*/)
 {
     CheckSize(aData.Bytes());
     iBuf.Append(aData);

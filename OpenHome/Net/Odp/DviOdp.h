@@ -142,6 +142,7 @@ private:
     WriterJsonArray iWriterResponseArgs;
     WriterJsonObject iWriterStringStreamedObj;
     WriterJsonValueString iWriterStringStreamed;
+    Brn iCorrelationId;
     TBool iResponseStarted;
     TBool iResponseEnded;
     mutable Brn iClientUserAgent;

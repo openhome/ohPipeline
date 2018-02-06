@@ -126,21 +126,17 @@ void PipelineManager::Start(IVolumeRamper& aVolumeRamper, IVolumeMuterStepped& a
 
 void PipelineManager::AddObserver(IPipelineObserver& aObserver)
 {
-    iLock.Wait();
     iObservers.push_back(&aObserver);
-    iLock.Signal();
 }
 
 void PipelineManager::RemoveObserver(IPipelineObserver& aObserver)
 {
-    iLock.Wait();
     for (TUint i=0; i<iObservers.size(); i++) {
         if (iObservers[i] == &aObserver) {
             iObservers.erase(iObservers.begin()+i);
             break;
         }
     }
-    iLock.Signal();
 }
 
 void PipelineManager::AddObserver(ITrackObserver& aObserver)
@@ -184,10 +180,11 @@ void PipelineManager::Play()
 
 void PipelineManager::PlayAs(const Brx& aMode, const Brx& aCommand)
 {
+    iFiller->Prepare(aMode, aCommand);
     AutoMutex _(iPublicLock);
     LOG(kPipeline, "PipelineManager::PlayAs(%.*s, %.*s)\n", PBUF(aMode), PBUF(aCommand));
     RemoveAllLocked();
-    iFiller->Play(aMode, aCommand);
+    iFiller->Play(aMode);
     iPipeline->Play();
 }
 
@@ -380,8 +377,10 @@ void PipelineManager::SetAttenuation(TUint aAttenuation)
 
 void PipelineManager::NotifyPipelineState(EPipelineState aState)
 {
-    for (TUint i=0; i<iObservers.size(); i++) {
-        iObservers[i]->NotifyPipelineState(aState);
+    {
+        for (TUint i = 0; i < iObservers.size(); i++) {
+            iObservers[i]->NotifyPipelineState(aState);
+        }
     }
     iLock.Wait();
     iPipelineState = aState;

@@ -505,8 +505,8 @@ void SuiteDecodedAudioAggregator::TestTrackEncodedStreamTrack()
 void SuiteDecodedAudioAggregator::TestPcmIsExpectedSize()
 {
     static const TUint kMaxMsgBytes = 64;
-    static const TUint kAudioBytes = DecodedAudio::kMaxBytes;
     static const TUint kSamplesPerMsg = 16;
+    static const TUint kAudioBytes = DecodedAudio::kMaxBytes - (DecodedAudio::kMaxBytes % kMaxMsgBytes);
     static const TUint64 kJiffiesPerMsg = (Jiffies::kPerSecond / kSampleRate) * kSamplesPerMsg;
     static const TUint kMaxDecodedBufferedMs = 5;   // dependant on value in CodecController
     static const TUint kMaxDecodedBufferedJiffies = Jiffies::kPerMs * kMaxDecodedBufferedMs;
@@ -581,7 +581,7 @@ void SuiteDecodedAudioAggregator::TestDsdAggregated()
     const TUint kSamples = 4;
     static const TUint kNumDsdMsg = 5;
     for (TUint i = 0; i < kNumDsdMsg; i++) {
-        auto audio = iMsgFactory->CreateMsgAudioDsd(decodedAudioBuf, 2, kSampleRateDsd, iTrackOffset);
+        auto audio = iMsgFactory->CreateMsgAudioDsd(decodedAudioBuf, 2, kSampleRateDsd, 2, iTrackOffset);
         Queue(audio);
         iTrackOffset += kSamples * Jiffies::PerSample(kSampleRateDsd);
         iTrackOffsetBytes += 1;

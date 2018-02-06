@@ -69,15 +69,21 @@ function StartLongPolling()
         return this.iOptions;
     }
 
-    var ConfigTextLimits = function(aKey, aMaxLength)
+    var ConfigTextLimits = function(aKey, aMinLength, aMaxLength)
     {
         this.iKey = aKey;
+        this.iMinLength = aMinLength;
         this.iMaxLength = aMaxLength;
     }
 
     ConfigTextLimits.prototype.Key = function()
     {
         return this.iKey;
+    }
+
+    ConfigTextLimits.prototype.MinLength = function()
+    {
+        return this.iMinLength;
     }
 
     ConfigTextLimits.prototype.MaxLength = function()
@@ -127,12 +133,17 @@ function StartLongPolling()
         for (var i=0; i<gConfigValTextLimits.length; i++) {
             var limits = gConfigValTextLimits[i];
             if (limits.Key() == aKey) {
-                if (aValue.length <= limits.MaxLength()) {
-                    SendUpdate(aKey, aValue);
+                if (aValue.length < limits.MinLength()) {
+                    alert(aKey + " value of \"" + aValue + "\" is shorter than: " + limits.MinLength() + " characters");
+                    return;
+                }
+                else if (aValue.length > limits.MaxLength()) {
+                    alert(aKey + " value of \"" + aValue + "\" is longer than: " + limits.MaxLength() + " characters");
                     return;
                 }
                 else {
-                    alert(aKey + " value of " + aValue + " is longer than: " + limits.MaxLength() + " characters");
+                    // Limits are okay.
+                    SendUpdate(aKey, aValue);
                     return;
                 }
             }
@@ -195,7 +206,7 @@ function StartLongPolling()
         elemInput.type = "text";
         elemInput.id = aJsonConfigTextVal.key;
         elemInput.name = aJsonConfigTextVal.key;
-        gConfigValTextLimits.push(new ConfigTextLimits(aJsonConfigTextVal.key, aJsonConfigTextVal.meta.maxlength));
+        gConfigValTextLimits.push(new ConfigTextLimits(aJsonConfigTextVal.key, aJsonConfigTextVal.meta.minlength, aJsonConfigTextVal.meta.maxlength));
         elemInput.onblur = function () {ValidateTextInput(elemInput.id, elemInput.value);}
         return elemInput;
     }

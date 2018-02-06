@@ -413,6 +413,12 @@ void CodecController::CodecThread()
         }
         catch (CodecStreamStopped&) {}
         catch (CodecStreamFlush&) {}
+        catch (AssertionFailed&) {
+            throw;
+        }
+        catch (Exception& ex) {
+            LOG_ERROR(kPipeline, "WARNING: codec threw %s\n", ex.Message());
+        }
         if (iActiveCodec != nullptr) {
             iActiveCodec->StreamCompleted();
         }
@@ -777,7 +783,8 @@ TUint64 CodecController::DoOutputAudio(MsgAudio* aAudioMsg)
     return jiffies;
 }
 
-TUint64 CodecController::OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset)
+TUint64 CodecController::OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate,
+                                        TUint aSampleBlockBits, TUint64 aTrackOffset)
 {
     ASSERT(aChannels == iChannels);
     ASSERT(aSampleRate == iSampleRate);
@@ -792,9 +799,12 @@ TUint64 CodecController::OutputAudioDsd(const Brx& aData, TUint aChannels, TUint
     const TByte* p = data.Ptr();
     TUint remaining = data.Bytes();
     do {
-        const TUint bytes = std::min(iMaxOutputBytes, data.Bytes());
+        // We don't songcast DSD so have no need to split audio into 5ms chunks
+        // Instead, pack as much audio as we can into as few msgs as possible
+        const TUint bytes = std::min(AudioData::kMaxBytes, data.Bytes());
         Brn buf(p, bytes);
-        auto audio = iMsgFactory.CreateMsgAudioDsd(buf, aChannels, aSampleRate, aTrackOffset);
+        auto audio = iMsgFactory.CreateMsgAudioDsd(buf, aChannels, aSampleRate,
+                                                   aSampleBlockBits, aTrackOffset);
         const TUint64 jiffies = DoOutputAudio(audio);
         aTrackOffset += jiffies;
         p += bytes;

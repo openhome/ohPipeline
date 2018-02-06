@@ -15,14 +15,13 @@ tests = '''
     TestSupplyAggregator
     TestAudioReservoir
     TestVariableDelay
-    TestSampleRateValidator
+    TestStreamValidator
     TestSeeker
     TestSkipper
     TestStopper
     TestTrackInspector
     TestRamper
     TestReporter
-    TestPruner
     TestStarvationRamper
     TestMuter
     TestMuterVolume
@@ -32,7 +31,7 @@ tests = '''
     TestContentProcessor
     #3519 TestPipeline
     TestPipelineConfig
-    #4963 TestProtocolHls
+    TestProtocolHls
     TestProtocolHttp
     TestCodec               -s {ws_hostname} -p {ws_port} -t quick
     TestCodecController
@@ -52,8 +51,9 @@ tests = '''
     TestWaiter
     TestUriProviderRepeater
     TestJson
+    TestThreadPool
     TestRaop
-    #TestSpotifyReporter
+    TestSpotifyReporter
     TestVolumeManager
     TestWebAppFramework
     #TestConfigUi

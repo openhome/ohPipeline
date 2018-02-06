@@ -36,6 +36,7 @@ class VariableDelayBase : public PipelineElement, public IPipelineElementUpstrea
     static const TUint kSupportedMsgTypes;
 public:
     virtual ~VariableDelayBase();
+    void SetAnimator(IPipelineAnimator& aAnimator);
 protected:
     VariableDelayBase(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, TUint aRampDuration, const TChar* aId);
 public: // from IPipelineElementUpstream
@@ -75,6 +76,7 @@ protected:
     MsgFactory& iMsgFactory;
     Mutex iLock;
     IClockPuller* iClockPuller;
+    IPipelineAnimator* iAnimator;
     TUint iDelayJiffies;
     TInt iDelayAdjustment;
     MsgDecodedStream* iDecodedStream;
@@ -91,6 +93,7 @@ private:
     BwsMode iMode;
     MsgDecodedStream* iPendingStream;
     TUint iTargetFlushId;
+    TUint iDsdBlockSize;
 };
 
 class VariableDelayLeft : public VariableDelayBase
@@ -117,7 +120,6 @@ public:
     VariableDelayRight(MsgFactory& aMsgFactory,
                        IPipelineElementUpstream& aUpstreamElement,
                        TUint aRampDuration, TUint aMinDelay);
-    void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // from PipelineElement (IMsgProcessor)
@@ -136,7 +138,6 @@ private:
     void StartClockPuller();
 private:
     const TUint iMinDelay;
-    IPipelineAnimator* iAnimator;
     TUint iDelayJiffiesTotal;
     std::atomic<TBool> iPostPipelineLatencyChanged;
     TUint iAnimatorLatency;

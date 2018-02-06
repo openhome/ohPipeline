@@ -131,9 +131,10 @@ const Brn TestMediaPlayer::kSongcastSenderIconFileName("SongcastSenderIcon");
 
 TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                                  const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
-                                 const TChar* aStoreFile, TUint aOdpPort,
+                                 const TChar* aStoreFile, TUint aOdpPort, TUint aWebUiPort,
                                  TUint aMinWebUiResourceThreads, TUint aMaxWebUiTabs, TUint aUiSendQueueSize)
     : iPullableClock(nullptr)
+    , iPlaylistLoader(nullptr)
     , iSemShutdown("TMPS", 0)
     , iDisabled("test", 0)
     , iTuneInPartnerId(aTuneInPartnerId)
@@ -213,6 +214,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     pipelineInit->SetStarvationRamperMinSize(100 * Jiffies::kPerMs); // larger StarvationRamper size useful for desktop
                                                                      // platforms with slightly unpredictable thread scheduling
     pipelineInit->SetGorgerDuration(pipelineInit->DecodedReservoirJiffies());
+    pipelineInit->SetDsdSupported(true);
     auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName));
     mpInit->EnableConfigApp();
     iMediaPlayer = new MediaPlayer(aDvStack, aCpStack, *iDevice, *iRamStore,
@@ -223,9 +225,9 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     iPipelineObserver = new LoggingPipelineObserver();
     iMediaPlayer->Pipeline().AddObserver(*iPipelineObserver);
 
-    iFnUpdaterStandard = new FriendlyNameAttributeUpdater(iMediaPlayer->FriendlyNameObservable(), *iDevice);
+    iFnUpdaterStandard = new FriendlyNameAttributeUpdater(iMediaPlayer->FriendlyNameObservable(), iMediaPlayer->ThreadPool(), *iDevice);
     iFnManagerUpnpAv = new FriendlyNameManagerUpnpAv(iMediaPlayer->Product());
-    iFnUpdaterUpnpAv = new FriendlyNameAttributeUpdater(*iFnManagerUpnpAv, *iDeviceUpnpAv);
+    iFnUpdaterUpnpAv = new FriendlyNameAttributeUpdater(*iFnManagerUpnpAv, iMediaPlayer->ThreadPool(), *iDeviceUpnpAv);
 
     // Register with the PowerManager
     IPowerManager& powerManager = iMediaPlayer->PowerManager();
@@ -233,7 +235,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
 
     // Set up config app.
     WebAppFrameworkInitParams* initParams = new WebAppFrameworkInitParams();
-    initParams->SetPort(0); // Bind to whatever free port the OS allocates to the web server.
+    initParams->SetPort(aWebUiPort);
     initParams->SetMinServerThreadsResources(aMinWebUiResourceThreads);
     initParams->SetMaxServerThreadsLongPoll(aMaxWebUiTabs);
     initParams->SetSendQueueSize(aUiSendQueueSize);
@@ -388,6 +390,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewAac(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAdts(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAlacApple(iMediaPlayer->MimeTypes()));
+    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDsf(iMediaPlayer->MimeTypes()));
+    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDff(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewPcm());
     iMediaPlayer->Add(Codec::CodecFactory::NewVorbis(iMediaPlayer->MimeTypes()));
     // RAOP source must be added towards end of source list.
@@ -422,7 +426,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(ProtocolFactory::NewCalmRadio(aEnv, iUserAgent, *iMediaPlayer));
 
     // Add sources
-    iMediaPlayer->Add(SourceFactory::NewPlaylist(*iMediaPlayer));
+    iMediaPlayer->Add(SourceFactory::NewPlaylist(*iMediaPlayer, Optional<IPlaylistLoader>(iPlaylistLoader)));
     if (iTuneInPartnerId.Bytes() == 0) {
         iMediaPlayer->Add(SourceFactory::NewRadio(*iMediaPlayer));
     }

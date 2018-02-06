@@ -22,10 +22,11 @@ class SuiteStarvationRamper : public SuiteUnitTest
                             , private IStreamHandler
                             , private IStarvationRamperObserver
 {
-    static const TUint kMaxAudioBuffer = Jiffies::kPerMs * 10;
+    static const TUint kMaxAudioBuffer = Jiffies::kPerMs * 100;
     static const TUint kRampUpDuration = Jiffies::kPerMs * 50;
     static const TUint kExpectedFlushId = 5;
     static const TUint kSampleRateDefault = 48000;
+    static const TUint kSampleRateDefaultDsd = 1411200;
     static const TUint kBitDepthDefault = 16;
     static const TUint kNumChannels = 2;
     static const SpeakerProfile kProfile;
@@ -90,10 +91,13 @@ private:
     void AddPending(Msg* aMsg);
     void PullNext(TBool aWait=true);
     void PullNext(EMsgType aExpectedMsg, TBool aWait=true);
+    void ProcessAudio(MsgAudioDecoded* aMsg);
     Msg* CreateTrack();
-    Msg* CreateDecodedStream();
+    Msg* CreateDecodedStream(AudioFormat aFormat = AudioFormat::Pcm);
     Msg* CreateAudio();
-    void Quit();
+    Msg* CreateAudioDsd();
+    void WaitForOccupancy(TUint aMsgCount);
+    void Quit(TBool aRampDown = true);
 private:
     void TestMsgsPassWhenRunning();
     void TestBlocksWhenHasMaxAudio();
@@ -104,6 +108,13 @@ private:
     void TestReportsBuffering();
     void TestFlush();
     void TestAllSampleRates();
+    void TestPruneMsgsNotReqdDownstream();
+    void TestDsdNoRampWhenFull();
+    void TestDsdRampsDownOnStarvation();
+    void TestDsdNoRampAfterHalt();
+    void TestDsdRampsUpAfterStarvation();
+    void TestDsdNoRampAtEndOfStream();
+    void TestDsdStarvationDuringRampUp();
 private:
     AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
@@ -150,6 +161,13 @@ SuiteStarvationRamper::SuiteStarvationRamper()
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestReportsBuffering), "TestReportsBuffering");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestFlush), "TestFlush");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestAllSampleRates), "TestAllSampleRates");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestPruneMsgsNotReqdDownstream), "TestPruneMsgsNotReqdDownstream");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDsdNoRampWhenFull), "TestDsdNoRampWhenFull");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDsdRampsDownOnStarvation), "TestDsdRampsDownOnStarvation");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDsdNoRampAfterHalt), "TestDsdNoRampAfterHalt");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDsdRampsUpAfterStarvation), "TestDsdRampsUpAfterStarvation");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDsdNoRampAtEndOfStream), "TestDsdNoRampAtEndOfStream");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDsdStarvationDuringRampUp), "TestDsdStarvationDuringRampUp");
 
     // audio data with left=0x7f, right=0x00
     iPcmData.SetBytes(kAudioPcmBytesDefault);
@@ -184,6 +202,7 @@ void SuiteStarvationRamper::Setup()
     iEventCallback = new ElementObserverSync();
     MsgFactoryInitParams init;
     init.SetMsgAudioPcmCount(52, 50);
+    init.SetMsgAudioDsdCount(50);
     init.SetMsgSilenceCount(20);
     init.SetMsgDecodedStreamCount(3);
     init.SetMsgTrackCount(3);
@@ -300,9 +319,8 @@ Msg* SuiteStarvationRamper::ProcessMsg(MsgBitRate* /*aMsg*/)
     return nullptr;
 }
 
-Msg* SuiteStarvationRamper::ProcessMsg(MsgAudioPcm* aMsg)
+void SuiteStarvationRamper::ProcessAudio(MsgAudioDecoded* aMsg)
 {
-    iLastPulledMsg = EMsgAudioPcm;
     iJiffies += aMsg->Jiffies();
     const Media::Ramp& ramp = aMsg->Ramp();
     if (iRampingDown) {
@@ -323,13 +341,19 @@ Msg* SuiteStarvationRamper::ProcessMsg(MsgAudioPcm* aMsg)
         TEST(ramp.Direction() == Ramp::ENone);
     }
     iLastRampPos = ramp.End();
+}
+
+Msg* SuiteStarvationRamper::ProcessMsg(MsgAudioPcm* aMsg)
+{
+    iLastPulledMsg = EMsgAudioPcm;
+    ProcessAudio(aMsg);
     return aMsg;
 }
 
 Msg* SuiteStarvationRamper::ProcessMsg(MsgAudioDsd* aMsg)
 {
-    iLastPulledMsg = EMsgAudioPcm;
-    iJiffies += aMsg->Jiffies();
+    iLastPulledMsg = EMsgAudioDsd;
+    ProcessAudio(aMsg);
     return aMsg;
 }
 
@@ -425,6 +449,7 @@ void SuiteStarvationRamper::PullNext(EMsgType aExpectedMsg, TBool aWait)
             , "MsgStreamInterrupted"
             , "MsgDecodedStream"
             , "MsgAudioPcm"
+            , "MsgAudioDsd"
             , "MsgSilence"
             , "MsgHalt"
             , "MsgFlush"
@@ -443,9 +468,9 @@ Msg* SuiteStarvationRamper::CreateTrack()
     return msg;
 }
 
-Msg* SuiteStarvationRamper::CreateDecodedStream()
+Msg* SuiteStarvationRamper::CreateDecodedStream(AudioFormat aFormat)
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, iBitDepth, iSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, iBitDepth, iSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, aFormat, Multiroom::Allowed, kProfile, this);
 }
 
 Msg* SuiteStarvationRamper::CreateAudio()
@@ -455,9 +480,26 @@ Msg* SuiteStarvationRamper::CreateAudio()
     return audio;
 }
 
-void SuiteStarvationRamper::Quit()
+Msg* SuiteStarvationRamper::CreateAudioDsd()
 {
-    iRampingDown = true; // if Pull() is called before StarvationRamper pulls the Halt below, it'll start a ramp down
+    TByte audioData[1024];
+    (void)memset(audioData, 0x69, sizeof audioData);
+    Brn audioBuf(audioData, sizeof audioData);
+    auto audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, kNumChannels, kSampleRateDefaultDsd, 2, iTrackOffset);
+    iTrackOffset += audio->Jiffies();
+    return audio;
+}
+
+void SuiteStarvationRamper::WaitForOccupancy(TUint aMsgCount)
+{
+    for (;iStarvationRamper->NumMsgs() < aMsgCount;) {
+        Thread::Sleep(10);
+    }
+}
+
+void SuiteStarvationRamper::Quit(TBool aRampDown)
+{
+    iRampingDown = aRampDown; // in case Pull() is called before StarvationRamper pulls the Halt below (causing SR to start a ramp down)
     AddPending(iMsgFactory->CreateMsgHalt());
     AddPending(iMsgFactory->CreateMsgQuit());
     do {
@@ -468,13 +510,11 @@ void SuiteStarvationRamper::Quit()
 void SuiteStarvationRamper::TestMsgsPassWhenRunning()
 {
     AddPending(iMsgFactory->CreateMsgMode(kMode));
-    AddPending(CreateTrack());
     AddPending(iMsgFactory->CreateMsgDrain(Functor()));
     AddPending(CreateDecodedStream());
     AddPending(CreateAudio());
 
     PullNext(EMsgMode);
-    PullNext(EMsgTrack);
     PullNext(EMsgDrain);
     PullNext(EMsgDecodedStream);
     do {
@@ -485,6 +525,16 @@ void SuiteStarvationRamper::TestMsgsPassWhenRunning()
     do {
         PullNext(EMsgSilence);
     } while (!iStarvationRamper->IsEmpty());
+
+    AddPending(CreateDecodedStream(AudioFormat::Dsd));
+    PullNext(EMsgDecodedStream);
+    AddPending(CreateAudioDsd());
+    iRampingDown = true; // StarvationRamper automatically ramps down a DS stream when we provide so little content
+    do {
+        PullNext(EMsgAudioDsd);
+    } while (!iStarvationRamper->IsEmpty());
+    PullNext(EMsgHalt, false); // generated after dsd ramp completes
+
     AddPending(iMsgFactory->CreateMsgHalt());
     AddPending(iMsgFactory->CreateMsgQuit());
     PullNext(EMsgHalt);
@@ -494,10 +544,8 @@ void SuiteStarvationRamper::TestMsgsPassWhenRunning()
 void SuiteStarvationRamper::TestBlocksWhenHasMaxAudio()
 {
     AddPending(iMsgFactory->CreateMsgMode(kMode));
-    AddPending(CreateTrack());
     AddPending(CreateDecodedStream());
     PullNext(EMsgMode);
-    PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
 
     do {
@@ -529,7 +577,6 @@ void SuiteStarvationRamper::TestBlocksWhenHasMaxAudio()
 void SuiteStarvationRamper::TestNoRampAroundHalt()
 {
     AddPending(iMsgFactory->CreateMsgMode(kMode));
-    AddPending(CreateTrack());
     AddPending(CreateDecodedStream());
     AddPending(CreateAudio());
     AddPending(CreateAudio());
@@ -538,7 +585,6 @@ void SuiteStarvationRamper::TestNoRampAroundHalt()
     ASSERT(!iRampingUp);
 
     PullNext(EMsgMode);
-    PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
     do {
         PullNext(EMsgAudioPcm);
@@ -556,7 +602,6 @@ void SuiteStarvationRamper::TestNoRampAroundHalt()
 void SuiteStarvationRamper::TestRampBeforeDrain()
 {
     AddPending(iMsgFactory->CreateMsgMode(kMode));
-    AddPending(CreateTrack());
     AddPending(CreateDecodedStream());
     AddPending(CreateAudio());
     AddPending(CreateAudio());
@@ -565,7 +610,6 @@ void SuiteStarvationRamper::TestRampBeforeDrain()
     ASSERT(!iRampingUp);
 
     PullNext(EMsgMode);
-    PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
     do {
         PullNext(EMsgAudioPcm);
@@ -587,14 +631,12 @@ void SuiteStarvationRamper::TestRampsAroundStarvation()
 {
     // ramps down after > kMaxAudioBuffer of prior audio, ramp down takes StarvationRamper::kRampDownJiffies
     AddPending(iMsgFactory->CreateMsgMode(kMode));
-    AddPending(CreateTrack());
     AddPending(CreateDecodedStream());
     do {
         AddPending(CreateAudio());
     } while (iTrackOffset < StarvationRamper::kTrainingJiffies);
 
     PullNext(EMsgMode);
-    PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
     do {
         PullNext(EMsgAudioPcm);
@@ -649,10 +691,8 @@ void SuiteStarvationRamper::TestNotifyStarvingAroundStarvation()
 {
     TEST(!iStarving);
     AddPending(iMsgFactory->CreateMsgMode(kMode));
-    AddPending(CreateTrack());
     AddPending(CreateDecodedStream());
     PullNext(EMsgMode);
-    PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
     TEST(!iStarving);
     AddPending(CreateAudio());
@@ -682,11 +722,8 @@ void SuiteStarvationRamper::TestReportsBuffering()
 {
     TEST(iBuffering);
     AddPending(iMsgFactory->CreateMsgMode(kMode));
-    AddPending(CreateTrack());
     AddPending(CreateDecodedStream());
     PullNext(EMsgMode);
-    TEST(iBuffering);
-    PullNext(EMsgTrack);
     TEST(iBuffering);
     PullNext(EMsgDecodedStream);
     TEST(iBuffering);
@@ -712,14 +749,11 @@ void SuiteStarvationRamper::TestReportsBuffering()
     PullNext(EMsgAudioPcm);
     TEST(iBuffering);
 
-    AddPending(CreateTrack());
+    AddPending(CreateDecodedStream());
     do {
         PullNext();
-    } while (iLastPulledMsg != EMsgTrack);
+    } while (iLastPulledMsg != EMsgDecodedStream);
     iRampingDown = false;
-    TEST(iBuffering);
-    AddPending(CreateDecodedStream());
-    PullNext(EMsgDecodedStream);
     TEST(iBuffering);
     AddPending(CreateAudio());
     do {
@@ -727,11 +761,9 @@ void SuiteStarvationRamper::TestReportsBuffering()
     } while (!iStarvationRamper->IsEmpty());
     TEST(!iBuffering);
 
-    AddPending(CreateTrack());
     AddPending(CreateDecodedStream());
     AddPending(CreateAudio());
     Thread::Sleep(50); // short wait to allow StarvationRamper to pull the above msgs
-    PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
     do {
         PullNext(EMsgAudioPcm);
@@ -744,7 +776,6 @@ void SuiteStarvationRamper::TestReportsBuffering()
 void SuiteStarvationRamper::TestFlush()
 {
     AddPending(iMsgFactory->CreateMsgMode(kMode));
-    AddPending(CreateTrack());
     AddPending(CreateDecodedStream());
     for (TUint i = 0; i < 50; i++) {
         AddPending(CreateAudio());
@@ -753,7 +784,6 @@ void SuiteStarvationRamper::TestFlush()
     AddPending(iMsgFactory->CreateMsgFlush(kFlushId));
 
     PullNext(EMsgMode);
-    PullNext(EMsgTrack);
     PullNext(EMsgDecodedStream);
     PullNext(EMsgAudioPcm);
 
@@ -805,14 +835,12 @@ void SuiteStarvationRamper::TestAllSampleRates()
             iTrackOffset = 0;
             iJiffies = 0;
             AddPending(iMsgFactory->CreateMsgMode(kMode));
-            AddPending(CreateTrack());
             AddPending(CreateDecodedStream());
             do {
                 AddPending(CreateAudio());
             } while (iTrackOffset < StarvationRamper::kTrainingJiffies);
 
             PullNext(EMsgMode);
-            PullNext(EMsgTrack);
             PullNext(EMsgDecodedStream);
             do {
                 PullNext(EMsgAudioPcm);
@@ -828,6 +856,173 @@ void SuiteStarvationRamper::TestAllSampleRates()
             PullNext(EMsgHalt, false);
         }
     }
+
+    Quit();
+}
+
+void SuiteStarvationRamper::TestPruneMsgsNotReqdDownstream()
+{
+    AddPending(CreateTrack());
+    AddPending(iMsgFactory->CreateMsgDelay(Jiffies::kPerMs * 20));
+    AddPending(CreateDecodedStream());
+    AddPending(iMsgFactory->CreateMsgBitRate(44100 * 2 * 16));
+    AddPending(iMsgFactory->CreateMsgMetaText(Brn("foo")));
+    AddPending(iMsgFactory->CreateMsgWait());
+    AddPending(iMsgFactory->CreateMsgHalt());
+
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgHalt);
+
+    Quit();
+}
+
+void SuiteStarvationRamper::TestDsdNoRampWhenFull()
+{
+    AddPending(iMsgFactory->CreateMsgMode(kMode));
+    AddPending(CreateDecodedStream(AudioFormat::Dsd));
+    AddPending(CreateAudioDsd());
+    TUint size = Jiffies::kPerMs * 100;
+    AddPending(iMsgFactory->CreateMsgSilence(size, kSampleRateDefaultDsd, 1, kNumChannels));
+    WaitForOccupancy(4);
+    PullNext(EMsgMode);
+    PullNext(EMsgDecodedStream);
+    iRampingDown = false;
+    PullNext(EMsgAudioDsd);
+
+    Quit();
+}
+
+void SuiteStarvationRamper::TestDsdRampsDownOnStarvation()
+{
+    AddPending(iMsgFactory->CreateMsgMode(kMode));
+    AddPending(CreateDecodedStream(AudioFormat::Dsd));
+    PullNext(EMsgMode);
+    PullNext(EMsgDecodedStream);
+    TUint queued = 0;
+    do {
+        AddPending(CreateAudioDsd());
+        queued++;
+    } while (iTrackOffset < iStarvationRamper->kRampDownJiffies);
+    AddPending(CreateAudioDsd());
+    WaitForOccupancy(queued + 1);
+    iRampingDown = false;
+    PullNext(EMsgAudioDsd);
+    iRampingDown = true;
+    TUint rampCount = 0;
+    do {
+        PullNext(EMsgAudioDsd);
+        rampCount++;
+    } while (iRampingDown);
+    TEST(queued == rampCount);
+
+    Quit();
+}
+
+void SuiteStarvationRamper::TestDsdNoRampAfterHalt()
+{
+    AddPending(iMsgFactory->CreateMsgMode(kMode));
+    AddPending(CreateDecodedStream(AudioFormat::Dsd));
+    AddPending(CreateAudioDsd());
+    AddPending(iMsgFactory->CreateMsgHalt());
+    PullNext(EMsgMode);
+    PullNext(EMsgDecodedStream);
+    WaitForOccupancy(2);
+    iRampingDown = false;
+    PullNext(EMsgAudioDsd);
+    PullNext(EMsgHalt);
+
+    Quit();
+}
+
+void SuiteStarvationRamper::TestDsdRampsUpAfterStarvation()
+{
+    AddPending(iMsgFactory->CreateMsgMode(kMode));
+    AddPending(CreateDecodedStream(AudioFormat::Dsd));
+    PullNext(EMsgMode);
+    PullNext(EMsgDecodedStream);
+    iRampingDown = true;
+    AddPending(CreateAudioDsd());
+    PullNext(EMsgAudioDsd);
+    TEST(!iRampingDown);
+    PullNext(EMsgHalt, false);
+
+    const auto offset = iTrackOffset;
+    TUint count = 0;
+    while (iTrackOffset - offset < iStarvationRamper->kRampDownJiffies) {
+        AddPending(CreateAudioDsd());
+        count++;
+    }
+    // add one final msg to avoid dropping below ramp threshold as soon as we Pull
+    AddPending(CreateAudioDsd());
+    count++;
+
+    WaitForOccupancy(count);
+    iJiffies = 0;
+    iRampingUp = true;
+    do {
+        TEST(iRampingUp);
+        PullNext(EMsgAudioDsd);
+        AddPending(CreateAudioDsd());
+        WaitForOccupancy(count);
+    } while (iJiffies < iStarvationRamper->iRampUpJiffies);
+    TEST(!iRampingUp);
+    PullNext(EMsgAudioDsd);
+    TEST(!iRampingUp);
+    TEST(!iRampingDown);
+
+    count = iStarvationRamper->NumMsgs();
+    AddPending(iMsgFactory->CreateMsgHalt());
+    WaitForOccupancy(count + 1);
+    Quit(false);
+}
+
+void SuiteStarvationRamper::TestDsdNoRampAtEndOfStream()
+{
+    AddPending(iMsgFactory->CreateMsgMode(kMode));
+    AddPending(CreateDecodedStream(AudioFormat::Dsd));
+    AddPending(CreateAudioDsd());
+    AddPending(CreateDecodedStream(AudioFormat::Dsd));
+    PullNext(EMsgMode);
+    PullNext(EMsgDecodedStream);
+    WaitForOccupancy(2);
+    iRampingDown = false;
+    PullNext(EMsgAudioDsd);
+    PullNext(EMsgDecodedStream);
+
+    Quit();
+}
+
+void SuiteStarvationRamper::TestDsdStarvationDuringRampUp()
+{
+    AddPending(iMsgFactory->CreateMsgMode(kMode));
+    AddPending(CreateDecodedStream(AudioFormat::Dsd));
+    PullNext(EMsgMode);
+    PullNext(EMsgDecodedStream);
+    iRampingDown = true;
+    AddPending(CreateAudioDsd());
+    PullNext(EMsgAudioDsd);
+    TEST(!iRampingDown);
+    PullNext(EMsgHalt, false);
+
+    const auto offset = iTrackOffset;
+    TUint queued = 0;
+    do {
+        AddPending(CreateAudioDsd());
+        queued++;
+    } while (iTrackOffset - offset < iStarvationRamper->kRampDownJiffies);
+    AddPending(CreateAudioDsd());
+    WaitForOccupancy(queued + 1);
+    iRampingUp = true;
+    PullNext(EMsgAudioDsd);
+    // StarvationRamper now has less than iRampUpJiffies so will ramp back down
+    iRampingUp = false;
+    iRampingDown = true;
+    for (TUint i = 0; i < queued; i++) {
+        TEST(!iRampingUp);
+        TEST(iRampingDown);
+        PullNext(EMsgAudioDsd);
+    }
+    TEST(!iRampingDown);
 
     Quit();
 }

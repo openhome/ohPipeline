@@ -190,6 +190,26 @@ void Filler::Play(const Brx& aMode, const Brx& aCommand)
     Signal();
 }
 
+void Filler::Play(const Brx& aMode)
+{
+    LOG(kMedia, "Filler::Play(%.*s)\n", PBUF(aMode));
+    AutoMutex _(iLock);
+    UpdateActiveUriProvider(aMode);
+    iStopped = false;
+    Signal();
+}
+
+void Filler::Prepare(const Brx& aMode, const Brx& aCommand)
+{
+    LOG(kMedia, "Filler::Prepare(%.*s, %.*s)\n", PBUF(aMode), PBUF(aCommand));
+    for (auto it = iUriProviders.begin(); it != iUriProviders.end(); ++it) {
+        if ((*it)->Mode() == aMode) {
+            (*it)->MoveTo(aCommand);
+            break;
+        }
+    }
+}
+
 TUint Filler::Stop()
 {
     LOG(kMedia, "Filler::Stop()\n");

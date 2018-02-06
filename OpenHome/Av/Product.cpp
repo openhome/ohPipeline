@@ -29,7 +29,7 @@ const Brn ConfigStartupSource::kLastUsed("Last Used");
 
 ConfigStartupSource::ConfigStartupSource(Configuration::IConfigInitialiser& aConfigInit)
 {
-    iSourceStartup = new ConfigText(aConfigInit, kKeySource, Product::kMaxNameBytes, kLastUsed);
+    iSourceStartup = new ConfigText(aConfigInit, kKeySource, Product::kMinNameBytes, Product::kMaxNameBytes, kLastUsed);
 }
 
 ConfigStartupSource::~ConfigStartupSource()
@@ -501,7 +501,11 @@ void Product::ActivateIfNotActive(ISource& aSource, TBool aPrefetchAllowed)
         srcOld = iSources[iCurrentSource];
 
         if (&aSource == srcOld) {
-            // This source is already active. Do nothing.
+            // This source is already selected.
+            // However, it may not be active (in particular, if Product started up with this as last selected source, which gets selected but not activated at that point, and Product was not taken out of standby prior to this ::ActivateIfNotActive() call).
+            if (!aSource.IsActive()) {
+                aSource.Activate(iAutoPlay, aPrefetchAllowed);
+            }
             return;
         }
 

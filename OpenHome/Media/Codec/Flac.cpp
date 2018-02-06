@@ -18,7 +18,6 @@ namespace Codec {
 
 class CodecFlac : public CodecBase
 {
-    static const TUint kMaxOutputChannels;
 public:
     CodecFlac(IMimeTypeList& aMimeTypeList);
     ~CodecFlac();
@@ -53,6 +52,8 @@ private:
     TUint64 iSampleStart;
     TUint64 iTrackOffset;
     TUint iSampleRate;
+    TUint iNumChannels;
+    TUint iBitDepth;
     TUint64 iTrackLengthJiffies;
     TBool iStreamMsgDue;
     TBool iOgg;
@@ -132,8 +133,6 @@ void CallbackError(const FLAC__StreamDecoder *aDecoder,
 
 // CodecFlac
 
-const TUint CodecFlac::kMaxOutputChannels = 2;
-
 CodecFlac::CodecFlac(IMimeTypeList& aMimeTypeList)
     : CodecBase("FLAC")
     , iName("FLAC")
@@ -182,6 +181,8 @@ void CodecFlac::StreamInitialise()
     iSampleStart = 0;
     iTrackOffset = 0;
     iSampleRate = 0;
+    iNumChannels = 0;
+    iBitDepth = 0;
     iTrackLengthJiffies = 0;
 
     FLAC__StreamDecoderState state;
@@ -349,12 +350,16 @@ FLAC__StreamDecoderWriteStatus CodecFlac::CallbackWrite(const FLAC__StreamDecode
                                                         const FLAC__Frame* aFrame, 
                                                         const TInt32* const aBuffer[])
 {
-    const TUint channels = std::min((TUint)aFrame->header.channels,
-                                    kMaxOutputChannels); /* don't want to support multi-channel
-                                                            ...at least until songcast sender can downmix to stereo */
+    const TUint channels = aFrame->header.channels;
     TUint samplesToWrite = aFrame->header.blocksize;
     const TUint bitDepth = aFrame->header.bits_per_sample;
     const TUint sampleRate = aFrame->header.sample_rate;
+    if (iSampleRate != sampleRate || iNumChannels != channels || iBitDepth != bitDepth) {
+        iSampleRate = sampleRate;
+        iNumChannels = channels;
+        iBitDepth = bitDepth;
+        iStreamMsgDue = false; // OutputDecodedStream below
+    }
 
     if (iStreamMsgDue) {
         /* If we get a Audio Frame prior to a metadata frame (and therefore
@@ -422,10 +427,11 @@ void CodecFlac::CallbackMetadata(const FLAC__StreamDecoder * /*aDecoder*/,
     iSampleRate = streamInfo->sample_rate;
     const TUint bitRate = iSampleRate * streamInfo->bits_per_sample * streamInfo->channels;
     iTrackLengthJiffies = (streamInfo->total_samples * Jiffies::kPerSecond) / iSampleRate;
-    const TUint channels = std::min((TUint)streamInfo->channels,
-                                    kMaxOutputChannels); /* don't want to support multi-channel
-                                                            ...at least until songcast sender can downmix to stereo */
+    iNumChannels = (TUint)streamInfo->channels;
+    iBitDepth = streamInfo->bits_per_sample;
 
-    iController->OutputDecodedStream(bitRate, streamInfo->bits_per_sample, iSampleRate, channels, iName, iTrackLengthJiffies, iSampleStart, true, DeriveProfile(channels));
+    iController->OutputDecodedStream(bitRate, iBitDepth, iSampleRate, iNumChannels,
+                                     iName, iTrackLengthJiffies, iSampleStart, true /*lossless*/,
+                                     DeriveProfile(iNumChannels));
     iStreamMsgDue = false;
 }

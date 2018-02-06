@@ -114,7 +114,7 @@ public:
      * @param[in] aSampleRate    The sample rate of the decoded stream.
      * @param[in] aNumChannels   The number of channels in the decoded stream.  Must be in the range [2..8].
      * @param[in] aCodecName     The name of the codec.  Reported to UI code; not used by the pipeline.
-     * @param[in] aLength        Number of bytes in the encoded stream.  Reported to UI code; not used by the pipeline.
+     * @param[in] aLength        Number of jiffies in the decoded stream.  Reported to UI code; not used by the pipeline.
      * @param[in] aSampleStart   The first sample number in the next audio data to be output.  0 at the start of a stream.
      * @param[in] aLossless      Whether the stream is in a lossless format.  Reported to UI code; not used by the pipeline.
      * @param[in] aProfile       Speaker profile (channel allocation) of the decoded stream
@@ -134,7 +134,7 @@ public:
     * @param[in] aSampleRate    The sample rate of the decoded stream.
     * @param[in] aNumChannels   The number of channels in the decoded stream.  Must be in the range [2..8].
     * @param[in] aCodecName     The name of the codec.  Reported to UI code; not used by the pipeline.
-    * @param[in] aLength        Number of bytes in the encoded stream.  Reported to UI code; not used by the pipeline.
+    * @param[in] aLength        Number of jiffies in the decoded stream.  Reported to UI code; not used by the pipeline.
     * @param[in] aSampleStart   The first sample number in the next audio data to be output.  0 at the start of a stream.
     * @param[in] aProfile       Speaker profile (channel allocation) of the decoded stream
     */
@@ -181,14 +181,17 @@ public:
     /**
     * Add a block of DSD audio to the pipeline.
     *
-    * @param[in] aData          DSD audio data.  Must contain an exact number of samples.
-    * @param[in] aChannels      Number of channels.
-    * @param[in] aSampleRate    Sample rate.
-    * @param[in] aTrackOffset   Offset (in jiffies) into the stream at the start of aData.
+    * @param[in] aData             DSD audio data.  Must contain an exact number of samples.
+    * @param[in] aChannels         Number of channels.
+    * @param[in] aSampleRate       Sample rate.
+    * @param[in] aSampleBlockBits  Block size (in bits) of DSD data.  2 for stereo where left/right
+    *                              channels are interleaved, 16 for stereo with one byte of left
+    *                              subsamples followed by one byte of right subsamples, etc.
+    * @param[in] aTrackOffset      Offset (in jiffies) into the stream at the start of aData.
     *
     * @return     Number of jiffies of audio contained in aData.
     */
-    virtual TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset) = 0;
+    virtual TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) = 0;
     /**
      * Notify the pipeline of a change in bit rate.
      *
@@ -381,7 +384,7 @@ private: // ICodecController
     void OutputDelay(TUint aJiffies) override;
     TUint64 OutputAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset) override;
     TUint64 OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset) override;
-    TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint64 aTrackOffset) override;
+    TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) override;
     void OutputBitRate(TUint aBitRate) override;
     void OutputWait() override;
     void OutputHalt() override;

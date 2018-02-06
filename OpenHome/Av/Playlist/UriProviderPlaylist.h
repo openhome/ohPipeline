@@ -13,18 +13,32 @@
 #include <vector>
 
 namespace OpenHome {
+    class JsonParser;
 namespace Media {
     class Track;
     class PipelineManager;
 }
 namespace Av {
 
-class UriProviderPlaylist : public Media::UriProvider, private ITrackDatabaseObserver, private Media::IPipelineObserver, private Media::ITrackObserver
+    class IPlaylistLoader;
+
+class UriProviderPlaylist : public Media::UriProvider
+                          , private ITrackDatabaseObserver
+                          , private Media::IPipelineObserver
+                          , private Media::ITrackObserver
 {
     static const Brn kCommandId;
     static const Brn kCommandIndex;
+    static const Brn kCommandJukebox;
+    static const Brn kCommandPlaylist;
+    static const Brn kJukeboxMethodReplace;
+    static const Brn kJukeboxMethodInsert;
+    static const Brn kPlaylistMethodReplace;
+    static const Brn kPlaylistMethodInsert;
+    static const TUint kLoaderTimeoutMs = 30 * 1000;
 public:
-    UriProviderPlaylist(ITrackDatabaseReader& aDatabase, Media::PipelineManager& aPipeline, ITrackDatabaseObserver& aObserver);
+    UriProviderPlaylist(ITrackDatabaseReader& aDbReader, ITrackDatabase& aDbWriter, ITrackDatabaseObserver& aDbObserver,
+                        Media::PipelineManager& aPipeline, Optional<IPlaylistLoader> aPlaylistLoader);
     ~UriProviderPlaylist();
     void SetActive(TBool aActive);
 public: // from UriProvider
@@ -57,6 +71,7 @@ private:
     TUint ParseCommand(const Brx& aCommand) const;
     Media::Track* ProcessCommandId(const Brx& aCommand);
     Media::Track* ProcessCommandIndex(const Brx& aCommand);
+    void ProcessCommandPlaylist(const Brx& aCommand);
 private:
     enum EPendingDirection
     {
@@ -66,9 +81,11 @@ private:
     };
 private:
     mutable Mutex iLock;
-    ITrackDatabaseReader& iDatabase;
+    ITrackDatabaseReader& iDbReader;
+    ITrackDatabase& iDbWriter;
+    ITrackDatabaseObserver& iDbObserver;
     Media::IPipelineIdManager& iIdManager;
-    ITrackDatabaseObserver& iObserver;
+    IPlaylistLoader* iPlaylistLoader;
     Media::Track* iPending;
     Media::EStreamPlay iPendingCanPlay;
     EPendingDirection iPendingDirection;
@@ -76,6 +93,10 @@ private:
     TUint iPlayingTrackId;
     TUint iFirstFailedTrackId; // first id from a string of failures; reset by any track generating audio
     TBool iActive;
+    TBool iLoaderWait;
+    Mutex iLockLoader;
+    Semaphore iSemLoader;
+    TUint iLoaderIdBefore;
 };
 
 } // namespace Av

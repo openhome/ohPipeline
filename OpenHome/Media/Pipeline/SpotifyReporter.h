@@ -19,7 +19,6 @@ public:
 class ISpotifyMetadata
 {
 public:
-    // FIXME - omit what isn't required from this interface.
     virtual const Brx& PlaybackSource() const = 0;
     virtual const Brx& PlaybackSourceUri() const = 0;
     virtual const Brx& Track() const = 0;
@@ -31,14 +30,23 @@ public:
     virtual const Brx& AlbumCoverUri() const = 0;
     virtual const Brx& AlbumCoverUrl() const = 0;
     virtual TUint DurationMs() const = 0;
-    virtual void Destroy() = 0;
+    virtual TUint Bitrate() const = 0;
     virtual ~ISpotifyMetadata() {}
+};
+
+class ISpotifyMetadataAllocated
+{
+public:
+    virtual const ISpotifyMetadata& Metadata() const = 0;
+    virtual void AddReference() = 0;
+    virtual void RemoveReference() = 0;
+    virtual ~ISpotifyMetadataAllocated() {}
 };
 
 class ISpotifyTrackObserver
 {
 public:
-    virtual void TrackChanged(Media::ISpotifyMetadata* aMetadata) = 0;
+    virtual void MetadataChanged(Media::ISpotifyMetadataAllocated* aMetadata) = 0;
     /*
      * Should be called when track offset has actively changed (e.g., due to a
      * seek).
@@ -64,7 +72,7 @@ private:
     // Therefore, need enough bytes for string of form: 12:34:56.789/1000
     static const TUint kMaxDurationBytes = 17;
 public:
-    SpotifyDidlLiteWriter(const Brx& aUri, ISpotifyMetadata& aMetadata);
+    SpotifyDidlLiteWriter(const Brx& aUri, const ISpotifyMetadata& aMetadata);
     void Write(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const;
 private:
     void SetDurationString(Bwx& aBuf) const;
@@ -110,7 +118,7 @@ public: // from ISpotifyReporter
     TUint64 SubSamples() const override;
     void Flush(TUint aFlushId) override;
 public: // from ISpotifyTrackObserver
-    void TrackChanged(Media::ISpotifyMetadata* aMetadata) override;
+    void MetadataChanged(Media::ISpotifyMetadataAllocated* aMetadata) override;
     void TrackOffsetChanged(TUint aOffsetMs) override;
     void TrackPosition(TUint aPositionMs) override;
     //void FlushTrackState() override;
@@ -132,7 +140,7 @@ private:
     StartOffset iStartOffset;
     TUint iTrackDurationMs;
     BwsTrackUri iTrackUri;
-    ISpotifyMetadata* iMetadata;
+    ISpotifyMetadataAllocated* iMetadata;
     TBool iMsgDecodedStreamPending;
     MsgDecodedStream* iDecodedStream;
     TUint64 iSubSamples;

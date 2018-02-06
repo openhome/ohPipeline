@@ -46,8 +46,9 @@ private: // from IPullableClock
     void PullClock(TUint aMultiplier) override;
     TUint MaxPull() const override;
 private: // from IPipelineAnimator
-    TUint PipelineAnimatorBufferJiffies() override;
-    TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) override;
+    TUint PipelineAnimatorBufferJiffies() const override;
+    TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
+    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
 private:
     IPipeline& iPipeline;
     Semaphore iSem;

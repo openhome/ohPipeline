@@ -1,5 +1,5 @@
 #include <OpenHome/Private/TestFramework.h>
-#include <OpenHome/Media/Pipeline/SampleRateValidator.h>
+#include <OpenHome/Media/Pipeline/StreamValidator.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Private/SuiteUnitTest.h>
@@ -15,11 +15,11 @@ using namespace OpenHome::Media;
 namespace OpenHome {
 namespace Media {
 
-class SuiteSampleRateValidator : public SuiteUnitTest
-                               , private IPipelineElementDownstream
-                               , private IMsgProcessor
-                               , private IPipelineAnimator
-                               , private IStreamHandler
+class SuiteStreamValidator : public SuiteUnitTest
+                           , private IPipelineElementDownstream
+                           , private IMsgProcessor
+                           , private IPipelineAnimator
+                           , private IStreamHandler
 {
     static const TUint kBitrate = 256;
     static const TUint kSampleRate = 44100;
@@ -28,7 +28,7 @@ class SuiteSampleRateValidator : public SuiteUnitTest
     static const SpeakerProfile kProfile;
     static const TUint kBitDepth = 16;
 public:
-    SuiteSampleRateValidator();
+    SuiteStreamValidator();
 private: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
@@ -60,6 +60,8 @@ private:
     void MsgsPassThrough();
     void SupportedRatePassesThrough();
     void UnsupportedRateStartsFlushing();
+    void UnsupportedBitDepthStartsFlushing();
+    void UnsupportedFormatStartsFlushing();
     void AudioNotPassedWhileFlushing();
     void MsgsPassWhileFlushing();
     void MsgsEndFlush();
@@ -86,8 +88,9 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private: // from IPipelineAnimator
-    TUint PipelineAnimatorBufferJiffies() override;
-    TUint PipelineAnimatorDelayJiffies(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) override;
+    TUint PipelineAnimatorBufferJiffies() const override;
+    TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
+    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
 private: // from IStreamHandler
     EStreamPlay OkToPlay(TUint aStreamId) override;
     TUint TrySeek(TUint aStreamId, TUint64 aOffset) override;
@@ -98,12 +101,14 @@ private:
     MsgFactory* iMsgFactory;
     TrackFactory* iTrackFactory;
     AllocatorInfoLogger iInfoAggregator;
-    SampleRateValidator* iSampleRateValidator;
+    StreamValidator* iStreamValidator;
     EMsgType iLastMsg;
     TUint iNextStreamId;
     TByte iAudioData[884]; // 884 => 5ms @ 44.1, 16-bit, stereo
     TUint64 iTrackOffsetTx;
     TBool iRateSupported;
+    TBool iBitDepthSupported;
+    TBool iFormatSupported;
     TUint iExpectedFlushId;
 };
 
@@ -114,21 +119,23 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 
 
-const SpeakerProfile SuiteSampleRateValidator::kProfile(2);
+const SpeakerProfile SuiteStreamValidator::kProfile(2);
 
-SuiteSampleRateValidator::SuiteSampleRateValidator()
-    : SuiteUnitTest("SampleRateValidator tests")
+SuiteStreamValidator::SuiteStreamValidator()
+    : SuiteUnitTest("StreamValidator tests")
 {
-    AddTest(MakeFunctor(*this, &SuiteSampleRateValidator::MsgsPassThrough), "MsgsPassThrough");
-    AddTest(MakeFunctor(*this, &SuiteSampleRateValidator::SupportedRatePassesThrough), "SupportedRatePassesThrough");
-    AddTest(MakeFunctor(*this, &SuiteSampleRateValidator::UnsupportedRateStartsFlushing), "UnsupportedRateStartsFlushing");
-    AddTest(MakeFunctor(*this, &SuiteSampleRateValidator::AudioNotPassedWhileFlushing), "AudioNotPassedWhileFlushing");
-    AddTest(MakeFunctor(*this, &SuiteSampleRateValidator::MsgsPassWhileFlushing), "MsgsPassWhileFlushing");
-    AddTest(MakeFunctor(*this, &SuiteSampleRateValidator::MsgsEndFlush), "MsgsEndFlush");
-    AddTest(MakeFunctor(*this, &SuiteSampleRateValidator::ExpectedFlushConsumed), "ExpectedFlushConsumed");
+    AddTest(MakeFunctor(*this, &SuiteStreamValidator::MsgsPassThrough), "MsgsPassThrough");
+    AddTest(MakeFunctor(*this, &SuiteStreamValidator::SupportedRatePassesThrough), "SupportedRatePassesThrough");
+    AddTest(MakeFunctor(*this, &SuiteStreamValidator::UnsupportedRateStartsFlushing), "UnsupportedRateStartsFlushing");
+    AddTest(MakeFunctor(*this, &SuiteStreamValidator::UnsupportedBitDepthStartsFlushing), "UnsupportedBitDepthStartsFlushing");
+    AddTest(MakeFunctor(*this, &SuiteStreamValidator::UnsupportedFormatStartsFlushing), "UnsupportedFormatStartsFlushing");
+    AddTest(MakeFunctor(*this, &SuiteStreamValidator::AudioNotPassedWhileFlushing), "AudioNotPassedWhileFlushing");
+    AddTest(MakeFunctor(*this, &SuiteStreamValidator::MsgsPassWhileFlushing), "MsgsPassWhileFlushing");
+    AddTest(MakeFunctor(*this, &SuiteStreamValidator::MsgsEndFlush), "MsgsEndFlush");
+    AddTest(MakeFunctor(*this, &SuiteStreamValidator::ExpectedFlushConsumed), "ExpectedFlushConsumed");
 }
 
-void SuiteSampleRateValidator::Setup()
+void SuiteStreamValidator::Setup()
 {
     MsgFactoryInitParams init;
     init.SetMsgDelayCount(2);
@@ -136,24 +143,24 @@ void SuiteSampleRateValidator::Setup()
     init.SetMsgDecodedStreamCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 3);
-    iSampleRateValidator = new SampleRateValidator(*iMsgFactory, *this);
-    iSampleRateValidator->SetAnimator(*this);
+    iStreamValidator = new StreamValidator(*iMsgFactory, *this);
+    iStreamValidator->SetAnimator(*this);
     iLastMsg = EMsgNone;
     iNextStreamId = 1;
     (void)memset(iAudioData, 0x7f, sizeof(iAudioData));
     iTrackOffsetTx = 0;
-    iRateSupported = true;
+    iRateSupported = iBitDepthSupported = iFormatSupported = true;
     iExpectedFlushId = MsgFlush::kIdInvalid;
 }
 
-void SuiteSampleRateValidator::TearDown()
+void SuiteStreamValidator::TearDown()
 {
-    delete iSampleRateValidator;
+    delete iStreamValidator;
     delete iTrackFactory;
     delete iMsgFactory;
 }
 
-void SuiteSampleRateValidator::PushMsg(EMsgType aType)
+void SuiteStreamValidator::PushMsg(EMsgType aType)
 {
     Msg* msg = nullptr;
     switch (aType)
@@ -209,7 +216,7 @@ void SuiteSampleRateValidator::PushMsg(EMsgType aType)
     case EMsgAudioDsd:
     {
         Brn audioBuf(iAudioData, sizeof(iAudioData));
-        auto msgDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, kChannels, kSampleRateDsd, iTrackOffsetTx);
+        auto msgDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, kChannels, kSampleRateDsd, 2, iTrackOffsetTx);
         iTrackOffsetTx += msgDsd->Jiffies();
         msg = msgDsd;
     }
@@ -228,10 +235,10 @@ void SuiteSampleRateValidator::PushMsg(EMsgType aType)
         ASSERTS();
         break;
     }
-    static_cast<IPipelineElementDownstream*>(iSampleRateValidator)->Push(msg);
+    static_cast<IPipelineElementDownstream*>(iStreamValidator)->Push(msg);
 }
 
-void SuiteSampleRateValidator::StartStream()
+void SuiteStreamValidator::StartStream()
 {
     EMsgType types[] = { EMsgMode, EMsgTrack, EMsgEncodedStream, EMsgDecodedStream };
     const size_t numElems = sizeof(types) / sizeof(types[0]);
@@ -240,7 +247,7 @@ void SuiteSampleRateValidator::StartStream()
     }
 }
 
-void SuiteSampleRateValidator::MsgsPassThrough()
+void SuiteStreamValidator::MsgsPassThrough()
 {
     EMsgType types[] = { EMsgMode, EMsgTrack, EMsgDrain, EMsgEncodedStream, EMsgDelay,
                          EMsgMetaText, EMsgStreamInterrupted, EMsgHalt, EMsgFlush, EMsgWait, EMsgDecodedStream,
@@ -252,7 +259,7 @@ void SuiteSampleRateValidator::MsgsPassThrough()
     }
 }
 
-void SuiteSampleRateValidator::SupportedRatePassesThrough()
+void SuiteStreamValidator::SupportedRatePassesThrough()
 {
     iRateSupported = true;
     EMsgType types[] = { EMsgDecodedStream, EMsgAudioPcm, EMsgSilence };
@@ -263,19 +270,35 @@ void SuiteSampleRateValidator::SupportedRatePassesThrough()
     }
 }
 
-void SuiteSampleRateValidator::UnsupportedRateStartsFlushing()
+void SuiteStreamValidator::UnsupportedRateStartsFlushing()
 {
     iRateSupported = false;
     PushMsg(EMsgDecodedStream);
     TEST(iLastMsg == EMsgNone);
-    TEST(iSampleRateValidator->iFlushing);
+    TEST(iStreamValidator->iFlushing);
 }
 
-void SuiteSampleRateValidator::AudioNotPassedWhileFlushing()
+void SuiteStreamValidator::UnsupportedBitDepthStartsFlushing()
+{
+    iBitDepthSupported = false;
+    PushMsg(EMsgDecodedStream);
+    TEST(iLastMsg == EMsgNone);
+    TEST(iStreamValidator->iFlushing);
+}
+
+void SuiteStreamValidator::UnsupportedFormatStartsFlushing()
+{
+    iFormatSupported = false;
+    PushMsg(EMsgDecodedStream);
+    TEST(iLastMsg == EMsgNone);
+    TEST(iStreamValidator->iFlushing);
+}
+
+void SuiteStreamValidator::AudioNotPassedWhileFlushing()
 {
     iRateSupported = false;
     PushMsg(EMsgDecodedStream);
-    TEST(iSampleRateValidator->iFlushing);
+    TEST(iStreamValidator->iFlushing);
     PushMsg(EMsgAudioPcm);
     TEST(iLastMsg == EMsgNone);
     PushMsg(EMsgSilence);
@@ -284,219 +307,230 @@ void SuiteSampleRateValidator::AudioNotPassedWhileFlushing()
     TEST(iLastMsg == EMsgNone);
 }
 
-void SuiteSampleRateValidator::MsgsPassWhileFlushing()
+void SuiteStreamValidator::MsgsPassWhileFlushing()
 {
     iRateSupported = false;
     PushMsg(EMsgDecodedStream);
-    TEST(iSampleRateValidator->iFlushing);
+    TEST(iStreamValidator->iFlushing);
     EMsgType types[] = { EMsgEncodedStream, EMsgDelay, EMsgHalt, EMsgFlush, EMsgWait, EMsgQuit };
     const size_t numElems = sizeof(types) / sizeof(types[0]);
     for (size_t i=0; i<numElems; i++) {
         PushMsg(types[i]);
         TEST(iLastMsg == types[i]);
-        TEST(iSampleRateValidator->iFlushing);
+        TEST(iStreamValidator->iFlushing);
     }
 }
 
-void SuiteSampleRateValidator::MsgsEndFlush()
+void SuiteStreamValidator::MsgsEndFlush()
 {
     iRateSupported = false;
     EMsgType types[] = { EMsgMode, EMsgTrack };
     const size_t numElems = sizeof(types) / sizeof(types[0]);
     for (size_t i=0; i<numElems; i++) {
         PushMsg(EMsgDecodedStream);
-        TEST(iSampleRateValidator->iFlushing);
+        TEST(iStreamValidator->iFlushing);
         PushMsg(types[i]);
         TEST(iLastMsg == types[i]);
-        TEST(!iSampleRateValidator->iFlushing);
+        TEST(!iStreamValidator->iFlushing);
     }
 
     iLastMsg = EMsgNone;
     PushMsg(EMsgDecodedStream);
-    TEST(iSampleRateValidator->iFlushing);
+    TEST(iStreamValidator->iFlushing);
     TEST(iLastMsg == EMsgNone);
     iRateSupported = true;
     PushMsg(EMsgDecodedStream);
-    TEST(!iSampleRateValidator->iFlushing);
+    TEST(!iStreamValidator->iFlushing);
     TEST(iLastMsg == EMsgDecodedStream);
 }
 
-void SuiteSampleRateValidator::ExpectedFlushConsumed()
+void SuiteStreamValidator::ExpectedFlushConsumed()
 {
     iRateSupported = false;
     PushMsg(EMsgDecodedStream);
     PushMsg(EMsgAudioPcm);
-    TEST(iSampleRateValidator->iFlushing);
+    TEST(iStreamValidator->iFlushing);
     TEST(iLastMsg == EMsgNone);
     PushMsg(EMsgFlush);
-    TEST(iSampleRateValidator->iFlushing);
+    TEST(iStreamValidator->iFlushing);
     TEST(iLastMsg == EMsgFlush);
     iExpectedFlushId = 42;
     iLastMsg = EMsgNone;
     PushMsg(EMsgFlush);
-    TEST(iSampleRateValidator->iFlushing);
+    TEST(iStreamValidator->iFlushing);
     TEST(iLastMsg == EMsgFlush);
 }
 
-void SuiteSampleRateValidator::Push(Msg* aMsg)
+void SuiteStreamValidator::Push(Msg* aMsg)
 {
     aMsg = aMsg->Process(*this);
     aMsg->RemoveRef();
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgMode* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgMode* aMsg)
 {
     iLastMsg = EMsgMode;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgTrack* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgTrack* aMsg)
 {
     iLastMsg = EMsgTrack;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgDrain* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgDrain* aMsg)
 {
     iLastMsg = EMsgDrain;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgDelay* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgDelay* aMsg)
 {
     iLastMsg = EMsgDelay;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgEncodedStream* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgEncodedStream* aMsg)
 {
     iLastMsg = EMsgEncodedStream;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgAudioEncoded* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     ASSERTS();
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgMetaText* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgMetaText* aMsg)
 {
     iLastMsg = EMsgMetaText;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgStreamInterrupted* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgStreamInterrupted* aMsg)
 {
     iLastMsg = EMsgStreamInterrupted;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgHalt* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgHalt* aMsg)
 {
     iLastMsg = EMsgHalt;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgFlush* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgFlush* aMsg)
 {
     iLastMsg = EMsgFlush;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgWait* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgWait* aMsg)
 {
     iLastMsg = EMsgWait;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgDecodedStream* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgDecodedStream* aMsg)
 {
     iLastMsg = EMsgDecodedStream;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgBitRate* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgBitRate* aMsg)
 {
     iLastMsg = EMsgBitRate;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgAudioPcm* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iLastMsg = EMsgAudioPcm;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgAudioDsd* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgAudioDsd* aMsg)
 {
     iLastMsg = EMsgAudioDsd;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgSilence* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgSilence* aMsg)
 {
     iLastMsg = EMsgSilence;
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgPlayable* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgPlayable* aMsg)
 {
     ASSERTS();
     return aMsg;
 }
 
-Msg* SuiteSampleRateValidator::ProcessMsg(MsgQuit* aMsg)
+Msg* SuiteStreamValidator::ProcessMsg(MsgQuit* aMsg)
 {
     iLastMsg = EMsgQuit;
     return aMsg;
 }
 
-TUint SuiteSampleRateValidator::PipelineAnimatorBufferJiffies()
+TUint SuiteStreamValidator::PipelineAnimatorBufferJiffies() const
 {
     return 0;
 }
 
-TUint SuiteSampleRateValidator::PipelineAnimatorDelayJiffies(TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/)
+TUint SuiteStreamValidator::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const
 {
     if (!iRateSupported) {
         THROW(SampleRateUnsupported);
     }
+    if (!iBitDepthSupported) {
+        THROW(BitDepthUnsupported);
+    }
+    if (!iFormatSupported) {
+        THROW(FormatUnsupported);
+    }
     return Jiffies::kPerMs * 5;
 }
 
-EStreamPlay SuiteSampleRateValidator::OkToPlay(TUint /*aStreamId*/)
+TUint SuiteStreamValidator::PipelineAnimatorDsdBlockSizeBytes() const
+{
+    return 1;
+}
+
+EStreamPlay SuiteStreamValidator::OkToPlay(TUint /*aStreamId*/)
 {
     return ePlayNo;
 }
 
-TUint SuiteSampleRateValidator::TrySeek(TUint /*aStreamId*/, TUint64 /*aOffset*/)
+TUint SuiteStreamValidator::TrySeek(TUint /*aStreamId*/, TUint64 /*aOffset*/)
 {
     ASSERTS();
     return MsgFlush::kIdInvalid;
 }
 
-TUint SuiteSampleRateValidator::TryDiscard(TUint /*aJiffies*/)
+TUint SuiteStreamValidator::TryDiscard(TUint /*aJiffies*/)
 {
     ASSERTS();
     return MsgFlush::kIdInvalid;
 }
 
-TUint SuiteSampleRateValidator::TryStop(TUint /*aStreamId*/)
+TUint SuiteStreamValidator::TryStop(TUint /*aStreamId*/)
 {
     return iExpectedFlushId;
 }
 
-void SuiteSampleRateValidator::NotifyStarving(const Brx& /*aMode*/, TUint /*aStreamId*/, TBool /*aStarving*/)
+void SuiteStreamValidator::NotifyStarving(const Brx& /*aMode*/, TUint /*aStreamId*/, TBool /*aStarving*/)
 {
     ASSERTS();
 }
 
 
 
-void TestSampleRateValidator()
+void TestStreamValidator()
 {
-    Runner runner("SampleRateValidator tests\n");
-    runner.Add(new SuiteSampleRateValidator());
+    Runner runner("StreamValidator tests\n");
+    runner.Add(new SuiteStreamValidator());
     runner.Run();
 }

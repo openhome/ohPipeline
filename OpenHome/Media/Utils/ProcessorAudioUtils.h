@@ -67,7 +67,7 @@ protected:
     void CheckSize(TUint aAdditionalBytes);
 private: // from IPcmProcessor
     void BeginBlock() override;
-    void ProcessFragment(const Brx& aData, TUint aNumChannels) override;
+    void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSampleBlockBits) override;
     void EndBlock() override;
     void Flush() override;
 protected:

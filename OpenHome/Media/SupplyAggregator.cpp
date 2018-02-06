@@ -100,8 +100,16 @@ void SupplyAggregator::OutputEncodedAudio()
 
 SupplyAggregatorBytes::SupplyAggregatorBytes(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownStreamElement)
     : SupplyAggregator(aMsgFactory, aDownStreamElement)
+    , iDataMaxBytes(AudioData::kMaxBytes)
 {
 }
+
+void SupplyAggregatorBytes::SetMaxBytes(TUint aMaxBytes)
+{
+    ASSERT(aMaxBytes <= AudioData::kMaxBytes);
+    iDataMaxBytes = aMaxBytes;
+}
+
 void SupplyAggregatorBytes::OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId)
 {
     // FIXME - no metatext available
@@ -125,7 +133,7 @@ void SupplyAggregatorBytes::OutputData(const Brx& aData)
         iAudioEncoded = iMsgFactory.CreateMsgAudioEncoded(aData);
     }
     else {
-        const TUint consumed = iAudioEncoded->Append(aData);
+        const TUint consumed = iAudioEncoded->Append(aData, iDataMaxBytes);
         if (consumed < aData.Bytes()) {
             OutputEncodedAudio();
             Brn remaining = aData.Split(consumed);

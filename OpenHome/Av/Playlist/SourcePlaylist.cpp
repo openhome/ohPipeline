@@ -1,8 +1,10 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Optional.h>
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/Pipeline.h> // for PipelineStreamNotPausable
+#include <OpenHome/Av/Playlist/Playlist.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Playlist/ProviderPlaylist.h>
 #include <OpenHome/Av/Playlist/UriProviderPlaylist.h>
@@ -31,7 +33,7 @@ class ProviderPlaylist;
 class SourcePlaylist : public Source, private ISourcePlaylist, private ITrackDatabaseObserver, private Media::IPipelineObserver
 {
 public:
-    SourcePlaylist(IMediaPlayer& aMediaPlayer);
+    SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoader> aPlaylistLoader);
     ~SourcePlaylist();
 private:
     TBool StartedShuffled();
@@ -90,9 +92,9 @@ using namespace OpenHome::Media;
 
 // SourceFactory
 
-ISource* SourceFactory::NewPlaylist(IMediaPlayer& aMediaPlayer)
+ISource* SourceFactory::NewPlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoader> aPlaylistLoader)
 { // static
-    return new SourcePlaylist(aMediaPlayer);
+    return new SourcePlaylist(aMediaPlayer, aPlaylistLoader);
 }
 
 const TChar* SourceFactory::kSourceTypePlaylist = "Playlist";
@@ -101,7 +103,7 @@ const Brn SourceFactory::kSourceNamePlaylist("Playlist");
 
 // SourcePlaylist
 
-SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer)
+SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoader> aPlaylistLoader)
     : Source(SourceFactory::kSourceNamePlaylist,
              SourceFactory::kSourceTypePlaylist,
              aMediaPlayer.Pipeline())
@@ -116,7 +118,7 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer)
     iDatabase = new TrackDatabase(aMediaPlayer.TrackFactory());
     iShuffler = new Shuffler(env, *iDatabase);
     iRepeater = new Repeater(*iShuffler);
-    iUriProvider = new UriProviderPlaylist(*iRepeater, iPipeline, *this);
+    iUriProvider = new UriProviderPlaylist(*iRepeater, *iDatabase, *this, iPipeline, aPlaylistLoader);
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourcePlaylist::Play));
     iUriProvider->SetTransportPause(MakeFunctor(*this, &SourcePlaylist::Pause));
     iUriProvider->SetTransportStop(MakeFunctor(*this, &SourcePlaylist::Stop));

@@ -7,6 +7,8 @@
 #include <OpenHome/Av/Product.h>
 
 namespace OpenHome {
+    class IThreadPool;
+    class IThreadPoolHandle;
     namespace Net {
         class DvDevice;
     }
@@ -16,6 +18,7 @@ class FriendlyNameAttributeUpdater : private INonCopyable
 {
 public:
     FriendlyNameAttributeUpdater(IFriendlyNameObservable& aFriendlyNameObservable,
+                                 IThreadPool& aThreadPool,
                                  Net::DvDevice& aDvDevice);
     ~FriendlyNameAttributeUpdater();
 private:
@@ -29,7 +32,7 @@ private:
     Net::DvDevice& iDvDevice;
     TUint iId;
     Mutex iLock;
-    ThreadFunctor* iThread;
+    IThreadPoolHandle* iThreadPoolHandle;
     Bws<kMaxNameBytes> iFullName;
 };
 

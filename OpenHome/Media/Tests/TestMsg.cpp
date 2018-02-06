@@ -727,6 +727,20 @@ void SuiteMsgAudioEncoded::Test()
     TEST(consumed == EncodedAudio::kMaxBytes % buf.Bytes());
     msg->RemoveRef();
 
+    // Append truncates at client-specified point
+    msg = iMsgFactory->CreateMsgAudioEncoded(buf);
+    consumed = msg->Append(buf, buf.Bytes() + 1);
+    TEST(consumed == 1);
+    msg->RemoveRef();
+
+    // Append copes with client-specified limit being less than current msg occupancy
+    msg = iMsgFactory->CreateMsgAudioEncoded(buf);
+    consumed = msg->Append(buf, buf.Bytes() - 1);
+    TEST(consumed == 0);
+    consumed = msg->Append(buf, buf.Bytes());
+    TEST(consumed == 0);
+    msg->RemoveRef();
+
     // validate ref counting of chained msgs (see #5167)
     msg = iMsgFactory->CreateMsgAudioEncoded(buf);
     msg->AddRef();
@@ -823,7 +837,8 @@ void SuiteMsgAudio::Test()
     clone->RemoveRef();
 
     // Aggregate 2 msgs. Check their combined lengths are reported.
-    static const TUint dataSizeHalfDecodedAudio = DecodedAudio::kMaxBytes/2;
+    TUint dataSizeHalfDecodedAudio = DecodedAudio::kMaxBytes/2;
+    dataSizeHalfDecodedAudio -= dataSizeHalfDecodedAudio % 12; // round down to an integer number of samples for 8/16/24 bits with 1/2 channels
     static const TUint secondOffsetSamples = dataSizeHalfDecodedAudio / 2; // iBitDepth = 8 bits = 1 byte
     static const TUint secondsOffsetJiffies = Jiffies::PerSample(44100) * secondOffsetSamples;
     Bwh data1(dataSizeHalfDecodedAudio, dataSizeHalfDecodedAudio);
@@ -927,6 +942,39 @@ void SuiteMsgAudio::Test()
     MsgPlayable* playable = static_cast<MsgSilence*>(clone)->CreatePlayable(); // removes ref from clone
     msg->RemoveRef();
     playable->RemoveRef();
+
+    // Silence msgs in DSD streams should align to client-specified boundaries
+    const TUint sr = 1411200;
+    const TUint jps = Jiffies::PerSample(sr);
+    const TUint blockSizeBytes = 4;
+    const TUint minSamples = 16; // assumes 2 channels
+    const TUint minJiffies = minSamples * jps;
+    jiffies = jps;
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, blockSizeBytes);
+    TEST(jiffies == msg->Jiffies());
+    TEST(jiffies == minJiffies);
+    msg->RemoveRef();
+    jiffies = jps * (minSamples + 1);
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, blockSizeBytes);
+    TEST(jiffies == msg->Jiffies());
+    TEST(jiffies == minJiffies);
+    msg->RemoveRef();
+
+    // Attenuation (RAOP only)
+    {
+        const TByte b = 0x7f;
+        TByte sample[] = { b, b, b, b };
+        Brn sampleBuf(sample, sizeof sample);
+        auto pcm = iMsgFactory->CreateMsgAudioPcm(sampleBuf, 2, 44100, 16, AudioDataEndian::Little, Jiffies::kPerSecond);
+        pcm->SetAttenuation(MsgAudioPcm::kUnityAttenuation / 4);
+        playable = pcm->CreatePlayable();
+        playable->Read(pcmProcessor);
+        playable->RemoveRef();
+        ptr = pcmProcessor.Ptr();
+        const TInt16 subsample = (ptr[0] << 8) + ptr[1];
+        TInt16 expected = ((b << 8) + b) / 4;
+        TEST(subsample == expected);
+    }
 
     // IPipelineBufferObserver
     BufferObserver bufferObserver;
@@ -1220,6 +1268,13 @@ void SuiteMsgPlayable::Test()
     TEST(playable->Bytes() + remainingPlayable->Bytes() == bytes);
     playable->RemoveRef();
     remainingPlayable->RemoveRef();
+
+    // Create multi-channel silence msg.  Check it can be read correctly.
+    size = Jiffies::kPerMs;
+    silence = iMsgFactory->CreateMsgSilence(size, 192000, 32, 10);
+    playable = silence->CreatePlayable();
+    TEST(playable->Bytes() == Jiffies::ToSamples(size, 192000) * 40);
+    ValidateSilence(playable);
 
     // Create silence msg, split at 1 jiffy (non-sample boundary).  Check initial msg has 0 Bytes() but can Write() its content
     silence = iMsgFactory->CreateMsgSilence(size, 44100, 8, 1);
@@ -1712,7 +1767,7 @@ void SuiteMsgAudioDsd::Test()
     TUint jiffies;
     MsgAudio* msg;
     for (TUint i = 0; i<numRates; i++) {
-        msg = iMsgFactory->CreateMsgAudioDsd(data, 2, sampleRates[i], 0LL);
+        msg = iMsgFactory->CreateMsgAudioDsd(data, 2, sampleRates[i], 2, 0LL);
         jiffies = msg->Jiffies();
         msg->RemoveRef();
         TEST(prevJiffies > jiffies);
@@ -1720,7 +1775,7 @@ void SuiteMsgAudioDsd::Test()
     }
 
     // Split dsd msg.  Check lengths of both parts are as expected.
-    msg = iMsgFactory->CreateMsgAudioDsd(data, 2, 2822400, Jiffies::kPerSecond);
+    msg = iMsgFactory->CreateMsgAudioDsd(data, 2, 2822400, 2, Jiffies::kPerSecond);
     static const TUint kSplitPos = 800;
     jiffies = msg->Jiffies();
     MsgAudio* remaining = msg->Split(kSplitPos);
@@ -1752,10 +1807,10 @@ void SuiteMsgAudioDsd::Test()
     clone->RemoveRef();
 
     // Check creating zero-length msg asserts
-    TEST_THROWS(iMsgFactory->CreateMsgAudioDsd(Brx::Empty(), 2, 2822400, 0LL), AssertionFailed);
+    TEST_THROWS(iMsgFactory->CreateMsgAudioDsd(Brx::Empty(), 2, 2822400, 2, 0LL), AssertionFailed);
 
     // convert to playable
-    msg = iMsgFactory->CreateMsgAudioDsd(data, 2, 2822400, 0LL);
+    msg = iMsgFactory->CreateMsgAudioDsd(data, 2, 2822400, 2, 0LL);
     auto playable = static_cast<MsgAudioDecoded*>(msg)->CreatePlayable();
     ProcessorDsdBufTest processor;
     playable->Read(processor);
@@ -1778,7 +1833,7 @@ void SuiteMsgAudioDsd::Test()
     playable->RemoveRef();
 
     // muted dsd converts to PlayableSilence
-    msg = iMsgFactory->CreateMsgAudioDsd(data, 2, 2822400, 0LL);
+    msg = iMsgFactory->CreateMsgAudioDsd(data, 2, 2822400, 2, 0LL);
     msg->SetMuted();
     playable = static_cast<MsgAudioDecoded*>(msg)->CreatePlayable();
     playable->Read(processor);
@@ -1786,6 +1841,20 @@ void SuiteMsgAudioDsd::Test()
     for (TUint i = 0; i < audio.Bytes(); i++) {
         TEST(audio[i] == kDsdSilence);
     }
+    playable->RemoveRef();
+
+    // split at non-block boundary
+    TByte data2[4] = { 0 };
+    Brn data2Buf(&data2[0], sizeof data2);
+    const TUint sr = 1411200;
+    const TUint jps = Jiffies::PerSample(sr);
+    msg = iMsgFactory->CreateMsgAudioDsd(data2Buf, 2, sr, 32, 0LL);
+    auto split = msg->Split(jps);
+    playable = msg->CreatePlayable();
+    TEST(playable->Bytes() == 0);
+    playable->RemoveRef();
+    playable = split->CreatePlayable();
+    TEST(playable->Bytes() == sizeof data2);
     playable->RemoveRef();
 
     // clean destruction of class implies no leaked msgs
@@ -2284,7 +2353,7 @@ void SuiteMsgProcessor::Test()
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgPlayable);
     playable->RemoveRef();
 
-    MsgAudioDsd* audioDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 0);
+    MsgAudioDsd* audioDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 2, 0);
     TEST(audioDsd == static_cast<Msg*>(audioDsd)->Process(processor));
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgAudioDsd);
     playable = audioDsd->CreatePlayable();
@@ -3012,7 +3081,7 @@ void SuiteMsgReservoir::Test()
     TEST(queue->LastIn() == TestMsgReservoir::EMsgAudioPcm);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
-    audio = iMsgFactory->CreateMsgAudioDsd(encodedAudioBuf, 2, 1411200, 0);
+    audio = iMsgFactory->CreateMsgAudioDsd(encodedAudioBuf, 2, 1411200, 2, 0);
     const TUint audioDsdJiffies = audio->Jiffies();
     queue->Enqueue(audio);
     TEST(queue->Jiffies() == jiffies + audioDsdJiffies);
@@ -3436,7 +3505,7 @@ Msg* SuitePipelineElement::CreateMsg(ProcessorMsgType::EMsgType aType)
         TByte audioData[kDataBytes];
         (void)memset(audioData, 0xab, kDataBytes);
         Brn audioBuf(audioData, kDataBytes);
-        return iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 0LL);
+        return iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 2, 0LL);
     }
     case ProcessorMsgType::EMsgSilence:
     {

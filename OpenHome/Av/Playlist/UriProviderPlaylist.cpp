@@ -2,13 +2,17 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Ascii.h>
+#include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Media/Filler.h>
+#include <OpenHome/Media/Debug.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/PipelineManager.h>
+#include <OpenHome/Av/Playlist/Playlist.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Media/Pipeline/TrackInspector.h>
+#include <OpenHome/Json.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -18,25 +22,36 @@ using namespace OpenHome::Media;
 
 const Brn UriProviderPlaylist::kCommandId("id");
 const Brn UriProviderPlaylist::kCommandIndex("index");
+const Brn UriProviderPlaylist::kCommandPlaylist("playlist");
+const Brn UriProviderPlaylist::kPlaylistMethodReplace("replace");
+const Brn UriProviderPlaylist::kPlaylistMethodInsert("insert");
 
-UriProviderPlaylist::UriProviderPlaylist(ITrackDatabaseReader& aDatabase, PipelineManager& aPipeline, ITrackDatabaseObserver& aObserver)
+UriProviderPlaylist::UriProviderPlaylist(ITrackDatabaseReader& aDbReader, ITrackDatabase& aDbWriter,
+                                         ITrackDatabaseObserver& aDbObserver,
+                                         PipelineManager& aPipeline, Optional<IPlaylistLoader> aPlaylistLoader)
     : UriProvider("Playlist",
                   Latency::NotSupported,
                   Next::Supported, Prev::Supported,
                   Repeat::Supported, Random::Supported,
                   RampPauseResume::Long, RampSkip::Short)
-    , iLock("UPPL")
-    , iDatabase(aDatabase)
+    , iLock("UPP1")
+    , iDbReader(aDbReader)
+    , iDbWriter(aDbWriter)
+    , iDbObserver(aDbObserver)
     , iIdManager(aPipeline)
-    , iObserver(aObserver)
+    , iPlaylistLoader(aPlaylistLoader.Ptr())
     , iPending(nullptr)
     , iLastTrackId(ITrackDatabase::kTrackIdNone)
     , iPlayingTrackId(ITrackDatabase::kTrackIdNone)
     , iFirstFailedTrackId(ITrackDatabase::kTrackIdNone)
     , iActive(false)
+    , iLoaderWait(false)
+    , iLockLoader("UPP2")
+    , iSemLoader("UPP3", 0)
+    , iLoaderIdBefore(ITrackDatabase::kTrackIdNone)
 {
     aPipeline.AddObserver(static_cast<IPipelineObserver&>(*this));
-    iDatabase.SetObserver(*this);
+    iDbReader.SetObserver(*this);
     aPipeline.AddObserver(static_cast<ITrackObserver&>(*this));
 }
 
@@ -57,7 +72,7 @@ void UriProviderPlaylist::SetActive(TBool aActive)
 TBool UriProviderPlaylist::IsValid(TUint aTrackId) const
 {
     AutoMutex a(iLock);
-    return iDatabase.IsValid(aTrackId);
+    return iDbReader.IsValid(aTrackId);
 }
 
 void UriProviderPlaylist::Begin(TUint aTrackId)
@@ -73,6 +88,21 @@ void UriProviderPlaylist::BeginLater(TUint aTrackId)
 EStreamPlay UriProviderPlaylist::GetNext(Media::Track*& aTrack)
 {
     EStreamPlay canPlay = ePlayYes;
+    {
+        iLockLoader.Wait();
+        const TBool wait = iLoaderWait;
+        iLockLoader.Signal();
+        if (wait) {
+            try {
+                iSemLoader.Wait(kLoaderTimeoutMs);
+            }
+            catch (Timeout&) {
+                iLockLoader.Wait();
+                iLoaderWait = false;
+                iLockLoader.Signal();
+            }
+        }
+    }
     AutoMutex a(iLock);
     const TUint prevLastTrackId = iLastTrackId;
     if (iPending != nullptr) {
@@ -82,9 +112,9 @@ EStreamPlay UriProviderPlaylist::GetNext(Media::Track*& aTrack)
         canPlay = iPendingCanPlay;
     }
     else {
-        aTrack = iDatabase.NextTrackRef(iLastTrackId);
+        aTrack = iDbReader.NextTrackRef(iLastTrackId);
         if (aTrack == nullptr) {
-            aTrack = iDatabase.NextTrackRef(ITrackDatabase::kTrackIdNone);
+            aTrack = iDbReader.NextTrackRef(ITrackDatabase::kTrackIdNone);
             canPlay = (aTrack==nullptr? ePlayNo : ePlayLater);
         }
         iLastTrackId = (aTrack != nullptr? aTrack->Id() : ITrackDatabase::kTrackIdNone);
@@ -118,14 +148,14 @@ void UriProviderPlaylist::MoveNext()
         iPending = nullptr;
     }
     const TUint trackId = CurrentTrackIdLocked();
-    iPending = iDatabase.NextTrackRef(trackId);
+    iPending = iDbReader.NextTrackRef(trackId);
     if (iPending != nullptr) {
         iPendingCanPlay = ePlayYes;
         // allow additional loop round the playlist in case we've skipped discovering whether a track we started fetching is playable
         iFirstFailedTrackId = ITrackDatabase::kTrackIdNone;
     }
     else {
-        iPending = iDatabase.NextTrackRef(ITrackDatabase::kTrackIdNone);
+        iPending = iDbReader.NextTrackRef(ITrackDatabase::kTrackIdNone);
         iPendingCanPlay = (iPending == nullptr? ePlayNo : ePlayLater);
     }
     iPendingDirection = eForwards;
@@ -139,14 +169,14 @@ void UriProviderPlaylist::MovePrevious()
         iPending = nullptr;
     }
     const TUint trackId = CurrentTrackIdLocked();
-    iPending = iDatabase.PrevTrackRef(trackId);
+    iPending = iDbReader.PrevTrackRef(trackId);
     if (iPending != nullptr) {
         iPendingCanPlay = ePlayYes;
         // allow additional loop round the playlist in case we've skipped discovering whether a track we started fetching is playable
         iFirstFailedTrackId = ITrackDatabase::kTrackIdNone;
     }
     else {
-        iPending = iDatabase.NextTrackRef(ITrackDatabase::kTrackIdNone);
+        iPending = iDbReader.NextTrackRef(ITrackDatabase::kTrackIdNone);
         iPendingCanPlay = (iPending == nullptr? ePlayNo : ePlayLater);
     }
     iPendingDirection = eBackwards;
@@ -162,10 +192,28 @@ void UriProviderPlaylist::MoveTo(const Brx& aCommand)
         track = ProcessCommandIndex(aCommand);
     }
     else {
-        THROW(FillerInvalidCommand);
+        try {
+            JsonParser parser;
+            parser.Parse(aCommand);
+            Brn mode = parser.String("mode");
+            Brn cmd = parser.String("command");
+            if (mode == kCommandPlaylist) {
+                ProcessCommandPlaylist(cmd);
+            }
+            else {
+                LOG_ERROR(kPipeline, "UriProviderPlaylist - unsupported command - %.*s\n", PBUF(aCommand));
+                THROW(FillerInvalidCommand);
+            }
+        }
+        catch (AssertionFailed&) {
+            throw;
+        }
+        catch (Exception& ex) {
+            LOG_ERROR(kPipeline, "UriProviderPlaylist: exception - %s - handling command %.*s\n", ex.Message(), PBUF(aCommand));
+            THROW(FillerInvalidCommand);
+        }
     }
 
-    ASSERT(track != nullptr); // ProcessCommandXxx should have thrown in this case
     if (iPending != nullptr) {
         iPending->RemoveRef();
     }
@@ -181,9 +229,9 @@ void UriProviderPlaylist::DoBegin(TUint aTrackId, EStreamPlay aPendingCanPlay)
         iPending->RemoveRef();
         iPending = nullptr;
     }
-    iPending = iDatabase.TrackRef(aTrackId);
+    iPending = iDbReader.TrackRef(aTrackId);
     if (iPending == nullptr) {
-        iPending = iDatabase.NextTrackRef(ITrackDatabase::kTrackIdNone);
+        iPending = iDbReader.NextTrackRef(ITrackDatabase::kTrackIdNone);
     }
     iPendingCanPlay = aPendingCanPlay;
     iPendingDirection = eJumpTo;
@@ -214,7 +262,7 @@ Track* UriProviderPlaylist::ProcessCommandId(const Brx& aCommand)
 {
     const TUint id = ParseCommand(aCommand);
     try {
-        return iDatabase.TrackRef(id);
+        return iDbReader.TrackRef(id);
     }
     catch (TrackDbIdNotFound&) {
         THROW(FillerInvalidCommand);
@@ -224,11 +272,40 @@ Track* UriProviderPlaylist::ProcessCommandId(const Brx& aCommand)
 Track* UriProviderPlaylist::ProcessCommandIndex(const Brx& aCommand)
 {
     const TUint index = ParseCommand(aCommand);
-    auto track = iDatabase.TrackRefByIndex(index);
+    auto track = iDbReader.TrackRefByIndex(index);
     if (track == nullptr) {
         THROW(FillerInvalidCommand);
     }
     return track;
+}
+
+void UriProviderPlaylist::ProcessCommandPlaylist(const Brx& aCommand)
+{
+    if (iPlaylistLoader == nullptr) {
+        THROW(FillerInvalidCommand);
+    }
+    JsonParser parser;
+    parser.Parse(aCommand);
+    Brn method = parser.String("method");
+    Brn id = parser.String("id");
+    TUint insertAfterId = ITrackDatabase::kTrackIdNone;
+    if (method == kPlaylistMethodReplace) {
+        iDbWriter.DeleteAll();
+    }
+    else if (method == kPlaylistMethodInsert) {
+        insertAfterId = (TUint)parser.Num("insertPos");
+    }
+    else {
+        THROW(FillerInvalidCommand);
+    }
+
+    { // block GetNext until something has been added
+        AutoMutex _(iLockLoader);
+        iLoaderWait = true;
+        iLoaderIdBefore = insertAfterId;
+    }
+
+    iPlaylistLoader->LoadPlaylist(id, insertAfterId);
 }
 
 void UriProviderPlaylist::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfter)
@@ -253,8 +330,24 @@ void UriProviderPlaylist::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TU
         // allow additional loop round the playlist in case the new track is the only one that is playable
         iFirstFailedTrackId = ITrackDatabase::kTrackIdNone;
     }
+    TBool consumed = false;
+    {
+        AutoMutex _(iLockLoader);
+        if (iLoaderWait && aIdBefore == iLoaderIdBefore) {
+            iLoaderWait = false;
+            iSemLoader.Signal();
+            consumed = true;
+        }
+    }
 
-    iObserver.NotifyTrackInserted(aTrack, aIdBefore, aIdAfter);
+    if (!consumed) {
+        /* iDbObserver (SourcePlaylist) calls StopPrefetch for the first track added to an empty playlist.
+           This conflicts with async loading of a saved playlist (the thing that caused iLoaderWait to be
+           set).  Avoid this by now by not passing the notification on.
+           A better approach may be to refactor SourcePlaylist to move all of its database observation
+           login into the uri provider. */
+        iDbObserver.NotifyTrackInserted(aTrack, aIdBefore, aIdAfter);
+    }
 }
 
 void UriProviderPlaylist::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aAfter)
@@ -285,7 +378,7 @@ void UriProviderPlaylist::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* a
         }
     }
 
-    iObserver.NotifyTrackDeleted(aId, aBefore, aAfter);
+    iDbObserver.NotifyTrackDeleted(aId, aBefore, aAfter);
 }
 
 void UriProviderPlaylist::NotifyAllDeleted()
@@ -301,7 +394,7 @@ void UriProviderPlaylist::NotifyAllDeleted()
         }
     }
 
-    iObserver.NotifyAllDeleted();
+    iDbObserver.NotifyAllDeleted();
 }
 
 void UriProviderPlaylist::NotifyPipelineState(EPipelineState /*aState*/)

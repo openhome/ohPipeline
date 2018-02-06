@@ -12,6 +12,7 @@
 namespace OpenHome {
     class Environment;
     class IPowerManager;
+    class IThreadPool;
     class PowerManager;
     class RingBufferLogger;
     class IUnixTimestamp;
@@ -81,6 +82,7 @@ public:
     virtual Configuration::IConfigManager& ConfigManager() = 0;
     virtual Configuration::IConfigInitialiser& ConfigInitialiser() = 0;
     virtual IPowerManager& PowerManager() = 0;
+    virtual IThreadPool& ThreadPool() = 0;
     virtual Av::Product& Product() = 0;
     virtual Av::IFriendlyNameObservable& FriendlyNameObservable() = 0;
     virtual IVolumeManager& VolumeManager() = 0;
@@ -103,14 +105,21 @@ class MediaPlayerInitParams
 public:
     static MediaPlayerInitParams* New(const Brx& aDefaultRoom, const Brx& aDefaultName);
     void EnableConfigApp();
+    void SetThreadPoolSize(TUint aCountHigh, TUint aCountMedium, TUint aCountLow);
     const Brx& DefaultRoom() const;
     const Brx& DefaultName() const;
     TBool ConfigAppEnabled() const;
+    TUint ThreadPoolCountHigh() const;
+    TUint ThreadPoolCountMedium() const;
+    TUint ThreadPoolCountLow() const;
 private:
     MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName);
 private:
     Bws<Product::kMaxRoomBytes> iDefaultRoom;
     Bws<Product::kMaxNameBytes> iDefaultName;
+    TUint iThreadPoolHigh;
+    TUint iThreadPoolMedium;
+    TUint iThreadPoolLow;
     TBool iConfigAppEnable;
 };
 
@@ -147,6 +156,7 @@ public: // from IMediaPlayer
     Configuration::IConfigManager& ConfigManager() override;
     Configuration::IConfigInitialiser& ConfigInitialiser() override;
     IPowerManager& PowerManager() override;
+    IThreadPool& ThreadPool() override;
     Av::Product& Product() override;
     Av::IFriendlyNameObservable& FriendlyNameObservable() override;
     OpenHome::Av::IVolumeManager& VolumeManager() override;
@@ -171,6 +181,7 @@ private:
     Configuration::IStoreReadWrite& iReadWriteStore;
     Configuration::ConfigManager* iConfigManager;
     OpenHome::PowerManager* iPowerManager;
+    IThreadPool* iThreadPool;
     Configuration::ConfigText* iConfigProductRoom;
     Configuration::ConfigText* iConfigProductName;
     Configuration::ConfigChoice* iConfigAutoPlay;
