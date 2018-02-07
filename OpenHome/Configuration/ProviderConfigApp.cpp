@@ -354,11 +354,13 @@ void ProviderConfigApp::SetValue(IDvInvocation& aInvocation, const Brx& aKey, co
 
 void ProviderConfigApp::GetValue(IDvInvocation& aInvocation, const Brx& aKey, IDvInvocationResponseString& aValue)
 {
-    if (!iConfigManager.Has(aKey)) {
+    Brn keyStripped(aKey);
+    auto it = iMapKeys.find(keyStripped);
+    if (it == iMapKeys.end()) {
         aInvocation.Error(kErrorCodeInvalidKey, kErrorDescInvalidKey);
     }
-
-    ISerialisable& ser = iConfigManager.Get(aKey);
+    Brn keyConfig(it->second);
+    ISerialisable& ser = iConfigManager.Get(keyConfig);
     aInvocation.StartResponse();
     ser.Serialise(aValue);
     aInvocation.EndResponse();
