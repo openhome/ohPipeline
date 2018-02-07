@@ -42,10 +42,10 @@ ProviderConfigApp::KeysWriter::KeysWriter()
 {
 }
 
-void ProviderConfigApp::KeysWriter::Add(ConfigNum& aVal)
+void ProviderConfigApp::KeysWriter::Add(ConfigNum& aVal, const Brx& aKey)
 {
     auto writerObject = iWriterArray.CreateObject();
-    writerObject.WriteString(kKeyKey, aVal.Key());
+    writerObject.WriteString(kKeyKey, aKey);
     writerObject.WriteString(kKeyType, kValTypeNum);
     {
         auto writerMeta = writerObject.CreateObject(kKeyMeta);
@@ -58,10 +58,10 @@ void ProviderConfigApp::KeysWriter::Add(ConfigNum& aVal)
     writerObject.WriteEnd();
 }
 
-void ProviderConfigApp::KeysWriter::Add(ConfigChoice& aVal)
+void ProviderConfigApp::KeysWriter::Add(ConfigChoice& aVal, const Brx& aKey)
 {
     auto writerObject = iWriterArray.CreateObject();
-    writerObject.WriteString(kKeyKey, aVal.Key());
+    writerObject.WriteString(kKeyKey, aKey);
     writerObject.WriteString(kKeyType, kValTypeChoice);
     {
         auto writerMeta = writerObject.CreateObject(kKeyMeta);
@@ -79,10 +79,10 @@ void ProviderConfigApp::KeysWriter::Add(ConfigChoice& aVal)
     writerObject.WriteEnd();
 }
 
-void ProviderConfigApp::KeysWriter::Add(ConfigText& aVal)
+void ProviderConfigApp::KeysWriter::Add(ConfigText& aVal, const Brx& aKey)
 {
     auto writerObject = iWriterArray.CreateObject();
-    writerObject.WriteString(kKeyKey, aVal.Key());
+    writerObject.WriteString(kKeyKey, aKey);
     writerObject.WriteString(kKeyType, kValTypeText);
     {
         auto writerMeta = writerObject.CreateObject(kKeyMeta);
@@ -154,7 +154,7 @@ void ProviderConfigApp::Added(ConfigNum& aVal)
     AutoMutex _(iLock);
     Bwh keyStripped(aVal.Key().Bytes());
     StripKey(aVal.Key(), keyStripped);
-    iKeysWriter.Add(aVal);
+    iKeysWriter.Add(aVal, keyStripped);
     Brn keyBuf(aVal.Key());
     Brn keyStrippedBuf(keyStripped);
     auto prop = new PropertyInt(new ParameterInt(keyStripped));
@@ -171,7 +171,7 @@ void ProviderConfigApp::Added(ConfigChoice& aVal)
     AutoMutex _(iLock);
     Bwh keyStripped(aVal.Key().Bytes());
     StripKey(aVal.Key(), keyStripped);
-    iKeysWriter.Add(aVal);
+    iKeysWriter.Add(aVal, keyStripped);
     Brn keyBuf(aVal.Key());
     Brn keyStrippedBuf(keyStripped);
     auto prop = new PropertyUint(new ParameterUint(keyStripped));
@@ -188,7 +188,7 @@ void ProviderConfigApp::Added(ConfigText& aVal)
     AutoMutex _(iLock);
     Bwh keyStripped(aVal.Key().Bytes());
     StripKey(aVal.Key(), keyStripped);
-    iKeysWriter.Add(aVal);
+    iKeysWriter.Add(aVal, keyStripped);
     Brn keyBuf(aVal.Key());
     Brn keyStrippedBuf(keyStripped);
     auto prop = new PropertyString(new ParameterString(keyStripped));

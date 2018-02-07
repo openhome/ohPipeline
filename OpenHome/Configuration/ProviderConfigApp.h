@@ -82,9 +82,9 @@ private:
         static const Brn kKeyTextLen;
     public:
         KeysWriter();
-        void Add(ConfigNum& aVal);
-        void Add(ConfigChoice& aVal);
-        void Add(ConfigText& aVal);
+        void Add(ConfigNum& aVal, const Brx& aKey);
+        void Add(ConfigChoice& aVal, const Brx& aKey);
+        void Add(ConfigText& aVal, const Brx& aKey);
         const Brx& Flush();
     private:
         WriterBwh iWriterBuf;
