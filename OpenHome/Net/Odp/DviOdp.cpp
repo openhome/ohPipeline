@@ -294,7 +294,7 @@ void DviOdp::Announce()
             for (TUint i=0; i<count; i++) {
                 const auto serviceType = device->Service(i).ServiceType();
                 auto writerService = writerServices.CreateObject();
-                writerService.WriteString(Odp::kKeyService, serviceType.Name());
+                writerService.WriteString(Odp::kKeyName, serviceType.Name());
                 writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
                 writerService.WriteEnd();
             }
