@@ -247,6 +247,12 @@ ProtocolStreamResult ProtocolCalmRadio::Stream(const Brx& aUri)
         iStreamId = IPipelineIdProvider::kStreamIdInvalid;
     }
 
+    if (res != EProtocolStreamStopped) {
+        Thread::Sleep(50); /* short delay to prevent the high priority thread protocol modules
+                              run in from locking out user input (which may be trying to stop
+                              repeated failed attempts to play from Calm Radio). */
+    }
+
     return res;
 }
 
