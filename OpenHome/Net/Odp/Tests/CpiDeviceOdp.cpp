@@ -302,7 +302,7 @@ CpiDeviceListOdp::CpiDeviceListOdp(CpStack& aCpStack, FunctorCpiDevice aAdded, F
     iSsdpLock.Signal();
     iCpStack.Env().AddResumeObserver(*this);
 
-    iCpStack.Env().MdnsProvider()->AddMdnsDeviceListener(*this);
+    iCpStack.Env().MdnsProvider()->AddMdnsDeviceListener(this);
     iCpStack.Env().MdnsProvider()->FindDevices("_odp._tcp");
 }
 
