@@ -1092,6 +1092,11 @@ def build(bld):
             use=['OHNET', 'Odp', 'ohMediaPlayerTestUtils'],
             target='TestDvOdp',
             install_path=None)
+    bld.program(
+            source='OpenHome/Net/Odp/Tests/TestCpiDeviceListOdp.cpp',
+            use=['OHNET', 'Odp', 'ohMediaPlayerTestUtils'],
+            target='TestCpiDeviceListOdp',
+            install_path=None)
 
     bld.stlib(
             source=[

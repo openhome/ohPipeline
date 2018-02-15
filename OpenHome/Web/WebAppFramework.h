@@ -347,7 +347,7 @@ private:
     static const TUint kDefaultLongPollTimeoutMs = 5000;
 public:
     WebAppFrameworkInitParams();
-    void SetPort(TUint aPort);
+    void SetServerPort(TUint aPort);
     void SetMinServerThreadsResources(TUint aThreadResourcesCount);
     void SetMaxServerThreadsLongPoll(TUint aThreadLongPollCount);
     void SetSendQueueSize(TUint aSendQueueSize);

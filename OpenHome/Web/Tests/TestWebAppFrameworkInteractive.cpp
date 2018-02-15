@@ -315,7 +315,7 @@ int CDECL main(int aArgc, char* aArgv[])
     static const TUint kMaxTabs = 1;
 
     WebAppFrameworkInitParams* wafInitParams = new WebAppFrameworkInitParams();
-    wafInitParams->SetPort(0);  // bind to OS-assigned port
+    wafInitParams->SetServerPort(0);  // bind to OS-assigned port
     wafInitParams->SetMinServerThreadsResources(kMinResourceThreads);
     wafInitParams->SetMaxServerThreadsLongPoll(kMaxTabs);
     wafInitParams->SetSendQueueSize(1024);
