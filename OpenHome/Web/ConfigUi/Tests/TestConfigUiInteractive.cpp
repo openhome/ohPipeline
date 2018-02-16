@@ -108,7 +108,7 @@ int CDECL main(int aArgc, char* aArgv[])
 
 
     WebAppFrameworkInitParams* wafInitParams = new WebAppFrameworkInitParams();
-    wafInitParams->SetPort(0);  // bind to OS-assigned port
+    wafInitParams->SetServerPort(0);  // bind to OS-assigned port
     wafInitParams->SetMinServerThreadsResources(kMinResourceHandlers);
     wafInitParams->SetMaxServerThreadsLongPoll(kMaxSessions);
     wafInitParams->SetSendQueueSize(1024);

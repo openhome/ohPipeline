@@ -25,7 +25,7 @@ using namespace OpenHome::Media;
 // RaopDevice
 
 RaopDevice::RaopDevice(Net::DvStack& aDvStack, TUint aDiscoveryPort, IFriendlyNameObservable& aFriendlyNameObservable, TIpAddress aIpAddr, const Brx& aMacAddr)
-    : iProvider(*aDvStack.MdnsProvider())
+    : iProvider(*aDvStack.Env().MdnsProvider())
     , iFriendlyNameObservable(aFriendlyNameObservable)
     , iEndpoint(aDiscoveryPort, aIpAddr)
     , iMacAddress(aMacAddr)

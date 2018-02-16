@@ -235,7 +235,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
 
     // Set up config app.
     WebAppFrameworkInitParams* initParams = new WebAppFrameworkInitParams();
-    initParams->SetPort(aWebUiPort);
+    initParams->SetServerPort(aWebUiPort);
     initParams->SetMinServerThreadsResources(aMinWebUiResourceThreads);
     initParams->SetMaxServerThreadsLongPoll(aMaxWebUiTabs);
     initParams->SetSendQueueSize(aUiSendQueueSize);
