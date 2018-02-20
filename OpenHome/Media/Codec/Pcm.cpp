@@ -66,7 +66,7 @@ CodecPcm::~CodecPcm()
 
 TBool CodecPcm::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
-    if (!aStreamInfo.RawPcm()) {
+    if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Pcm) {
         return false;
     }
     iBitDepth = aStreamInfo.BitDepth();

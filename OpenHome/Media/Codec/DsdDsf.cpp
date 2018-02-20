@@ -286,7 +286,7 @@ TBool CodecDsdDsf::TrySeek(TUint aStreamId, TUint64 aSample)
 
 TBool CodecDsdDsf::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
-	if (aStreamInfo.RawPcm())
+	if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded)
     {
         return false;
     }

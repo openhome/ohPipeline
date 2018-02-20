@@ -70,7 +70,7 @@ Msg* DecodedAudioAggregator::ProcessMsg(MsgEncodedStream* aMsg)
 {
     OutputAggregatedAudio();
     const auto wasAggregationDisabled = iAggregationDisabled;
-    iAggregationDisabled = (iSupportsLatency && aMsg->RawPcm());
+    iAggregationDisabled = (iSupportsLatency && aMsg->StreamFormat() != MsgEncodedStream::Format::Encoded);
     if (wasAggregationDisabled != iAggregationDisabled) {
         LOG(kMedia, "DecodedAudioAggregator::ProcessMsg(MsgEncodedStream* ): iAggregationDisabled=%u\n",
                     iAggregationDisabled);

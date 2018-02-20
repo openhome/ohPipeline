@@ -217,7 +217,7 @@ TBool CodecVorbis::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
     LOG(kCodec, "CodecVorbis::Recognise\n");
 
-    if (aStreamInfo.RawPcm()) {
+    if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
     iReadOffset = 0;

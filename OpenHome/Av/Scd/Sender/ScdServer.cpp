@@ -105,6 +105,18 @@ void ScdSession::Process(ScdMsgFormat& aMsg)
     iSampleStart = aMsg.SampleStart();
 }
 
+void ScdSession::Process(ScdMsgFormatDsd& aMsg)
+{
+    //Log::Print("ScdMsgFormat\n");
+    /*if (iFormat != nullptr) {
+        iFormat->RemoveRef();
+    }
+    iFormat = &aMsg;
+    iFormat->AddRef();*/
+    iSampleStart = aMsg.SampleStart();
+    ASSERTS();
+}
+
 void ScdSession::Process(ScdMsgAudioOut& aMsg)
 {
     ASSERT(iFormat != nullptr);

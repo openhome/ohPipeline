@@ -694,7 +694,7 @@ CodecMp3::~CodecMp3()
 
 TBool CodecMp3::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
-    if (aStreamInfo.RawPcm()) {
+    if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
     ASSERT(iHeaderBytes == 0);

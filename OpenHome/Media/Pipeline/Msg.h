@@ -531,6 +531,27 @@ private:
     TBool iLossless;
 };
 
+class DsdStreamInfo
+{
+public:
+    DsdStreamInfo();
+    void Set(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint64 aStartSample = 0);
+    void SetCodec(const Brx& aCodecName);
+    void Clear();
+    TUint SampleRate() const;
+    TUint SampleBlockBits() const;
+    TUint NumChannels() const;
+    TUint64 StartSample() const;
+    const Brx& CodecName() const;
+    void operator=(const DsdStreamInfo &);
+private:
+    TUint iSampleRate;
+    TUint iNumChannels;
+    TUint iSampleBlockBits;
+    TUint64 iStartSample;
+    BwsCodecName iCodecName;
+};
+
 class MsgMetaText : public Msg
 {
     friend class MsgFactory;
@@ -559,6 +580,12 @@ class MsgEncodedStream : public Msg
     friend class MsgFactory;
 public:
     static const TUint kMaxUriBytes = 1024;
+    enum class Format
+    {
+        Encoded,
+        Pcm,
+        Dsd
+    };
 public:
     MsgEncodedStream(AllocatorBase& aAllocator);
     const Brx& Uri() const;
@@ -570,11 +597,13 @@ public:
     TBool Live() const;
     Media::Multiroom Multiroom() const;
     IStreamHandler* StreamHandler() const;
-    TBool RawPcm() const;
+    Format StreamFormat() const;
     const PcmStreamInfo& PcmStream() const;
+    const DsdStreamInfo& DsdStream() const;
 private:
     void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
     void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream);
+    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);
 private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
@@ -586,10 +615,11 @@ private:
     TUint iStreamId;
     TBool iSeekable;
     TBool iLive;
-    TBool iRawPcm;
+    Format iStreamFormat;
     Media::Multiroom iMultiroom;
     IStreamHandler* iStreamHandler;
     PcmStreamInfo iPcmStreamInfo;
+    DsdStreamInfo iDsdStreamInfo;
 };
 
 class MsgAudioEncoded : public Msg

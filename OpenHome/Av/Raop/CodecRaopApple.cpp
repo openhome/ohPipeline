@@ -44,7 +44,7 @@ CodecRaopApple::~CodecRaopApple()
 TBool CodecRaopApple::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
     LOG(kCodec, "CodecRaopApple::Recognise\n");
-    if (aStreamInfo.RawPcm()) {
+    if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
     Bws<4> buf;

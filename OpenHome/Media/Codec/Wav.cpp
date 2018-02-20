@@ -77,7 +77,7 @@ CodecWav::~CodecWav()
 
 TBool CodecWav::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
-    if (aStreamInfo.RawPcm()) {
+    if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
     Bws<12> buf;
