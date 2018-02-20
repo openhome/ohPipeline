@@ -290,7 +290,6 @@ private:
     TUint64 iSampleStart;
     TUint64 iSamplesTotal;
     TBool iSeekable;
-    TBool iLive;
     TBool iBroadcastAllowed;
     Bws<kMaxCodecNameBytes> iCodecName;
 };
