@@ -1297,10 +1297,10 @@ void HttpSession::Post()
     if (uriTail == Brn("lpcreate")) {
         try {
             IWebApp& app = iAppManager.GetApp(uriPrefix);
-            TUint id = iTabManager.CreateTab(app, iHeaderAcceptLanguage.LanguageList());
+            const TUint id = iTabManager.CreateTab(app, iHeaderAcceptLanguage.LanguageList());
             iResponseStarted = true;
             iWriterResponseLongPoll->WriteHeader(version);
-            Bws<sizeof(id)> idBuf;
+            Bws<Ascii::kMaxUintStringBytes> idBuf;
             Ascii::AppendDec(idBuf, id);
             iWriterResponseLongPoll->Write(Brn("lpcreate\r\n"));
             iWriterResponseLongPoll->Write(Brn("session-id: "));
