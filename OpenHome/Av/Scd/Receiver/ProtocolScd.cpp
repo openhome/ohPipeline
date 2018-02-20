@@ -27,6 +27,7 @@ ProtocolScd::ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory)
                   1, // MetadataDidl
                   1, // MetadataOh
                   2, // Format
+                  2, // FormatDsd
                   0, // AudioOut
                   1, // AudioIn
                   1, // MetatextDidl
@@ -198,6 +199,12 @@ void ProtocolScd::Process(ScdMsgFormat& aMsg)
     iStreamFormat->AddRef();
     OutputStream();
     iFormatReqd = false;
+}
+
+void ProtocolScd::Process(ScdMsgFormatDsd& /*aMsg*/)
+{
+    //Log::Print("ScdMsgFormatDsd\n");
+    ASSERTS();
 }
 
 void ProtocolScd::Process(ScdMsgAudioOut& /*aMsg*/)

@@ -1278,6 +1278,69 @@ void PcmStreamInfo::operator=(const PcmStreamInfo& aPcmStream)
 }
 
 
+// DsdStreamInfo
+
+DsdStreamInfo::DsdStreamInfo()
+{
+    Clear();
+}
+
+void DsdStreamInfo::Set(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint64 aStartSample)
+{
+    iSampleRate = aSampleRate;
+    iNumChannels = aNumChannels;
+    iSampleBlockBits = aSampleBlockBits;
+    iStartSample = aStartSample;
+}
+
+void DsdStreamInfo::SetCodec(const Brx& aCodecName)
+{
+    iCodecName.Replace(aCodecName);
+}
+
+void DsdStreamInfo::Clear()
+{
+    iSampleRate = 0;
+    iNumChannels = 0;
+    iSampleBlockBits = 0;
+    iStartSample = 0LL;
+    iCodecName.Replace(Brx::Empty());
+}
+
+TUint DsdStreamInfo::SampleRate() const
+{
+    return iSampleRate;
+}
+
+TUint DsdStreamInfo::SampleBlockBits() const
+{
+    return iSampleBlockBits;
+}
+
+TUint DsdStreamInfo::NumChannels() const
+{
+    return iNumChannels;
+}
+
+TUint64 DsdStreamInfo::StartSample() const
+{
+    return iStartSample;
+}
+
+const Brx& DsdStreamInfo::CodecName() const
+{
+    return iCodecName;
+}
+
+void DsdStreamInfo::operator=(const DsdStreamInfo &aInfo)
+{
+    iSampleRate = aInfo.SampleRate();
+    iNumChannels = aInfo.NumChannels();
+    iStartSample = aInfo.StartSample();
+    iCodecName.Replace(aInfo.CodecName());
+}
+
+
 // MsgEncodedStream
 
 MsgEncodedStream::MsgEncodedStream(AllocatorBase& aAllocator)
@@ -1330,15 +1393,21 @@ IStreamHandler* MsgEncodedStream::StreamHandler() const
     return iStreamHandler;
 }
 
-TBool MsgEncodedStream::RawPcm() const
+MsgEncodedStream::Format MsgEncodedStream::StreamFormat() const
 {
-    return iRawPcm;
+    return iStreamFormat;
 }
 
 const PcmStreamInfo& MsgEncodedStream::PcmStream() const
 {
-    ASSERT(iRawPcm);
+    ASSERT(iStreamFormat == Format::Pcm);
     return iPcmStreamInfo;
+}
+
+const DsdStreamInfo& MsgEncodedStream::DsdStream() const
+{
+    ASSERT(iStreamFormat == Format::Dsd);
+    return iDsdStreamInfo;
 }
 
 void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler)
@@ -1352,8 +1421,9 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iLive = aLive;
     iMultiroom = aMultiroom;
     iStreamHandler = aStreamHandler;
-    iRawPcm = false;
+    iStreamFormat = Format::Encoded;
     iPcmStreamInfo.Clear();
+    iDsdStreamInfo.Clear();
 }
 
 void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream)
@@ -1367,8 +1437,28 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iLive = aLive;
     iMultiroom = aMultiroom;
     iStreamHandler = aStreamHandler;
-    iRawPcm = true;
+    iStreamFormat = Format::Pcm;
     iPcmStreamInfo = aPcmStream;
+    iDsdStreamInfo.Clear();
+}
+
+void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes,
+                                  TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive,
+                                  Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler,
+                                  const DsdStreamInfo& aDsdStream)
+{
+    iUri.Replace(aUri);
+    iMetaText.Replace(aMetaText);
+    iTotalBytes = aTotalBytes;
+    iStartPos = aStartPos;
+    iStreamId = aStreamId;
+    iSeekable = aSeekable;
+    iLive = aLive;
+    iMultiroom = aMultiroom;
+    iStreamHandler = aStreamHandler;
+    iStreamFormat = Format::Pcm;
+    iPcmStreamInfo.Clear();
+    iDsdStreamInfo = aDsdStream;
 }
 
 void MsgEncodedStream::Clear()
@@ -1380,7 +1470,7 @@ void MsgEncodedStream::Clear()
     iStreamId = UINT_MAX;
     iSeekable = false;
     iLive = false;
-    iRawPcm = false;
+    iStreamFormat = Format::Encoded;
     iStreamHandler = nullptr;
     iPcmStreamInfo.Clear();
 #endif
@@ -3506,7 +3596,7 @@ MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx&
 MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(MsgEncodedStream* aMsg, IStreamHandler* aStreamHandler)
 {
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
-    if (aMsg->RawPcm()) {
+    if (aMsg->StreamFormat() == MsgEncodedStream::Format::Pcm) {
         msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->PcmStream());
     }
     else {

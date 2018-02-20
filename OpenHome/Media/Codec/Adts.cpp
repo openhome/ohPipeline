@@ -197,7 +197,7 @@ CodecAdts::~CodecAdts()
 TBool CodecAdts::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
     LOG(kCodec, "CodecAdts::Recognise\n");
-    if (aStreamInfo.RawPcm()) {
+    if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
     const TUint kAdtsConsecutiveFrames = 5; // limit this to allow recognition within 1 data message

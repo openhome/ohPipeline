@@ -33,6 +33,7 @@ private: // from IScdMsgProcessor
     void Process(ScdMsgMetadataDidl& aMsg) override;
     void Process(ScdMsgMetadataOh& aMsg) override;
     void Process(ScdMsgFormat& aMsg) override;
+    void Process(ScdMsgFormatDsd& aMsg) override;
     void Process(ScdMsgAudioOut& aMsg) override;
     void Process(ScdMsgAudioIn& aMsg) override;
     void Process(ScdMsgMetatextDidl& aMsg) override;

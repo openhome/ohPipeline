@@ -78,8 +78,23 @@ bool WavSender::TryParseHeader(uint32_t& aAudioBytes)
 
     OpenHomeMetadata metadata;
     metadata.push_back(std::pair<std::string, std::string>("uri", iFilename));
-    metadata.push_back(std::pair<std::string, std::string>("title", iFilename));
-    iSupply.OutputMetadataOh(metadata);
+    //metadata.push_back(std::pair<std::string, std::string>("title", iFilename));
+    metadata.push_back(std::pair<std::string, std::string>("albumArtwork", "http://images.roonlabs.com/im/1/albums/a6003834313232363334/cover/512sq.jpg"));
+    metadata.push_back(std::pair<std::string, std::string>("artist", "Kendrick Lamar"));
+    metadata.push_back(std::pair<std::string, std::string>("albumArtist", "Kendrick Lamar"));
+    metadata.push_back(std::pair<std::string, std::string>("album", "Black Panther The Album Music From And Inspired By"));
+    metadata.push_back(std::pair<std::string, std::string>("composer", "Kendrick Duckworth"));
+    metadata.push_back(std::pair<std::string, std::string>("composer", "Mark Spears"));
+    metadata.push_back(std::pair<std::string, std::string>("composer", "Kevin Gomringer"));
+    metadata.push_back(std::pair<std::string, std::string>("composer", "Tim Gomringer"));
+    metadata.push_back(std::pair<std::string, std::string>("composer", "Matt Schaeffer"));
+    metadata.push_back(std::pair<std::string, std::string>("year", "2018"));
+    metadata.push_back(std::pair<std::string, std::string>("title", "Black Panther"));
+    metadata.push_back(std::pair<std::string, std::string>("disc", "1"));
+    metadata.push_back(std::pair<std::string, std::string>("track", "1"));
+    metadata.push_back(std::pair<std::string, std::string>("duration", "130"));
+    metadata.push_back(std::pair<std::string, std::string>("type", "track"));
+iSupply.OutputMetadataOh(metadata);
     const TUint64 samplesTotal = static_cast<TUint64>(subChunk2Size) / (numChannels * bitDepth/8);
     iSupply.OutputFormat(bitDepth, sampleRate, numChannels, IScdSupply::Endian::Little,
                          byteRate*8, 0LL, samplesTotal,

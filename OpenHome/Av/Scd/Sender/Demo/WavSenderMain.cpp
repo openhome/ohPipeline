@@ -69,18 +69,19 @@ int CDECL main(int aArgc, char* aArgv[])
 
         // app goes here
         ScdMsgFactory factory(1,   // Ready
-            0,   // MetadataDidl
-            5,   // MetadataOh,
-            5,   // Format,
-            100, // AudioOut,
-            0,   // AudioIn,
-            0,   // MetatextDidl,
-            5,   // MetatextOh,
-            1,   // Halt,
-            1,   // Disconnect,
-            0,   // Seek,
-            0    // Skip
-        );
+                              0,   // MetadataDidl
+                              5,   // MetadataOh,
+                              5,   // Format,
+                              5,   // FormatDsd,
+                              100, // AudioOut,
+                              0,   // AudioIn,
+                              0,   // MetatextDidl,
+                              5,   // MetatextOh,
+                              1,   // Halt,
+                              1,   // Disconnect,
+                              0,   // Seek,
+                              0    // Skip
+                          );
         ScdSupply supply(factory);
         ScdServer server(lib->Env(), supply, factory);
         Endpoint::EndpointBuf buf;

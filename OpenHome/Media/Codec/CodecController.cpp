@@ -19,26 +19,26 @@ using namespace OpenHome::Media::Codec;
 
 // class EncodedStreamInfo
 
-TBool EncodedStreamInfo::RawPcm() const
+EncodedStreamInfo::Format EncodedStreamInfo::StreamFormat() const
 {
-    return iRawPcm;
+    return iFormat;
 }
 
 TUint EncodedStreamInfo::BitDepth() const
 {
-    ASSERT(iRawPcm);
+    ASSERT(iFormat != Format::Encoded);
     return iBitDepth;
 }
 
 TUint EncodedStreamInfo::SampleRate() const
 {
-    ASSERT(iRawPcm);
+    ASSERT(iFormat != Format::Encoded);
     return iSampleRate;
 }
 
 TUint EncodedStreamInfo::NumChannels() const
 {
-    ASSERT(iRawPcm);
+    ASSERT(iFormat != Format::Encoded);
     return iNumChannels;
 }
 
@@ -49,7 +49,7 @@ AudioDataEndian EncodedStreamInfo::Endian() const
 
 SpeakerProfile EncodedStreamInfo::Profile() const
 {
-    ASSERT(iRawPcm);
+    ASSERT(iFormat == Format::Pcm);
     return iProfile;
 }
 
@@ -65,18 +65,18 @@ TBool EncodedStreamInfo::AnalogBypass() const
 
 const Brx& EncodedStreamInfo::CodecName() const
 {
-    ASSERT(iRawPcm);
+    ASSERT(iFormat != Format::Encoded);
     return iCodecName;
 }
 
 TBool EncodedStreamInfo::Lossless() const
 {
-    ASSERT(iRawPcm);
+    ASSERT(iFormat != Format::Encoded);
     return iLossless;
 }
 
 EncodedStreamInfo::EncodedStreamInfo()
-    : iRawPcm(false)
+    : iFormat(Format::Encoded)
     , iAnalogBypass(false)
     , iLossless(false)
     , iBitDepth(UINT_MAX)
@@ -87,10 +87,10 @@ EncodedStreamInfo::EncodedStreamInfo()
 {
 }
 
-void EncodedStreamInfo::Set(TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, AudioDataEndian aEndian, SpeakerProfile aProfile,
-                            TUint64 aStartSample, TBool aAnalogBypass, const Brx& aCodecName, TBool aLossless)
+void EncodedStreamInfo::SetPcm(TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, AudioDataEndian aEndian, SpeakerProfile aProfile,
+                               TUint64 aStartSample, TBool aAnalogBypass, const Brx& aCodecName, TBool aLossless)
 {
-    iRawPcm = true;
+    iFormat = Format::Pcm;
     iBitDepth = aBitDepth;
     iSampleRate = aSampleRate;
     iNumChannels = aNumChannels;
@@ -100,6 +100,17 @@ void EncodedStreamInfo::Set(TUint aBitDepth, TUint aSampleRate, TUint aNumChanne
     iAnalogBypass = aAnalogBypass;
     iCodecName.Replace(aCodecName);
     iLossless = aLossless;
+}
+
+void EncodedStreamInfo::SetDsd(TUint aSampleRate, TUint aNumChannels, TUint64 aStartSample, const Brx& aCodecName)
+{
+    iFormat = Format::Pcm;
+    iBitDepth = 1;
+    iSampleRate = aSampleRate;
+    iNumChannels = aNumChannels;
+    iStartSample = aStartSample;
+    iCodecName.Replace(aCodecName);
+    iLossless = true;
 }
 
 
@@ -161,7 +172,7 @@ CodecController::CodecController(MsgFactory& aMsgFactory, IPipelineElementUpstre
     , iAudioEncoded(nullptr)
     , iSeekable(false)
     , iLive(false)
-    , iRawPcm(false)
+    , iStreamFormat(MsgEncodedStream::Format::Encoded)
     , iStreamHandler(nullptr)
     , iStreamId(0)
     , iChannels(0)
@@ -293,10 +304,14 @@ void CodecController::CodecThread()
             iStreamStarted = iStreamEnded = false;
             iRecognising = true;
             EncodedStreamInfo streamInfo;
-            if (iRawPcm) {
-                streamInfo.Set(iPcmStream.BitDepth(), iPcmStream.SampleRate(), iPcmStream.NumChannels(),
-                               iPcmStream.Endian(), iPcmStream.Profile(), iPcmStream.StartSample(), iPcmStream.AnalogBypass(),
-                               iPcmStream.CodecName(), iPcmStream.Lossless());
+            if (iStreamFormat == MsgEncodedStream::Format::Pcm) {
+                streamInfo.SetPcm(iPcmStream.BitDepth(), iPcmStream.SampleRate(), iPcmStream.NumChannels(),
+                                  iPcmStream.Endian(), iPcmStream.Profile(), iPcmStream.StartSample(), iPcmStream.AnalogBypass(),
+                                  iPcmStream.CodecName(), iPcmStream.Lossless());
+            }
+            else if (iStreamFormat == MsgEncodedStream::Format::Dsd) {
+                streamInfo.SetDsd(iDsdStream.SampleRate(), iDsdStream.NumChannels(),
+                                  iDsdStream.StartSample(), iDsdStream.CodecName());
             }
 
             LOG(kMedia, "CodecThread: start recognition.  iTrackId=%u, iStreamId=%u\n", iTrackId, iStreamId);
@@ -646,7 +661,7 @@ void CodecController::OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint
     if (!Jiffies::IsValidSampleRate(aSampleRate)) {
         THROW(CodecStreamFeatureUnsupported);
     }
-    if (!iRawPcm && aNumChannels > 2) {
+    if (iStreamFormat != MsgEncodedStream::Format::Pcm && aNumChannels > 2) {
         Log::Print("ERROR: encoded stream with %u channels cannot be played\n", aNumChannels);
         THROW(CodecStreamFeatureUnsupported);
     }
@@ -915,13 +930,15 @@ Msg* CodecController::ProcessMsg(MsgEncodedStream* aMsg)
     iLive = aMsg->Live();
     iStreamHandler.store(aMsg->StreamHandler());
     auto msg = iMsgFactory.CreateMsgEncodedStream(aMsg, this);
-    iRawPcm = aMsg->RawPcm();
+    iStreamFormat = aMsg->StreamFormat();
     iMultiroom = aMsg->Multiroom();
-    if (iRawPcm) {
+    iPcmStream.Clear();
+    iDsdStream.Clear();
+    if (iStreamFormat == MsgEncodedStream::Format::Pcm) {
         iPcmStream = aMsg->PcmStream();
     }
-    else {
-        iPcmStream.Clear();
+    else if (iStreamFormat == MsgEncodedStream::Format::Dsd) {
+        iDsdStream = aMsg->DsdStream();
     }
     aMsg->RemoveRef();
     return msg;

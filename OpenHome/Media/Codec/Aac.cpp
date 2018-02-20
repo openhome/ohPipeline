@@ -65,7 +65,7 @@ TBool CodecAac::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
     LOG(kCodec, "CodecAac::Recognise\n");
 
-    if (aStreamInfo.RawPcm()) {
+    if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
     iRecogBuf.SetBytes(0);

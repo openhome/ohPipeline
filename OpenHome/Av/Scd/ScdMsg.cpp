@@ -29,6 +29,7 @@ const TUint ScdHeader::kTypeReady        = 0;
 const TUint ScdHeader::kTypeMetadataDidl = 1;
 const TUint ScdHeader::kTypeMetadataOh   = 2;
 const TUint ScdHeader::kTypeFormat       = 3;
+const TUint ScdHeader::kTypeFormatDsd    = 4;
 const TUint ScdHeader::kTypeAudio        = 5;
 const TUint ScdHeader::kTypeMetatextDidl = 7;
 const TUint ScdHeader::kTypeMetatextOh   = 8;
@@ -144,7 +145,7 @@ AutoScdMsg::~AutoScdMsg()
 // ScdMsgReady
 
 const TUint ScdMsgReady::kProtocolVersionMajor = 1;
-const TUint ScdMsgReady::kProtocolVersionMinor = 0;
+const TUint ScdMsgReady::kProtocolVersionMinor = 1;
 
 TUint ScdMsgReady::Major() const
 {
@@ -570,6 +571,152 @@ void ScdMsgFormat::Clear()
 }
 
 
+// ScdMsgFormatDsd
+
+TUint ScdMsgFormatDsd::SampleRate() const
+{
+    return iSampleRate;
+}
+
+TUint ScdMsgFormatDsd::NumChannels() const
+{
+    return iNumChannels;
+}
+
+TUint ScdMsgFormatDsd::SampleBlockBits() const
+{
+    return iSampleBlockBits;
+}
+
+TUint64 ScdMsgFormatDsd::SampleStart() const
+{
+    return iSampleStart;
+}
+
+TUint64 ScdMsgFormatDsd::SamplesTotal() const
+{
+    return iSamplesTotal;
+}
+
+TBool ScdMsgFormatDsd::Seekable() const
+{
+    return iSeekable;
+}
+
+TBool ScdMsgFormatDsd::BroadcastAllowed() const
+{
+    return iBroadcastAllowed;
+}
+
+const Brx& ScdMsgFormatDsd::CodecName() const
+{
+    return iCodecName;
+}
+
+ScdMsgFormatDsd::ScdMsgFormatDsd(IScdMsgAllocator& aAllocator)
+    : ScdMsg(aAllocator)
+{
+}
+
+void ScdMsgFormatDsd::Initialise(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits,
+                                 TUint64 aSampleStart, TUint64 aSamplesTotal, TBool aSeekable,
+                                 TBool aBroadcastAllowed, const std::string& aCodecName)
+{
+    DoInitialise(aSampleRate, aNumChannels, aSampleBlockBits, aSampleStart, aSamplesTotal, aSeekable, aBroadcastAllowed);
+    iCodecName.Replace(BufferFromString(aCodecName));
+}
+
+void ScdMsgFormatDsd::Initialise(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits,
+                                 TUint64 aSampleStart, TUint64 aSamplesTotal, TBool aSeekable,
+                                 TBool aBroadcastAllowed, const Brx& aCodecName)
+{
+    DoInitialise(aSampleRate, aNumChannels, aSampleBlockBits, aSampleStart, aSamplesTotal, aSeekable, aBroadcastAllowed);
+    iCodecName.Replace(aCodecName);
+}
+
+void ScdMsgFormatDsd::DoInitialise(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits,
+                                   TUint64 aSampleStart, TUint64 aSamplesTotal, TBool aSeekable,
+                                   TBool aBroadcastAllowed)
+{
+    ScdMsg::Initialise();
+    switch (aSampleRate)
+    {
+    case 1411200:
+    case 2822400:
+    //case 5644800:
+        break;
+    default:
+        THROW(SampleRateNotSupported);
+    }
+
+    iSampleRate = aSampleRate;
+    iNumChannels = aNumChannels;
+    iSampleBlockBits = aSampleBlockBits;
+    iSampleStart = aSampleStart;
+    iSamplesTotal = aSamplesTotal;
+    iSeekable = aSeekable;
+    iBroadcastAllowed = aBroadcastAllowed;
+}
+
+void ScdMsgFormatDsd::Initialise(IReader& aReader, const ScdHeader& aHeader)
+{
+    ScdMsg::Initialise();
+    ASSERT(aHeader.Type() == ScdHeader::kTypeFormat);
+    ReaderBinary rb(aReader);
+    iSampleRate = rb.ReadUintBe(4);
+    iNumChannels = rb.ReadUintBe(1);
+    iSampleBlockBits = rb.ReadUintBe(2);
+    iSampleStart = rb.ReadUint64Be(8);
+    iSamplesTotal = rb.ReadUint64Be(8);
+    const TUint flags = rb.ReadUintBe(1);
+    iSeekable = (flags & kFlagSeekable) != 0;
+    iBroadcastAllowed = (flags & kFlagBroadcastable) != 0;
+    ReadString(aReader, 1, iCodecName);
+}
+
+void ScdMsgFormatDsd::Process(IScdMsgProcessor& aProcessor)
+{
+    aProcessor.Process(*this);
+}
+
+void ScdMsgFormatDsd::Externalise(IWriter& aWriter) const
+{
+    const TUint bytes = ScdHeader::kHeaderBytes + 28 + iCodecName.Bytes();
+    ScdHeader header(ScdHeader::kTypeFormat, bytes);
+    header.Externalise(aWriter);
+
+    WriterBinary writer(aWriter);
+    writer.WriteUint32Be(iSampleRate);
+    writer.WriteUint8(iNumChannels);
+    writer.WriteUint16Be(iSampleBlockBits);
+    writer.WriteUint64Be(iSampleStart);
+    writer.WriteUint64Be(iSamplesTotal);
+    TUint flags = 0;
+    if (iSeekable) {
+        flags |= kFlagSeekable;
+    }
+    if (iBroadcastAllowed) {
+        flags |= kFlagBroadcastable;
+    }
+    writer.WriteUint8(flags);
+    writer.WriteUint8(iCodecName.Bytes());
+    writer.Write(iCodecName);
+
+    aWriter.WriteFlush();
+}
+
+void ScdMsgFormatDsd::Clear()
+{
+    iSampleRate = 0;
+    iNumChannels = 0;
+    iSampleStart = 0;
+    iSamplesTotal = 0;
+    iSeekable = false;
+    iBroadcastAllowed = false;
+    iCodecName.Replace(Brx::Empty());
+}
+
+
 // ScdMsgAudioOut
 
 TUint ScdMsgAudioOut::NumSamples() const
@@ -818,6 +965,7 @@ ScdMsgFactory::ScdMsgFactory(TUint aCountReady,
                              TUint aCountMetadataDidl,
                              TUint aCountMetadataOh,
                              TUint aCountFormat,
+                             TUint aCountFormatDsd,
                              TUint aCountAudioOut,
                              TUint aCountAudioIn,
                              TUint aCountMetatextDidl,
@@ -830,6 +978,7 @@ ScdMsgFactory::ScdMsgFactory(TUint aCountReady,
     , iFifoMetadataDidl(nullptr)
     , iFifoMetadataOh(nullptr)
     , iFifoFormat(nullptr)
+    , iFifoFormatDsd(nullptr)
     , iFifoAudioOut(nullptr)
     , iFifoAudioIn(nullptr)
     , iFifoMetatextDidl(nullptr)
@@ -859,6 +1008,12 @@ ScdMsgFactory::ScdMsgFactory(TUint aCountReady,
         iFifoFormat = new Fifo<ScdMsgFormat*>(aCountFormat);
         for (TUint i=0; i<aCountFormat; i++) {
             iFifoFormat->Write(new ScdMsgFormat(*this));
+        }
+    }
+    if (aCountFormatDsd != 0) {
+        iFifoFormatDsd = new Fifo<ScdMsgFormatDsd*>(aCountFormatDsd);
+        for (TUint i = 0; i<aCountFormatDsd; i++) {
+            iFifoFormatDsd->Write(new ScdMsgFormatDsd(*this));
         }
     }
     if (aCountAudioOut != 0) {
@@ -916,6 +1071,10 @@ ScdMsgFactory::~ScdMsgFactory()
     slots = iFifoFormat? iFifoFormat->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
         delete iFifoFormat->Read();
+    }
+    slots = iFifoFormatDsd ? iFifoFormatDsd->Slots() : 0;
+    for (TUint i = 0; i<slots; i++) {
+        delete iFifoFormatDsd->Read();
     }
     slots = iFifoAudioOut? iFifoAudioOut->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
@@ -987,6 +1146,25 @@ ScdMsgFormat* ScdMsgFactory::CreateMsgFormat(ScdMsgFormat& aFormat, TUint64 aSam
     return msg;
 }
 
+ScdMsgFormatDsd* ScdMsgFactory::CreateMsgFormatDsd(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits,
+                                                   TUint64 aSampleStart, TUint64 aSamplesTotal, TBool aSeekable,
+                                                   TBool aBroadcastAllowed, const std::string& aCodecName)
+{
+    auto msg = iFifoFormatDsd->Read();
+    msg->Initialise(aSampleRate, aNumChannels, aSampleBlockBits, aSampleStart,
+                    aSamplesTotal, aSeekable, aBroadcastAllowed, aCodecName);
+    return msg;
+}
+
+ScdMsgFormatDsd* ScdMsgFactory::CreateMsgFormatDsd(ScdMsgFormatDsd& aFormat, TUint64 aSampleStart)
+{
+    auto msg = iFifoFormatDsd->Read();
+    msg->Initialise(aFormat.SampleRate(), aFormat.NumChannels(), aFormat.SampleBlockBits(),
+                    aSampleStart, aFormat.SamplesTotal(), aFormat.Seekable(),
+                    aFormat.BroadcastAllowed(), aFormat.CodecName());
+    return msg;
+}
+
 ScdMsgAudioOut* ScdMsgFactory::CreateMsgAudioOut(const std::string& aAudio, TUint aNumSamples)
 {
     auto msg = iFifoAudioOut->Read();
@@ -1046,6 +1224,9 @@ ScdMsg* ScdMsgFactory::CreateMsg(IReader& aReader)
             msg = CreateMsgMetadataOh(aReader, header);
             break;
         case ScdHeader::kTypeFormat:
+            msg = CreateMsgFormat(aReader, header);
+            break;
+        case ScdHeader::kTypeFormatDsd:
             msg = CreateMsgFormat(aReader, header);
             break;
         case ScdHeader::kTypeAudio:
@@ -1118,6 +1299,19 @@ ScdMsgMetadataOh* ScdMsgFactory::CreateMsgMetadataOh(IReader& aReader, const Scd
 ScdMsgFormat* ScdMsgFactory::CreateMsgFormat(IReader& aReader, const ScdHeader& aHeader)
 {
     auto msg = iFifoFormat->Read();
+    try {
+        msg->Initialise(aReader, aHeader);
+    }
+    catch (...) {
+        msg->RemoveRef();
+        throw;
+    }
+    return msg;
+}
+
+ScdMsgFormatDsd* ScdMsgFactory::CreateMsgFormatDsd(IReader& aReader, const ScdHeader& aHeader)
+{
+    auto msg = iFifoFormatDsd->Read();
     try {
         msg->Initialise(aReader, aHeader);
     }
@@ -1207,6 +1401,11 @@ void ScdMsgFactory::Process(ScdMsgMetadataOh& aMsg)
 void ScdMsgFactory::Process(ScdMsgFormat& aMsg)
 {
     iFifoFormat->Write(&aMsg);
+}
+
+void ScdMsgFactory::Process(ScdMsgFormatDsd& aMsg)
+{
+    iFifoFormatDsd->Write(&aMsg);
 }
 
 void ScdMsgFactory::Process(ScdMsgAudioOut& aMsg)

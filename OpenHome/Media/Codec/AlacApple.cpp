@@ -71,7 +71,7 @@ TBool CodecAlacApple::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
     LOG(kCodec, "CodecAlac::Recognise\n");
 
-    if (aStreamInfo.RawPcm()) {
+    if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
     iRecogBuf.SetBytes(0);

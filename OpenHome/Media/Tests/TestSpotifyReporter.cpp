@@ -480,7 +480,7 @@ Msg* MockMsgProcessor::ProcessMsg(MsgEncodedStream* aMsg)
     writerAscii.WriteSpace();
     writerBool.WriteBool(aMsg->Live());
     writerAscii.WriteSpace();
-    writerBool.WriteBool(aMsg->RawPcm());
+    writerBool.WriteBool(aMsg->StreamFormat() == MsgEncodedStream::Format::Pcm);
     iTestPipe.Write(buf);
     return aMsg;
 }

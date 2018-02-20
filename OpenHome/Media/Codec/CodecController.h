@@ -237,7 +237,14 @@ class EncodedStreamInfo
 {
     friend class CodecController;
 public:
-    TBool RawPcm() const;
+    enum class Format
+    {
+        Encoded,
+        Pcm,
+        Dsd
+    };
+public:
+    Format StreamFormat() const;
     TUint BitDepth() const;
     TUint SampleRate() const;
     TUint NumChannels() const;
@@ -249,10 +256,11 @@ public:
     TBool Lossless() const;
 private:
     EncodedStreamInfo();
-    void Set(TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, AudioDataEndian aEndian, SpeakerProfile aProfile,
-             TUint64 aStartSample, TBool aAnalogBypass, const Brx& aCodecName, TBool aLossless);
+    void SetPcm(TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, AudioDataEndian aEndian, SpeakerProfile aProfile,
+                TUint64 aStartSample, TBool aAnalogBypass, const Brx& aCodecName, TBool aLossless);
+    void SetDsd(TUint aSampleRate, TUint aNumChannels, TUint64 aStartSample, const Brx& aCodecName);
 private:
-    TBool iRawPcm;
+    Format iFormat;
     TBool iAnalogBypass;
     TBool iLossless;
     TUint iBitDepth;
@@ -448,9 +456,10 @@ private:
 
     TBool iSeekable;
     TBool iLive;
-    TBool iRawPcm;
+    MsgEncodedStream::Format iStreamFormat;
     Media::Multiroom iMultiroom;
     PcmStreamInfo iPcmStream;
+    DsdStreamInfo iDsdStream;
     std::atomic<IStreamHandler*> iStreamHandler;
     TUint iStreamId;
     BwsTrackUri iTrackUri;
