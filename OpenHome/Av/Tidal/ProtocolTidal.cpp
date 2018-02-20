@@ -104,8 +104,10 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& 
     iTidal = new Tidal(aEnv, aToken, aCredentialsManager, aConfigInitialiser);
     aCredentialsManager.Add(iTidal);
 
-    iPins = new TidalPins(*iTidal, aDevice, aTrackFactory, aCpStack);
-    aDebugManger.Add(*iPins);
+    if (false) {
+        iPins = new TidalPins(*iTidal, aDevice, aTrackFactory, aCpStack);
+        aDebugManger.Add(*iPins);
+    }
 }
 
 ProtocolTidal::~ProtocolTidal()

@@ -118,8 +118,10 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
     iQobuz = new Qobuz(aEnv, aAppId, aAppSecret, aCredentialsManager, aConfigInitialiser, aUnixTimestamp);
     aCredentialsManager.Add(iQobuz);
 
-    iPins = new QobuzPins(*iQobuz, aDevice, aTrackFactory, aCpStack);
-    aDebugManger.Add(*iPins);
+    if (false) {
+        iPins = new QobuzPins(*iQobuz, aDevice, aTrackFactory, aCpStack);
+        aDebugManger.Add(*iPins);
+    }
 }
 
 ProtocolQobuz::~ProtocolQobuz()

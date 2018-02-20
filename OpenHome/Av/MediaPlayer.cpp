@@ -116,6 +116,9 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     , iProviderTransport(nullptr)
     , iProviderConfigApp(nullptr)
     , iLoggerBuffered(nullptr)
+    , iDebugManager(nullptr)
+    , iTransportPins(nullptr)
+    , iPodcastPins(nullptr)
 {
     iUnixTimestamp = new OpenHome::UnixTimestamp(iDvStack.Env());
     iKvpStore = new KvpStore(aStaticDataSource);
@@ -155,10 +158,13 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
                                              // so this attribute can't be added in the obvious location
     }
     iDebugManager = new DebugManager();
-    iTransportPins = new TransportPins(aDevice, aCpStack);
-    iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack, iReadWriteStore);
-    iDebugManager->Add(*iTransportPins);
-    iDebugManager->Add(*iPodcastPins);
+
+    if (false) {
+        iTransportPins = new TransportPins(aDevice, aCpStack);
+        iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack, iReadWriteStore);
+        iDebugManager->Add(*iTransportPins);
+        iDebugManager->Add(*iPodcastPins);
+    }
 }
 
 MediaPlayer::~MediaPlayer()
