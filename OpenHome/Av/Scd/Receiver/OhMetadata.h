@@ -33,7 +33,7 @@ private:
 private:
     const OpenHomeMetadataBuf& iMetadata;
     Media::BwsTrackUri iUri;
-    Media::BwsTrackUri iMetaDataDidl;
+    Media::BwsTrackMetaData iMetaDataDidl;
 };
 
 } // namespace Scd

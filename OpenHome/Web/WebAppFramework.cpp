@@ -641,7 +641,7 @@ WebAppFrameworkInitParams::WebAppFrameworkInitParams()
 {
 }
 
-void WebAppFrameworkInitParams::SetPort(TUint aPort)
+void WebAppFrameworkInitParams::SetServerPort(TUint aPort)
 {
     iPort = aPort;
 }
