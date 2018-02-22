@@ -91,6 +91,7 @@ Protocol* ProtocolFactory::NewTidal(Environment& aEnv, const Brx& aToken, Av::IM
 
 ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, DebugManager& aDebugManger)
     : ProtocolNetwork(aEnv)
+    , iPins(nullptr)
     , iSupply(nullptr)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
@@ -112,7 +113,9 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& 
 
 ProtocolTidal::~ProtocolTidal()
 {
-    delete iPins;
+    if (iPins != nullptr) {
+        delete iPins;
+    }
     delete iSupply;
 }
 

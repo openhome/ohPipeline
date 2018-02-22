@@ -266,7 +266,9 @@ TestMediaPlayer::~TestMediaPlayer()
         delete iStoreFileWriter;
     }
     delete iConfigRamStore;
-    delete iTestPodcastPinsEvent;
+    if (false) {
+        delete iTestPodcastPinsEvent;
+    }
 }
 
 void TestMediaPlayer::SetPullableClock(Media::IPullableClock& aPullableClock)

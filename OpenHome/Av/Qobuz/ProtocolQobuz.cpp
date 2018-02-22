@@ -103,6 +103,7 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
                              IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
                              Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, DebugManager& aDebugManger)
     : ProtocolNetwork(aEnv)
+    , iPins(nullptr)
     , iSupply(nullptr)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
@@ -126,7 +127,9 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
 
 ProtocolQobuz::~ProtocolQobuz()
 {
-    delete iPins;
+    if (iPins != nullptr) {
+        delete iPins;
+    }
     delete iSupply;
 }
 
