@@ -59,7 +59,7 @@ void TestMediaPlayerThread::RunInThread()
     NetworkAdapter* adapter = iLib->CurrentSubnetAdapter(cookie);
     CpStack* cpStack = nullptr;
     DvStack* dvStack = nullptr;
-    iLib->StartCombined(adapter->Address(), cpStack, dvStack);
+    iLib->StartCombined(adapter->Subnet(), cpStack, dvStack);
 
     // Seed random number generator.
     TestMediaPlayerInit::SeedRandomNumberGenerator(dvStack->Env(), iOptions.Room().Value(), adapter->Address(), dvStack->ServerUpnp());
