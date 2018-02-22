@@ -111,7 +111,7 @@ protected: // from ISsdpNotifyHandler
 private: // IResumeObserver
     void NotifyResumed();
 private: // IMdnsDeviceListener
-    void DeviceAdded(const Brx& aFriendlyName, const Brx& aUglyName, const Brx&  aIpAddress, TUint aPort);
+    void DeviceAdded(MdnsDevice& aDev);
 private:
     void RefreshTimerComplete();
     void ResumedTimerComplete();

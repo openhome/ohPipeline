@@ -330,9 +330,9 @@ CpiDeviceListOdp::~CpiDeviceListOdp()
     delete iResumedTimer;
 }
 
-void CpiDeviceListOdp::DeviceAdded(const Brx& /*aFriendlyName*/, const Brx& /*aUglyName*/, const Brx&  aIpAddress, TUint aPort)
+void CpiDeviceListOdp::DeviceAdded(MdnsDevice& aDev)
 {
-    Endpoint* ep = new Endpoint(aPort, aIpAddress);
+    Endpoint* ep = new Endpoint(aDev.Port(), aDev.IpAddress());
     CpiDeviceOdp* dev = new CpiDeviceOdp(iCpStack, *ep, Brn("Ds"), MakeFunctor(*this, &CpiDeviceListOdp::DeviceReady));
     if (dev != nullptr) {
         Add(dev->Device());  

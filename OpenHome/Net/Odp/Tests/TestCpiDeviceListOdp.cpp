@@ -62,8 +62,8 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
     std::vector<NetworkAdapter*>* subnetList = lib->CreateSubnetList();
     TIpAddress subnet = (*subnetList)[adapter.Value()]->Subnet();
     Library::DestroySubnetList(subnetList);
-    Debug::SetLevel(Debug::kBonjour);
-    Debug::SetSeverity(Debug::kSeverityTrace);
+    //Debug::SetLevel(Debug::kBonjour);
+    //Debug::SetSeverity(Debug::kSeverityTrace);
 
     Bws<Endpoint::kMaxAddressBytes> addr;
     Endpoint::AppendAddress(addr, subnet);
