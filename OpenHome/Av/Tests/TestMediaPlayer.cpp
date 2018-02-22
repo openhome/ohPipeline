@@ -222,6 +222,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
                                    volumeInit, volumeProfile,
                                    *iInfoLogger,
                                    aUdn, mpInit);
+    delete mpInit;
     iPipelineObserver = new LoggingPipelineObserver();
     iMediaPlayer->Pipeline().AddObserver(*iPipelineObserver);
 
@@ -626,7 +627,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, T
     initParams->SetDvLpecServerPort(2324);
 #endif
 
-    Debug::SetLevel(Debug::kPipeline | Debug::kSources | Debug::kMedia);
+    Debug::SetLevel(Debug::kPipeline | Debug::kSources | Debug::kMedia | Debug::kAdapterChange);
     Debug::SetSeverity(Debug::kSeverityInfo);
     Net::Library* lib = new Net::Library(initParams);
     //Net::DvStack* dvStack = lib->StartDv();
