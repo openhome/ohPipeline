@@ -19,6 +19,7 @@ public: // from ISupply
     void OutputTrack(Track& aTrack, TBool aStartOfStream = true) override;
     void OutputDrain(Functor aCallback) override;
     void OutputDelay(TUint aJiffies) override;
+    void OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, IStreamHandler& aStreamHandler, TUint aStreamId, const DsdStreamInfo& aDsdStream) override;
     void OutputMetadata(const Brx& aMetadata) override;
     void OutputHalt(TUint aHaltId = MsgHalt::kIdNone) override;
     void OutputFlush(TUint aFlushId) override;

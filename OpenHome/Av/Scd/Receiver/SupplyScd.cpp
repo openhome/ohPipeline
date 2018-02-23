@@ -16,7 +16,7 @@ SupplyScd::SupplyScd(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownS
     : iMsgFactory(aMsgFactory)
     , iDownStreamElement(aDownStreamElement)
     , iAudioEncoded(nullptr)
-    , iBytesPerSample(0)
+    , iBitsPerSample(0)
     , iSamplesCapacity(0)
     , iBytesPerAudioMsg(0)
 {
@@ -41,7 +41,7 @@ void SupplyScd::OutputData(TUint aNumSamples, IReader& aReader)
     while (aNumSamples > 0) {
         const TUint samples = std::min(iSamplesCapacity, aNumSamples);
         iAudioBuf.SetBytes(0);
-        Brn data = reader.Read(samples * iBytesPerSample);
+        Brn data = reader.Read((samples * iBitsPerSample) / 8);
         aNumSamples -= samples;
         while (data.Bytes() > 0) {
             if (iAudioEncoded == nullptr) {
@@ -106,9 +106,23 @@ void SupplyScd::OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes,
                                                   0LL, // FIXME - seek support will require that Protocol can set this
                                                   aStreamId, aSeekable, aLive, aMultiroom,
                                                   &aStreamHandler, aPcmStream);
-    iBytesPerSample = (aPcmStream.BitDepth() / 8) * aPcmStream.NumChannels();
-    iSamplesCapacity = iAudioBuf.MaxBytes() / iBytesPerSample;
-    iBytesPerAudioMsg = iSamplesCapacity * iBytesPerSample;
+    iBitsPerSample = aPcmStream.BitDepth() * aPcmStream.NumChannels();
+    const auto bytesPerSample = iBitsPerSample / 8;
+    iSamplesCapacity = iAudioBuf.MaxBytes() / bytesPerSample;
+    iBytesPerAudioMsg = iSamplesCapacity * bytesPerSample;
+    Output(msg);
+}
+
+void SupplyScd::OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes,
+                                TBool aSeekable, IStreamHandler& aStreamHandler,
+                                TUint aStreamId, const DsdStreamInfo& aDsdStream)
+{
+    auto msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes,
+                                                  0LL, aStreamId, aSeekable,
+                                                  &aStreamHandler, aDsdStream);
+    iBitsPerSample = aDsdStream.NumChannels();
+    iSamplesCapacity = (iAudioBuf.MaxBytes() * 8) / iBitsPerSample;
+    iBytesPerAudioMsg = (iSamplesCapacity * iBitsPerSample) / 8;
     Output(msg);
 }
 

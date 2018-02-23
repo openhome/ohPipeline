@@ -42,6 +42,12 @@ TUint EncodedStreamInfo::NumChannels() const
     return iNumChannels;
 }
 
+TUint EncodedStreamInfo::DsdSampleBlockBits() const
+{
+    ASSERT(iFormat == Format::Dsd);
+    return iDsdSampleBlockBits;
+}
+
 AudioDataEndian EncodedStreamInfo::Endian() const
 {
     return iEndian;
@@ -82,6 +88,7 @@ EncodedStreamInfo::EncodedStreamInfo()
     , iBitDepth(UINT_MAX)
     , iSampleRate(UINT_MAX)
     , iNumChannels(UINT_MAX)
+    , iDsdSampleBlockBits(UINT_MAX)
     , iEndian(AudioDataEndian::Invalid)
     , iStartSample(0)
 {
@@ -102,12 +109,13 @@ void EncodedStreamInfo::SetPcm(TUint aBitDepth, TUint aSampleRate, TUint aNumCha
     iLossless = aLossless;
 }
 
-void EncodedStreamInfo::SetDsd(TUint aSampleRate, TUint aNumChannels, TUint64 aStartSample, const Brx& aCodecName)
+void EncodedStreamInfo::SetDsd(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint64 aStartSample, const Brx& aCodecName)
 {
     iFormat = Format::Pcm;
     iBitDepth = 1;
     iSampleRate = aSampleRate;
     iNumChannels = aNumChannels;
+    iDsdSampleBlockBits = aSampleBlockBits;
     iStartSample = aStartSample;
     iCodecName.Replace(aCodecName);
     iLossless = true;
@@ -311,7 +319,8 @@ void CodecController::CodecThread()
             }
             else if (iStreamFormat == MsgEncodedStream::Format::Dsd) {
                 streamInfo.SetDsd(iDsdStream.SampleRate(), iDsdStream.NumChannels(),
-                                  iDsdStream.StartSample(), iDsdStream.CodecName());
+                                  iDsdStream.SampleBlockBits(), iDsdStream.StartSample(),
+                                  iDsdStream.CodecName());
             }
 
             LOG(kMedia, "CodecThread: start recognition.  iTrackId=%u, iStreamId=%u\n", iTrackId, iStreamId);
@@ -828,6 +837,15 @@ TUint64 CodecController::OutputAudioDsd(const Brx& aData, TUint aChannels, TUint
     } while (remaining > 0);
 
     return aTrackOffset - offsetBefore;
+}
+
+TUint64 CodecController::OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset)
+{
+    ASSERT(aChannels == iChannels);
+    ASSERT(aSampleRate == iSampleRate);
+    auto audio = iMsgFactory.CreateMsgAudioDsd(aMsg, aChannels, aSampleRate, aSampleBlockBits, aTrackOffset);
+    aMsg->RemoveRef();
+    return DoOutputAudio(audio);
 }
 
 void CodecController::OutputBitRate(TUint aBitRate)

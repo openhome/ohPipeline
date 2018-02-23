@@ -193,6 +193,22 @@ public:
     */
     virtual TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) = 0;
     /**
+    * Add a block of decoded (DSD) audio to the pipeline.
+    *
+    * Only supported for encoded audio that is already packed in a format expected by teh pipeline animator.
+    *
+    * @param[in] aMsg              Returned from ReadNextMsg().
+    * @param[in] aChannels         Number of channels.  Must be in the range [1..2].
+    * @param[in] aSampleRate       Sample rate.
+    * @param[in] aSampleBlockBits  Block size (in bits) of DSD data.  2 for stereo where left/right
+    *                              channels are interleaved, 16 for stereo with one byte of left
+    *                              subsamples followed by one byte of right subsamples, etc.
+    * @param[in] aTrackOffset      Offset (in jiffies) into the stream at the start of aData.
+    *
+    * @return     Number of jiffies of audio contained in aMsg.
+    */
+    virtual TUint64 OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) = 0;
+    /**
      * Notify the pipeline of a change in bit rate.
      *
      * Use of this is optional but it may be useful for variable bit rate codecs.
@@ -254,11 +270,12 @@ public:
     TBool AnalogBypass() const;
     const Brx& CodecName() const;
     TBool Lossless() const;
+    TUint DsdSampleBlockBits() const;
 private:
     EncodedStreamInfo();
     void SetPcm(TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, AudioDataEndian aEndian, SpeakerProfile aProfile,
                 TUint64 aStartSample, TBool aAnalogBypass, const Brx& aCodecName, TBool aLossless);
-    void SetDsd(TUint aSampleRate, TUint aNumChannels, TUint64 aStartSample, const Brx& aCodecName);
+    void SetDsd(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint64 aStartSample, const Brx& aCodecName);
 private:
     Format iFormat;
     TBool iAnalogBypass;
@@ -266,6 +283,7 @@ private:
     TUint iBitDepth;
     TUint iSampleRate;
     TUint iNumChannels;
+    TUint iDsdSampleBlockBits;
     AudioDataEndian iEndian;
     SpeakerProfile iProfile;
     TUint64 iStartSample;
@@ -393,6 +411,7 @@ private: // ICodecController
     TUint64 OutputAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset) override;
     TUint64 OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset) override;
     TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) override;
+    TUint64 OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) override;
     void OutputBitRate(TUint aBitRate) override;
     void OutputWait() override;
     void OutputHalt() override;

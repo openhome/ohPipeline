@@ -52,6 +52,12 @@ void Supply::OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekab
     iDownStreamElement.Push(msg);
 }
 
+void Supply::OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, IStreamHandler& aStreamHandler, TUint aStreamId, const DsdStreamInfo& aDsdStream)
+{
+    auto msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes, 0, aStreamId, aSeekable, &aStreamHandler, aDsdStream);
+    iDownStreamElement.Push(msg);
+}
+
 void Supply::OutputData(const Brx& aData)
 {
     if (aData.Bytes() == 0) {

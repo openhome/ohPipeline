@@ -57,6 +57,11 @@ void SupplyAggregator::OutputDelay(TUint aJiffies)
     Output(msg);
 }
 
+void SupplyAggregator::OutputDsdStream(const Brx& /*aUri*/, TUint64 /*aTotalBytes*/, TBool /*aSeekable*/, IStreamHandler& /*aStreamHandler*/, TUint /*aStreamId*/, const DsdStreamInfo& /*aDsdStream*/)
+{
+    ASSERTS(); // no known clients, so no need to support yet
+}
+
 void SupplyAggregator::OutputMetadata(const Brx& aMetadata)
 {
     MsgMetaText* msg = iMsgFactory.CreateMsgMetaText(aMetadata);

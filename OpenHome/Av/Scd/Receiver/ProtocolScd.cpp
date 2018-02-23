@@ -38,16 +38,8 @@ ProtocolScd::ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory)
                   0  // Skip - currently unsupported
                   )
     , iTrackFactory(aTrackFactory)
-    , iStreamFormat(nullptr)
 {
     Debug::AddLevel(Debug::kScd);
-}
-
-ProtocolScd::~ProtocolScd()
-{
-    if (iStreamFormat != nullptr) {
-        iStreamFormat->RemoveRef();
-    }
 }
 
 void ProtocolScd::Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream)
@@ -192,19 +184,32 @@ void ProtocolScd::Process(ScdMsgMetadataOh& aMsg)
 void ProtocolScd::Process(ScdMsgFormat& aMsg)
 {
     //Log::Print("ScdMsgFormat\n");
-    if (iStreamFormat != nullptr) {
-        iStreamFormat->RemoveRef();
-    }
-    iStreamFormat = &aMsg;
-    iStreamFormat->AddRef();
+    SpeakerProfile spStereo;
+    iFormatPcm.Set(aMsg.BitDepth(), aMsg.SampleRate(), aMsg.NumChannels(),
+                   AudioDataEndian::Big, spStereo, aMsg.SampleStart());
+    iFormatPcm.SetCodec(aMsg.CodecName(), aMsg.Lossless());
+    iFormatDsd.Clear();
+    const TUint bytesPerSample = aMsg.BitDepth() * aMsg.NumChannels() / 8;
+    iStreamBytes = aMsg.SamplesTotal() * bytesPerSample;
+    iStreamMultiroom = aMsg.BroadcastAllowed()? Multiroom::Allowed : Multiroom::Forbidden;
+    iStreamLive = aMsg.Live();
     OutputStream();
     iFormatReqd = false;
 }
 
-void ProtocolScd::Process(ScdMsgFormatDsd& /*aMsg*/)
+void ProtocolScd::Process(ScdMsgFormatDsd& aMsg)
 {
     //Log::Print("ScdMsgFormatDsd\n");
-    ASSERTS();
+    iFormatPcm.Clear();
+    SpeakerProfile spStereo;
+    iFormatDsd.Set(aMsg.SampleRate(), aMsg.NumChannels(),
+                   aMsg.SampleBlockBits(), aMsg.SampleStart());
+    iFormatDsd.SetCodec(aMsg.CodecName());
+    iStreamBytes = aMsg.SamplesTotal() * aMsg.NumChannels() / 8; // /8 since 1 bit per subsample
+    iStreamMultiroom = Multiroom::Forbidden;
+    iStreamLive = false;
+    OutputStream();
+    iFormatReqd = false;
 }
 
 void ProtocolScd::Process(ScdMsgAudioOut& /*aMsg*/)
@@ -267,27 +272,23 @@ void ProtocolScd::OutputTrack(Track* aTrack)
 
 void ProtocolScd::OutputStream()
 {
-    if (iStreamFormat == nullptr) {
+    if (!iFormatPcm && !iFormatDsd) {
         LOG_ERROR(kMedia, "ProtocolScd received Audio but no Format\n");
         iUnrecoverableError = true;
         THROW(ScdError);
     }
 
-    const TUint bytesPerSample =   (iStreamFormat->BitDepth() / 8)
-                                 * iStreamFormat->NumChannels();
-    const TUint64 bytesTotal = iStreamFormat->SamplesTotal() * bytesPerSample;
-    PcmStreamInfo pcmStream;
-    SpeakerProfile stereo;
-    pcmStream.Set(iStreamFormat->BitDepth(), iStreamFormat->SampleRate(),
-                  iStreamFormat->NumChannels(), AudioDataEndian::Big,
-                  stereo, iStreamFormat->SampleStart());
-    pcmStream.SetCodec(iStreamFormat->CodecName(), iStreamFormat->Lossless());
-    auto broadcast = iStreamFormat->BroadcastAllowed()? Multiroom::Allowed : Multiroom::Forbidden;
     {
         AutoMutex _(iLock);
         iStreamId = iIdProvider->NextStreamId();
     }
-    iSupply->OutputPcmStream(Brx::Empty(), bytesTotal,
-                             false/*iStreamFormat->Seekable()*/, iStreamFormat->Live(),
-                             broadcast, *this, iStreamId, pcmStream);
+    if (iFormatPcm) {
+        iSupply->OutputPcmStream(Brx::Empty(), iStreamBytes, false/*seekable*/,
+                                 iStreamLive, iStreamMultiroom, *this, iStreamId,
+                                 iFormatPcm);
+    }
+    else { // iFormatDsd
+        iSupply->OutputDsdStream(Brx::Empty(), iStreamBytes, false/*seekable*/,
+                                 *this, iStreamId, iFormatDsd);
+    }
 }

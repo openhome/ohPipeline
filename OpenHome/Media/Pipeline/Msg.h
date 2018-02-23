@@ -519,6 +519,7 @@ public:
     const Brx& CodecName() const;
     TBool Lossless() const;
     void operator=(const PcmStreamInfo &);
+    operator TBool() const;
 private:
     TUint iBitDepth;
     TUint iSampleRate;
@@ -544,6 +545,7 @@ public:
     TUint64 StartSample() const;
     const Brx& CodecName() const;
     void operator=(const DsdStreamInfo &);
+    operator TBool() const;
 private:
     TUint iSampleRate;
     TUint iNumChannels;
@@ -1477,11 +1479,20 @@ public:
      * @param[in] aMultiroom       Whether the current stream is allowed to be broadcast to other music players.
      * @param[in] aStreamHandler   Stream handler.  Used to allow pipeline elements to communicate upstream.
      * @param[in] aStreamId        Identifier for the pending stream.  Unique within a single track only.
-     * @param[in] aBitDepth        Number of bits per sample per channel.
-     * @param[in] aSampleRate      Number of samples per second.
-     * @param[in] aNumChannels     Number of channels.
+     * @param[in] aPcmStream       Bit depth, sample rate, etc.
      */
     virtual void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId, const PcmStreamInfo& aPcmStream) = 0;
+    /**
+     * Inform the pipeline that a new (raw DSD) audio stream is starting
+     *
+     * @param[in] aUri             Uri of the stream
+     * @param[in] aTotalBytes      Length in bytes of the stream
+     * @param[in] aSeekable        Whether the stream supports Seek requests
+     * @param[in] aStreamHandler   Stream handler.  Used to allow pipeline elements to communicate upstream.
+     * @param[in] aStreamId        Identifier for the pending stream.  Unique within a single track only.
+     * @param[in] aDsdStream       Sample rate, etc.
+     */
+    virtual void OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, IStreamHandler& aStreamHandler, TUint aStreamId, const DsdStreamInfo& aDsdStream) = 0;
     /**
      * Push a block of (encoded or PCM) audio into the pipeline.
      *
@@ -1841,6 +1852,7 @@ public:
     MsgDelay* CreateMsgDelay(TUint aDelayJiffies);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream);
+    MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);
     MsgEncodedStream* CreateMsgEncodedStream(MsgEncodedStream* aMsg, IStreamHandler* aStreamHandler);
     MsgAudioEncoded* CreateMsgAudioEncoded(const Brx& aData);
     MsgMetaText* CreateMsgMetaText(const Brx& aMetaText);
@@ -1855,6 +1867,7 @@ public:
     MsgAudioPcm* CreateMsgAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset);
     MsgAudioPcm* CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset); // aAudio must contain big endian pcm data
     MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset);
+    MsgAudioDsd* CreateMsgAudioDsd(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset);
     MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels);
     MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes);
     MsgQuit* CreateMsgQuit();
@@ -1862,6 +1875,7 @@ private:
     EncodedAudio* CreateEncodedAudio(const Brx& aData);
     DecodedAudio* CreateDecodedAudio(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
     MsgAudioPcm* CreateMsgAudioPcm(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset);
+    MsgAudioDsd* CreateMsgAudioDsd(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset);
 private:
     Allocator<MsgMode> iAllocatorMsgMode;
     Allocator<MsgTrack> iAllocatorMsgTrack;

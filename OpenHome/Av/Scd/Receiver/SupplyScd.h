@@ -25,6 +25,7 @@ public: // from Media::ISupply
     void OutputDelay(TUint aJiffies) override;
     void OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId) override;
     void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::PcmStreamInfo& aPcmStream) override;
+    void OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::DsdStreamInfo& aDsdStream) override;
     void OutputData(const Brx& aData) override;
     void OutputMetadata(const Brx& aMetadata) override;
     void OutputHalt(TUint aHaltId = Media::MsgHalt::kIdNone) override;
@@ -37,7 +38,7 @@ private:
     Media::MsgFactory& iMsgFactory;
     Media::IPipelineElementDownstream& iDownStreamElement;
     Media::MsgAudioEncoded* iAudioEncoded;
-    TUint iBytesPerSample;
+    TUint iBitsPerSample;
     TUint iSamplesCapacity;
     TUint iBytesPerAudioMsg;
     Bws<Media::AudioData::kMaxBytes> iAudioBuf;

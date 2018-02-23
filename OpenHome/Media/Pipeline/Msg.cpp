@@ -1212,7 +1212,7 @@ void PcmStreamInfo::SetCodec(const Brx& aCodecName, TBool aLossless)
 
 void PcmStreamInfo::Clear()
 {
-    iBitDepth = iSampleRate = iNumChannels = UINT_MAX;
+    iBitDepth = iSampleRate = iNumChannels = 0;
     iEndian = AudioDataEndian::Invalid;
     iAnalogBypass = false;
     iCodecName.Replace(Brx::Empty());
@@ -1277,6 +1277,11 @@ void PcmStreamInfo::operator=(const PcmStreamInfo& aPcmStream)
     iLossless = aPcmStream.Lossless();
 }
 
+PcmStreamInfo::operator TBool() const
+{
+    return iSampleRate != 0;
+}
+
 
 // DsdStreamInfo
 
@@ -1338,6 +1343,11 @@ void DsdStreamInfo::operator=(const DsdStreamInfo &aInfo)
     iNumChannels = aInfo.NumChannels();
     iStartSample = aInfo.StartSample();
     iCodecName.Replace(aInfo.CodecName());
+}
+
+DsdStreamInfo::operator TBool() const
+{
+    return iSampleRate != 0;
 }
 
 
@@ -3593,6 +3603,14 @@ MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx&
     return msg;
 }
 
+MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream)
+{
+    MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
+    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeekable, false/*live*/,
+        Multiroom::Forbidden, aStreamHandler, aDsdStream);
+    return msg;
+}
+
 MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(MsgEncodedStream* aMsg, IStreamHandler* aStreamHandler)
 {
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
@@ -3700,16 +3718,14 @@ MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TU
 {
     auto decodedAudio = static_cast<DecodedAudio*>(iAllocatorAudioData.Allocate());
     decodedAudio->ConstructDsd(aData);
-    auto audioDsd = iAllocatorMsgAudioDsd.Allocate();
-    try {
-        audioDsd->Initialise(decodedAudio, aSampleRate, aChannels, aSampleBlockBits, aTrackOffset,
-                             iAllocatorMsgPlayableDsd, iAllocatorMsgPlayableSilence);
-    }
-    catch (AssertionFailed&) { // test code helper
-        audioDsd->RemoveRef();
-        throw;
-    }
-    return audioDsd;
+    return CreateMsgAudioDsd(decodedAudio, aChannels, aSampleRate, aSampleBlockBits, aTrackOffset);
+}
+
+MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset)
+{
+    AudioData* audioData = aAudio->iAudioData;
+    audioData->AddRef();
+    return CreateMsgAudioDsd(static_cast<DecodedAudio*>(audioData), aChannels, aSampleRate, aSampleBlockBits, aTrackOffset);
 }
 
 MsgSilence* MsgFactory::CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels)
@@ -3757,4 +3773,18 @@ MsgAudioPcm* MsgFactory::CreateMsgAudioPcm(DecodedAudio* aAudioData, TUint aChan
         throw;
     }
     return msg;
+}
+
+MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset)
+{
+    auto audioDsd = iAllocatorMsgAudioDsd.Allocate();
+    try {
+        audioDsd->Initialise(aAudioData, aSampleRate, aChannels, aSampleBlockBits, aTrackOffset,
+                             iAllocatorMsgPlayableDsd, iAllocatorMsgPlayableSilence);
+    }
+    catch (AssertionFailed&) { // test code helper
+        audioDsd->RemoveRef();
+        throw;
+    }
+    return audioDsd;
 }

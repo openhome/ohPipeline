@@ -20,7 +20,6 @@ class ProtocolScd : public Media::ProtocolNetwork
     static const TUint kVersionMinor;
 public:
     ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory);
-    ~ProtocolScd();
 private: // from Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
     void Interrupt(TBool aInterrupt) override;
@@ -51,7 +50,10 @@ private:
     Media::TrackFactory& iTrackFactory;
     std::unique_ptr<SupplyScd> iSupply;
     Uri iUri;
-    ScdMsgFormat* iStreamFormat;
+    Media::PcmStreamInfo iFormatPcm;
+    Media::DsdStreamInfo iFormatDsd;
+    TUint64 iStreamBytes;
+    Media::Multiroom iStreamMultiroom;
     Media::BwsTrackMetaData iMetadata; // only required at function scope but too big for the stack
     TUint iStreamId;
     TUint iNextFlushId;
@@ -59,6 +61,7 @@ private:
     TBool iStopped;
     TBool iUnrecoverableError;
     TBool iFormatReqd;
+    TBool iStreamLive;
     TBool iExit;
 };
 
