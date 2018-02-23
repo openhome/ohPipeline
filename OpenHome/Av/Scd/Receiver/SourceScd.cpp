@@ -44,7 +44,7 @@ Av::ISource* Av::SourceFactory::NewScd(Av::IMediaPlayer& aMediaPlayer)
     return new SourceScd(pipeline, *uriProvider);
 }
 
-const Brn Av::SourceFactory::kSourceNameScd("SongcastD");
+const Brn Av::SourceFactory::kSourceNameScd("Roon");
 const TChar* Av::SourceFactory::kSourceTypeScd = "Scd";
 const TBool SourceScd::kDefaultVisibility = false;
 
