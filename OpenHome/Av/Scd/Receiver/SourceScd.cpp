@@ -61,6 +61,7 @@ SourceScd::SourceScd(Media::PipelineManager& aPipeline,
 void SourceScd::Activate(TBool /*aAutoPlay*/, TBool /*aPrefetchAllowed*/)
 {
     iUriProvider.Reset();
+    iPipeline.StopPrefetch(iUriProvider.Mode(), Media::Track::kIdNone);
 }
 
 TBool SourceScd::TryActivateNoPrefetch(const Brx& aMode)

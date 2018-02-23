@@ -44,14 +44,22 @@ void UriProviderScd::Reset()
 
 void UriProviderScd::Begin(TUint aTrackId)
 {
-    ASSERT(aTrackId == iTrack->Id());
-    iCanPlay = ePlayYes;
+    if (iTrack == nullptr || aTrackId != iTrack->Id()) {
+        iCanPlay = ePlayNo;
+    }
+    else {
+        iCanPlay = ePlayYes;
+    }
 }
 
 void UriProviderScd::BeginLater(TUint aTrackId)
 {
-    ASSERT(aTrackId == iTrack->Id());
-    iCanPlay = ePlayLater;
+    if (iTrack == nullptr || aTrackId != iTrack->Id()) {
+        iCanPlay = ePlayNo;
+    }
+    else {
+        iCanPlay = ePlayLater;
+    }
 }
 
 EStreamPlay UriProviderScd::GetNext(Track*& aTrack)
