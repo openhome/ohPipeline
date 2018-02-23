@@ -14,6 +14,7 @@
 #include <OpenHome/Net/Core/CpDevice.h>
 #include <OpenHome/Private/Network.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
+#include <OpenHome/Net/Private/MdnsProvider.h>
 
 #include <vector>
 

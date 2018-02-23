@@ -24,6 +24,8 @@
 #include <OpenHome/Media/MimeTypeList.h>
 #include <OpenHome/Av/Logger.h>
 #include <OpenHome/UnixTimestamp.h>
+#include <OpenHome/Av/TransportPins.h>
+#include <OpenHome/Av/PodcastPins.h>
 
 #include <memory>
 
@@ -95,7 +97,7 @@ TUint MediaPlayerInitParams::ThreadPoolCountLow() const
 
 // MediaPlayer
 
-MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
+MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::DvDeviceStandard& aDevice,
                          IStaticDataSource& aStaticDataSource,
                          IStoreReadWrite& aReadWriteStore,
                          PipelineInitParams* aPipelineInitParams,
@@ -104,6 +106,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
                          const Brx& aEntropy,
                          MediaPlayerInitParams* aInitParams)
     : iDvStack(aDvStack)
+    , iCpStack(aCpStack)
     , iDevice(aDevice)
     , iReadWriteStore(aReadWriteStore)
     , iConfigProductRoom(nullptr)
@@ -113,6 +116,9 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
     , iProviderTransport(nullptr)
     , iProviderConfigApp(nullptr)
     , iLoggerBuffered(nullptr)
+    , iDebugManager(nullptr)
+    , iTransportPins(nullptr)
+    , iPodcastPins(nullptr)
 {
     iUnixTimestamp = new OpenHome::UnixTimestamp(iDvStack.Env());
     iKvpStore = new KvpStore(aStaticDataSource);
@@ -151,6 +157,14 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
         iProduct->AddAttribute("ConfigApp"); // iProviderConfigApp is instantiated before iProduct
                                              // so this attribute can't be added in the obvious location
     }
+    iDebugManager = new DebugManager();
+
+    if (false) {
+        iTransportPins = new TransportPins(aDevice, aCpStack);
+        iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack, iReadWriteStore);
+        iDebugManager->Add(*iTransportPins);
+        iDebugManager->Add(*iPodcastPins);
+    }
 }
 
 MediaPlayer::~MediaPlayer()
@@ -183,6 +197,13 @@ MediaPlayer::~MediaPlayer()
     delete iKvpStore;
     delete iLoggerBuffered;
     delete iUnixTimestamp;
+    delete iDebugManager;
+    if (iTransportPins != nullptr) {
+        delete iTransportPins;
+    }
+    if (iPodcastPins != nullptr) {
+        delete iPodcastPins;
+    }
 }
 
 void MediaPlayer::Quit()
@@ -218,7 +239,7 @@ void MediaPlayer::AddAttribute(const TChar* aAttribute)
 
 ILoggerSerial& MediaPlayer::BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster)
 {
-    iLoggerBuffered = new LoggerBuffered(aBytes, iDevice, *iProduct, aShell, aLogPoster);
+    iLoggerBuffered = new LoggerBuffered(aBytes, iDevice, *iProduct, aShell, aLogPoster, *iDebugManager);
     return iLoggerBuffered->LoggerSerial();
 }
 
@@ -248,6 +269,11 @@ Environment& MediaPlayer::Env()
 Net::DvStack& MediaPlayer::DvStack()
 {
     return iDvStack;
+}
+
+Net::CpStack& MediaPlayer::CpStack()
+{
+    return iCpStack;
 }
 
 Net::DvDeviceStandard& MediaPlayer::Device()
@@ -345,4 +371,19 @@ IUnixTimestamp& MediaPlayer::UnixTimestamp()
 ITransportRepeatRandom& MediaPlayer::TransportRepeatRandom()
 {
     return iTransportRepeatRandom;
+}
+
+DebugManager& MediaPlayer::GetDebugManager()
+{
+    return *iDebugManager; 
+}
+
+TransportPins& MediaPlayer::GetTransportPins()
+{
+    return *iTransportPins; 
+}
+
+PodcastPins& MediaPlayer::GetPodcastPins()
+{
+    return *iPodcastPins; 
 }

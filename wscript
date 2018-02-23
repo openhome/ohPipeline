@@ -297,8 +297,12 @@ def build(bld):
                 'Generated/DvAvOpenhomeOrgInfo1.cpp',
                 'OpenHome/Av/ProviderInfo.cpp',
                 'Generated/DvAvOpenhomeOrgTransport1.cpp',
+                'Generated/CpAvOpenhomeOrgTransport1.cpp',
                 'OpenHome/Av/TransportControl.cpp',
                 'OpenHome/Av/ProviderTransport.cpp',
+                'OpenHome/Av/TransportPins.cpp',
+                'OpenHome/Av/PodcastPins.cpp',
+                'Generated/CpAvOpenhomeOrgRadio1.cpp',
                 'Generated/DvAvOpenhomeOrgVolume3.cpp',
                 'OpenHome/Av/ProviderVolume.cpp',
                 'OpenHome/Av/Source.cpp',
@@ -306,6 +310,7 @@ def build(bld):
                 'OpenHome/Av/Logger.cpp',
                 'Generated/DvAvOpenhomeOrgConfig2.cpp',
                 'OpenHome/Json.cpp',
+                'OpenHome/DebugManager.cpp',
                 'OpenHome/Av/Utils/FormUrl.cpp',
                 'OpenHome/NtpClient.cpp',
                 'OpenHome/UnixTimestamp.cpp',
@@ -344,13 +349,18 @@ def build(bld):
     bld.stlib(
             source=[
                 'Generated/DvAvOpenhomeOrgPlaylist1.cpp',
+                'Generated/CpAvOpenhomeOrgPlaylist1.cpp',
                 'OpenHome/Av/Playlist/ProviderPlaylist.cpp',
                 'OpenHome/Av/Playlist/SourcePlaylist.cpp',
                 'OpenHome/Av/Playlist/TrackDatabase.cpp',
                 'OpenHome/Av/Playlist/UriProviderPlaylist.cpp',
                 'OpenHome/Av/Tidal/Tidal.cpp',
+                'OpenHome/Av/Tidal/TidalMetadata.cpp',
+                'OpenHome/Av/Tidal/TidalPins.cpp',
                 'OpenHome/Av/Tidal/ProtocolTidal.cpp',
                 'OpenHome/Av/Qobuz/Qobuz.cpp',
+                'OpenHome/Av/Qobuz/QobuzMetadata.cpp',
+                'OpenHome/Av/Qobuz/QobuzPins.cpp',
                 'OpenHome/Av/Qobuz/ProtocolQobuz.cpp'
             ],
             use=['OHNET', 'ohMediaPlayer'],
@@ -732,7 +742,6 @@ def build(bld):
                 'Generated/CpUpnpOrgRenderingControl1.cpp',
                 'OpenHome/Av/Tests/TestTrackDatabase.cpp',
                 #'OpenHome/Av/Tests/TestPlaylist.cpp',
-                'Generated/CpAvOpenhomeOrgPlaylist1.cpp',
                 'OpenHome/Av/Tests/TestMediaPlayer.cpp',
                 'OpenHome/Av/Tests/TestMediaPlayerOptions.cpp',
                 'OpenHome/Configuration/Tests/ConfigRamStore.cpp',
@@ -981,7 +990,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestMediaPlayerMain.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
+            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
             target='TestMediaPlayer',
             install_path=os.path.join(bld.path.abspath(), 'install', 'bin'))
     bld.program(
@@ -1088,6 +1097,11 @@ def build(bld):
             source='OpenHome/Net/Odp/Tests/TestDvOdpMain.cpp',
             use=['OHNET', 'Odp', 'ohMediaPlayerTestUtils'],
             target='TestDvOdp',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Net/Odp/Tests/TestCpiDeviceListOdp.cpp',
+            use=['OHNET', 'Odp', 'ohMediaPlayerTestUtils'],
+            target='TestCpiDeviceListOdp',
             install_path=None)
 
     bld.stlib(

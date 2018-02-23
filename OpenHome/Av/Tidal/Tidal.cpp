@@ -1,4 +1,5 @@
 #include <OpenHome/Av/Tidal/Tidal.h>
+#include <OpenHome/Av/Tidal/TidalMetadata.h>
 #include <OpenHome/Av/Credentials.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Debug.h>
@@ -11,6 +12,8 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
+#include <OpenHome/Json.h>
+#include <OpenHome/Net/Core/CpDeviceDv.h>
 
 #include <algorithm>
 
@@ -127,6 +130,146 @@ TBool Tidal::TryLogout(const Brx& aSessionId)
 {
     AutoMutex _(iLock);
     return TryLogoutLocked(aSessionId);
+}
+
+TBool Tidal::TryGetId(WriterBwh& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType)
+{
+    Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
+
+    pathAndQuery.Append("search/?query=");
+    Uri::Escape(pathAndQuery, aQuery);
+    pathAndQuery.Append("&types=");
+    pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+
+    return TryGetResponse(aWriter, pathAndQuery, 1, 0);
+}
+
+TBool Tidal::TryGetIds(WriterBwh& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
+{
+    Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
+
+    if (aType == TidalMetadata::eMood) {
+        // will return the most recently updated playlist for the given mood
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(aMood);
+        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
+    }
+    else if (aType == TidalMetadata::eSavedPlaylist) {
+        // will return the latest saved playlist
+        pathAndQuery.Append(TidalMetadata::kIdTypeUserSpecific);
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(iUserId);
+        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
+    }
+    else if (aType == TidalMetadata::eSmartExclusive) {
+        // will return the latest exclusive playlist
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
+    }
+    else if (aType == TidalMetadata::eFavorites) {
+        pathAndQuery.Append(TidalMetadata::kIdTypeUserSpecific);
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(iUserId);
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+        pathAndQuery.Append(Brn("/albums?order=NAME&orderDirection=ASC"));
+    }
+
+    return TryGetResponse(aWriter, pathAndQuery, aMaxAlbumsPerResponse, 0);
+}
+
+TBool Tidal::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset)
+{
+    Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
+    if (aType == TidalMetadata::eMood || aType == TidalMetadata::eSmartExclusive || aType == TidalMetadata::eSavedPlaylist) {
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(TidalMetadata::ePlaylist));
+    }
+    else {
+        if (aId == TidalMetadata::kIdTypeUserSpecific) {
+            pathAndQuery.Append(aId);
+            pathAndQuery.Append("/");
+            pathAndQuery.Append(iUserId);
+            pathAndQuery.Append("/");
+        }
+        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
+    }
+    if ((aId != TidalMetadata::kIdTypeSmart && aId != TidalMetadata::kIdTypeUserSpecific) || aType == TidalMetadata::eSmartExclusive) {
+        pathAndQuery.Append("/");
+        pathAndQuery.Append(aId);
+    }
+    switch (aType) {
+        case TidalMetadata::eArtist: pathAndQuery.Append(Brn("/toptracks?")); break;
+        case TidalMetadata::eGenre:
+        case TidalMetadata::eSmartNew:
+        case TidalMetadata::eSmartRecommended:
+        case TidalMetadata::eSmartTop20:
+        case TidalMetadata::eSmartRising:
+        case TidalMetadata::eSmartDiscovery:
+        case TidalMetadata::eAlbum: pathAndQuery.Append(Brn("/tracks?")); break;
+        case TidalMetadata::eFavorites: pathAndQuery.Append(Brn("/tracks?order=NAME&orderDirection=ASC")); break;
+        case TidalMetadata::eMood:
+        case TidalMetadata::eSmartExclusive:
+        case TidalMetadata::eSavedPlaylist:
+        case TidalMetadata::ePlaylist: pathAndQuery.Append(Brn("/items?order=INDEX&orderDirection=ASC")); break;
+        case TidalMetadata::eTrack: pathAndQuery.Append(Brn("?")); break;
+    }
+
+    return TryGetResponse(aWriter, pathAndQuery, aLimit, aOffset);
+}
+
+TBool Tidal::TryGetResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset)
+{
+    AutoMutex _(iLock);
+    TBool success = false;
+    if (!TryConnect(kPort)) {
+        LOG_ERROR(kMedia, "Tidal::TryGetResponse - connection failure\n");
+        return false;
+    }
+    AutoSocketSsl __(iSocket);
+    aPathAndQuery.Append("&limit=");
+    Ascii::AppendDec(aPathAndQuery, aLimit);
+    aPathAndQuery.Append("&offset=");
+    Ascii::AppendDec(aPathAndQuery, aOffset);
+    aPathAndQuery.Append("&sessionId=");
+    aPathAndQuery.Append(iSessionId);
+    aPathAndQuery.Append("&countryCode=");
+    aPathAndQuery.Append(iCountryCode);
+    try {
+        LOG(kMedia, "Write Tidal request: http://%.*s%.*s\n", PBUF(kHost), PBUF(aPathAndQuery));
+        WriteRequestHeaders(Http::kMethodGet, aPathAndQuery, kPort);
+
+        iReaderResponse.Read();
+        const TUint code = iReaderResponse.Status().Code();
+        if (code != 200) {
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal TryGetResponse.  Some/all of response is:\n", code);
+            Brn buf = iReaderUntil.Read(kReadBufferBytes);
+            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
+            THROW(ReaderError);
+        }  
+        
+        TUint count = iHeaderContentLength.ContentLength();
+        //Log::Print("Read tidal response (%d): ", count);
+        while(count > 0) {
+            Brn buf = iReaderUntil.Read(kReadBufferBytes);
+            //Log::Print(buf);
+            aWriter.Write(buf);
+            count -= buf.Bytes();
+        }   
+        //Log::Print("\n");     
+
+        success = true;
+    }
+    catch (HttpError&) {
+        LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetResponse\n");
+    }
+    catch (ReaderError&) {
+        LOG_ERROR(kPipeline, "ReaderError in Tidal::TryGetResponse\n");
+    }
+    catch (WriterError&) {
+        LOG_ERROR(kPipeline, "WriterError in Tidal::TryGetResponse\n");
+    }
+    return success;
 }
 
 void Tidal::Interrupt(TBool aInterrupt)

@@ -7,6 +7,7 @@
 #include <OpenHome/Av/Logger.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/TransportControl.h>
+#include <OpenHome/DebugManager.h>
 
 namespace OpenHome {
     class Environment;
@@ -63,6 +64,8 @@ class IVolumeManager;
 class IVolumeProfile;
 class ConfigStartupSource;
 class IRebootHandler;
+class TransportPins;
+class PodcastPins;
 
 class IMediaPlayer
 {
@@ -70,6 +73,7 @@ public:
     virtual ~IMediaPlayer() {}
     virtual Environment& Env() = 0;
     virtual Net::DvStack& DvStack() = 0;
+    virtual Net::CpStack& CpStack() = 0;
     virtual Net::DvDeviceStandard& Device() = 0;
     virtual Media::PipelineManager& Pipeline() = 0;
     virtual Media::TrackFactory& TrackFactory() = 0;
@@ -90,6 +94,9 @@ public:
     virtual ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) = 0; // must be called before Start()
     virtual IUnixTimestamp& UnixTimestamp() = 0;
     virtual ITransportRepeatRandom& TransportRepeatRandom() = 0;
+    virtual DebugManager& GetDebugManager() = 0;
+    virtual Av::TransportPins& GetTransportPins() = 0;
+    virtual Av::PodcastPins& GetPodcastPins() = 0;
 };
 
 
@@ -121,7 +128,7 @@ class MediaPlayer : public IMediaPlayer, private INonCopyable
 {
     static const TUint kTrackCount = 1200;
 public:
-    MediaPlayer(Net::DvStack& aDvStack, Net::DvDeviceStandard& aDevice,
+    MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::DvDeviceStandard& aDevice,
                 IStaticDataSource& aStaticDataSource,
                 Configuration::IStoreReadWrite& aReadWriteStore,
                 Media::PipelineInitParams* aPipelineInitParams,
@@ -140,6 +147,7 @@ public:
 public: // from IMediaPlayer
     Environment& Env() override;
     Net::DvStack& DvStack() override;
+    Net::CpStack& CpStack() override;
     Net::DvDeviceStandard& Device() override;
     Media::PipelineManager& Pipeline() override;
     Media::TrackFactory& TrackFactory() override;
@@ -160,8 +168,12 @@ public: // from IMediaPlayer
     ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) override; // must be called before Start()
     IUnixTimestamp& UnixTimestamp() override;
     ITransportRepeatRandom& TransportRepeatRandom() override;
+    DebugManager& GetDebugManager() override;
+    Av::TransportPins& GetTransportPins() override;
+    Av::PodcastPins& GetPodcastPins() override;
 private:
     Net::DvStack& iDvStack;
+    Net::CpStack& iCpStack;
     Net::DvDeviceStandard& iDevice;
     KvpStore* iKvpStore;
     Media::PipelineManager* iPipeline;
@@ -188,6 +200,9 @@ private:
     Configuration::ProviderConfigApp* iProviderConfigApp;
     LoggerBuffered* iLoggerBuffered;
     IUnixTimestamp* iUnixTimestamp;
+    DebugManager* iDebugManager;
+    Av::TransportPins* iTransportPins;
+    Av::PodcastPins* iPodcastPins;
 };
 
 } // namespace Av

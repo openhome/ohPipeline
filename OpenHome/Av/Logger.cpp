@@ -82,13 +82,13 @@ void LoggerSerial::DisplayHelp(IWriter& aResponse)
 const TChar* LoggerBuffered::kShellCommandLog = "log";
 
 LoggerBuffered::LoggerBuffered(TUint aBytes, Net::DvDevice& aDevice, Product& aProduct,
-                               IShell& aShell, Optional<ILogPoster> aLogPoster)
+                               IShell& aShell, Optional<ILogPoster> aLogPoster, DebugManager& aDebugManager)
     : iShell(aShell)
 {
     iShell.AddCommandHandler(kShellCommandLog, *this);
     iLoggerSerial = new Av::LoggerSerial(aShell);
     iLoggerRingBuffer = new RingBufferLogger(aBytes);
-    iProviderDebug = new ProviderDebug(aDevice, *iLoggerRingBuffer, aLogPoster);
+    iProviderDebug = new ProviderDebug(aDevice, *iLoggerRingBuffer, aLogPoster, aDebugManager);
     aProduct.AddAttribute("Debug");
 }
 

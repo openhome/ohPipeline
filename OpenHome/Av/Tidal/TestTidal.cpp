@@ -96,8 +96,6 @@ void TestTidal::SetState(const Brx& /*aId*/, const Brx& /*aStatus*/, const Brx& 
 {
 }
 
-
-
 void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::InitialisationParams* aInitParams)
 {
     Environment* env = Net::UpnpLibrary::Initialise(aInitParams);

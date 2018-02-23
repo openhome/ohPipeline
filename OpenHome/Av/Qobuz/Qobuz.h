@@ -8,6 +8,10 @@
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Net/Private/DviStack.h>
+#include <OpenHome/Av/MediaPlayer.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
+#include <OpenHome/Av/Qobuz/QobuzMetadata.h>
 
 namespace OpenHome {
     class Environment;
@@ -32,6 +36,7 @@ class Qobuz : public ICredentialConsumer
     static const Brn kVersionAndFormat;
     static const TUint kSecsBetweenNtpAndUnixEpoch = 2208988800; // secs between 1900 and 1970
     static const TUint kMaxStatusBytes = 512;
+    static const TUint kMaxPathAndQueryBytes = 512;
 public:
     static const Brn kConfigKeySoundQuality;
 public:
@@ -41,6 +46,10 @@ public:
     ~Qobuz();
     TBool TryLogin();
     TBool TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl);
+    TBool TryGetId(WriterBwh& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType);
+    TBool TryGetIds(WriterBwh& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aMaxAlbumsPerResponse);
+    TBool TryGetGenreList(WriterBwh& aWriter);
+    TBool TryGetTracksById(WriterBwh& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
     const Brx& Id() const override;
@@ -52,6 +61,7 @@ private:
     TBool TryConnect();
     TBool TryLoginLocked();
     TUint WriteRequestReadResponse(const Brx& aMethod, const Brx& aPathAndQuery);
+    TBool TryGetResponse(WriterBwh& aWriter, TUint aLimit, TUint aOffset);
     Brn ReadString();
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
     static void AppendMd5(Bwx& aBuffer, const Brx& aToHash);

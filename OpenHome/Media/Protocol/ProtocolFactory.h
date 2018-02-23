@@ -6,6 +6,9 @@ namespace OpenHome {
     class Environment;
     class Brx;
     class IUnixTimestamp;
+namespace Net {
+    class CpStack;
+}
 namespace Configuration {
     class IStoreReadOnly;
     class IConfigInitialiser;

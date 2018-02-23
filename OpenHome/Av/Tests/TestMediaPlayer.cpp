@@ -129,7 +129,7 @@ void RebootLogger::Reboot(const Brx& aReason)
 
 const Brn TestMediaPlayer::kSongcastSenderIconFileName("SongcastSenderIcon");
 
-TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
+TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                                  const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
                                  const TChar* aStoreFile, TUint aOdpPort, TUint aWebUiPort,
                                  TUint aMinWebUiResourceThreads, TUint aMaxWebUiTabs, TUint aUiSendQueueSize)
@@ -217,11 +217,12 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     pipelineInit->SetDsdSupported(true);
     auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName));
     mpInit->EnableConfigApp();
-    iMediaPlayer = new MediaPlayer(aDvStack, *iDevice, *iRamStore,
+    iMediaPlayer = new MediaPlayer(aDvStack, aCpStack, *iDevice, *iRamStore,
                                    *iConfigRamStore, pipelineInit,
                                    volumeInit, volumeProfile,
                                    *iInfoLogger,
                                    aUdn, mpInit);
+    delete mpInit;
     iPipelineObserver = new LoggingPipelineObserver();
     iMediaPlayer->Pipeline().AddObserver(*iPipelineObserver);
 
@@ -240,6 +241,10 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, const Brx& aUdn, const 
     initParams->SetMaxServerThreadsLongPoll(aMaxWebUiTabs);
     initParams->SetSendQueueSize(aUiSendQueueSize);
     iAppFramework = new WebAppFramework(aDvStack.Env(), initParams);
+
+    if (false) {
+        iTestPodcastPinsEvent = new TestPodcastPinsEvent(iMediaPlayer->GetPodcastPins(), iMediaPlayer->GetDebugManager());
+    }
 }
 
 TestMediaPlayer::~TestMediaPlayer()
@@ -262,6 +267,9 @@ TestMediaPlayer::~TestMediaPlayer()
         delete iStoreFileWriter;
     }
     delete iConfigRamStore;
+    if (false) {
+        delete iTestPodcastPinsEvent;
+    }
 }
 
 void TestMediaPlayer::SetPullableClock(Media::IPullableClock& aPullableClock)
@@ -619,7 +627,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, T
     initParams->SetDvLpecServerPort(2324);
 #endif
 
-    Debug::SetLevel(Debug::kPipeline | Debug::kSources | Debug::kMedia);
+    Debug::SetLevel(Debug::kPipeline | Debug::kSources | Debug::kMedia | Debug::kAdapterChange);
     Debug::SetSeverity(Debug::kSeverityInfo);
     Net::Library* lib = new Net::Library(initParams);
     //Net::DvStack* dvStack = lib->StartDv();

@@ -1060,46 +1060,57 @@ ScdMsgFactory::~ScdMsgFactory()
     for (TUint i=0; i<slots; i++) {
         delete iFifoReady->Read();
     }
+    delete iFifoReady;
     slots = iFifoMetadataDidl? iFifoMetadataDidl->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
         delete iFifoMetadataDidl->Read();
     }
+    delete iFifoMetadataDidl;
     slots = iFifoMetadataOh? iFifoMetadataOh->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
         delete iFifoMetadataOh->Read();
     }
+    delete iFifoMetadataOh;
     slots = iFifoFormat? iFifoFormat->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
         delete iFifoFormat->Read();
     }
+    delete iFifoFormat;
     slots = iFifoFormatDsd ? iFifoFormatDsd->Slots() : 0;
     for (TUint i = 0; i<slots; i++) {
         delete iFifoFormatDsd->Read();
     }
+    delete iFifoFormatDsd;
     slots = iFifoAudioOut? iFifoAudioOut->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
         delete iFifoAudioOut->Read();
     }
+    delete iFifoAudioOut;
     slots = iFifoAudioIn? iFifoAudioIn->Slots() : 0;
     for (TUint i = 0; i<slots; i++) {
         delete iFifoAudioIn->Read();
     }
+    delete iFifoAudioIn;
     slots = iFifoMetatextDidl? iFifoMetatextDidl->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
         delete iFifoMetatextDidl->Read();
     }
+    delete iFifoMetatextDidl;
     slots = iFifoMetatextOh? iFifoMetatextOh->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
         delete iFifoMetatextOh->Read();
     }
+    delete iFifoMetatextOh;
     slots = iFifoHalt? iFifoHalt->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
         delete iFifoHalt->Read();
     }
+    delete iFifoHalt;
     slots = iFifoDisconnect? iFifoDisconnect->Slots() : 0;
     for (TUint i=0; i<slots; i++) {
         delete iFifoDisconnect->Read();
     }
+    delete iFifoDisconnect;
 }
 
 ScdMsgReady* ScdMsgFactory::CreateMsgReady()
