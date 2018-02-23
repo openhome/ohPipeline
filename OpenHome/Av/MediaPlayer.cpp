@@ -198,12 +198,8 @@ MediaPlayer::~MediaPlayer()
     delete iLoggerBuffered;
     delete iUnixTimestamp;
     delete iDebugManager;
-    if (iTransportPins != nullptr) {
-        delete iTransportPins;
-    }
-    if (iPodcastPins != nullptr) {
-        delete iPodcastPins;
-    }
+    delete iTransportPins;
+    delete iPodcastPins;
 }
 
 void MediaPlayer::Quit()

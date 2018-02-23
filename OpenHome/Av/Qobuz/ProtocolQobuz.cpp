@@ -127,9 +127,7 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
 
 ProtocolQobuz::~ProtocolQobuz()
 {
-    if (iPins != nullptr) {
-        delete iPins;
-    }
+    delete iPins;
     delete iSupply;
 }
 

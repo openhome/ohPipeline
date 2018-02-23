@@ -148,6 +148,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     , iMinWebUiResourceThreads(aMinWebUiResourceThreads)
     , iMaxWebUiTabs(aMaxWebUiTabs)
     , iUiSendQueueSize(aUiSendQueueSize)
+    , iTestPodcastPinsEvent(nullptr)
 {
     Log::Print("Shell running on port %u\n", aDvStack.Env().Shell()->Port());
     iInfoLogger = new Media::AllocatorInfoLogger();
@@ -267,9 +268,7 @@ TestMediaPlayer::~TestMediaPlayer()
         delete iStoreFileWriter;
     }
     delete iConfigRamStore;
-    if (false) {
-        delete iTestPodcastPinsEvent;
-    }
+    delete iTestPodcastPinsEvent;
 }
 
 void TestMediaPlayer::SetPullableClock(Media::IPullableClock& aPullableClock)

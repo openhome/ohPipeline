@@ -113,9 +113,7 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& 
 
 ProtocolTidal::~ProtocolTidal()
 {
-    if (iPins != nullptr) {
-        delete iPins;
-    }
+    delete iPins;
     delete iSupply;
 }
 
