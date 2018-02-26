@@ -10,8 +10,6 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Net/Private/CpiStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
-#include <Generated/CpAvOpenhomeOrgRadio1.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/DebugManager.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Private/Standard.h>
@@ -29,6 +27,11 @@ namespace Configuration {
     class IConfigInitialiser;
     class ConfigChoice;
 }
+namespace Net {
+    class CpProxyAvOpenhomeOrgRadio1;
+    class CpProxyAvOpenhomeOrgPlaylist1;
+}
+
 namespace Av {
     class PodcastInfo
     {
