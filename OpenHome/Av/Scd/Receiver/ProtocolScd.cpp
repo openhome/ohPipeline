@@ -68,6 +68,7 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
         iStreamId = IPipelineIdProvider::kStreamIdInvalid;
         iNextFlushId = MsgFlush::kIdInvalid;
         iStarted = iStopped = iUnrecoverableError = iExit = false;
+        iHalted = true;
         iFormatReqd = true;
     }
 
@@ -184,6 +185,9 @@ void ProtocolScd::Process(ScdMsgMetadataOh& aMsg)
 void ProtocolScd::Process(ScdMsgFormat& aMsg)
 {
     //Log::Print("ScdMsgFormat\n");
+    LOG_INFO(kScd, "ScdMsgFormat: %u/%u, %uch, sampleStart=%llu, samplesTotal=%llu, seekable=%u, live=%u\n",
+                   aMsg.SampleRate(), aMsg.BitDepth(), aMsg.NumChannels(), aMsg.SampleStart(),
+                   aMsg.SamplesTotal(), aMsg.Seekable(), aMsg.Live());
     SpeakerProfile spStereo;
     iFormatPcm.Set(aMsg.BitDepth(), aMsg.SampleRate(), aMsg.NumChannels(),
                    AudioDataEndian::Big, spStereo, aMsg.SampleStart());
@@ -200,6 +204,9 @@ void ProtocolScd::Process(ScdMsgFormat& aMsg)
 void ProtocolScd::Process(ScdMsgFormatDsd& aMsg)
 {
     //Log::Print("ScdMsgFormatDsd\n");
+    LOG_INFO(kScd, "ScdMsgFormatDsd: %u, %uch, sampleStart=%llu, samplesTotal=%llu, seekable=%u\n",
+                   aMsg.SampleRate(), aMsg.NumChannels(), aMsg.SampleStart(),
+                   aMsg.SamplesTotal(), aMsg.Seekable());
     iFormatPcm.Clear();
     SpeakerProfile spStereo;
     iFormatDsd.Set(aMsg.SampleRate(), aMsg.NumChannels(),
@@ -220,6 +227,10 @@ void ProtocolScd::Process(ScdMsgAudioOut& /*aMsg*/)
 void ProtocolScd::Process(ScdMsgAudioIn& aMsg)
 {
     //Log::Print("ScdMsgAudioIn - samples = %u\n", aMsg.NumSamples());
+    if (iHalted) {
+        iHalted = false;
+        LOG_INFO(kScd, "ScdMsgAudioIn - resuming after halt\n");
+    }
     if (iFormatReqd) {
         OutputStream();
         iFormatReqd = false;
@@ -243,12 +254,15 @@ void ProtocolScd::Process(ScdMsgMetatextOh& aMsg)
 void ProtocolScd::Process(ScdMsgHalt& /*aMsg*/)
 {
     //Log::Print("ScdMsgHalt\n");
+    LOG_INFO(kScd, "ScdMsgHalt\n");
+    iHalted = true;
     iSupply->OutputHalt();
 }
 
 void ProtocolScd::Process(ScdMsgDisconnect& /*aMsg*/)
 {
     //Log::Print("ScdMsgDisconnect\n");
+    LOG_INFO(kScd, "ScdMsgDisconnect\n");
     iExit = true;
     THROW(ScdError); // force Stream out of its inner msg readiing loop
 }

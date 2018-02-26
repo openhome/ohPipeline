@@ -62,6 +62,7 @@ private:
     TBool iUnrecoverableError;
     TBool iFormatReqd;
     TBool iStreamLive;
+    TBool iHalted;
     TBool iExit;
 };
 
