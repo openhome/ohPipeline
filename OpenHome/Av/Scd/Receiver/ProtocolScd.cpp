@@ -69,7 +69,6 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
         iNextFlushId = MsgFlush::kIdInvalid;
         iStarted = iStopped = iUnrecoverableError = iExit = false;
         iHalted = true;
-        iFormatReqd = true;
     }
 
     for (; !iExit && !iStopped && !iUnrecoverableError;) {
@@ -198,7 +197,6 @@ void ProtocolScd::Process(ScdMsgFormat& aMsg)
     iStreamMultiroom = aMsg.BroadcastAllowed()? Multiroom::Allowed : Multiroom::Forbidden;
     iStreamLive = aMsg.Live();
     OutputStream();
-    iFormatReqd = false;
 }
 
 void ProtocolScd::Process(ScdMsgFormatDsd& aMsg)
@@ -216,7 +214,6 @@ void ProtocolScd::Process(ScdMsgFormatDsd& aMsg)
     iStreamMultiroom = Multiroom::Forbidden;
     iStreamLive = false;
     OutputStream();
-    iFormatReqd = false;
 }
 
 void ProtocolScd::Process(ScdMsgAudioOut& /*aMsg*/)
@@ -230,10 +227,6 @@ void ProtocolScd::Process(ScdMsgAudioIn& aMsg)
     if (iHalted) {
         iHalted = false;
         LOG_INFO(kScd, "ScdMsgAudioIn - resuming after halt\n");
-    }
-    if (iFormatReqd) {
-        OutputStream();
-        iFormatReqd = false;
     }
     iSupply->OutputData(aMsg.NumSamples(), iReaderBuf);
 }
@@ -280,9 +273,8 @@ void ProtocolScd::Process(ScdMsgSkip& /*aMsg*/)
 
 void ProtocolScd::OutputTrack(Track* aTrack)
 {
-    iSupply->OutputTrack(*aTrack);
+    iSupply->OutputTrack(*aTrack, false /* Roon don't always send this at the start of streams */);
     aTrack->RemoveRef();
-    iFormatReqd = true;
 }
 
 void ProtocolScd::OutputStream()

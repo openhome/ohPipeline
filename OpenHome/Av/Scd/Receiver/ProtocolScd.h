@@ -60,7 +60,6 @@ private:
     TBool iStarted;
     TBool iStopped;
     TBool iUnrecoverableError;
-    TBool iFormatReqd;
     TBool iStreamLive;
     TBool iHalted;
     TBool iExit;
