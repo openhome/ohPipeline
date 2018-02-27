@@ -111,7 +111,7 @@ void EncodedStreamInfo::SetPcm(TUint aBitDepth, TUint aSampleRate, TUint aNumCha
 
 void EncodedStreamInfo::SetDsd(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint64 aStartSample, const Brx& aCodecName)
 {
-    iFormat = Format::Pcm;
+    iFormat = Format::Dsd;
     iBitDepth = 1;
     iSampleRate = aSampleRate;
     iNumChannels = aNumChannels;

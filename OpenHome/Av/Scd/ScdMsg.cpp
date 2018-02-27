@@ -661,7 +661,7 @@ void ScdMsgFormatDsd::DoInitialise(TUint aSampleRate, TUint aNumChannels, TUint 
 void ScdMsgFormatDsd::Initialise(IReader& aReader, const ScdHeader& aHeader)
 {
     ScdMsg::Initialise();
-    ASSERT(aHeader.Type() == ScdHeader::kTypeFormat);
+    ASSERT(aHeader.Type() == ScdHeader::kTypeFormatDsd);
     ReaderBinary rb(aReader);
     iSampleRate = rb.ReadUintBe(4);
     iNumChannels = rb.ReadUintBe(1);
@@ -681,8 +681,8 @@ void ScdMsgFormatDsd::Process(IScdMsgProcessor& aProcessor)
 
 void ScdMsgFormatDsd::Externalise(IWriter& aWriter) const
 {
-    const TUint bytes = ScdHeader::kHeaderBytes + 28 + iCodecName.Bytes();
-    ScdHeader header(ScdHeader::kTypeFormat, bytes);
+    const TUint bytes = ScdHeader::kHeaderBytes + 25 + iCodecName.Bytes();
+    ScdHeader header(ScdHeader::kTypeFormatDsd, bytes);
     header.Externalise(aWriter);
 
     WriterBinary writer(aWriter);
@@ -1238,7 +1238,7 @@ ScdMsg* ScdMsgFactory::CreateMsg(IReader& aReader)
             msg = CreateMsgFormat(aReader, header);
             break;
         case ScdHeader::kTypeFormatDsd:
-            msg = CreateMsgFormat(aReader, header);
+            msg = CreateMsgFormatDsd(aReader, header);
             break;
         case ScdHeader::kTypeAudio:
             msg = CreateMsgAudioIn(aReader, header);

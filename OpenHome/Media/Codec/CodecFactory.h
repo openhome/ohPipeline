@@ -23,6 +23,7 @@ public:
     static CodecBase* NewDsdDsf(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewDsdDff(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewPcm();
+    static CodecBase* NewDsdRaw();
     static CodecBase* NewRaop();
     static CodecBase* NewVorbis(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewWav(IMimeTypeList& aMimeTypeList);

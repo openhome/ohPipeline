@@ -39,7 +39,7 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 using namespace OpenHome::Media::Codec;
 
-CodecBase* CodecFactory::NewPcm()
+CodecBase* CodecFactory::NewDsdRaw()
 { // static
     return new CodecDsdRaw();
 }

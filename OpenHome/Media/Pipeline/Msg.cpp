@@ -1466,7 +1466,7 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iLive = aLive;
     iMultiroom = aMultiroom;
     iStreamHandler = aStreamHandler;
-    iStreamFormat = Format::Pcm;
+    iStreamFormat = Format::Dsd;
     iPcmStreamInfo.Clear();
     iDsdStreamInfo = aDsdStream;
 }
