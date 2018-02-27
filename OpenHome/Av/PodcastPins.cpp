@@ -14,6 +14,8 @@
 #include <OpenHome/Private/Converter.h>
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Private/Timer.h>
+#include <Generated/CpAvOpenhomeOrgRadio1.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 
 #include <algorithm>
 
