@@ -256,6 +256,7 @@ void ProtocolScd::Process(ScdMsgHalt& /*aMsg*/)
     //Log::Print("ScdMsgHalt\n");
     LOG_INFO(kScd, "ScdMsgHalt\n");
     iHalted = true;
+    iSupply->OutputWait();
     iSupply->OutputHalt();
 }
 

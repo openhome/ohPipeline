@@ -152,7 +152,8 @@ void SupplyScd::OutputFlush(TUint aFlushId)
 
 void SupplyScd::OutputWait()
 {
-    ASSERTS();
+    auto msg = iMsgFactory.CreateMsgWait();
+    Output(msg);
 }
 
 void SupplyScd::Output(Msg* aMsg)
