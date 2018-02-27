@@ -909,6 +909,7 @@ void ScdMsgHalt::Externalise(IWriter& aWriter) const
 {
     ScdHeader header(ScdHeader::kTypeHalt, ScdHeader::kHeaderBytes);
     header.Externalise(aWriter);
+    aWriter.WriteFlush();
 }
 
 
@@ -933,6 +934,7 @@ void ScdMsgDisconnect::Externalise(IWriter& aWriter) const
 {
     ScdHeader header(ScdHeader::kTypeDisconnect, ScdHeader::kHeaderBytes);
     header.Externalise(aWriter);
+    aWriter.WriteFlush();
 }
 
 #if 0
