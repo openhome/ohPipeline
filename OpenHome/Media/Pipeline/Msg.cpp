@@ -1339,9 +1339,10 @@ const Brx& DsdStreamInfo::CodecName() const
 
 void DsdStreamInfo::operator=(const DsdStreamInfo &aInfo)
 {
-    iSampleRate = aInfo.SampleRate();
-    iNumChannels = aInfo.NumChannels();
-    iStartSample = aInfo.StartSample();
+    iSampleRate      = aInfo.SampleRate();
+    iNumChannels     = aInfo.NumChannels();
+    iSampleBlockBits = aInfo.SampleBlockBits();
+    iStartSample     = aInfo.StartSample();
     iCodecName.Replace(aInfo.CodecName());
 }
 
@@ -3616,6 +3617,9 @@ MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(MsgEncodedStream* aMsg, ISt
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
     if (aMsg->StreamFormat() == MsgEncodedStream::Format::Pcm) {
         msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->PcmStream());
+    }
+    else if (aMsg->StreamFormat() == MsgEncodedStream::Format::Dsd) {
+        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->DsdStream());
     }
     else {
         msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler);
