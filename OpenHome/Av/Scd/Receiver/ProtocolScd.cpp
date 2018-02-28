@@ -20,7 +20,9 @@ using namespace OpenHome::Media;
 const TUint ProtocolScd::kVersionMajor = 1;
 const TUint ProtocolScd::kVersionMinor = 0;
 
-ProtocolScd::ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory)
+ProtocolScd::ProtocolScd(Environment& aEnv,
+                         Media::TrackFactory& aTrackFactory,
+                         IScdObserver& aObserver)
     : ProtocolNetwork(aEnv)
     , iLock("PSCD")
     , iScdFactory(1, // Ready
@@ -38,8 +40,10 @@ ProtocolScd::ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory)
                   0  // Skip - currently unsupported
                   )
     , iTrackFactory(aTrackFactory)
+    , iObserver(aObserver)
 {
     Debug::AddLevel(Debug::kScd);
+    iObserver.NotifyScdConnectionChange(false);
 }
 
 void ProtocolScd::Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream)
@@ -95,6 +99,7 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
                                        url/mode. */
             }
             //Log::Print("\n\n\n");
+            iObserver.NotifyScdConnectionChange(true);
             {
                 ScdMsg* ready = iScdFactory.CreateMsgReady();
                 AutoScdMsg _(ready);
@@ -115,6 +120,7 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
             }
         }
     }
+    iObserver.NotifyScdConnectionChange(false);
     Close();
     iSupply->Flush();
     {

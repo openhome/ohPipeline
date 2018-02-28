@@ -1,5 +1,6 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Functor.h>
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Av/SourceFactory.h>
@@ -7,22 +8,28 @@
 #include <OpenHome/Av/Scd/Receiver/ProtocolScd.h>
 #include <OpenHome/Media/PipelineManager.h>
 
+#include <atomic>
+
 namespace OpenHome {
 namespace Scd {
 
-class SourceScd : public Av::Source
+class SourceScd : public Av::Source, private IScdObserver
 {
     static const TBool kDefaultVisibility;
 public:
-    SourceScd(Media::PipelineManager& aPipeline,
-              UriProviderScd& aUriProvider);
+    SourceScd(Av::IMediaPlayer& aMediaPlayer);
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void PipelineStopped() override;
     void StandbyEnabled() override;
 private:
-    UriProviderScd& iUriProvider;
+    void Play();
+private: // from IScdObserver
+    void NotifyScdConnectionChange(TBool aConnected) override;
+private:
+    UriProviderScd* iUriProvider;
+    std::atomic<TBool> iConnected;
 };
 
 } // namespace Scd
@@ -35,38 +42,36 @@ using namespace OpenHome::Av;
 
 Av::ISource* Av::SourceFactory::NewScd(Av::IMediaPlayer& aMediaPlayer)
 {
-    auto& trackFactory = aMediaPlayer.TrackFactory();
-    auto protocol = new ProtocolScd(aMediaPlayer.Env(), trackFactory);
-    auto& pipeline =  aMediaPlayer.Pipeline();
-    pipeline.Add(protocol);
-    auto uriProvider = new UriProviderScd(trackFactory);
-    aMediaPlayer.Add(uriProvider);
-    return new SourceScd(pipeline, *uriProvider);
+    return new SourceScd(aMediaPlayer);
 }
 
 const Brn Av::SourceFactory::kSourceNameScd("Roon");
 const TChar* Av::SourceFactory::kSourceTypeScd = "Scd";
 const TBool SourceScd::kDefaultVisibility = false;
 
-SourceScd::SourceScd(Media::PipelineManager& aPipeline,
-                     UriProviderScd& aUriProvider)
+SourceScd::SourceScd(Av::IMediaPlayer& aMediaPlayer)
     : Source(Av::SourceFactory::kSourceNameScd,
              Av::SourceFactory::kSourceTypeScd,
-             aPipeline,
+             aMediaPlayer.Pipeline(),
              kDefaultVisibility)
-    , iUriProvider(aUriProvider)
 {
+    auto& trackFactory = aMediaPlayer.TrackFactory();
+    auto protocol = new ProtocolScd(aMediaPlayer.Env(), trackFactory, *this);
+    aMediaPlayer.Pipeline().Add(protocol); // ownership passed
+    iUriProvider = new UriProviderScd(trackFactory);
+    iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceScd::Play));
+    aMediaPlayer.Add(iUriProvider); // ownership passed
 }
 
 void SourceScd::Activate(TBool /*aAutoPlay*/, TBool /*aPrefetchAllowed*/)
 {
-    iUriProvider.Reset();
-    iPipeline.StopPrefetch(iUriProvider.Mode(), Media::Track::kIdNone);
+    iUriProvider->Reset();
+    iPipeline.StopPrefetch(iUriProvider->Mode(), Media::Track::kIdNone);
 }
 
 TBool SourceScd::TryActivateNoPrefetch(const Brx& aMode)
 {
-    if (iUriProvider.Mode() != aMode) {
+    if (iUriProvider->Mode() != aMode) {
         return false;
     }
     EnsureActiveNoPrefetch();
@@ -81,4 +86,16 @@ void SourceScd::PipelineStopped()
 void SourceScd::StandbyEnabled()
 {
     iPipeline.Stop();
+}
+
+void SourceScd::Play()
+{
+    if (iConnected.load()) {
+        iPipeline.Play();
+    }
+}
+
+void SourceScd::NotifyScdConnectionChange(TBool aConnected)
+{
+    iConnected.store(aConnected);
 }

@@ -13,13 +13,20 @@
 namespace OpenHome {
 namespace Scd {
 
+class IScdObserver
+{
+public:
+    virtual void NotifyScdConnectionChange(TBool aConnected) = 0;
+    virtual ~IScdObserver(){}
+};
+
 class ProtocolScd : public Media::ProtocolNetwork
                   , private IScdMsgProcessor
 {
     static const TUint kVersionMajor;
     static const TUint kVersionMinor;
 public:
-    ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory);
+    ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory, IScdObserver& aObserver);
 private: // from Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
     void Interrupt(TBool aInterrupt) override;
@@ -48,6 +55,7 @@ private:
     Mutex iLock;
     ScdMsgFactory iScdFactory;
     Media::TrackFactory& iTrackFactory;
+    IScdObserver& iObserver;
     std::unique_ptr<SupplyScd> iSupply;
     Uri iUri;
     Media::PcmStreamInfo iFormatPcm;
