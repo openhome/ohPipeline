@@ -142,6 +142,8 @@ void RadioPresetsTuneIn::TimerCallback()
 
 void RadioPresetsTuneIn::DoRefresh()
 {
+    iRefreshTimer->FireIn(kRefreshRateMs);
+
     TBool socketOpened = false;
     TBool startedUpdates = false;
     try {
