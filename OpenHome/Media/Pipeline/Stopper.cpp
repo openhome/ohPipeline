@@ -158,8 +158,9 @@ void Stopper::BeginStop(TUint aHaltId)
         break;
     case EPaused:
         // restart pulling, discarding data until a new stream or our target MsgHalt
-        iSem.Signal();
         iFlushStream = true;
+        iState = EFlushing;
+        iSem.Signal();
         break;
     case EStopped:
         return;
