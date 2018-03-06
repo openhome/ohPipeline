@@ -42,6 +42,7 @@ private:
     void NameChanged(const Brx& aName);
     void HandleInterfaceChange();
 private:
+    DviDevice& iDevice;
     Environment& iEnv;
     AttributeMap iAttributeMap;
     IMdnsProvider& iProvider;

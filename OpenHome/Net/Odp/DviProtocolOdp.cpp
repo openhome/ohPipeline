@@ -21,7 +21,8 @@ IDvProtocol* DviProtocolFactoryOdp::CreateProtocol(DviDevice& aDevice)
 const Brn DviProtocolOdp::kProtocolName("Odp");
 
 DviProtocolOdp::DviProtocolOdp(DviDevice& aDevice)
-    : iEnv(aDevice.GetDvStack().Env())
+    : iDevice(aDevice)
+    , iEnv(aDevice.GetDvStack().Env())
     , iProvider(*aDevice.GetDvStack().Env().MdnsProvider())
     //, iFriendlyNameObservable(aFriendlyNameObservable)
     , iHandleOdp(iProvider.MdnsCreateService())
@@ -36,7 +37,6 @@ DviProtocolOdp::DviProtocolOdp(DviDevice& aDevice)
 
     iName.Replace(Brn("JoshFake:Majik DSQ"));
     //iFriendlyNameId = iFriendlyNameObservable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(*this, &DviProtocolOdp::NameChanged));
-    iEndpoint.SetPort(45321);
     HandleInterfaceChange();
 }
 
@@ -86,12 +86,21 @@ void DviProtocolOdp::RegisterLocked()
         return;
     }
 
+    // get Odp port from device attributes
+    const TChar* val;
+    iDevice.GetAttribute("Odp.Port", &val);
+    if (val == NULL) {
+        return;
+    }
+    TUint odpPort = Ascii::Uint(Brn(val));
+    if (odpPort == 0) {
+        return;
+    }
+    iEndpoint.SetPort(odpPort);
+
     Bws<Endpoint::kMaxAddressBytes> addr;
     Endpoint::AppendAddress(addr, iEndpoint.Address());
-    Log::Print("Adapter in use: ");
-    Log::Print(addr);
-    Log::Print("\n");
-
+    Log::Print("Odp Endpoint: %.*s:%d\n", PBUF(addr), odpPort);
 
     Bws<200> info;
     iProvider.MdnsAppendTxtRecord(info, "CPath", "/test.html");
