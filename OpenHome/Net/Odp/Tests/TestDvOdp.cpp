@@ -43,7 +43,7 @@ class TestOdp
 {
     static const TUint kTestIterations = 10;
 public:
-    TestOdp(CpStack& aCpStack, Endpoint aLocation, const Brx& aOdpName, Semaphore& aSem);
+    TestOdp(CpStack& aCpStack, MdnsDevice aDev, const Brx& aOdpType, Semaphore& aSem);
     ~TestOdp();
     void TestActions();
     void TestSubscriptions();
@@ -99,12 +99,12 @@ const Brx& DeviceOdp::OdpDeviceName() const
 
 // TestOdp
 
-TestOdp::TestOdp(CpStack& aCpStack, Endpoint aLocation, const Brx& aOdpName, Semaphore& aSem)
+TestOdp::TestOdp(CpStack& aCpStack, MdnsDevice aDev, const Brx& aOdpType, Semaphore& aSem)
     : iSem(aSem)
     , iUpdatesComplete("SEM2", 0)
     , iCpDevice(nullptr)
 {
-    iCpDeviceOdp = new CpiDeviceOdp(aCpStack, aLocation, aOdpName, MakeFunctor(*this, &TestOdp::DeviceReady));
+    iCpDeviceOdp = new CpiDeviceOdp(aCpStack, aDev, aOdpType, MakeFunctor(*this, &TestOdp::DeviceReady));
 }
 
 TestOdp::~TestOdp()
@@ -330,9 +330,11 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     auto device = new DeviceOdp(aDvStack);
     auto nif = UpnpLibrary::CurrentSubnetAdapter("TestDvOdp");
     ASSERT(nif != nullptr);
-    Endpoint location(server->Port(), nif->Address());
+    Bws<Endpoint::kMaxAddressBytes> addr;
+    Endpoint::AppendAddress(addr, nif->Address());
+    MdnsDevice dev(Brn("_odp._tcp"), device->OdpDeviceName(), gDeviceName, addr, server->Port());
     nif->RemoveRef("TestDvOdp");
-    auto cpDevice = new TestOdp(aCpStack, location, device->OdpDeviceName(), *sem);
+    auto cpDevice = new TestOdp(aCpStack, dev, Brn("Ds"), *sem);
     sem->Wait(5*1000); // allow up to 5 seconds to connect to Odp server and receive initial ALIVE message
     delete sem;
     cpDevice->TestActions();

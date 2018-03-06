@@ -22,10 +22,9 @@ using namespace OpenHome::Net;
 
 // CpiDeviceOdp
 
-CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, Endpoint aLocation, const Brx& aAlias, Functor aStateChanged)
+CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, MdnsDevice& aDev, const Brx& aAlias, Functor aStateChanged)
     : iCpStack(aCpStack)
     , iLock("CLP1")
-    , iLocation(aLocation)
     , iAlias(aAlias)
     , iStateChanged(aStateChanged)
     , iDevice(nullptr)
@@ -33,6 +32,11 @@ CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, Endpoint aLocation, const Brx& aAl
     , iConnected(false)
     , iExiting(false)
     , iDeviceConnected("SODP", 0)
+    , iFriendlyName(aDev.FriendlyName())
+    , iUglyName(aDev.UglyName())
+    , iIpAddress(aDev.IpAddress())
+    , iMdnsType(aDev.Type())
+    , iPort(aDev.Port())
 {
     iReadBuffer = new Srs<1024>(iSocket);
     iReaderUntil = new ReaderUntilS<kMaxReadBufferBytes>(*iReadBuffer);
@@ -83,7 +87,8 @@ void CpiDeviceOdp::OdpReaderThread()
 {
     try {
         iSocket.Open(iCpStack.Env());
-        iSocket.Connect(iLocation, iCpStack.Env().InitParams()->TcpConnectTimeoutMs());
+        Endpoint ep(iPort, iIpAddress);
+        iSocket.Connect(ep, iCpStack.Env().InitParams()->TcpConnectTimeoutMs());
         for (;;) {
             Brn line = iReaderUntil->ReadUntil(Ascii::kLf);
             JsonParser parser;
@@ -200,10 +205,43 @@ void CpiDeviceOdp::InvokeAction(Invocation& aInvocation)
     iCpStack.InvocationManager().Invoke(&aInvocation);
 }
 
-TBool CpiDeviceOdp::GetAttribute(const TChar* /*aKey*/, Brh& /*aValue*/) const
+TBool CpiDeviceOdp::GetAttribute(const char* aKey, Brh& aValue) const
 {
-    // Not obviously required.  The only attribute Odp devices have is their name and we pass this to the c'tor
-    return false;
+    Brn key(aKey);
+    
+    Parser parser(key);
+    
+    if (parser.Next('.') == Brn("Odp")) {
+        Brn property = parser.Remaining();
+
+        if (property == Brn("FriendlyName")) {
+            aValue.Set(iFriendlyName);
+            return (true);
+        }
+        if (property == Brn("Type")) {
+            aValue.Set(iMdnsType);
+            return (true);
+        }
+        if (property == Brn("Location")) {
+            Bws<30> loc(iIpAddress);
+            loc.Append(":");
+            Ascii::AppendDec(loc, iPort);
+            aValue.Set(loc);
+            return (true);
+        }
+        if (property == Brn("UglyName")) {
+            aValue.Set(iUglyName);
+            return (true);
+        }
+    }
+
+    const Brx& Type();
+    const Brx& FriendlyName();
+    const Brx& UglyName();
+    const Brx& IpAddress();
+    const TUint Port();
+
+    return (false);
 }
 
 TUint CpiDeviceOdp::Subscribe(CpiSubscription& aSubscription, const Uri& /*aSubscriber*/)
@@ -332,8 +370,7 @@ CpiDeviceListOdp::~CpiDeviceListOdp()
 
 void CpiDeviceListOdp::DeviceAdded(MdnsDevice& aDev)
 {
-    Endpoint* ep = new Endpoint(aDev.Port(), aDev.IpAddress());
-    CpiDeviceOdp* dev = new CpiDeviceOdp(iCpStack, *ep, Brn("Ds"), MakeFunctor(*this, &CpiDeviceListOdp::DeviceReady));
+    CpiDeviceOdp* dev = new CpiDeviceOdp(iCpStack, aDev, Brn("Ds"), MakeFunctor(*this, &CpiDeviceListOdp::DeviceReady));
     if (dev != nullptr) {
         Add(dev->Device());  
     } 
@@ -443,8 +480,7 @@ void CpiDeviceListOdp::DoRefresh()
 
 TBool CpiDeviceListOdp::IsDeviceReady(CpiDevice& /*aDevice*/)
 {
-    //reinterpret_cast<CpiDeviceOdp*>(aDevice.OwnerData())->FetchXml();
-    return false;
+    return true;
 }
 
 TBool CpiDeviceListOdp::IsLocationReachable(const Brx& aLocation) const
@@ -627,4 +663,20 @@ void CpiDeviceListOdp::NotifyResumed()
     /* UDP sockets don't seem usable immediately after we resume
        ...so wait a short while before doing anything */
     iResumedTimer->FireIn(kResumeDelayMs);
+}
+
+// CpiDeviceListOdpAll
+
+CpiDeviceListOdpAll::CpiDeviceListOdpAll(CpStack& aCpStack, FunctorCpiDevice aAdded, FunctorCpiDevice aRemoved)
+    : CpiDeviceListOdp(aCpStack, aAdded, aRemoved)
+{
+}
+
+CpiDeviceListOdpAll::~CpiDeviceListOdpAll()
+{
+}
+
+void CpiDeviceListOdpAll::Start()
+{
+    CpiDeviceListOdp::DoStart();
 }

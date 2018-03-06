@@ -22,7 +22,7 @@ class CpiDeviceOdp : private ICpiProtocol
     static const TUint kSubscriptionDurationSecs = 60 * 60 * 24; // arbitrarily chosen largish value
 public:
     CpiDeviceOdp(CpStack& aCpStack,
-                 Endpoint aLocation,
+                 MdnsDevice& aDev,
                  const Brx& aAlias,
                  Functor aStateChanged);
     void Destroy();
@@ -59,7 +59,6 @@ private:
     Srx* iReadBuffer;
     ReaderUntilS<kMaxReadBufferBytes>* iReaderUntil;
     Sws<kMaxWriteBufferBytes>* iWriteBuffer;
-    Endpoint iLocation;
     Bws<64> iAlias;
     Functor iStateChanged;
     CpiDevice* iDevice;
@@ -69,6 +68,11 @@ private:
     TBool iConnected;
     TBool iExiting;
     Semaphore iDeviceConnected;
+    Bws<64> iFriendlyName;
+    Bws<64> iUglyName;
+    Bws<64> iIpAddress;
+    Bws<64> iMdnsType;
+    TUint iPort;
 };
 
 class CpiDeviceListOdp : public CpiDeviceList, public ISsdpNotifyHandler, private IResumeObserver, private IMdnsDeviceListener
@@ -138,6 +142,14 @@ private:
     Timer* iRefreshTimer;
     Timer* iResumedTimer;
     TUint iRefreshRepeatCount;
+};
+
+class CpiDeviceListOdpAll : public CpiDeviceListOdp
+{
+public:
+    CpiDeviceListOdpAll(CpStack& aCpStack, FunctorCpiDevice aAdded, FunctorCpiDevice aRemoved);
+    ~CpiDeviceListOdpAll();
+    void Start();
 };
 
 } // namespace Net
