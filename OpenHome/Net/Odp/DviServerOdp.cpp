@@ -11,6 +11,7 @@
 #include <OpenHome/Net/Odp/Odp.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
+#include <OpenHome/Private/NetworkAdapterList.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Net;
@@ -104,17 +105,38 @@ const Brx& DviSessionOdp::ClientUserAgentDefault() const
 
 // DviServerOdp
 
-DviServerOdp::DviServerOdp(DvStack& aDvStack, TUint aNumSessions, TUint aPort)
+DviServerOdp::DviServerOdp(DvStack& aDvStack, Av::IFriendlyNameObservable& aFriendlyNameObservable, TUint aNumSessions, TUint aPort)
     : DviServer(aDvStack)
     , iNumSessions(aNumSessions)
     , iPort(aPort)
+    , iEnv(aDvStack.Env())
+    , iProvider(*iEnv.MdnsProvider())
+    , iFriendlyNameObservable(aFriendlyNameObservable)
+    , iHandleOdp(iProvider.MdnsCreateService())
+    , iRegistered(false)
+    , iLock("ODPL")
 {
     Initialise();
+
+    // FIXME: See ZeroConf for handling multiple adapters
+    NetworkAdapterList& adapterList = iEnv.NetworkAdapterList();
+    Functor functor = MakeFunctor(*this, &DviServerOdp::HandleInterfaceChange);
+    iCurrentAdapterChangeListenerId = adapterList.AddCurrentChangeListener(functor, "DviServerOdp-current");
+    iSubnetListChangeListenerId = adapterList.AddSubnetListChangeListener(functor, "DviServerOdp-subnet");
+
+    iFriendlyNameId = iFriendlyNameObservable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(*this, &DviServerOdp::NameChanged));
+    HandleInterfaceChange();
 }
 
 DviServerOdp::~DviServerOdp()
 {
     Deinitialise();
+
+    iFriendlyNameObservable.DeregisterFriendlyNameObserver(iFriendlyNameId);
+    Deregister();
+
+    iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iCurrentAdapterChangeListenerId);
+    iEnv.NetworkAdapterList().RemoveSubnetListChangeListener(iSubnetListChangeListenerId);
 }
 
 TUint DviServerOdp::Port() const
@@ -141,4 +163,80 @@ SocketTcpServer* DviServerOdp::CreateServer(const NetworkAdapter& aNif)
 
 void DviServerOdp::NotifyServerDeleted(TIpAddress /*aInterface*/)
 {
+}
+
+void DviServerOdp::HandleInterfaceChange()
+{
+    AutoMutex a(iLock);
+    NetworkAdapterList& adapterList = iEnv.NetworkAdapterList();
+    std::vector<NetworkAdapter*>* subnetList = adapterList.CreateSubnetList();
+    AutoNetworkAdapterRef ref(iEnv, "DviServerOdp HandleInterfaceChange");
+    const NetworkAdapter* current = ref.Adapter();
+
+    if (current != NULL) {
+        iEndpoint.SetAddress(current->Address());
+    }
+    else {
+        NetworkAdapter* subnet = (*subnetList)[0]; // FIXME: this is obviously not good enough but should help get something up and running for now
+        iEndpoint.SetAddress(subnet->Address());
+    }
+    NetworkAdapterList::DestroySubnetList(subnetList);
+
+    if (iRegistered) {
+        DeregisterLocked();
+    }
+    RegisterLocked();
+}
+
+void DviServerOdp::Register()
+{
+    AutoMutex a(iLock);
+    RegisterLocked();
+}
+
+void DviServerOdp::Deregister()
+{
+    AutoMutex a(iLock);
+    DeregisterLocked();
+}
+
+void DviServerOdp::RegisterLocked()
+{
+    if (iRegistered || iEndpoint.Address() == 0) {
+        return;
+    }
+    iEndpoint.SetPort(iPort);
+
+    Bws<Endpoint::kMaxAddressBytes> addr;
+    Endpoint::AppendAddress(addr, iEndpoint.Address());
+    //Log::Print("Odp Endpoint (%.*s): %.*s:%d\n", PBUF(iName), PBUF(addr), iEndpoint.Port());
+
+    Bws<200> info;
+    iProvider.MdnsAppendTxtRecord(info, "CPath", "/test.html");
+    iProvider.MdnsRegisterService(iHandleOdp, iName.PtrZ(), "_odp._tcp", iEndpoint.Address(), iEndpoint.Port(), info.PtrZ());
+    iRegistered = true;
+}
+
+void DviServerOdp::DeregisterLocked()
+{
+    if (!iRegistered) {
+        return;
+    }
+    iProvider.MdnsDeregisterService(iHandleOdp);
+    iRegistered = false;
+}
+
+void DviServerOdp::NameChanged(const Brx& aName)
+{
+    AutoMutex a(iLock);
+    if (iRegistered) {
+        DeregisterLocked();
+        iName.Replace(aName);
+        ASSERT(iName.Bytes() < iName.MaxBytes());   // space for '\0'
+        RegisterLocked();
+    }
+    else { // Nothing registered, so nothing to deregister. Just update name.
+        iName.Replace(aName);
+        ASSERT(iName.Bytes() < iName.MaxBytes());   // space for '\0'
+    }
 }
