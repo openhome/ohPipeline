@@ -90,9 +90,9 @@ void DviProtocolOdp::RegisterLocked()
     //     return;
     // }
 
-    // // get Odp port from device attributes
-    // const TChar* val;
-    // iDevice.GetAttribute("Odp.Port", &val);
+    // get Odp port from device attributes
+    const TChar* val;
+    iDevice.GetAttribute("Odp.Port", &val);
     // if (val == NULL) {
     //     return;
     // }
