@@ -311,6 +311,10 @@ void TestMediaPlayer::Run()
 
     iServerOdp.reset(new DviServerOdp(iMediaPlayer->DvStack(), kNumOdpSessions, iOdpPort));
     Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
+    Bws<10> odpPortStr;
+    Ascii::AppendDec(odpPortStr, iServerOdp->Port());
+    iDevice->SetAttribute("Odp.Port", odpPortStr.PtrZ());
+    iDeviceUpnpAv->SetAttribute("Odp.Port", odpPortStr.PtrZ());
 
     InitialiseLogger();
     iMediaPlayer->Start(iRebootHandler);

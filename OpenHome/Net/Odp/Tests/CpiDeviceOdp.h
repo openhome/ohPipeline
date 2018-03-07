@@ -22,7 +22,7 @@ class CpiDeviceOdp : private ICpiProtocol
     static const TUint kSubscriptionDurationSecs = 60 * 60 * 24; // arbitrarily chosen largish value
 public:
     CpiDeviceOdp(CpStack& aCpStack,
-                 Endpoint aLocation,
+                 MdnsDevice& aDev,
                  const Brx& aAlias,
                  Functor aStateChanged);
     void Destroy();
@@ -59,7 +59,6 @@ private:
     Srx* iReadBuffer;
     ReaderUntilS<kMaxReadBufferBytes>* iReaderUntil;
     Sws<kMaxWriteBufferBytes>* iWriteBuffer;
-    Endpoint iLocation;
     Bws<64> iAlias;
     Functor iStateChanged;
     CpiDevice* iDevice;
@@ -69,27 +68,19 @@ private:
     TBool iConnected;
     TBool iExiting;
     Semaphore iDeviceConnected;
+    Bws<64> iFriendlyName;
+    Bws<64> iUglyName;
+    Bws<64> iIpAddress;
+    Bws<64> iMdnsType;
+    TUint iPort;
 };
 
-class CpiDeviceListOdp : public CpiDeviceList, public ISsdpNotifyHandler, private IResumeObserver, private IMdnsDeviceListener
+class CpiDeviceListOdp : public CpiDeviceList, private IResumeObserver, private IMdnsDeviceListener
 {
 public:
-    void XmlFetchCompleted(CpiDeviceOdp& aDevice, TBool aError);
-    void DeviceLocationChanged(CpiDeviceOdp* aOriginal, CpiDeviceOdp* aNew);
-
     CpiDeviceListOdp(CpStack& aCpStack, FunctorCpiDevice aAdded, FunctorCpiDevice aRemoved);
     ~CpiDeviceListOdp();
 protected:
-    void StopListeners();
-
-    /**
-     * Checks to see if a device is already in the list and updates its maxage
-     * timeout if it is.
-     * Returns true if an existing device was found.  Returning false implies
-     * that this is a new device which should be added to the list.
-     * false will always be returned while a list is being refreshed.
-     */
-    TBool Update(const Brx& aUdn, const Brx& aLocation, TUint aMaxAge);
     void DoStart();
     void DoRefresh();
 protected: // from CpiDeviceList
@@ -97,17 +88,6 @@ protected: // from CpiDeviceList
     void Refresh();
     TBool IsDeviceReady(CpiDevice& aDevice);
     TBool IsLocationReachable(const Brx& aLocation) const;
-protected: // from ISsdpNotifyHandler
-    void SsdpNotifyRootAlive(const Brx& aUuid, const Brx& aLocation, TUint aMaxAge);
-    void SsdpNotifyUuidAlive(const Brx& aUuid, const Brx& aLocation, TUint aMaxAge);
-    void SsdpNotifyDeviceTypeAlive(const Brx& aUuid, const Brx& aDomain, const Brx& aType, TUint aVersion,
-                                   const Brx& aLocation, TUint aMaxAge);
-    void SsdpNotifyServiceTypeAlive(const Brx& aUuid, const Brx& aDomain, const Brx& aType, TUint aVersion,
-                                    const Brx& aLocation, TUint aMaxAge);
-    void SsdpNotifyRootByeBye(const Brx& aUuid);
-    void SsdpNotifyUuidByeBye(const Brx& aUuid);
-    void SsdpNotifyDeviceTypeByeBye(const Brx& aUuid, const Brx& aDomain, const Brx& aType, TUint aVersion);
-    void SsdpNotifyServiceTypeByeBye(const Brx& aUuid, const Brx& aDomain, const Brx& aType, TUint aVersion);
 private: // IResumeObserver
     void NotifyResumed();
 private: // IMdnsDeviceListener
@@ -120,17 +100,12 @@ private:
     void HandleInterfaceChange();
     void RemoveAll();
     void DeviceReady();
-protected:
-    SsdpListenerUnicast* iUnicastListener;
-    Mutex iSsdpLock;
 private:
     static const TUint kMaxMsearchRetryForNewAdapterSecs = 60;
     static const TUint kResumeDelayMs = 2 * 1000;
     static const TUint kRefreshRetries = 4;
     Environment& iEnv;
     TIpAddress iInterface;
-    SsdpListenerMulticast* iMulticastListener;
-    TInt iNotifyHandlerId;
     TUint iInterfaceChangeListenerId;
     TUint iSubnetListChangeListenerId;
     TBool iStarted;
@@ -138,6 +113,16 @@ private:
     Timer* iRefreshTimer;
     Timer* iResumedTimer;
     TUint iRefreshRepeatCount;
+};
+
+class CpiDeviceListOdpAll : public CpiDeviceListOdp
+{
+public:
+    CpiDeviceListOdpAll(CpStack& aCpStack, FunctorCpiDevice aAdded, FunctorCpiDevice aRemoved);
+    ~CpiDeviceListOdpAll();
+    void Start();
+private:
+    CpStack& iCpStack;
 };
 
 } // namespace Net
