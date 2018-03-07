@@ -82,30 +82,30 @@ void DviProtocolOdp::Deregister()
 
 void DviProtocolOdp::RegisterLocked()
 {
-    if (iRegistered || iEndpoint.Address() == 0) {
-        return;
-    }
+    // if (iRegistered || iEndpoint.Address() == 0) {
+    //     return;
+    // }
 
-    Bws<Endpoint::kMaxAddressBytes> addr;
-    Endpoint::AppendAddress(addr, iEndpoint.Address());
-    Log::Print("Adapter in use: ");
-    Log::Print(addr);
-    Log::Print("\n");
+    // Bws<Endpoint::kMaxAddressBytes> addr;
+    // Endpoint::AppendAddress(addr, iEndpoint.Address());
+    // Log::Print("Adapter in use: ");
+    // Log::Print(addr);
+    // Log::Print("\n");
 
 
-    Bws<200> info;
-    iProvider.MdnsAppendTxtRecord(info, "CPath", "/test.html");
-    iProvider.MdnsRegisterService(iHandleOdp, iName.PtrZ(), "_odp._tcp", iEndpoint.Address(), iEndpoint.Port(), info.PtrZ());
-    iRegistered = true;
+    // Bws<200> info;
+    // iProvider.MdnsAppendTxtRecord(info, "CPath", "/test.html");
+    // iProvider.MdnsRegisterService(iHandleOdp, iName.PtrZ(), "_odp._tcp", iEndpoint.Address(), iEndpoint.Port(), info.PtrZ());
+    // iRegistered = true;
 }
 
 void DviProtocolOdp::DeregisterLocked()
 {
-    if (!iRegistered) {
-        return;
-    }
-    iProvider.MdnsDeregisterService(iHandleOdp);
-    iRegistered = false;
+    // if (!iRegistered) {
+    //     return;
+    // }
+    // iProvider.MdnsDeregisterService(iHandleOdp);
+    // iRegistered = false;
 }
 
 void DviProtocolOdp::NameChanged(const Brx& aName)
