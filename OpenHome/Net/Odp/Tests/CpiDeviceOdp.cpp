@@ -235,11 +235,11 @@ TBool CpiDeviceOdp::GetAttribute(const char* aKey, Brh& aValue) const
         }
     }
 
-    const Brx& Type();
-    const Brx& FriendlyName();
-    const Brx& UglyName();
-    const Brx& IpAddress();
-    const TUint Port();
+    //const Brx& Type();
+    //const Brx& FriendlyName();
+    //const Brx& UglyName();
+    //const Brx& IpAddress();
+    //const TUint Port();
 
     return (false);
 }
