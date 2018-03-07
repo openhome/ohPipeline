@@ -35,7 +35,7 @@ DviProtocolOdp::DviProtocolOdp(DviDevice& aDevice)
     iCurrentAdapterChangeListenerId = adapterList.AddCurrentChangeListener(functor, "DviProtocolOdp-current");
     iSubnetListChangeListenerId = adapterList.AddSubnetListChangeListener(functor, "DviProtocolOdp-subnet");
 
-    iName.Replace(Brn("JoshFake:Majik DSQ"));
+    iName.Replace(iDevice.Udn());
     //iFriendlyNameId = iFriendlyNameObservable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(*this, &DviProtocolOdp::NameChanged));
     HandleInterfaceChange();
 }
@@ -45,7 +45,6 @@ DviProtocolOdp::~DviProtocolOdp()
     //iFriendlyNameObservable.DeregisterFriendlyNameObserver(iFriendlyNameId);
     Deregister();
 
-    iLock.Wait();
     iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iCurrentAdapterChangeListenerId);
     iEnv.NetworkAdapterList().RemoveSubnetListChangeListener(iSubnetListChangeListenerId);
 }
@@ -66,6 +65,11 @@ void DviProtocolOdp::HandleInterfaceChange()
         iEndpoint.SetAddress(subnet->Address());
     }
     NetworkAdapterList::DestroySubnetList(subnetList);
+
+    if (iRegistered) {
+        DeregisterLocked();
+        RegisterLocked();
+    }
 }
 
 void DviProtocolOdp::Register()
@@ -100,7 +104,7 @@ void DviProtocolOdp::RegisterLocked()
 
     Bws<Endpoint::kMaxAddressBytes> addr;
     Endpoint::AppendAddress(addr, iEndpoint.Address());
-    Log::Print("Odp Endpoint: %.*s:%d\n", PBUF(addr), odpPort);
+    Log::Print("Odp Endpoint (%.*s): %.*s:%d\n", PBUF(iDevice.Udn()), PBUF(addr), odpPort);
 
     Bws<200> info;
     iProvider.MdnsAppendTxtRecord(info, "CPath", "/test.html");
