@@ -86,39 +86,39 @@ void DviProtocolOdp::Deregister()
 
 void DviProtocolOdp::RegisterLocked()
 {
-    if (iRegistered || iEndpoint.Address() == 0) {
-        return;
-    }
+    // if (iRegistered || iEndpoint.Address() == 0) {
+    //     return;
+    // }
 
-    // get Odp port from device attributes
-    const TChar* val;
-    iDevice.GetAttribute("Odp.Port", &val);
-    if (val == NULL) {
-        return;
-    }
-    TUint odpPort = Ascii::Uint(Brn(val));
-    if (odpPort == 0) {
-        return;
-    }
-    iEndpoint.SetPort(odpPort);
+    // // get Odp port from device attributes
+    // const TChar* val;
+    // iDevice.GetAttribute("Odp.Port", &val);
+    // if (val == NULL) {
+    //     return;
+    // }
+    // TUint odpPort = Ascii::Uint(Brn(val));
+    // if (odpPort == 0) {
+    //     return;
+    // }
+    // iEndpoint.SetPort(odpPort);
 
-    Bws<Endpoint::kMaxAddressBytes> addr;
-    Endpoint::AppendAddress(addr, iEndpoint.Address());
-    Log::Print("Odp Endpoint (%.*s): %.*s:%d\n", PBUF(iDevice.Udn()), PBUF(addr), odpPort);
+    // Bws<Endpoint::kMaxAddressBytes> addr;
+    // Endpoint::AppendAddress(addr, iEndpoint.Address());
+    // Log::Print("Odp Endpoint (%.*s): %.*s:%d\n", PBUF(iDevice.Udn()), PBUF(addr), odpPort);
 
-    Bws<200> info;
-    iProvider.MdnsAppendTxtRecord(info, "CPath", "/test.html");
-    iProvider.MdnsRegisterService(iHandleOdp, iName.PtrZ(), "_odp._tcp", iEndpoint.Address(), iEndpoint.Port(), info.PtrZ());
-    iRegistered = true;
+    // Bws<200> info;
+    // iProvider.MdnsAppendTxtRecord(info, "CPath", "/test.html");
+    // iProvider.MdnsRegisterService(iHandleOdp, iName.PtrZ(), "_odp._tcp", iEndpoint.Address(), iEndpoint.Port(), info.PtrZ());
+    // iRegistered = true;
 }
 
 void DviProtocolOdp::DeregisterLocked()
 {
-    if (!iRegistered) {
-        return;
-    }
-    iProvider.MdnsDeregisterService(iHandleOdp);
-    iRegistered = false;
+    // if (!iRegistered) {
+    //     return;
+    // }
+    // iProvider.MdnsDeregisterService(iHandleOdp);
+    // iRegistered = false;
 }
 
 void DviProtocolOdp::NameChanged(const Brx& aName)
