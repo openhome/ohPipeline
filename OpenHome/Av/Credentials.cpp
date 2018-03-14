@@ -65,7 +65,6 @@ private:
     ICredentialObserver& iObserver;
     RSA* iRsa;
     Fifo<Credential*>& iFifoCredentialsChanged;
-    Configuration::IStoreReadWrite& iStore;
     StoreText* iStoreUsername;
     StoreText* iStorePasswordEncrypted;
     Configuration::ConfigChoice* iConfigEnable;
@@ -118,7 +117,6 @@ Credential::Credential(Environment& aEnv,
     , iObserver(aObserver)
     , iRsa(nullptr)
     , iFifoCredentialsChanged(aFifoCredentialsChanged)
-    , iStore(aStore)
     , iSubscriberIdEnable(IConfigManager::kSubscriptionIdInvalid)
     , iStatus(kGranularityStatus)
     , iData(kGranularityData)
