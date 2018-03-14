@@ -42,9 +42,17 @@ void DeviceListLogger::Removed(CpiDevice& aDevice)
 void DeviceListLogger::PrintDeviceInfo(const char* aPrologue, const CpiDevice& aDevice)
 {
     iLock.Wait();
-    Print("%s\n    udn = ", aPrologue);
-    Print(aDevice.Udn());
-    Print("\n");
+    Print("ODP Device %s\n", aPrologue);
+    Print("    udn   = %.*s\n", PBUF(aDevice.Udn()));
+    Brh val;
+    aDevice.GetAttribute("Odp.Location", val);
+    Print("    locat = %.*s\n", PBUF(val));
+    aDevice.GetAttribute("Odp.FriendlyName", val);
+    Print("    fname = %.*s\n", PBUF(val));
+    aDevice.GetAttribute("Odp.UglyName", val);
+    Print("    uname = %.*s\n", PBUF(val));
+    aDevice.GetAttribute("Odp.Type", val);
+    Print("    type  = %.*s\n", PBUF(val));
     iLock.Signal();
 }
 
@@ -79,7 +87,8 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
     DeviceListLogger logger;
     FunctorCpiDevice added = MakeFunctorCpiDevice(logger, &DeviceListLogger::Added);
     FunctorCpiDevice removed = MakeFunctorCpiDevice(logger, &DeviceListLogger::Removed);
-    CpiDeviceList* deviceList = new CpiDeviceListOdp(*cpStack, added, removed);
+    CpiDeviceListOdpAll* deviceList = new CpiDeviceListOdpAll(*cpStack, added, removed);
+    deviceList->Start();
 
     Thread::Sleep(10 * 1000);
 

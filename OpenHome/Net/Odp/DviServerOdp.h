@@ -4,6 +4,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviServer.h>
 #include <OpenHome/Net/Odp/DviOdp.h>
+#include <OpenHome/Av/Product.h>
 
 namespace OpenHome {
 namespace Net {
@@ -39,15 +40,34 @@ private:
 class DviServerOdp : public DviServer
 {
 public:
-    DviServerOdp(DvStack& aDvStack, TUint aNumSessions, TUint aPort = 0);
+    DviServerOdp(DvStack& aDvStack, Av::IFriendlyNameObservable& aFriendlyNameObservable, TUint aNumSessions, TUint aPort = 0);
     ~DviServerOdp();
     TUint Port() const;
 private: // from DviServerUpnp
     SocketTcpServer* CreateServer(const NetworkAdapter& aNif) override;
     void NotifyServerDeleted(TIpAddress aInterface) override;
+private: // from IResourceManager
+    void Register();
+    void Deregister();
+private:
+    void RegisterLocked();
+    void DeregisterLocked();
+    void NameChanged(const Brx& aName);
+    void HandleInterfaceChange();
 private:
     const TUint iNumSessions;
     TUint iPort;
+    Environment& iEnv;
+    IMdnsProvider& iProvider;
+    Av::IFriendlyNameObservable& iFriendlyNameObservable;
+    TUint iFriendlyNameId;
+    Bws<Av::IFriendlyNameObservable::kMaxFriendlyNameBytes+1> iName;    // Space for '\0'.
+    const TUint iHandleOdp;
+    TBool iRegistered;
+    Mutex iLock;
+    TInt iCurrentAdapterChangeListenerId;
+    TUint iSubnetListChangeListenerId;
+    Endpoint iEndpoint;
 };
 
 } // namespace Net

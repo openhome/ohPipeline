@@ -149,6 +149,7 @@ void RadioPresetsTuneIn::DoRefresh()
     try {
         iSocket.Open(iEnv);
         socketOpened = true;
+        AutoSocket _(iSocket);  // Ensure socket is closed before any path out of this block.
         Endpoint ep(80, iRequestUri.Host());
         iSocket.Connect(ep, 20 * 1000); // hard-coded timeout.  Ignores .InitParams().TcpConnectTimeoutMs() on the assumption that is set for lan connections
 
@@ -349,6 +350,7 @@ void RadioPresetsTuneIn::DoRefresh()
         throw;
     }
     catch (Exception&) {
+        // NOTE: AutoSocket may have already closed the socket. That would turn the below Close() call into a no-op.
         if (socketOpened) {
             try {
                 iSocket.Close();

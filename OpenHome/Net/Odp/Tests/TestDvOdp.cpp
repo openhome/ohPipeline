@@ -15,6 +15,8 @@
 #include <OpenHome/Private/Network.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
 #include <OpenHome/Net/Private/MdnsProvider.h>
+#include <OpenHome/Av/Product.h>
+#include <OpenHome/Av/FriendlyNameAdapter.h>
 
 #include <vector>
 
@@ -43,7 +45,7 @@ class TestOdp
 {
     static const TUint kTestIterations = 10;
 public:
-    TestOdp(CpStack& aCpStack, Endpoint aLocation, const Brx& aOdpName, Semaphore& aSem);
+    TestOdp(CpStack& aCpStack, MdnsDevice aDev, const Brx& aOdpType, Semaphore& aSem);
     ~TestOdp();
     void TestActions();
     void TestSubscriptions();
@@ -99,12 +101,12 @@ const Brx& DeviceOdp::OdpDeviceName() const
 
 // TestOdp
 
-TestOdp::TestOdp(CpStack& aCpStack, Endpoint aLocation, const Brx& aOdpName, Semaphore& aSem)
+TestOdp::TestOdp(CpStack& aCpStack, MdnsDevice aDev, const Brx& aOdpType, Semaphore& aSem)
     : iSem(aSem)
     , iUpdatesComplete("SEM2", 0)
     , iCpDevice(nullptr)
 {
-    iCpDeviceOdp = new CpiDeviceOdp(aCpStack, aLocation, aOdpName, MakeFunctor(*this, &TestOdp::DeviceReady));
+    iCpDeviceOdp = new CpiDeviceOdp(aCpStack, aDev, aOdpType, MakeFunctor(*this, &TestOdp::DeviceReady));
 }
 
 TestOdp::~TestOdp()
@@ -315,7 +317,42 @@ void TestOdp::UpdatesComplete()
     iUpdatesComplete.Signal();
 }
 
+class MockProductNameObservable : public Av::IProductNameObservable
+{
+public:
+    MockProductNameObservable();
+    void SetRoomName(const Brx& aRoom);
+    void SetProductName(const Brx& aProduct);
+public: // from IProductNameObservable
+    void AddNameObserver(Av::IProductNameObserver& aObserver) override;
+private:
+    Av::IProductNameObserver* iObserver;
+};
 
+// MockProductNameObservable
+
+MockProductNameObservable::MockProductNameObservable()
+    : iObserver(nullptr)
+{
+}
+
+void MockProductNameObservable::SetRoomName(const Brx& aRoom)
+{
+    ASSERT(iObserver != nullptr);
+    iObserver->RoomChanged(aRoom);
+}
+
+void MockProductNameObservable::SetProductName(const Brx& aProduct)
+{
+    ASSERT(iObserver != nullptr);
+    iObserver->NameChanged(aProduct);
+}
+
+void MockProductNameObservable::AddNameObserver(Av::IProductNameObserver& aObserver)
+{
+    ASSERT(iObserver == nullptr);
+    iObserver = &aObserver;
+}
 
 void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
 {
@@ -324,15 +361,22 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     Debug::SetLevel(Debug::kOdp | Debug::kEvent);
     Debug::SetSeverity(Debug::kSeverityError);
    
-    auto server = new DviServerOdp(aDvStack, 1);
+    auto observableProd = new MockProductNameObservable();
+    auto friendlyNameManager = new Av::FriendlyNameManager(*observableProd);
+    Av::IFriendlyNameObservable& observablefn = *friendlyNameManager;
+    observableProd->SetRoomName(Brn("TestDvOdp"));
+    observableProd->SetProductName(Brn("Product"));
+    auto server = new DviServerOdp(aDvStack, observablefn, 1);
     aDvStack.AddProtocolFactory(new DviProtocolFactoryOdp());
     auto sem = new Semaphore("SEM1", 0);
     auto device = new DeviceOdp(aDvStack);
     auto nif = UpnpLibrary::CurrentSubnetAdapter("TestDvOdp");
     ASSERT(nif != nullptr);
-    Endpoint location(server->Port(), nif->Address());
+    Bws<Endpoint::kMaxAddressBytes> addr;
+    Endpoint::AppendAddress(addr, nif->Address());
+    MdnsDevice dev(Brn("_odp._tcp"), device->OdpDeviceName(), gDeviceName, addr, server->Port());
     nif->RemoveRef("TestDvOdp");
-    auto cpDevice = new TestOdp(aCpStack, location, device->OdpDeviceName(), *sem);
+    auto cpDevice = new TestOdp(aCpStack, dev, Brn("Ds"), *sem);
     sem->Wait(5*1000); // allow up to 5 seconds to connect to Odp server and receive initial ALIVE message
     delete sem;
     cpDevice->TestActions();
@@ -340,6 +384,8 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     delete cpDevice;
     delete device;
     delete server;
+    delete friendlyNameManager;
+    delete observableProd;
 
     Print("TestDvOdp - completed\n");
 }

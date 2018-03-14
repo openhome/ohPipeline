@@ -22,10 +22,9 @@ using namespace OpenHome::Net;
 
 // CpiDeviceOdp
 
-CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, Endpoint aLocation, const Brx& aAlias, Functor aStateChanged)
+CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, MdnsDevice& aDev, const Brx& aAlias, Functor aStateChanged)
     : iCpStack(aCpStack)
     , iLock("CLP1")
-    , iLocation(aLocation)
     , iAlias(aAlias)
     , iStateChanged(aStateChanged)
     , iDevice(nullptr)
@@ -33,6 +32,11 @@ CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, Endpoint aLocation, const Brx& aAl
     , iConnected(false)
     , iExiting(false)
     , iDeviceConnected("SODP", 0)
+    , iFriendlyName(aDev.FriendlyName())
+    , iUglyName(aDev.UglyName())
+    , iIpAddress(aDev.IpAddress())
+    , iMdnsType(aDev.Type())
+    , iPort(aDev.Port())
 {
     iReadBuffer = new Srs<1024>(iSocket);
     iReaderUntil = new ReaderUntilS<kMaxReadBufferBytes>(*iReadBuffer);
@@ -83,7 +87,8 @@ void CpiDeviceOdp::OdpReaderThread()
 {
     try {
         iSocket.Open(iCpStack.Env());
-        iSocket.Connect(iLocation, iCpStack.Env().InitParams()->TcpConnectTimeoutMs());
+        Endpoint ep(iPort, iIpAddress);
+        iSocket.Connect(ep, iCpStack.Env().InitParams()->TcpConnectTimeoutMs());
         for (;;) {
             Brn line = iReaderUntil->ReadUntil(Ascii::kLf);
             JsonParser parser;
@@ -200,10 +205,37 @@ void CpiDeviceOdp::InvokeAction(Invocation& aInvocation)
     iCpStack.InvocationManager().Invoke(&aInvocation);
 }
 
-TBool CpiDeviceOdp::GetAttribute(const TChar* /*aKey*/, Brh& /*aValue*/) const
+TBool CpiDeviceOdp::GetAttribute(const char* aKey, Brh& aValue) const
 {
-    // Not obviously required.  The only attribute Odp devices have is their name and we pass this to the c'tor
-    return false;
+    Brn key(aKey);
+    
+    Parser parser(key);
+    
+    if (parser.Next('.') == Brn("Odp")) {
+        Brn property = parser.Remaining();
+
+        if (property == Brn("FriendlyName")) {
+            aValue.Set(iFriendlyName);
+            return (true);
+        }
+        if (property == Brn("Type")) {
+            aValue.Set(iMdnsType);
+            return (true);
+        }
+        if (property == Brn("Location")) {
+            Bws<30> loc(iIpAddress);
+            loc.Append(":");
+            Ascii::AppendDec(loc, iPort);
+            aValue.Set(loc);
+            return (true);
+        }
+        if (property == Brn("UglyName")) {
+            aValue.Set(iUglyName);
+            return (true);
+        }
+    }
+
+    return (false);
 }
 
 TUint CpiDeviceOdp::Subscribe(CpiSubscription& aSubscription, const Uri& /*aSubscriber*/)
@@ -270,13 +302,10 @@ const Brx& CpiDeviceOdp::Alias() const
 // CpiDeviceListOdp
 CpiDeviceListOdp::CpiDeviceListOdp(CpStack& aCpStack, FunctorCpiDevice aAdded, FunctorCpiDevice aRemoved)
     : CpiDeviceList(aCpStack, aAdded, aRemoved)
-    , iSsdpLock("CDLO")
     , iEnv(aCpStack.Env())
     , iStarted(false)
     , iNoRemovalsFromRefresh(false)
 {
-
-    // FIXME: cleanout un-needed upnp stuff, but for now it works with mdns
 
     NetworkAdapterList& ifList = aCpStack.Env().NetworkAdapterList();
     AutoNetworkAdapterRef ref(iEnv, "CpiDeviceListOdp ctor");
@@ -286,29 +315,19 @@ CpiDeviceListOdp::CpiDeviceListOdp(CpStack& aCpStack, FunctorCpiDevice aAdded, F
     iRefreshRepeatCount = 0;
     iInterfaceChangeListenerId = ifList.AddCurrentChangeListener(MakeFunctor(*this, &CpiDeviceListOdp::CurrentNetworkAdapterChanged), "CpiDeviceListOdp-current");
     iSubnetListChangeListenerId = ifList.AddSubnetListChangeListener(MakeFunctor(*this, &CpiDeviceListOdp::SubnetListChanged), "CpiDeviceListOdp-subnet");
-    iSsdpLock.Wait();
     if (current == NULL) {
         iInterface = 0;
-        iUnicastListener = NULL;
-        iMulticastListener = NULL;
-        iNotifyHandlerId = 0;
     }
     else {
         iInterface = current->Address();
-        iUnicastListener = new SsdpListenerUnicast(iCpStack.Env(), *this, iInterface);
-        iMulticastListener = &(iCpStack.Env().MulticastListenerClaim(iInterface));
-        iNotifyHandlerId = iMulticastListener->AddNotifyHandler(this);
     }
-    iSsdpLock.Signal();
     iCpStack.Env().AddResumeObserver(*this);
 
     iCpStack.Env().MdnsProvider()->AddMdnsDeviceListener(this);
-    iCpStack.Env().MdnsProvider()->FindDevices("_odp._tcp");
 }
 
 CpiDeviceListOdp::~CpiDeviceListOdp()
 {
-    //StopListeners();
     iCpStack.Env().RemoveResumeObserver(*this);
     iResumedTimer->Cancel();
     iLock.Wait();
@@ -316,24 +335,13 @@ CpiDeviceListOdp::~CpiDeviceListOdp()
     iLock.Signal();
     iCpStack.Env().NetworkAdapterList().RemoveCurrentChangeListener(iInterfaceChangeListenerId);
     iCpStack.Env().NetworkAdapterList().RemoveSubnetListChangeListener(iSubnetListChangeListenerId);
-    /*iLock.Wait();
-    CpDeviceMap::iterator it = iMap.begin();
-    while (it != iMap.end()) {
-        reinterpret_cast<CpiDeviceOdp*>(it->second->OwnerData())->InterruptXmlFetch();
-        it++;
-    }
-    for (TUint i=0; i<(TUint)iPendingRemove.size(); i++) {
-        reinterpret_cast<CpiDeviceOdp*>(iPendingRemove[i]->OwnerData())->InterruptXmlFetch();
-    }
-    iLock.Signal();*/
     delete iRefreshTimer;
     delete iResumedTimer;
 }
 
 void CpiDeviceListOdp::DeviceAdded(MdnsDevice& aDev)
 {
-    Endpoint* ep = new Endpoint(aDev.Port(), aDev.IpAddress());
-    CpiDeviceOdp* dev = new CpiDeviceOdp(iCpStack, *ep, Brn("Ds"), MakeFunctor(*this, &CpiDeviceListOdp::DeviceReady));
+    CpiDeviceOdp* dev = new CpiDeviceOdp(iCpStack, aDev, Brn("Ds"), MakeFunctor(*this, &CpiDeviceListOdp::DeviceReady));
     if (dev != nullptr) {
         Add(dev->Device());  
     } 
@@ -343,65 +351,12 @@ void CpiDeviceListOdp::DeviceReady()
 {
 }
 
-void CpiDeviceListOdp::StopListeners()
-{
-    iSsdpLock.Wait();
-    SsdpListenerUnicast* uListener = iUnicastListener;
-    iUnicastListener = NULL;
-    iSsdpLock.Signal();
-    if (uListener != NULL) {
-        delete uListener;
-        if (iMulticastListener != NULL) {
-            iMulticastListener->RemoveNotifyHandler(iNotifyHandlerId);
-            iNotifyHandlerId = 0;
-            iCpStack.Env().MulticastListenerRelease(iInterface);
-            iMulticastListener = NULL;
-        }
-    }
-}
-
-TBool CpiDeviceListOdp::Update(const Brx& /*aUdn*/, const Brx& aLocation, TUint /*aMaxAge*/)
-{
-    if (!IsLocationReachable(aLocation)) {
-        return false;
-    }
-    /*iLock.Wait();
-    CpiDevice* device = RefDeviceLocked(aUdn);
-    if (device != NULL) {
-        CpiDeviceOdp* deviceOdp = reinterpret_cast<CpiDeviceOdp*>(device->OwnerData());
-        if (deviceOdp->Location() != aLocation) {
-            // Device appears to have moved to a new location.
-            //   Ask it to check whether the old location is still contactable.  If it is,
-            //   stick with the older location; if it isn't, remove the old device and add
-            //   a new one.
-            iLock.Signal();
-            CpiDeviceOdp* newDevice = new CpiDeviceOdp(iCpStack, aUdn, aLocation, aMaxAge, *this, *this);
-            deviceOdp->CheckStillAvailable(newDevice);
-            device->RemoveRef();
-            return true;
-        }
-        deviceOdp->UpdateMaxAge(aMaxAge);
-        iLock.Signal();
-        device->RemoveRef();
-        return !iRefreshing;
-    }
-    iLock.Signal();*/
-    return false;
-}
-
 void CpiDeviceListOdp::DoStart()
 {
     iActive = true;
     iLock.Wait();
-    TBool needsStart = !iStarted;
     iStarted = true;
     iLock.Signal();
-    if (needsStart) {
-        AutoMutex a(iSsdpLock);
-        if (iUnicastListener != NULL) {
-            iUnicastListener->Start();
-        }
-    }
 }
 
 void CpiDeviceListOdp::Start()
@@ -443,19 +398,11 @@ void CpiDeviceListOdp::DoRefresh()
 
 TBool CpiDeviceListOdp::IsDeviceReady(CpiDevice& /*aDevice*/)
 {
-    //reinterpret_cast<CpiDeviceOdp*>(aDevice.OwnerData())->FetchXml();
-    return false;
+    return true;
 }
 
 TBool CpiDeviceListOdp::IsLocationReachable(const Brx& aLocation) const
 {
-    /* linux's filtering of multicast messages appears to be buggy and messages
-       received by all interfaces are sometimes delivered to sockets which are
-       bound to / members of a group on a single (different) interface.  It'd be
-       more correct to filter these out in SsdpListenerMulticast but that would
-       require API changes which would be more inconvenient than just moving the
-       filtering here.
-       This should be reconsidered if we ever add more clients of SsdpListenerMulticast */
     TBool reachable = false;
     Uri uri;
     try {
@@ -512,7 +459,6 @@ void CpiDeviceListOdp::HandleInterfaceChange()
         current->RemoveRef("CpiDeviceListOdp::HandleInterfaceChange");
         return;
     }
-    StopListeners();
 
     if (current == NULL) {
         iLock.Wait();
@@ -531,13 +477,6 @@ void CpiDeviceListOdp::HandleInterfaceChange()
     iLock.Signal();
     current->RemoveRef("CpiDeviceListOdp::HandleInterfaceChange");
 
-    {
-        AutoMutex a(iSsdpLock);
-        iUnicastListener = new SsdpListenerUnicast(iCpStack.Env(), *this, iInterface);
-        iUnicastListener->Start();
-        iMulticastListener = &(iCpStack.Env().MulticastListenerClaim(iInterface));
-        iNotifyHandlerId = iMulticastListener->AddNotifyHandler(this);
-    }
     Refresh();
 }
 
@@ -560,71 +499,28 @@ void CpiDeviceListOdp::RemoveAll()
     }
 }
 
-void CpiDeviceListOdp::XmlFetchCompleted(CpiDeviceOdp& /*aDevice*/, TBool /*aError*/)
-{
-    /*if (aError) {
-        const Brx& udn = aDevice.Udn();
-        const Brx& location = aDevice.Location();
-        LOG_ERROR(kDevice, "Device xml fetch error {udn{%.*s}, location{%.*s}}\n",
-                             PBUF(udn), PBUF(location));
-        Remove(aDevice.Udn());
-    }
-    else {
-        SetDeviceReady(aDevice.Device());
-    }*/
-}
-
-void CpiDeviceListOdp::DeviceLocationChanged(CpiDeviceOdp* /*aOriginal*/, CpiDeviceOdp* /*aNew*/)
-{
-    /*Remove(aOriginal->Udn());
-    Add(&aNew->Device());*/
-}
-
-void CpiDeviceListOdp::SsdpNotifyRootAlive(const Brx& aUuid, const Brx& aLocation, TUint aMaxAge)
-{
-    (void)Update(aUuid, aLocation, aMaxAge);
-}
-
-void CpiDeviceListOdp::SsdpNotifyUuidAlive(const Brx& aUuid, const Brx& aLocation, TUint aMaxAge)
-{
-    (void)Update(aUuid, aLocation, aMaxAge);
-}
-
-void CpiDeviceListOdp::SsdpNotifyDeviceTypeAlive(const Brx& aUuid, const Brx& /*aDomain*/, const Brx& /*aType*/,
-                                                 TUint /*aVersion*/, const Brx& aLocation, TUint aMaxAge)
-{
-    (void)Update(aUuid, aLocation, aMaxAge);
-}
-
-void CpiDeviceListOdp::SsdpNotifyServiceTypeAlive(const Brx& aUuid, const Brx& /*aDomain*/, const Brx& /*aType*/,
-                                                  TUint /*aVersion*/, const Brx& aLocation, TUint aMaxAge)
-{
-    (void)Update(aUuid, aLocation, aMaxAge);
-}
-
-void CpiDeviceListOdp::SsdpNotifyRootByeBye(const Brx& aUuid)
-{
-    Remove(aUuid);
-}
-
-void CpiDeviceListOdp::SsdpNotifyUuidByeBye(const Brx& aUuid)
-{
-    Remove(aUuid);
-}
-
-void CpiDeviceListOdp::SsdpNotifyDeviceTypeByeBye(const Brx& aUuid, const Brx& /*aDomain*/, const Brx& /*aType*/, TUint /*aVersion*/)
-{
-    Remove(aUuid);
-}
-
-void CpiDeviceListOdp::SsdpNotifyServiceTypeByeBye(const Brx& aUuid, const Brx& /*aDomain*/, const Brx& /*aType*/, TUint /*aVersion*/)
-{
-    Remove(aUuid);
-}
 
 void CpiDeviceListOdp::NotifyResumed()
 {
     /* UDP sockets don't seem usable immediately after we resume
        ...so wait a short while before doing anything */
     iResumedTimer->FireIn(kResumeDelayMs);
+}
+
+// CpiDeviceListOdpAll
+
+CpiDeviceListOdpAll::CpiDeviceListOdpAll(CpStack& aCpStack, FunctorCpiDevice aAdded, FunctorCpiDevice aRemoved)
+    : CpiDeviceListOdp(aCpStack, aAdded, aRemoved)
+    , iCpStack(aCpStack)
+{
+}
+
+CpiDeviceListOdpAll::~CpiDeviceListOdpAll()
+{
+}
+
+void CpiDeviceListOdpAll::Start()
+{
+    CpiDeviceListOdp::DoStart();
+    iCpStack.Env().MdnsProvider()->FindDevices("_odp._tcp");
 }
