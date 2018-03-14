@@ -341,7 +341,7 @@ void Qobuz::ReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
 
 TBool Qobuz::TryConnect()
 {
-    OpenHome::Endpoint ep;
+    Endpoint ep;
     try {
         iSocket.Open(iEnv);
         ep.SetAddress(kHost);
@@ -349,9 +349,11 @@ TBool Qobuz::TryConnect()
         iSocket.Connect(ep, kConnectTimeoutMs);
     }
     catch (NetworkTimeout&) {
+        iSocket.Close();
         return false;
     }
     catch (NetworkError&) {
+        iSocket.Close();
         return false;
     }
     return true;
