@@ -19,6 +19,7 @@ namespace OpenHome {
     class IWriter;
     class Timer;
     class ThreadFunctor;
+    class IPowerManager;
 namespace Net {
     class DvDevice;
 }
@@ -65,7 +66,6 @@ class ICredentials
 public:
     static const TUint kMaxTokenBytes = 256;
 public:
-    virtual void Set(const Brx& aId, const Brx& aUsername) = 0;
     virtual void Set(const Brx& aId, const Brx& aUsername, const Brx& aPassword) = 0;
     virtual void Clear(const Brx& aId) = 0;
     virtual void Enable(const Brx& aId, TBool aEnable) = 0;
@@ -107,14 +107,19 @@ class Credentials : public ICredentials
     static const TUint kModerationTimeMs = 500;
     static const TUint kNumFifoElements = 10;
 public:
-    Credentials(Environment& aEnv, Net::DvDevice& aDevice, Configuration::IStoreReadWrite& aStore, const Brx& aEntropy, Configuration::IConfigInitialiser& aConfigInitialiser, TUint aKeyBits = 2048);
+    Credentials(Environment& aEnv,
+                Net::DvDevice& aDevice,
+                Configuration::IStoreReadWrite& aStore,
+                const Brx& aEntropy,
+                Configuration::IConfigInitialiser& aConfigInitialiser,
+                IPowerManager& aPowerManager,
+                TUint aKeyBits = 2048);
     virtual ~Credentials();
     void Add(ICredentialConsumer* aConsumer);
     void Start();
     void GetKey(FunctorGeneric<IRsaProvider&> aCb);
     void GetPublicKey(Bwx& aKey); // test use only
 private: // from ICredentials
-    void Set(const Brx& aId, const Brx& aUsername) override;
     void Set(const Brx& aId, const Brx& aUsername, const Brx& aPassword) override; // password must be encrypted
     void Clear(const Brx& aId) override;
     void Enable(const Brx& aId, TBool aEnable) override;
@@ -151,6 +156,8 @@ private:
     Mutex iLock;
     Environment& iEnv;
     Configuration::IConfigInitialiser& iConfigInitialiser;
+    Configuration::IStoreReadWrite& iStore;
+    IPowerManager& iPowerManager;
     ProviderCredentials* iProvider;
     void* iKey; /* Type is RSA but don't want to include openssl headers.
                    These define lower case macros which can conflict with functions in our code. */

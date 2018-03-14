@@ -144,7 +144,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     iPipeline = new PipelineManager(aPipelineInitParams, aInfoAggregator, *iTrackFactory);
     iVolumeConfig = new VolumeConfig(*iConfigManager, aVolumeProfile);
     iVolumeManager = new Av::VolumeManager(aVolumeConsumer, iPipeline, *iVolumeConfig, aDevice, *iProduct, *iConfigManager, *iPowerManager);
-    iCredentials = new Credentials(aDvStack.Env(), aDevice, aReadWriteStore, aEntropy, *iConfigManager);
+    iCredentials = new Credentials(aDvStack.Env(), aDevice, aReadWriteStore, aEntropy, *iConfigManager, *iPowerManager);
     iProduct->AddAttribute("Credentials");
     iProviderTime = new ProviderTime(aDevice, *iPipeline);
     iProduct->AddAttribute("Time");
