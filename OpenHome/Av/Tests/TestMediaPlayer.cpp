@@ -309,8 +309,10 @@ void TestMediaPlayer::Run()
     RegisterPlugins(iMediaPlayer->Env());
     AddConfigApp();
 
-    iServerOdp.reset(new DviServerOdp(iMediaPlayer->DvStack(), iMediaPlayer->FriendlyNameObservable(), kNumOdpSessions, iOdpPort));
+    iServerOdp.reset(new DviServerOdp(iMediaPlayer->DvStack(), kNumOdpSessions, iOdpPort));
     Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
+    iOdpZeroConf.reset(new OdpZeroConf(iMediaPlayer->Env(), *iServerOdp, iMediaPlayer->FriendlyNameObservable()));
+    iOdpZeroConf->SetZeroConfEnabled(true);
 
     InitialiseLogger();
     iMediaPlayer->Start(iRebootHandler);
@@ -617,7 +619,7 @@ void TestMediaPlayer::Disabled()
 OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, TBool aLoopback, TUint aAdapter)
 {
     InitialisationParams* initParams = InitialisationParams::Create();
-    initParams->SetDvEnableBonjour(aRoom);
+    initParams->SetDvEnableBonjour(aRoom, true);
     if (aLoopback == true) {
         initParams->SetUseLoopbackNetworkAdapter();
     }

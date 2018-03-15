@@ -65,7 +65,7 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
         return;
     }
 
-    aInitParams->SetDvEnableBonjour("TestCpiDeviceListOdp");
+    aInitParams->SetDvEnableBonjour("TestCpiDeviceListOdp", true);
     Library* lib = new Library(aInitParams);
     std::vector<NetworkAdapter*>* subnetList = lib->CreateSubnetList();
     TIpAddress subnet = (*subnetList)[adapter.Value()]->Subnet();

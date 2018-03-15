@@ -362,11 +362,13 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     Debug::SetSeverity(Debug::kSeverityError);
    
     auto observableProd = new MockProductNameObservable();
-    auto friendlyNameManager = new Av::FriendlyNameManager(*observableProd);
-    Av::IFriendlyNameObservable& observablefn = *friendlyNameManager;
     observableProd->SetRoomName(Brn("TestDvOdp"));
     observableProd->SetProductName(Brn("Product"));
-    auto server = new DviServerOdp(aDvStack, observablefn, 1);
+    auto friendlyNameManager = new Av::FriendlyNameManager(*observableProd);
+    Av::IFriendlyNameObservable& observablefn = *friendlyNameManager;
+    auto server = new DviServerOdp(aDvStack, 1);
+    auto odp = new OdpZeroConf(aDvStack.Env(), *server, observablefn);
+    odp->SetZeroConfEnabled(true);
     aDvStack.AddProtocolFactory(new DviProtocolFactoryOdp());
     auto sem = new Semaphore("SEM1", 0);
     auto device = new DeviceOdp(aDvStack);
@@ -383,6 +385,7 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     cpDevice->TestSubscriptions();
     delete cpDevice;
     delete device;
+    delete odp;
     delete server;
     delete friendlyNameManager;
     delete observableProd;

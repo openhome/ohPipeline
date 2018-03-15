@@ -178,6 +178,7 @@ private:
     Configuration::StoreFileWriterJson* iStoreFileWriter;
     TUint iOdpPort;
     std::unique_ptr<OpenHome::Net::DviServerOdp> iServerOdp;
+    std::unique_ptr<OpenHome::Net::OdpZeroConf> iOdpZeroConf;
     TUint iMinWebUiResourceThreads;
     TUint iMaxWebUiTabs;
     TUint iUiSendQueueSize;

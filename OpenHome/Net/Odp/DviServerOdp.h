@@ -5,10 +5,38 @@
 #include <OpenHome/Net/Private/DviServer.h>
 #include <OpenHome/Net/Odp/DviOdp.h>
 #include <OpenHome/Av/Product.h>
+#include <OpenHome/Optional.h>
 
 namespace OpenHome {
 namespace Net {
     class DvStack;
+
+class OdpDevice
+{
+private:
+    static const TUint kMaxNameBytes = 100;
+    static const TChar* kAdapterCookie;
+public:
+    OdpDevice(Net::IMdnsProvider& aMdnsProvider, NetworkAdapter& aAdapter, Av::IFriendlyNameObservable& aFriendlyNameObservable, Endpoint& aEndpoint);
+    ~OdpDevice();
+    void Register();
+    void Deregister();
+    TBool NetworkAdapterAndPortMatch(const NetworkAdapter& aAdapter, TUint aZeroConfPort) const;
+private:
+    void RegisterLocked();
+    void DeregisterLocked();
+    void NameChanged(const Brx& aName);
+private:
+    Net::IMdnsProvider& iProvider;
+    NetworkAdapter& iAdapter;
+    Av::IFriendlyNameObservable& iFriendlyNameObservable;
+    TUint iFriendlyNameId;
+    Bws<Av::IFriendlyNameObservable::kMaxFriendlyNameBytes+1> iName;    // Space for '\0'.
+    Endpoint iEndpoint;
+    const TUint iHandle;
+    TBool iRegistered;
+    Mutex iLock;
+};
 
 class DviSessionOdp : public SocketTcpSession
                     , private IOdpSession
@@ -40,34 +68,64 @@ private:
 class DviServerOdp : public DviServer
 {
 public:
-    DviServerOdp(DvStack& aDvStack, Av::IFriendlyNameObservable& aFriendlyNameObservable, TUint aNumSessions, TUint aPort = 0);
+    DviServerOdp(DvStack& aDvStack, TUint aNumSessions, TUint aPort = 0);
     ~DviServerOdp();
     TUint Port() const;
-private: // from DviServerUpnp
+    void SetServerCreatedCallback(Functor aCallback);
+private: // from DviServer
     SocketTcpServer* CreateServer(const NetworkAdapter& aNif) override;
-    void NotifyServerDeleted(TIpAddress aInterface) override;
-private: // from IResourceManager
-    void Register();
-    void Deregister();
-private:
-    void RegisterLocked();
-    void DeregisterLocked();
-    void NameChanged(const Brx& aName);
-    void HandleInterfaceChange();
+    void NotifyServerDeleted(TIpAddress aInterface); 
+    void NotifyServerCreated(TIpAddress aInterface);
 private:
     const TUint iNumSessions;
     TUint iPort;
-    Environment& iEnv;
-    IMdnsProvider& iProvider;
+    Functor iServerCreated;
+};
+
+class OdpZeroConfDevices : public INonCopyable
+{
+public:
+    OdpZeroConfDevices(Net::IMdnsProvider& aMdnsProvider, Av::IFriendlyNameObservable& aFriendlyNameObservable);
+    ~OdpZeroConfDevices();
+    void SetEnabled(TBool aEnabled);
+    void NetworkAdaptersChanged(std::vector<NetworkAdapter*>& aNetworkAdapters, Optional<NetworkAdapter>& aCurrent, TUint aZeroConfPort);
+private:
+    TInt AdapterInCurrentOdpDeviceAdapters(const NetworkAdapter& aAdapter, TUint aZeroConfPort);
+    TInt OdpDeviceAdapterInCurrentAdapters(const OdpDevice& aDevice, const std::vector<NetworkAdapter*>& aList, TUint aZeroConfPort);
+    void AddAdapterLocked(NetworkAdapter& aAdapter, TUint aZeroConfPort);
+private:
+    Net::IMdnsProvider& iMdnsProvider;
     Av::IFriendlyNameObservable& iFriendlyNameObservable;
-    TUint iFriendlyNameId;
-    Bws<Av::IFriendlyNameObservable::kMaxFriendlyNameBytes+1> iName;    // Space for '\0'.
-    const TUint iHandleOdp;
-    TBool iRegistered;
+    std::vector<OdpDevice*> iDevices;
+    TBool iEnabled;
+    mutable Mutex iLock;
+};
+
+class IZeroConfEnabler
+{
+public:
+    virtual void SetZeroConfEnabled(TBool aEnabled) = 0;
+    virtual ~IZeroConfEnabler() {}
+};
+
+class OdpZeroConf : public IZeroConfEnabler
+{
+private:
+    static const Brn kPath;
+public:
+    OdpZeroConf(Environment& aEnv, DviServerOdp& aServerOdp, Av::IFriendlyNameObservable& aFriendlyNameObservable);
+    ~OdpZeroConf();
+public: // from IZeroConfEnabler
+    void SetZeroConfEnabled(TBool aEnabled);
+private:
+    void OdpServerCreated();
+private:
+    Environment& iEnv;
+    DviServerOdp& iZeroConfServer;
+    OdpZeroConfDevices iZeroConfDevices;
+    TBool iEnabled;
+    TUint iOdpServerChangeListenerId;
     Mutex iLock;
-    TInt iCurrentAdapterChangeListenerId;
-    TUint iSubnetListChangeListenerId;
-    Endpoint iEndpoint;
 };
 
 } // namespace Net

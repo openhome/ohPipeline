@@ -16,6 +16,94 @@
 using namespace OpenHome;
 using namespace OpenHome::Net;
 
+// OdpDevice
+
+const TChar* OdpDevice::kAdapterCookie = "OdpDevice";
+
+OdpDevice::OdpDevice(Net::IMdnsProvider& aMdnsProvider, NetworkAdapter& aAdapter, Av::IFriendlyNameObservable& aFriendlyNameObservable, Endpoint& aEndpoint)
+    : iProvider(aMdnsProvider)
+    , iAdapter(aAdapter)
+    , iFriendlyNameObservable(aFriendlyNameObservable)
+    , iEndpoint(aEndpoint)
+    , iHandle(iProvider.MdnsCreateService())
+    , iRegistered(false)
+    , iLock("ODPL")
+{
+    iAdapter.AddRef(kAdapterCookie);
+    iFriendlyNameId = iFriendlyNameObservable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(*this, &OdpDevice::NameChanged));   // Functor is called within this.
+}
+
+OdpDevice::~OdpDevice()
+{
+    iFriendlyNameObservable.DeregisterFriendlyNameObserver(iFriendlyNameId);
+    Deregister();
+    iAdapter.RemoveRef(kAdapterCookie);
+}
+
+void OdpDevice::Register()
+{
+    AutoMutex a(iLock);
+    RegisterLocked();
+}
+
+void OdpDevice::Deregister()
+{
+    AutoMutex a(iLock);
+    DeregisterLocked();
+}
+
+TBool OdpDevice::NetworkAdapterAndPortMatch(const NetworkAdapter& aAdapter, TUint aZeroConfPort) const
+{
+    if (aAdapter.Address() == iAdapter.Address()
+        && aAdapter.Subnet() == iAdapter.Subnet()
+        && (strcmp(aAdapter.Name(), iAdapter.Name()) == 0)
+        && aZeroConfPort == iEndpoint.Port()) {
+        return true;
+    }
+    return false;
+}
+
+void OdpDevice::RegisterLocked()
+{
+    Endpoint::EndpointBuf epBuf;
+    iEndpoint.AppendEndpoint(epBuf);
+    LOG(kBonjour, "OdpDevice::RegisterLocked iRegistered: %u, iEndpoint: %.*s\n", iRegistered, PBUF(epBuf));
+
+    if (iRegistered || iEndpoint.Address() == 0) {
+        return;
+    }
+
+    Bws<200> info;
+    iProvider.MdnsAppendTxtRecord(info, "CPath", "/test.html");
+    iProvider.MdnsRegisterService(iHandle, iName.PtrZ(), "_odp._tcp", iEndpoint.Address(), iEndpoint.Port(), info.PtrZ());
+    iRegistered = true;
+}
+
+void OdpDevice::DeregisterLocked()
+{
+    if (!iRegistered) {
+        return;
+    }
+
+    iProvider.MdnsDeregisterService(iHandle);
+    iRegistered = false;
+}
+
+void OdpDevice::NameChanged(const Brx& aName)
+{
+    AutoMutex a(iLock);
+    if (iRegistered) {
+        DeregisterLocked();
+        iName.Replace(aName);
+        ASSERT(iName.Bytes() < iName.MaxBytes());   // space for '\0'
+        RegisterLocked();
+    }
+    else { // Nothing registered, so nothing to deregister. Just update name.
+        iName.Replace(aName);
+        ASSERT(iName.Bytes() < iName.MaxBytes());   // space for '\0'
+    }
+}
+
 // DviSessionOdp
 
 const Brn DviSessionOdp::kUserAgentDefault("Odp");
@@ -61,7 +149,7 @@ void DviSessionOdp::Run()
                 throw;
             }
             catch (Exception& ex) {
-                LOG_ERROR(kOdp, "DviSessionOdp::Run - %s parsing request:\n%.*s\n", ex.Message(), PBUF(request));
+                LOG_ERROR(kBonjour, "DviSessionOdp::Run - %s parsing request:\n%.*s\n", ex.Message(), PBUF(request));
             }
         }
     }
@@ -105,38 +193,17 @@ const Brx& DviSessionOdp::ClientUserAgentDefault() const
 
 // DviServerOdp
 
-DviServerOdp::DviServerOdp(DvStack& aDvStack, Av::IFriendlyNameObservable& aFriendlyNameObservable, TUint aNumSessions, TUint aPort)
+DviServerOdp::DviServerOdp(DvStack& aDvStack, TUint aNumSessions, TUint aPort)
     : DviServer(aDvStack)
     , iNumSessions(aNumSessions)
     , iPort(aPort)
-    , iEnv(aDvStack.Env())
-    , iProvider(*iEnv.MdnsProvider())
-    , iFriendlyNameObservable(aFriendlyNameObservable)
-    , iHandleOdp(iProvider.MdnsCreateService())
-    , iRegistered(false)
-    , iLock("ODPL")
 {
     Initialise();
-
-    // FIXME: See ZeroConf for handling multiple adapters
-    NetworkAdapterList& adapterList = iEnv.NetworkAdapterList();
-    Functor functor = MakeFunctor(*this, &DviServerOdp::HandleInterfaceChange);
-    iCurrentAdapterChangeListenerId = adapterList.AddCurrentChangeListener(functor, "DviServerOdp-current");
-    iSubnetListChangeListenerId = adapterList.AddSubnetListChangeListener(functor, "DviServerOdp-subnet");
-
-    iFriendlyNameId = iFriendlyNameObservable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(*this, &DviServerOdp::NameChanged));
-    HandleInterfaceChange();
 }
 
 DviServerOdp::~DviServerOdp()
 {
     Deinitialise();
-
-    iFriendlyNameObservable.DeregisterFriendlyNameObserver(iFriendlyNameId);
-    Deregister();
-
-    iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iCurrentAdapterChangeListenerId);
-    iEnv.NetworkAdapterList().RemoveSubnetListChangeListener(iSubnetListChangeListenerId);
 }
 
 TUint DviServerOdp::Port() const
@@ -144,11 +211,16 @@ TUint DviServerOdp::Port() const
     return iPort;
 }
 
+void DviServerOdp::SetServerCreatedCallback(Functor aCallback)
+{
+    iServerCreated = aCallback;
+}
+
 SocketTcpServer* DviServerOdp::CreateServer(const NetworkAdapter& aNif)
 {
     auto server = new SocketTcpServer(iDvStack.Env(), "OdpServer", iPort, aNif.Address());
-    if (iPort == 0) {
-        iPort = server->Port();
+    if (iPort == 0) { 
+        iPort = server->Port(); 
     }
     for (TUint i=0; i<iNumSessions; i++) {
         Bws<Thread::kMaxNameBytes+1> thName;
@@ -161,82 +233,197 @@ SocketTcpServer* DviServerOdp::CreateServer(const NetworkAdapter& aNif)
     return server;
 }
 
-void DviServerOdp::NotifyServerDeleted(TIpAddress /*aInterface*/)
+void DviServerOdp::NotifyServerDeleted(TIpAddress /*aInterface*/) 
+{ 
+} 
+
+void DviServerOdp::NotifyServerCreated(TIpAddress /*aInterface*/)
 {
+    if (iServerCreated) {
+        iServerCreated();
+    }
 }
 
-void DviServerOdp::HandleInterfaceChange()
+// OdpZeroConfDevices
+
+OdpZeroConfDevices::OdpZeroConfDevices(Net::IMdnsProvider& aMdnsProvider, Av::IFriendlyNameObservable& aFriendlyNameObservable)
+    : iMdnsProvider(aMdnsProvider)
+    , iFriendlyNameObservable(aFriendlyNameObservable)
+    , iEnabled(false)
+    , iLock("ODPD")
 {
-    AutoMutex a(iLock);
-    NetworkAdapterList& adapterList = iEnv.NetworkAdapterList();
-    std::vector<NetworkAdapter*>* subnetList = adapterList.CreateSubnetList();
-    AutoNetworkAdapterRef ref(iEnv, "DviServerOdp HandleInterfaceChange");
-    const NetworkAdapter* current = ref.Adapter();
+    // Owner of this class must call NetworkAdaptersChanged() to initialise devices.
+}
+
+OdpZeroConfDevices::~OdpZeroConfDevices()
+{
+    AutoMutex _(iLock);
+    for (TUint i=0; i<iDevices.size(); i++) {
+        delete iDevices[i];
+    }
+}
+
+void OdpZeroConfDevices::SetEnabled(TBool aEnabled)
+{
+    AutoMutex _(iLock);
+    LOG(kBonjour, "OdpZeroConfDevices::SetEnabled aEnabled: %u, iEnabled: %u, iDevices.size(): %u\n", aEnabled, iEnabled, iDevices.size());
+    if (aEnabled != iEnabled) {
+        iEnabled = aEnabled;
+
+        for (auto* d : iDevices) {
+            if (iEnabled) {
+                d->Register();
+            }
+            else {
+                d->Deregister();
+            }
+        }
+    }
+}
+
+void OdpZeroConfDevices::NetworkAdaptersChanged(std::vector<NetworkAdapter*>& aNetworkAdapters, Optional<NetworkAdapter>& aCurrent, TUint aZeroConfPort)
+{
+    NetworkAdapter* current = nullptr;
+    if (aCurrent.Ok()) {
+        current = &aCurrent.Unwrap();
+    }
+
+    AutoMutex _(iLock);
+    // On interface change:
+    // - if single interface selected:
+    // -- remove all subnets that are not selected
+    // -- if no subnets remain, add the current interface
+    // - else:
+    // -- remove all subnets that no longer exist
+    // -- add new subnets
 
     if (current != NULL) {
-        iEndpoint.SetAddress(current->Address());
+        // Single interface selected. Register only on this interface.
+        // First, remove any other interfaces.
+        TUint i = 0;
+        while (i<iDevices.size()) {
+            if (!iDevices[i]->NetworkAdapterAndPortMatch(*current, aZeroConfPort)) {
+                delete iDevices[i];
+                iDevices.erase(iDevices.begin()+i);
+            }
+            else {
+                i++;
+            }
+        }
+
+        // If this interface isn't registered, add it.
+        if (iDevices.size() == 0) {
+            AddAdapterLocked(*current, aZeroConfPort);
+        }
     }
     else {
-        NetworkAdapter* subnet = (*subnetList)[0]; // FIXME: this is obviously not good enough but should help get something up and running for now
-        iEndpoint.SetAddress(subnet->Address());
+        // No interface selected. Advertise on all interfaces.
+        // First, remove any subnets that have disappeared from the new subnet list.
+        TUint i = 0;
+        while (i<iDevices.size()) {
+            if (OdpDeviceAdapterInCurrentAdapters(*iDevices[i], aNetworkAdapters, aZeroConfPort) == -1) {
+                delete iDevices[i];
+                iDevices.erase(iDevices.begin()+i);
+            }
+            else {
+                i++;
+            }
+        }
+
+        // Then, add any new interfaces.
+        for (TUint j=0; j<aNetworkAdapters.size(); j++) {
+            NetworkAdapter* subnet = (aNetworkAdapters)[j];
+            if (AdapterInCurrentOdpDeviceAdapters(*subnet, aZeroConfPort) == -1) {
+                AddAdapterLocked(*subnet, aZeroConfPort);
+            }
+        }
     }
+}
+
+TInt OdpZeroConfDevices::AdapterInCurrentOdpDeviceAdapters(const NetworkAdapter& aAdapter, TUint aZeroConfPort)
+{
+    for (TUint i=0; i<(TUint)iDevices.size(); i++) {
+        if (iDevices[i]->NetworkAdapterAndPortMatch(aAdapter, aZeroConfPort)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+TInt OdpZeroConfDevices::OdpDeviceAdapterInCurrentAdapters(const OdpDevice& aDevice, const std::vector<NetworkAdapter*>& aList, TUint aZeroConfPort)
+{
+    for (TUint i=0; i<(TUint)aList.size(); i++) {
+        if (aDevice.NetworkAdapterAndPortMatch(*(aList[i]), aZeroConfPort)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void OdpZeroConfDevices::AddAdapterLocked(NetworkAdapter& aAdapter, TUint aZeroConfPort)
+{
+    Endpoint::AddressBuf addrBuf;
+    Endpoint::AppendAddress(addrBuf, aAdapter.Address());
+    LOG(kBonjour, "OdpZeroConfDevices::AddAdapter %.*s, aZeroConfPort: %u, iEnabled: %u", PBUF(addrBuf), aZeroConfPort, iEnabled);
+
+    Endpoint ep(aZeroConfPort, aAdapter.Address());
+    OdpDevice* device = new OdpDevice(iMdnsProvider, aAdapter, iFriendlyNameObservable, ep);
+    iDevices.push_back(device);
+
+    if (iEnabled) {
+        device->Register();
+    }
+}
+
+// OdpZeroConf
+
+OdpZeroConf::OdpZeroConf(Environment& aEnv, DviServerOdp& aServerOdp, Av::IFriendlyNameObservable& aFriendlyNameObservable)
+    : iEnv(aEnv)
+    , iZeroConfServer(aServerOdp)
+    , iZeroConfDevices(*iEnv.MdnsProvider(), aFriendlyNameObservable)
+    , iEnabled(false)
+    , iLock("SZCL")
+{
+    Functor functor = MakeFunctor(*this, &OdpZeroConf::OdpServerCreated);
+    iZeroConfServer.SetServerCreatedCallback(functor);
+
+    // An initial callback is not made after adding the listener above.
+    // So, call the callback method here to initialise adapters.
+    OdpServerCreated();
+}
+
+OdpZeroConf::~OdpZeroConf()
+{
+}
+
+void OdpZeroConf::SetZeroConfEnabled(TBool aEnabled)
+{
+    AutoMutex _(iLock);
+    LOG(kBonjour, "OdpZeroConf::SetZeroConfEnabled aEnabled: %u, iEnabled: %u\n", aEnabled, iEnabled);
+    if (aEnabled != iEnabled) {
+        iEnabled = aEnabled;
+        iZeroConfDevices.SetEnabled(iEnabled);
+    }
+}
+
+void OdpZeroConf::OdpServerCreated()
+{
+    AutoMutex _(iLock);
+    NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
+    std::vector<NetworkAdapter*>* subnetList = nifList.CreateSubnetList();
+    AutoNetworkAdapterRef ref(iEnv, "OdpZeroConf::HandleInterfaceChange");
+    NetworkAdapter* current = ref.Adapter();
+
+    /*
+     * The zeroconf server and MDNS devices must be updated simultaneously,
+     * using the same network adapter list and current adapter.
+     *
+     * The MDNS devices are required to know what port the zeroconf server
+     * is advertising on, so the zeroconf server must be updated first.
+     */
+    Optional<NetworkAdapter> optCurrent(current);
+    const TUint port = iZeroConfServer.Port();
+    iZeroConfDevices.NetworkAdaptersChanged(*subnetList, optCurrent, port);
+
     NetworkAdapterList::DestroySubnetList(subnetList);
-
-    if (iRegistered) {
-        DeregisterLocked();
-    }
-    RegisterLocked();
-}
-
-void DviServerOdp::Register()
-{
-    AutoMutex a(iLock);
-    RegisterLocked();
-}
-
-void DviServerOdp::Deregister()
-{
-    AutoMutex a(iLock);
-    DeregisterLocked();
-}
-
-void DviServerOdp::RegisterLocked()
-{
-    if (iRegistered || iEndpoint.Address() == 0) {
-        return;
-    }
-    iEndpoint.SetPort(iPort);
-
-    Bws<Endpoint::kMaxAddressBytes> addr;
-    Endpoint::AppendAddress(addr, iEndpoint.Address());
-    //Log::Print("Odp Endpoint (%.*s): %.*s:%d\n", PBUF(iName), PBUF(addr), iEndpoint.Port());
-
-    Bws<200> info;
-    iProvider.MdnsAppendTxtRecord(info, "CPath", "/test.html");
-    iProvider.MdnsRegisterService(iHandleOdp, iName.PtrZ(), "_odp._tcp", iEndpoint.Address(), iEndpoint.Port(), info.PtrZ());
-    iRegistered = true;
-}
-
-void DviServerOdp::DeregisterLocked()
-{
-    if (!iRegistered) {
-        return;
-    }
-    iProvider.MdnsDeregisterService(iHandleOdp);
-    iRegistered = false;
-}
-
-void DviServerOdp::NameChanged(const Brx& aName)
-{
-    AutoMutex a(iLock);
-    if (iRegistered) {
-        DeregisterLocked();
-        iName.Replace(aName);
-        ASSERT(iName.Bytes() < iName.MaxBytes());   // space for '\0'
-        RegisterLocked();
-    }
-    else { // Nothing registered, so nothing to deregister. Just update name.
-        iName.Replace(aName);
-        ASSERT(iName.Bytes() < iName.MaxBytes());   // space for '\0'
-    }
 }
