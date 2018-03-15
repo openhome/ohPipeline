@@ -1,4 +1,4 @@
-#include <OpenHome/Net/Odp/Tests/CpiDeviceOdp.h>
+#include <OpenHome/Net/Odp/CpiDeviceOdp.h>
 #include <OpenHome/Net/Odp/Odp.h>
 #include <OpenHome/Net/Private/CpiDevice.h>
 #include <OpenHome/Types.h>

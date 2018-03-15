@@ -3,8 +3,8 @@
 #include <OpenHome/Private/OptionParser.h>
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Net/Private/MdnsProvider.h>
-#include <OpenHome/Net/Odp/Tests/CpiDeviceOdp.h>
-#include <OpenHome/Net/Private/FunctorCpiDevice.h>
+#include <OpenHome/Net/Odp/CpDeviceOdp.h>
+#include <OpenHome/Net/Core/FunctorCpDevice.h>
 
 #include <vector>
 
@@ -16,10 +16,10 @@ class DeviceListLogger
 {
 public:
     DeviceListLogger();
-    void Added(CpiDevice& aDevice);
-    void Removed(CpiDevice& aDevice);
+    void Added(CpDevice& aDevice);
+    void Removed(CpDevice& aDevice);
 private:
-    void PrintDeviceInfo(const char* aPrologue, const CpiDevice& aDevice);
+    void PrintDeviceInfo(const char* aPrologue, const CpDevice& aDevice);
 private:
     Mutex iLock;
 };
@@ -29,17 +29,17 @@ DeviceListLogger::DeviceListLogger()
 {
 }
 
-void DeviceListLogger::Added(CpiDevice& aDevice)
+void DeviceListLogger::Added(CpDevice& aDevice)
 {
     PrintDeviceInfo("Added", aDevice);
 }
 
-void DeviceListLogger::Removed(CpiDevice& aDevice)
+void DeviceListLogger::Removed(CpDevice& aDevice)
 {
     PrintDeviceInfo("Removed", aDevice);
 }
 
-void DeviceListLogger::PrintDeviceInfo(const char* aPrologue, const CpiDevice& aDevice)
+void DeviceListLogger::PrintDeviceInfo(const char* aPrologue, const CpDevice& aDevice)
 {
     iLock.Wait();
     Print("ODP Device %s\n", aPrologue);
@@ -65,7 +65,7 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
         return;
     }
 
-    aInitParams->SetDvEnableBonjour("TestCpiDeviceListOdp", true);
+    aInitParams->SetDvEnableBonjour("TestCpDeviceListOdp", true);
     Library* lib = new Library(aInitParams);
     std::vector<NetworkAdapter*>* subnetList = lib->CreateSubnetList();
     TIpAddress subnet = (*subnetList)[adapter.Value()]->Subnet();
@@ -85,10 +85,9 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
     lib->StartCombined(subnet, cpStack, dvStack);
 
     DeviceListLogger logger;
-    FunctorCpiDevice added = MakeFunctorCpiDevice(logger, &DeviceListLogger::Added);
-    FunctorCpiDevice removed = MakeFunctorCpiDevice(logger, &DeviceListLogger::Removed);
-    CpiDeviceListOdpAll* deviceList = new CpiDeviceListOdpAll(*cpStack, added, removed);
-    deviceList->Start();
+    FunctorCpDevice added = MakeFunctorCpDevice(logger, &DeviceListLogger::Added);
+    FunctorCpDevice removed = MakeFunctorCpDevice(logger, &DeviceListLogger::Removed);
+    CpDeviceListOdpAll* deviceList = new CpDeviceListOdpAll(*cpStack, added, removed);
 
     Thread::Sleep(10 * 1000);
 

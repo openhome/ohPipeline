@@ -10,7 +10,7 @@
 #include <OpenHome/Private/Network.h>
 #include <OpenHome/Net/Odp/DviProtocolOdp.h>
 #include <OpenHome/Net/Odp/DviServerOdp.h>
-#include <OpenHome/Net/Odp/Tests/CpiDeviceOdp.h>
+#include <OpenHome/Net/Odp/CpiDeviceOdp.h>
 #include <OpenHome/Net/Core/CpDevice.h>
 #include <OpenHome/Private/Network.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>

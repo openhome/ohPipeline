@@ -340,6 +340,8 @@ def build(bld):
                 'OpenHome/Net/Odp/DviProtocolOdp.cpp',
                 'OpenHome/Net/Odp/DviServerOdp.cpp',
                 'OpenHome/Net/Odp/CpiOdp.cpp',
+                'OpenHome/Net/Odp/CpiDeviceOdp.cpp',
+                'OpenHome/Net/Odp/CpDeviceOdp.cpp',
             ],
             use=['OHNET'],
             target='Odp')
@@ -757,7 +759,6 @@ def build(bld):
                 'OpenHome/Tests/TestThreadPool.cpp',
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
-                'OpenHome/Net/Odp/Tests/CpiDeviceOdp.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
             use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
@@ -1099,9 +1100,9 @@ def build(bld):
             target='TestDvOdp',
             install_path=None)
     bld.program(
-            source='OpenHome/Net/Odp/Tests/TestCpiDeviceListOdp.cpp',
+            source='OpenHome/Net/Odp/Tests/TestCpDeviceListOdp.cpp',
             use=['OHNET', 'Odp', 'ohMediaPlayerTestUtils'],
-            target='TestCpiDeviceListOdp',
+            target='TestCpDeviceListOdp',
             install_path=None)
 
     bld.stlib(
