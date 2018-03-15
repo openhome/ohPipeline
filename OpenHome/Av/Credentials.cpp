@@ -2,6 +2,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
+#include <OpenHome/PowerManager.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Timer.h>
@@ -27,17 +28,17 @@ class Credential : private ICredentialState
     static const TUint kEventModerationMs = 500;
     static const TUint kEnableNo;
     static const TUint kEnableYes;
-    static const TUint kGranularityUsername             = 64;
-    static const TUint kGranularityMaxPassword          = 64;
-    static const TUint kGranularityPasswordEncrypted    = 512;
-    static const TUint kGranularityStatus               = 512;
-    static const TUint kGranularityData                 = 128;
+    static const TUint kGranularityStatus = 512;
+    static const TUint kGranularityData   = 128;
+    static const TUint kUsernameMaxBytes  = 512;
+    static const TUint kPasswordMaxBytes  = 512;
 public:
-    Credential(Environment& aEnv, ICredentialConsumer* aConsumer, ICredentialObserver& aObserver, Fifo<Credential*>& aFifoCredentialsChanged, Configuration::IConfigInitialiser& aConfigInitialiser);
+    Credential(Environment& aEnv, ICredentialConsumer* aConsumer, ICredentialObserver& aObserver,
+               Fifo<Credential*>& aFifoCredentialsChanged, Configuration::IConfigInitialiser& aConfigInitialiser,
+               Configuration::IStoreReadWrite& aStore, IPowerManager& aPowerManager);
     ~Credential();
     void SetKey(RSA* aKey);
     const Brx& Id() const;
-    void Set(const Brx& aUsername);
     void Set(const Brx& aUsername, const Brx& aPassword);
     void Clear();
     void Enable(TBool aEnable);
@@ -53,8 +54,7 @@ private: // from ICredentialState
     void Status(IWriter& aWriter) override;
     void Data(IWriter& aWriter) override;
 private:
-    void UsernameChanged(Configuration::KeyValuePair<const Brx&>& aKvp);
-    void PasswordChanged(Configuration::KeyValuePair<const Brx&>& aKvp);
+    void DecryptPasswordLocked();
     void EnableChanged(Configuration::KeyValuePair<TUint>& aKvp);
     void ModerationTimerCallback();
     void CheckStatus();
@@ -65,16 +65,14 @@ private:
     ICredentialObserver& iObserver;
     RSA* iRsa;
     Fifo<Credential*>& iFifoCredentialsChanged;
-    Configuration::ConfigText* iConfigUsername;
-    Configuration::ConfigText* iConfigPassword;
+    StoreText* iStoreUsername;
+    StoreText* iStorePasswordEncrypted;
     Configuration::ConfigChoice* iConfigEnable;
-    TUint iSubscriberIdUsername;
-    TUint iSubscriberIdPassword;
     TUint iSubscriberIdEnable;
     Timer* iModerationTimer;
-    WriterBwh iUsername;
-    Bwh iPassword;
-    WriterBwh iPasswordEncrypted;
+    Bws<kUsernameMaxBytes> iUsername;
+    Bws<kPasswordMaxBytes> iPassword;
+    Bws<kPasswordMaxBytes> iPasswordEncrypted;
     WriterBwh iStatus;
     WriterBwh iData;
     TBool iEnabled;
@@ -83,7 +81,7 @@ private:
 };
 
 } // namespace Av
-} //namespace OpenHome
+} // namespace OpenHome
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -108,17 +106,18 @@ AutoCredentialState::~AutoCredentialState()
 const TUint Credential::kEnableNo  = 0;
 const TUint Credential::kEnableYes = 1;
 
-Credential::Credential(Environment& aEnv, ICredentialConsumer* aConsumer, ICredentialObserver& aObserver, Fifo<Credential*>& aFifoCredentialsChanged, Configuration::IConfigInitialiser& aConfigInitialiser)
+Credential::Credential(Environment& aEnv,
+                       ICredentialConsumer* aConsumer, ICredentialObserver& aObserver,
+                       Fifo<Credential*>& aFifoCredentialsChanged,
+                       Configuration::IConfigInitialiser& aConfigInitialiser,
+                       IStoreReadWrite& aStore,
+                       IPowerManager& aPowerManager)
     : iLock("CRED")
     , iConsumer(aConsumer)
     , iObserver(aObserver)
     , iRsa(nullptr)
     , iFifoCredentialsChanged(aFifoCredentialsChanged)
-    , iSubscriberIdUsername(IConfigManager::kSubscriptionIdInvalid)
-    , iSubscriberIdPassword(IConfigManager::kSubscriptionIdInvalid)
     , iSubscriberIdEnable(IConfigManager::kSubscriptionIdInvalid)
-    , iUsername(kGranularityUsername)
-    , iPasswordEncrypted(kGranularityPasswordEncrypted)
     , iStatus(kGranularityStatus)
     , iData(kGranularityData)
     , iEnabled(true)
@@ -129,11 +128,11 @@ Credential::Credential(Environment& aEnv, ICredentialConsumer* aConsumer, ICrede
     Bws<64> key(aConsumer->Id());
     key.Append('.');
     key.Append(Brn("Username"));
-    iConfigUsername = new ConfigText(aConfigInitialiser, key, 0, ConfigText::kMaxBytes, Brx::Empty());
+    iStoreUsername = new StoreText(aStore, aPowerManager, kPowerPriorityNormal, key, Brx::Empty(), kUsernameMaxBytes);
     key.Replace(iConsumer->Id());
     key.Append('.');
     key.Append(Brn("Password"));
-    iConfigPassword = new ConfigText(aConfigInitialiser, key, 0, ConfigText::kMaxBytes, Brx::Empty());
+    iStorePasswordEncrypted = new StoreText(aStore, aPowerManager, kPowerPriorityNormal, key, Brx::Empty(), kPasswordMaxBytes);
     key.Replace(iConsumer->Id());
     key.Append('.');
     key.Append(Brn("Enabled"));
@@ -146,14 +145,8 @@ Credential::Credential(Environment& aEnv, ICredentialConsumer* aConsumer, ICrede
 Credential::~Credential()
 {
     delete iModerationTimer;
-    if (iConfigUsername != nullptr) {
-        iConfigUsername->Unsubscribe(iSubscriberIdUsername);
-        delete iConfigUsername;
-    }
-    if (iConfigPassword != nullptr) {
-        iConfigPassword->Unsubscribe(iSubscriberIdPassword);
-        delete iConfigPassword;
-    }
+    delete iStoreUsername;
+    delete iStorePasswordEncrypted;
     if (iConfigEnable != nullptr) {
         iConfigEnable->Unsubscribe(iSubscriberIdEnable);
         delete iConfigEnable;
@@ -163,9 +156,13 @@ Credential::~Credential()
 
 void Credential::SetKey(RSA* aKey)
 {
-    iRsa = aKey;
-    iSubscriberIdUsername = iConfigUsername->Subscribe(MakeFunctorConfigText(*this, &Credential::UsernameChanged));
-    iSubscriberIdPassword = iConfigPassword->Subscribe(MakeFunctorConfigText(*this, &Credential::PasswordChanged));
+    {
+        AutoMutex _(iLock);
+        iRsa = aKey;
+        iStoreUsername->Get(iUsername);
+        iStorePasswordEncrypted->Get(iPasswordEncrypted);
+        DecryptPasswordLocked();
+    }
     iSubscriberIdEnable = iConfigEnable->Subscribe(MakeFunctorConfigChoice(*this, &Credential::EnableChanged));
 }
 
@@ -174,42 +171,56 @@ const Brx& Credential::Id() const
     return iConsumer->Id();
 }
 
-void Credential::Set(const Brx& aUsername)
-{
-    iEnabled = true;
-    iStatus.Reset();
-    try {
-        iConfigUsername->Set(aUsername);
-    }
-    catch (ConfigValueTooShort&) {
-        ASSERTS(); // Credentials min lengths are set to 0 in constructor, so this exception should never be thrown.
-    }
-    catch (ConfigValueTooLong&) {
-        THROW(CredentialsTooLong);
-    }
-}
-
 void Credential::Set(const Brx& aUsername, const Brx& aPassword)
 {
+    TBool changed = false;
+    AutoMutex _(iLock);
+    if (aUsername != iUsername) {
+        iUsername.ReplaceThrow(aUsername);
+        changed = true;
+        iStoreUsername->Set(aUsername);
+        iStoreUsername->Write();
+    }
+    if (aPassword != iPasswordEncrypted) {
+        iPasswordEncrypted.ReplaceThrow(aPassword);
+        changed = true;
+        iStorePasswordEncrypted->Set(aPassword);
+        iStorePasswordEncrypted->Write();
+        DecryptPasswordLocked();
+    }
+    changed = changed || !iEnabled;
     iEnabled = true;
     iStatus.Reset();
-    try {
-        iConfigUsername->Set(aUsername);
-        iConfigPassword->Set(aPassword);
-    }
-    catch (ConfigValueTooShort&) {
-        ASSERTS(); // Credentials min lengths are set to 0 in constructor, so this exception should never be thrown.
-    }
-    catch (ConfigValueTooLong&) {
-        THROW(CredentialsTooLong);
+
+    if (changed) {
+        iObserver.CredentialChanged();
+        if (!iModerationTimerStarted) {
+            iModerationTimer->FireIn(kEventModerationMs);
+            iModerationTimerStarted = true;
+        }
     }
 }
 
 void Credential::Clear()
 {
-    iStatus.Reset();
-    iConfigUsername->Set(Brx::Empty());
-    iConfigPassword->Set(Brx::Empty());
+    TBool changed;
+    {
+        AutoMutex _(iLock);
+        changed =    iStatus.Buffer().Bytes() > 0
+                  || iUsername.Bytes() > 0
+                  || iPassword.Bytes() > 0;
+        iStatus.Reset();
+        iUsername.Replace(Brx::Empty());
+        iPassword.Replace(Brx::Empty());
+        iPasswordEncrypted.Replace(Brx::Empty());
+    }
+    if (changed) {
+        iObserver.CredentialChanged();
+        if (!iModerationTimerStarted) {
+            iModerationTimer->FireIn(kEventModerationMs);
+            iModerationTimerStarted = true;
+        }
+    }
 }
 
 void Credential::Enable(TBool aEnable)
@@ -259,12 +270,12 @@ void Credential::Unlock()
 
 void Credential::Username(IWriter& aWriter)
 {
-    aWriter.Write(iUsername.Buffer());
+    aWriter.Write(iUsername);
 }
 
 void Credential::Password(IWriter& aWriter)
 {
-    aWriter.Write(iPasswordEncrypted.Buffer());
+    aWriter.Write(iPasswordEncrypted);
 }
 
 TBool Credential::Enabled() const
@@ -282,34 +293,19 @@ void Credential::Data(IWriter& aWriter)
     aWriter.Write(iData.Buffer());
 }
 
-void Credential::UsernameChanged(Configuration::KeyValuePair<const Brx&>& aKvp)
+void Credential::DecryptPasswordLocked()
 {
-    iLock.Wait();
-    iUsername.Reset();
-    iUsername.Write(aKvp.Value());
-    iObserver.CredentialChanged();
-    if (!iModerationTimerStarted) {
-        iModerationTimer->FireIn(kEventModerationMs);
-        iModerationTimerStarted = true;
-    }
-    iLock.Signal();
-}
-
-void Credential::PasswordChanged(Configuration::KeyValuePair<const Brx&>& aKvp)
-{
-    AutoMutex _(iLock);
-    iPasswordEncrypted.Reset();
-    iPasswordEncrypted.Write(aKvp.Value());
-    const Brx& passwordEncrypted = iPasswordEncrypted.Buffer();
-    if (passwordEncrypted.Bytes() == 0) {
+    const auto encLen = iPasswordEncrypted.Bytes();
+    if (encLen == 0) {
         iPassword.SetBytes(0);
     }
     else {
         ASSERT(iRsa != nullptr);
-        if (iPassword.MaxBytes() < passwordEncrypted.Bytes()) {
-            iPassword.Grow(passwordEncrypted.Bytes());
-        }
-        const int decryptedLen = RSA_private_decrypt(passwordEncrypted.Bytes(), passwordEncrypted.Ptr(), const_cast<TByte*>(iPassword.Ptr()), iRsa, RSA_PKCS1_OAEP_PADDING);
+        const int decryptedLen = RSA_private_decrypt(encLen,
+                                                     iPasswordEncrypted.Ptr(),
+                                                     const_cast<TByte*>(iPassword.Ptr()),
+                                                     iRsa,
+                                                     RSA_PKCS1_OAEP_PADDING);
         if (decryptedLen < 0) {
             const Brx& id = Id();
             LOG_ERROR(kApplication6, "Failed to decrypt password for %.*s\n", PBUF(id));
@@ -318,11 +314,6 @@ void Credential::PasswordChanged(Configuration::KeyValuePair<const Brx&>& aKvp)
         else {
             iPassword.SetBytes((TUint)decryptedLen);
         }
-    }
-    iObserver.CredentialChanged();
-    if (!iModerationTimerStarted) {
-        iModerationTimer->FireIn(kEventModerationMs);
-        iModerationTimerStarted = true;
     }
 }
 
@@ -366,7 +357,7 @@ void Credential::CheckStatus()
 void Credential::ReportChangesLocked()
 {
     if (iEnabled) {
-        iConsumer->CredentialsChanged(iUsername.Buffer(), iPassword);
+        iConsumer->CredentialsChanged(iUsername, iPassword);
     }
     else {
         iConsumer->CredentialsChanged(Brx::Empty(), Brx::Empty());
@@ -379,10 +370,18 @@ void Credential::ReportChangesLocked()
 const Brn Credentials::kKeyRsaPrivate("RsaPrivateKey");
 const Brn Credentials::kKeyRsaPublic("RsaPublicKey");
 
-Credentials::Credentials(Environment& aEnv, Net::DvDevice& aDevice, IStoreReadWrite& aStore, const Brx& aEntropy, Configuration::IConfigInitialiser& aConfigInitialiser, TUint aKeyBits)
+Credentials::Credentials(Environment& aEnv,
+                         Net::DvDevice& aDevice,
+                         IStoreReadWrite& aStore,
+                         const Brx& aEntropy,
+                         Configuration::IConfigInitialiser& aConfigInitialiser,
+                         IPowerManager& aPowerManager,
+                         TUint aKeyBits)
     : iLock("CRD1")
     , iEnv(aEnv)
     , iConfigInitialiser(aConfigInitialiser)
+    , iStore(aStore)
+    , iPowerManager(aPowerManager)
     , iKey(nullptr)
     , iLockRsaConsumers("CRD2")
     , iModerationTimerStarted(false)
@@ -414,7 +413,7 @@ Credentials::~Credentials()
 void Credentials::Add(ICredentialConsumer* aConsumer)
 {
     AutoMutex _(iLock);
-    Credential* credential = new Credential(iEnv, aConsumer, *this, iFifo, iConfigInitialiser);
+    Credential* credential = new Credential(iEnv, aConsumer, *this, iFifo, iConfigInitialiser, iStore, iPowerManager);
     iCredentials.push_back(credential);
     if (iStarted) {
         credential->SetKey((RSA*)iKey);
@@ -450,12 +449,6 @@ void Credentials::SetState(const Brx& aId, const Brx& aStatus, const Brx& aData)
 void Credentials::GetPublicKey(Bwx& aKey)
 {
     aKey.Replace(iKeyBuf);
-}
-
-void Credentials::Set(const Brx& aId, const Brx& aUsername)
-{
-    Credential* credential = Find(aId);
-    credential->Set(aUsername);
 }
 
 void Credentials::Set(const Brx& aId, const Brx& aUsername, const Brx& aPassword)

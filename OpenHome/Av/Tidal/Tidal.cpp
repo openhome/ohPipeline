@@ -334,9 +334,11 @@ TBool Tidal::TryConnect(TUint aPort)
         iSocket.Connect(ep, kConnectTimeoutMs);
     }
     catch (NetworkTimeout&) {
+        iSocket.Close();
         return false;
     }
     catch (NetworkError&) {
+        iSocket.Close();
         return false;
     }
     return true;

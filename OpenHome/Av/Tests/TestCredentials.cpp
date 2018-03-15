@@ -3,6 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
+#include <OpenHome/PowerManager.h>
 #include <OpenHome/Net/Core/DvDevice.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Net/Private/DviStack.h>
@@ -104,6 +105,7 @@ private:
     CpDeviceDv* iCpDevice;
     ConfigRamStore* iConfigRamStore;
     ConfigManager* iConfigManager;
+    IPowerManager* iPowerManager;
     Credentials* iCredentials;
     DummyCredential* iDummy;
     CpProxyAvOpenhomeOrgCredentials1* iProxy;
@@ -198,7 +200,8 @@ SuiteCredentials::SuiteCredentials(CpStack& aCpStack, DvStack& aDvStack)
     iCpDevice = CpDeviceDv::New(aCpStack, *iDvDevice);
     iConfigRamStore = new ConfigRamStore();
     iConfigManager = new ConfigManager(*iConfigRamStore);
-    iCredentials = new Credentials(aDvStack.Env(), *iDvDevice, iConfigManager->Store(), udn, *iConfigManager, kKeyBits);
+    iPowerManager = new PowerManager(*iConfigManager);
+    iCredentials = new Credentials(aDvStack.Env(), *iDvDevice, iConfigManager->Store(), udn, *iConfigManager, *iPowerManager, kKeyBits);
     iDummy = new DummyCredential(*iCredentials, iCredChanged, iStatusChanged);
     iCredentials->Add(iDummy);
     iCredentials->Start();
@@ -216,6 +219,7 @@ SuiteCredentials::~SuiteCredentials()
 {
     delete iProxy;
     delete iCredentials;
+    delete iPowerManager;
     delete iConfigManager;
     delete iConfigRamStore;
     iCpDevice->RemoveRef();
