@@ -5,7 +5,7 @@ Parameters:
 
 Check functionality of playback modes (repeat/shuffle)
 """
-import _Paths
+import _Paths   # NOQA
 import CommonCompliancePlaylist2 as BASE
 import sys
 

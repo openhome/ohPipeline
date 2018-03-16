@@ -5,7 +5,7 @@ Parameters:
 
 Check functionality of playback state-transitions
 """
-import _Paths
+import _Paths   # NOQA
 import CommonCompliancePlaylist3 as BASE
 import sys
 

@@ -16,7 +16,7 @@ Test test which plays Qobuz served tracks from a playlist sequentially. The trac
 may be played for their entirety or any specified length of time. Repeat and shuffle
 modes may be selected
 """
-import _Paths
+import _Paths   # NOQA
 import CommonQobuzPlayTracks as BASE
 import sys
 

@@ -4,10 +4,10 @@
 Parameters:
     arg#1 - DUT ['local' for internal SoftPlayer]
     arg#2 - Test duration (secs) or 'forever'
-    
+
 Verifies AirPlay audio output by the DUT does not suffer from audio dropout
-""" 
-import _Paths
+"""
+import _Paths   # NOQA
 import CommonAirplayDropout as BASE
 import LogThread
 import sys
@@ -47,6 +47,5 @@ class TestAirplayDropout( BASE.CommonAirplayDropout ):
 
 
 if __name__ == '__main__':
-    
+
     BASE.Run( sys.argv )
-        

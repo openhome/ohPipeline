@@ -11,11 +11,11 @@ supported services cleanly
 #   - Credentials - requires account with credentials provider
 #   - Radio       - requires non-device-specific way to setup TuneIn account
 
-import _Paths
+import _Paths   # NOQA
 import BaseSuite as Suite
 import os
 import sys
- 
+
 try:
     dut = sys.argv[1]
 except:

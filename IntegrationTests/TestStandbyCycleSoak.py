@@ -5,9 +5,9 @@
 Parameters:
     arg#1 - DUT ['local' for internal SoftPlayer on loopback]
     arg#2 - Number of test loops
-    
+
 """
-import _Paths
+import _Paths   # NOQA
 import CommonStandbyCycleSoak as BASE
 import sys
 

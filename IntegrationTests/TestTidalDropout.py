@@ -16,7 +16,7 @@ local' for internal SoftPlayer on loopback for DUTs
 Verifies TIDAL served audio played by the DUT does not suffer from audio dropout.
 Additionally checks for dropout on downstream songcast receiver(s)
 """
-import _Paths
+import _Paths   # NOQA
 import CommonTidalDropout as BASE
 import sys
 
