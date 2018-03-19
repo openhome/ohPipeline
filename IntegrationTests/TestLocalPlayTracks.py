@@ -13,7 +13,7 @@ Test test which plays locally served tracks from a playlist sequentially. The tr
 may be played for their entirety or any specified length of time. Repeat and shuffle
 modes may be selected
 """
-import _Paths
+import _Paths   # NOQA
 import CommonLocalPlayTracks as BASE
 import sys
 

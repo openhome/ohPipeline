@@ -6,10 +6,10 @@ Parameters:
     arg#2 - UPnP media server to source media from
     arg#3 - Playlist name
     arg#4 - Loops of add/del
-    
-This is a stress test for the pipeline    
+
+This is a stress test for the pipeline
 """
-import _Paths
+import _Paths   # NOQA
 import CommonPlaylistAddDelSoak as BASE
 import sys
 

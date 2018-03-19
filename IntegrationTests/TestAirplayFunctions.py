@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 """TestAirplayFunctions - test Net Aux source functionality.
- 
+
 Parameters:
     arg#1 - DUT ['local' for internal SoftPlayer (NOT on loopback)]
 
 NOTES
     - allow delay after setting DACP speaker (or iTunes (ver >= 11) may hang)
-            
-This verifies output by the DUT using Net Aux decode is correct, and Net Aux 
+
+This verifies output by the DUT using Net Aux decode is correct, and Net Aux
 source handling operates correctly.
-""" 
-import _Paths
+"""
+import _Paths   # NOQA
 import CommonAirplayFunctions as BASE
 import sys
 import time

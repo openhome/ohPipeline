@@ -1,7 +1,7 @@
 """Update code to latest and build ohMediaPlayer
 """
 
-import _Paths
+import _Paths   # NOQA
 import CommonBuild as BASE
 import os
 import sys

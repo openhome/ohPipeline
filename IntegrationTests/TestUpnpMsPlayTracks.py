@@ -14,7 +14,7 @@ Test test which plays UPnP Media Server served tracks from a playlist sequential
 tracks may be played for their entirety or any specified length of time. Repeat and shuffle
 modes may be selected
 """
-import _Paths
+import _Paths   # NOQA
 import CommonUpnpMsPlayTracks as BASE
 import sys
 

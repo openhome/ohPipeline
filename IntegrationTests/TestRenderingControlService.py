@@ -3,10 +3,10 @@
 
 Parameters:
     arg#1 - DUT ['local' for internal SoftPlayer on loopback]
-            
+
 Check UPnP AV RenderingControl (Volume) service
 """
-import _Paths
+import _Paths   # NOQA
 import CommonRenderingControlService as BASE
 import sys
 
