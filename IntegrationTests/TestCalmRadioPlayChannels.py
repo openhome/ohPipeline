@@ -12,7 +12,7 @@ Parameters:
 Test test which plays Calm Radio served channels from a channel list sequentially. The
 channels may be played for any specified length of time (or indefinitely)
 """
-import _Paths
+import _Paths   # NOQA
 import CommonCalmRadioPlayChannels as BASE
 import sys
 

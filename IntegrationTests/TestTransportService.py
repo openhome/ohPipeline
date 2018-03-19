@@ -4,7 +4,7 @@
 Parameters:
     arg#1 - Device Under Test
 """
-import _Paths
+import _Paths   # NOQA
 import CommonTransportService as BASE
 import sys
 

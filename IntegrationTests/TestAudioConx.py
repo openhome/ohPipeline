@@ -16,11 +16,11 @@ Parameters:
                 - errCode for error (blank for all)
                 - loops for respond
                 - invoke for buff-invoke (blank for all)
-               
+
 This is a collection of discrete tests using a 'test' audio server which can
 simulate normal and error conditions from the server
 """
-import _Paths
+import _Paths   # NOQA
 import CommonAudioConx as BASE
 import sys
 

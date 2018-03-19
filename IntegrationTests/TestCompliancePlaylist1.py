@@ -5,7 +5,7 @@ Parameters:
 
 Check functionality of playback handling (insert/delete/seek)
 """
-import _Paths
+import _Paths   # NOQA
 import CommonCompliancePlaylist1 as BASE
 import sys
 

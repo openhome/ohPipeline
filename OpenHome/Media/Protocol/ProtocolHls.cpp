@@ -286,19 +286,18 @@ void HttpSocket::Connect()
     // Underlying socket may already be open and connected if this new connection is part of an HTTP persistent connection.
 
     if (!iConnected) {
-        // Connect.
-        iTcpClient.Open(iEnv);
         try {
             LOG(kHttp, "HttpSocket::Connect connecting...\n");
+            iTcpClient.Open(iEnv);
             iTcpClient.Connect(iEndpoint, iConnectTimeoutMs);
         }
         catch (const NetworkTimeout&) {
-            Disconnect();   // FIXME - correct, or up to caller to do?
+            iTcpClient.Close();
             LOG(kHttp, "<HttpSocket::Connect caught NetworkTimeout\n");
             THROW(HttpSocketConnectionError);
         }
         catch (const NetworkError&) {
-            Disconnect();   // FIXME - correct, or up to caller to do?
+            iTcpClient.Close();
             LOG(kHttp, "<HttpSocket::Connect caught NetworkError\n");
             THROW(HttpSocketConnectionError);
         }
@@ -309,7 +308,7 @@ void HttpSocket::Connect()
             iTcpClient.SetRecvTimeout(iReceiveTimeoutMs);
         }
         catch (NetworkError&) {
-            LOG(kHttp, "Unable to set recv timeout of %u\n", iReceiveTimeoutMs);
+            LOG(kHttp, "HttpSocket::Connect Unable to set recv timeout of %u ms\n", iReceiveTimeoutMs);
         }
         iConnected = true;
         LOG(kHttp, "<HttpReader::Connect\n");

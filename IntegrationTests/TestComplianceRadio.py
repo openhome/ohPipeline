@@ -5,7 +5,7 @@ Parameters:
 
 Check compliance of Volume service functionality
 """
-import _Paths
+import _Paths   # NOQA
 import CommonComplianceRadio as BASE
 import sys
 

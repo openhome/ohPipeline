@@ -14,7 +14,7 @@ Test test which plays tracks from an M3U playlist sequentially under AVTransport
 control (test is acting like an AVT control point). The tracks may be played for
 their entirety or any specified length of time
 """
-import _Paths
+import _Paths   # NOQA
 import CommonAvTransportPlayTracks as BASE
 import sys
 

@@ -5,7 +5,7 @@ Parameters:
 
 Check compliance of Receiver service functionality
 """
-import _Paths
+import _Paths   # NOQA
 import CommonComplianceReceiver as BASE
 import sys
 

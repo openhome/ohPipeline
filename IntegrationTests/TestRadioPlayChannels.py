@@ -9,7 +9,7 @@ Parameters:
     arg#5 - Shuffle mode [on/off] (optional - default off)
     arg#6 - Test loops (optional - default 1)
 """
-import _Paths
+import _Paths   # NOQA
 import CommonRadioPlayChannels as BASE
 import sys
 

@@ -5,7 +5,7 @@ Parameters:
 
 Check compliance of Product service functionality (source manipulation)
 """
-import _Paths
+import _Paths   # NOQA
 import CommonComplianceProduct as BASE
 import sys
 
