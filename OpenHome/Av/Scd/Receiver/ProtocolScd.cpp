@@ -211,6 +211,12 @@ void ProtocolScd::Process(ScdMsgFormatDsd& aMsg)
     LOG_INFO(kScd, "ScdMsgFormatDsd: %u, %uch, sampleStart=%llu, samplesTotal=%llu, seekable=%u\n",
                    aMsg.SampleRate(), aMsg.NumChannels(), aMsg.SampleStart(),
                    aMsg.SamplesTotal(), aMsg.Seekable());
+    if (aMsg.SampleBlockBits() != 32) {
+        LOG_ERROR(kScd, "ScdMsgFormatDsd: unsupported sampleBlockBits - %u - closing connection\n",
+                        aMsg.SampleBlockBits());
+        iUnrecoverableError = true;
+        THROW(ScdError);
+    }
     iFormatPcm.Clear();
     SpeakerProfile spStereo;
     iFormatDsd.Set(aMsg.SampleRate(), aMsg.NumChannels(),
