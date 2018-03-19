@@ -7,7 +7,7 @@ Parameters:
 Cut-down version of Volkano1 source tests with purely software checks
 on only the OpenHome sources (no UPnP AV sources)
 """
-import _Paths
+import _Paths   # NOQA
 import CommonSourceSelect as BASE
 import sys
 

@@ -9,7 +9,7 @@ that all services, actions and attributes are present and respond as defined by 
 ohMediaPlayer 'standard'. Does NOT verify actual functionality - this is checked (in a
 basic form) in the service compliance tests.
 """
-import _Paths
+import _Paths   # NOQA
 import CommonComplianceDevice as BASE
 import sys
 

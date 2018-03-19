@@ -5,7 +5,7 @@ Parameters:
     arg#1 - DUT #1 ['local' for internal SoftPlayer)
     arg#2 - DUT #2 ['local' for internal SoftPlayer)
     arg#3 - DUT #3 ['local' for internal SoftPlayer)
-    arg#4 - test mode 
+    arg#4 - test mode
               - all          for all configs sequentially
               - random       for all configs randomly
               - <num>        for config number <num>
@@ -15,12 +15,12 @@ Parameters:
             replicated - the seed used is logged at the start of execution
     arg#6 - sender mode [unicast/multicast/none] - (optional - default unicast)
             'none' means no change to current DUT(s) sender mode(s)
-           
+
 Loopback is used only when ALL DUTs are 'local'
 Tests the sender and receiver services, and operation of zpus routing. Ensures
 status and actions operate as specified
 """
-import _Paths
+import _Paths   # NOQA
 import CommonSongcastPlayback as BASE
 import sys
 

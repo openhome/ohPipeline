@@ -145,6 +145,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     , iRxTimestamper(nullptr)
     , iStoreFileWriter(nullptr)
     , iOdpPort(aOdpPort)
+    , iServerOdp(nullptr)
     , iMinWebUiResourceThreads(aMinWebUiResourceThreads)
     , iMaxWebUiTabs(aMaxWebUiTabs)
     , iUiSendQueueSize(aUiSendQueueSize)
@@ -252,10 +253,11 @@ TestMediaPlayer::~TestMediaPlayer()
 {
     delete iAppFramework;
     delete iPowerObserver;
+    ASSERT(!iDevice->Enabled());
+    delete iServerOdp;
     delete iFnUpdaterStandard;
     delete iFnUpdaterUpnpAv;
     delete iFnManagerUpnpAv;
-    ASSERT(!iDevice->Enabled());
     delete iMediaPlayer;
     delete iPipelineObserver;
     delete iInfoLogger;
@@ -309,7 +311,7 @@ void TestMediaPlayer::Run()
     RegisterPlugins(iMediaPlayer->Env());
     AddConfigApp();
 
-    iServerOdp.reset(new DviServerOdp(iMediaPlayer->DvStack(), iMediaPlayer->FriendlyNameObservable(), kNumOdpSessions, iOdpPort));
+    iServerOdp = new DviServerOdp(iMediaPlayer->DvStack(), iMediaPlayer->FriendlyNameObservable(), kNumOdpSessions, iOdpPort);
     Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
 
     InitialiseLogger();

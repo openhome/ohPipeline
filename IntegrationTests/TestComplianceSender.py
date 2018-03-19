@@ -5,7 +5,7 @@ Parameters:
 
 Check compliance of Sender service functionality
 """
-import _Paths
+import _Paths   # NOQA
 import CommonComplianceSender as BASE
 import sys
 

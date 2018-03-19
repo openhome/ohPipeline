@@ -12,7 +12,7 @@ Parameters:
 Verifies locally served audio played by the DUT does not suffer from audio dropout.
 Additionally checks for dropout on downstream songcast receiver(s)
 """
-import _Paths
+import _Paths   # NOQA
 import CommonLocalDropout as BASE
 import sys
 

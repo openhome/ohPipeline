@@ -5,7 +5,7 @@ Parameters:
 
 Check operations of Volume service functionality
 """
-import _Paths
+import _Paths   # NOQA
 import CommonVolumeService as BASE
 import sys
 
