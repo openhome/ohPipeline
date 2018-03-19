@@ -341,10 +341,15 @@ CpiDeviceListOdp::~CpiDeviceListOdp()
 
 void CpiDeviceListOdp::DeviceAdded(MdnsDevice& aDev)
 {
-    CpiDeviceOdp* dev = new CpiDeviceOdp(iCpStack, aDev, Brn("Ds"), MakeFunctor(*this, &CpiDeviceListOdp::DeviceReady));
-    if (dev != nullptr) {
-        Add(dev->Device());  
-    } 
+    try {
+        CpiDeviceOdp* dev = new CpiDeviceOdp(iCpStack, aDev, Brn("Ds"), MakeFunctor(*this, &CpiDeviceListOdp::DeviceReady));
+        if (dev != nullptr) {
+            Add(dev->Device());  
+        }
+    }
+    catch (Exception& e) {
+        LOG_ERROR(kOdp, "Failed to add ODP device: %s\n", e.Message());
+    }
 }
 
 void CpiDeviceListOdp::DeviceReady()

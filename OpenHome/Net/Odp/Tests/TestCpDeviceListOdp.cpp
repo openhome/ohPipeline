@@ -5,6 +5,7 @@
 #include <OpenHome/Net/Private/MdnsProvider.h>
 #include <OpenHome/Net/Odp/CpDeviceOdp.h>
 #include <OpenHome/Net/Core/FunctorCpDevice.h>
+#include <OpenHome/Debug-ohMediaPlayer.h>
 
 #include <vector>
 
@@ -42,17 +43,19 @@ void DeviceListLogger::Removed(CpDevice& aDevice)
 void DeviceListLogger::PrintDeviceInfo(const char* aPrologue, const CpDevice& aDevice)
 {
     iLock.Wait();
-    Print("ODP Device %s\n", aPrologue);
-    Print("    udn   = %.*s\n", PBUF(aDevice.Udn()));
     Brh val;
-    aDevice.GetAttribute("Odp.Location", val);
-    Print("    locat = %.*s\n", PBUF(val));
-    aDevice.GetAttribute("Odp.FriendlyName", val);
-    Print("    fname = %.*s\n", PBUF(val));
-    aDevice.GetAttribute("Odp.UglyName", val);
-    Print("    uname = %.*s\n", PBUF(val));
-    aDevice.GetAttribute("Odp.Type", val);
-    Print("    type  = %.*s\n", PBUF(val));
+    if (aDevice.Udn() == Brn("4c494e4e-0026-0f22-26ce-01453289013f")) {
+        Print("ODP Device %s\n", aPrologue);
+        Print("    udn   = %.*s\n", PBUF(aDevice.Udn()));
+        aDevice.GetAttribute("Odp.Location", val);
+        Print("    locat = %.*s\n", PBUF(val));
+        aDevice.GetAttribute("Odp.FriendlyName", val);
+        Print("    fname = %.*s\n", PBUF(val));
+        aDevice.GetAttribute("Odp.UglyName", val);
+        Print("    uname = %.*s\n", PBUF(val));
+        aDevice.GetAttribute("Odp.Type", val);
+        Print("    type  = %.*s\n", PBUF(val));
+    }
     iLock.Signal();
 }
 
@@ -72,6 +75,7 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
     Library::DestroySubnetList(subnetList);
     //Debug::SetLevel(Debug::kBonjour);
     //Debug::SetSeverity(Debug::kSeverityTrace);
+    Debug::SetLevel(Debug::kOdp);
 
     Bws<Endpoint::kMaxAddressBytes> addr;
     Endpoint::AppendAddress(addr, subnet);
