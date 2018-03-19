@@ -74,8 +74,8 @@ public:
     void SetServerCreatedCallback(Functor aCallback);
 private: // from DviServer
     SocketTcpServer* CreateServer(const NetworkAdapter& aNif) override;
-    void NotifyServerDeleted(TIpAddress aInterface); 
-    void NotifyServerCreated(TIpAddress aInterface);
+    void NotifyServerDeleted(TIpAddress aInterface) override; 
+    void NotifyServerCreated(TIpAddress aInterface) override;
 private:
     const TUint iNumSessions;
     TUint iPort;
@@ -124,7 +124,6 @@ private:
     DviServerOdp& iZeroConfServer;
     OdpZeroConfDevices iZeroConfDevices;
     TBool iEnabled;
-    TUint iOdpServerChangeListenerId;
     Mutex iLock;
 };
 
