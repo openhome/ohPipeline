@@ -177,7 +177,7 @@ private:
     Configuration::ConfigRamStore* iConfigRamStore;
     Configuration::StoreFileWriterJson* iStoreFileWriter;
     TUint iOdpPort;
-    std::unique_ptr<OpenHome::Net::OdpZeroConf> iOdpZeroConf;
+    OpenHome::Net::OdpZeroConf* iOdpZeroConf;
     OpenHome::Net::DviServerOdp* iServerOdp;
     TUint iMinWebUiResourceThreads;
     TUint iMaxWebUiTabs;

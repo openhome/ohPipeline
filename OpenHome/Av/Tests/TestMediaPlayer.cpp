@@ -255,6 +255,7 @@ TestMediaPlayer::~TestMediaPlayer()
     delete iPowerObserver;
     ASSERT(!iDevice->Enabled());
     delete iServerOdp;
+    delete iOdpZeroConf;
     delete iFnUpdaterStandard;
     delete iFnUpdaterUpnpAv;
     delete iFnManagerUpnpAv;
@@ -313,7 +314,7 @@ void TestMediaPlayer::Run()
 
     iServerOdp = new DviServerOdp(iMediaPlayer->DvStack(), kNumOdpSessions, iOdpPort);
     Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
-    iOdpZeroConf.reset(new OdpZeroConf(iMediaPlayer->Env(), *iServerOdp, iMediaPlayer->FriendlyNameObservable()));
+    iOdpZeroConf = new OdpZeroConf(iMediaPlayer->Env(), *iServerOdp, iMediaPlayer->FriendlyNameObservable());
     iOdpZeroConf->SetZeroConfEnabled(true);
 
     InitialiseLogger();
