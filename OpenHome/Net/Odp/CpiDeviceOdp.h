@@ -42,7 +42,7 @@ private: // from ICpiProtocol
     TBool OrphanSubscriptionsOnSubnetChange() const override;
     void NotifyRemovedBeforeReady() override;
     TUint Version(const TChar* aDomain, const TChar* aName, TUint aProxyVersion) const override;
-private: // from ICpiDeviceObserver
+public: // from ICpiDeviceObserver
     void Release() override;
 private: // from ICpiOdpDevice
     IWriter& WriteLock(ICpiOdpResponse& aResponseHandler) override;

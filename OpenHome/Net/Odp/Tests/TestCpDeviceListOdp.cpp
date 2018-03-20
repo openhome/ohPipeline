@@ -56,6 +56,10 @@ void DeviceListLogger::PrintDeviceInfo(const char* aPrologue, const CpDevice& aD
         aDevice.GetAttribute("Odp.Type", val);
         Print("    type  = %.*s\n", PBUF(val));
     }
+    else {
+        aDevice.GetAttribute("Odp.FriendlyName", val);
+        Print("ODP Device %s: UDN %.*s (%.*s)\n", aPrologue, PBUF(aDevice.Udn()), PBUF(val));
+    }
     iLock.Signal();
 }
 

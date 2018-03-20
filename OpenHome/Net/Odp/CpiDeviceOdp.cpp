@@ -46,7 +46,7 @@ CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, MdnsDevice& aDev, const Brx& aAlia
     iThread->Start();
     // to accomadate a device list, constructor needs to provide the cpidevice in a ready state
     try {
-        iDeviceConnected.Wait(5*1000);
+        iDeviceConnected.Wait(2*1000);
     }
     catch (Timeout&) {
         // device will be null, should be ignored
@@ -69,7 +69,9 @@ void CpiDeviceOdp::Destroy()
 {
     iLock.Wait();
     iStateChanged = Functor();
-    iDevice->RemoveRef();
+    if (iDevice != nullptr) {
+        iDevice->RemoveRef();
+    }
     iLock.Signal();
 }
 
@@ -341,14 +343,14 @@ CpiDeviceListOdp::~CpiDeviceListOdp()
 
 void CpiDeviceListOdp::DeviceAdded(MdnsDevice& aDev)
 {
-    try {
-        CpiDeviceOdp* dev = new CpiDeviceOdp(iCpStack, aDev, Brn("Ds"), MakeFunctor(*this, &CpiDeviceListOdp::DeviceReady));
-        if (dev != nullptr) {
+    CpiDeviceOdp* dev = new CpiDeviceOdp(iCpStack, aDev, Brn("Ds"), MakeFunctor(*this, &CpiDeviceListOdp::DeviceReady));
+    if (dev != nullptr) {
+        if (dev->Device() != nullptr) {
             Add(dev->Device());  
         }
-    }
-    catch (Exception& e) {
-        LOG_ERROR(kOdp, "Failed to add ODP device: %s\n", e.Message());
+        else {
+            dev->Release();
+        }
     }
 }
 
