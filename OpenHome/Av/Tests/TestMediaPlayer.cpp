@@ -622,7 +622,7 @@ void TestMediaPlayer::Disabled()
 OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, TBool aLoopback, TUint aAdapter)
 {
     InitialisationParams* initParams = InitialisationParams::Create();
-    initParams->SetDvEnableBonjour(aRoom, true);
+    initParams->SetDvEnableBonjour(aRoom, false);
     if (aLoopback == true) {
         initParams->SetUseLoopbackNetworkAdapter();
     }
