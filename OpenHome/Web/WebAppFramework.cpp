@@ -1149,6 +1149,8 @@ void HttpSession::Run()
 
         version = iReaderRequest->Version();
         if (version != Http::eHttp10 && version != Http::eHttp11) {
+            // version is unknown, so set it to a version supported by this server so that iWriterResponse->WriteHeader() doesn't assert (as it only sends HTTP/1.0 and HTTP/1.1 responses).
+            version = Http::eHttp11;
             Error(HttpStatus::kHttpVersionNotSupported);
         }
 
