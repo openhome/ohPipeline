@@ -967,7 +967,7 @@ void WriterHttpResponseContentLengthUnknown::WriteHeader(Http::EVersion aVersion
      *
      * In HTTP/1.1, chunking must be used if content-length is not known in advance.
      */
-    ASSERT(aVersion == Http::eHttp10 || aVersion == Http::eHttp11);
+    ASSERT_VA(aVersion == Http::eHttp10 || aVersion == Http::eHttp11, "WriterHttpResponseContentLengthUnknown::WriteHeader aVersion: %u\n", aVersion);
 
     iWriterResponse.WriteStatus(aStatus, aVersion);
 
@@ -1149,6 +1149,7 @@ void HttpSession::Run()
 
         version = iReaderRequest->Version();
         if (version != Http::eHttp10 && version != Http::eHttp11) {
+            LOG(kHttp, "HttpSession::Run Unsupported version: %u\n", version);
             // version is unknown, so set it to a version supported by this server so that iWriterResponse->WriteHeader() doesn't assert (as it only sends HTTP/1.0 and HTTP/1.1 responses).
             version = Http::eHttp11;
             Error(HttpStatus::kHttpVersionNotSupported);
