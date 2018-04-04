@@ -96,6 +96,7 @@ private: // from IConfigInitialiser
     void ToStore(const Brx& aKey, const Brx& aValue) override;
 private: // from IStoreReadWrite
     void Read(const Brx& aKey, Bwx& aDest) override;
+    void Read(const Brx& aKey, IWriter& aWriter) override;
     void Write(const Brx& aKey, const Brx& aSource) override;
     void Delete(const Brx& aKey) override;
     void DeleteAll() override;
@@ -422,6 +423,11 @@ void ConfigStartupStandby::ToStore(const Brx& /*aKey*/, const Brx& /*aValue*/)
 }
 
 void ConfigStartupStandby::Read(const Brx& /*aKey*/, Bwx& /*aDest*/)
+{
+    ASSERTS();
+}
+
+void ConfigStartupStandby::Read(const Brx& /*aKey*/, IWriter& /*aWriter*/)
 {
     ASSERTS();
 }

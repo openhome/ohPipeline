@@ -9,6 +9,7 @@ EXCEPTION(StoreWriteAllocationFailed);
 namespace OpenHome {
     class Brx;
     class Bwx;
+    class IWriter;
 
 namespace Configuration {
 
@@ -22,6 +23,7 @@ class IStoreReadOnly
 public:
     virtual ~IStoreReadOnly() {}
     virtual void Read(const Brx& aKey, Bwx& aDest) = 0;
+    virtual void Read(const Brx& aKey, IWriter& aWriter) = 0;
 };
 
 /**
@@ -41,6 +43,13 @@ public:
      *                       treated as a design-time error so the required size isn't reported.)
      */
     virtual void Read(const Brx& aKey, Bwx& aDest) = 0;
+    /**
+    * Read an existing key from the store.
+    *
+    * @param[in]  aKey      Unique key.  Throws StoreKeyNotFound if this doesn't exist.
+    * @param[out] aDest     Interface to write persisted value to.
+    */
+    virtual void Read(const Brx& aKey, IWriter& aWriter) = 0;
     /**
      * Write a new key to the store or replace the value for an existing key.
      *

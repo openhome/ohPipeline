@@ -91,6 +91,21 @@ void ConfigRamStore::Read(const Brx& aKey, Bwx& aDest)
     aDest.Replace(*(it->second));
 }
 
+void ConfigRamStore::Read(const Brx& aKey, IWriter& aWriter)
+{
+    Brn key(aKey);
+    AutoMutex _(iLockData);
+
+    iReadCount++;
+
+    Map::iterator it = iMap.find(&key);
+    if (it == iMap.end()) {
+        THROW(StoreKeyNotFound);
+    }
+    aWriter.Write(*(it->second));
+
+}
+
 void ConfigRamStore::Write(const Brx& aKey, const Brx& aSource)
 {
     Brh* key = new Brh(aKey);

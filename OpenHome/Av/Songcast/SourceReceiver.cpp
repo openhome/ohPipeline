@@ -328,7 +328,9 @@ void SourceReceiver::Stop()
 void SourceReceiver::SetSender(const Brx& aUri, const Brx& aMetadata)
 {
     LOG(kSongcast, "SourceReceiver::SetSender(%.*s)\n", PBUF(aUri));
-    EnsureActiveNoPrefetch();
+    if (aUri.Bytes() > 0) {
+        EnsureActiveNoPrefetch();
+    }
     AutoMutex a(iLock);
     if (aUri.Bytes() > 0) {
         iUri.Replace(aUri);
@@ -375,7 +377,9 @@ void SourceReceiver::SetSender(const Brx& aUri, const Brx& aMetadata)
         iZoneHandler->StopMonitoring();
         iTrackUri.Replace(aUri);
         iTrackMetadata.Replace(aMetadata);
-        UriChanged();
+        if (IsActive()) {
+            UriChanged();
+        }
     }
 }
 
