@@ -116,9 +116,11 @@ void DeviceListHandler::PrintDeviceInfo(const char* aPrologue, const CpDevice& a
 
 void DeviceListHandler::PrintDeviceInfoLocked(const char* aPrologue, const CpDevice& aDevice)
 {
-    Brh val;
-    aDevice.GetAttribute("Odp.FriendlyName", val);
-    Print("ODP Device %s: UDN %.*s (%.*s)\n", aPrologue, PBUF(aDevice.Udn()), PBUF(val));
+    Brh name;
+    aDevice.GetAttribute("Odp.FriendlyName", name);
+    Brh loc;
+    aDevice.GetAttribute("Odp.Location", loc);
+    Print("ODP Device %s: UDN %.*s (%.*s, %.*s)\n", aPrologue, PBUF(aDevice.Udn()), PBUF(name), PBUF(loc));
 }
 
 
