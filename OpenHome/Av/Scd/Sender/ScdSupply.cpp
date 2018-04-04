@@ -47,7 +47,7 @@ void ScdSupply::OutputFormat(TUint aBitDepth, TUint aSampleRate, TUint aNumChann
     iSampleRate = aSampleRate;
     iNumChannels = aNumChannels;
     iBytesPerSample = (aBitDepth/8) * aNumChannels;
-    iBytesPerAudioMsg = (iBytesPerSample * iSampleRate * kMaxAudioDurationMs) / 1000;
+    iBytesPerAudioMsg = iBytesPerSample * (iSampleRate * kMaxAudioDurationMs / 1000);
     iEndian = aEndian;
     iAudio.reserve(iBytesPerAudioMsg);
     iBytesEndianSwapped = 0;
