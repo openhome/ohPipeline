@@ -360,7 +360,9 @@ IReader& HttpSocket::GetInputStream()
 IWriter& HttpSocket::GetOutputStream()
 {
     Connect();
-    return iWriterRequest;
+    SendRequestHeaders();
+    // If request has been specified as a POST request, caller should use IWriter returned from here to write POST data.
+    return iWriteBuffer;
 }
 
 TInt HttpSocket::GetResponseCode()
