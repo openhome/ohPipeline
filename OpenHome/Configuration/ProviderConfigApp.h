@@ -49,15 +49,18 @@ private: // from IConfigObserver
     void Added(ConfigNum& aVal) override;
     void Added(ConfigChoice& aVal) override;
     void Added(ConfigText& aVal) override;
+    void Added(ConfigTextChoice& aVal) override;
     void AddsComplete() override;
     void Removed(ConfigNum& aVal) override;
     void Removed(ConfigChoice& aVal) override;
     void Removed(ConfigText& aVal) override;
+    void Removed(ConfigTextChoice& aVal) override;
 private:
     void StripKey(const Brx& aConfigKey, Bwx& aKey);
     void ConfigNumChanged(KeyValuePair<TInt>& aKvp);
     void ConfigChoiceChanged(KeyValuePair<TUint>& aKvp);
     void ConfigTextChanged(KeyValuePair<const Brx&>& aKvp);
+    void ConfigTextChoiceChanged(KeyValuePair<const Brx&>& aKvp);
     void ClearMaps();
 private: // from DvProviderAvOpenhomeOrgConfiguration1
     void GetKeys(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aKeys) override;
@@ -75,20 +78,36 @@ private:
         static const Brn kValTypeNum;
         static const Brn kValTypeChoice;
         static const Brn kValTypeText;
+        static const Brn kValTypeTextChoice;
         static const Brn kKeyNumMin;
         static const Brn kKeyNumMax;
         static const Brn kKeyNumDefault;
         static const Brn kKeyEnumVals;
-        static const Brn kKeyTextLen;
+        static const Brn kKeyTextLenMin;
+        static const Brn kKeyTextLenMax;
+        static const Brn kKeyOptional;
     public:
         KeysWriter();
         void Add(ConfigNum& aVal, const Brx& aKey);
         void Add(ConfigChoice& aVal, const Brx& aKey);
         void Add(ConfigText& aVal, const Brx& aKey);
+        void Add(ConfigTextChoice& aVal, const Brx& aKey);
         const Brx& Flush();
     private:
         WriterBwh iWriterBuf;
         WriterJsonArray iWriterArray;
+    };
+    class ConfigTextChoiceVisitorJson : public IConfigTextChoicesVisitor
+    {
+    private:
+        static const Brn kKeyId;
+        static const Brn kKeyVal;
+    public:
+        ConfigTextChoiceVisitorJson(WriterJsonArray& aWriter);
+    public: // from IConfigTextChoicesVisitor
+        void VisitConfigTextChoice(const Brx& aId, const Brx& aValue) override;
+    private:
+        WriterJsonArray& iWriter;
     };
     template <class T, class S> class ConfigItem
     {
@@ -110,9 +129,10 @@ private:
         TUint iListenerId;
         Brh iKeyStripped;
     };
-    typedef ConfigItem<ConfigNum,    Net::PropertyInt>    ConfigItemNum;
-    typedef ConfigItem<ConfigChoice, Net::PropertyUint>   ConfigItemChoice;
-    typedef ConfigItem<ConfigText,   Net::PropertyString> ConfigItemText;
+    typedef ConfigItem<ConfigNum,           Net::PropertyInt>    ConfigItemNum;
+    typedef ConfigItem<ConfigChoice,        Net::PropertyUint>   ConfigItemChoice;
+    typedef ConfigItem<ConfigText,          Net::PropertyString> ConfigItemText;
+    typedef ConfigItem<ConfigTextChoice,    Net::PropertyString> ConfigItemTextChoice;
 private:
     Configuration::IConfigManager& iConfigManager;
     Configuration::IConfigObservable& iConfigObservable;
@@ -122,6 +142,7 @@ private:
     std::map<Brn, ConfigItemNum*, BufferCmp> iMapNum;
     std::map<Brn, ConfigItemChoice*, BufferCmp> iMapChoice;
     std::map<Brn, ConfigItemText*, BufferCmp> iMapText;
+    std::map<Brn, ConfigItemTextChoice*, BufferCmp> iMapTextChoice;
     std::map<Brn, Brn, BufferCmp> iMapKeys;
     Mutex iLock;
 };
