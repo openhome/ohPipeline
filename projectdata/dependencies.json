@@ -71,11 +71,11 @@
         "dest":             "dependencies/${host-platform}/Reprog/"
     },
     {
-        "name":             "hardware-Core1",
+        "name":             "hardware",
         "version":          "4.855.36595",
         "cross-check": false,
         "type":             "internal",
-        "archive-filename": "${name}-${version}.tar.gz",
+        "archive-filename": "${name}-Core1-${version}.tar.gz",
         "dest":             "dependencies/AnyPlatform/${name}/"
     },
     {   "name":             "transmute",
