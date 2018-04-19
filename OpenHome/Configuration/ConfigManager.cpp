@@ -413,16 +413,6 @@ TBool ConfigTextChoice::Optional() const
     return iChoices.Optional();
 }
 
-// void ConfigTextChoice::AddChoicesObserver(FunctorGeneric<IConfigTextChoicesVisitable&> aObserver)
-// {
-//     iChoices.AddChoicesObserver(aObserver);
-// }
-
-// void ConfigTextChoice::RemoveChoicesObserver(FunctorGeneric<IConfigTextChoicesVisitable&> aObserver)
-// {
-//     iChoices.RemoveChoicesObserver(aObserver);
-// }
-
 void ConfigTextChoice::AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor)
 {
     iChoices.AcceptChoicesVisitor(aVisitor);
@@ -430,9 +420,6 @@ void ConfigTextChoice::AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor)
 
 void ConfigTextChoice::Set(const Brx& aText)
 {
-    // Available choices could dynamically change after IsValid() is called but before SetInternal() is called.
-    // However, it's feasible the choices could dynamically change after setting a valid value anyway, so the currently set value becomes invalid.
-    // So, not too much of an issue, as observers of these values must handle the scenario of invalid values and implement sensible default behaviours.
     if (iChoices.IsValid(aText)) {
         try {
             SetInternal(aText);

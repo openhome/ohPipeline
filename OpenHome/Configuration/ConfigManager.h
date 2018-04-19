@@ -487,8 +487,6 @@ class IConfigTextChoices
 {
 public:
     virtual ~IConfigTextChoices() {}
-//    virtual void AddChoicesObserver(FunctorGeneric<IConfigTextChoicesVisitable&> aObserver) = 0;
-//    virtual void RemoveChoicesObserver(FunctorGeneric<IConfigTextChoicesVisitable&> aObserver) = 0;
     virtual void AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor) = 0;
     /*
      * If value is optional, implies that setting a empty string will result in the option being unused/having no effect.
@@ -512,8 +510,6 @@ public:
                      TBool aRebootRequired = false);
     ~ConfigTextChoice();
     TBool Optional() const;
-//    void AddChoicesObserver(FunctorGeneric<IConfigTextChoicesVisitable&> aObserver);
-//    void RemoveChoicesObserver(FunctorGeneric<IConfigTextChoicesVisitable&> aObserver);
     void AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor);
     void Set(const Brx& aText); // THROWS ConfigInvalidSelection (and NOT ConfigValueTooShort, ConfigValueTooLong as ConfigText does, as this class does not accept free-form text; only values from the list of current values (which may change dynamically)).
 public: // from ConfigVal
