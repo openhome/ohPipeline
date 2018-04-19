@@ -126,20 +126,14 @@ const Brx& ProviderConfigApp::KeysWriter::Flush()
 
 // ProviderConfigApp::ConfigTextChoiceVisitorJson
 
-const Brn ProviderConfigApp::ConfigTextChoiceVisitorJson::kKeyId("id");
-const Brn ProviderConfigApp::ConfigTextChoiceVisitorJson::kKeyVal("value");
-
 ProviderConfigApp::ConfigTextChoiceVisitorJson::ConfigTextChoiceVisitorJson(WriterJsonArray& aWriter)
     : iWriter(aWriter)
 {
 }
 
-void ProviderConfigApp::ConfigTextChoiceVisitorJson::VisitConfigTextChoice(const Brx& aId, const Brx& aValue)
+void ProviderConfigApp::ConfigTextChoiceVisitorJson::VisitConfigTextChoice(const Brx& aId)
 {
-    auto writerObject = iWriter.CreateObject();
-    writerObject.WriteString(kKeyId, aId);
-    writerObject.WriteString(kKeyVal, aValue);
-    writerObject.WriteEnd();
+    iWriter.WriteString(aId);
 }
 
 

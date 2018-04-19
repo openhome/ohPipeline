@@ -473,7 +473,7 @@ class IConfigTextChoicesVisitor
 {
 public:
     virtual ~IConfigTextChoicesVisitor() {}
-    virtual void VisitConfigTextChoice(const Brx& aId, const Brx& aValue) = 0;
+    virtual void VisitConfigTextChoice(const Brx& aId) = 0;
 };
 
 class IConfigTextChoicesVisitable

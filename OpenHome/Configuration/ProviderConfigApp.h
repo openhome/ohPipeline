@@ -99,13 +99,10 @@ private:
     };
     class ConfigTextChoiceVisitorJson : public IConfigTextChoicesVisitor
     {
-    private:
-        static const Brn kKeyId;
-        static const Brn kKeyVal;
     public:
         ConfigTextChoiceVisitorJson(WriterJsonArray& aWriter);
     public: // from IConfigTextChoicesVisitor
-        void VisitConfigTextChoice(const Brx& aId, const Brx& aValue) override;
+        void VisitConfigTextChoice(const Brx& aId) override;
     private:
         WriterJsonArray& iWriter;
     };
