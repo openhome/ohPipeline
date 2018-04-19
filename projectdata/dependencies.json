@@ -71,11 +71,11 @@
         "dest":             "dependencies/${host-platform}/Reprog/"
     },
     {
-        "name":             "hardware",
-        "version":          "0.0.376",
+        "name":             "hardware-Core1",
+        "version":          "4.855.36595",
         "cross-check": false,
         "type":             "internal",
-        "archive-filename": "${name}-Volkano2-${version}.tar.gz",
+        "archive-filename": "${name}-${version}.tar.gz",
         "dest":             "dependencies/AnyPlatform/${name}/"
     },
     {   "name":             "transmute",
