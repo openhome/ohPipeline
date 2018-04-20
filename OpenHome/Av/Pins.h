@@ -209,12 +209,12 @@ public: // from IPinsAccountStore
 public: // from IPinsInvocable
     void Add(const TChar* aMode, IPinInvoker* aInvoker) override;
 private: // from IPinsManager
-    void SetObserver(IPinsObserver& aObserver);
+    void SetObserver(IPinsObserver& aObserver) override;
     void Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
              const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
-             TBool aShuffle);
-    void Clear(TUint aId);
-    void Swap(TUint aId1, TUint aId2);
+             TBool aShuffle) override;
+    void Clear(TUint aId) override;
+    void Swap(TUint aId1, TUint aId2) override;
     void WriteJson(IWriter& aWriter, const std::vector<TUint>& aIds) override;
     void InvokeId(TUint aId) override;
     void InvokeIndex(TUint aIndex) override;

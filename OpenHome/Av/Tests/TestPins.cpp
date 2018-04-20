@@ -321,7 +321,6 @@ void SuitePin::TestAssign()
     Pin pin2(*this);
     PinTestUtils::Init(pin);
     PinTestUtils::Init2(pin2);
-    const TUint id = pin.Id();
     const TUint id2 = pin2.Id();
 
     pin = pin2;
