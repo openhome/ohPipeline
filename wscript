@@ -1127,7 +1127,7 @@ def build(bld):
                     'OpenHome/Av/Scd/Sender/Demo/DirScanner.cpp',
                     'OpenHome/Av/Scd/Sender/Demo/WavSenderMain.cpp'
                     ],
-                use=['OHNET', 'ScdSender', 'ohMediaPlayer'],
+                use=['OHNET', 'ScdSender', 'Odp', 'ohMediaPlayer'],
                 target='WavSender',
                 install_path=None)
 

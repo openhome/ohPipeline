@@ -12,11 +12,18 @@
 #include <OpenHome/Av/Scd/Sender/ScdServer.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Av/Debug.h>
+#include <OpenHome/Net/Odp/CpDeviceOdp.h>
+#include <OpenHome/Net/Core/FunctorCpDevice.h>
+#include <OpenHome/Private/TestFramework.h>
+#include <OpenHome/Debug-ohMediaPlayer.h>
+#include <Generated/CpAvOpenhomeOrgTransport1.h>
 
 #include <stdlib.h>
 #include <filesystem>
 
 using namespace OpenHome;
+using namespace OpenHome::Net;
+using namespace OpenHome::TestFramework;
 using namespace OpenHome::Scd;
 using namespace OpenHome::Scd::Sender;
 using namespace OpenHome::Scd::Sender::Demo;
@@ -39,6 +46,83 @@ public:
     void OutputHalt() {}
 };
 
+class DeviceListHandler
+{
+public:
+    DeviceListHandler(const Brx& aSelectedRoom, Endpoint aScdEndpoint);
+    ~DeviceListHandler();
+    void Added(CpDevice& aDevice);
+    void Removed(CpDevice& aDevice);
+private:
+    void PrintDeviceInfo(const char* aPrologue, const CpDevice& aDevice);
+    void PrintDeviceInfoLocked(const char* aPrologue, const CpDevice& aDevice);
+private:
+    Mutex iLock;
+    Brn iSelectedRoom;
+    Net::CpProxyAvOpenhomeOrgTransport1* iCpTransport;
+    Endpoint iScdEndpoint;
+};
+
+static const Brn kScdModePrefix("uri=scd://");
+
+DeviceListHandler::DeviceListHandler(const Brx& aSelectedRoom, Endpoint aScdEndpoint)
+    : iLock("DLLM")
+    , iSelectedRoom(aSelectedRoom)
+    , iCpTransport(nullptr)
+    , iScdEndpoint(aScdEndpoint)
+{
+}
+
+DeviceListHandler::~DeviceListHandler()
+{
+    if (iCpTransport != nullptr) {
+        delete iCpTransport;
+    }
+}
+
+void DeviceListHandler::Added(CpDevice& aDevice)
+{
+    iLock.Wait();
+    PrintDeviceInfoLocked("Added", aDevice);
+    if (iSelectedRoom.Bytes() > 0) {
+        Brh val;
+        aDevice.GetAttribute("Odp.FriendlyName", val);
+        if (val.Split(0, iSelectedRoom.Bytes()) == iSelectedRoom) {
+            if (iCpTransport != nullptr) {
+                delete iCpTransport;
+            }
+            iCpTransport = new CpProxyAvOpenhomeOrgTransport1(aDevice);
+            Bwh mode(kScdModePrefix.Bytes() + Endpoint::kMaxEndpointBytes);
+            mode.Replace(kScdModePrefix);
+            iScdEndpoint.AppendEndpoint(mode);
+            Log::Print("SCD play (%.*s) on %.*s\n", PBUF(mode), PBUF(iSelectedRoom));
+            iCpTransport->SyncPlayAs(Brn("SCD"), mode);
+        }
+    }
+    iLock.Signal();
+}
+
+void DeviceListHandler::Removed(CpDevice& aDevice)
+{
+    PrintDeviceInfo("Removed", aDevice);
+}
+
+void DeviceListHandler::PrintDeviceInfo(const char* aPrologue, const CpDevice& aDevice)
+{
+    iLock.Wait();
+    PrintDeviceInfoLocked(aPrologue, aDevice);
+    iLock.Signal();
+}
+
+void DeviceListHandler::PrintDeviceInfoLocked(const char* aPrologue, const CpDevice& aDevice)
+{
+    Brh name;
+    aDevice.GetAttribute("Odp.FriendlyName", name);
+    Brh loc;
+    aDevice.GetAttribute("Odp.Location", loc);
+    Print("ODP Device %s: UDN %.*s (%.*s, %.*s)\n", aPrologue, PBUF(aDevice.Udn()), PBUF(name), PBUF(loc));
+}
+
 
 int CDECL main(int aArgc, char* aArgv[])
 {
@@ -50,22 +134,28 @@ int CDECL main(int aArgc, char* aArgv[])
 #endif // _WIN32
 
     // Parse options.
-    TestFramework::OptionParser parser;
-    TestFramework::OptionString optionDir("-d", "--dir", Brn("c:\\TestAudio\\CodecStress"), "Directory to search for WAV files");
+    OptionParser parser;
+    OptionUint optionAdapter("-a", "--adapter", 0, "[0...n] Adpater index to use");
+    OptionString optionRoom("-r", "--room", Brn(""), "optionRoom to send SCD audio");
+    OptionString optionDir("-d", "--dir", Brn("c:\\TestAudio\\CodecStress"), "Directory to search for WAV files");
     parser.AddOption(&optionDir);
-    if (!parser.Parse(aArgc, aArgv)) {
+    parser.AddOption(&optionAdapter);
+    parser.AddOption(&optionRoom);
+    if (!parser.Parse(aArgc, aArgv) || parser.HelpDisplayed()) {
         return 1;
     }
 
     auto initParams = Net::InitialisationParams::Create();
+    initParams->SetDvEnableBonjour("WavSenderMain", true);
     auto lib = new Net::Library(initParams);
     auto subnetList = lib->CreateSubnetList();
-    auto subnet = (*subnetList)[0]->Subnet();
+    auto subnet = (*subnetList)[optionAdapter.Value()]->Subnet();
     Net::Library::DestroySubnetList(subnetList);
-    /*auto cpStack = */lib->StartCp(subnet);
+    auto cpStack = lib->StartCp(subnet);
 
     {
         Debug::AddLevel(Debug::kScd);
+        Debug::AddLevel(Debug::kOdp);
 
         // app goes here
         ScdMsgFactory factory(1,   // Ready
@@ -88,8 +178,16 @@ int CDECL main(int aArgc, char* aArgv[])
         server.Endpoint().AppendEndpoint(buf);
         Log::Print("SCD Sender running on %s\n", buf.Ptr());
         std::string path(optionDir.CString());
+
+        DeviceListHandler logger(optionRoom.Value(), server.Endpoint());
+        FunctorCpDevice added = MakeFunctorCpDevice(logger, &DeviceListHandler::Added);
+        FunctorCpDevice removed = MakeFunctorCpDevice(logger, &DeviceListHandler::Removed);
+        CpDeviceListOdpAll* deviceList = new CpDeviceListOdpAll(*cpStack, added, removed);
+
         //DummySupply supply;
         DirScanner::Run(path, supply);
+
+        delete deviceList;
     }
 
     delete lib;
