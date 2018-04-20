@@ -110,6 +110,7 @@ private:
     static const TUint kMinWebUiResourceThreads = 4;
     static const TUint kMaxWebUiTabs = 4;
     static const TUint kUiSendQueueSize = 100;
+    static const TUint kMaxPinsDevice = 6;
 public:
     TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                     const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,

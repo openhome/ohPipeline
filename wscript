@@ -170,6 +170,7 @@ upnp_services = [
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Credentials1.xml',   'av.openhome.org', 'Credentials',       '1', 'AvOpenhomeOrgCredentials1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Debug1.xml',         'av.openhome.org', 'Debug',             '1', 'AvOpenhomeOrgDebug1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Transport1.xml',     'av.openhome.org', 'Transport',         '1', 'AvOpenhomeOrgTransport1'),
+        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Pins1.xml',          'av.openhome.org', 'Pins',              '1', 'AvOpenhomeOrgPins1'),
     ]
 
 def build(bld):
@@ -326,9 +327,9 @@ def build(bld):
                 'OpenHome/Av/FriendlyNameAdapter.cpp',
                 'Generated/DvAvOpenhomeOrgDebug1.cpp',
                 'OpenHome/Av/ProviderDebug.cpp',
-                #'OpenHome/Av/TransportControl.cpp',
-                #'Generated/DvOpenhomeOrgEriskayTransportControl1.cpp',
-                #'OpenHome/Av/ProviderTransportControlEriskay.cpp',
+                'OpenHome/Av/Pins.cpp',
+                'Generated/DvAvOpenhomeOrgPins1.cpp',
+                'OpenHome/Av/ProviderPins.cpp',
             ],
             use=['OHNET', 'OPENSSL', 'ohPipeline'],
             target='ohMediaPlayer')
@@ -759,6 +760,7 @@ def build(bld):
                 'OpenHome/Tests/TestThreadPool.cpp',
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
+                'OpenHome/Av/Tests/TestPins.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
             use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
@@ -1093,6 +1095,11 @@ def build(bld):
             source='OpenHome/Av/Tests/TestVolumeManagerMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestVolumeManager',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Av/Tests/TestPinsMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestPins',
             install_path=None)
     bld.program(
             source='OpenHome/Net/Odp/Tests/TestDvOdpMain.cpp',

@@ -64,6 +64,10 @@ class IVolumeManager;
 class IVolumeProfile;
 class ConfigStartupSource;
 class IRebootHandler;
+class IPinsAccountStore;
+class IPinsInvocable;
+class PinsManager;
+class ProviderPins;
 class TransportPins;
 class PodcastPins;
 
@@ -95,6 +99,8 @@ public:
     virtual IUnixTimestamp& UnixTimestamp() = 0;
     virtual ITransportRepeatRandom& TransportRepeatRandom() = 0;
     virtual DebugManager& GetDebugManager() = 0;
+    virtual Optional<IPinsAccountStore> PinsAccountStore() = 0;
+    virtual Optional<IPinsInvocable> PinsInvocable() = 0;
     virtual Av::TransportPins& GetTransportPins() = 0;
     virtual Av::PodcastPins& GetPodcastPins() = 0;
 };
@@ -105,10 +111,12 @@ class MediaPlayerInitParams
 public:
     static MediaPlayerInitParams* New(const Brx& aDefaultRoom, const Brx& aDefaultName);
     void EnableConfigApp();
+    void EnablePins(TUint aMaxDevice);
     void SetThreadPoolSize(TUint aCountHigh, TUint aCountMedium, TUint aCountLow);
     const Brx& DefaultRoom() const;
     const Brx& DefaultName() const;
     TBool ConfigAppEnabled() const;
+    TBool PinsEnabled(TUint& aMaxDevice) const;
     TUint ThreadPoolCountHigh() const;
     TUint ThreadPoolCountMedium() const;
     TUint ThreadPoolCountLow() const;
@@ -121,6 +129,8 @@ private:
     TUint iThreadPoolMedium;
     TUint iThreadPoolLow;
     TBool iConfigAppEnable;
+    TBool iPinsEnable;
+    TUint iMaxDevicePins;
 };
 
 
@@ -169,6 +179,8 @@ public: // from IMediaPlayer
     IUnixTimestamp& UnixTimestamp() override;
     ITransportRepeatRandom& TransportRepeatRandom() override;
     DebugManager& GetDebugManager() override;
+    Optional<IPinsAccountStore> PinsAccountStore() override;
+    Optional<IPinsInvocable> PinsInvocable() override;
     Av::TransportPins& GetTransportPins() override;
     Av::PodcastPins& GetPodcastPins() override;
 private:
@@ -201,6 +213,8 @@ private:
     LoggerBuffered* iLoggerBuffered;
     IUnixTimestamp* iUnixTimestamp;
     DebugManager* iDebugManager;
+    PinsManager* iPinsManager;
+    ProviderPins* iProviderPins;
     Av::TransportPins* iTransportPins;
     Av::PodcastPins* iPodcastPins;
 };

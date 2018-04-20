@@ -219,6 +219,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     pipelineInit->SetDsdSupported(true);
     auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName));
     mpInit->EnableConfigApp();
+    mpInit->EnablePins(kMaxPinsDevice);
     iMediaPlayer = new MediaPlayer(aDvStack, aCpStack, *iDevice, *iRamStore,
                                    *iConfigRamStore, pipelineInit,
                                    volumeInit, volumeProfile,
