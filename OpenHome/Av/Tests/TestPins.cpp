@@ -678,6 +678,7 @@ void SuitePinsManager::Setup()
 
 void SuitePinsManager::TearDown()
 {
+    delete iPinsManager;
     delete iStore;
 }
 
