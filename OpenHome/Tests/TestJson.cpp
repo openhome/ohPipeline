@@ -2,6 +2,8 @@
 #include <OpenHome/Private/SuiteUnitTest.h>
 #include <OpenHome/Json.h>
 #include <OpenHome/Private/Ascii.h>
+#include <OpenHome/Private/Converter.h>
+#include <OpenHome/Private/Stream.h>
 #include <functional>
 
 using namespace OpenHome;
@@ -164,7 +166,7 @@ void SuiteJsonEncode::Test()
         EncodeUni((TByte)i);
     }
     // with very few exceptions, characters [0x20..0x7F] should not be encoded
-    for (TUint i=32; i<128; i++) {
+    for (TUint i=32; i<256; i++) {
         if (i == '\"' || i == '/' || i == '\\') {
             // ...the exceptions mentioned above
             continue;
@@ -174,9 +176,6 @@ void SuiteJsonEncode::Test()
         Bws<1> ch(&b, 1);
         Json::Escape(*this, ch);
         TEST(iEncoded == ch);
-    }
-    for (TUint i=128; i<256; i++) {
-        EncodeUni((TByte)i);
     }
 }
 
@@ -244,7 +243,8 @@ void SuiteJsonDecode::Test()
     TEST(url == Brn("http://domain/path?query"));
 
     Bws<32> buf("Dvo\\u0159\\u00e1k");
-    Json::Unescape(buf);
+    TEST_THROWS(Json::Unescape(buf), JsonInvalid);
+    Json::Unescape(buf, Json::Encoding::Utf16);
     TEST(buf == Brn("Dvo\xc5\x99\xc3\xa1k"));
 }
 

@@ -58,7 +58,7 @@ void Json::Escape(IWriter& aWriter, const Brx& aValue)
             aWriter.Write(kEscapedTab);
             break;
         default:
-            if (ch > 0x1F && ch < 0x80) {
+            if (ch > 0x1F) {
                 aWriter.Write(ch);
             }
             else {
@@ -71,7 +71,7 @@ void Json::Escape(IWriter& aWriter, const Brx& aValue)
     }
 }
 
-void Json::Unescape(Bwx& aValue)
+void Json::Unescape(Bwx& aValue, Encoding aEncoding)
 {
     TUint j = 0;
     const TUint bytes = aValue.Bytes();
@@ -119,6 +119,13 @@ void Json::Unescape(Bwx& aValue)
                 i += 4;
                 const TUint hex = Ascii::UintHex(hexBuf);
                 if (hex < 0x80) {
+                    aValue[j++] = (TByte)hex;
+                }
+                else if (aEncoding == Encoding::Utf8) {
+                    if (hex > 0xFF) {
+                        // we expected aValue to already be UTF-8 encoded; it's not
+                        THROW(JsonInvalid);
+                    }
                     aValue[j++] = (TByte)hex;
                 }
                 else {
