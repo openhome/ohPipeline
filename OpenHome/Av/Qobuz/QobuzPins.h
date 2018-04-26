@@ -50,7 +50,7 @@ private:
     TBool LoadTracksByMostFeatured(const Brx& aGenre); // Qobuz smart playlist (featured: most featured) by genre (optional id)
 
 public:  // IDebugTestHandler
-    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter);
+    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter) override;
 private: // from IPinInvoker
     void Invoke(const IPin& aPin) override;
     const TChar* Mode() const override;
