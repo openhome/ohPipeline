@@ -60,7 +60,7 @@ import shutil
 from ci import (
         build_step, require_version, add_option, specify_optional_steps,
         build_condition, default_platform, get_dependency_args,
-        get_vsvars_environment, fetch_dependencies, python, publish_package)
+        get_vsvars_environment, fetch_dependencies, python, OpenHomeBuilder)
 import platform
 
 require_version(51)
@@ -210,4 +210,5 @@ def integration_test_full(context):
 def publish(context):
     targetpath    = "{OH_PUBLISHDIR}/{OH_PROJECT}/{OH_PROJECT}-{OH_VERSION}-{OH_PLATFORM}-{OH_DEBUG}.tar.gz".format(**context.env)
     sourcepath    = "{BUILDDIR}/{OH_PROJECT}.tar.gz".format(**context.env)
-    publish_package(sourcepath, targetpath)
+    o = OpenHomeBuilder()
+    o.publish_package(sourcepath, targetpath)
