@@ -31,8 +31,14 @@ class Json
     static const Brn kEscapedLinefeed;
     static const Brn kEscapedTab;
 public:
+    enum class Encoding
+    {
+        Utf8,
+        Utf16
+    };
+public:
     static void Escape(IWriter& aWriter, const Brx& aValue);
-    static void Unescape(Bwx& aValue); // converts in place
+    static void Unescape(Bwx& aValue, Encoding aEncoding = Encoding::Utf8); // converts in place
 };
 
 /*
