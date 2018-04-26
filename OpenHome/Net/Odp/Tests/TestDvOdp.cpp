@@ -45,7 +45,7 @@ class TestOdp
 {
     static const TUint kTestIterations = 10;
 public:
-    TestOdp(CpStack& aCpStack, MdnsDevice aDev, const Brx& aOdpType, Semaphore& aSem);
+    TestOdp(CpStack& aCpStack, MdnsDevice aDev, const Brx& aOdpType);
     ~TestOdp();
     void TestActions();
     void TestSubscriptions();
@@ -53,7 +53,6 @@ private:
     void DeviceReady();
     void UpdatesComplete();
 private:
-    Semaphore& iSem;
     Semaphore iUpdatesComplete;
     CpDevice* iCpDevice;
     CpiDeviceOdp* iCpDeviceOdp;
@@ -82,7 +81,7 @@ DeviceOdp::DeviceOdp(DvStack& aDvStack)
     iDevice->SetAttribute("Upnp.FriendlyName", "ohNetTestDevice");
     iDevice->SetAttribute("Upnp.Manufacturer", "None");
     iDevice->SetAttribute("Upnp.ModelName", "ohNet test device");
-    iDevice->SetAttribute("Odp.Name", kOdpName);
+    iDevice->SetAttribute("Odp.Name", "Ds");
     iTestBasic = new ProviderTestBasic(*iDevice);
     iDevice->SetEnabled();
 }
@@ -101,12 +100,12 @@ const Brx& DeviceOdp::OdpDeviceName() const
 
 // TestOdp
 
-TestOdp::TestOdp(CpStack& aCpStack, MdnsDevice aDev, const Brx& aOdpType, Semaphore& aSem)
-    : iSem(aSem)
-    , iUpdatesComplete("SEM2", 0)
+TestOdp::TestOdp(CpStack& aCpStack, MdnsDevice aDev, const Brx& aOdpType)
+    : iUpdatesComplete("SEMU", 0)
     , iCpDevice(nullptr)
 {
     iCpDeviceOdp = new CpiDeviceOdp(aCpStack, aDev, aOdpType, MakeFunctor(*this, &TestOdp::DeviceReady));
+    iCpDevice = new CpDevice(*(iCpDeviceOdp->Device()));
 }
 
 TestOdp::~TestOdp()
@@ -307,9 +306,6 @@ void TestOdp::TestSubscriptions()
 
 void TestOdp::DeviceReady()
 {
-    ASSERT(iCpDeviceOdp->Device() != nullptr);
-    iCpDevice = new CpDevice(*(iCpDeviceOdp->Device()));
-    iSem.Signal();
 }
 
 void TestOdp::UpdatesComplete()
@@ -362,15 +358,14 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     Debug::SetSeverity(Debug::kSeverityError);
    
     auto observableProd = new MockProductNameObservable();
-    observableProd->SetRoomName(Brn("TestDvOdp"));
-    observableProd->SetProductName(Brn("Product"));
     auto friendlyNameManager = new Av::FriendlyNameManager(*observableProd);
     Av::IFriendlyNameObservable& observablefn = *friendlyNameManager;
+    observableProd->SetRoomName(Brn("TestDvOdp"));
+    observableProd->SetProductName(Brn("Product"));
     auto server = new DviServerOdp(aDvStack, 1);
     auto odp = new OdpZeroConf(aDvStack.Env(), *server, observablefn);
     odp->SetZeroConfEnabled(true);
     aDvStack.AddProtocolFactory(new DviProtocolFactoryOdp());
-    auto sem = new Semaphore("SEM1", 0);
     auto device = new DeviceOdp(aDvStack);
     auto nif = UpnpLibrary::CurrentSubnetAdapter("TestDvOdp");
     ASSERT(nif != nullptr);
@@ -378,9 +373,7 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     Endpoint::AppendAddress(addr, nif->Address());
     MdnsDevice dev(Brn("_odp._tcp"), device->OdpDeviceName(), gDeviceName, addr, server->Port());
     nif->RemoveRef("TestDvOdp");
-    auto cpDevice = new TestOdp(aCpStack, dev, Brn("Ds"), *sem);
-    sem->Wait(5*1000); // allow up to 5 seconds to connect to Odp server and receive initial ALIVE message
-    delete sem;
+    auto cpDevice = new TestOdp(aCpStack, dev, Brn("Ds"));
     cpDevice->TestActions();
     cpDevice->TestSubscriptions();
     delete cpDevice;
