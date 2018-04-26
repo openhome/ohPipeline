@@ -92,8 +92,8 @@ class DummyPinInvoker : public IPinInvoker
 public:
     DummyPinInvoker(const TChar* aMode);
     TUint InvocationCount() const;
-    const TChar* Mode() const;
-private: // from IPinInvoker
+public: // from IPinInvoker
+    const TChar* Mode() const override;
     void Invoke(const IPin& aPin) override;
 private:
     const TChar* iMode;
