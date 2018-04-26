@@ -46,7 +46,7 @@ CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, MdnsDevice& aDev, const Brx& aAlia
     iThread->Start();
     // to accomadate a device list, constructor needs to provide the cpidevice in a ready state
     try {
-        iDeviceConnected.Wait(2*1000);
+        iDeviceConnected.Wait(5*1000);
     }
     catch (Timeout&) {
         // device will be null, should be ignored

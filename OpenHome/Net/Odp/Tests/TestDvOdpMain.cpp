@@ -12,6 +12,7 @@ extern void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack);
 
 void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], Net::InitialisationParams* aInitParams)
 {
+    aInitParams->SetDvEnableBonjour("TestDvOdp", true);
     auto lib = new Library(aInitParams);
     auto subnetList = lib->CreateSubnetList();
     auto subnet = (*subnetList)[0]->Subnet();
