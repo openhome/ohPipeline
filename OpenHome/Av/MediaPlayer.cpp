@@ -175,17 +175,18 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
         iProduct->AddAttribute("ConfigApp"); // iProviderConfigApp is instantiated before iProduct
                                              // so this attribute can't be added in the obvious location
     }
+    iDebugManager = new DebugManager();
+
     TUint maxDevicePins;
     if (aInitParams->PinsEnabled(maxDevicePins)) {
         iPinsManager = new PinsManager(aReadWriteStore, maxDevicePins);
         iProviderPins = new ProviderPins(aDevice, aDvStack.Env(), *iPinsManager);
         iProduct->AddAttribute("Pins");
-    }
-    iDebugManager = new DebugManager();
 
-    if (false) {
         iTransportPins = new TransportPins(aDevice, aCpStack);
         iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack, iReadWriteStore);
+        iPinsManager->Add(iTransportPins);
+        iPinsManager->Add(iPodcastPins);
         iDebugManager->Add(*iTransportPins);
         iDebugManager->Add(*iPodcastPins);
     }
@@ -224,8 +225,6 @@ MediaPlayer::~MediaPlayer()
     delete iDebugManager;
     delete iProviderPins;
     delete iPinsManager;
-    delete iTransportPins;
-    delete iPodcastPins;
 }
 
 void MediaPlayer::Quit()

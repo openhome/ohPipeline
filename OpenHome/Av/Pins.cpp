@@ -6,6 +6,8 @@
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Configuration/IStore.h>
+#include <OpenHome/Private/Parser.h>
+#include <OpenHome/Private/Uri.h>
 
 #include <algorithm>
 #include <iterator>
@@ -410,10 +412,10 @@ void PinsManager::SetAccount(IPinsAccount& aAccount, TUint aCount)
     AccountSetter().SetObserver(*this);
 }
 
-void PinsManager::Add(const TChar* aMode, IPinInvoker* aInvoker)
+void PinsManager::Add(IPinInvoker* aInvoker)
 {
     AutoMutex _(iLock);
-    Brn mode(aMode);
+    Brn mode(aInvoker->Mode());
     ASSERT(iInvokers.find(mode) == iInvokers.end());
     iInvokers.insert(std::pair<Brn, IPinInvoker*>(mode, aInvoker));
     if (iObserver != nullptr) {
@@ -592,4 +594,48 @@ const Pin& PinsManager::PinFromId(TUint aId) const
     catch (PinIdNotFound&) {
         return iPinsAccount.PinFromId(aId);
     }
+}
+
+PinUri::PinUri(const IPin& aPin)
+    : iMode(256)
+    , iType(256)
+    , iSubType(256)
+    , iValue(256)
+{
+    OpenHome::Uri req(aPin.Uri());
+    iMode.Replace(req.Scheme());
+    iType.Replace(req.Host());
+    OpenHome::Parser parser(req.Query());
+    parser.Next('?');
+    while (!parser.Finished()) {
+        iSubType.Replace(parser.Next('='));
+        iValue.Replace(parser.Next('&'));
+        if (iSubType != Brn("version")) {
+            break;
+        }
+    }
+}
+
+PinUri::~PinUri()
+{
+}
+
+const Brx& PinUri::Mode()
+{
+    return iMode;
+}
+
+const Brx& PinUri::Type()
+{
+    return iType;
+}
+
+const Brx& PinUri::SubType()
+{
+    return iSubType;
+}
+
+const Brx& PinUri::Value()
+{
+    return iValue;
 }

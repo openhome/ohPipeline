@@ -91,8 +91,8 @@ class DummyPinInvoker : public IPinInvoker
 {
 public:
     DummyPinInvoker(const TChar* aMode);
-    const TChar* Mode() const;
     TUint InvocationCount() const;
+    const TChar* Mode() const;
 private: // from IPinInvoker
     void Invoke(const IPin& aPin) override;
 private:
@@ -791,7 +791,7 @@ void SuitePinsManager::TestObserverModes()
     TEST(iModes.size() == 0);
     Manager()->SetObserver(*this);
     auto invoker = new DummyPinInvoker("dummy");
-    Invocable()->Add(invoker->Mode(), invoker);
+    Invocable()->Add(invoker);
     TEST(iModes.size() == 1);
     TEST(iModes[0] == Brn(invoker->Mode()));
 }
@@ -1018,7 +1018,7 @@ void SuitePinsManager::TestInvokeDevicePinId()
 {
     Manager()->SetObserver(*this);
     auto invoker = new DummyPinInvoker("dummy");
-    Invocable()->Add(invoker->Mode(), invoker);
+    Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
     Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
     Manager()->InvokeId(iIdArrayDevice[0]);
@@ -1030,7 +1030,7 @@ void SuitePinsManager::TestInvokeAccountPinId()
     Manager()->SetObserver(*this);
     iPinsManager->SetAccount(*this, kMaxAccountPins);
     auto invoker = new DummyPinInvoker("dummy");
-    Invocable()->Add(invoker->Mode(), invoker);
+    Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
     iAccountObserver->NotifyAccountPin(2, Brn("dummy"), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
     Manager()->InvokeId(iIdArrayAccount[2]);
@@ -1041,7 +1041,7 @@ void SuitePinsManager::TestInvokePinInvalidId()
 {
     Manager()->SetObserver(*this);
     auto invoker = new DummyPinInvoker("dummy");
-    Invocable()->Add(invoker->Mode(), invoker);
+    Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
     TEST_THROWS(Manager()->InvokeId(123456), PinIdNotFound);
 }
@@ -1049,7 +1049,7 @@ void SuitePinsManager::TestInvokePinInvalidId()
 void SuitePinsManager::TestInvokeDevicePinIndex()
 {
     auto invoker = new DummyPinInvoker("dummy");
-    Invocable()->Add(invoker->Mode(), invoker);
+    Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
     Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
     Manager()->InvokeIndex(0);
@@ -1060,7 +1060,7 @@ void SuitePinsManager::TestInvokeAccountPinIndex()
 {
     iPinsManager->SetAccount(*this, kMaxAccountPins);
     auto invoker = new DummyPinInvoker("dummy");
-    Invocable()->Add(invoker->Mode(), invoker);
+    Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
     iAccountObserver->NotifyAccountPin(2, Brn("dummy"), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
     Manager()->InvokeIndex(kMaxDevicePins + 2);
@@ -1070,7 +1070,7 @@ void SuitePinsManager::TestInvokeAccountPinIndex()
 void SuitePinsManager::TestInvokePinInvalidIndex()
 {
     auto invoker = new DummyPinInvoker("dummy");
-    Invocable()->Add(invoker->Mode(), invoker);
+    Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
     TEST_THROWS(Manager()->InvokeIndex(0), PinError);
     TEST_THROWS(Manager()->InvokeIndex(kMaxDevicePins), PinIndexOutOfRange);

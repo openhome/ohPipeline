@@ -245,7 +245,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     initParams->SetSendQueueSize(aUiSendQueueSize);
     iAppFramework = new WebAppFramework(aDvStack.Env(), initParams);
 
-    if (false) {
+    if (iMediaPlayer->PinsInvocable().Ok()) {
         iTestPodcastPinsEvent = new TestPodcastPinsEvent(iMediaPlayer->GetPodcastPins(), iMediaPlayer->GetDebugManager());
     }
 }

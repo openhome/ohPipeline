@@ -27,7 +27,7 @@ public:
     ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
                   Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser,
                   IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
-                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, DebugManager& aDebugManger);
+                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, DebugManager& aDebugManger);
     ~ProtocolQobuz();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -92,7 +92,7 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
     return new ProtocolQobuz(aMediaPlayer.Env(), aAppId, aAppSecret,
                              aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(),
                              aMediaPlayer.UnixTimestamp(), aMediaPlayer.Device(), 
-                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.GetDebugManager());
+                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable(), aMediaPlayer.GetDebugManager());
 }
 
 
@@ -101,7 +101,7 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
 ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
                              Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser,
                              IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
-                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, DebugManager& aDebugManger)
+                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, DebugManager& aDebugManger)
     : ProtocolNetwork(aEnv)
     , iPins(nullptr)
     , iSupply(nullptr)
@@ -119,15 +119,15 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
     iQobuz = new Qobuz(aEnv, aAppId, aAppSecret, aCredentialsManager, aConfigInitialiser, aUnixTimestamp);
     aCredentialsManager.Add(iQobuz);
 
-    if (false) {
+    if (aPinsInvocable.Ok()) {
         iPins = new QobuzPins(*iQobuz, aDevice, aTrackFactory, aCpStack);
+        aPinsInvocable.Unwrap().Add(iPins);
         aDebugManger.Add(*iPins);
     }
 }
 
 ProtocolQobuz::~ProtocolQobuz()
 {
-    delete iPins;
     delete iSupply;
 }
 

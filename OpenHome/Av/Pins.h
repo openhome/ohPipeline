@@ -179,13 +179,14 @@ class IPinInvoker
 public:
     virtual ~IPinInvoker() {}
     virtual void Invoke(const IPin& aPin) = 0;
+    virtual const TChar* Mode() const = 0;
 };
 
 class IPinsInvocable
 {
 public:
     virtual ~IPinsInvocable() {}
-    virtual void Add(const TChar* aMode, IPinInvoker* aInvoker) = 0; // transfers ownership
+    virtual void Add(IPinInvoker* aInvoker) = 0; // transfers ownership
 };
 
 class IPinsAccountStore
@@ -207,7 +208,7 @@ public:
 public: // from IPinsAccountStore
     void SetAccount(IPinsAccount& aAccount, TUint aCount) override;
 public: // from IPinsInvocable
-    void Add(const TChar* aMode, IPinInvoker* aInvoker) override;
+    void Add(IPinInvoker* aInvoker) override;
 private: // from IPinsManager
     void SetObserver(IPinsObserver& aObserver) override;
     void Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
@@ -236,6 +237,22 @@ private:
     IPinsObserver* iObserver;
     IPinsAccount* iAccountSetter;
     std::map<Brn, IPinInvoker*, BufferCmp> iInvokers;
+};
+
+class PinUri
+{
+public:
+    PinUri(const IPin& aPin);
+    ~PinUri();
+    const Brx& Mode();
+    const Brx& Type();
+    const Brx& SubType();
+    const Brx& Value();
+private:
+    Bwh iMode;
+    Bwh iType;
+    Bwh iSubType;
+    Bwh iValue;
 };
 
 } // namespace Av

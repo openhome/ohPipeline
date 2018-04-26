@@ -23,7 +23,7 @@ class ProtocolTidal : public Media::ProtocolNetwork, private IReader
 {
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
 public:
-    ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, DebugManager& aDebugManger);
+    ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, DebugManager& aDebugManger);
     ~ProtocolTidal();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -83,13 +83,13 @@ using namespace OpenHome::Configuration;
 
 Protocol* ProtocolFactory::NewTidal(Environment& aEnv, const Brx& aToken, Av::IMediaPlayer& aMediaPlayer)
 { // static
-    return new ProtocolTidal(aEnv, aToken, aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(), aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.GetDebugManager());
+    return new ProtocolTidal(aEnv, aToken, aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(), aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable(), aMediaPlayer.GetDebugManager());
 }
 
 
 // ProtocolTidal
 
-ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, DebugManager& aDebugManger)
+ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, DebugManager& aDebugManger)
     : ProtocolNetwork(aEnv)
     , iPins(nullptr)
     , iSupply(nullptr)
@@ -105,15 +105,15 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& 
     iTidal = new Tidal(aEnv, aToken, aCredentialsManager, aConfigInitialiser);
     aCredentialsManager.Add(iTidal);
 
-    if (false) {
+    if (aPinsInvocable.Ok()) {
         iPins = new TidalPins(*iTidal, aDevice, aTrackFactory, aCpStack);
+        aPinsInvocable.Unwrap().Add(iPins);
         aDebugManger.Add(*iPins);
     }
 }
 
 ProtocolTidal::~ProtocolTidal()
 {
-    delete iPins;
     delete iSupply;
 }
 
