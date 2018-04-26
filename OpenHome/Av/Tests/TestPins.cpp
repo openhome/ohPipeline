@@ -94,6 +94,7 @@ public:
     TUint InvocationCount() const;
 public: // from IPinInvoker
     const TChar* Mode() const override;
+private: // from IPinInvoker
     void Invoke(const IPin& aPin) override;
 private:
     const TChar* iMode;
