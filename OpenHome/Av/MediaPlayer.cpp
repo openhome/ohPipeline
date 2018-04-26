@@ -277,7 +277,9 @@ void MediaPlayer::Start(IRebootHandler& aRebootHandler)
     if (iProviderConfigApp != nullptr) {
         iProviderConfigApp->Attach(aRebootHandler);
     }
-    iProviderPins->Start();
+    if (iProviderPins != nullptr) {
+        iProviderPins->Start();
+    }
     iCredentials->Start();
     iMimeTypes.Start();
     iProduct->Start();
