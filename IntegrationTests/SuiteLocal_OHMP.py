@@ -54,6 +54,9 @@ radio4    = config.Get( 'tunein.user.o4' )
 plEnc     = config.Get( 'playlist.enc-free-dsd' )
 plMix     = config.Get( 'playlist.mixed-free-dsd' )
 server    = config.Get( 'mediaserver.name' )
+cloudId     = config.Get( 'linncloud.id' )
+cloudSecret = config.Get( 'linncloud.secret' )
+cloudToken  = config.Get( 'linncloud.token' )
 tidalId   = config.Get( 'tidal.id' )
 tidalUser = config.Get( 'tidal.user' )
 tidalPwd  = config.Get( 'tidal.password' )
@@ -122,6 +125,9 @@ tests = [
     # Airplay
     ['TestAirplayFunctions', 'local'],
     ['TestAirplayDropout', 'local', '1800'],
+
+    # Linn Cloud
+    ['TestCloudInterface',            'local', cloudId, cloudSecret, cloudToken                                                      ],
 
     # Songcast Direct (Roon)
     [ 'TestScd',                      'local'                                                                                        ],
