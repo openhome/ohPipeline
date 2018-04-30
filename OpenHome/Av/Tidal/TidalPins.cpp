@@ -15,6 +15,7 @@
 #include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/Json.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
+#include <OpenHome/Private/Parser.h>
 
 #include <algorithm>
 
@@ -22,6 +23,8 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 using namespace OpenHome::Configuration;
+
+static const TChar* kPinModeTidal = "tidal";
 
 // Potential Validation
 // valid genre strings: https://api.tidal.com/v1/genres?countryCode={{countryCode}}
@@ -46,6 +49,21 @@ TidalPins::TidalPins(Tidal& aTidal, DvDeviceStandard& aDevice, Media::TrackFacto
 TidalPins::~TidalPins()
 {
     delete iCpPlaylist;
+}
+
+void TidalPins::Invoke(const IPin& aPin)
+{
+    PinUri pin(aPin);
+    if (pin.Mode() == Brn(kPinModeTidal)) {
+        if (pin.Type() == Brn("track") && pin.SubType() == Brn("trackId")) {
+            LoadTracksByTrack(pin.Value()); // tidal://track?version=1&trackId=[insert_tidal_track_id]
+        }
+    }
+}
+
+const TChar* TidalPins::Mode() const
+{
+    return kPinModeTidal;
 }
 
 TBool TidalPins::LoadTracksByArtist(const Brx& aArtist)
@@ -372,46 +390,46 @@ TBool TidalPins::Test(const Brx& aType, const Brx& aInput, IWriterAscii& aWriter
     if (aType == Brn("help")) {
         aWriter.Write(Brn("tidalpin_artist (input: Artist ID or search string)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_album (input: Album ID or search string)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_track (input: Track ID or search string)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_playlist (input: Playlist UUID or search string)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_savedplaylist (input: None)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_favorites (input: None)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_genre (input: Genre search string)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_mood (input: Mood search string)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_new (input: None)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_recommended (input: None)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_top20 (input: None)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_exclusive (input: None)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_rising (input: None)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         aWriter.Write(Brn("tidalpin_discovery (input: None)"));
         aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
+        aWriter.WriteNewline();
         return true;
     }
     else if (aType == Brn("tidalpin_artist")) {

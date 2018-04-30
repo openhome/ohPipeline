@@ -7,6 +7,7 @@
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/DebugManager.h>
 #include <Generated/CpAvOpenhomeOrgTransport1.h>
+#include <OpenHome/Av/Pins.h>
         
 namespace OpenHome {
     class Environment;
@@ -18,15 +19,19 @@ namespace Av {
 
 class TransportPins
     : public IDebugTestHandler
+    , public IPinInvoker
 {
 public:
     TransportPins(Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack);
     ~TransportPins();
 
-    TBool SelectLocalInput(const Brx& aSourceSystemName);
-
 public:  // IDebugTestHandler
-    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter);
+    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter) override;
+private: // from IPinInvoker
+    void Invoke(const IPin& aPin) override;
+    const TChar* Mode() const override;
+private:
+    TBool SelectLocalInput(const Brx& aSourceSystemName);
 private:
     Mutex iLock;
     Net::CpProxyAvOpenhomeOrgTransport1* iCpTransport;

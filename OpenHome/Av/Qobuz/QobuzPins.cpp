@@ -23,6 +23,8 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 using namespace OpenHome::Configuration;
 
+static const TChar* kPinModeQobuz = "qobuz";
+
 QobuzPins::QobuzPins(Qobuz& aQobuz, DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, TUint aMaxTracks)
     : iLock("QPIN")
     , iQobuz(aQobuz)
@@ -39,6 +41,21 @@ QobuzPins::QobuzPins(Qobuz& aQobuz, DvDeviceStandard& aDevice, Media::TrackFacto
 QobuzPins::~QobuzPins()
 {
     delete iCpPlaylist;
+}
+
+void QobuzPins::Invoke(const IPin& aPin)
+{
+    PinUri pin(aPin);
+    if (pin.Mode() == Brn(kPinModeQobuz)) {
+        if (pin.Type() == Brn("track") && pin.SubType() == Brn("trackId")) {
+            LoadTracksByTrack(pin.Value()); // qobuz://track?version=1&trackId=[insert_qobuz_track_id]
+        }
+    }
+}
+
+const TChar* QobuzPins::Mode() const
+{
+    return kPinModeQobuz;
 }
 
 TBool QobuzPins::LoadTracksByArtist(const Brx& aArtist)

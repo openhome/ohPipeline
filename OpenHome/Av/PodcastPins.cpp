@@ -23,6 +23,7 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 
+static const TChar* kPinModePodcast = "itunes";
 const Brn PodcastPins::kPodcastKey("Pins.Podcast");
 const TUint kTimerDurationMs = (1000 * 60 * 60 * 24) - (1000 * 60 * 10); // 23h:50m, anything a bit under 1 day would do
 //const TUint kTimerDurationMs = 1000 * 60; // 1 min - TEST ONLY
@@ -107,6 +108,21 @@ PodcastPins::~PodcastPins()
     delete iCpPlaylist;
     delete iITunes;
     delete iTimer;
+}
+
+void PodcastPins::Invoke(const IPin& aPin)
+{
+    PinUri pin(aPin);
+    if (pin.Mode() == Brn(kPinModePodcast)) {
+        if (pin.Type() == Brn("podcast") && pin.SubType() == Brn("podcastId")) {
+            LoadPodcastLatest(pin.Value()); // itunes://podcast?version=1&podcastId=[insert_itunes_podcast_id]
+        }
+    }
+}
+
+const TChar* PodcastPins::Mode() const
+{
+    return kPinModePodcast;
 }
 
 void PodcastPins::StartPollingForNewEpisodes()
@@ -1239,6 +1255,11 @@ void ListenedDatePooled::DecPriority()
 
 TBool ListenedDatePooled::Compare(const ListenedDatePooled* aFirst, const ListenedDatePooled* aSecond)
 {
+    if (aFirst->Priority() == aSecond->Priority() &&
+        aFirst->Date() == aSecond->Date() &&
+        aFirst->Id() == aSecond->Id()) {
+        return false;
+    }
     return (aFirst->Priority() >= aSecond->Priority());
 }
 

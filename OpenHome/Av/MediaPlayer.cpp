@@ -24,6 +24,8 @@
 #include <OpenHome/Media/MimeTypeList.h>
 #include <OpenHome/Av/Logger.h>
 #include <OpenHome/UnixTimestamp.h>
+#include <OpenHome/Av/Pins.h>
+#include <OpenHome/Av/ProviderPins.h>
 #include <OpenHome/Av/TransportPins.h>
 #include <OpenHome/Av/PodcastPins.h>
 
@@ -49,12 +51,20 @@ MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx&
     , iThreadPoolMedium(1)
     , iThreadPoolLow(1)
     , iConfigAppEnable(false)
+    , iPinsEnable(false)
+    , iMaxDevicePins(0)
 {
 }
 
 void MediaPlayerInitParams::EnableConfigApp()
 {
     iConfigAppEnable = true;
+}
+
+void MediaPlayerInitParams::EnablePins(TUint aMaxDevice)
+{
+    iPinsEnable = true;
+    iMaxDevicePins = aMaxDevice;
 }
 
 void MediaPlayerInitParams::SetThreadPoolSize(TUint aCountHigh, TUint aCountMedium, TUint aCountLow)
@@ -77,6 +87,12 @@ const Brx& MediaPlayerInitParams::DefaultName() const
 TBool MediaPlayerInitParams::ConfigAppEnabled() const
 {
     return iConfigAppEnable;
+}
+
+TBool MediaPlayerInitParams::PinsEnabled(TUint& aMaxDevice) const
+{
+    aMaxDevice = iMaxDevicePins;
+    return iPinsEnable;
 }
 
 TUint MediaPlayerInitParams::ThreadPoolCountHigh() const
@@ -117,6 +133,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     , iProviderConfigApp(nullptr)
     , iLoggerBuffered(nullptr)
     , iDebugManager(nullptr)
+    , iPinsManager(nullptr)
+    , iProviderPins(nullptr)
     , iTransportPins(nullptr)
     , iPodcastPins(nullptr)
 {
@@ -159,9 +177,16 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     }
     iDebugManager = new DebugManager();
 
-    if (false) {
+    TUint maxDevicePins;
+    if (aInitParams->PinsEnabled(maxDevicePins)) {
+        iPinsManager = new PinsManager(aReadWriteStore, maxDevicePins);
+        iProviderPins = new ProviderPins(aDevice, aDvStack.Env(), *iPinsManager);
+        iProduct->AddAttribute("Pins");
+
         iTransportPins = new TransportPins(aDevice, aCpStack);
         iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack, iReadWriteStore);
+        iPinsManager->Add(iTransportPins);
+        iPinsManager->Add(iPodcastPins);
         iDebugManager->Add(*iTransportPins);
         iDebugManager->Add(*iPodcastPins);
     }
@@ -198,8 +223,8 @@ MediaPlayer::~MediaPlayer()
     delete iLoggerBuffered;
     delete iUnixTimestamp;
     delete iDebugManager;
-    delete iTransportPins;
-    delete iPodcastPins;
+    delete iProviderPins;
+    delete iPinsManager;
 }
 
 void MediaPlayer::Quit()
@@ -250,6 +275,9 @@ void MediaPlayer::Start(IRebootHandler& aRebootHandler)
     iProviderTransport->Start();
     if (iProviderConfigApp != nullptr) {
         iProviderConfigApp->Attach(aRebootHandler);
+    }
+    if (iProviderPins != nullptr) {
+        iProviderPins->Start();
     }
     iCredentials->Start();
     iMimeTypes.Start();
@@ -372,6 +400,16 @@ ITransportRepeatRandom& MediaPlayer::TransportRepeatRandom()
 DebugManager& MediaPlayer::GetDebugManager()
 {
     return *iDebugManager; 
+}
+
+Optional<IPinsAccountStore> MediaPlayer::PinsAccountStore()
+{
+    return Optional<IPinsAccountStore>(iPinsManager);
+}
+
+Optional<IPinsInvocable> MediaPlayer::PinsInvocable()
+{
+    return Optional<IPinsInvocable>(iPinsManager);
 }
 
 TransportPins& MediaPlayer::GetTransportPins()

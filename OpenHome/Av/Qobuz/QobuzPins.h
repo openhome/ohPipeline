@@ -12,6 +12,7 @@
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/DebugManager.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
+#include <OpenHome/Av/Pins.h>
         
 namespace OpenHome {
     class Environment;
@@ -23,6 +24,7 @@ namespace Av {
 
 class QobuzPins
     : public IDebugTestHandler
+    , public IPinInvoker
 {
     static const TUint kTrackLimitPerRequest = 10;
     static const TUint kMaxAlbumsPerSmartType = 15;
@@ -30,8 +32,8 @@ class QobuzPins
 public:
     QobuzPins(Qobuz& aQobuz, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, TUint aMaxTracks = ITrackDatabase::kMaxTracks);
     ~QobuzPins();
-
-    TBool SelectLocalInput(const Brx& aSourceSystemName);
+    
+private:
     TBool LoadTracksByArtist(const Brx& aArtist); // Qobuz id or search string 
     TBool LoadTracksByAlbum(const Brx& aAlbum); // Qobuz id or search string 
     TBool LoadTracksByTrack(const Brx& aTrack); // Qobuz id or search string 
@@ -48,7 +50,10 @@ public:
     TBool LoadTracksByMostFeatured(const Brx& aGenre); // Qobuz smart playlist (featured: most featured) by genre (optional id)
 
 public:  // IDebugTestHandler
-    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter);
+    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter) override;
+private: // from IPinInvoker
+    void Invoke(const IPin& aPin) override;
+    const TChar* Mode() const override;
 private:
     TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TUint aPlaylistId);
     TBool LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType);

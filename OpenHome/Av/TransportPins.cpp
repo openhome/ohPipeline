@@ -12,6 +12,8 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 
+static const TChar* kPinModeTransport = "transport";
+
 TransportPins::TransportPins(DvDeviceStandard& aDevice, CpStack& aCpStack)
     : iLock("IPIN")
     , iCpStack(aCpStack)
@@ -24,6 +26,21 @@ TransportPins::TransportPins(DvDeviceStandard& aDevice, CpStack& aCpStack)
 TransportPins::~TransportPins()
 {
     delete iCpTransport;
+}
+
+void TransportPins::Invoke(const IPin& aPin)
+{
+    PinUri pin(aPin);
+    if (pin.Mode() == Brn(kPinModeTransport)) {
+        if (pin.Type() == Brn("source") && pin.SubType() == Brn("sourceId")) {
+            SelectLocalInput(pin.Value()); // transport://source?version=1&sourceId=[insert_source_system_name]
+        }
+    }
+}
+
+const TChar* TransportPins::Mode() const
+{
+    return kPinModeTransport;
 }
 
 TBool TransportPins::SelectLocalInput(const Brx& aSourceSystemName)

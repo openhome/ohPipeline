@@ -79,12 +79,13 @@ TBool Qobuz::TryLogin()
 
 TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
 {
+    AutoMutex _(iLock);
     TBool success = false;
     if (!TryConnect()) {
         LOG_ERROR(kPipeline, "Qobuz::TryGetStreamUrl - connection failure\n");
         return false;
     }
-    AutoSocketReader _(iSocket, iReaderUntil2);
+    AutoSocketReader __(iSocket, iReaderUntil2);
 
     // see https://github.com/Qobuz/api-documentation#request-signature for rules on creating request_sig value
     TUint timestamp;
