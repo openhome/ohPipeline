@@ -10,7 +10,6 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
-#include <OpenHome/DebugManager.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Pins.h>
         
@@ -23,8 +22,7 @@ namespace Configuration {
 namespace Av {
 
 class QobuzPins
-    : public IDebugTestHandler
-    , public IPinInvoker
+    : public IPinInvoker
 {
     static const TUint kTrackLimitPerRequest = 10;
     static const TUint kMaxAlbumsPerSmartType = 15;
@@ -49,8 +47,6 @@ private:
     TBool LoadTracksByAwardWinning(const Brx& aGenre); // Qobuz smart playlist (featured: press awards) by genre (optional id)
     TBool LoadTracksByMostFeatured(const Brx& aGenre); // Qobuz smart playlist (featured: most featured) by genre (optional id)
 
-public:  // IDebugTestHandler
-    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter) override;
 private: // from IPinInvoker
     void Invoke(const IPin& aPin) override;
     const TChar* Mode() const override;

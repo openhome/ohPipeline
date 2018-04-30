@@ -5,7 +5,6 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
-#include <OpenHome/DebugManager.h>
 #include <Generated/CpAvOpenhomeOrgTransport1.h>
 #include <OpenHome/Av/Pins.h>
         
@@ -18,15 +17,12 @@ namespace Configuration {
 namespace Av {
 
 class TransportPins
-    : public IDebugTestHandler
-    , public IPinInvoker
+    : public IPinInvoker
 {
 public:
     TransportPins(Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack);
     ~TransportPins();
 
-public:  // IDebugTestHandler
-    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter) override;
 private: // from IPinInvoker
     void Invoke(const IPin& aPin) override;
     const TChar* Mode() const override;

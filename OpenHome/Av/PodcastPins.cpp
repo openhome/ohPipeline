@@ -492,43 +492,6 @@ void PodcastPins::AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObserver)
     aObserver.NewPodcastEpisodesAvailable(iNewEpisodeList);
 }
 
-TBool PodcastPins::Test(const Brx& aType, const Brx& aInput, IWriterAscii& aWriter)
-{
-    if (aType == Brn("help")) {
-        aWriter.Write(Brn("podcastpin_latest (input: iTunes podcast ID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("podcastpin_list (input: iTunes podcast ID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("podcastpin_checkfornew (input: iTunes podcast ID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("podcastpin_setlastlistened"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        return true;
-    }
-    else if (aType == Brn("podcastpin_latest")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadPodcastLatest(aInput);
-    }
-    else if (aType == Brn("podcastpin_list")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadPodcastList(aInput);
-    }
-    else if (aType == Brn("podcastpin_checkfornew")) {
-        aWriter.Write(Brn("Complete"));
-        return CheckForNewEpisode(aInput);
-    }
-    else if (aType == Brn("podcastpin_setlastlistened")) {
-        aWriter.Write(Brn("Complete"));
-        SetLastLoadedPodcastAsListened();
-        return true;
-    }
-    return false;
-}
-
 namespace OpenHome {
     namespace Av {
     
@@ -1264,16 +1227,4 @@ TBool ListenedDatePooled::Compare(const ListenedDatePooled* aFirst, const Listen
         return false;
     }
     return (aFirst->Priority() >= aSecond->Priority());
-}
-
-
-TestPodcastPinsEvent::TestPodcastPinsEvent(PodcastPins& aPodcastPins, DebugManager& aDebugManager)
-    : iDebugManager(aDebugManager)
-{
-    aPodcastPins.AddNewPodcastEpisodesObserver(*this);
-}
-
-void TestPodcastPinsEvent::NewPodcastEpisodesAvailable(const Brx& aEpisodeIds)
-{
-    iDebugManager.TestEvent(Brn("New podcast episodes"), aEpisodeIds);
 }

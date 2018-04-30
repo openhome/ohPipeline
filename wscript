@@ -311,7 +311,6 @@ def build(bld):
                 'OpenHome/Av/Logger.cpp',
                 'Generated/DvAvOpenhomeOrgConfig2.cpp',
                 'OpenHome/Json.cpp',
-                'OpenHome/DebugManager.cpp',
                 'OpenHome/Av/Utils/FormUrl.cpp',
                 'OpenHome/NtpClient.cpp',
                 'OpenHome/UnixTimestamp.cpp',

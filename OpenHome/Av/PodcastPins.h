@@ -10,7 +10,6 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Net/Private/CpiStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
-#include <OpenHome/DebugManager.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
@@ -152,8 +151,7 @@ public:
 class ListenedDatePooled;
 
 class PodcastPins
-    : public IDebugTestHandler
-    , public IPinInvoker
+    : public IPinInvoker
 {
     static const TUint kJsonResponseChunks = 8 * 1024;
     static const TUint kXmlResponseChunks = 8 * 1024;
@@ -173,13 +171,11 @@ public:
 private:
     TBool LoadPodcastLatest(const Brx& aQuery); // iTunes id or search string (single episode - radio single)
     TBool LoadPodcastList(const Brx& aQuery); // iTunes id or search string (episode list - playlist)
-    
+
     void SetLastLoadedPodcastAsListened(); // save date of last podcast ID for new episode notification [option to allow this to be done outside of this class: currently done internally on cp->SyncPlay]
     void StartPollingForNewEpisodes(); // check existing mappings (latest selected podcasts) for new episodes (currently started in constructor)
     void StopPollingForNewEpisodes();
 
-public:  // IDebugTestHandler
-    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter) override;
 private: // from IPinInvoker
     void Invoke(const IPin& aPin) override;
     const TChar* Mode() const override;
@@ -226,17 +222,6 @@ private:
     OpenHome::Bws<PodcastPins::kMaxPodcastIdBytes> iId;
     OpenHome::Bws<PodcastPins::kMaxPodcastDateBytes> iDate;
     TUint iPriority;
-};
-
-class TestPodcastPinsEvent
-    : IPodcastPinsObserver
-{
-public:
-    TestPodcastPinsEvent(PodcastPins& aPodcastPins, DebugManager& aDebugManager);
-    void NewPodcastEpisodesAvailable(const Brx& aEpisodeIds) override;
-    virtual ~TestPodcastPinsEvent() {}
-private:
-    DebugManager& iDebugManager;
 };
 
 };  // namespace Av

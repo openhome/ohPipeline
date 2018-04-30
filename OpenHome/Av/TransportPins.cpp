@@ -68,18 +68,3 @@ TBool TransportPins::SelectLocalInput(const Brx& aSourceSystemName)
         return false;
     }
 }
-
-TBool TransportPins::Test(const Brx& aType, const Brx& aInput, IWriterAscii& aWriter)
-{
-    if (aType == Brn("help")) {
-        aWriter.Write(Brn("select_input (input: source system name to select)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        return true;
-    }
-    else if (aType == Brn("select_input")) {
-        aWriter.Write(Brn("Complete"));
-        return SelectLocalInput(aInput);
-    }
-    return false;
-}
