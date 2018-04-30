@@ -20,7 +20,7 @@ class SoftPlayer( BASE.CommonSoftPlayer ):
         """Constructor for Airplay Dropout test"""
         self.doc = __doc__
         odpPort  = BASE.GetOdpPort( **kw )
-        BASE.CommonSoftPlayer.__init__( self, kExe, aOdpPort=odpPort, aCloudIndex='1', **kw )
+        BASE.CommonSoftPlayer.__init__( self, kExe, aOdpPort=odpPort, **kw )
         time.sleep( 5 )
 
 
