@@ -20,7 +20,7 @@ class SoftPlayer( BASE.CommonSoftPlayer ):
         """Constructor for Airplay Dropout test"""
         self.doc = __doc__
         odpPort  = BASE.GetOdpPort( **kw )
-        BASE.CommonSoftPlayer.__init__( self, kExe, aOdpPort=odpPort, **kw )
+        BASE.CommonSoftPlayer.__init__( self, kExe, aOdpPort=odpPort, aCloudIndex='1', **kw )
         time.sleep( 5 )
 
 
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     tuneinId = Config.Config().Get( 'tunein.partnerid' )
     tidalId  = Config.Config().Get( 'tidal.id' )
     qobuzId  = Config.Config().Get( 'qobuz.id' ) + ':' + Config.Config().Get( 'qobuz.secret' )
-    s = SoftPlayer( aRoom='TestDev', aTuneInId=tuneinId, aTidalId=tidalId, aQobuzId=qobuzId )
+    s = SoftPlayer( aRoom='TestDev', aTuneInId=tuneinId, aTidalId=tidalId, aQobuzId=qobuzId, aCloudIndex='1' )
     if _platform in ['Windows', 'cli']:
         import msvcrt
         print( '\nPress ANY KEY to EXIT' )
