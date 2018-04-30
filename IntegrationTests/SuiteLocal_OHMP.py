@@ -126,9 +126,6 @@ tests = [
     ['TestAirplayFunctions', 'local'],
     ['TestAirplayDropout', 'local', '1800'],
 
-    # Linn Cloud
-    ['TestCloudInterface',            'local', cloudId, cloudSecret, cloudToken                                                      ],
-
     # Songcast Direct (Roon)
     [ 'TestScd',                      'local'                                                                                        ],
 
