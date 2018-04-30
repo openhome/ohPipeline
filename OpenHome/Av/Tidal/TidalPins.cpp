@@ -24,8 +24,6 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 using namespace OpenHome::Configuration;
 
-static const TChar* kPinModeTidal = "tidal";
-
 // Potential Validation
 // valid genre strings: https://api.tidal.com/v1/genres?countryCode={{countryCode}}
 // valid mood strings: https://api.tidal.com/v1/moods?countryCode={{countryCode}}
@@ -54,16 +52,37 @@ TidalPins::~TidalPins()
 void TidalPins::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
-    if (pin.Mode() == Brn(kPinModeTidal)) {
-        if (pin.Type() == Brn("track") && pin.SubType() == Brn("trackId")) {
-            LoadTracksByTrack(pin.Value()); // tidal://track?version=1&trackId=[insert_tidal_track_id]
+    if (pin.Mode() == PinUri::EMode::eTidal) {
+        switch (pin.Type()) {
+            case PinUri::EType::eArtist: LoadTracksByArtist(pin.Value()); break;
+            case PinUri::EType::eAlbum: LoadTracksByAlbum(pin.Value()); break;
+            case PinUri::EType::eTrack: LoadTracksByTrack(pin.Value()); break;
+            case PinUri::EType::ePlaylist: LoadTracksByPlaylist(pin.Value()); break;
+            case PinUri::EType::eGenre: LoadTracksByGenre(pin.Value()); break;
+            case PinUri::EType::eMood: LoadTracksByMood(pin.Value()); break;
+            case PinUri::EType::eFavorites: LoadTracksByFavorites(); break;
+            case PinUri::EType::eSavedPlaylist: LoadTracksBySavedPlaylist(); break;
+            case PinUri::EType::eSmart: {
+                switch (pin.SmartType()) {
+                    case PinUri::ESmartType::eNew: LoadTracksByNew(); break;
+                    case PinUri::ESmartType::eRecommended: LoadTracksByRecommended(); break;
+                    case PinUri::ESmartType::eTop20: LoadTracksByTop20(); break;
+                    case PinUri::ESmartType::eExclusive: LoadTracksByExclusive(); break;
+                    case PinUri::ESmartType::eRising: LoadTracksByRising(); break;
+                    case PinUri::ESmartType::eDiscovery: LoadTracksByDiscovery(); break;
+                }
+                break;
+            }
+            default: {
+                return;
+            }
         }
     }
 }
 
 const TChar* TidalPins::Mode() const
 {
-    return kPinModeTidal;
+    return PinUri::GetModeString(PinUri::EMode::eTidal);
 }
 
 TBool TidalPins::LoadTracksByArtist(const Brx& aArtist)
@@ -86,7 +105,7 @@ TBool TidalPins::LoadTracksByPlaylist(const Brx& aPlaylist)
     return TidalPins::LoadTracksByQuery(aPlaylist, TidalMetadata::ePlaylist);
 }
 
-TBool TidalPins::LoadTracksBySavedPlaylists()
+TBool TidalPins::LoadTracksBySavedPlaylist()
 {
     return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSavedPlaylist);
 }
@@ -450,7 +469,7 @@ TBool TidalPins::Test(const Brx& aType, const Brx& aInput, IWriterAscii& aWriter
     }
     else if (aType == Brn("tidalpin_savedplaylist")) {
         aWriter.Write(Brn("Complete"));
-        return LoadTracksBySavedPlaylists();
+        return LoadTracksBySavedPlaylist();
     }
     else if (aType == Brn("tidalpin_favorites")) {
         aWriter.Write(Brn("Complete"));

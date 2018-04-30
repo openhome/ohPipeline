@@ -169,10 +169,11 @@ public:
     PodcastPins(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
     ~PodcastPins();
     void AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObserver); // event describing podcast IDs with new episodes available (compared to last listened stored data)
+    TBool CheckForNewEpisode(const Brx& aQuery); // poll using iTunes id or search string (single episode)
 private:
     TBool LoadPodcastLatest(const Brx& aQuery); // iTunes id or search string (single episode - radio single)
     TBool LoadPodcastList(const Brx& aQuery); // iTunes id or search string (episode list - playlist)
-    TBool CheckForNewEpisode(const Brx& aQuery); // iTunes id or search string (single episode
+    
     void SetLastLoadedPodcastAsListened(); // save date of last podcast ID for new episode notification [option to allow this to be done outside of this class: currently done internally on cp->SyncPlay]
     void StartPollingForNewEpisodes(); // check existing mappings (latest selected podcasts) for new episodes (currently started in constructor)
     void StopPollingForNewEpisodes();

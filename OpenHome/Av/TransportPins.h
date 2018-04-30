@@ -31,7 +31,7 @@ private: // from IPinInvoker
     void Invoke(const IPin& aPin) override;
     const TChar* Mode() const override;
 private:
-    TBool SelectLocalInput(const Brx& aSourceSystemName);
+    TBool SelectLocalInput(const Brx& aSourceSystemName); // source system name remains constant always
 private:
     Mutex iLock;
     Net::CpProxyAvOpenhomeOrgTransport1* iCpTransport;

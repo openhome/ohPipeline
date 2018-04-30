@@ -23,8 +23,6 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 using namespace OpenHome::Configuration;
 
-static const TChar* kPinModeQobuz = "qobuz";
-
 QobuzPins::QobuzPins(Qobuz& aQobuz, DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, TUint aMaxTracks)
     : iLock("QPIN")
     , iQobuz(aQobuz)
@@ -46,16 +44,39 @@ QobuzPins::~QobuzPins()
 void QobuzPins::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
-    if (pin.Mode() == Brn(kPinModeQobuz)) {
-        if (pin.Type() == Brn("track") && pin.SubType() == Brn("trackId")) {
-            LoadTracksByTrack(pin.Value()); // qobuz://track?version=1&trackId=[insert_qobuz_track_id]
+
+    if (pin.Mode() == PinUri::EMode::eQobuz) {
+        switch (pin.Type()) {
+            case PinUri::EType::eArtist: LoadTracksByArtist(pin.Value()); break;
+            case PinUri::EType::eAlbum: LoadTracksByAlbum(pin.Value()); break;
+            case PinUri::EType::eTrack: LoadTracksByTrack(pin.Value()); break;
+            case PinUri::EType::ePlaylist: LoadTracksByPlaylist(pin.Value()); break;
+            case PinUri::EType::eFavorites: LoadTracksByFavorites(); break;
+            case PinUri::EType::ePurchased: LoadTracksByPurchased(); break;
+            case PinUri::EType::eCollection: LoadTracksByCollection(); break;
+            case PinUri::EType::eSavedPlaylist: LoadTracksBySavedPlaylist(); break;
+            case PinUri::EType::eSmart: {
+                switch (pin.SmartType()) {
+                    // optional genre parameter to filter smart playlists
+                    case PinUri::ESmartType::eNew: LoadTracksByNew(pin.SmartGenre()); break;
+                    case PinUri::ESmartType::eRecommended: LoadTracksByRecommended(pin.SmartGenre()); break;
+                    case PinUri::ESmartType::eMostStreamed: LoadTracksByMostStreamed(pin.SmartGenre()); break;
+                    case PinUri::ESmartType::eBestSellers: LoadTracksByBestSellers(pin.SmartGenre()); break;
+                    case PinUri::ESmartType::eAwardWinning: LoadTracksByAwardWinning(pin.SmartGenre()); break;
+                    case PinUri::ESmartType::eMostFeatured: LoadTracksByMostFeatured(pin.SmartGenre()); break;
+                }
+                break;
+            }
+            default: {
+                return;
+            }
         }
     }
 }
 
 const TChar* QobuzPins::Mode() const
 {
-    return kPinModeQobuz;
+    return PinUri::GetModeString(PinUri::EMode::eQobuz);
 }
 
 TBool QobuzPins::LoadTracksByArtist(const Brx& aArtist)

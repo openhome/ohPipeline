@@ -596,23 +596,195 @@ const Pin& PinsManager::PinFromId(TUint aId) const
     }
 }
 
+// mode
+static const TChar* kPinModeItunes = "itunes";
+static const TChar* kPinModeQobuz = "qobuz";
+static const TChar* kPinModeTidal = "tidal";
+static const TChar* kPinModeTransport = "transport";
+
+// type
+static const TChar* kPinTypeArtist = "artist";
+static const TChar* kPinTypeAlbum = "album";
+static const TChar* kPinTypeCollection = "collection";
+static const TChar* kPinTypeFavorites = "fav";
+static const TChar* kPinTypeGenre = "genre";
+static const TChar* kPinTypeMood = "mood";
+static const TChar* kPinTypePlaylist = "pls";
+static const TChar* kPinTypePodcastLatest = "podlate";
+static const TChar* kPinTypePodcastList = "podlist";
+static const TChar* kPinTypePurchased = "purchased";
+static const TChar* kPinTypeSavedPlaylist = "savedpls";
+static const TChar* kPinTypeSmart = "smart";
+static const TChar* kPinTypeSource = "source";
+static const TChar* kPinTypeTrack = "track";
+
+// smart type
+static const TChar* kSmartTypeAwardWinning = "award";
+static const TChar* kSmartTypeBestSellers = "sellers";
+static const TChar* kSmartTypeDiscovery = "discovery";
+static const TChar* kSmartTypeExclusive = "exclusive";
+static const TChar* kSmartTypeMostFeatured = "featured";
+static const TChar* kSmartTypeMostStreamed = "streamed";
+static const TChar* kSmartTypeNew = "new";
+static const TChar* kSmartTypeRecommended = "recommended";
+static const TChar* kSmartTypeRising = "rising";
+static const TChar* kSmartTypeTop20 = "top20";
+
 PinUri::PinUri(const IPin& aPin)
-    : iMode(256)
-    , iType(256)
+    : iMode(EMode::eModeNone)
+    , iType(EType::eTypeNone)
+    , iSmartType(ESmartType::eSmartTypeNone)
     , iSubType(256)
     , iValue(256)
+    , iSmartGenre(256)
 {
     OpenHome::Uri req(aPin.Uri());
-    iMode.Replace(req.Scheme());
-    iType.Replace(req.Host());
+    iMode = ConvertModeString(req.Scheme());
+    iType = ConvertTypeString(req.Host());
     OpenHome::Parser parser(req.Query());
     parser.Next('?');
     while (!parser.Finished()) {
-        iSubType.Replace(parser.Next('='));
-        iValue.Replace(parser.Next('&'));
-        if (iSubType != Brn("version")) {
-            break;
+        Brn entry(parser.Next('&'));
+        if (entry.Bytes() > 0) {
+            OpenHome::Parser pe(entry);
+            Brn left(parser.Next('='));
+            Brn right(parser.Remaining());
+            if (left == Brn("smartGenre")) {
+                iSmartGenre.Replace(right);
+            }
+            else if (left != Brn("version")) {
+                iSubType.Replace(left);
+                iValue.Replace(right);
+            }
         }
+    }
+
+    if (iType == EType::eSmart) {
+        iSmartType = ConvertSmartTypeString(iValue);
+    }
+}
+
+const TChar* PinUri::GetModeString(EMode aMode)
+{
+    if (aMode == EMode::eTidal) {
+        return kPinModeTidal;
+    }
+    else if (aMode == EMode::eQobuz) {
+        return kPinModeQobuz;
+    }
+    else if (aMode == EMode::eItunes) {
+        return kPinModeItunes;
+    }
+    else if (aMode == EMode::eTransport) {
+        return kPinModeTransport;
+    }
+    else {
+        THROW(PinModeNotSupported);
+    }
+}
+
+const PinUri::EMode PinUri::ConvertModeString(const Brx& aMode) const
+{
+    if (aMode == Brn(kPinModeTidal)) {
+        return EMode::eTidal;
+    }
+    else if (aMode == Brn(kPinModeQobuz)) {
+        return EMode::eQobuz;
+    }
+    else if (aMode == Brn(kPinModeItunes)) {
+        return EMode::eItunes;
+    }
+    else if (aMode == Brn(kPinModeTransport)) {
+        return EMode::eTransport;
+    }
+    else {
+        THROW(PinModeNotSupported);
+    }
+}
+
+const PinUri::EType PinUri::ConvertTypeString(const Brx& aType) const
+{
+    if (aType == Brn(kPinTypeArtist)) {
+        return EType::eArtist;
+    }
+    else if (aType == Brn(kPinTypeAlbum)) {
+        return EType::eAlbum;
+    }
+    else if (aType == Brn(kPinTypeTrack)) {
+        return EType::eTrack;
+    }
+    else if (aType == Brn(kPinTypePlaylist)) {
+        return EType::ePlaylist;
+    }
+    else if (aType == Brn(kPinTypeGenre)) {
+        return EType::eGenre;
+    }
+    else if (aType == Brn(kPinTypeMood)) {
+        return EType::eMood;
+    }
+    else if (aType == Brn(kPinTypePurchased)) {
+        return EType::ePurchased;
+    }
+    else if (aType == Brn(kPinTypeCollection)) {
+        return EType::eCollection;
+    }
+    else if (aType == Brn(kPinTypeFavorites)) {
+        return EType::eFavorites;
+    }
+    else if (aType == Brn(kPinTypeSavedPlaylist)) {
+        return EType::eSavedPlaylist;
+    }
+    else if (aType == Brn(kPinTypeSmart)) {
+        return EType::eSmart;
+    }
+    else if (aType == Brn(kPinTypeSource)) {
+        return EType::eSource;
+    }
+    else if (aType == Brn(kPinTypePodcastLatest)) {
+        return EType::ePodcastLatest;
+    }
+    else if (aType == Brn(kPinTypePodcastList)) {
+        return EType::ePodcastList;
+    }
+    else {
+        THROW(PinTypeNotSupported);
+    }
+}
+
+const PinUri::ESmartType PinUri::ConvertSmartTypeString(const Brx& aSmartType) const
+{
+    if (aSmartType == Brn(kSmartTypeNew)) {
+        return ESmartType::eNew;
+    }
+    else if (aSmartType == Brn(kSmartTypeRecommended)) {
+        return ESmartType::eRecommended;
+    }
+    else if (aSmartType == Brn(kSmartTypeTop20)) {
+        return ESmartType::eTop20;
+    }
+    else if (aSmartType == Brn(kSmartTypeExclusive)) {
+        return ESmartType::eExclusive;
+    }
+    else if (aSmartType == Brn(kSmartTypeRising)) {
+        return ESmartType::eRising;
+    }
+    else if (aSmartType == Brn(kSmartTypeDiscovery)) {
+        return ESmartType::eDiscovery;
+    }
+    else if (aSmartType == Brn(kSmartTypeMostStreamed)) {
+        return ESmartType::eMostStreamed;
+    }
+    else if (aSmartType == Brn(kSmartTypeBestSellers)) {
+        return ESmartType::eBestSellers;
+    }
+    else if (aSmartType == Brn(kSmartTypeAwardWinning)) {
+        return ESmartType::eAwardWinning;
+    }
+    else if (aSmartType == Brn(kSmartTypeMostFeatured)) {
+        return ESmartType::eMostFeatured;
+    }
+    else {
+        THROW(PinSmartTypeNotSupported);
     }
 }
 
@@ -620,22 +792,32 @@ PinUri::~PinUri()
 {
 }
 
-const Brx& PinUri::Mode()
+const PinUri::EMode PinUri::Mode() const
 {
     return iMode;
 }
 
-const Brx& PinUri::Type()
+const PinUri::EType PinUri::Type() const
 {
     return iType;
 }
 
-const Brx& PinUri::SubType()
+const PinUri::ESmartType PinUri::SmartType() const
+{
+    return iSmartType;
+}
+
+const Brx& PinUri::SubType() const
 {
     return iSubType;
 }
 
-const Brx& PinUri::Value()
+const Brx& PinUri::Value() const
 {
     return iValue;
+}
+
+const Brx& PinUri::SmartGenre() const
+{
+    return iSmartGenre;
 }

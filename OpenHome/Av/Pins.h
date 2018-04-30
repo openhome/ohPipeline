@@ -12,6 +12,9 @@
 EXCEPTION(PinError)
 EXCEPTION(PinIndexOutOfRange)
 EXCEPTION(PinIdNotFound)
+EXCEPTION(PinModeNotSupported);
+EXCEPTION(PinTypeNotSupported);
+EXCEPTION(PinSmartTypeNotSupported);
 
 namespace OpenHome {
     class WriterJsonObject;
@@ -241,18 +244,68 @@ private:
 
 class PinUri
 {
+// <mode>://<type>?<subtype>=<value/smart type>[&smartGenre=<genre>][&version=1]
+// <subtype> = <type>Id
+public:
+    enum EMode {
+        eModeNone,
+        eItunes,
+        eQobuz,
+        eTidal,
+        eTransport,
+    };
+    enum EType {
+        eTypeNone,
+        eAlbum,
+        eArtist,
+        eCollection,
+        eFavorites,
+        eGenre,
+        eMood,
+        ePlaylist,
+        ePodcastLatest,
+        ePodcastList,
+        ePurchased,    
+        eSavedPlaylist,
+        eSmart,
+        eSource,
+        eTrack,
+    };
+    enum ESmartType {
+        eSmartTypeNone,
+        eAwardWinning,
+        eBestSellers,
+        eDiscovery,
+        eExclusive,
+        eMostFeatured,
+        eMostStreamed,
+        eNew,
+        eRecommended,
+        eRising,
+        eTop20,
+    };
 public:
     PinUri(const IPin& aPin);
     ~PinUri();
-    const Brx& Mode();
-    const Brx& Type();
-    const Brx& SubType();
-    const Brx& Value();
+    const EMode Mode() const;
+    const EType Type() const ;
+    const ESmartType SmartType() const;
+    const Brx& SubType() const;
+    const Brx& Value() const;
+    const Brx& SmartGenre() const;
+public:
+    static const TChar* GetModeString(EMode aMode);
 private:
-    Bwh iMode;
-    Bwh iType;
+    const EMode PinUri::ConvertModeString(const Brx& aMode) const;
+    const EType PinUri::ConvertTypeString(const Brx& aType) const;
+    const ESmartType PinUri::ConvertSmartTypeString(const Brx& aSmartType) const;
+private:
+    EMode iMode;
+    EType iType;
+    ESmartType iSmartType;
     Bwh iSubType;
     Bwh iValue;
+    Bwh iSmartGenre;
 };
 
 } // namespace Av
