@@ -389,29 +389,29 @@ void ProviderConfigApp::SetValue(IDvInvocation& aInvocation, const Brx& aKey, co
     Brn keyConfig(it->second);
     // Check for ConfigNum.
     ISerialisable* ser = nullptr;
-    auto it2 = iMapNum.find(keyConfig);
-    if (it2 != iMapNum.end()) {
-        ser = &it2->second->iVal;
+    auto itNum = iMapNum.find(keyConfig);
+    if (itNum != iMapNum.end()) {
+        ser = &itNum->second->iVal;
     }
     // Check for ConfigChoice.
     if (ser == nullptr) {
-        auto it = iMapChoice.find(keyConfig);
-        if (it != iMapChoice.end()) {
-            ser = &it->second->iVal;
+        auto itChoice = iMapChoice.find(keyConfig);
+        if (itChoice != iMapChoice.end()) {
+            ser = &itChoice->second->iVal;
         }
     }
     // Check for ConfigText.
     if (ser == nullptr) {
-        auto it = iMapText.find(keyConfig);
-        if (it != iMapText.end()) {
-            ser = &it->second->iVal;
+        auto itText = iMapText.find(keyConfig);
+        if (itText != iMapText.end()) {
+            ser = &itText->second->iVal;
         }
     }
     // Check for ConfigTextChoice.
     if (ser == nullptr) {
-        auto it = iMapTextChoice.find(keyConfig);
-        if (it != iMapTextChoice.end()) {
-            ser = &it->second->iVal;
+        auto itTextChoice = iMapTextChoice.find(keyConfig);
+        if (itTextChoice != iMapTextChoice.end()) {
+            ser = &itTextChoice->second->iVal;
         }
     }
     if (ser == nullptr) {
