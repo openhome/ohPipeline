@@ -413,7 +413,7 @@ public: // from ConfigVal
     const Brx& Default() const override;
     TUint Subscribe(FunctorConfigText aFunctor) override;
     void Serialise(IWriter& aWriter) const override;
-    virtual void Deserialise(const Brx& aString) = 0;
+    virtual void Deserialise(const Brx& aString) override = 0;
 private: // from ConfigVal
     void Write(KvpText& aKvp) override;
 protected:
