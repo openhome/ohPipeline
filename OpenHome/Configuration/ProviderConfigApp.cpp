@@ -104,7 +104,6 @@ void ProviderConfigApp::KeysWriter::Add(ConfigTextChoice& aVal, const Brx& aKey)
     writerObject.WriteString(kKeyType, kValTypeTextChoice);
     {
         auto writerMeta = writerObject.CreateObject(kKeyMeta);
-        writerMeta.WriteBool(kKeyOptional, aVal.Optional());
         {
             auto writerVals = writerMeta.CreateArray(kKeyEnumVals);
             ConfigTextChoiceVisitorJson visitor(writerVals);

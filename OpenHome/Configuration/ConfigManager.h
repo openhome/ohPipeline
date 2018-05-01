@@ -486,12 +486,20 @@ public:
      *
      * If value is optional, IsValid() must return true for an empty string.
      */
-    virtual TBool Optional() const = 0;
     virtual TBool IsValid(const Brx& aBuf) const = 0;
 };
 
 /*
  * Current implementation expects choices to remain static.
+ *
+ * If it is valid for this to have an empty string (i.e., no value) set, or
+ * some kind of sentinel "none" value, that should be included in the set of
+ * choices, making this analogous with ConfigChoice (where, e.g., OFF, is
+ * provided as one of the choices).
+ *
+ * A future string-type where it is valid to set an empty string could include
+ * a meta "optional" boolean field, instead of explicitly including the "none"
+ * value in its choice list.
  */
 class ConfigTextChoice : public ConfigTextBase
 {
@@ -502,7 +510,6 @@ public:
                      TUint aMaxLength, const Brx& aDefault,
                      TBool aRebootRequired = false);
     ~ConfigTextChoice();
-    TBool Optional() const;
     void AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor);
     void Set(const Brx& aText); // THROWS ConfigInvalidSelection (and NOT ConfigValueTooShort, ConfigValueTooLong as ConfigText does, as this class does not accept free-form text; only values from the list of current values (which may change dynamically)).
 public: // from ConfigVal

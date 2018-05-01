@@ -408,11 +408,6 @@ ConfigTextChoice::~ConfigTextChoice()
     iConfigManager.Remove(*this);
 }
 
-TBool ConfigTextChoice::Optional() const
-{
-    return iChoices.Optional();
-}
-
 void ConfigTextChoice::AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor)
 {
     iChoices.AcceptChoicesVisitor(aVisitor);
