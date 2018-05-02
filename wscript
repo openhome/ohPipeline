@@ -279,6 +279,7 @@ def build(bld):
                 'OpenHome/Configuration/BufferPtrCmp.cpp',
                 'OpenHome/Configuration/ConfigManager.cpp',
                 'OpenHome/Media/Utils/Silencer.cpp',
+                'OpenHome/SocketHttp.cpp',
                 'OpenHome/SocketSsl.cpp',
             ],
             use=['ohNetCore', 'OHNET', 'OPENSSL'],
