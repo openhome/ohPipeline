@@ -302,7 +302,6 @@ def build(bld):
                 'OpenHome/Av/TransportControl.cpp',
                 'OpenHome/Av/ProviderTransport.cpp',
                 'OpenHome/Av/TransportPins.cpp',
-                'OpenHome/Av/PodcastPins.cpp',
                 'Generated/CpAvOpenhomeOrgRadio1.cpp',
                 'Generated/DvAvOpenhomeOrgVolume3.cpp',
                 'OpenHome/Av/ProviderVolume.cpp',
@@ -365,7 +364,7 @@ def build(bld):
                 'OpenHome/Av/Qobuz/QobuzPins.cpp',
                 'OpenHome/Av/Qobuz/ProtocolQobuz.cpp'
             ],
-            use=['OHNET', 'ohMediaPlayer'],
+            use=['OHNET', 'ohMediaPlayer', 'Podcast'],
             target='SourcePlaylist')
 
     # Library
@@ -385,7 +384,7 @@ def build(bld):
                 'Generated/DvAvOpenhomeOrgRadio1.cpp',
                 'OpenHome/Av/Radio/ProviderRadio.cpp',
             ],
-            use=['OHNET', 'ohMediaPlayer'],
+            use=['OHNET', 'ohMediaPlayer', 'Podcast'],
             target='SourceRadio')
 
     # Library
@@ -450,6 +449,12 @@ def build(bld):
             ],
             use=['OHNET', 'ohMediaPlayer'],
             target='SourceUpnpAv')
+
+    # Podcast
+    bld.stlib(
+            source=['OpenHome/Av/PodcastPins.cpp'],
+            use=['OHNET'],
+            target='Podcast')
 
     # Wav
     bld.stlib(
@@ -1163,7 +1168,8 @@ def bundle(ctx):
                  'WebAppFramework',
                  'ConfigUi',
                  'ConfigUiTestUtils',
-                 'Odp'
+                 'Odp',
+                 'Podcast'
                 ]
     lib_files = gather_files(ctx, '{bld}', (ctx.env.cxxstlib_PATTERN % x for x in lib_names))
     res_files = gather_files(ctx, '{top}/OpenHome/Web/ConfigUi/res', ['**/*'])

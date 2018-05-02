@@ -27,21 +27,139 @@ const Brn PodcastPins::kPodcastKey("Pins.Podcast");
 const TUint kTimerDurationMs = (1000 * 60 * 60 * 24) - (1000 * 60 * 10); // 23h:50m, anything a bit under 1 day would do
 //const TUint kTimerDurationMs = 1000 * 60; // 1 min - TEST ONLY
 
-PodcastPins::PodcastPins(DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, Configuration::IStoreReadWrite& aStore)
+// PodcastPinsLatestEpisode
+
+PodcastPinsLatestEpisode::PodcastPinsLatestEpisode(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore)
+{
+    iPodcastPins = PodcastPins::GetInstance(aTrackFactory, aCpStack.Env(), aStore);
+
+    CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
+    iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
+    cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+}
+
+PodcastPinsLatestEpisode::~PodcastPinsLatestEpisode()
+{
+    delete iCpRadio;
+}
+
+void PodcastPinsLatestEpisode::Invoke(const IPin& aPin)
+{
+    PinUri pin(aPin);
+    if (pin.Mode() == PinUri::EMode::eItunesLatestEpisode) {
+        switch (pin.Type()) {
+            case PinUri::EType::ePodcast: iPodcastPins->LoadPodcastLatest(pin.Value(), *this); break;
+            default: {
+                return;
+            }
+        }
+    }
+}
+
+const TChar* PodcastPinsLatestEpisode::Mode() const
+{
+    return PinUri::GetModeString(PinUri::EMode::eItunesLatestEpisode);
+}
+
+void PodcastPinsLatestEpisode::Delete()
+{
+    // Single shot so nothing to delete
+}
+
+void PodcastPinsLatestEpisode::Load(Media::Track& aTrack)
+{
+    iCpRadio->SyncSetChannel(aTrack.Uri(), aTrack.MetaData());
+}
+
+void PodcastPinsLatestEpisode::Play()
+{
+    iCpRadio->SyncPlay();
+}
+
+TBool PodcastPinsLatestEpisode::SingleShot()
+{
+    return true;
+}
+
+// PodcastPinsEpisodeList
+
+PodcastPinsEpisodeList::PodcastPinsEpisodeList(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore)
+    : iLastId(0)
+{
+    iPodcastPins = PodcastPins::GetInstance(aTrackFactory, aCpStack.Env(), aStore);
+
+    CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
+    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
+    cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+}
+
+PodcastPinsEpisodeList::~PodcastPinsEpisodeList()
+{
+    delete iCpPlaylist;
+}
+
+void PodcastPinsEpisodeList::Invoke(const IPin& aPin)
+{
+    PinUri pin(aPin);
+    if (pin.Mode() == PinUri::EMode::eItunesEpisodeList) {
+        switch (pin.Type()) {
+            case PinUri::EType::ePodcast: iPodcastPins->LoadPodcastList(pin.Value(), *this); break;
+            default: {
+                return;
+            }
+        }
+    }
+}
+
+const TChar* PodcastPinsEpisodeList::Mode() const
+{
+    return PinUri::GetModeString(PinUri::EMode::eItunesEpisodeList);
+}
+
+void PodcastPinsEpisodeList::Delete()
+{
+    iCpPlaylist->SyncDeleteAll();
+    iLastId = 0;
+}
+
+void PodcastPinsEpisodeList::Load(Media::Track& aTrack)
+{
+    TUint newId;
+    iCpPlaylist->SyncInsert(iLastId, aTrack.Uri(), aTrack.MetaData(), newId);
+    iLastId = newId;
+}
+
+void PodcastPinsEpisodeList::Play()
+{
+    iCpPlaylist->SyncPlay();
+}
+
+TBool PodcastPinsEpisodeList::SingleShot()
+{
+    return false;
+}
+
+// PodcastPins
+
+PodcastPins* PodcastPins::iInstance = nullptr;
+
+PodcastPins* PodcastPins::GetInstance(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore)
+{
+    if (iInstance == nullptr) {
+        iInstance = new PodcastPins(aTrackFactory, aEnv, aStore);
+    }
+    return iInstance;
+}
+
+PodcastPins::PodcastPins(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore)
     : iLock("PPIN")
     , iJsonResponse(kJsonResponseChunks)
     , iXmlResponse(kXmlResponseChunks)
     , iTrackFactory(aTrackFactory)
-    , iCpStack(aCpStack)
     , iStore(aStore)
     , iListenedDates(kMaxEntryBytes*kMaxEntries)
 {
-    CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
-    iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
-    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
-    cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
-
-    iITunes = new ITunes(iCpStack.Env());
+    iITunes = new ITunes(aEnv);
 
     // Don't push any mappings into iMappings yet.
     // Instead, start by populating from store. Then, if it is not full, fill up
@@ -90,7 +208,7 @@ PodcastPins::PodcastPins(DvDeviceStandard& aDevice, Media::TrackFactory& aTrackF
         iMappings.push_back(new ListenedDatePooled());
     }
 
-    iTimer = new Timer(iCpStack.Env(), MakeFunctor(*this, &PodcastPins::TimerCallback), "PodcastPins");
+    iTimer = new Timer(aEnv, MakeFunctor(*this, &PodcastPins::TimerCallback), "PodcastPins");
     if (iListenedDates.Bytes() > 0) {
         StartPollingForNewEpisodes();
     }
@@ -103,29 +221,9 @@ PodcastPins::~PodcastPins()
     }
     iMappings.clear();
 
-    delete iCpRadio;
-    delete iCpPlaylist;
     delete iITunes;
     delete iTimer;
-}
-
-void PodcastPins::Invoke(const IPin& aPin)
-{
-    PinUri pin(aPin);
-    if (pin.Mode() == PinUri::EMode::eItunes) {
-        switch (pin.Type()) {
-            case PinUri::EType::ePodcastLatest: LoadPodcastLatest(pin.Value()); break;
-            case PinUri::EType::ePodcastList: LoadPodcastList(pin.Value()); break;
-            default: {
-                return;
-            }
-        }
-    }
-}
-
-const TChar* PodcastPins::Mode() const
-{
-    return PinUri::GetModeString(PinUri::EMode::eItunes);
+    delete iInstance;
 }
 
 void PodcastPins::StartPollingForNewEpisodes()
@@ -174,14 +272,14 @@ void PodcastPins::TimerCallback()
     iTimer->FireIn(kTimerDurationMs);
 }
 
-TBool PodcastPins::LoadPodcastLatest(const Brx& aQuery)
+TBool PodcastPins::LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler)
 {
-    return LoadByQuery(aQuery, true);
+    return LoadByQuery(aQuery, aHandler);
 }
 
-TBool PodcastPins::LoadPodcastList(const Brx& aQuery)
+TBool PodcastPins::LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler)
 {
-    return LoadByQuery(aQuery, false);
+    return LoadByQuery(aQuery, aHandler);
 }
 
 TBool PodcastPins::CheckForNewEpisode(const Brx& aQuery)
@@ -216,12 +314,10 @@ TBool PodcastPins::CheckForNewEpisode(const Brx& aQuery)
     }
 }
 
-TBool PodcastPins::LoadByQuery(const Brx& aQuery, TBool aLatestOnly)
+TBool PodcastPins::LoadByQuery(const Brx& aQuery, IPodcastTransportHandler& aHandler)
 {
     AutoMutex _(iLock);
-    if (!aLatestOnly) {
-        iCpPlaylist->SyncDeleteAll();
-    }
+    aHandler.Delete();
     Bwh inputBuf(64);
 
     try {
@@ -243,7 +339,7 @@ TBool PodcastPins::LoadByQuery(const Brx& aQuery, TBool aLatestOnly)
         else {
             inputBuf.ReplaceThrow(aQuery);
         }
-        LoadById(inputBuf, aLatestOnly);
+        LoadById(inputBuf, aHandler);
     }   
     catch (Exception& ex) {
         LOG_ERROR(kMedia, "%s in PodcastPins::LoadByQuery\n", ex.Message());
@@ -253,12 +349,10 @@ TBool PodcastPins::LoadByQuery(const Brx& aQuery, TBool aLatestOnly)
     return true;
 }
 
-TBool PodcastPins::LoadById(const Brx& aId, TBool aLatestOnly)
+TBool PodcastPins::LoadById(const Brx& aId, IPodcastTransportHandler& aHandler)
 {
     ITunesMetadata im(iTrackFactory);
     JsonParser parser;
-    TUint newId = 0;
-    TUint currId = 0;
     TBool isPlayable = false;
     Parser xmlParser;
     Brn date;
@@ -284,7 +378,7 @@ TBool PodcastPins::LoadById(const Brx& aId, TBool aLatestOnly)
             podcast = new PodcastInfo(parserItems.NextObject(), aId);
 
             iXmlResponse.Reset();
-            success = iITunes->TryGetPodcastEpisodeInfo(iXmlResponse, podcast->FeedUrl(), aLatestOnly);
+            success = iITunes->TryGetPodcastEpisodeInfo(iXmlResponse, podcast->FeedUrl(), aHandler.SingleShot());
             if (!success) {
                 return false;
             }
@@ -296,27 +390,19 @@ TBool PodcastPins::LoadById(const Brx& aId, TBool aLatestOnly)
 
                     auto* track = im.GetNextEpisodeTrack(*podcast, item);
                     if (track != nullptr) {
-                        if (aLatestOnly) {
-                            iCpRadio->SyncSetChannel((*track).Uri(), (*track).MetaData());
-                            track->RemoveRef();
-                            isPlayable = true;
+                        aHandler.Load(*track);
+                        track->RemoveRef();
+                        isPlayable = true;
+                        if (date.Bytes() == 0) {
                             date = Brn(im.GetNextEpisodePublishedDate(item));
-                            break;
                         }
-                        else {
-                            iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
-                            LOG(kMedia, "Load playlist track - new ID is %d\n", newId);
-                            track->RemoveRef();
-                            currId = newId;
-                            isPlayable = true;
-                            if (date.Bytes() == 0) {
-                                date = Brn(im.GetNextEpisodePublishedDate(item));
-                            }
+                        if (aHandler.SingleShot()) {
+                            break;
                         }
                     }
                 }
                 catch (ReaderError&) {
-                    if (aLatestOnly) {
+                    if (aHandler.SingleShot()) {
                         LOG_ERROR(kMedia, "PodcastPins::LoadById (ReaderError). Could not find a valid episode for latest - allocate a larger response block?\n");
                     }
                     break; 
@@ -324,12 +410,7 @@ TBool PodcastPins::LoadById(const Brx& aId, TBool aLatestOnly)
             }
         }
         if (isPlayable) {
-            if (aLatestOnly) {
-                iCpRadio->SyncPlay();
-            }
-            else {
-                iCpPlaylist->SyncPlay();
-            }
+            aHandler.Play();
             // store these so SetLastLoadedPodcastAsListened will work as expected
             iLastSelectedId.ReplaceThrow(aId);
             iLastSelectedDate.ReplaceThrow(date);

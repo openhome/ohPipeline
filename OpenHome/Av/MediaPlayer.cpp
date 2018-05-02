@@ -27,7 +27,6 @@
 #include <OpenHome/Av/Pins.h>
 #include <OpenHome/Av/ProviderPins.h>
 #include <OpenHome/Av/TransportPins.h>
-#include <OpenHome/Av/PodcastPins.h>
 
 #include <memory>
 
@@ -135,7 +134,6 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     , iPinsManager(nullptr)
     , iProviderPins(nullptr)
     , iTransportPins(nullptr)
-    , iPodcastPins(nullptr)
 {
     iUnixTimestamp = new OpenHome::UnixTimestamp(iDvStack.Env());
     iKvpStore = new KvpStore(aStaticDataSource);
@@ -182,9 +180,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
         iProduct->AddAttribute("Pins");
 
         iTransportPins = new TransportPins(aDevice, aCpStack);
-        iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack, iReadWriteStore);
         iPinsManager->Add(iTransportPins);
-        iPinsManager->Add(iPodcastPins);
     }
 }
 

@@ -244,12 +244,11 @@ private:
 
 class PinUri
 {
-// <mode>://<type>?<subtype>=<value/smart type>[&smartGenre=<genre>][&version=1]
-// <subtype> = <type>Id
 public:
     enum EMode {
         eModeNone,
-        eItunes,
+        eItunesLatestEpisode,
+        eItunesEpisodeList,
         eQobuz,
         eTidal,
         eTransport,
@@ -263,8 +262,7 @@ public:
         eGenre,
         eMood,
         ePlaylist,
-        ePodcastLatest,
-        ePodcastList,
+        ePodcast,
         ePurchased,    
         eSavedPlaylist,
         eSmart,

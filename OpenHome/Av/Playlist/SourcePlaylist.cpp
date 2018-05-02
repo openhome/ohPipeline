@@ -13,6 +13,7 @@
 #include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Media/MimeTypeList.h>
+#include <OpenHome/Av/PodcastPins.h>
 
 #include <limits.h>
 
@@ -74,6 +75,7 @@ private:
     Repeater* iRepeater;
     UriProviderPlaylist* iUriProvider;
     ProviderPlaylist* iProviderPlaylist;
+    Av::PodcastPinsEpisodeList* iPodcastPins;
     TUint iTrackPosSeconds;
     TUint iStreamId;
     Media::EPipelineState iTransportState; // FIXME - this appears to be set but never used
@@ -108,6 +110,7 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
              SourceFactory::kSourceTypePlaylist,
              aMediaPlayer.Pipeline())
     , iLock("SPL1")
+    , iPodcastPins(nullptr)
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
     , iTransportState(EPipelineStopped)
@@ -129,6 +132,11 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     iProviderPlaylist = new ProviderPlaylist(aMediaPlayer.Device(), env, *this, *iDatabase, *iRepeater, aMediaPlayer.TransportRepeatRandom());
     aMediaPlayer.MimeTypes().AddUpnpProtocolInfoObserver(MakeFunctorGeneric(*iProviderPlaylist, &ProviderPlaylist::NotifyProtocolInfo));
     iPipeline.AddObserver(*this);
+
+    if (aMediaPlayer.PinsInvocable().Ok()) {
+        iPodcastPins = new PodcastPinsEpisodeList(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
+        aMediaPlayer.PinsInvocable().Unwrap().Add(iPodcastPins);
+    }
 }
 
 SourcePlaylist::~SourcePlaylist()

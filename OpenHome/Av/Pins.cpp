@@ -597,7 +597,8 @@ const Pin& PinsManager::PinFromId(TUint aId) const
 }
 
 // mode
-static const TChar* kPinModeItunes = "itunes";
+static const TChar* kPinModeItunesLatestEpisode = "itunesepisode";
+static const TChar* kPinModeItunesEpisodeList = "ituneslist";
 static const TChar* kPinModeQobuz = "qobuz";
 static const TChar* kPinModeTidal = "tidal";
 static const TChar* kPinModeTransport = "transport";
@@ -610,8 +611,7 @@ static const TChar* kPinTypeFavorites = "fav";
 static const TChar* kPinTypeGenre = "genre";
 static const TChar* kPinTypeMood = "mood";
 static const TChar* kPinTypePlaylist = "pls";
-static const TChar* kPinTypePodcastLatest = "podlate";
-static const TChar* kPinTypePodcastList = "podlist";
+static const TChar* kPinTypePodcast = "podcast";
 static const TChar* kPinTypePurchased = "purchased";
 static const TChar* kPinTypeSavedPlaylist = "savedpls";
 static const TChar* kPinTypeSmart = "smart";
@@ -619,16 +619,22 @@ static const TChar* kPinTypeSource = "source";
 static const TChar* kPinTypeTrack = "track";
 
 // smart type
-static const TChar* kSmartTypeAwardWinning = "award";
-static const TChar* kSmartTypeBestSellers = "sellers";
+static const TChar* kSmartTypeAwardWinning = "awards";
+static const TChar* kSmartTypeBestSellers = "bestsellers";
 static const TChar* kSmartTypeDiscovery = "discovery";
 static const TChar* kSmartTypeExclusive = "exclusive";
-static const TChar* kSmartTypeMostFeatured = "featured";
-static const TChar* kSmartTypeMostStreamed = "streamed";
+static const TChar* kSmartTypeMostFeatured = "mostfeatured";
+static const TChar* kSmartTypeMostStreamed = "moststreamed";
 static const TChar* kSmartTypeNew = "new";
 static const TChar* kSmartTypeRecommended = "recommended";
 static const TChar* kSmartTypeRising = "rising";
 static const TChar* kSmartTypeTop20 = "top20";
+
+// <mode>://<type>?<subtype>=<value>[&genre=<genreFilter>][&version=1]
+// <subtype> = 'id' or 'trackId' or anything (not relevant)
+// <value> = <smartType> if <type> = 'smart', otherwise id or text string
+// <genreFilter> = OPTIONAL genre ID for 'smart' type filtering (qobuz only)
+// version is optional
 
 PinUri::PinUri(const IPin& aPin)
     : iMode(EMode::eModeNone)
@@ -647,9 +653,9 @@ PinUri::PinUri(const IPin& aPin)
         Brn entry(parser.Next('&'));
         if (entry.Bytes() > 0) {
             OpenHome::Parser pe(entry);
-            Brn left(parser.Next('='));
-            Brn right(parser.Remaining());
-            if (left == Brn("smartGenre")) {
+            Brn left(pe.Next('='));
+            Brn right(pe.Remaining());
+            if (left == Brn("genre")) {
                 iSmartGenre.Replace(right);
             }
             else if (left != Brn("version")) {
@@ -672,8 +678,11 @@ const TChar* PinUri::GetModeString(EMode aMode)
     else if (aMode == EMode::eQobuz) {
         return kPinModeQobuz;
     }
-    else if (aMode == EMode::eItunes) {
-        return kPinModeItunes;
+    else if (aMode == EMode::eItunesLatestEpisode) {
+        return kPinModeItunesLatestEpisode;
+    }
+    else if (aMode == EMode::eItunesEpisodeList) {
+        return kPinModeItunesEpisodeList;
     }
     else if (aMode == EMode::eTransport) {
         return kPinModeTransport;
@@ -691,8 +700,11 @@ const PinUri::EMode PinUri::ConvertModeString(const Brx& aMode) const
     else if (aMode == Brn(kPinModeQobuz)) {
         return EMode::eQobuz;
     }
-    else if (aMode == Brn(kPinModeItunes)) {
-        return EMode::eItunes;
+    else if (aMode == Brn(kPinModeItunesLatestEpisode)) {
+        return EMode::eItunesLatestEpisode;
+    }
+    else if (aMode == Brn(kPinModeItunesEpisodeList)) {
+        return EMode::eItunesEpisodeList;
     }
     else if (aMode == Brn(kPinModeTransport)) {
         return EMode::eTransport;
@@ -740,11 +752,8 @@ const PinUri::EType PinUri::ConvertTypeString(const Brx& aType) const
     else if (aType == Brn(kPinTypeSource)) {
         return EType::eSource;
     }
-    else if (aType == Brn(kPinTypePodcastLatest)) {
-        return EType::ePodcastLatest;
-    }
-    else if (aType == Brn(kPinTypePodcastList)) {
-        return EType::ePodcastList;
+    else if (aType == Brn(kPinTypePodcast)) {
+        return EType::ePodcast;
     }
     else {
         THROW(PinTypeNotSupported);

@@ -68,7 +68,6 @@ class IPinsInvocable;
 class PinsManager;
 class ProviderPins;
 class TransportPins;
-class PodcastPins;
 
 class IMediaPlayer
 {
@@ -208,7 +207,6 @@ private:
     PinsManager* iPinsManager;
     ProviderPins* iProviderPins;
     Av::TransportPins* iTransportPins;
-    Av::PodcastPins* iPodcastPins;
 };
 
 } // namespace Av
