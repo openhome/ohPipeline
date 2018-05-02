@@ -481,11 +481,6 @@ class IConfigTextChoices
 public:
     virtual ~IConfigTextChoices() {}
     virtual void AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor) = 0;
-    /*
-     * If value is optional, implies that setting a empty string will result in the option being unused/having no effect.
-     *
-     * If value is optional, IsValid() must return true for an empty string.
-     */
     virtual TBool IsValid(const Brx& aBuf) const = 0;
 };
 
