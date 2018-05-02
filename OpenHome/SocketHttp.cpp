@@ -135,7 +135,7 @@ void HttpSocket::SetUri(const Uri& aUri)
             || aUri.Port() != iUri.Port()) {
         baseUrlChanged = true;
     }
-    LOG(kMedia, "HttpSocket::SetUri baseUrlChanged: %u\n\tiUri: %.*s\n\taUri: %.*s\n", baseUrlChanged, PBUF(iUri.AbsoluteUri()), PBUF(aUri.AbsoluteUri()));
+    LOG(kHttp, "HttpSocket::SetUri baseUrlChanged: %u\n\tiUri: %.*s\n\taUri: %.*s\n", baseUrlChanged, PBUF(iUri.AbsoluteUri()), PBUF(aUri.AbsoluteUri()));
 
     TInt port = aUri.Port();
     if (port == Uri::kPortNotSpecified) {
@@ -152,7 +152,7 @@ void HttpSocket::SetUri(const Uri& aUri)
             iEndpoint.Replace(ep);
         }
 
-        LOG(kMedia, "HttpSocket::SetUri iPersistConnection: %u\n", iPersistConnection);
+        LOG(kHttp, "HttpSocket::SetUri iPersistConnection: %u\n", iPersistConnection);
         if (!iPersistConnection) {
             // Previous response required that this connection not be re-used.
             // Call Disconnect() here in case, for some unknown reason, previous client of this HttpSocket didn't read until end of stream and trigger Disconnect() in the Read() method, or in case there was some error in stream length, or for any other reason.
@@ -257,7 +257,7 @@ void HttpSocket::Disconnect()
         }
         catch (const WriterError&) {
             // Nothing to do.
-            LOG(kMedia, "HttpSocket::Disconnect caught WriterError\n");
+            LOG(kHttp, "HttpSocket::Disconnect caught WriterError\n");
         }
         iTcpClient.Close();
     }
@@ -385,7 +385,7 @@ void HttpSocket::ReadInterrupt()
 
 void HttpSocket::WriteRequest(const Uri& aUri, Brx& aMethod)
 {
-    LOG(kMedia, ">HttpSocket::WriteRequest aUri: %.*s, aMethod: %.*s\n", PBUF(aUri.AbsoluteUri()), PBUF(aMethod));
+    LOG(kHttp, ">HttpSocket::WriteRequest aUri: %.*s, aMethod: %.*s\n", PBUF(aUri.AbsoluteUri()), PBUF(aMethod));
     try {
         iWriterRequest.WriteMethod(aMethod, aUri.PathAndQuery(), Http::eHttp11);
 
