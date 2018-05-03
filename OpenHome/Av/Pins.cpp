@@ -643,6 +643,7 @@ PinUri::PinUri(const IPin& aPin)
     , iSubType(256)
     , iValue(256)
     , iSmartGenre(256)
+    , iShuffle(false)
 {
     OpenHome::Uri req(aPin.Uri());
     iMode = ConvertModeString(req.Scheme());
@@ -668,6 +669,8 @@ PinUri::PinUri(const IPin& aPin)
     if (iType == EType::eSmart) {
         iSmartType = ConvertSmartTypeString(iValue);
     }
+
+    iShuffle = aPin.Shuffle();
 }
 
 const TChar* PinUri::GetModeString(EMode aMode)
@@ -829,4 +832,9 @@ const Brx& PinUri::Value() const
 const Brx& PinUri::SmartGenre() const
 {
     return iSmartGenre;
+}
+
+const TBool PinUri::Shuffle() const
+{
+    return iShuffle;
 }

@@ -54,22 +54,22 @@ void TidalPins::Invoke(const IPin& aPin)
     PinUri pin(aPin);
     if (pin.Mode() == PinUri::EMode::eTidal) {
         switch (pin.Type()) {
-            case PinUri::EType::eArtist: LoadTracksByArtist(pin.Value()); break;
-            case PinUri::EType::eAlbum: LoadTracksByAlbum(pin.Value()); break;
-            case PinUri::EType::eTrack: LoadTracksByTrack(pin.Value()); break;
-            case PinUri::EType::ePlaylist: LoadTracksByPlaylist(pin.Value()); break;
-            case PinUri::EType::eGenre: LoadTracksByGenre(pin.Value()); break;
-            case PinUri::EType::eMood: LoadTracksByMood(pin.Value()); break;
+            case PinUri::EType::eArtist: LoadTracksByArtist(pin.Value(), pin.Shuffle()); break;
+            case PinUri::EType::eAlbum: LoadTracksByAlbum(pin.Value(), pin.Shuffle()); break;
+            case PinUri::EType::eTrack: LoadTracksByTrack(pin.Value(), pin.Shuffle()); break;
+            case PinUri::EType::ePlaylist: LoadTracksByPlaylist(pin.Value(), pin.Shuffle()); break;
+            case PinUri::EType::eGenre: LoadTracksByGenre(pin.Value(), pin.Shuffle()); break;
+            case PinUri::EType::eMood: LoadTracksByMood(pin.Value(), pin.Shuffle()); break;
             case PinUri::EType::eSmart: {
                 switch (pin.SmartType()) {
-                    case PinUri::ESmartType::eNew: LoadTracksByNew(); break;
-                    case PinUri::ESmartType::eRecommended: LoadTracksByRecommended(); break;
-                    case PinUri::ESmartType::eTop20: LoadTracksByTop20(); break;
-                    case PinUri::ESmartType::eExclusive: LoadTracksByExclusive(); break;
-                    case PinUri::ESmartType::eRising: LoadTracksByRising(); break;
-                    case PinUri::ESmartType::eDiscovery: LoadTracksByDiscovery(); break;
-                    case PinUri::ESmartType::eFavorites: LoadTracksByFavorites(); break;
-                    case PinUri::ESmartType::eSavedPlaylist: LoadTracksBySavedPlaylist(); break;
+                    case PinUri::ESmartType::eNew: LoadTracksByNew(pin.Shuffle()); break;
+                    case PinUri::ESmartType::eRecommended: LoadTracksByRecommended(pin.Shuffle()); break;
+                    case PinUri::ESmartType::eTop20: LoadTracksByTop20(pin.Shuffle()); break;
+                    case PinUri::ESmartType::eExclusive: LoadTracksByExclusive(pin.Shuffle()); break;
+                    case PinUri::ESmartType::eRising: LoadTracksByRising(pin.Shuffle()); break;
+                    case PinUri::ESmartType::eDiscovery: LoadTracksByDiscovery(pin.Shuffle()); break;
+                    case PinUri::ESmartType::eFavorites: LoadTracksByFavorites(pin.Shuffle()); break;
+                    case PinUri::ESmartType::eSavedPlaylist: LoadTracksBySavedPlaylist(pin.Shuffle()); break;
                 }
                 break;
             }
@@ -85,86 +85,86 @@ const TChar* TidalPins::Mode() const
     return PinUri::GetModeString(PinUri::EMode::eTidal);
 }
 
-TBool TidalPins::LoadTracksByArtist(const Brx& aArtist)
+TBool TidalPins::LoadTracksByArtist(const Brx& aArtist, TBool aShuffle)
 {
-    return LoadTracksByQuery(aArtist, TidalMetadata::eArtist);
+    return LoadTracksByQuery(aArtist, TidalMetadata::eArtist, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByAlbum(const Brx& aAlbum)
+TBool TidalPins::LoadTracksByAlbum(const Brx& aAlbum, TBool aShuffle)
 {
-    return LoadTracksByQuery(aAlbum, TidalMetadata::eAlbum);
+    return LoadTracksByQuery(aAlbum, TidalMetadata::eAlbum, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByTrack(const Brx& aTrack)
+TBool TidalPins::LoadTracksByTrack(const Brx& aTrack, TBool aShuffle)
 {
-    return TidalPins::LoadTracksByQuery(aTrack, TidalMetadata::eTrack);
+    return TidalPins::LoadTracksByQuery(aTrack, TidalMetadata::eTrack, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByPlaylist(const Brx& aPlaylist)
+TBool TidalPins::LoadTracksByPlaylist(const Brx& aPlaylist, TBool aShuffle)
 {
-    return TidalPins::LoadTracksByQuery(aPlaylist, TidalMetadata::ePlaylist);
+    return TidalPins::LoadTracksByQuery(aPlaylist, TidalMetadata::ePlaylist, aShuffle);
 }
 
-TBool TidalPins::LoadTracksBySavedPlaylist()
+TBool TidalPins::LoadTracksBySavedPlaylist(TBool aShuffle)
 {
-    return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSavedPlaylist);
+    return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSavedPlaylist, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByGenre(const Brx& aGenre)
+TBool TidalPins::LoadTracksByGenre(const Brx& aGenre, TBool aShuffle)
 {
-    return TidalPins::LoadTracksByQuery(aGenre, TidalMetadata::eGenre);
+    return TidalPins::LoadTracksByQuery(aGenre, TidalMetadata::eGenre, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByMood(const Brx& aMood)
+TBool TidalPins::LoadTracksByMood(const Brx& aMood, TBool aShuffle)
 {
-    return TidalPins::LoadTracksByMultiplePlaylists(aMood, TidalMetadata::eMood);
+    return TidalPins::LoadTracksByMultiplePlaylists(aMood, TidalMetadata::eMood, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByNew()
+TBool TidalPins::LoadTracksByNew(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartNew);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartNew, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByRecommended()
+TBool TidalPins::LoadTracksByRecommended(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartRecommended);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartRecommended, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByTop20()
+TBool TidalPins::LoadTracksByTop20(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartTop20);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartTop20, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByExclusive()
+TBool TidalPins::LoadTracksByExclusive(TBool aShuffle)
 {
-    return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSmartExclusive);
+    return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSmartExclusive, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByRising()
+TBool TidalPins::LoadTracksByRising(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartRising);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartRising, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByDiscovery()
+TBool TidalPins::LoadTracksByDiscovery(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartDiscovery);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartDiscovery, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksBySmartType(TidalMetadata::EIdType aType)
+TBool TidalPins::LoadTracksBySmartType(TidalMetadata::EIdType aType, TBool aShuffle)
 {
-    return LoadTracksByQuery(TidalMetadata::kIdTypeSmart, aType);
+    return LoadTracksByQuery(TidalMetadata::kIdTypeSmart, aType, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::EIdType aType)
+TBool TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::EIdType aType, TBool aShuffle)
 {
-    return LoadTracksByMultiplePlaylists(Brx::Empty(), aType);
+    return LoadTracksByMultiplePlaylists(Brx::Empty(), aType, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByFavorites()
+TBool TidalPins::LoadTracksByFavorites(TBool aShuffle)
 {
     AutoMutex _(iLock);
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh albumIds[kMaxFavoriteAlbums];
     TUint lastId = 0;
 
@@ -219,11 +219,11 @@ TBool TidalPins::LoadTracksByFavorites()
     return true;
 }
 
-TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::EIdType aType)
+TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::EIdType aType, TBool aShuffle)
 {
     AutoMutex _(iLock);
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh playlistIds[kMaxPlaylistsPerSmartType];
 
     try {
@@ -271,12 +271,12 @@ TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::
     return true;
 }
 
-TBool TidalPins::LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aType)
+TBool TidalPins::LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aType, TBool aShuffle)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh inputBuf(64);
 
     try {
@@ -402,4 +402,10 @@ TBool TidalPins::IsValidUuid(const Brx& aRequest) {
         }
     }
     return true;
+}
+
+void TidalPins::InitPlaylist(TBool aShuffle)
+{
+    iCpPlaylist->SyncDeleteAll();
+    iCpPlaylist->SyncSetShuffle(aShuffle);
 }

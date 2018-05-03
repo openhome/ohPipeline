@@ -291,6 +291,7 @@ public:
     const Brx& SubType() const;
     const Brx& Value() const;
     const Brx& SmartGenre() const;
+    const TBool Shuffle() const;
 public:
     static const TChar* GetModeString(EMode aMode);
 private:
@@ -304,6 +305,7 @@ private:
     Bwh iSubType;
     Bwh iValue;
     Bwh iSmartGenre;
+    TBool iShuffle;
 };
 
 } // namespace Av

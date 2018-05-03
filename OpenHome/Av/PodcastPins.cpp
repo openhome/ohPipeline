@@ -61,9 +61,9 @@ const TChar* PodcastPinsLatestEpisode::Mode() const
     return PinUri::GetModeString(PinUri::EMode::eItunesLatestEpisode);
 }
 
-void PodcastPinsLatestEpisode::Delete()
+void PodcastPinsLatestEpisode::Init(TBool /*aShuffle*/)
 {
-    // Single shot so nothing to delete
+    // Single shot so nothing to delete or shuffle
 }
 
 void PodcastPinsLatestEpisode::Load(Media::Track& aTrack)
@@ -103,7 +103,7 @@ void PodcastPinsEpisodeList::Invoke(const IPin& aPin)
     PinUri pin(aPin);
     if (pin.Mode() == PinUri::EMode::eItunesEpisodeList) {
         switch (pin.Type()) {
-            case PinUri::EType::ePodcast: iPodcastPins->LoadPodcastList(pin.Value(), *this); break;
+            case PinUri::EType::ePodcast: iPodcastPins->LoadPodcastList(pin.Value(), *this, pin.Shuffle()); break;
             default: {
                 return;
             }
@@ -116,10 +116,11 @@ const TChar* PodcastPinsEpisodeList::Mode() const
     return PinUri::GetModeString(PinUri::EMode::eItunesEpisodeList);
 }
 
-void PodcastPinsEpisodeList::Delete()
+void PodcastPinsEpisodeList::Init(TBool aShuffle)
 {
     iCpPlaylist->SyncDeleteAll();
     iLastId = 0;
+    iCpPlaylist->SyncSetShuffle(aShuffle);
 }
 
 void PodcastPinsEpisodeList::Load(Media::Track& aTrack)
@@ -274,12 +275,12 @@ void PodcastPins::TimerCallback()
 
 TBool PodcastPins::LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler)
 {
-    return LoadByQuery(aQuery, aHandler);
+    return LoadByQuery(aQuery, aHandler, false);
 }
 
-TBool PodcastPins::LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler)
+TBool PodcastPins::LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle)
 {
-    return LoadByQuery(aQuery, aHandler);
+    return LoadByQuery(aQuery, aHandler, aShuffle);
 }
 
 TBool PodcastPins::CheckForNewEpisode(const Brx& aQuery)
@@ -314,10 +315,10 @@ TBool PodcastPins::CheckForNewEpisode(const Brx& aQuery)
     }
 }
 
-TBool PodcastPins::LoadByQuery(const Brx& aQuery, IPodcastTransportHandler& aHandler)
+TBool PodcastPins::LoadByQuery(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle)
 {
     AutoMutex _(iLock);
-    aHandler.Delete();
+    aHandler.Init(aShuffle);
     Bwh inputBuf(64);
 
     try {

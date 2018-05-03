@@ -47,23 +47,23 @@ void QobuzPins::Invoke(const IPin& aPin)
 
     if (pin.Mode() == PinUri::EMode::eQobuz) {
         switch (pin.Type()) {
-            case PinUri::EType::eArtist: LoadTracksByArtist(pin.Value()); break;
-            case PinUri::EType::eAlbum: LoadTracksByAlbum(pin.Value()); break;
-            case PinUri::EType::eTrack: LoadTracksByTrack(pin.Value()); break;
-            case PinUri::EType::ePlaylist: LoadTracksByPlaylist(pin.Value()); break;
+            case PinUri::EType::eArtist: LoadTracksByArtist(pin.Value(), pin.Shuffle()); break;
+            case PinUri::EType::eAlbum: LoadTracksByAlbum(pin.Value(), pin.Shuffle()); break;
+            case PinUri::EType::eTrack: LoadTracksByTrack(pin.Value(), pin.Shuffle()); break;
+            case PinUri::EType::ePlaylist: LoadTracksByPlaylist(pin.Value(), pin.Shuffle()); break;
             case PinUri::EType::eSmart: {
                 switch (pin.SmartType()) {
                     // optional genre parameter to filter smart playlists
-                    case PinUri::ESmartType::eNew: LoadTracksByNew(pin.SmartGenre()); break;
-                    case PinUri::ESmartType::eRecommended: LoadTracksByRecommended(pin.SmartGenre()); break;
-                    case PinUri::ESmartType::eMostStreamed: LoadTracksByMostStreamed(pin.SmartGenre()); break;
-                    case PinUri::ESmartType::eBestSellers: LoadTracksByBestSellers(pin.SmartGenre()); break;
-                    case PinUri::ESmartType::eAwardWinning: LoadTracksByAwardWinning(pin.SmartGenre()); break;
-                    case PinUri::ESmartType::eMostFeatured: LoadTracksByMostFeatured(pin.SmartGenre()); break;
-                    case PinUri::ESmartType::eFavorites: LoadTracksByFavorites(); break;
-                    case PinUri::ESmartType::ePurchased: LoadTracksByPurchased(); break;
-                    case PinUri::ESmartType::eCollection: LoadTracksByCollection(); break;
-                    case PinUri::ESmartType::eSavedPlaylist: LoadTracksBySavedPlaylist(); break;
+                    case PinUri::ESmartType::eNew: LoadTracksByNew(pin.SmartGenre(), pin.Shuffle()); break;
+                    case PinUri::ESmartType::eRecommended: LoadTracksByRecommended(pin.SmartGenre(), pin.Shuffle()); break;
+                    case PinUri::ESmartType::eMostStreamed: LoadTracksByMostStreamed(pin.SmartGenre(), pin.Shuffle()); break;
+                    case PinUri::ESmartType::eBestSellers: LoadTracksByBestSellers(pin.SmartGenre(), pin.Shuffle()); break;
+                    case PinUri::ESmartType::eAwardWinning: LoadTracksByAwardWinning(pin.SmartGenre(), pin.Shuffle()); break;
+                    case PinUri::ESmartType::eMostFeatured: LoadTracksByMostFeatured(pin.SmartGenre(), pin.Shuffle()); break;
+                    case PinUri::ESmartType::eFavorites: LoadTracksByFavorites(pin.Shuffle()); break;
+                    case PinUri::ESmartType::ePurchased: LoadTracksByPurchased(pin.Shuffle()); break;
+                    case PinUri::ESmartType::eCollection: LoadTracksByCollection(pin.Shuffle()); break;
+                    case PinUri::ESmartType::eSavedPlaylist: LoadTracksBySavedPlaylist(pin.Shuffle()); break;
                 }
                 break;
             }
@@ -79,81 +79,81 @@ const TChar* QobuzPins::Mode() const
     return PinUri::GetModeString(PinUri::EMode::eQobuz);
 }
 
-TBool QobuzPins::LoadTracksByArtist(const Brx& aArtist)
+TBool QobuzPins::LoadTracksByArtist(const Brx& aArtist, TBool aShuffle)
 {
-    return LoadTracksByQuery(aArtist, QobuzMetadata::eArtist);
+    return LoadTracksByQuery(aArtist, QobuzMetadata::eArtist, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByAlbum(const Brx& aAlbum)
+TBool QobuzPins::LoadTracksByAlbum(const Brx& aAlbum, TBool aShuffle)
 {
-    return LoadTracksByQuery(aAlbum, QobuzMetadata::eAlbum);
+    return LoadTracksByQuery(aAlbum, QobuzMetadata::eAlbum, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByTrack(const Brx& aTrack)
+TBool QobuzPins::LoadTracksByTrack(const Brx& aTrack, TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(aTrack, QobuzMetadata::eTrack);
+    return QobuzPins::LoadTracksByQuery(aTrack, QobuzMetadata::eTrack, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByPlaylist(const Brx& aPlaylist)
+TBool QobuzPins::LoadTracksByPlaylist(const Brx& aPlaylist, TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(aPlaylist, QobuzMetadata::ePlaylist);
+    return QobuzPins::LoadTracksByQuery(aPlaylist, QobuzMetadata::ePlaylist, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksBySavedPlaylist()
+TBool QobuzPins::LoadTracksBySavedPlaylist(TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eSavedPlaylist);
+    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eSavedPlaylist, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByFavorites()
+TBool QobuzPins::LoadTracksByFavorites(TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eFavorites);
+    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eFavorites, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByPurchased()
+TBool QobuzPins::LoadTracksByPurchased(TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::ePurchased);
+    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::ePurchased, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByCollection()
+TBool QobuzPins::LoadTracksByCollection(TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eCollection);
+    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eCollection, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByNew(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByNew(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartNew);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartNew, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksByRecommended(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByRecommended(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartRecommended);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartRecommended, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByMostStreamed(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByMostStreamed(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartMostStreamed);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartMostStreamed, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksByBestSellers(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByBestSellers(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartBestSellers);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartBestSellers, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksByAwardWinning(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByAwardWinning(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartAwardWinning);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartAwardWinning, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksByMostFeatured(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByMostFeatured(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartMostFeatured);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartMostFeatured, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType)
+TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType, TBool aShuffle)
 {
     AutoMutex _(iLock);
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh inputBuf(64);
     Bwh albumIds[kMaxAlbumsPerSmartType];
 
@@ -224,12 +224,12 @@ TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType
     return true;
 }
 
-TBool QobuzPins::LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType)
+TBool QobuzPins::LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType, TBool aShuffle)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh inputBuf(64);
 
     try {
@@ -361,4 +361,10 @@ TBool QobuzPins::IsValidGenreId(const Brx& aRequest) {
         }
     }
     return true;
+}
+
+void QobuzPins::InitPlaylist(TBool aShuffle)
+{
+    iCpPlaylist->SyncDeleteAll();
+    iCpPlaylist->SyncSetShuffle(aShuffle);
 }

@@ -151,7 +151,7 @@ public:
 class IPodcastTransportHandler
 {
 public:
-    virtual void Delete() = 0;
+    virtual void Init(TBool aShuffle) = 0;
     virtual void Load(Media::Track& aTrack) = 0;
     virtual void Play() = 0;
     virtual TBool SingleShot() = 0;
@@ -178,7 +178,7 @@ public:
     void AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObserver); // event describing podcast IDs with new episodes available (compared to last listened stored data)
     TBool CheckForNewEpisode(const Brx& aQuery); // poll using iTunes id or search string (single episode)
     TBool LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler); // iTunes id or search string (single episode - radio single)
-    TBool LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler); // iTunes id or search string (episode list - playlist)
+    TBool LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle); // iTunes id or search string (episode list - playlist)
 private:
     PodcastPins(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
 
@@ -187,7 +187,7 @@ private:
     void StopPollingForNewEpisodes();
 private:
     TBool LoadById(const Brx& aId, IPodcastTransportHandler& aHandler);
-    TBool LoadByQuery(const Brx& aQuery, IPodcastTransportHandler& aHandler);
+    TBool LoadByQuery(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle);
     TBool IsValidId(const Brx& aRequest);
     TBool CheckForNewEpisodeById(const Brx& aId);
     const Brx& GetLastListenedEpisodeDateLocked(const Brx& aId); // pull last stored date for given podcast ID
@@ -220,7 +220,7 @@ public:
     PodcastPinsLatestEpisode(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
     ~PodcastPinsLatestEpisode();
 private:  // from IPodcastTransportHandler
-    void Delete() override;
+    void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;
     virtual void Play() override;
     virtual TBool SingleShot() override;
@@ -240,7 +240,7 @@ public:
     PodcastPinsEpisodeList(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
     ~PodcastPinsEpisodeList();
 private:  // from IPodcastTransportHandler
-    void Delete() override;
+    void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;
     virtual void Play() override;
     virtual TBool SingleShot() override;
