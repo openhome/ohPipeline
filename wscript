@@ -453,7 +453,7 @@ def build(bld):
     # Podcast
     bld.stlib(
             source=['OpenHome/Av/PodcastPins.cpp'],
-            use=['OHNET'],
+            use=['OHNET', 'ohMediaPlayer'],
             target='Podcast')
 
     # Wav
