@@ -1685,15 +1685,15 @@ void SuiteConfigManager::TestGetValidKey()
     // test Get() returns the correct val when key is present
 
     // test ConfigNum
-    ConfigNum& num = iConfigManager->GetNum(kKeyNum1);
+    const ConfigNum& num = iConfigManager->GetNum(kKeyNum1);
     TEST(num == *iNum1);
 
     // test ConfigChoice
-    ConfigChoice& choice = iConfigManager->GetChoice(kKeyChoice1);
+    const ConfigChoice& choice = iConfigManager->GetChoice(kKeyChoice1);
     TEST(choice == *iChoice1);
 
     // test ConfigText
-    ConfigText& text = iConfigManager->GetText(kKeyText1);
+    const ConfigText& text = iConfigManager->GetText(kKeyText1);
     TEST(text == *iText1);
 
 

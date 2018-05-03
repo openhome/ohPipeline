@@ -30,11 +30,14 @@ const Brn ProviderConfigApp::KeysWriter::kKeyReboot("reboot");
 const Brn ProviderConfigApp::KeysWriter::kValTypeNum("numeric");
 const Brn ProviderConfigApp::KeysWriter::kValTypeChoice("enum");
 const Brn ProviderConfigApp::KeysWriter::kValTypeText("string");
+const Brn ProviderConfigApp::KeysWriter::kValTypeTextChoice("string-enum");
 const Brn ProviderConfigApp::KeysWriter::kKeyNumMin("min");
 const Brn ProviderConfigApp::KeysWriter::kKeyNumMax("max");
 const Brn ProviderConfigApp::KeysWriter::kKeyNumDefault("default");
 const Brn ProviderConfigApp::KeysWriter::kKeyEnumVals("vals");
-const Brn ProviderConfigApp::KeysWriter::kKeyTextLen("max_len");
+const Brn ProviderConfigApp::KeysWriter::kKeyTextLenMin("min_len");
+const Brn ProviderConfigApp::KeysWriter::kKeyTextLenMax("max_len");
+const Brn ProviderConfigApp::KeysWriter::kKeyOptional("optional");
 
 ProviderConfigApp::KeysWriter::KeysWriter()
     : iWriterBuf(kBufGranularity)
@@ -86,7 +89,27 @@ void ProviderConfigApp::KeysWriter::Add(ConfigText& aVal, const Brx& aKey)
     writerObject.WriteString(kKeyType, kValTypeText);
     {
         auto writerMeta = writerObject.CreateObject(kKeyMeta);
-        writerMeta.WriteInt(kKeyTextLen, aVal.MaxLength());
+        writerMeta.WriteInt(kKeyTextLenMin, aVal.MinLength());
+        writerMeta.WriteInt(kKeyTextLenMax, aVal.MaxLength());
+        writerMeta.WriteEnd();
+    }
+    writerObject.WriteBool(kKeyReboot, aVal.RebootRequired());
+    writerObject.WriteEnd();
+}
+
+void ProviderConfigApp::KeysWriter::Add(ConfigTextChoice& aVal, const Brx& aKey)
+{
+    auto writerObject = iWriterArray.CreateObject();
+    writerObject.WriteString(kKeyKey, aKey);
+    writerObject.WriteString(kKeyType, kValTypeTextChoice);
+    {
+        auto writerMeta = writerObject.CreateObject(kKeyMeta);
+        {
+            auto writerVals = writerMeta.CreateArray(kKeyEnumVals);
+            ConfigTextChoiceVisitorJson visitor(writerVals);
+            aVal.AcceptChoicesVisitor(visitor);
+            writerVals.WriteEnd();
+        }
         writerMeta.WriteEnd();
     }
     writerObject.WriteBool(kKeyReboot, aVal.RebootRequired());
@@ -97,6 +120,19 @@ const Brx& ProviderConfigApp::KeysWriter::Flush()
 {
     iWriterArray.WriteEnd();
     return iWriterBuf.Buffer();
+}
+
+
+// ProviderConfigApp::ConfigTextChoiceVisitorJson
+
+ProviderConfigApp::ConfigTextChoiceVisitorJson::ConfigTextChoiceVisitorJson(WriterJsonArray& aWriter)
+    : iWriter(aWriter)
+{
+}
+
+void ProviderConfigApp::ConfigTextChoiceVisitorJson::VisitConfigTextChoice(const Brx& aId)
+{
+    iWriter.WriteString(aId);
 }
 
 
@@ -200,6 +236,23 @@ void ProviderConfigApp::Added(ConfigText& aVal)
     iMapKeys.insert(std::pair<Brn, Brn>(keyStrippedBuf, keyBuf));
 }
 
+void ProviderConfigApp::Added(ConfigTextChoice& aVal)
+{
+    AutoMutex _(iLock);
+    Bwh keyStripped(aVal.Key().Bytes());
+    StripKey(aVal.Key(), keyStripped);
+    iKeysWriter.Add(aVal, keyStripped);
+    Brn keyBuf(aVal.Key());
+    Brn keyStrippedBuf(keyStripped);
+    auto prop = new PropertyString(new ParameterString(keyStripped));
+    iService->AddProperty(prop); // passes ownership
+    auto item = new ConfigItemTextChoice(aVal, *prop, keyStripped);
+    iMapTextChoice.insert(std::pair<Brn, ConfigItemTextChoice*>(keyBuf, item));
+    auto cb = MakeFunctorConfigText(*this, &ProviderConfigApp::ConfigTextChoiceChanged);
+    item->iListenerId = aVal.Subscribe(cb);
+    iMapKeys.insert(std::pair<Brn, Brn>(keyStrippedBuf, keyBuf));
+}
+
 void ProviderConfigApp::AddsComplete()
 {
     const Brx& keysJson = iKeysWriter.Flush();
@@ -236,6 +289,17 @@ void ProviderConfigApp::Removed(ConfigText& aVal)
     if (it != iMapText.end()) {
         delete it->second; // unsubscribe from aVal before it is destroyed
         iMapText.erase(it);
+    }
+}
+
+void ProviderConfigApp::Removed(ConfigTextChoice& aVal)
+{
+    AutoMutex _(iLock);
+    Brn key(aVal.Key());
+    auto it = iMapTextChoice.find(key);
+    if (it != iMapTextChoice.end()) {
+        delete it->second; // unsubscribe from aVal before it is destroyed
+        iMapTextChoice.erase(it);
     }
 }
 
@@ -278,6 +342,15 @@ void ProviderConfigApp::ConfigTextChanged(KeyValuePair<const Brx&>& aKvp)
     }
 }
 
+void ProviderConfigApp::ConfigTextChoiceChanged(KeyValuePair<const Brx&>& aKvp)
+{
+    Brn key(aKvp.Key());
+    auto it = iMapTextChoice.find(key);
+    if (it != iMapTextChoice.end()) {
+        (void)SetPropertyString(it->second->iProperty, aKvp.Value());
+    }
+}
+
 void ProviderConfigApp::ClearMaps()
 {
     for (auto& kvp : iMapNum) {
@@ -292,6 +365,10 @@ void ProviderConfigApp::ClearMaps()
         delete kvp.second;
     }
     iMapText.clear();
+    for (auto& kvp : iMapTextChoice) {
+        delete kvp.second;
+    }
+    iMapTextChoice.clear();
 }
 
 void ProviderConfigApp::GetKeys(IDvInvocation& aInvocation, IDvInvocationResponseString& aKeys)
@@ -310,23 +387,36 @@ void ProviderConfigApp::SetValue(IDvInvocation& aInvocation, const Brx& aKey, co
         aInvocation.Error(kErrorCodeInvalidKey, kErrorDescInvalidKey);
     }
     Brn keyConfig(it->second);
+    // Check for ConfigNum.
     ISerialisable* ser = nullptr;
-    auto it2 = iMapNum.find(keyConfig);
-    if (it2 != iMapNum.end()) {
-        ser = &it2->second->iVal;
+    auto itNum = iMapNum.find(keyConfig);
+    if (itNum != iMapNum.end()) {
+        ser = &itNum->second->iVal;
     }
-    else {
-        auto it3 = iMapChoice.find(keyConfig);
-        if (it3 != iMapChoice.end()) {
-            ser = &it3->second->iVal;
+    // Check for ConfigChoice.
+    if (ser == nullptr) {
+        auto itChoice = iMapChoice.find(keyConfig);
+        if (itChoice != iMapChoice.end()) {
+            ser = &itChoice->second->iVal;
         }
-        else {
-            auto it4 = iMapText.find(keyConfig);
-            if (it4 == iMapText.end()) {
-                aInvocation.Error(kErrorCodeInvalidKey, kErrorDescInvalidKey);
-            }
-            ser = &it4->second->iVal;
+    }
+    // Check for ConfigText.
+    if (ser == nullptr) {
+        auto itText = iMapText.find(keyConfig);
+        if (itText != iMapText.end()) {
+            ser = &itText->second->iVal;
         }
+    }
+    // Check for ConfigTextChoice.
+    if (ser == nullptr) {
+        auto itTextChoice = iMapTextChoice.find(keyConfig);
+        if (itTextChoice != iMapTextChoice.end()) {
+            ser = &itTextChoice->second->iVal;
+        }
+    }
+    if (ser == nullptr) {
+        // No value matching aKey was found.
+        aInvocation.Error(kErrorCodeInvalidKey, kErrorDescInvalidKey);
     }
 
     try {

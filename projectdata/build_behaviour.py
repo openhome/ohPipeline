@@ -53,7 +53,7 @@
 #     ssh("echo", "hello")
 #
 #     Connect via ssh and issue commands. Command arguments similar to python().
-#  
+#
 
 import os
 import shutil

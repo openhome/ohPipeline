@@ -90,6 +90,7 @@ public:
 class ConfigNum;
 class ConfigChoice;
 class ConfigText;
+class ConfigTextChoice;
 
 class IKeyWriter
 {
@@ -113,6 +114,8 @@ public:
     virtual ConfigChoice& GetChoice(const Brx& aKey) const = 0;
     virtual TBool HasText(const Brx& aKey) const = 0;
     virtual ConfigText& GetText(const Brx& aKey) const = 0;
+    virtual TBool HasTextChoice(const Brx& aKey) const = 0;
+    virtual ConfigTextChoice& GetTextChoice(const Brx& aKey) const = 0;
     virtual TBool Has(const Brx& aKey) const = 0;
     virtual ISerialisable& Get(const Brx& aKey) const = 0;
 
@@ -341,7 +344,6 @@ public:
     ~ConfigChoice();
     const std::vector<TUint>& Choices() const;
     void Set(TUint aVal);   // THROWS ConfigInvalidSelection
-
     TBool HasInternalMapping() const;
     IConfigChoiceMapper& Mapper() const;
 private:
@@ -393,30 +395,29 @@ inline MemberTranslatorGeneric<KeyValuePair<TUint>&,Object,void (CallType::*)(Ke
  * Class representing a text value. Length of text that can be allocated is
  * fixed at construction.
  */
-class ConfigText : public ConfigVal<const Brx&>
+class ConfigTextBase : public ConfigVal<const Brx&>
 {
-    friend class SuiteConfigManager;
 public:
     static const TUint kMaxBytes = 512;
 public:
     typedef FunctorGeneric<KeyValuePair<const Brx&>&> FunctorConfigText;
     typedef KeyValuePair<const Brx&> KvpText;
-public:
-    ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength,
+protected:
+    ConfigTextBase(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength,
                TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired = false);
-    ~ConfigText();
-    TUint MinLength() const;
-    TUint MaxLength() const;
-    void Set(const Brx& aText); // THROWS ConfigValueTooShort, ConfigValueTooLong
+    ~ConfigTextBase();
+    TUint MinLengthInternal() const;
+    TUint MaxLengthInternal() const;
+    void SetInternal(const Brx& aText); // THROWS ConfigValueTooShort, ConfigValueTooLong
 public: // from ConfigVal
     const Brx& Default() const override;
     TUint Subscribe(FunctorConfigText aFunctor) override;
     void Serialise(IWriter& aWriter) const override;
-    void Deserialise(const Brx& aString) override;   // THROWS ConfigValueTooShort, ConfigValueTooLong
+    virtual void Deserialise(const Brx& aString) override = 0;
 private: // from ConfigVal
     void Write(KvpText& aKvp) override;
-private:
-    inline TBool operator==(const ConfigText& aText) const;
+protected:
+    inline TBool operator==(const ConfigTextBase& aText) const;
 private:
     const TUint iMinLength;
     const Bwh iDefault;
@@ -424,10 +425,12 @@ private:
     mutable Mutex iMutex;
 };
 
-inline TBool ConfigText::operator==(const ConfigText& aText) const
+inline TBool ConfigTextBase::operator==(const ConfigTextBase& aText) const
 {
     AutoMutex a(iMutex);
-    return (iText == aText.iText);
+    return iText == aText.iText
+        && iMinLength == aText.iMinLength
+        && iDefault == aText.iDefault;
 }
 
 /*
@@ -440,6 +443,80 @@ inline MemberTranslatorGeneric<KeyValuePair<const Brx&>&,Object,void (CallType::
     typedef void(CallType::*MemFunc)(KeyValuePair<const Brx&>&);
     return MemberTranslatorGeneric<KeyValuePair<const Brx&>&,Object,MemFunc>(aC,aF);
 }
+
+/*
+ * Class representing a text value. Length of text that can be allocated is
+ * fixed at construction.
+ */
+class ConfigText : public ConfigTextBase
+{
+    friend class SuiteConfigManager;
+public:
+    ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength,
+               TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired = false);
+    ~ConfigText();
+    TUint MinLength() const;
+    TUint MaxLength() const;
+    void Set(const Brx& aText); // THROWS ConfigValueTooShort, ConfigValueTooLong
+public: // from ConfigVal
+    void Deserialise(const Brx& aString) override; // THROWS ConfigValueTooShort, ConfigValueTooLong
+private:
+    inline TBool operator==(const ConfigText& aText) const;
+};
+
+inline TBool ConfigText::operator==(const ConfigText& aText) const
+{
+    return ConfigTextBase::operator==(aText);
+}
+
+class IConfigTextChoicesVisitor
+{
+public:
+    virtual ~IConfigTextChoicesVisitor() {}
+    virtual void VisitConfigTextChoice(const Brx& aId) = 0;
+};
+
+class IConfigTextChoices
+{
+public:
+    virtual ~IConfigTextChoices() {}
+    virtual void AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor) = 0;
+    /*
+     * If value is optional, implies that setting a empty string will result in the option being unused/having no effect.
+     *
+     * If value is optional, IsValid() must return true for an empty string.
+     */
+    virtual TBool IsValid(const Brx& aBuf) const = 0;
+};
+
+/*
+ * Current implementation expects choices to remain static.
+ *
+ * If it is valid for this to have an empty string (i.e., no value) set, or
+ * some kind of sentinel "none" value, that should be included in the set of
+ * choices, making this analogous with ConfigChoice (where, e.g., OFF, is
+ * provided as one of the choices).
+ *
+ * A future string-type where it is valid to set an empty string could include
+ * a meta "optional" boolean field, instead of explicitly including the "none"
+ * value in its choice list.
+ */
+class ConfigTextChoice : public ConfigTextBase
+{
+    friend class SuiteConfigManager;
+public:
+    ConfigTextChoice(IConfigInitialiser& aManager, const Brx& aKey,
+                     IConfigTextChoices& aChoices, TUint aMinLength,
+                     TUint aMaxLength, const Brx& aDefault,
+                     TBool aRebootRequired = false);
+    ~ConfigTextChoice();
+    void AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor);
+    void Set(const Brx& aText); // THROWS ConfigInvalidSelection (and NOT ConfigValueTooShort, ConfigValueTooLong as ConfigText does, as this class does not accept free-form text; only values from the list of current values (which may change dynamically)).
+public: // from ConfigVal
+    void Deserialise(const Brx& aString) override; // THROWS ConfigInvalidSelection
+private:
+    IConfigTextChoices& iChoices;
+};
 
 /*
  * Interface for adding values to a configuration manager.
@@ -462,9 +539,11 @@ public:
     virtual void Add(ConfigNum& aNum) = 0;
     virtual void Add(ConfigChoice& aChoice) = 0;
     virtual void Add(ConfigText& aText) = 0;
+    virtual void Add(ConfigTextChoice& aTextChoice) = 0;
     virtual void Remove(ConfigNum& aNum) = 0;
     virtual void Remove(ConfigChoice& aChoice) = 0;
     virtual void Remove(ConfigText& aText) = 0;
+    virtual void Remove(ConfigTextChoice& aTextChoice) = 0;
     virtual void FromStore(const Brx& aKey, Bwx& aDest, const Brx& aDefault) = 0;
     virtual void ToStore(const Brx& aKey, const Brx& aValue) = 0;
     virtual ~IConfigInitialiser() {}
@@ -589,10 +668,12 @@ public:
     virtual void Added(ConfigNum& aVal) = 0;
     virtual void Added(ConfigChoice& aVal) = 0;
     virtual void Added(ConfigText& aVal) = 0;
+    virtual void Added(ConfigTextChoice& aVal) = 0;
     virtual void AddsComplete() = 0;
     virtual void Removed(ConfigNum& aVal) = 0;
     virtual void Removed(ConfigChoice& aVal) = 0;
     virtual void Removed(ConfigText& aVal) = 0;
+    virtual void Removed(ConfigTextChoice& aVal) = 0;
     virtual~IConfigObserver() {}
 };
 
@@ -620,6 +701,7 @@ private:
     typedef SerialisedMap<ConfigNum> ConfigNumMap;
     typedef SerialisedMap<ConfigChoice> ConfigChoiceMap;
     typedef SerialisedMap<ConfigText> ConfigTextMap;
+    typedef SerialisedMap<ConfigTextChoice> ConfigTextChoiceMap;
 public:
     ConfigManager(IStoreReadWrite& aStore);
 public: // from IConfigManager
@@ -630,6 +712,8 @@ public: // from IConfigManager
     ConfigChoice& GetChoice(const Brx& aKey) const override;
     TBool HasText(const Brx& aKey) const override;
     ConfigText& GetText(const Brx& aKey) const override;
+    TBool HasTextChoice(const Brx& aKey) const override;
+    ConfigTextChoice& GetTextChoice(const Brx& aKey) const override;
     TBool Has(const Brx& aKey) const override;
     ISerialisable& Get(const Brx& aKey) const override;
     void Print() const override;
@@ -640,9 +724,11 @@ public: // from IConfigInitialiser
     void Add(ConfigNum& aNum) override;
     void Add(ConfigChoice& aChoice) override;
     void Add(ConfigText& aText) override;
+    void Add(ConfigTextChoice& aTextChoice) override;
     void Remove(ConfigNum& aNum) override;
     void Remove(ConfigChoice& aChoice) override;
     void Remove(ConfigText& aText) override;
+    void Remove(ConfigTextChoice& aTextChoice) override;
     void FromStore(const Brx& aKey, Bwx& aDest, const Brx& aDefault) override;
     void ToStore(const Brx& aKey, const Brx& aValue) override;
 private: // from IConfigObservable
@@ -652,6 +738,7 @@ private:
     void AddNum(const Brx& aKey, ConfigNum& aNum);
     void AddChoice(const Brx& aKey, ConfigChoice& aChoice);
     void AddText(const Brx& aKey, ConfigText& aText);
+    void AddTextChoice(const Brx& aKey, ConfigTextChoice& aTextChoice);
 private:
     template <class T> void Add(SerialisedMap<T>& aMap, const Brx& aKey, T& aVal);
     template <class T> void Print(const ConfigVal<T>& aVal) const;
@@ -664,10 +751,12 @@ private:
         void DumpToStore(const SerialisedMap<ConfigNum>& aMap);
         void DumpToStore(const SerialisedMap<ConfigChoice>& aMap);
         void DumpToStore(const SerialisedMap<ConfigText>& aMap);
+        void DumpToStore(const SerialisedMap<ConfigTextChoice>& aMap);
     private:
         void NotifyChangedNum(ConfigNum::KvpNum& aKvp);
         void NotifyChangedChoice(ConfigChoice::KvpChoice& aKvp);
         void NotifyChangedText(ConfigText::KvpText& aKvp);
+        void NotifyChangedTextChoice(ConfigTextChoice::KvpText& aKvp);
     private:
         IConfigInitialiser& iConfigInit;
     };
@@ -676,6 +765,7 @@ private:
     ConfigNumMap iMapNum;
     ConfigChoiceMap iMapChoice;
     ConfigTextMap iMapText;
+    ConfigTextChoiceMap iMapTextChoice;
     std::vector<const Brx*> iKeyListOrdered;
     TBool iOpen;
     mutable Mutex iLock;

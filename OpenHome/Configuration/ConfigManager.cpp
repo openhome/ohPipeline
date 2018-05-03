@@ -269,9 +269,9 @@ void ConfigChoice::Write(KeyValuePair<TUint>& aKvp)
 }
 
 
-// ConfigText
+// ConfigTextBase
 
-ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
+ConfigTextBase::ConfigTextBase(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
     : ConfigVal(aManager, aKey, aRebootRequired)
     , iMinLength(aMinLength)
     , iDefault(aDefault)
@@ -302,27 +302,23 @@ ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMin
 
     // Initial value fits into initial buf, so it is within max length limit.
     iText.Replace(initialBuf);
-
-    iConfigManager.Add(*this);
-    AddInitialSubscribers();
 }
 
-ConfigText::~ConfigText()
+ConfigTextBase::~ConfigTextBase()
 {
-    iConfigManager.Remove(*this);
 }
 
-TUint ConfigText::MinLength() const
+TUint ConfigTextBase::MinLengthInternal() const
 {
     return iMinLength;
 }
 
-TUint ConfigText::MaxLength() const
+TUint ConfigTextBase::MaxLengthInternal() const
 {
     return iText.MaxBytes();
 }
 
-void ConfigText::Set(const Brx& aText)
+void ConfigTextBase::SetInternal(const Brx& aText)
 {
     if (aText.Bytes() < iMinLength) {
         THROW(ConfigValueTooShort);
@@ -338,32 +334,106 @@ void ConfigText::Set(const Brx& aText)
     }
 }
 
-const Brx& ConfigText::Default() const
+const Brx& ConfigTextBase::Default() const
 {
     return iDefault;
 }
 
-TUint ConfigText::Subscribe(FunctorGeneric<KeyValuePair<const Brx&>&> aFunctor)
+TUint ConfigTextBase::Subscribe(FunctorGeneric<KeyValuePair<const Brx&>&> aFunctor)
 {
     AutoMutex a(iMutex);
     return ConfigVal::Subscribe(aFunctor, iText);
 }
 
-void ConfigText::Serialise(IWriter& aWriter) const
+void ConfigTextBase::Serialise(IWriter& aWriter) const
 {
     AutoMutex a(iMutex);
     aWriter.Write(iText);
     aWriter.WriteFlush();
 }
 
-void ConfigText::Deserialise(const Brx& aString)
-{
-    Set(aString);
-}
-
-void ConfigText::Write(KeyValuePair<const Brx&>& aKvp)
+void ConfigTextBase::Write(KeyValuePair<const Brx&>& aKvp)
 {
     iConfigManager.ToStore(iKey, aKvp.Value());
+}
+
+
+// ConfigText
+
+ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
+    : ConfigTextBase(aManager, aKey, aMinLength, aMaxLength, aDefault, aRebootRequired)
+{
+    iConfigManager.Add(*this);
+    AddInitialSubscribers();
+}
+
+ConfigText::~ConfigText()
+{
+    iConfigManager.Remove(*this);
+}
+
+TUint ConfigText::MinLength() const
+{
+    return MinLengthInternal();
+}
+
+TUint ConfigText::MaxLength() const
+{
+    return MaxLengthInternal();
+}
+
+void ConfigText::Set(const Brx& aText)
+{
+    SetInternal(aText);
+}
+
+void ConfigText::Deserialise(const Brx& aString)
+{
+    SetInternal(aString);
+}
+
+
+// ConfigTextChoice
+
+ConfigTextChoice::ConfigTextChoice(IConfigInitialiser& aManager, const Brx& aKey, IConfigTextChoices& aChoices, TUint aMinLength, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
+    : ConfigTextBase(aManager, aKey, aMinLength, aMaxLength, aDefault, aRebootRequired)
+    , iChoices(aChoices)
+{
+    iConfigManager.Add(*this);
+    AddInitialSubscribers();
+}
+
+ConfigTextChoice::~ConfigTextChoice()
+{
+    iConfigManager.Remove(*this);
+}
+
+void ConfigTextChoice::AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor)
+{
+    iChoices.AcceptChoicesVisitor(aVisitor);
+}
+
+void ConfigTextChoice::Set(const Brx& aText)
+{
+    if (iChoices.IsValid(aText)) {
+        try {
+            SetInternal(aText);
+        }
+        catch (const ConfigValueTooShort&) {
+            ASSERTS();
+        }
+        catch (const ConfigValueTooLong&) {
+            ASSERTS();
+        }
+    }
+    else {
+        THROW(ConfigInvalidSelection);
+    }
+}
+
+void ConfigTextChoice::Deserialise(const Brx& aString)
+{
+    Set(aString);
 }
 
 
@@ -432,9 +502,19 @@ ConfigText& ConfigManager::GetText(const Brx& aKey) const
     return iMapText.Get(aKey);
 }
 
+TBool ConfigManager::HasTextChoice(const Brx& aKey) const
+{
+    return iMapTextChoice.Has(aKey);
+}
+
+ConfigTextChoice& ConfigManager::GetTextChoice(const Brx& aKey) const
+{
+    return iMapTextChoice.Get(aKey);
+}
+
 TBool ConfigManager::Has(const Brx& aKey) const
 {
-    return HasNum(aKey) || HasChoice(aKey) || HasText(aKey);
+    return HasNum(aKey) || HasChoice(aKey) || HasText(aKey) || HasTextChoice(aKey);
 }
 
 ISerialisable& ConfigManager::Get(const Brx& aKey) const
@@ -448,6 +528,9 @@ ISerialisable& ConfigManager::Get(const Brx& aKey) const
     }
     else if (HasText(aKey)) {
         return iMapText.Get(aKey);
+    }
+    else if (HasTextChoice(aKey)) {
+        return iMapTextChoice.Get(aKey);
     }
     else {
         ASSERTS();
@@ -465,6 +548,8 @@ void ConfigManager::Print() const
     Print(iMapChoice);
     Log::Print("ConfigText:\n");
     Print(iMapText);
+    Log::Print("ConfigTextChoice:\n");
+    Print(iMapTextChoice);
 
     Log::Print("]\n");
 }
@@ -475,6 +560,7 @@ void ConfigManager::DumpToStore()
     dumper.DumpToStore(iMapNum);
     dumper.DumpToStore(iMapChoice);
     dumper.DumpToStore(iMapText);
+    dumper.DumpToStore(iMapTextChoice);
 }
 
 IStoreReadWrite& ConfigManager::Store()
@@ -526,6 +612,17 @@ void ConfigManager::Add(ConfigText& aText)
     }
 }
 
+void ConfigManager::Add(ConfigTextChoice& aTextChoice)
+{
+    AddTextChoice(aTextChoice.Key(), aTextChoice);
+    iKeyListOrdered.push_back(&aTextChoice.Key());
+
+    AutoMutex _(iLock);
+    if (iObserver != nullptr) {
+        iObserver->Added(aTextChoice);
+    }
+}
+
 void ConfigManager::Remove(ConfigNum& aNum)
 {
     if (iMapNum.TryRemove(aNum.Key())) {
@@ -552,6 +649,16 @@ void ConfigManager::Remove(ConfigText& aText)
         AutoMutex _(iLock);
         if (iObserver != nullptr) {
             iObserver->Removed(aText);
+        }
+    }
+}
+
+void ConfigManager::Remove(ConfigTextChoice& aTextChoice)
+{
+    if (iMapTextChoice.TryRemove(aTextChoice.Key())) {
+        AutoMutex _(iLock);
+        if (iObserver != nullptr) {
+            iObserver->Removed(aTextChoice);
         }
     }
 }
@@ -605,6 +712,11 @@ void ConfigManager::AddChoice(const Brx& aKey, ConfigChoice& aChoice)
 void ConfigManager::AddText(const Brx& aKey, ConfigText& aText)
 {
     Add(iMapText, aKey, aText);
+}
+
+void ConfigManager::AddTextChoice(const Brx& aKey, ConfigTextChoice& aTextChoice)
+{
+    Add(iMapTextChoice, aKey, aTextChoice);
 }
 
 template <class T> void ConfigManager::Add(SerialisedMap<T>& aMap, const Brx& aKey, T& aVal)
@@ -680,6 +792,16 @@ void ConfigManager::StoreDumper::DumpToStore(const SerialisedMap<ConfigText>& aM
     }
 }
 
+void ConfigManager::StoreDumper::DumpToStore(const SerialisedMap<ConfigTextChoice>& aMap)
+{
+    SerialisedMap<ConfigTextChoice>::Iterator it;
+    for (it = aMap.Begin(); it != aMap.End(); ++it) {
+        ConfigTextChoice& configVal = *it->second;
+        TUint id = configVal.Subscribe(MakeFunctorConfigText(*this, &ConfigManager::StoreDumper::NotifyChangedTextChoice));
+        configVal.Unsubscribe(id);
+    }
+}
+
 void ConfigManager::StoreDumper::NotifyChangedNum(ConfigNum::KvpNum& aKvp)
 {
     Bws<sizeof(TInt)> valBuf;
@@ -699,6 +821,11 @@ void ConfigManager::StoreDumper::NotifyChangedChoice(ConfigChoice::KvpChoice& aK
 }
 
 void ConfigManager::StoreDumper::NotifyChangedText(ConfigText::KvpText& aKvp)
+{
+    iConfigInit.ToStore(aKvp.Key(), aKvp.Value());
+}
+
+void ConfigManager::StoreDumper::NotifyChangedTextChoice(ConfigTextChoice::KvpText& aKvp)
 {
     iConfigInit.ToStore(aKvp.Key(), aKvp.Value());
 }
