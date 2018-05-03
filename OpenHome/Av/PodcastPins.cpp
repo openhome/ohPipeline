@@ -23,6 +23,14 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 
+// Pin modes
+static const TChar* kPinModeItunesLatestEpisode = "itunesepisode";
+static const TChar* kPinModeItunesEpisodeList = "ituneslist";
+
+// Pin types
+static const TChar* kPinTypePodcast = "podcast";
+
+
 const Brn PodcastPins::kPodcastKey("Pins.Podcast");
 const TUint kTimerDurationMs = (1000 * 60 * 60 * 24) - (1000 * 60 * 10); // 23h:50m, anything a bit under 1 day would do
 //const TUint kTimerDurationMs = 1000 * 60; // 1 min - TEST ONLY
@@ -46,19 +54,19 @@ PodcastPinsLatestEpisode::~PodcastPinsLatestEpisode()
 void PodcastPinsLatestEpisode::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
-    if (pin.Mode() == PinUri::EMode::eItunesLatestEpisode) {
-        switch (pin.Type()) {
-            case PinUri::EType::ePodcast: iPodcastPins->LoadPodcastLatest(pin.Value(), *this); break;
-            default: {
-                return;
-            }
+    if (Brn(pin.Mode()) == Brn(kPinModeItunesLatestEpisode)) {
+        if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
+            iPodcastPins->LoadPodcastLatest(pin.Value(), *this);
+        }
+        else {
+            return;
         }
     }
 }
 
 const TChar* PodcastPinsLatestEpisode::Mode() const
 {
-    return PinUri::GetModeString(PinUri::EMode::eItunesLatestEpisode);
+    return kPinModeItunesLatestEpisode;
 }
 
 void PodcastPinsLatestEpisode::Init(TBool /*aShuffle*/)
@@ -101,19 +109,19 @@ PodcastPinsEpisodeList::~PodcastPinsEpisodeList()
 void PodcastPinsEpisodeList::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
-    if (pin.Mode() == PinUri::EMode::eItunesEpisodeList) {
-        switch (pin.Type()) {
-            case PinUri::EType::ePodcast: iPodcastPins->LoadPodcastList(pin.Value(), *this, pin.Shuffle()); break;
-            default: {
-                return;
-            }
+    if (Brn(pin.Mode()) == Brn(kPinModeItunesEpisodeList)) {
+        if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
+            iPodcastPins->LoadPodcastList(pin.Value(), *this, aPin.Shuffle());
+        }
+        else {
+            return;
         }
     }
 }
 
 const TChar* PodcastPinsEpisodeList::Mode() const
 {
-    return PinUri::GetModeString(PinUri::EMode::eItunesEpisodeList);
+    return kPinModeItunesEpisodeList;
 }
 
 void PodcastPinsEpisodeList::Init(TBool aShuffle)

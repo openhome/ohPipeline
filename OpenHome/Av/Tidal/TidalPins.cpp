@@ -24,6 +24,28 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 using namespace OpenHome::Configuration;
 
+// Pin mode
+static const TChar* kPinModeTidal = "tidal";
+
+// Pin types
+static const TChar* kPinTypeArtist = "artist";
+static const TChar* kPinTypeAlbum = "album";
+static const TChar* kPinTypeGenre = "genre";
+static const TChar* kPinTypeMood = "mood";
+static const TChar* kPinTypePlaylist = "pls";
+static const TChar* kPinTypeSmart = "smart";
+static const TChar* kPinTypeTrack = "track";
+
+// Pin smart types
+static const TChar* kSmartTypeDiscovery = "discovery";
+static const TChar* kSmartTypeExclusive = "exclusive";
+static const TChar* kSmartTypeFavorites = "fav";
+static const TChar* kSmartTypeNew = "new";
+static const TChar* kSmartTypeRecommended = "recommended";
+static const TChar* kSmartTypeRising = "rising";
+static const TChar* kSmartTypeSavedPlaylist = "savedpls";
+static const TChar* kSmartTypeTop20 = "top20";
+
 // Potential Validation
 // valid genre strings: https://api.tidal.com/v1/genres?countryCode={{countryCode}}
 // valid mood strings: https://api.tidal.com/v1/moods?countryCode={{countryCode}}
@@ -52,40 +74,35 @@ TidalPins::~TidalPins()
 void TidalPins::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
-    if (pin.Mode() == PinUri::EMode::eTidal) {
-        switch (pin.Type()) {
-            case PinUri::EType::eArtist: LoadTracksByArtist(pin.Value(), pin.Shuffle()); break;
-            case PinUri::EType::eAlbum: LoadTracksByAlbum(pin.Value(), pin.Shuffle()); break;
-            case PinUri::EType::eTrack: LoadTracksByTrack(pin.Value(), pin.Shuffle()); break;
-            case PinUri::EType::ePlaylist: LoadTracksByPlaylist(pin.Value(), pin.Shuffle()); break;
-            case PinUri::EType::eGenre: LoadTracksByGenre(pin.Value(), pin.Shuffle()); break;
-            case PinUri::EType::eMood: LoadTracksByMood(pin.Value(), pin.Shuffle()); break;
-            case PinUri::EType::eSmart: {
-                switch (pin.SmartType()) {
-                    case PinUri::ESmartType::eNew: LoadTracksByNew(pin.Shuffle()); break;
-                    case PinUri::ESmartType::eRecommended: LoadTracksByRecommended(pin.Shuffle()); break;
-                    case PinUri::ESmartType::eTop20: LoadTracksByTop20(pin.Shuffle()); break;
-                    case PinUri::ESmartType::eExclusive: LoadTracksByExclusive(pin.Shuffle()); break;
-                    case PinUri::ESmartType::eRising: LoadTracksByRising(pin.Shuffle()); break;
-                    case PinUri::ESmartType::eDiscovery: LoadTracksByDiscovery(pin.Shuffle()); break;
-                    case PinUri::ESmartType::eFavorites: LoadTracksByFavorites(pin.Shuffle()); break;
-                    case PinUri::ESmartType::eSavedPlaylist: LoadTracksBySavedPlaylist(pin.Shuffle()); break;
-                    default: {
-                        return;
-                    }
-                }
-                break;
-            }
-            default: {
+    if (Brn(pin.Mode()) == Brn(kPinModeTidal)) {
+        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) { LoadTracksByArtist(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) { LoadTracksByAlbum(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) { LoadTracksByTrack(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) { LoadTracksByPlaylist(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeGenre)) { LoadTracksByGenre(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeMood)) { LoadTracksByMood(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeSmart)) {
+            if (Brn(pin.Value()) == Brn(kSmartTypeDiscovery)) { LoadTracksByDiscovery(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeExclusive)) { LoadTracksByExclusive(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeFavorites)) { LoadTracksByFavorites(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeNew)) { LoadTracksByNew(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeRecommended)) { LoadTracksByRecommended(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeRising)) { LoadTracksByRising(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeSavedPlaylist)) { LoadTracksBySavedPlaylist(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeTop20)) { LoadTracksByTop20(aPin.Shuffle()); }
+            else {
                 return;
             }
+        }
+        else {
+            return;
         }
     }
 }
 
 const TChar* TidalPins::Mode() const
 {
-    return PinUri::GetModeString(PinUri::EMode::eTidal);
+    return kPinModeTidal;
 }
 
 TBool TidalPins::LoadTracksByArtist(const Brx& aArtist, TBool aShuffle)

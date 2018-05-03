@@ -245,67 +245,19 @@ private:
 class PinUri
 {
 public:
-    enum EMode {
-        eModeNone,
-        eItunesLatestEpisode,
-        eItunesEpisodeList,
-        eQobuz,
-        eTidal,
-        eTransport,
-    };
-    enum EType {
-        eTypeNone,
-        eAlbum,
-        eArtist,
-        eGenre,
-        eMood,
-        ePlaylist,
-        ePodcast,
-        eSmart,
-        eSource,
-        eTrack,
-    };
-    enum ESmartType {
-        eSmartTypeNone,
-        eAwardWinning,
-        eBestSellers,
-        eDiscovery,
-        eExclusive,
-        eMostFeatured,
-        eMostStreamed,
-        eNew,
-        eRecommended,
-        eRising,
-        eTop20,
-        eCollection,
-        eFavorites,
-        ePurchased,    
-        eSavedPlaylist,
-    };
-public:
     PinUri(const IPin& aPin);
     ~PinUri();
-    const EMode Mode() const;
-    const EType Type() const ;
-    const ESmartType SmartType() const;
+    const Brx& Mode() const;
+    const Brx& Type() const ;
     const Brx& SubType() const;
     const Brx& Value() const;
-    const Brx& SmartGenre() const;
-    const TBool Shuffle() const;
-public:
-    static const TChar* GetModeString(EMode aMode);
+    const Brx& Genre() const;
 private:
-    const EMode ConvertModeString(const Brx& aMode) const;
-    const EType ConvertTypeString(const Brx& aType) const;
-    const ESmartType ConvertSmartTypeString(const Brx& aSmartType) const;
-private:
-    EMode iMode;
-    EType iType;
-    ESmartType iSmartType;
+    Bwh iMode;
+    Bwh iType;
     Bwh iSubType;
     Bwh iValue;
-    Bwh iSmartGenre;
-    TBool iShuffle;
+    Bwh iGenre;
 };
 
 } // namespace Av

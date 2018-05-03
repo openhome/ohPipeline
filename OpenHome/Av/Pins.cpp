@@ -596,40 +596,6 @@ const Pin& PinsManager::PinFromId(TUint aId) const
     }
 }
 
-// mode
-static const TChar* kPinModeItunesLatestEpisode = "itunesepisode";
-static const TChar* kPinModeItunesEpisodeList = "ituneslist";
-static const TChar* kPinModeQobuz = "qobuz";
-static const TChar* kPinModeTidal = "tidal";
-static const TChar* kPinModeTransport = "transport";
-
-// type
-static const TChar* kPinTypeArtist = "artist";
-static const TChar* kPinTypeAlbum = "album";
-static const TChar* kPinTypeGenre = "genre";
-static const TChar* kPinTypeMood = "mood";
-static const TChar* kPinTypePlaylist = "pls";
-static const TChar* kPinTypePodcast = "podcast";
-static const TChar* kPinTypeSmart = "smart";
-static const TChar* kPinTypeSource = "source";
-static const TChar* kPinTypeTrack = "track";
-
-// smart type
-static const TChar* kSmartTypeAwardWinning = "awards";
-static const TChar* kSmartTypeBestSellers = "bestsellers";
-static const TChar* kSmartTypeCollection = "collection";
-static const TChar* kSmartTypeDiscovery = "discovery";
-static const TChar* kSmartTypeExclusive = "exclusive";
-static const TChar* kSmartTypeFavorites = "fav";
-static const TChar* kSmartTypeMostFeatured = "mostfeatured";
-static const TChar* kSmartTypeMostStreamed = "moststreamed";
-static const TChar* kSmartTypeNew = "new";
-static const TChar* kSmartTypePurchased = "purchased";
-static const TChar* kSmartTypeRecommended = "recommended";
-static const TChar* kSmartTypeRising = "rising";
-static const TChar* kSmartTypeSavedPlaylist = "savedpls";
-static const TChar* kSmartTypeTop20 = "top20";
-
 // <mode>://<type>?<subtype>=<value>[&genre=<genreFilter>][&version=1]
 // <subtype> = 'id' or 'trackId' or anything (not checked)
 // <value> = <smartType> if <type> = 'smart', otherwise id or text string
@@ -637,17 +603,15 @@ static const TChar* kSmartTypeTop20 = "top20";
 // version is not currently checked
 
 PinUri::PinUri(const IPin& aPin)
-    : iMode(EMode::eModeNone)
-    , iType(EType::eTypeNone)
-    , iSmartType(ESmartType::eSmartTypeNone)
+    : iMode(256)
+    , iType(256)
     , iSubType(256)
     , iValue(256)
-    , iSmartGenre(256)
-    , iShuffle(false)
+    , iGenre(256)
 {
     OpenHome::Uri req(aPin.Uri());
-    iMode = ConvertModeString(req.Scheme());
-    iType = ConvertTypeString(req.Host());
+    iMode.Replace(req.Scheme());
+    iType.Replace(req.Host());
     OpenHome::Parser parser(req.Query());
     parser.Next('?');
     while (!parser.Finished()) {
@@ -657,7 +621,7 @@ PinUri::PinUri(const IPin& aPin)
             Brn left(pe.Next('='));
             Brn right(pe.Remaining());
             if (left == Brn("genre")) {
-                iSmartGenre.Replace(right);
+                iGenre.Replace(right);
             }
             else if (left != Brn("version")) {
                 iSubType.Replace(left);
@@ -665,158 +629,21 @@ PinUri::PinUri(const IPin& aPin)
             }
         }
     }
-
-    if (iType == EType::eSmart) {
-        iSmartType = ConvertSmartTypeString(iValue);
-    }
-
-    iShuffle = aPin.Shuffle();
 }
 
-const TChar* PinUri::GetModeString(EMode aMode)
-{
-    if (aMode == EMode::eTidal) {
-        return kPinModeTidal;
-    }
-    else if (aMode == EMode::eQobuz) {
-        return kPinModeQobuz;
-    }
-    else if (aMode == EMode::eItunesLatestEpisode) {
-        return kPinModeItunesLatestEpisode;
-    }
-    else if (aMode == EMode::eItunesEpisodeList) {
-        return kPinModeItunesEpisodeList;
-    }
-    else if (aMode == EMode::eTransport) {
-        return kPinModeTransport;
-    }
-    else {
-        THROW(PinModeNotSupported);
-    }
-}
-
-const PinUri::EMode PinUri::ConvertModeString(const Brx& aMode) const
-{
-    if (aMode == Brn(kPinModeTidal)) {
-        return EMode::eTidal;
-    }
-    else if (aMode == Brn(kPinModeQobuz)) {
-        return EMode::eQobuz;
-    }
-    else if (aMode == Brn(kPinModeItunesLatestEpisode)) {
-        return EMode::eItunesLatestEpisode;
-    }
-    else if (aMode == Brn(kPinModeItunesEpisodeList)) {
-        return EMode::eItunesEpisodeList;
-    }
-    else if (aMode == Brn(kPinModeTransport)) {
-        return EMode::eTransport;
-    }
-    else {
-        THROW(PinModeNotSupported);
-    }
-}
-
-const PinUri::EType PinUri::ConvertTypeString(const Brx& aType) const
-{
-    if (aType == Brn(kPinTypeArtist)) {
-        return EType::eArtist;
-    }
-    else if (aType == Brn(kPinTypeAlbum)) {
-        return EType::eAlbum;
-    }
-    else if (aType == Brn(kPinTypeTrack)) {
-        return EType::eTrack;
-    }
-    else if (aType == Brn(kPinTypePlaylist)) {
-        return EType::ePlaylist;
-    }
-    else if (aType == Brn(kPinTypeGenre)) {
-        return EType::eGenre;
-    }
-    else if (aType == Brn(kPinTypeMood)) {
-        return EType::eMood;
-    }
-    else if (aType == Brn(kPinTypeSmart)) {
-        return EType::eSmart;
-    }
-    else if (aType == Brn(kPinTypeSource)) {
-        return EType::eSource;
-    }
-    else if (aType == Brn(kPinTypePodcast)) {
-        return EType::ePodcast;
-    }
-    else {
-        THROW(PinTypeNotSupported);
-    }
-}
-
-const PinUri::ESmartType PinUri::ConvertSmartTypeString(const Brx& aSmartType) const
-{
-    if (aSmartType == Brn(kSmartTypeNew)) {
-        return ESmartType::eNew;
-    }
-    else if (aSmartType == Brn(kSmartTypeRecommended)) {
-        return ESmartType::eRecommended;
-    }
-    else if (aSmartType == Brn(kSmartTypeTop20)) {
-        return ESmartType::eTop20;
-    }
-    else if (aSmartType == Brn(kSmartTypeExclusive)) {
-        return ESmartType::eExclusive;
-    }
-    else if (aSmartType == Brn(kSmartTypeRising)) {
-        return ESmartType::eRising;
-    }
-    else if (aSmartType == Brn(kSmartTypeDiscovery)) {
-        return ESmartType::eDiscovery;
-    }
-    else if (aSmartType == Brn(kSmartTypeMostStreamed)) {
-        return ESmartType::eMostStreamed;
-    }
-    else if (aSmartType == Brn(kSmartTypeBestSellers)) {
-        return ESmartType::eBestSellers;
-    }
-    else if (aSmartType == Brn(kSmartTypeAwardWinning)) {
-        return ESmartType::eAwardWinning;
-    }
-    else if (aSmartType == Brn(kSmartTypeMostFeatured)) {
-        return ESmartType::eMostFeatured;
-    }
-    else if (aSmartType == Brn(kSmartTypePurchased)) {
-        return ESmartType::ePurchased;
-    }
-    else if (aSmartType == Brn(kSmartTypeCollection)) {
-        return ESmartType::eCollection;
-    }
-    else if (aSmartType == Brn(kSmartTypeFavorites)) {
-        return ESmartType::eFavorites;
-    }
-    else if (aSmartType == Brn(kSmartTypeSavedPlaylist)) {
-        return ESmartType::eSavedPlaylist;
-    }
-    else {
-        THROW(PinSmartTypeNotSupported);
-    }
-}
 
 PinUri::~PinUri()
 {
 }
 
-const PinUri::EMode PinUri::Mode() const
+const Brx& PinUri::Mode() const
 {
     return iMode;
 }
 
-const PinUri::EType PinUri::Type() const
+const Brx& PinUri::Type() const
 {
     return iType;
-}
-
-const PinUri::ESmartType PinUri::SmartType() const
-{
-    return iSmartType;
 }
 
 const Brx& PinUri::SubType() const
@@ -829,12 +656,7 @@ const Brx& PinUri::Value() const
     return iValue;
 }
 
-const Brx& PinUri::SmartGenre() const
+const Brx& PinUri::Genre() const
 {
-    return iSmartGenre;
-}
-
-const TBool PinUri::Shuffle() const
-{
-    return iShuffle;
+    return iGenre;
 }
