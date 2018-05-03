@@ -295,9 +295,9 @@ public:
 public:
     static const TChar* GetModeString(EMode aMode);
 private:
-    const EMode PinUri::ConvertModeString(const Brx& aMode) const;
-    const EType PinUri::ConvertTypeString(const Brx& aType) const;
-    const ESmartType PinUri::ConvertSmartTypeString(const Brx& aSmartType) const;
+    const EMode ConvertModeString(const Brx& aMode) const;
+    const EType ConvertTypeString(const Brx& aType) const;
+    const ESmartType ConvertSmartTypeString(const Brx& aSmartType) const;
 private:
     EMode iMode;
     EType iType;
