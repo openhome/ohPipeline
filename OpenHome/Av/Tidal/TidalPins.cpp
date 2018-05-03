@@ -70,6 +70,9 @@ void TidalPins::Invoke(const IPin& aPin)
                     case PinUri::ESmartType::eDiscovery: LoadTracksByDiscovery(pin.Shuffle()); break;
                     case PinUri::ESmartType::eFavorites: LoadTracksByFavorites(pin.Shuffle()); break;
                     case PinUri::ESmartType::eSavedPlaylist: LoadTracksBySavedPlaylist(pin.Shuffle()); break;
+                    default: {
+                        return;
+                    }
                 }
                 break;
             }

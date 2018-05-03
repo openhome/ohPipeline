@@ -64,6 +64,9 @@ void QobuzPins::Invoke(const IPin& aPin)
                     case PinUri::ESmartType::ePurchased: LoadTracksByPurchased(pin.Shuffle()); break;
                     case PinUri::ESmartType::eCollection: LoadTracksByCollection(pin.Shuffle()); break;
                     case PinUri::ESmartType::eSavedPlaylist: LoadTracksBySavedPlaylist(pin.Shuffle()); break;
+                    default: {
+                        return;
+                    }
                 }
                 break;
             }
