@@ -606,14 +606,10 @@ static const TChar* kPinModeTransport = "transport";
 // type
 static const TChar* kPinTypeArtist = "artist";
 static const TChar* kPinTypeAlbum = "album";
-static const TChar* kPinTypeCollection = "collection";
-static const TChar* kPinTypeFavorites = "fav";
 static const TChar* kPinTypeGenre = "genre";
 static const TChar* kPinTypeMood = "mood";
 static const TChar* kPinTypePlaylist = "pls";
 static const TChar* kPinTypePodcast = "podcast";
-static const TChar* kPinTypePurchased = "purchased";
-static const TChar* kPinTypeSavedPlaylist = "savedpls";
 static const TChar* kPinTypeSmart = "smart";
 static const TChar* kPinTypeSource = "source";
 static const TChar* kPinTypeTrack = "track";
@@ -621,20 +617,24 @@ static const TChar* kPinTypeTrack = "track";
 // smart type
 static const TChar* kSmartTypeAwardWinning = "awards";
 static const TChar* kSmartTypeBestSellers = "bestsellers";
+static const TChar* kSmartTypeCollection = "collection";
 static const TChar* kSmartTypeDiscovery = "discovery";
 static const TChar* kSmartTypeExclusive = "exclusive";
+static const TChar* kSmartTypeFavorites = "fav";
 static const TChar* kSmartTypeMostFeatured = "mostfeatured";
 static const TChar* kSmartTypeMostStreamed = "moststreamed";
 static const TChar* kSmartTypeNew = "new";
+static const TChar* kSmartTypePurchased = "purchased";
 static const TChar* kSmartTypeRecommended = "recommended";
 static const TChar* kSmartTypeRising = "rising";
+static const TChar* kSmartTypeSavedPlaylist = "savedpls";
 static const TChar* kSmartTypeTop20 = "top20";
 
 // <mode>://<type>?<subtype>=<value>[&genre=<genreFilter>][&version=1]
-// <subtype> = 'id' or 'trackId' or anything (not relevant)
+// <subtype> = 'id' or 'trackId' or anything (not checked)
 // <value> = <smartType> if <type> = 'smart', otherwise id or text string
 // <genreFilter> = OPTIONAL genre ID for 'smart' type filtering (qobuz only)
-// version is optional
+// version is not currently checked
 
 PinUri::PinUri(const IPin& aPin)
     : iMode(EMode::eModeNone)
@@ -734,18 +734,6 @@ const PinUri::EType PinUri::ConvertTypeString(const Brx& aType) const
     else if (aType == Brn(kPinTypeMood)) {
         return EType::eMood;
     }
-    else if (aType == Brn(kPinTypePurchased)) {
-        return EType::ePurchased;
-    }
-    else if (aType == Brn(kPinTypeCollection)) {
-        return EType::eCollection;
-    }
-    else if (aType == Brn(kPinTypeFavorites)) {
-        return EType::eFavorites;
-    }
-    else if (aType == Brn(kPinTypeSavedPlaylist)) {
-        return EType::eSavedPlaylist;
-    }
     else if (aType == Brn(kPinTypeSmart)) {
         return EType::eSmart;
     }
@@ -791,6 +779,18 @@ const PinUri::ESmartType PinUri::ConvertSmartTypeString(const Brx& aSmartType) c
     }
     else if (aSmartType == Brn(kSmartTypeMostFeatured)) {
         return ESmartType::eMostFeatured;
+    }
+    else if (aSmartType == Brn(kSmartTypePurchased)) {
+        return ESmartType::ePurchased;
+    }
+    else if (aSmartType == Brn(kSmartTypeCollection)) {
+        return ESmartType::eCollection;
+    }
+    else if (aSmartType == Brn(kSmartTypeFavorites)) {
+        return ESmartType::eFavorites;
+    }
+    else if (aSmartType == Brn(kSmartTypeSavedPlaylist)) {
+        return ESmartType::eSavedPlaylist;
     }
     else {
         THROW(PinSmartTypeNotSupported);

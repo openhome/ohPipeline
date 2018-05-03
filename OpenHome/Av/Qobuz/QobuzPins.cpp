@@ -51,10 +51,6 @@ void QobuzPins::Invoke(const IPin& aPin)
             case PinUri::EType::eAlbum: LoadTracksByAlbum(pin.Value()); break;
             case PinUri::EType::eTrack: LoadTracksByTrack(pin.Value()); break;
             case PinUri::EType::ePlaylist: LoadTracksByPlaylist(pin.Value()); break;
-            case PinUri::EType::eFavorites: LoadTracksByFavorites(); break;
-            case PinUri::EType::ePurchased: LoadTracksByPurchased(); break;
-            case PinUri::EType::eCollection: LoadTracksByCollection(); break;
-            case PinUri::EType::eSavedPlaylist: LoadTracksBySavedPlaylist(); break;
             case PinUri::EType::eSmart: {
                 switch (pin.SmartType()) {
                     // optional genre parameter to filter smart playlists
@@ -64,6 +60,10 @@ void QobuzPins::Invoke(const IPin& aPin)
                     case PinUri::ESmartType::eBestSellers: LoadTracksByBestSellers(pin.SmartGenre()); break;
                     case PinUri::ESmartType::eAwardWinning: LoadTracksByAwardWinning(pin.SmartGenre()); break;
                     case PinUri::ESmartType::eMostFeatured: LoadTracksByMostFeatured(pin.SmartGenre()); break;
+                    case PinUri::ESmartType::eFavorites: LoadTracksByFavorites(); break;
+                    case PinUri::ESmartType::ePurchased: LoadTracksByPurchased(); break;
+                    case PinUri::ESmartType::eCollection: LoadTracksByCollection(); break;
+                    case PinUri::ESmartType::eSavedPlaylist: LoadTracksBySavedPlaylist(); break;
                 }
                 break;
             }

@@ -60,8 +60,6 @@ void TidalPins::Invoke(const IPin& aPin)
             case PinUri::EType::ePlaylist: LoadTracksByPlaylist(pin.Value()); break;
             case PinUri::EType::eGenre: LoadTracksByGenre(pin.Value()); break;
             case PinUri::EType::eMood: LoadTracksByMood(pin.Value()); break;
-            case PinUri::EType::eFavorites: LoadTracksByFavorites(); break;
-            case PinUri::EType::eSavedPlaylist: LoadTracksBySavedPlaylist(); break;
             case PinUri::EType::eSmart: {
                 switch (pin.SmartType()) {
                     case PinUri::ESmartType::eNew: LoadTracksByNew(); break;
@@ -70,6 +68,8 @@ void TidalPins::Invoke(const IPin& aPin)
                     case PinUri::ESmartType::eExclusive: LoadTracksByExclusive(); break;
                     case PinUri::ESmartType::eRising: LoadTracksByRising(); break;
                     case PinUri::ESmartType::eDiscovery: LoadTracksByDiscovery(); break;
+                    case PinUri::ESmartType::eFavorites: LoadTracksByFavorites(); break;
+                    case PinUri::ESmartType::eSavedPlaylist: LoadTracksBySavedPlaylist(); break;
                 }
                 break;
             }

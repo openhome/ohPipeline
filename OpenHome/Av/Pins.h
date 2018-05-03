@@ -257,14 +257,10 @@ public:
         eTypeNone,
         eAlbum,
         eArtist,
-        eCollection,
-        eFavorites,
         eGenre,
         eMood,
         ePlaylist,
         ePodcast,
-        ePurchased,    
-        eSavedPlaylist,
         eSmart,
         eSource,
         eTrack,
@@ -281,6 +277,10 @@ public:
         eRecommended,
         eRising,
         eTop20,
+        eCollection,
+        eFavorites,
+        ePurchased,    
+        eSavedPlaylist,
     };
 public:
     PinUri(const IPin& aPin);
