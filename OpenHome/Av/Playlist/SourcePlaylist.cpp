@@ -8,6 +8,7 @@
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Playlist/ProviderPlaylist.h>
 #include <OpenHome/Av/Playlist/UriProviderPlaylist.h>
+#include <OpenHome/Av/Playlist/PinInvokerPlaylist.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Av/KvpStore.h>
 #include <OpenHome/Av/SourceFactory.h>
@@ -129,6 +130,12 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     iProviderPlaylist = new ProviderPlaylist(aMediaPlayer.Device(), env, *this, *iDatabase, *iRepeater, aMediaPlayer.TransportRepeatRandom());
     aMediaPlayer.MimeTypes().AddUpnpProtocolInfoObserver(MakeFunctorGeneric(*iProviderPlaylist, &ProviderPlaylist::NotifyProtocolInfo));
     iPipeline.AddObserver(*this);
+    auto pinsInvocable = aMediaPlayer.PinsInvocable();
+    if (pinsInvocable.Ok() && aPlaylistLoader.Ok()) {
+        auto invoker = new PinInvokerPlaylist(*iDatabase,
+                                              aPlaylistLoader.Unwrap());
+        pinsInvocable.Unwrap().Add(invoker); // passes ownership
+    }
 }
 
 SourcePlaylist::~SourcePlaylist()

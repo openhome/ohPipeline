@@ -364,7 +364,9 @@ def build(bld):
                 'OpenHome/Av/Qobuz/Qobuz.cpp',
                 'OpenHome/Av/Qobuz/QobuzMetadata.cpp',
                 'OpenHome/Av/Qobuz/QobuzPins.cpp',
-                'OpenHome/Av/Qobuz/ProtocolQobuz.cpp'
+                'OpenHome/Av/Qobuz/ProtocolQobuz.cpp',
+                'Generated/CpAvOpenhomeOrgTransport1.cpp',
+                'OpenHome/Av/Playlist/PinInvokerPlaylist.cpp',
             ],
             use=['OHNET', 'ohMediaPlayer'],
             target='SourcePlaylist')
