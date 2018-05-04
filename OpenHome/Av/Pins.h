@@ -53,19 +53,21 @@ class Pin : public IPin
 {
 public:
     Pin(IPinIdProvider& aIdProvider);
+    Pin(const Pin& aPin);
+    const Pin& operator=(const Pin& aPin);
     TBool TryUpdate(const Brx& aMode, const Brx& aType, const Brx& aUri,
                     const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
                     TBool aShuffle);
     TBool Clear();
     void Internalise(const Brx& aBuf);
     void Externalise(IWriter& aWriter) const;
-    const Pin& operator=(const Pin& aPin);
     void Write(WriterJsonObject& aWriter) const;
 private:
     TBool Set(const Brx& aMode, const Brx& aType, const Brx& aUri,
               const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
               TBool aShuffle);
     void ReadBuf(ReaderBinary& aReader, TUint aLenBytes, Bwx& aBuf);
+    void Copy(const Pin& aPin);
 public: // from IPin
     TUint Id() const override;
     const Brx& Mode() const override;

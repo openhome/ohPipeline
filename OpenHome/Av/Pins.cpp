@@ -27,6 +27,18 @@ Pin::Pin(IPinIdProvider& aIdProvider)
 {
 }
 
+Pin::Pin(const Pin& aPin)
+    : iIdProvider(aPin.iIdProvider)
+{
+    Copy(aPin);
+}
+
+const Pin& Pin::operator=(const Pin& aPin)
+{
+    Copy(aPin);
+    return *this;
+}
+
 TBool Pin::TryUpdate(const Brx& aMode, const Brx& aType, const Brx& aUri,
                      const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
                      TBool aShuffle)
@@ -95,14 +107,6 @@ void Pin::Externalise(IWriter& aWriter) const
     writer.WriteUint8(iShuffle? 1 : 0);
 }
 
-const Pin& Pin::operator=(const Pin& aPin)
-{
-    (void)Set(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
-              aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
-    iId = aPin.iId;
-    return *this;
-}
-
 void Pin::Write(WriterJsonObject& aWriter) const
 {
     aWriter.WriteInt("id", iId);
@@ -159,6 +163,14 @@ void Pin::ReadBuf(ReaderBinary& aReader, TUint aLenBytes, Bwx& aBuf)
         THROW(ReaderError);
     }
     aReader.ReadReplace(bytes, aBuf);
+}
+
+void Pin::Copy(const Pin& aPin)
+{
+    (void)Set(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+              aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    iIdProvider = aPin.iIdProvider;
+    iId = aPin.iId;
 }
 
 TUint Pin::Id() const
