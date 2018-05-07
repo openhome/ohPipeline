@@ -29,6 +29,7 @@ Pin::Pin(IPinIdProvider& aIdProvider)
 
 Pin::Pin(const Pin& aPin)
     : iIdProvider(aPin.iIdProvider)
+    , iShuffle(false)
 {
     Copy(aPin);
 }
