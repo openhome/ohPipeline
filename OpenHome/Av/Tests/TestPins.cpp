@@ -55,7 +55,7 @@ private:
     void TestUpdateReportsChange();
     void TestUpdateNoChange();
     void TestSaveLoad();
-    void TestAssign();
+    void TestCopy();
     void TestClearReportsChange();
     void TestClearNoChange();
     void TestClearSetsEmptyId();
@@ -229,7 +229,7 @@ SuitePin::SuitePin()
     AddTest(MakeFunctor(*this, &SuitePin::TestUpdateReportsChange), "TestUpdateReportsChange");
     AddTest(MakeFunctor(*this, &SuitePin::TestUpdateNoChange), "TestUpdateNoChange");
     AddTest(MakeFunctor(*this, &SuitePin::TestSaveLoad), "TestSaveLoad");
-    AddTest(MakeFunctor(*this, &SuitePin::TestAssign), "TestAssign");
+    AddTest(MakeFunctor(*this, &SuitePin::TestCopy), "TestCopy");
     AddTest(MakeFunctor(*this, &SuitePin::TestClearReportsChange), "TestClearReportsChange");
     AddTest(MakeFunctor(*this, &SuitePin::TestClearNoChange), "TestClearNoChange");
     AddTest(MakeFunctor(*this, &SuitePin::TestClearSetsEmptyId), "TestClearSetsEmptyId");
@@ -316,7 +316,7 @@ void SuitePin::TestSaveLoad()
     TEST(pin.Shuffle() == PinTestUtils::kShuffle);
 }
 
-void SuitePin::TestAssign()
+void SuitePin::TestCopy()
 {
     Pin pin(*this);
     Pin pin2(*this);
@@ -324,7 +324,7 @@ void SuitePin::TestAssign()
     PinTestUtils::Init2(pin2);
     const TUint id2 = pin2.Id();
 
-    pin = pin2;
+    pin.Copy(pin2);
     TEST(pin.Id() == id2);
     TEST(pin.Mode() == PinTestUtils::kMode2);
     TEST(pin.Type() == PinTestUtils::kType2);
@@ -408,15 +408,15 @@ void SuitePinSet::TestLoadFromCtor()
     PinSet pinSet(kPinCount, *this, *iStore, "pt");
     TEST(pinSet.Count() == kPinCount);
     for (TUint i = 0; i < kPinCount; i++) {
-        const Pin& pin = pinSet.iPins[i];
-        TEST(pin.Id() == kIdEmpty);
-        TEST(pin.Mode() == Brx::Empty());
-        TEST(pin.Type() == Brx::Empty());
-        TEST(pin.Uri() == Brx::Empty());
-        TEST(pin.Title() == Brx::Empty());
-        TEST(pin.Description() == Brx::Empty());
-        TEST(pin.ArtworkUri() == Brx::Empty());
-        TEST(!pin.Shuffle());
+        const auto pin = pinSet.iPins[i];
+        TEST(pin->Id() == kIdEmpty);
+        TEST(pin->Mode() == Brx::Empty());
+        TEST(pin->Type() == Brx::Empty());
+        TEST(pin->Uri() == Brx::Empty());
+        TEST(pin->Title() == Brx::Empty());
+        TEST(pin->Description() == Brx::Empty());
+        TEST(pin->ArtworkUri() == Brx::Empty());
+        TEST(!pin->Shuffle());
     }
 }
 
@@ -429,15 +429,15 @@ void SuitePinSet::TestLoadDeferred()
     pinSet.SetCount(kPinCount);
     TEST(pinSet.Count() == kPinCount);
     for (TUint i = 0; i < kPinCount; i++) {
-        const Pin& pin = pinSet.iPins[i];
-        TEST(pin.Id() == kIdEmpty);
-        TEST(pin.Mode() == Brx::Empty());
-        TEST(pin.Type() == Brx::Empty());
-        TEST(pin.Uri() == Brx::Empty());
-        TEST(pin.Title() == Brx::Empty());
-        TEST(pin.Description() == Brx::Empty());
-        TEST(pin.ArtworkUri() == Brx::Empty());
-        TEST(!pin.Shuffle());
+        const auto pin = pinSet.iPins[i];
+        TEST(pin->Id() == kIdEmpty);
+        TEST(pin->Mode() == Brx::Empty());
+        TEST(pin->Type() == Brx::Empty());
+        TEST(pin->Uri() == Brx::Empty());
+        TEST(pin->Title() == Brx::Empty());
+        TEST(pin->Description() == Brx::Empty());
+        TEST(pin->ArtworkUri() == Brx::Empty());
+        TEST(!pin->Shuffle());
     }
 }
 
@@ -445,15 +445,15 @@ void SuitePinSet::TestSaveLoad()
 {
     static const TUint kPinCount = 5;
     PinSet pinSet(kPinCount, *this, *iStore, "pt");
-    auto& pin = pinSet.iPins[1];
-    PinTestUtils::Init(pin);
-    TEST(pin.Mode() == PinTestUtils::kMode);
-    pinSet.WriteToStore(pin);
+    auto pin = pinSet.iPins[1];
+    PinTestUtils::Init(*pin);
+    TEST(pin->Mode() == PinTestUtils::kMode);
+    pinSet.WriteToStore(*pin);
 
     PinSet pinSet2(kPinCount, *this, *iStore, "pt");
-    const auto& pin2 = pinSet2.iPins[1];
-    TEST(pin2.Mode() == PinTestUtils::kMode);
-    TEST(pin2.Mode() == pin.Mode());
+    const auto pin2 = pinSet2.iPins[1];
+    TEST(pin2->Mode() == PinTestUtils::kMode);
+    TEST(pin2->Mode() == pin->Mode());
 }
 
 void SuitePinSet::TestSet()
@@ -479,7 +479,7 @@ void SuitePinSet::TestClear()
 {
     static const TUint kPinCount = 5;
     PinSet pinSet(kPinCount, *this, *iStore, "pt");
-    PinTestUtils::Init(pinSet.iPins[1]);
+    PinTestUtils::Init(*pinSet.iPins[1]);
     const auto& pin = pinSet.PinFromId(iLastId);
     TEST(pin.Mode() != Brx::Empty());
     TEST(pinSet.Clear(iLastId));
@@ -492,7 +492,7 @@ void SuitePinSet::TestPinFromIndex()
 {
     static const TUint kPinCount = 5;
     PinSet pinSet(kPinCount, *this, *iStore, "pt");
-    PinTestUtils::Init(pinSet.iPins[1]);
+    PinTestUtils::Init(*pinSet.iPins[1]);
     const auto& pin = pinSet.PinFromIndex(1);
     TEST(pin.Id() == iLastId);
     TEST(pin.Mode() == PinTestUtils::kMode);
@@ -508,31 +508,36 @@ void SuitePinSet::TestSwap()
 {
     static const TUint kPinCount = 5;
     PinSet pinSet(kPinCount, *this, *iStore, "pt");
-    PinTestUtils::Init(pinSet.iPins[1]);
-    Pin pin1Before = pinSet.iPins[1];
-    PinTestUtils::Init2(pinSet.iPins[2]);
-    Pin pin2Before = pinSet.iPins[2];
+    PinTestUtils::Init(*pinSet.iPins[1]);
+    Pin* pin1Before = new Pin(*this);
+    pin1Before->Copy(*pinSet.iPins[1]);
+    PinTestUtils::Init2(*pinSet.iPins[2]);
+    Pin* pin2Before = new Pin(*this);
+    pin2Before->Copy(*pinSet.iPins[2]);
     pinSet.Swap(1, 2);
 
-    const auto& pin1After = pinSet.iPins[1];
-    const auto& pin2After = pinSet.iPins[2];
-    TEST(pin1Before.Id() == pin2After.Id());
-    TEST(pin1Before.Mode() == pin2After.Mode());
-    TEST(pin1Before.Type() == pin2After.Type());
-    TEST(pin1Before.Uri() == pin2After.Uri());
-    TEST(pin1Before.Title() == pin2After.Title());
-    TEST(pin1Before.Description() == pin2After.Description());
-    TEST(pin1Before.ArtworkUri() == pin2After.ArtworkUri());
-    TEST(pin1Before.Shuffle() == pin2After.Shuffle());
+    const auto pin1After = pinSet.iPins[1];
+    const auto pin2After = pinSet.iPins[2];
+    TEST(pin1Before->Id() == pin2After->Id());
+    TEST(pin1Before->Mode() == pin2After->Mode());
+    TEST(pin1Before->Type() == pin2After->Type());
+    TEST(pin1Before->Uri() == pin2After->Uri());
+    TEST(pin1Before->Title() == pin2After->Title());
+    TEST(pin1Before->Description() == pin2After->Description());
+    TEST(pin1Before->ArtworkUri() == pin2After->ArtworkUri());
+    TEST(pin1Before->Shuffle() == pin2After->Shuffle());
 
-    TEST(pin2Before.Id() == pin1After.Id());
-    TEST(pin2Before.Mode() == pin1After.Mode());
-    TEST(pin2Before.Type() == pin1After.Type());
-    TEST(pin2Before.Uri() == pin1After.Uri());
-    TEST(pin2Before.Title() == pin1After.Title());
-    TEST(pin2Before.Description() == pin1After.Description());
-    TEST(pin2Before.ArtworkUri() == pin1After.ArtworkUri());
-    TEST(pin2Before.Shuffle() == pin1After.Shuffle());
+    TEST(pin2Before->Id() == pin1After->Id());
+    TEST(pin2Before->Mode() == pin1After->Mode());
+    TEST(pin2Before->Type() == pin1After->Type());
+    TEST(pin2Before->Uri() == pin1After->Uri());
+    TEST(pin2Before->Title() == pin1After->Title());
+    TEST(pin2Before->Description() == pin1After->Description());
+    TEST(pin2Before->ArtworkUri() == pin1After->ArtworkUri());
+    TEST(pin2Before->Shuffle() == pin1After->Shuffle());
+
+    delete pin1Before;
+    delete pin2Before;
 }
 
 void SuitePinSet::TestContains()
@@ -540,7 +545,7 @@ void SuitePinSet::TestContains()
     static const TUint kPinCount = 5;
     PinSet pinSet(kPinCount, *this, *iStore, "pt");
     TEST(pinSet.Contains(kIdEmpty));
-    PinTestUtils::Init(pinSet.iPins[1]);
+    PinTestUtils::Init(*pinSet.iPins[1]);
     TEST(pinSet.Contains(iLastId));
     TEST(pinSet.Contains(kIdEmpty));
 }
@@ -833,16 +838,16 @@ void SuitePinsManager::TestSetDevicePinInvalidIndex()
 void SuitePinsManager::TestClearDevicePin()
 {
     SetPin(1);
-    TEST(iPinsManager->iPinsDevice.iPins[1].Mode() == kMode);
+    TEST(iPinsManager->iPinsDevice.iPins[1]->Mode() == kMode);
     Manager()->Clear(iPinsManager->iPinsDevice.iIds[1]);
-    const auto& pin = iPinsManager->iPinsDevice.iPins[1];
-    TEST(pin.Mode() == Brx::Empty());
-    TEST(pin.Type() == Brx::Empty());
-    TEST(pin.Uri() == Brx::Empty());
-    TEST(pin.Title() == Brx::Empty());
-    TEST(pin.Description() == Brx::Empty());
-    TEST(pin.ArtworkUri() == Brx::Empty());
-    TEST(!pin.Shuffle());
+    const auto pin = iPinsManager->iPinsDevice.iPins[1];
+    TEST(pin->Mode() == Brx::Empty());
+    TEST(pin->Type() == Brx::Empty());
+    TEST(pin->Uri() == Brx::Empty());
+    TEST(pin->Title() == Brx::Empty());
+    TEST(pin->Description() == Brx::Empty());
+    TEST(pin->ArtworkUri() == Brx::Empty());
+    TEST(!pin->Shuffle());
 }
 
 void SuitePinsManager::TestClearDevicePinObserverNotified()
@@ -866,24 +871,24 @@ void SuitePinsManager::TestSwapDevicePins()
     SetPin(1);
     Manager()->Swap(1, 2);
     {
-        const auto& pin = iPinsManager->iPinsDevice.iPins[1];
-        TEST(pin.Mode() == Brx::Empty());
-        TEST(pin.Type() == Brx::Empty());
-        TEST(pin.Uri() == Brx::Empty());
-        TEST(pin.Title() == Brx::Empty());
-        TEST(pin.Description() == Brx::Empty());
-        TEST(pin.ArtworkUri() == Brx::Empty());
-        TEST(!pin.Shuffle());
+        const auto pin = iPinsManager->iPinsDevice.iPins[1];
+        TEST(pin->Mode() == Brx::Empty());
+        TEST(pin->Type() == Brx::Empty());
+        TEST(pin->Uri() == Brx::Empty());
+        TEST(pin->Title() == Brx::Empty());
+        TEST(pin->Description() == Brx::Empty());
+        TEST(pin->ArtworkUri() == Brx::Empty());
+        TEST(!pin->Shuffle());
     }
     {
-        const auto& pin = iPinsManager->iPinsDevice.iPins[2];
-        TEST(pin.Mode() == kMode);
-        TEST(pin.Type() == kType);
-        TEST(pin.Uri() == kUri);
-        TEST(pin.Title() == kTitle);
-        TEST(pin.Description() == kDescription);
-        TEST(pin.ArtworkUri() == kArtworkUri);
-        TEST(pin.Shuffle() == kShuffle);
+        const auto pin = iPinsManager->iPinsDevice.iPins[2];
+        TEST(pin->Mode() == kMode);
+        TEST(pin->Type() == kType);
+        TEST(pin->Uri() == kUri);
+        TEST(pin->Title() == kTitle);
+        TEST(pin->Description() == kDescription);
+        TEST(pin->ArtworkUri() == kArtworkUri);
+        TEST(pin->Shuffle() == kShuffle);
     }
 }
 
@@ -909,17 +914,17 @@ void SuitePinsManager::TestSwapDevicePinsInvalidId()
 void SuitePinsManager::TestNotifyAccountPin()
 {
     iPinsManager->SetAccount(*this, kMaxAccountPins);
-    auto& pin = iPinsManager->iPinsAccount.iPins[0];
-    TEST(pin.Mode() == Brx::Empty());
+    auto pin = iPinsManager->iPinsAccount.iPins[0];
+    TEST(pin->Mode() == Brx::Empty());
     iAccountObserver->NotifyAccountPin(0, kMode, kType, kUri, kTitle, kDescription, kArtworkUri, kShuffle);
     pin = iPinsManager->iPinsAccount.iPins[0];
-    TEST(pin.Mode() == kMode);
-    TEST(pin.Type() == kType);
-    TEST(pin.Uri() == kUri);
-    TEST(pin.Title() == kTitle);
-    TEST(pin.Description() == kDescription);
-    TEST(pin.ArtworkUri() == kArtworkUri);
-    TEST(pin.Shuffle() == kShuffle);
+    TEST(pin->Mode() == kMode);
+    TEST(pin->Type() == kType);
+    TEST(pin->Uri() == kUri);
+    TEST(pin->Title() == kTitle);
+    TEST(pin->Description() == kDescription);
+    TEST(pin->ArtworkUri() == kArtworkUri);
+    TEST(pin->Shuffle() == kShuffle);
 }
 
 void SuitePinsManager::TestNotifyAccountPinObserverNotified()

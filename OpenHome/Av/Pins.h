@@ -52,12 +52,10 @@ public:
     virtual TUint NextId() = 0;
 };
 
-class Pin : public IPin
+class Pin : public IPin, private INonCopyable
 {
 public:
     Pin(IPinIdProvider& aIdProvider);
-    Pin(const Pin& aPin);
-    const Pin& operator=(const Pin& aPin);
     TBool TryUpdate(const Brx& aMode, const Brx& aType, const Brx& aUri,
                     const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
                     TBool aShuffle);
@@ -65,12 +63,14 @@ public:
     void Internalise(const Brx& aBuf);
     void Externalise(IWriter& aWriter) const;
     void Write(WriterJsonObject& aWriter) const;
+    void Copy(const Pin& aPin);
 private:
     TBool Set(const Brx& aMode, const Brx& aType, const Brx& aUri,
               const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
               TBool aShuffle);
     void ReadBuf(ReaderBinary& aReader, TUint aLenBytes, Bwx& aBuf);
-    void Copy(const Pin& aPin);
+    Pin(const Pin& aPin);
+    const Pin& operator=(const Pin& aPin);
 public: // from IPin
     TUint Id() const override;
     const Brx& Mode() const override;
@@ -109,6 +109,7 @@ class PinSet
     friend class SuitePinsManager;
 public:
     PinSet(TUint aCount, IPinIdProvider& aIdProvider, Configuration::IStoreReadWrite& aStore, const TChar* aName);
+    ~PinSet();
     void SetCount(TUint aCount);
     TUint Count() const;
     TBool Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
@@ -129,7 +130,7 @@ private:
     Configuration::IStoreReadWrite& iStore;
     Brn iName;
     WriterBwh iStoreBuf;
-    std::vector<Pin> iPins;
+    std::vector<Pin*> iPins;
     std::vector<TUint> iIds;
 };
 
@@ -236,12 +237,14 @@ private:
     inline IPinsAccount& AccountSetter();
 private:
     Mutex iLock;
+    Mutex iLockInvoke;
     PinIdProvider iIdProvider;
     PinSet iPinsDevice;
     PinSet iPinsAccount;
     IPinsObserver* iObserver;
     IPinsAccount* iAccountSetter;
     std::map<Brn, IPinInvoker*, BufferCmp> iInvokers;
+    Pin iInvoke;
 };
 
 class PinUri
