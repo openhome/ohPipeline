@@ -76,7 +76,6 @@ private:
     Repeater* iRepeater;
     UriProviderPlaylist* iUriProvider;
     ProviderPlaylist* iProviderPlaylist;
-    Av::PodcastPinsEpisodeList* iPodcastPins;
     TUint iTrackPosSeconds;
     TUint iStreamId;
     Media::EPipelineState iTransportState; // FIXME - this appears to be set but never used
@@ -111,7 +110,6 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
              SourceFactory::kSourceTypePlaylist,
              aMediaPlayer.Pipeline())
     , iLock("SPL1")
-    , iPodcastPins(nullptr)
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
     , iTransportState(EPipelineStopped)
@@ -135,9 +133,9 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     iPipeline.AddObserver(*this);
     auto pinsInvocable = aMediaPlayer.PinsInvocable();
     if (pinsInvocable.Ok()) {
-        iPodcastPins = new PodcastPinsEpisodeList(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(),
-                                                  aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
-        pinsInvocable.Unwrap().Add(iPodcastPins);
+        auto podcastPins = new PodcastPinsEpisodeList(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(),
+                                                      aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
+        pinsInvocable.Unwrap().Add(podcastPins);
         if (aPlaylistLoader.Ok()) {
             auto invoker = new PinInvokerPlaylist(*iDatabase,
                                                   aPlaylistLoader.Unwrap());
