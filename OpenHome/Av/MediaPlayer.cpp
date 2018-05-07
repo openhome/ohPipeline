@@ -27,7 +27,6 @@
 #include <OpenHome/Av/Pins.h>
 #include <OpenHome/Av/ProviderPins.h>
 #include <OpenHome/Av/TransportPins.h>
-#include <OpenHome/Av/PodcastPins.h>
 
 #include <memory>
 
@@ -132,11 +131,9 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     , iProviderTransport(nullptr)
     , iProviderConfigApp(nullptr)
     , iLoggerBuffered(nullptr)
-    , iDebugManager(nullptr)
     , iPinsManager(nullptr)
     , iProviderPins(nullptr)
     , iTransportPins(nullptr)
-    , iPodcastPins(nullptr)
 {
     iUnixTimestamp = new OpenHome::UnixTimestamp(iDvStack.Env());
     iKvpStore = new KvpStore(aStaticDataSource);
@@ -175,7 +172,6 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
         iProduct->AddAttribute("ConfigApp"); // iProviderConfigApp is instantiated before iProduct
                                              // so this attribute can't be added in the obvious location
     }
-    iDebugManager = new DebugManager();
 
     TUint maxDevicePins;
     if (aInitParams->PinsEnabled(maxDevicePins)) {
@@ -184,11 +180,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
         iProduct->AddAttribute("Pins");
 
         iTransportPins = new TransportPins(aDevice, aCpStack);
-        iPodcastPins = new PodcastPins(aDevice, *iTrackFactory, aCpStack, iReadWriteStore);
         iPinsManager->Add(iTransportPins);
-        iPinsManager->Add(iPodcastPins);
-        iDebugManager->Add(*iTransportPins);
-        iDebugManager->Add(*iPodcastPins);
     }
 }
 
@@ -222,7 +214,6 @@ MediaPlayer::~MediaPlayer()
     delete iKvpStore;
     delete iLoggerBuffered;
     delete iUnixTimestamp;
-    delete iDebugManager;
     delete iProviderPins;
     delete iPinsManager;
 }
@@ -260,7 +251,7 @@ void MediaPlayer::AddAttribute(const TChar* aAttribute)
 
 ILoggerSerial& MediaPlayer::BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster)
 {
-    iLoggerBuffered = new LoggerBuffered(aBytes, iDevice, *iProduct, aShell, aLogPoster, *iDebugManager);
+    iLoggerBuffered = new LoggerBuffered(aBytes, iDevice, *iProduct, aShell, aLogPoster);
     return iLoggerBuffered->LoggerSerial();
 }
 
@@ -397,11 +388,6 @@ ITransportRepeatRandom& MediaPlayer::TransportRepeatRandom()
     return iTransportRepeatRandom;
 }
 
-DebugManager& MediaPlayer::GetDebugManager()
-{
-    return *iDebugManager; 
-}
-
 Optional<IPinsAccountStore> MediaPlayer::PinsAccountStore()
 {
     return Optional<IPinsAccountStore>(iPinsManager);
@@ -410,14 +396,4 @@ Optional<IPinsAccountStore> MediaPlayer::PinsAccountStore()
 Optional<IPinsInvocable> MediaPlayer::PinsInvocable()
 {
     return Optional<IPinsInvocable>(iPinsManager);
-}
-
-TransportPins& MediaPlayer::GetTransportPins()
-{
-    return *iTransportPins; 
-}
-
-PodcastPins& MediaPlayer::GetPodcastPins()
-{
-    return *iPodcastPins; 
 }

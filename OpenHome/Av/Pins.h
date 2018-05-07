@@ -12,6 +12,9 @@
 EXCEPTION(PinError)
 EXCEPTION(PinIndexOutOfRange)
 EXCEPTION(PinIdNotFound)
+EXCEPTION(PinModeNotSupported);
+EXCEPTION(PinTypeNotSupported);
+EXCEPTION(PinSmartTypeNotSupported);
 
 namespace OpenHome {
     class WriterJsonObject;
@@ -246,15 +249,17 @@ class PinUri
 public:
     PinUri(const IPin& aPin);
     ~PinUri();
-    const Brx& Mode();
-    const Brx& Type();
-    const Brx& SubType();
-    const Brx& Value();
+    const Brx& Mode() const;
+    const Brx& Type() const ;
+    const Brx& SubType() const;
+    const Brx& Value() const;
+    const Brx& Genre() const;
 private:
     Bwh iMode;
     Bwh iType;
     Bwh iSubType;
     Bwh iValue;
+    Bwh iGenre;
 };
 
 } // namespace Av

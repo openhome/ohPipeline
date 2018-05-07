@@ -608,11 +608,18 @@ const Pin& PinsManager::PinFromId(TUint aId) const
     }
 }
 
+// <mode>://<type>?<subtype>=<value>[&genre=<genreFilter>][&version=1]
+// <subtype> = 'id' or 'trackId' or anything (not checked)
+// <value> = <smartType> if <type> = 'smart', otherwise id or text string
+// <genreFilter> = OPTIONAL genre ID for 'smart' type filtering (qobuz only)
+// version is not currently checked
+
 PinUri::PinUri(const IPin& aPin)
     : iMode(256)
     , iType(256)
     , iSubType(256)
     , iValue(256)
+    , iGenre(256)
 {
     OpenHome::Uri req(aPin.Uri());
     iMode.Replace(req.Scheme());
@@ -620,34 +627,48 @@ PinUri::PinUri(const IPin& aPin)
     OpenHome::Parser parser(req.Query());
     parser.Next('?');
     while (!parser.Finished()) {
-        iSubType.Replace(parser.Next('='));
-        iValue.Replace(parser.Next('&'));
-        if (iSubType != Brn("version")) {
-            break;
+        Brn entry(parser.Next('&'));
+        if (entry.Bytes() > 0) {
+            OpenHome::Parser pe(entry);
+            Brn left(pe.Next('='));
+            Brn right(pe.Remaining());
+            if (left == Brn("genre")) {
+                iGenre.Replace(right);
+            }
+            else if (left != Brn("version")) {
+                iSubType.Replace(left);
+                iValue.Replace(right);
+            }
         }
     }
 }
+
 
 PinUri::~PinUri()
 {
 }
 
-const Brx& PinUri::Mode()
+const Brx& PinUri::Mode() const
 {
     return iMode;
 }
 
-const Brx& PinUri::Type()
+const Brx& PinUri::Type() const
 {
     return iType;
 }
 
-const Brx& PinUri::SubType()
+const Brx& PinUri::SubType() const
 {
     return iSubType;
 }
 
-const Brx& PinUri::Value()
+const Brx& PinUri::Value() const
 {
     return iValue;
+}
+
+const Brx& PinUri::Genre() const
+{
+    return iGenre;
 }

@@ -10,7 +10,6 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
-#include <OpenHome/DebugManager.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Pins.h>
         
@@ -23,8 +22,7 @@ namespace Configuration {
 namespace Av {
 
 class TidalPins
-    : public IDebugTestHandler
-    , public IPinInvoker
+    : public IPinInvoker
 {
     static const TUint kTrackLimitPerRequest = 10;
     static const TUint kMaxPlaylistsPerSmartType = 15; // limit playlists in loop
@@ -35,34 +33,33 @@ public:
     ~TidalPins();
 
 private:
-    TBool LoadTracksByArtist(const Brx& aArtist); // tidal id or search string 
-    TBool LoadTracksByAlbum(const Brx& aAlbum); // tidal id or search string 
-    TBool LoadTracksByTrack(const Brx& aTrack); // tidal id or search string 
-    TBool LoadTracksByPlaylist(const Brx& aPlaylist); // tidal id or search string 
-    TBool LoadTracksByGenre(const Brx& aGenre); // tidal text string id
-    TBool LoadTracksByMood(const Brx& aMood); // tidal text string id
-    TBool LoadTracksByNew(); // tidal smart playlist (featured)
-    TBool LoadTracksByRecommended(); // tidal smart playlist (featured)
-    TBool LoadTracksByTop20(); // tidal smart playlist (featured)
-    TBool LoadTracksByExclusive(); // tidal smart playlist (featured)
-    TBool LoadTracksByRising(); // tidal smart playlist
-    TBool LoadTracksByDiscovery(); // tidal smart playlist
-    TBool LoadTracksByFavorites(); // user's favorited tracks and albums
-    TBool LoadTracksBySavedPlaylists(); // user's most recently created/updated tidal playlists
+    TBool LoadTracksByArtist(const Brx& aArtist, TBool aShuffle); // tidal id or search string 
+    TBool LoadTracksByAlbum(const Brx& aAlbum, TBool aShuffle); // tidal id or search string 
+    TBool LoadTracksByTrack(const Brx& aTrack, TBool aShuffle); // tidal id or search string 
+    TBool LoadTracksByPlaylist(const Brx& aPlaylist, TBool aShuffle); // tidal id or search string 
+    TBool LoadTracksByGenre(const Brx& aGenre, TBool aShuffle); // tidal text string id
+    TBool LoadTracksByMood(const Brx& aMood, TBool aShuffle); // tidal text string id
+    TBool LoadTracksByNew(TBool aShuffle); // tidal smart playlist (featured)
+    TBool LoadTracksByRecommended(TBool aShuffle); // tidal smart playlist (featured)
+    TBool LoadTracksByTop20(TBool aShuffle); // tidal smart playlist (featured)
+    TBool LoadTracksByExclusive(TBool aShuffle); // tidal smart playlist (featured)
+    TBool LoadTracksByRising(TBool aShuffle); // tidal smart playlist
+    TBool LoadTracksByDiscovery(TBool aShuffle); // tidal smart playlist
+    TBool LoadTracksByFavorites(TBool aShuffle); // user's favorited tracks and albums
+    TBool LoadTracksBySavedPlaylist(TBool aShuffle); // user's most recently created/updated tidal playlists
 
-public:  // IDebugTestHandler
-    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter) override;
 private: // from IPinInvoker
     void Invoke(const IPin& aPin) override;
     const TChar* Mode() const override;
 private:
     TUint LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType, TUint aPlaylistId);
-    TBool LoadTracksBySmartType(TidalMetadata::EIdType aType);
-    TBool LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aType);
-    TBool LoadTracksByMultiplePlaylists(TidalMetadata::EIdType aType);
-    TBool LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::EIdType aType);
+    TBool LoadTracksBySmartType(TidalMetadata::EIdType aType, TBool aShuffle);
+    TBool LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aType, TBool aShuffle);
+    TBool LoadTracksByMultiplePlaylists(TidalMetadata::EIdType aType, TBool aShuffle);
+    TBool LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::EIdType aType, TBool aShuffle);
     TBool IsValidId(const Brx& aRequest, TidalMetadata::EIdType aType);
     TBool IsValidUuid(const Brx& aRequest);
+    void InitPlaylist(TBool aShuffle);
 private:
     Mutex iLock;
     Tidal& iTidal;

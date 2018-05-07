@@ -7,7 +7,6 @@
 #include <OpenHome/Av/Logger.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/TransportControl.h>
-#include <OpenHome/DebugManager.h>
 
 namespace OpenHome {
     class Environment;
@@ -69,7 +68,6 @@ class IPinsInvocable;
 class PinsManager;
 class ProviderPins;
 class TransportPins;
-class PodcastPins;
 
 class IMediaPlayer
 {
@@ -98,11 +96,8 @@ public:
     virtual ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) = 0; // must be called before Start()
     virtual IUnixTimestamp& UnixTimestamp() = 0;
     virtual ITransportRepeatRandom& TransportRepeatRandom() = 0;
-    virtual DebugManager& GetDebugManager() = 0;
     virtual Optional<IPinsAccountStore> PinsAccountStore() = 0;
     virtual Optional<IPinsInvocable> PinsInvocable() = 0;
-    virtual Av::TransportPins& GetTransportPins() = 0;
-    virtual Av::PodcastPins& GetPodcastPins() = 0;
 };
 
 
@@ -178,11 +173,8 @@ public: // from IMediaPlayer
     ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) override; // must be called before Start()
     IUnixTimestamp& UnixTimestamp() override;
     ITransportRepeatRandom& TransportRepeatRandom() override;
-    DebugManager& GetDebugManager() override;
     Optional<IPinsAccountStore> PinsAccountStore() override;
     Optional<IPinsInvocable> PinsInvocable() override;
-    Av::TransportPins& GetTransportPins() override;
-    Av::PodcastPins& GetPodcastPins() override;
 private:
     Net::DvStack& iDvStack;
     Net::CpStack& iCpStack;
@@ -212,11 +204,9 @@ private:
     Configuration::ProviderConfigApp* iProviderConfigApp;
     LoggerBuffered* iLoggerBuffered;
     IUnixTimestamp* iUnixTimestamp;
-    DebugManager* iDebugManager;
     PinsManager* iPinsManager;
     ProviderPins* iProviderPins;
     Av::TransportPins* iTransportPins;
-    Av::PodcastPins* iPodcastPins;
 };
 
 } // namespace Av

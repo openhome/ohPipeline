@@ -8,20 +8,13 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 
-ProviderDebug::ProviderDebug(DvDevice& aDevice, RingBufferLogger& aLogger, Optional<ILogPoster> aLogPoster, DebugManager& aDebugManager)
+ProviderDebug::ProviderDebug(DvDevice& aDevice, RingBufferLogger& aLogger, Optional<ILogPoster> aLogPoster)
     : DvProviderAvOpenhomeOrgDebug1(aDevice)
     , iLogger(aLogger)
     , iLogPoster(aLogPoster)
-    , iDebugManager(aDebugManager)
 {
-    EnablePropertyDebugEvent();
-
     EnableActionGetLog();
     EnableActionSendLog();
-    EnableActionDebugTest();
-
-    (void)SetPropertyDebugEvent(Brx::Empty());
-    iDebugManager.AddObserver(*this);
 }
 
 void ProviderDebug::GetLog(IDvInvocation& aInvocation, IDvInvocationResponseString& aLog)
@@ -40,53 +33,4 @@ void ProviderDebug::SendLog(IDvInvocation& aInvocation, const Brx& aData)
     iLogPoster.Unwrap().SendLog(iLogger, aData);
     aInvocation.StartResponse();
     aInvocation.EndResponse();
-}
-
-void ProviderDebug::DebugTest(IDvInvocation& aInvocation, const Brx& aaDebugType, const Brx& aaDebugInput, IDvInvocationResponseString& aaDebugInfo, IDvInvocationResponseBool& aaDebugResult)
-{
-    aInvocation.StartResponse();
-
-    WriterAscii writer(aaDebugInfo);
-
-    if (aaDebugType == Brn("help")) {
-        writer.Write(Brn("forceassert (input: none)"));
-        writer.Write(Brn(" "));
-        writer.WriteNewline(); // can't get this to work
-        iDebugManager.Test(aaDebugType, aaDebugInput, writer);
-        aaDebugInfo.WriteFlush();
-        aaDebugResult.Write(true);
-        aInvocation.EndResponse();
-    }
-    else if (aaDebugType == Brn("podcastpin_checkfornew")) {
-        TBool result = iDebugManager.Test(aaDebugType, aaDebugInput, writer);
-        aaDebugInfo.WriteFlush();
-        aaDebugResult.Write(result);
-        aInvocation.EndResponse();
-    }
-    else {
-        writer.Write(Brn("Complete"));
-        aaDebugInfo.WriteFlush();
-        aaDebugResult.Write(true);
-        aInvocation.EndResponse();
-        iDebugManager.Test(aaDebugType, aaDebugInput, writer);
-    }
-
-    // include this Debug afterwards so control point will not hang waiting for a response before the device asserts
-    if (aaDebugType == Brn("forceassert")) {
-        ASSERTS();
-    }
-}
-
-void ProviderDebug::DebugDump(Net::IDvInvocation& aInvocation, const Brx& aaDebugType, Net::IDvInvocationResponseString& aaDebugInfo)
-{
-    aInvocation.StartResponse();
-    WriterAscii writer(aaDebugInfo);
-    iDebugManager.Dump(aaDebugType, writer);
-    aaDebugInfo.WriteFlush();
-    aInvocation.EndResponse();
-}
-
-void ProviderDebug::DebugValueChanged(const Brx& aValue)
-{
-    SetPropertyDebugEvent(aValue);
 }
