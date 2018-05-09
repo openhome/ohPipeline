@@ -542,11 +542,11 @@ void PinsManager::InvokeId(TUint aId)
         iInvoke.Copy(pin);
         Brn mode(iInvoke.Mode());
         if (mode.Bytes() == 0) {
-            THROW(PinError);
+            THROW(PinModeNotSupported);
         }
         auto it = iInvokers.find(mode);
         if (it == iInvokers.end()) {
-            THROW(PinError);
+            THROW(PinModeNotSupported);
         }
         invoker = it->second;
     }
@@ -571,11 +571,11 @@ void PinsManager::InvokeIndex(TUint aIndex)
 
         Brn mode(iInvoke.Mode());
         if (mode.Bytes() == 0) {
-            THROW(PinError);
+            THROW(PinModeNotSupported);
         }
         auto it = iInvokers.find(mode);
         if (it == iInvokers.end()) {
-            THROW(PinError);
+            THROW(PinModeNotSupported);
         }
         invoker = it->second;
     }

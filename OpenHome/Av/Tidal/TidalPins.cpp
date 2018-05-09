@@ -74,28 +74,32 @@ TidalPins::~TidalPins()
 void TidalPins::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
+    TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTidal)) {
-        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) { LoadTracksByArtist(pin.Value(), aPin.Shuffle()); }
-        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) { LoadTracksByAlbum(pin.Value(), aPin.Shuffle()); }
-        else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) { LoadTracksByTrack(pin.Value(), aPin.Shuffle()); }
-        else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) { LoadTracksByPlaylist(pin.Value(), aPin.Shuffle()); }
-        else if (Brn(pin.Type()) == Brn(kPinTypeGenre)) { LoadTracksByGenre(pin.Value(), aPin.Shuffle()); }
-        else if (Brn(pin.Type()) == Brn(kPinTypeMood)) { LoadTracksByMood(pin.Value(), aPin.Shuffle()); }
+        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) { res = LoadTracksByArtist(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) { res = LoadTracksByAlbum(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) { res = LoadTracksByTrack(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) { res = LoadTracksByPlaylist(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeGenre)) { res = LoadTracksByGenre(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeMood)) { res = LoadTracksByMood(pin.Value(), aPin.Shuffle()); }
         else if (Brn(pin.Type()) == Brn(kPinTypeSmart)) {
-            if (Brn(pin.Value()) == Brn(kSmartTypeDiscovery)) { LoadTracksByDiscovery(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeExclusive)) { LoadTracksByExclusive(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeFavorites)) { LoadTracksByFavorites(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeNew)) { LoadTracksByNew(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeRecommended)) { LoadTracksByRecommended(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeRising)) { LoadTracksByRising(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeSavedPlaylist)) { LoadTracksBySavedPlaylist(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeTop20)) { LoadTracksByTop20(aPin.Shuffle()); }
+            if (Brn(pin.Value()) == Brn(kSmartTypeDiscovery)) { res = LoadTracksByDiscovery(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeExclusive)) { res = LoadTracksByExclusive(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeFavorites)) { res = LoadTracksByFavorites(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeNew)) { res = LoadTracksByNew(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeRising)) { res = LoadTracksByRising(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeSavedPlaylist)) { res = LoadTracksBySavedPlaylist(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeTop20)) { res = LoadTracksByTop20(aPin.Shuffle()); }
             else {
-                return;
+                THROW(PinSmartTypeNotSupported);
             }
         }
         else {
-            return;
+            THROW(PinTypeNotSupported);
+        }
+        if (!res) {
+            THROW(PinInvokeError);
         }
     }
 }

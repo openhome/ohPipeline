@@ -54,12 +54,16 @@ PodcastPinsLatestEpisode::~PodcastPinsLatestEpisode()
 void PodcastPinsLatestEpisode::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
+    TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeItunesLatestEpisode)) {
         if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
-            iPodcastPins->LoadPodcastLatest(pin.Value(), *this);
+            res = iPodcastPins->LoadPodcastLatest(pin.Value(), *this);
         }
         else {
-            return;
+            THROW(PinTypeNotSupported);
+        }
+        if (!res) {
+            THROW(PinInvokeError);
         }
     }
 }
@@ -109,12 +113,16 @@ PodcastPinsEpisodeList::~PodcastPinsEpisodeList()
 void PodcastPinsEpisodeList::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
+    TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeItunesEpisodeList)) {
         if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
-            iPodcastPins->LoadPodcastList(pin.Value(), *this, aPin.Shuffle());
+            res = iPodcastPins->LoadPodcastList(pin.Value(), *this, aPin.Shuffle());
         }
         else {
-            return;
+            THROW(PinTypeNotSupported);
+        }
+        if (!res) {
+            THROW(PinInvokeError);
         }
     }
 }

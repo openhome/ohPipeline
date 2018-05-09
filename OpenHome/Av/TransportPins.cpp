@@ -35,12 +35,16 @@ TransportPins::~TransportPins()
 void TransportPins::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
+    TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTransport)) {
         if (Brn(pin.Type()) == Brn(kPinTypeSource)) { 
-            SelectLocalInput(pin.Value());
+            res = SelectLocalInput(pin.Value());
         }
         else {
-            return;
+            THROW(PinTypeNotSupported);
+        }
+        if (!res) {
+            THROW(PinInvokeError);
         }
     }
 }

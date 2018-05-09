@@ -10,6 +10,7 @@
 #include <vector>
 
 EXCEPTION(PinError)
+EXCEPTION(PinInvokeError);
 EXCEPTION(PinIndexOutOfRange)
 EXCEPTION(PinIdNotFound)
 EXCEPTION(PinModeNotSupported);
