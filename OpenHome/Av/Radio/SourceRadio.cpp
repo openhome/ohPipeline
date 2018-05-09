@@ -50,6 +50,7 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
     , iLock("SRAD")
     , iUriProviderPresets(nullptr)
     , iTrack(nullptr)
+    , iPodcastPins(nullptr)
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
     , iLive(false)
@@ -105,6 +106,12 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
                                          aMediaPlayer.CredentialsManager(),
                                          aMediaPlayer.ThreadPool(),
                                          mimeTypes);
+    }
+
+    
+    if (aMediaPlayer.PinsInvocable().Ok()) {
+        iPodcastPins = new PodcastPinsLatestEpisode(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
+        aMediaPlayer.PinsInvocable().Unwrap().Add(iPodcastPins);
     }
 }
 

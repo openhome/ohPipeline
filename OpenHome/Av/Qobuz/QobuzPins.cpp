@@ -23,7 +23,27 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 using namespace OpenHome::Configuration;
 
+// Pin mode
 static const TChar* kPinModeQobuz = "qobuz";
+
+// Pin types
+static const TChar* kPinTypeArtist = "artist";
+static const TChar* kPinTypeAlbum = "album";
+static const TChar* kPinTypePlaylist = "pls";
+static const TChar* kPinTypeSmart = "smart";
+static const TChar* kPinTypeTrack = "track";
+
+// Pin smart types
+static const TChar* kSmartTypeAwardWinning = "awards";
+static const TChar* kSmartTypeBestSellers = "bestsellers";
+static const TChar* kSmartTypeCollection = "collection";
+static const TChar* kSmartTypeFavorites = "fav";
+static const TChar* kSmartTypeMostFeatured = "mostfeatured";
+static const TChar* kSmartTypeMostStreamed = "moststreamed";
+static const TChar* kSmartTypeNew = "new";
+static const TChar* kSmartTypePurchased = "purchased";
+static const TChar* kSmartTypeRecommended = "recommended";
+static const TChar* kSmartTypeSavedPlaylist = "savedpls";
 
 QobuzPins::QobuzPins(Qobuz& aQobuz, DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, TUint aMaxTracks)
     : iLock("QPIN")
@@ -46,9 +66,32 @@ QobuzPins::~QobuzPins()
 void QobuzPins::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
-    if (pin.Mode() == Brn(kPinModeQobuz)) {
-        if (pin.Type() == Brn("track") && pin.SubType() == Brn("trackId")) {
-            LoadTracksByTrack(pin.Value()); // qobuz://track?version=1&trackId=[insert_qobuz_track_id]
+    TBool res = false;
+    if (Brn(pin.Mode()) == Brn(kPinModeQobuz)) {
+        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) { res = LoadTracksByArtist(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) { res = LoadTracksByAlbum(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) { res = LoadTracksByTrack(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) { res = LoadTracksByPlaylist(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeSmart)) {
+            if (Brn(pin.Value()) == Brn(kSmartTypeNew)) { res = LoadTracksByNew(pin.Genre(), aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(pin.Genre(), aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeMostStreamed)) { res = LoadTracksByMostStreamed(pin.Genre(), aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeBestSellers)) { res = LoadTracksByBestSellers(pin.Genre(), aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeAwardWinning)) { res = LoadTracksByAwardWinning(pin.Genre(), aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeMostFeatured)) { res = LoadTracksByMostFeatured(pin.Genre(), aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeFavorites)) { res = LoadTracksByFavorites(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypePurchased)) { res = LoadTracksByPurchased(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeCollection)) { res = LoadTracksByCollection(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeSavedPlaylist)) { res = LoadTracksBySavedPlaylist(aPin.Shuffle()); }
+            else {
+                THROW(PinSmartTypeNotSupported);
+            }
+        }
+        else {
+            THROW(PinTypeNotSupported);
+        }
+        if (!res) {
+            THROW(PinInvokeError);
         }
     }
 }
@@ -58,81 +101,81 @@ const TChar* QobuzPins::Mode() const
     return kPinModeQobuz;
 }
 
-TBool QobuzPins::LoadTracksByArtist(const Brx& aArtist)
+TBool QobuzPins::LoadTracksByArtist(const Brx& aArtist, TBool aShuffle)
 {
-    return LoadTracksByQuery(aArtist, QobuzMetadata::eArtist);
+    return LoadTracksByQuery(aArtist, QobuzMetadata::eArtist, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByAlbum(const Brx& aAlbum)
+TBool QobuzPins::LoadTracksByAlbum(const Brx& aAlbum, TBool aShuffle)
 {
-    return LoadTracksByQuery(aAlbum, QobuzMetadata::eAlbum);
+    return LoadTracksByQuery(aAlbum, QobuzMetadata::eAlbum, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByTrack(const Brx& aTrack)
+TBool QobuzPins::LoadTracksByTrack(const Brx& aTrack, TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(aTrack, QobuzMetadata::eTrack);
+    return QobuzPins::LoadTracksByQuery(aTrack, QobuzMetadata::eTrack, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByPlaylist(const Brx& aPlaylist)
+TBool QobuzPins::LoadTracksByPlaylist(const Brx& aPlaylist, TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(aPlaylist, QobuzMetadata::ePlaylist);
+    return QobuzPins::LoadTracksByQuery(aPlaylist, QobuzMetadata::ePlaylist, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksBySavedPlaylist()
+TBool QobuzPins::LoadTracksBySavedPlaylist(TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eSavedPlaylist);
+    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eSavedPlaylist, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByFavorites()
+TBool QobuzPins::LoadTracksByFavorites(TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eFavorites);
+    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eFavorites, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByPurchased()
+TBool QobuzPins::LoadTracksByPurchased(TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::ePurchased);
+    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::ePurchased, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByCollection()
+TBool QobuzPins::LoadTracksByCollection(TBool aShuffle)
 {
-    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eCollection);
+    return QobuzPins::LoadTracksByQuery(QobuzMetadata::kIdTypeUserSpecific, QobuzMetadata::eCollection, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByNew(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByNew(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartNew);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartNew, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksByRecommended(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByRecommended(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartRecommended);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartRecommended, aShuffle);
 }
 
-TBool QobuzPins::LoadTracksByMostStreamed(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByMostStreamed(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartMostStreamed);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartMostStreamed, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksByBestSellers(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByBestSellers(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartBestSellers);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartBestSellers, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksByAwardWinning(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByAwardWinning(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartAwardWinning);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartAwardWinning, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksByMostFeatured(const Brx& aGenre)
+TBool QobuzPins::LoadTracksByMostFeatured(const Brx& aGenre, TBool aShuffle)
 {
-    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartMostFeatured);
+    return LoadTracksBySmartType(aGenre, QobuzMetadata::eSmartMostFeatured, aShuffle);
 } 
 
-TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType)
+TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType, TBool aShuffle)
 {
     AutoMutex _(iLock);
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh inputBuf(64);
     Bwh albumIds[kMaxAlbumsPerSmartType];
 
@@ -203,12 +246,12 @@ TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType
     return true;
 }
 
-TBool QobuzPins::LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType)
+TBool QobuzPins::LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType, TBool aShuffle)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh inputBuf(64);
 
     try {
@@ -342,108 +385,8 @@ TBool QobuzPins::IsValidGenreId(const Brx& aRequest) {
     return true;
 }
 
-TBool QobuzPins::Test(const Brx& aType, const Brx& aInput, IWriterAscii& aWriter)
+void QobuzPins::InitPlaylist(TBool aShuffle)
 {
-    if (aType == Brn("help")) {
-        aWriter.Write(Brn("qobuzpin_artist (input: Artist ID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_album (input: Album ID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_track (input: Track ID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_playlist (input: Playlist UUID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_savedplaylist (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_favorites (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_purchased (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_collection (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_new (input: optional genre id or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_recommended (input: optional genre id or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_moststreamed (input: optional genre id or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_bestsellers (input: optional genre id or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_awardwinning (input: optional genre id or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        aWriter.Write(Brn("qobuzpin_mostfeatured (input: optional genre id or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        return true;
-    }
-    if (aType == Brn("qobuzpin_artist")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByArtist(aInput);
-    }
-    else if (aType == Brn("qobuzpin_album")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByAlbum(aInput);
-    }
-    else if (aType == Brn("qobuzpin_track")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByTrack(aInput);
-    }
-    else if (aType == Brn("qobuzpin_playlist")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByPlaylist(aInput);
-    }
-    else if (aType == Brn("qobuzpin_savedplaylist")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksBySavedPlaylist();
-    }
-    else if (aType == Brn("qobuzpin_favorites")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByFavorites();
-    }
-    else if (aType == Brn("qobuzpin_purchased")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByPurchased();
-    }
-    else if (aType == Brn("qobuzpin_collection")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByCollection();
-    }
-    else if (aType == Brn("qobuzpin_new")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByNew(aInput);
-    }
-    else if (aType == Brn("qobuzpin_recommended")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByRecommended(aInput);
-    }
-    else if (aType == Brn("qobuzpin_moststreamed")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByMostStreamed(aInput);
-    }
-    else if (aType == Brn("qobuzpin_bestsellers")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByBestSellers(aInput);
-    }
-    else if (aType == Brn("qobuzpin_awardwinning")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByAwardWinning(aInput);
-    }
-    else if (aType == Brn("qobuzpin_mostfeatured")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByMostFeatured(aInput);
-    }
-    return false;
+    iCpPlaylist->SyncDeleteAll();
+    iCpPlaylist->SyncSetShuffle(aShuffle);
 }

@@ -8,11 +8,13 @@
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Playlist/ProviderPlaylist.h>
 #include <OpenHome/Av/Playlist/UriProviderPlaylist.h>
+#include <OpenHome/Av/Playlist/PinInvokerPlaylist.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Av/KvpStore.h>
 #include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Media/MimeTypeList.h>
+#include <OpenHome/Av/PodcastPins.h>
 
 #include <limits.h>
 
@@ -129,6 +131,17 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     iProviderPlaylist = new ProviderPlaylist(aMediaPlayer.Device(), env, *this, *iDatabase, *iRepeater, aMediaPlayer.TransportRepeatRandom());
     aMediaPlayer.MimeTypes().AddUpnpProtocolInfoObserver(MakeFunctorGeneric(*iProviderPlaylist, &ProviderPlaylist::NotifyProtocolInfo));
     iPipeline.AddObserver(*this);
+    auto pinsInvocable = aMediaPlayer.PinsInvocable();
+    if (pinsInvocable.Ok()) {
+        auto podcastPins = new PodcastPinsEpisodeList(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(),
+                                                      aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
+        pinsInvocable.Unwrap().Add(podcastPins);
+        if (aPlaylistLoader.Ok()) {
+            auto invoker = new PinInvokerPlaylist(*iDatabase,
+                                                  aPlaylistLoader.Unwrap());
+            pinsInvocable.Unwrap().Add(invoker); // passes ownership
+        }
+    }
 }
 
 SourcePlaylist::~SourcePlaylist()

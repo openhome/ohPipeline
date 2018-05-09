@@ -92,7 +92,7 @@
     {
         "name": "FunctionalTest",
         "type": "openhome",
-        "version": "0.0.1050",
+        "version": "0.0.1054",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "FunctionalTest-${version}.zip",
@@ -114,7 +114,7 @@
     {
         "name": "FTDataPrivate",
         "type": "internal",
-        "version": "0.0.49",
+        "version": "0.0.51",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "FTDataPrivate-${version}.zip",

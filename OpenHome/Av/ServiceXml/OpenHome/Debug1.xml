@@ -25,58 +25,10 @@
         </argument>
       </argumentList>
     </action>
-    <action>
-            <name>DebugTest</name>
-            <argumentList>
-                <argument>
-                    <name>aDebugType</name>
-                    <direction>in</direction>
-                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
-                </argument>
-                <argument>
-                    <name>aDebugInput</name>
-                    <direction>in</direction>
-                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
-                </argument>
-                <argument>
-                    <name>aDebugInfo</name>
-                    <direction>out</direction>
-                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
-                </argument>
-                <argument>
-                    <name>aDebugResult</name>
-                    <direction>out</direction>
-                    <relatedStateVariable>A_ARG_TYPE_Bool</relatedStateVariable>
-                </argument>
-            </argumentList>
-        </action>
-        <action>
-            <name>DebugDump</name>
-            <argumentList>
-                <argument>
-                    <name>aDebugType</name>
-                    <direction>in</direction>
-                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
-                </argument>
-                <argument>
-                    <name>aDebugInfo</name>
-                    <direction>out</direction>
-                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
-                </argument>
-            </argumentList>
-        </action>
   </actionList>
   <serviceStateTable>
     <stateVariable sendEvents="no">
       <name>A_ARG_TYPE_String</name>
-      <dataType>string</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="no">
-      <name>A_ARG_TYPE_Bool</name>
-      <dataType>boolean</dataType>
-    </stateVariable>
-    <stateVariable sendEvents="yes">
-      <name>DebugEvent</name>
       <dataType>string</dataType>
     </stateVariable>
   </serviceStateTable>

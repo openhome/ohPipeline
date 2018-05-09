@@ -10,7 +10,6 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
-#include <OpenHome/DebugManager.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Pins.h>
         
@@ -23,8 +22,7 @@ namespace Configuration {
 namespace Av {
 
 class QobuzPins
-    : public IDebugTestHandler
-    , public IPinInvoker
+    : public IPinInvoker
 {
     static const TUint kTrackLimitPerRequest = 10;
     static const TUint kMaxAlbumsPerSmartType = 15;
@@ -34,32 +32,31 @@ public:
     ~QobuzPins();
     
 private:
-    TBool LoadTracksByArtist(const Brx& aArtist); // Qobuz id or search string 
-    TBool LoadTracksByAlbum(const Brx& aAlbum); // Qobuz id or search string 
-    TBool LoadTracksByTrack(const Brx& aTrack); // Qobuz id or search string 
-    TBool LoadTracksByPlaylist(const Brx& aPlaylist); // Qobuz id or search string 
-    TBool LoadTracksByFavorites(); // user's favorited tracks and albums (flattened list)
-    TBool LoadTracksByPurchased(); // user's purchased tracks and albums (flattened list)
-    TBool LoadTracksByCollection(); // collection of user's purchased, favorited and playlisted tracks and albums (flattened list)
-    TBool LoadTracksBySavedPlaylist(); // user's most recently created/updated qobuz playlist
-    TBool LoadTracksByNew(const Brx& aGenre); // Qobuz smart playlist (featured: new releases) by genre (optional id)
-    TBool LoadTracksByRecommended(const Brx& aGenre); // Qobuz smart playlist (featured: qobuz picks) by genre (optional id)
-    TBool LoadTracksByMostStreamed(const Brx& aGenre); // Qobuz smart playlist (featured: most streamed) by genre (optional id)
-    TBool LoadTracksByBestSellers(const Brx& aGenre); // Qobuz smart playlist (featured: best sellers) by genre (optional id)
-    TBool LoadTracksByAwardWinning(const Brx& aGenre); // Qobuz smart playlist (featured: press awards) by genre (optional id)
-    TBool LoadTracksByMostFeatured(const Brx& aGenre); // Qobuz smart playlist (featured: most featured) by genre (optional id)
+    TBool LoadTracksByArtist(const Brx& aArtist, TBool aShuffle); // Qobuz id or search string 
+    TBool LoadTracksByAlbum(const Brx& aAlbum, TBool aShuffle); // Qobuz id or search string 
+    TBool LoadTracksByTrack(const Brx& aTrack, TBool aShuffle); // Qobuz id or search string 
+    TBool LoadTracksByPlaylist(const Brx& aPlaylist, TBool aShuffle); // Qobuz id or search string 
+    TBool LoadTracksByFavorites(TBool aShuffle); // user's favorited tracks and albums (flattened list)
+    TBool LoadTracksByPurchased(TBool aShuffle); // user's purchased tracks and albums (flattened list)
+    TBool LoadTracksByCollection(TBool aShuffle); // collection of user's purchased, favorited and playlisted tracks and albums (flattened list)
+    TBool LoadTracksBySavedPlaylist(TBool aShuffle); // user's most recently created/updated qobuz playlist
+    TBool LoadTracksByNew(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: new releases) by genre (optional id)
+    TBool LoadTracksByRecommended(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: qobuz picks) by genre (optional id)
+    TBool LoadTracksByMostStreamed(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: most streamed) by genre (optional id)
+    TBool LoadTracksByBestSellers(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: best sellers) by genre (optional id)
+    TBool LoadTracksByAwardWinning(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: press awards) by genre (optional id)
+    TBool LoadTracksByMostFeatured(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: most featured) by genre (optional id)
 
-public:  // IDebugTestHandler
-    TBool Test(const OpenHome::Brx& aType, const OpenHome::Brx& aInput, OpenHome::IWriterAscii& aWriter) override;
 private: // from IPinInvoker
     void Invoke(const IPin& aPin) override;
     const TChar* Mode() const override;
 private:
     TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TUint aPlaylistId);
-    TBool LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType);
-    TBool LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType);
+    TBool LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType, TBool aShuffle);
+    TBool LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType, TBool aShuffle);
     TBool IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aType);
     TBool IsValidGenreId(const Brx& aRequest);
+    void InitPlaylist(TBool aShuffle);
 private:
     Mutex iLock;
     Qobuz& iQobuz;

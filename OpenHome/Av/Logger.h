@@ -6,7 +6,6 @@
 #include <OpenHome/FunctorMsg.h>
 #include <OpenHome/Private/Shell.h>
 #include <OpenHome/Optional.h>
-#include <OpenHome/DebugManager.h>
 
 #include <atomic>
 #include <vector>
@@ -65,7 +64,7 @@ class LoggerBuffered : private IShellCommandHandler
     static const TChar* kShellCommandLog;
 public:
     LoggerBuffered(TUint aBytes, Net::DvDevice& aDevice, Product& aProduct,
-                   IShell& aShell, Optional<ILogPoster> aLogPoster, DebugManager& aDebugManager);
+                   IShell& aShell, Optional<ILogPoster> aLogPoster);
     ~LoggerBuffered();
     ILoggerSerial& LoggerSerial();
     RingBufferLogger& LogBuffer();

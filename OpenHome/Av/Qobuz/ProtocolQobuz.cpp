@@ -14,7 +14,6 @@
 #include <OpenHome/Av/Qobuz/Qobuz.h>
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Av/Qobuz/QobuzPins.h>
-#include <OpenHome/DebugManager.h>
 
 namespace OpenHome {
     class IUnixTimestamp;
@@ -27,7 +26,7 @@ public:
     ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
                   Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser,
                   IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
-                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, DebugManager& aDebugManger);
+                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable);
     ~ProtocolQobuz();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -92,7 +91,7 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
     return new ProtocolQobuz(aMediaPlayer.Env(), aAppId, aAppSecret,
                              aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(),
                              aMediaPlayer.UnixTimestamp(), aMediaPlayer.Device(), 
-                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable(), aMediaPlayer.GetDebugManager());
+                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable());
 }
 
 
@@ -101,7 +100,7 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
 ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
                              Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser,
                              IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
-                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, DebugManager& aDebugManger)
+                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable)
     : ProtocolNetwork(aEnv)
     , iPins(nullptr)
     , iSupply(nullptr)
@@ -122,7 +121,6 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
     if (aPinsInvocable.Ok()) {
         iPins = new QobuzPins(*iQobuz, aDevice, aTrackFactory, aCpStack);
         aPinsInvocable.Unwrap().Add(iPins);
-        aDebugManger.Add(*iPins);
     }
 }
 

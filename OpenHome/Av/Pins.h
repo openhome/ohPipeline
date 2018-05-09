@@ -10,8 +10,12 @@
 #include <vector>
 
 EXCEPTION(PinError)
+EXCEPTION(PinInvokeError);
 EXCEPTION(PinIndexOutOfRange)
 EXCEPTION(PinIdNotFound)
+EXCEPTION(PinModeNotSupported);
+EXCEPTION(PinTypeNotSupported);
+EXCEPTION(PinSmartTypeNotSupported);
 
 namespace OpenHome {
     class WriterJsonObject;
@@ -49,7 +53,7 @@ public:
     virtual TUint NextId() = 0;
 };
 
-class Pin : public IPin
+class Pin : public IPin, private INonCopyable
 {
 public:
     Pin(IPinIdProvider& aIdProvider);
@@ -59,13 +63,15 @@ public:
     TBool Clear();
     void Internalise(const Brx& aBuf);
     void Externalise(IWriter& aWriter) const;
-    const Pin& operator=(const Pin& aPin);
     void Write(WriterJsonObject& aWriter) const;
+    void Copy(const Pin& aPin);
 private:
     TBool Set(const Brx& aMode, const Brx& aType, const Brx& aUri,
               const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
               TBool aShuffle);
     void ReadBuf(ReaderBinary& aReader, TUint aLenBytes, Bwx& aBuf);
+    Pin(const Pin& aPin);
+    const Pin& operator=(const Pin& aPin);
 public: // from IPin
     TUint Id() const override;
     const Brx& Mode() const override;
@@ -104,6 +110,7 @@ class PinSet
     friend class SuitePinsManager;
 public:
     PinSet(TUint aCount, IPinIdProvider& aIdProvider, Configuration::IStoreReadWrite& aStore, const TChar* aName);
+    ~PinSet();
     void SetCount(TUint aCount);
     TUint Count() const;
     TBool Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
@@ -124,7 +131,7 @@ private:
     Configuration::IStoreReadWrite& iStore;
     Brn iName;
     WriterBwh iStoreBuf;
-    std::vector<Pin> iPins;
+    std::vector<Pin*> iPins;
     std::vector<TUint> iIds;
 };
 
@@ -231,12 +238,14 @@ private:
     inline IPinsAccount& AccountSetter();
 private:
     Mutex iLock;
+    Mutex iLockInvoke;
     PinIdProvider iIdProvider;
     PinSet iPinsDevice;
     PinSet iPinsAccount;
     IPinsObserver* iObserver;
     IPinsAccount* iAccountSetter;
     std::map<Brn, IPinInvoker*, BufferCmp> iInvokers;
+    Pin iInvoke;
 };
 
 class PinUri
@@ -244,15 +253,17 @@ class PinUri
 public:
     PinUri(const IPin& aPin);
     ~PinUri();
-    const Brx& Mode();
-    const Brx& Type();
-    const Brx& SubType();
-    const Brx& Value();
+    const Brx& Mode() const;
+    const Brx& Type() const ;
+    const Brx& SubType() const;
+    const Brx& Value() const;
+    const Brx& Genre() const;
 private:
     Bwh iMode;
     Bwh iType;
     Bwh iSubType;
     Bwh iValue;
+    Bwh iGenre;
 };
 
 } // namespace Av

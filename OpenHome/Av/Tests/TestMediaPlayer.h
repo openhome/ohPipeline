@@ -183,7 +183,6 @@ private:
     TUint iMinWebUiResourceThreads;
     TUint iMaxWebUiTabs;
     TUint iUiSendQueueSize;
-    TestPodcastPinsEvent* iTestPodcastPinsEvent;
 };
 
 class TestMediaPlayerOptions

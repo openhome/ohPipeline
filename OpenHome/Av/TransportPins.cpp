@@ -12,7 +12,11 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 
+// Pin mode
 static const TChar* kPinModeTransport = "transport";
+
+// Pin types
+static const TChar* kPinTypeSource = "source";
 
 TransportPins::TransportPins(DvDeviceStandard& aDevice, CpStack& aCpStack)
     : iLock("IPIN")
@@ -31,9 +35,16 @@ TransportPins::~TransportPins()
 void TransportPins::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
-    if (pin.Mode() == Brn(kPinModeTransport)) {
-        if (pin.Type() == Brn("source") && pin.SubType() == Brn("sourceId")) {
-            SelectLocalInput(pin.Value()); // transport://source?version=1&sourceId=[insert_source_system_name]
+    TBool res = false;
+    if (Brn(pin.Mode()) == Brn(kPinModeTransport)) {
+        if (Brn(pin.Type()) == Brn(kPinTypeSource)) { 
+            res = SelectLocalInput(pin.Value());
+        }
+        else {
+            THROW(PinTypeNotSupported);
+        }
+        if (!res) {
+            THROW(PinInvokeError);
         }
     }
 }
@@ -45,7 +56,7 @@ const TChar* TransportPins::Mode() const
 
 TBool TransportPins::SelectLocalInput(const Brx& aSourceSystemName)
 {
-    Bwh input(20);
+    Bws<20> input;
     try {
         if (aSourceSystemName == Brn("Songcast")) {
             input.ReplaceThrow(Brn("Receiver"));
@@ -66,19 +77,4 @@ TBool TransportPins::SelectLocalInput(const Brx& aSourceSystemName)
         Log::Print("%s in Pins::SelectLocalInput\n", ex.Message());
         return false;
     }
-}
-
-TBool TransportPins::Test(const Brx& aType, const Brx& aInput, IWriterAscii& aWriter)
-{
-    if (aType == Brn("help")) {
-        aWriter.Write(Brn("select_input (input: source system name to select)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline(); // can't get this to work
-        return true;
-    }
-    else if (aType == Brn("select_input")) {
-        aWriter.Write(Brn("Complete"));
-        return SelectLocalInput(aInput);
-    }
-    return false;
 }

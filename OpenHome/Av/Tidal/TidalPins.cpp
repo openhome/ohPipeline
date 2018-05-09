@@ -24,7 +24,27 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 using namespace OpenHome::Configuration;
 
+// Pin mode
 static const TChar* kPinModeTidal = "tidal";
+
+// Pin types
+static const TChar* kPinTypeArtist = "artist";
+static const TChar* kPinTypeAlbum = "album";
+static const TChar* kPinTypeGenre = "genre";
+static const TChar* kPinTypeMood = "mood";
+static const TChar* kPinTypePlaylist = "pls";
+static const TChar* kPinTypeSmart = "smart";
+static const TChar* kPinTypeTrack = "track";
+
+// Pin smart types
+static const TChar* kSmartTypeDiscovery = "discovery";
+static const TChar* kSmartTypeExclusive = "exclusive";
+static const TChar* kSmartTypeFavorites = "fav";
+static const TChar* kSmartTypeNew = "new";
+static const TChar* kSmartTypeRecommended = "recommended";
+static const TChar* kSmartTypeRising = "rising";
+static const TChar* kSmartTypeSavedPlaylist = "savedpls";
+static const TChar* kSmartTypeTop20 = "top20";
 
 // Potential Validation
 // valid genre strings: https://api.tidal.com/v1/genres?countryCode={{countryCode}}
@@ -54,9 +74,32 @@ TidalPins::~TidalPins()
 void TidalPins::Invoke(const IPin& aPin)
 {
     PinUri pin(aPin);
-    if (pin.Mode() == Brn(kPinModeTidal)) {
-        if (pin.Type() == Brn("track") && pin.SubType() == Brn("trackId")) {
-            LoadTracksByTrack(pin.Value()); // tidal://track?version=1&trackId=[insert_tidal_track_id]
+    TBool res = false;
+    if (Brn(pin.Mode()) == Brn(kPinModeTidal)) {
+        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) { res = LoadTracksByArtist(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) { res = LoadTracksByAlbum(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) { res = LoadTracksByTrack(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) { res = LoadTracksByPlaylist(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeGenre)) { res = LoadTracksByGenre(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeMood)) { res = LoadTracksByMood(pin.Value(), aPin.Shuffle()); }
+        else if (Brn(pin.Type()) == Brn(kPinTypeSmart)) {
+            if (Brn(pin.Value()) == Brn(kSmartTypeDiscovery)) { res = LoadTracksByDiscovery(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeExclusive)) { res = LoadTracksByExclusive(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeFavorites)) { res = LoadTracksByFavorites(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeNew)) { res = LoadTracksByNew(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeRising)) { res = LoadTracksByRising(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeSavedPlaylist)) { res = LoadTracksBySavedPlaylist(aPin.Shuffle()); }
+            else if (Brn(pin.Value()) == Brn(kSmartTypeTop20)) { res = LoadTracksByTop20(aPin.Shuffle()); }
+            else {
+                THROW(PinSmartTypeNotSupported);
+            }
+        }
+        else {
+            THROW(PinTypeNotSupported);
+        }
+        if (!res) {
+            THROW(PinInvokeError);
         }
     }
 }
@@ -66,86 +109,86 @@ const TChar* TidalPins::Mode() const
     return kPinModeTidal;
 }
 
-TBool TidalPins::LoadTracksByArtist(const Brx& aArtist)
+TBool TidalPins::LoadTracksByArtist(const Brx& aArtist, TBool aShuffle)
 {
-    return LoadTracksByQuery(aArtist, TidalMetadata::eArtist);
+    return LoadTracksByQuery(aArtist, TidalMetadata::eArtist, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByAlbum(const Brx& aAlbum)
+TBool TidalPins::LoadTracksByAlbum(const Brx& aAlbum, TBool aShuffle)
 {
-    return LoadTracksByQuery(aAlbum, TidalMetadata::eAlbum);
+    return LoadTracksByQuery(aAlbum, TidalMetadata::eAlbum, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByTrack(const Brx& aTrack)
+TBool TidalPins::LoadTracksByTrack(const Brx& aTrack, TBool aShuffle)
 {
-    return TidalPins::LoadTracksByQuery(aTrack, TidalMetadata::eTrack);
+    return TidalPins::LoadTracksByQuery(aTrack, TidalMetadata::eTrack, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByPlaylist(const Brx& aPlaylist)
+TBool TidalPins::LoadTracksByPlaylist(const Brx& aPlaylist, TBool aShuffle)
 {
-    return TidalPins::LoadTracksByQuery(aPlaylist, TidalMetadata::ePlaylist);
+    return TidalPins::LoadTracksByQuery(aPlaylist, TidalMetadata::ePlaylist, aShuffle);
 }
 
-TBool TidalPins::LoadTracksBySavedPlaylists()
+TBool TidalPins::LoadTracksBySavedPlaylist(TBool aShuffle)
 {
-    return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSavedPlaylist);
+    return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSavedPlaylist, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByGenre(const Brx& aGenre)
+TBool TidalPins::LoadTracksByGenre(const Brx& aGenre, TBool aShuffle)
 {
-    return TidalPins::LoadTracksByQuery(aGenre, TidalMetadata::eGenre);
+    return TidalPins::LoadTracksByQuery(aGenre, TidalMetadata::eGenre, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByMood(const Brx& aMood)
+TBool TidalPins::LoadTracksByMood(const Brx& aMood, TBool aShuffle)
 {
-    return TidalPins::LoadTracksByMultiplePlaylists(aMood, TidalMetadata::eMood);
+    return TidalPins::LoadTracksByMultiplePlaylists(aMood, TidalMetadata::eMood, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByNew()
+TBool TidalPins::LoadTracksByNew(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartNew);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartNew, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByRecommended()
+TBool TidalPins::LoadTracksByRecommended(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartRecommended);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartRecommended, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByTop20()
+TBool TidalPins::LoadTracksByTop20(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartTop20);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartTop20, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByExclusive()
+TBool TidalPins::LoadTracksByExclusive(TBool aShuffle)
 {
-    return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSmartExclusive);
+    return TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::eSmartExclusive, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByRising()
+TBool TidalPins::LoadTracksByRising(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartRising);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartRising, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksByDiscovery()
+TBool TidalPins::LoadTracksByDiscovery(TBool aShuffle)
 {
-    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartDiscovery);
+    return TidalPins::LoadTracksBySmartType(TidalMetadata::eSmartDiscovery, aShuffle);
 } 
 
-TBool TidalPins::LoadTracksBySmartType(TidalMetadata::EIdType aType)
+TBool TidalPins::LoadTracksBySmartType(TidalMetadata::EIdType aType, TBool aShuffle)
 {
-    return LoadTracksByQuery(TidalMetadata::kIdTypeSmart, aType);
+    return LoadTracksByQuery(TidalMetadata::kIdTypeSmart, aType, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::EIdType aType)
+TBool TidalPins::LoadTracksByMultiplePlaylists(TidalMetadata::EIdType aType, TBool aShuffle)
 {
-    return LoadTracksByMultiplePlaylists(Brx::Empty(), aType);
+    return LoadTracksByMultiplePlaylists(Brx::Empty(), aType, aShuffle);
 }
 
-TBool TidalPins::LoadTracksByFavorites()
+TBool TidalPins::LoadTracksByFavorites(TBool aShuffle)
 {
     AutoMutex _(iLock);
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh albumIds[kMaxFavoriteAlbums];
     TUint lastId = 0;
 
@@ -200,11 +243,11 @@ TBool TidalPins::LoadTracksByFavorites()
     return true;
 }
 
-TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::EIdType aType)
+TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::EIdType aType, TBool aShuffle)
 {
     AutoMutex _(iLock);
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh playlistIds[kMaxPlaylistsPerSmartType];
 
     try {
@@ -252,12 +295,12 @@ TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::
     return true;
 }
 
-TBool TidalPins::LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aType)
+TBool TidalPins::LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aType, TBool aShuffle)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
     JsonParser parser;
-    iCpPlaylist->SyncDeleteAll();
+    InitPlaylist(aShuffle);
     Bwh inputBuf(64);
 
     try {
@@ -385,108 +428,8 @@ TBool TidalPins::IsValidUuid(const Brx& aRequest) {
     return true;
 }
 
-TBool TidalPins::Test(const Brx& aType, const Brx& aInput, IWriterAscii& aWriter)
+void TidalPins::InitPlaylist(TBool aShuffle)
 {
-    if (aType == Brn("help")) {
-        aWriter.Write(Brn("tidalpin_artist (input: Artist ID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_album (input: Album ID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_track (input: Track ID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_playlist (input: Playlist UUID or search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_savedplaylist (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_favorites (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_genre (input: Genre search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_mood (input: Mood search string)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_new (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_recommended (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_top20 (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_exclusive (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_rising (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        aWriter.Write(Brn("tidalpin_discovery (input: None)"));
-        aWriter.Write(Brn(" "));
-        aWriter.WriteNewline();
-        return true;
-    }
-    else if (aType == Brn("tidalpin_artist")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByArtist(aInput);
-    }
-    else if (aType == Brn("tidalpin_album")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByAlbum(aInput);
-    }
-    else if (aType == Brn("tidalpin_track")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByTrack(aInput);
-    }
-    else if (aType == Brn("tidalpin_playlist")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByPlaylist(aInput);
-    }
-    else if (aType == Brn("tidalpin_savedplaylist")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksBySavedPlaylists();
-    }
-    else if (aType == Brn("tidalpin_favorites")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByFavorites();
-    }
-    else if (aType == Brn("tidalpin_genre")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByGenre(aInput);
-    }
-    else if (aType == Brn("tidalpin_mood")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByMood(aInput);
-    }
-    else if (aType == Brn("tidalpin_new")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByNew();
-    }
-    else if (aType == Brn("tidalpin_recommended")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByRecommended();
-    }
-    else if (aType == Brn("tidalpin_top20")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByTop20();
-    }
-    else if (aType == Brn("tidalpin_exclusive")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByExclusive();
-    }
-    else if (aType == Brn("tidalpin_rising")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByRising();
-    }
-    else if (aType == Brn("tidalpin_discovery")) {
-        aWriter.Write(Brn("Complete"));
-        return LoadTracksByDiscovery();
-    }
-    return false;
+    iCpPlaylist->SyncDeleteAll();
+    iCpPlaylist->SyncSetShuffle(aShuffle);
 }

@@ -27,6 +27,19 @@ Pin::Pin(IPinIdProvider& aIdProvider)
 {
 }
 
+Pin::Pin(const Pin& aPin)
+    : iIdProvider(aPin.iIdProvider)
+    , iShuffle(false)
+{
+    Copy(aPin);
+}
+
+const Pin& Pin::operator=(const Pin& aPin)
+{
+    Copy(aPin);
+    return *this;
+}
+
 TBool Pin::TryUpdate(const Brx& aMode, const Brx& aType, const Brx& aUri,
                      const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
                      TBool aShuffle)
@@ -95,14 +108,6 @@ void Pin::Externalise(IWriter& aWriter) const
     writer.WriteUint8(iShuffle? 1 : 0);
 }
 
-const Pin& Pin::operator=(const Pin& aPin)
-{
-    (void)Set(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
-              aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
-    iId = aPin.iId;
-    return *this;
-}
-
 void Pin::Write(WriterJsonObject& aWriter) const
 {
     aWriter.WriteInt("id", iId);
@@ -159,6 +164,14 @@ void Pin::ReadBuf(ReaderBinary& aReader, TUint aLenBytes, Bwx& aBuf)
         THROW(ReaderError);
     }
     aReader.ReadReplace(bytes, aBuf);
+}
+
+void Pin::Copy(const Pin& aPin)
+{
+    (void)Set(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+              aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    iIdProvider = aPin.iIdProvider;
+    iId = aPin.iId;
 }
 
 TUint Pin::Id() const
@@ -233,21 +246,28 @@ PinSet::PinSet(TUint aCount, IPinIdProvider& aIdProvider, Configuration::IStoreR
     }
 }
 
+PinSet::~PinSet()
+{
+    for (auto pin : iPins) {
+        delete pin;
+    }
+}
+
 void PinSet::SetCount(TUint aCount)
 {
     iPins.reserve(aCount);
     iIds.reserve(aCount);
     Bws<32> key;
     for (TUint i = 0; i < aCount; i++) {
-        Pin pin(iIdProvider);
+        auto pin = new Pin(iIdProvider);
         try {
             GetStoreKey(i, key);
             iStore.Read(key, iStoreBuf);
-            pin.Internalise(iStoreBuf.Buffer());
+            pin->Internalise(iStoreBuf.Buffer());
         }
         catch (StoreKeyNotFound&) {}
         iPins.push_back(pin);
-        iIds.push_back(pin.Id());
+        iIds.push_back(pin->Id());
     }
 }
 
@@ -263,12 +283,12 @@ TBool PinSet::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& a
     if (aIndex >= iPins.size()) {
         THROW(PinIndexOutOfRange);
     }
-    auto& pin = iPins[aIndex];
-    if (!pin.TryUpdate(aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle)) {
+    auto pin = iPins[aIndex];
+    if (!pin->TryUpdate(aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle)) {
         return false;
     }
-    iIds[aIndex] = pin.Id();
-    WriteToStore(pin);
+    iIds[aIndex] = pin->Id();
+    WriteToStore(*pin);
     return true;
 }
 
@@ -278,12 +298,12 @@ TBool PinSet::Clear(TUint aId)
         return false;
     }
     const auto index = IndexFromId(aId);
-    auto& pin = iPins[index];
-    if (!pin.Clear()) {
+    auto pin = iPins[index];
+    if (!pin->Clear()) {
         return false;
     }
     iIds[index] = IPinIdProvider::kIdEmpty;
-    WriteToStore(pin);
+    WriteToStore(*pin);
     return true;
 }
 
@@ -292,19 +312,19 @@ TBool PinSet::Swap(TUint aIndex1, TUint aIndex2)
     if (aIndex1 >= iPins.size() || aIndex2 >= iPins.size()) {
         THROW(PinIndexOutOfRange);
     }
-    if (iPins[aIndex1].Id() == IPinIdProvider::kIdEmpty &&
-        iPins[aIndex2].Id() == IPinIdProvider::kIdEmpty) {
+    if (iPins[aIndex1]->Id() == IPinIdProvider::kIdEmpty &&
+        iPins[aIndex2]->Id() == IPinIdProvider::kIdEmpty) {
         return false;
     }
     std::iter_swap(iPins.begin() + aIndex1, iPins.begin() + aIndex2);
 
-    const auto& pin1 = iPins[aIndex1];
-    iIds[aIndex1] = pin1.Id();
-    WriteToStore(pin1);
+    const auto pin1 = iPins[aIndex1];
+    iIds[aIndex1] = pin1->Id();
+    WriteToStore(*pin1);
 
-    const auto& pin2 = iPins[aIndex2];
-    iIds[aIndex2] = pin2.Id();
-    WriteToStore(pin2);
+    const auto pin2 = iPins[aIndex2];
+    iIds[aIndex2] = pin2->Id();
+    WriteToStore(*pin2);
 
     return true;
 }
@@ -323,7 +343,7 @@ TBool PinSet::Contains(TUint aId) const
 const Pin& PinSet::PinFromId(TUint aId) const
 {
     const auto index = IndexFromId(aId);
-    return iPins[index];
+    return *(iPins[index]);
 }
 
 const Pin& PinSet::PinFromIndex(TUint aIndex) const
@@ -331,7 +351,7 @@ const Pin& PinSet::PinFromIndex(TUint aIndex) const
     if (aIndex >= iPins.size()) {
         THROW(PinIndexOutOfRange);
     }
-    return iPins[aIndex];
+    return *iPins[aIndex];
 }
 
 const std::vector<TUint>& PinSet::IdArray() const
@@ -343,7 +363,7 @@ TUint PinSet::IndexFromId(TUint aId) const
 {
     auto it = iPins.begin();
     for (; it != iPins.end(); ++it) {
-        if (it->Id() == aId) {
+        if ((*it)->Id() == aId) {
             break;
         }
     }
@@ -382,11 +402,13 @@ inline IPinsAccount& PinsManager::AccountSetter()
 }
 
 PinsManager::PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevice)
-    : iLock("PinM")
+    : iLock("Pin1")
+    , iLockInvoke("Pin2")
     , iPinsDevice(aMaxDevice, iIdProvider, aStore, "Dv")
     , iPinsAccount(0, iIdProvider, aStore, "Ac")
     , iObserver(nullptr)
     , iAccountSetter(nullptr)
+    , iInvoke(iIdProvider)
 {
 }
 
@@ -512,49 +534,52 @@ void PinsManager::WriteJson(IWriter& aWriter, const std::vector<TUint>& aIds)
 
 void PinsManager::InvokeId(TUint aId)
 {
-    Pin pin(iIdProvider);
+    AutoMutex _(iLockInvoke);
     IPinInvoker* invoker = nullptr;
     {
-        AutoMutex _(iLock);
-        pin = PinFromId(aId);
-        Brn mode(pin.Mode());
+        AutoMutex __(iLock);
+        const auto& pin = PinFromId(aId);
+        iInvoke.Copy(pin);
+        Brn mode(iInvoke.Mode());
         if (mode.Bytes() == 0) {
-            THROW(PinError);
+            THROW(PinModeNotSupported);
         }
         auto it = iInvokers.find(mode);
         if (it == iInvokers.end()) {
-            THROW(PinError);
+            THROW(PinModeNotSupported);
         }
         invoker = it->second;
     }
-    invoker->Invoke(pin);
+    invoker->Invoke(iInvoke);
 }
 
 void PinsManager::InvokeIndex(TUint aIndex)
 {
-    Pin pin(iIdProvider);
+    AutoMutex _(iLockInvoke);
     IPinInvoker* invoker = nullptr;
     {
-        AutoMutex _(iLock);
+        AutoMutex __(iLock);
         if (IsAccountIndex(aIndex)) {
             const auto index = AccountFromCombinedIndex(aIndex);
-            pin = iPinsAccount.PinFromIndex(index);
+            const auto& pin = iPinsAccount.PinFromIndex(index);
+            iInvoke.Copy(pin);
         }
         else {
-            pin = iPinsDevice.PinFromIndex(aIndex);
+            const auto& pin = iPinsDevice.PinFromIndex(aIndex);
+            iInvoke.Copy(pin);
         }
 
-        Brn mode(pin.Mode());
+        Brn mode(iInvoke.Mode());
         if (mode.Bytes() == 0) {
-            THROW(PinError);
+            THROW(PinModeNotSupported);
         }
         auto it = iInvokers.find(mode);
         if (it == iInvokers.end()) {
-            THROW(PinError);
+            THROW(PinModeNotSupported);
         }
         invoker = it->second;
     }
-    invoker->Invoke(pin);
+    invoker->Invoke(iInvoke);
 }
 
 void PinsManager::NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,
@@ -596,11 +621,18 @@ const Pin& PinsManager::PinFromId(TUint aId) const
     }
 }
 
+// <mode>://<type>?<subtype>=<value>[&genre=<genreFilter>][&version=1]
+// <subtype> = 'id' or 'trackId' or anything (not checked)
+// <value> = <smartType> if <type> = 'smart', otherwise id or text string
+// <genreFilter> = OPTIONAL genre ID for 'smart' type filtering (qobuz only)
+// version is not currently checked
+
 PinUri::PinUri(const IPin& aPin)
     : iMode(256)
     , iType(256)
     , iSubType(256)
     , iValue(256)
+    , iGenre(256)
 {
     OpenHome::Uri req(aPin.Uri());
     iMode.Replace(req.Scheme());
@@ -608,34 +640,48 @@ PinUri::PinUri(const IPin& aPin)
     OpenHome::Parser parser(req.Query());
     parser.Next('?');
     while (!parser.Finished()) {
-        iSubType.Replace(parser.Next('='));
-        iValue.Replace(parser.Next('&'));
-        if (iSubType != Brn("version")) {
-            break;
+        Brn entry(parser.Next('&'));
+        if (entry.Bytes() > 0) {
+            OpenHome::Parser pe(entry);
+            Brn left(pe.Next('='));
+            Brn right(pe.Remaining());
+            if (left == Brn("genre")) {
+                iGenre.Replace(right);
+            }
+            else if (left != Brn("version")) {
+                iSubType.Replace(left);
+                iValue.Replace(right);
+            }
         }
     }
 }
+
 
 PinUri::~PinUri()
 {
 }
 
-const Brx& PinUri::Mode()
+const Brx& PinUri::Mode() const
 {
     return iMode;
 }
 
-const Brx& PinUri::Type()
+const Brx& PinUri::Type() const
 {
     return iType;
 }
 
-const Brx& PinUri::SubType()
+const Brx& PinUri::SubType() const
 {
     return iSubType;
 }
 
-const Brx& PinUri::Value()
+const Brx& PinUri::Value() const
 {
     return iValue;
+}
+
+const Brx& PinUri::Genre() const
+{
+    return iGenre;
 }
