@@ -1078,7 +1078,7 @@ void SuitePinsManager::TestInvokePinInvalidIndex()
     auto invoker = new DummyPinInvoker("dummy");
     Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
-    TEST_THROWS(Manager()->InvokeIndex(0), PinError);
+    TEST_THROWS(Manager()->InvokeIndex(0), PinModeNotSupported);
     TEST_THROWS(Manager()->InvokeIndex(kMaxDevicePins), PinIndexOutOfRange);
     iPinsManager->SetAccount(*this, kMaxAccountPins);
     TEST_THROWS(Manager()->InvokeIndex(kMaxDevicePins + kMaxAccountPins), PinIndexOutOfRange);

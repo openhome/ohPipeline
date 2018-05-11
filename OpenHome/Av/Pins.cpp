@@ -530,6 +530,7 @@ void PinsManager::WriteJson(IWriter& aWriter, const std::vector<TUint>& aIds)
         }
         catch (PinIdNotFound&) {}
     }
+    writerArray.WriteEnd();
 }
 
 void PinsManager::InvokeId(TUint aId)
