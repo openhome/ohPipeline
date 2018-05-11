@@ -106,7 +106,10 @@ void CodecPcm::Process()
         iTrackOffset += iController->OutputAudioPcm(msg, iNumChannels, iSampleRate, iBitDepth, iTrackOffset);
     }
     else {
-        iController->Read(iReadBuf, iReadBuf.MaxBytes() - iReadBuf.Bytes());
+        Bwn readBuf(iReadBuf.Ptr() + iReadBuf.Bytes(), iReadBuf.MaxBytes() - iReadBuf.Bytes());
+        iController->ReadNextMsg(readBuf);
+        iReadBuf.SetBytes(iReadBuf.Bytes() + readBuf.Bytes());
+
         const TUint pendingBytes = iReadBuf.Bytes() % ((iBitDepth)/8 * iNumChannels);
         Bws<24> pending;
         if (pendingBytes != 0) {
