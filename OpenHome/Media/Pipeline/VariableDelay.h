@@ -29,7 +29,7 @@ public:
 
 class VariableDelayBase : public PipelineElement, public IPipelineElementUpstream
 {
-    static const TUint kMaxMsgSilenceDuration = Jiffies::kPerMs * 5;
+    static const TUint kMaxMsgSilenceDuration = Jiffies::kPerMs * 2;
     friend class SuiteVariableDelay;
     friend class SuiteVariableDelayLeft;
     friend class SuiteVariableDelayRight;

@@ -839,7 +839,12 @@ void RampApplicator::GetNextSample(TByte* aDest)
             *aDest++ = (TByte)(rampedSubsample >> 8);
             *aDest++ = (TByte)rampedSubsample;
             *aDest++ = (TByte)0;
-            *aDest++ = (TByte)0;
+            if(iNumChannels == 6) {
+                *aDest++ = (TByte)i<<4; //set channel id for efficiency on 6channel 192k
+            }
+            else {
+                *aDest++ = (TByte)0;
+            }
             break;
         default:
             ASSERTS();
@@ -2695,11 +2700,18 @@ void MsgPlayableSilence::Initialise(TUint aSizeBytes, TUint aSampleRate, TUint a
 void MsgPlayableSilence::ReadBlock(IPcmProcessor& aProcessor)
 {
     static const TByte silence[DecodedAudio::kMaxBytes] = { 0 };
+    static const TByte silence6ch[DecodedAudio::kMaxBytes] = { 0, 0, 0, 0x00,  0, 0, 0, 0x10, 0, 0, 0, 0x20,  0, 0, 0, 0x30,  0, 0, 0, 0x40,  0, 0, 0, 0x50, 0, 0, 0, 0x60,  0, 0, 0, 0x70 };
     TUint remainingBytes = iSize;
     const TUint maxBytes = DecodedAudio::kMaxBytes - (DecodedAudio::kMaxBytes % (iNumChannels * iBitDepth / 8));
     do {
         TUint bytes = (remainingBytes > maxBytes? maxBytes : remainingBytes);
-        Brn audioBuf(silence, bytes);
+        Brn audioBuf;
+        if(iNumChannels == 6) {
+            audioBuf.Set(silence6ch, bytes);
+        }
+        else {
+            audioBuf.Set(silence, bytes);
+        }
         switch (iBitDepth)
         {
         case 8:
