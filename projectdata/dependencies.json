@@ -92,7 +92,7 @@
     {
         "name": "FunctionalTest",
         "type": "openhome",
-        "version": "0.0.1065",
+        "version": "0.0.1071",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "FunctionalTest-${version}.zip",
@@ -108,6 +108,7 @@
         "dest": "dependencies/AnyPlatform/FunctionalTestData",
         "platform-ignore": {
             "Windows-x86": false,
+            "Linux-x86": false,
             "*": true },
         "ignore":           "${platform-ignore[$platform]}"
     },
@@ -121,6 +122,7 @@
         "dest": "dependencies/AnyPlatform/FunctionalTestData",
         "platform-ignore": {
             "Windows-x86": false,
+            "Linux-x86": false,
             "*": true },
         "ignore":           "${platform-ignore[$platform]}"
     }
