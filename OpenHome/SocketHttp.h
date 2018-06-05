@@ -105,7 +105,7 @@ public:
     /*
      * Set a new URI, which can subsequently be connected to.
      *
-     * This call invalidates any previous state of this socket, including any IReaders or IWriters that were in use. Socket must be set up again (e.g., by calling SetRequestMethod(), etc.).
+     * This call invalidates any previous state of this socket, including any IReaders or IWriters that were in use.
      *
      * Multiple URIs can be connected to, in turn, using the same socket without calling Disconnect()/Connect() for each request (this class will attempt to use HTTP 1.1 persistent connections for new URIs, where applicable).
      */
