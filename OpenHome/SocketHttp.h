@@ -123,7 +123,7 @@ public:
      *
      * This will override any previous SetRequestContentLength() call.
      *
-     * SocketHttpError is thrown is socket if already connected.
+     * Throws SocketHttpError if already connected.
      */
     void SetRequestChunked();
     /*
@@ -132,13 +132,13 @@ public:
      *
      * This will override any previous SetRequestChunked() call.
      *
-     * SocketHttpError is thrown is socket if already connected.
+     * Throws SocketHttpError if already connected.
      */
     void SetRequestContentLength(TUint64 aContentLength);
     /*
      * Set any custom request headers to be sent up with requests.
      *
-     * SocketHttpError is thrown is socket if already connected.
+     * Throws SocketHttpError if already connected.
      */
     void SetRequestHeader(const OpenHome::Brx& aField, const OpenHome::Brx& aValue);
     /*
@@ -157,6 +157,11 @@ public:
      * Do not do this if the intention is to keep using this socket for persistent HTTP connections.
      */
     void Disconnect();
+    /*
+     * Reset state of socket to defaults (e.g., clears any request-related settings such as request method, custom request headers, chunking).
+     * Does not clear URI.
+     */
+    void Reset();
 
     IReader& GetInputStream();
     IWriter& GetOutputStream();

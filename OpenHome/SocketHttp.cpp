@@ -159,6 +159,8 @@ SocketHttp::SocketHttp(Environment& aEnv, const Brx& aUserAgent, TUint aReadBuff
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderLocation);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
+
+    //iSocket.LogVerbose(true);
 }
 
 SocketHttp::~SocketHttp()
@@ -175,11 +177,13 @@ void SocketHttp::SetUri(const Uri& aUri)
         THROW(SocketHttpUriError);
     }
 
-    TBool baseUrlChanged = false;
-    if (aUri.Scheme() != iUri.Scheme()
-            || aUri.Host() != iUri.Host()
-            || aUri.Port() != iUri.Port()) {
-        baseUrlChanged = true;
+    TBool baseUrlChanged = true;
+    if (iConnected) {
+        if (aUri.Scheme() == iUri.Scheme()
+                && aUri.Host() == iUri.Host()
+                && aUri.Port() == iUri.Port()) {
+            baseUrlChanged = false;
+        }
     }
     LOG(kHttp, "SocketHttp::SetUri baseUrlChanged: %u\n\tiUri: %.*s\n\taUri: %.*s\n", baseUrlChanged, PBUF(iUri.AbsoluteUri()), PBUF(aUri.AbsoluteUri()));
 
@@ -210,29 +214,12 @@ void SocketHttp::SetUri(const Uri& aUri)
             Disconnect();
         }
 
-        // Set iUri here, as disconnect may have cleared it.
+        // Set iUri.
         try {
             iUri.Replace(aUri.AbsoluteUri());
         }
         catch (const UriError&) {
             THROW(SocketHttpUriError);
-        }
-
-        iReaderResponse.Flush();
-        iDechunker.ReadFlush();
-        iDechunker.SetChunked(false);
-        iRequestHeadersSent = false;
-        iResponseReceived = false;
-        iCode = -1;
-        iContentLength = -1;
-        iBytesRemaining = -1;
-        iPersistConnection = true;
-        try {
-            //iWriterRequest.WriteFlush();
-            //iWriteBuffer.WriteFlush();
-        }
-        catch (const WriterError&) {
-            // Nothing to do.
         }
     }
     catch (const NetworkError&) {
@@ -345,26 +332,28 @@ void SocketHttp::Disconnect()
         iSocket.Close();
     }
 
-    iDechunker.SetChunked(false);
     iConnected = false;
     iRequestHeadersSent = false;
     iResponseReceived = false;
     iCode = -1;
     iContentLength = -1;
     iBytesRemaining = -1;
-    iUri.Clear();
+    iDechunker.SetChunked(false);
+
+    // Persistence is per-connection; not a global client-settable state of this socket.
     iPersistConnection = true;
+}
+
+void SocketHttp::Reset()
+{
+    // This does not disconnect socket. It's feasible that a client may be calling this to, e.g., clear custom request headers, before sending a new request to the same URI, so can make use of persistent connections in that scenario by not disconnecting.
+    // So, safe to do this while iConnected is true.
 
     iRequestChunked = false;
     iRequestContentLengthSet = false;
     iRequestContentLength = 0;
-
-    try {
-        iEndpoint.SetAddress(0);
-        iEndpoint.SetPort(0);
-    }
-    catch (const NetworkError&) {
-    }
+    iRequestHeaders.clear();
+    iMethod.Set(Http::kMethodGet);
 }
 
 IReader& SocketHttp::GetInputStream()
@@ -535,7 +524,7 @@ void SocketHttp::SendRequestHeaders()
             iRequestHeadersSent = true;
         }
         catch (const SocketHttpRequestError&) {
-            Disconnect();   // FIXME - correct, or up to caller to do?
+            Disconnect();
             THROW(SocketHttpConnectionError);
         }
     }
@@ -611,12 +600,12 @@ void SocketHttp::ProcessResponse()
         }
         catch (const SocketHttpRequestError&) {
             LOG(kHttp, "<SocketHttp::ProcessResponse caught SocketHttpRequestError\n");
-            Disconnect();   // FIXME - correct, or up to caller to do?
+            Disconnect();
             THROW(SocketHttpError);
         }
         catch (const SocketHttpResponseError&) {
             LOG(kHttp, "<SocketHttp::ProcessResponse caught SocketHttpResponseError\n");
-            Disconnect();   // FIXME - correct, or up to caller to do?
+            Disconnect();
             THROW(SocketHttpError);
         }
     }
