@@ -324,13 +324,13 @@ void SocketHttp::Connect()
         }
 
         iConnected = true;
-        LOG(kHttp, "<HttpReader::Connect\n");
+        LOG(kHttp, "<SocketHttp::Connect\n");
     }
 }
 
 void SocketHttp::Disconnect()
 {
-    LOG(kHttp, "HttpReader::Disconnect\n");
+    LOG(kHttp, "SocketHttp::Disconnect\n");
     if (iConnected) {
         iReaderResponse.Flush();
         iDechunker.ReadFlush();
@@ -502,7 +502,7 @@ void SocketHttp::WriteRequest(const Uri& aUri, Brx& aMethod)
         iWriterRequest.WriteFlush();
     }
     catch(const WriterError&) {
-        LOG(kHttp, "<HttpReader::WriteRequest caught WriterError\n");
+        LOG(kHttp, "<SocketHttp::WriteRequest caught WriterError\n");
         THROW(SocketHttpRequestError);
     }
 }
@@ -513,16 +513,16 @@ TUint SocketHttp::ReadResponse()
         iReaderResponse.Read(iResponseTimeoutMs);
     }
     catch(HttpError&) {
-        LOG(kHttp, "HttpReader::ReadResponse caught HttpError\n");
+        LOG(kHttp, "SocketHttp::ReadResponse caught HttpError\n");
         THROW(SocketHttpResponseError);
     }
     catch(ReaderError&) {
-        LOG(kHttp, "HttpReader::ReadResponse caught ReaderError\n");
+        LOG(kHttp, "SocketHttp::ReadResponse caught ReaderError\n");
         THROW(SocketHttpResponseError);
     }
 
     const auto code = iReaderResponse.Status().Code();
-    LOG(kHttp, "HttpReader::ReadResponse code %u\n", code);
+    LOG(kHttp, "SocketHttp::ReadResponse code %u\n", code);
     return code;
 }
 
@@ -556,7 +556,7 @@ void SocketHttp::ProcessResponse()
                 if (code >= HttpStatus::kRedirectionCodes && code < HttpStatus::kClientErrorCodes) {
                     if (iFollowRedirects && iMethod == Http::kMethodGet) {
                         if (!iHeaderLocation.Received()) {
-                            LOG(kHttp, "<HttpReader::ProcessResponse expected redirection but did not receive a location field. code: %d\n", code);
+                            LOG(kHttp, "<SocketHttp::ProcessResponse expected redirection but did not receive a location field. code: %d\n", code);
                             THROW(SocketHttpError);
                         }
 
@@ -565,7 +565,7 @@ void SocketHttp::ProcessResponse()
                             WriteRequest(uri, iMethod);
                         }
                         catch (const UriError&) {
-                            LOG(kHttp, "<HttpReader::ProcessResponse caught UriError\n");
+                            LOG(kHttp, "<SocketHttp::ProcessResponse caught UriError\n");
                             THROW(SocketHttpError);
                         }
                         continue;
@@ -573,7 +573,7 @@ void SocketHttp::ProcessResponse()
                     // Not following redirects.
                 }
                 else if (code >= HttpStatus::kClientErrorCodes) {
-                    LOG(kHttp, "<HttpReader::ProcessResponse received error code: %u\n", code);
+                    LOG(kHttp, "<SocketHttp::ProcessResponse received error code: %u\n", code);
                 }
 
                 // Not a redirect so is final response; set response state and return.
@@ -610,12 +610,12 @@ void SocketHttp::ProcessResponse()
             }
         }
         catch (const SocketHttpRequestError&) {
-            LOG(kHttp, "<HttpReader::ProcessResponse caught SocketHttpRequestError\n");
+            LOG(kHttp, "<SocketHttp::ProcessResponse caught SocketHttpRequestError\n");
             Disconnect();   // FIXME - correct, or up to caller to do?
             THROW(SocketHttpError);
         }
         catch (const SocketHttpResponseError&) {
-            LOG(kHttp, "<HttpReader::ProcessResponse caught SocketHttpResponseError\n");
+            LOG(kHttp, "<SocketHttp::ProcessResponse caught SocketHttpResponseError\n");
             Disconnect();   // FIXME - correct, or up to caller to do?
             THROW(SocketHttpError);
         }
