@@ -910,7 +910,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestProtocolHlsMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
             target='TestProtocolHls',
             install_path=None)
     bld.program(

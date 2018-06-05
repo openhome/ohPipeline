@@ -57,8 +57,41 @@ void SocketHttpHeaderConnection::Process(const Brx& aValue)
 }
 
 
+// RequestHeader
+
+RequestHeader::RequestHeader(const Brx& aField, const Brx& aValue)
+    : iField(aField)
+    , iValue(aValue)
+{
+}
+
+RequestHeader::RequestHeader(const RequestHeader& aHeader)
+    : iField(Brn(aHeader.iField))
+    , iValue(aHeader.iValue)
+{
+}
+
+const Brx& RequestHeader::Field() const
+{
+    return iField;
+}
+
+const Brx& RequestHeader::Value() const
+{
+    return iValue;
+}
+
+void RequestHeader::Set(const Brx& aValue)
+{
+    if (aValue.Bytes() > iValue.MaxBytes()) {
+        iValue.Grow(aValue.Bytes());
+    }
+    iValue.Replace(aValue);
+}
+
+
 // SocketHttp::ReaderUntilDynamic
-    
+
 SocketHttp::ReaderUntilDynamic::ReaderUntilDynamic(TUint aMaxBytes, IReader& aReader)    : ReaderUntil(aMaxBytes, aReader)
     , iBuf(aMaxBytes)
 {
@@ -86,20 +119,29 @@ TByte* SocketHttp::Swd::Ptr()
 
 // SocketHttp
 
-const Brn SocketHttp::kSchemeHttp("http");
+const TUint SocketHttp::kDefaultHttpPort;
+const TUint SocketHttp::kDefaultHttpsPort;
+const TUint SocketHttp::kDefaultReadBufferBytes;
+const TUint SocketHttp::kDefaultWriteBufferBytes;
+const TUint SocketHttp::kDefaultConnectTimeoutMs;
+const TUint SocketHttp::kDefaultResponseTimeoutMs;
 
-SocketHttp::SocketHttp(Environment& aEnv, const Brx& aUserAgent, TUint aReadBufferBytes, TUint aWriteBufferBytes, TUint aConnectTimeoutMs, TUint aResponseTimeoutMs, TUint aReceiveTimeoutMs, TBool aFollowRedirects)
+const Brn SocketHttp::kSchemeHttp("http");
+const Brn SocketHttp::kSchemeHttps("https");
+
+SocketHttp::SocketHttp(Environment& aEnv, const Brx& aUserAgent, TUint aReadBufferBytes, TUint aWriteBufferBytes, TUint aConnectTimeoutMs, TUint aResponseTimeoutMs, TBool aFollowRedirects)
     : iEnv(aEnv)
     , iUserAgent(aUserAgent)
     , iConnectTimeoutMs(aConnectTimeoutMs)
     , iResponseTimeoutMs(aResponseTimeoutMs)
-    , iReceiveTimeoutMs(aReceiveTimeoutMs)
     , iFollowRedirects(aFollowRedirects)
-    , iReadBuffer(aReadBufferBytes, iTcpClient)
+    , iSocket(aEnv, aReadBufferBytes)
+    , iReadBuffer(aReadBufferBytes, iSocket)
     , iReaderUntil(aReadBufferBytes, iReadBuffer)
     , iReaderResponse(aEnv, iReaderUntil)
-    , iWriteBuffer(aWriteBufferBytes, iTcpClient)
+    , iWriteBuffer(aWriteBufferBytes, iSocket)
     , iWriterRequest(iWriteBuffer)
+    , iWriterChunked(iWriteBuffer)
     , iDechunker(iReaderUntil)
     , iConnected(false)
     , iRequestHeadersSent(false)
@@ -109,6 +151,9 @@ SocketHttp::SocketHttp(Environment& aEnv, const Brx& aUserAgent, TUint aReadBuff
     , iBytesRemaining(-1)
     , iMethod(Http::kMethodGet)
     , iPersistConnection(true)
+    , iRequestChunked(false)
+    , iRequestContentLengthSet(false)
+    , iRequestContentLength(0)
 {
     iReaderResponse.AddHeader(iHeaderConnection);
     iReaderResponse.AddHeader(iHeaderContentLength);
@@ -125,7 +170,8 @@ void SocketHttp::SetUri(const Uri& aUri)
 {
     // Check if new endpoint is same as current endpoint. If so, possible to re-use connection.
 
-    if (aUri.Scheme() != kSchemeHttp) {
+    if (aUri.Scheme() != kSchemeHttp
+            && aUri.Scheme() != kSchemeHttps) {
         THROW(SocketHttpUriError);
     }
 
@@ -139,7 +185,12 @@ void SocketHttp::SetUri(const Uri& aUri)
 
     TInt port = aUri.Port();
     if (port == Uri::kPortNotSpecified) {
-        port = kDefaultHttpPort;
+        if (aUri.Scheme() == kSchemeHttps) {
+            port = kDefaultHttpsPort;
+        }
+        else {
+            port = kDefaultHttpPort;
+        }
     }
 
     try {
@@ -211,6 +262,46 @@ void SocketHttp::SetRequestMethod(const Brx& aMethod)
     }
 }
 
+void SocketHttp::SetRequestChunked()
+{
+    if (iConnected) {
+        THROW(SocketHttpUriError);
+    }
+
+    iRequestChunked = true;
+    iRequestContentLengthSet = false;
+    iRequestContentLength = 0;
+    iWriterChunked.SetChunked(true);
+}
+
+void SocketHttp::SetRequestContentLength(TUint64 aContentLength)
+{
+    if (iConnected) {
+        THROW(SocketHttpUriError);
+    }
+
+    iRequestChunked = false;
+    iRequestContentLengthSet = true;
+    iRequestContentLength = aContentLength;
+    iWriterChunked.SetChunked(false);
+}
+
+void SocketHttp::SetRequestHeader(const Brx& aField, const Brx& aValue)
+{
+    if (iConnected) {
+        THROW(SocketHttpUriError);
+    }
+
+    for (auto& h : iRequestHeaders) {
+        if (h.Field() == aField) {
+            h.Set(aValue);
+            return;
+        }
+    }
+
+    iRequestHeaders.push_back(RequestHeader(aField, aValue));
+}
+
 void SocketHttp::Connect()
 {
     // Underlying socket may already be open and connected if this new connection is part of an HTTP persistent connection.
@@ -218,28 +309,19 @@ void SocketHttp::Connect()
     if (!iConnected) {
         try {
             LOG(kHttp, "SocketHttp::Connect connecting...\n");
-            iTcpClient.Open(iEnv);
-            iTcpClient.Connect(iEndpoint, iConnectTimeoutMs);
+            iSocket.Connect(iEndpoint, iConnectTimeoutMs);
         }
         catch (const NetworkTimeout&) {
-            iTcpClient.Close();
+            iSocket.Close();
             LOG(kHttp, "<SocketHttp::Connect caught NetworkTimeout\n");
             THROW(SocketHttpConnectionError);
         }
         catch (const NetworkError&) {
-            iTcpClient.Close();
+            iSocket.Close();
             LOG(kHttp, "<SocketHttp::Connect caught NetworkError\n");
             THROW(SocketHttpConnectionError);
         }
 
-        // Not all implementations support a receive timeout.
-        // So, consume exceptions from such implementations.
-        try {
-            iTcpClient.SetRecvTimeout(iReceiveTimeoutMs);
-        }
-        catch (NetworkError&) {
-            LOG(kHttp, "SocketHttp::Connect Unable to set recv timeout of %u ms\n", iReceiveTimeoutMs);
-        }
         iConnected = true;
         LOG(kHttp, "<HttpReader::Connect\n");
     }
@@ -259,8 +341,9 @@ void SocketHttp::Disconnect()
             // Nothing to do.
             LOG(kHttp, "SocketHttp::Disconnect caught WriterError\n");
         }
-        iTcpClient.Close();
+        iSocket.Close();
     }
+
     iDechunker.SetChunked(false);
     iConnected = false;
     iRequestHeadersSent = false;
@@ -270,6 +353,10 @@ void SocketHttp::Disconnect()
     iBytesRemaining = -1;
     iUri.Clear();
     iPersistConnection = true;
+
+    iRequestChunked = false;
+    iRequestContentLengthSet = false;
+    iRequestContentLength = 0;
 
     try {
         iEndpoint.SetAddress(0);
@@ -292,7 +379,7 @@ IWriter& SocketHttp::GetOutputStream()
     Connect();
     SendRequestHeaders();
     // If request has been specified as a POST request, caller should use IWriter returned from here to write POST data.
-    return iWriteBuffer;
+    return iWriterChunked;
 }
 
 TInt SocketHttp::GetResponseCode()
@@ -313,7 +400,7 @@ TInt SocketHttp::GetContentLength()
 
 void SocketHttp::Interrupt(TBool aInterrupt)
 {
-    iTcpClient.Interrupt(aInterrupt);
+    iSocket.Interrupt(aInterrupt);
 }
 
 Brn SocketHttp::Read(TUint aBytes)
@@ -395,9 +482,22 @@ void SocketHttp::WriteRequest(const Uri& aUri, Brx& aMethod)
         }
         Http::WriteHeaderHostAndPort(iWriterRequest, aUri.Host(), port);
 
+        if (iRequestChunked) {
+            iWriterRequest.WriteHeader(Http::kHeaderTransferEncoding, Http::kTransferEncodingChunked);
+        }
+        if (iRequestContentLengthSet) {
+            auto& writer = iWriterRequest.WriteHeaderField(Http::kHeaderContentLength);
+            writer.WriteUint64(iRequestContentLength);
+        }
+
         if (iUserAgent.Bytes() > 0) {
             iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);
         }
+
+        for (const auto& h : iRequestHeaders) {
+            iWriterRequest.WriteHeader(h.Field(), h.Value());
+        }
+
         iWriterRequest.WriteFlush();
     }
     catch(const WriterError&) {
@@ -461,25 +561,6 @@ void SocketHttp::ProcessResponse()
 
                         try {
                             Uri uri(iHeaderLocation.Location());
-
-
-
-                            // URI may be redirecting to a different endpoint, so close connection before following redirect.
-                            // NOTE: This makes no attempt to accomodate HTTP->HTTPS redirects or vice-versa.
-                            Disconnect();
-
-
-
-                            // FIXME - disconnect clears EVERY bit of state about this socket, including following redirects. Almost certainly unintended.
-                            // Need to do SetUri() and then the following:
-                            // Connect();
-                            // SendRequestHeaders();
-
-
-
-
-                            // FIXME - if this is done without Disconnect(), means can only redirect to same host.
-
                             WriteRequest(uri, iMethod);
                         }
                         catch (const UriError&) {

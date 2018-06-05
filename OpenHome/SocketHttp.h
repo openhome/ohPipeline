@@ -5,6 +5,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Uri.h>
+#include <OpenHome/SocketSsl.h>
 
 EXCEPTION(SocketHttpUriError);
 EXCEPTION(SocketHttpMethodInvalid);
@@ -34,6 +35,19 @@ private:
     TBool iUpgrade;
 };
 
+class RequestHeader
+{
+public:
+    RequestHeader(const OpenHome::Brx& aField, const OpenHome::Brx& aValue);
+    RequestHeader(const RequestHeader& aHeader);
+    const OpenHome::Brx& Field() const;
+    const OpenHome::Brx& Value() const;
+    void Set(const OpenHome::Brx& aValue);
+private:
+    const OpenHome::Brh iField;
+    OpenHome::Bwh iValue;
+};
+
 /*
  * Helper class to make sending HTTP requests to and reading HTTP responses from socket simpler.
  *
@@ -51,13 +65,14 @@ class SocketHttp : private IReader
 {
 private:
     static const TUint kDefaultHttpPort = 80;
+    static const TUint kDefaultHttpsPort = 443;
     static const TUint kDefaultReadBufferBytes = 1024;
     static const TUint kDefaultWriteBufferBytes = 1024;
     static const TUint kDefaultConnectTimeoutMs = 5 * 1000;
     static const TUint kDefaultResponseTimeoutMs = 60 * 1000;
-    static const TUint kDefaultReceiveTimeoutMs = 10 * 1000;
 
     static const Brn kSchemeHttp;
+    static const Brn kSchemeHttps;
 private:
     class ReaderUntilDynamic : public ReaderUntil
     {
@@ -84,14 +99,13 @@ public:
                 TUint aWriteBufferBytes = kDefaultWriteBufferBytes,
                 TUint aConnectTimeoutMs = kDefaultConnectTimeoutMs,
                 TUint aResponseTimeoutMs = kDefaultResponseTimeoutMs,
-                TUint aReceiveTimeoutMs = kDefaultReceiveTimeoutMs,
                 TBool aFollowRedirects = true);
     ~SocketHttp();
 public:
     /*
      * Set a new URI, which can subsequently be connected to.
      *
-     * This call invalidates any previous state of this socket, including any IReaders or IWriters that were in use.
+     * This call invalidates any previous state of this socket, including any IReaders or IWriters that were in use. Socket must be set up again (e.g., by calling SetRequestMethod(), etc.).
      *
      * Multiple URIs can be connected to, in turn, using the same socket without calling Disconnect()/Connect() for each request (this class will attempt to use HTTP 1.1 persistent connections for new URIs, where applicable).
      */
@@ -103,6 +117,30 @@ public:
      * Throws SocketHttpMethodInvalid.
      */
     void SetRequestMethod(const Brx& aMethod);
+    /*
+     * If this is called a "transfer-encoding: chunked" header will be sent upon connection.
+     * GetOutputStream() should be used to retrieve a stream for writing the data.
+     *
+     * This will override any previous SetRequestContentLength() call.
+     *
+     * SocketHttpError is thrown is socket if already connected.
+     */
+    void SetRequestChunked();
+    /*
+     * If this is called a "content-length: <aContentLength>" header will be sent upon connection.
+     * GetOutputStream() should be used to retrieve a stream for writing the data.
+     *
+     * This will override any previous SetRequestChunked() call.
+     *
+     * SocketHttpError is thrown is socket if already connected.
+     */
+    void SetRequestContentLength(TUint64 aContentLength);
+    /*
+     * Set any custom request headers to be sent up with requests.
+     *
+     * SocketHttpError is thrown is socket if already connected.
+     */
+    void SetRequestHeader(const OpenHome::Brx& aField, const OpenHome::Brx& aValue);
     /*
      * Connect to URI.
      *
@@ -145,9 +183,8 @@ private:
     Bwh iUserAgent;
     const TUint iConnectTimeoutMs;
     const TUint iResponseTimeoutMs;
-    const TUint iReceiveTimeoutMs;
     const TBool iFollowRedirects;
-    SocketTcpClient iTcpClient;
+    SocketSsl iSocket;
     SocketHttpHeaderConnection iHeaderConnection;
     HttpHeaderContentLength iHeaderContentLength;
     HttpHeaderLocation iHeaderLocation;
@@ -157,6 +194,7 @@ private:
     ReaderHttpResponse iReaderResponse;
     Swd iWriteBuffer;
     WriterHttpRequest iWriterRequest;
+    WriterHttpChunked iWriterChunked;
     ReaderHttpChunked iDechunker;
     TBool iConnected;
     TBool iRequestHeadersSent;
@@ -168,6 +206,11 @@ private:
     Uri iUri;
     Endpoint iEndpoint;
     TBool iPersistConnection;
+
+    TBool iRequestChunked;
+    TBool iRequestContentLengthSet;
+    TUint64 iRequestContentLength;
+    std::vector<RequestHeader> iRequestHeaders;
 };
 
 } // namespace OpenHome
