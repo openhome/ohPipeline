@@ -6,16 +6,16 @@
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Uri.h>
 
-EXCEPTION(HttpSocketUriError);
-EXCEPTION(HttpSocketMethodInvalid);
-EXCEPTION(HttpSocketConnectionError);
-EXCEPTION(HttpSocketRequestError);
-EXCEPTION(HttpSocketResponseError);
-EXCEPTION(HttpSocketError);
+EXCEPTION(SocketHttpUriError);
+EXCEPTION(SocketHttpMethodInvalid);
+EXCEPTION(SocketHttpConnectionError);
+EXCEPTION(SocketHttpRequestError);
+EXCEPTION(SocketHttpResponseError);
+EXCEPTION(SocketHttpError);
 
 namespace OpenHome {
 
-class HttpSocketHeaderConnection : public HttpHeader
+class SocketHttpHeaderConnection : public HttpHeader
 {
 public:
     static const Brn kConnectionClose;
@@ -47,7 +47,7 @@ private:
  *
  * Optionally follows redirects (only for GET requests).
  */
-class HttpSocket : private IReader
+class SocketHttp : private IReader
 {
 private:
     static const TUint kDefaultHttpPort = 80;
@@ -78,7 +78,7 @@ private:
         Bwh iBuf;
     };
 public:
-    HttpSocket( Environment& aEnv,
+    SocketHttp( Environment& aEnv,
                 const Brx& aUserAgent,
                 TUint aReadBufferBytes = kDefaultReadBufferBytes,
                 TUint aWriteBufferBytes = kDefaultWriteBufferBytes,
@@ -86,7 +86,7 @@ public:
                 TUint aResponseTimeoutMs = kDefaultResponseTimeoutMs,
                 TUint aReceiveTimeoutMs = kDefaultReceiveTimeoutMs,
                 TBool aFollowRedirects = true);
-    ~HttpSocket();
+    ~SocketHttp();
 public:
     /*
      * Set a new URI, which can subsequently be connected to.
@@ -100,13 +100,13 @@ public:
     /*
      * Default request method is GET.
      *
-     * Throws HttpSocketMethodInvalid.
+     * Throws SocketHttpMethodInvalid.
      */
     void SetRequestMethod(const Brx& aMethod);
     /*
      * Connect to URI.
      *
-     * Throws HttpSocketConnectionError.
+     * Throws SocketHttpConnectionError.
      *
      * Other methods that rely on this being called, such as GetResponseCode(), GetInputStream(), etc., will implicitly call this.
      *
@@ -131,11 +131,11 @@ private: // from IReader
     void ReadInterrupt() override;
 private:
     /*
-     * Throws HttpSocketRequestError if error occurred writing request.
+     * Throws SocketHttpRequestError if error occurred writing request.
      */
     void WriteRequest(const Uri& aUri, Brx& aMethod);
     /*
-     * Throws HttpSocketResponseError if error occurred reading response.
+     * Throws SocketHttpResponseError if error occurred reading response.
      */
     TUint ReadResponse();
     void SendRequestHeaders();
@@ -148,7 +148,7 @@ private:
     const TUint iReceiveTimeoutMs;
     const TBool iFollowRedirects;
     SocketTcpClient iTcpClient;
-    HttpSocketHeaderConnection iHeaderConnection;
+    SocketHttpHeaderConnection iHeaderConnection;
     HttpHeaderContentLength iHeaderContentLength;
     HttpHeaderLocation iHeaderLocation;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;

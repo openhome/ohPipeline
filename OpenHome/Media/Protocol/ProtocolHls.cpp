@@ -278,10 +278,10 @@ IReader& UriLoader::Load(const Uri& aUri)
                 THROW(UriLoaderError);
             }
         }
-        catch (const HttpSocketUriError&) {
+        catch (const SocketHttpUriError&) {
             // Could indicate bad URI, or just failed to do DNS lookup for endpoint.
             const TBool interrupted = iInterrupted;
-            LOG(kMedia, "UriLoader::Load caught HttpSocketUriError, iInterrupted: %u\n", interrupted);
+            LOG(kMedia, "UriLoader::Load caught SocketHttpUriError, iInterrupted: %u\n", interrupted);
 
 
             // FIXME - up to this to tell socket to disconnect, or should socket itself have done it before throwing exception?
@@ -294,15 +294,15 @@ IReader& UriLoader::Load(const Uri& aUri)
             iTimerRetry->FireIn(iRetryInterval);
             iSemRetry.Wait();
         }
-        catch (const HttpSocketConnectionError&) {
+        catch (const SocketHttpConnectionError&) {
             const TBool interrupted = iInterrupted;
-            LOG(kMedia, "UriLoader::Load caught HttpSocketConnectionError, iInterrupted: %u\n", interrupted);
+            LOG(kMedia, "UriLoader::Load caught SocketHttpConnectionError, iInterrupted: %u\n", interrupted);
 
 
             // FIXME - up to this to tell socket to disconnect, or should socket itself have done it before throwing exception?
 
 
-            // NetworkError is thrown by underlying socket when interrupted, which is wrapped in HttpSocketConnectionError at connection time. Need to check if this exception was thrown because iInterrupt flag was set.
+            // NetworkError is thrown by underlying socket when interrupted, which is wrapped in SocketHttpConnectionError at connection time. Need to check if this exception was thrown because iInterrupt flag was set.
             if (iInterrupted) {
                 THROW(UriLoaderError);
             }
@@ -310,9 +310,9 @@ IReader& UriLoader::Load(const Uri& aUri)
             iTimerRetry->FireIn(iRetryInterval);
             iSemRetry.Wait();
         }
-        catch (const HttpSocketError&) {
+        catch (const SocketHttpError&) {
             const TBool interrupted = iInterrupted;
-            LOG(kMedia, "UriLoader::Load caught HttpSocketError, iInterrupted: %u\n", interrupted);
+            LOG(kMedia, "UriLoader::Load caught SocketHttpError, iInterrupted: %u\n", interrupted);
 
 
             // FIXME - up to this to tell socket to disconnect, or should socket itself have done it before throwing exception?

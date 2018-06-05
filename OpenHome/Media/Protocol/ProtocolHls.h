@@ -129,7 +129,7 @@ public:
     void Reset();
     void Interrupt(TBool aInterrupt);
 private:
-    HttpSocket iSocket;
+    SocketHttp iSocket;
     const TUint iRetryInterval;
     std::atomic<TBool> iInterrupted;
     Semaphore iSemRetry;

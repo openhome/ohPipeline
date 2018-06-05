@@ -11,33 +11,33 @@
 using namespace OpenHome;
 
 
-// HttpSocketHeaderConnection
+// SocketHttpHeaderConnection
 
-const Brn HttpSocketHeaderConnection::kConnectionClose("close");
-const Brn HttpSocketHeaderConnection::kConnectionKeepAlive("keep-alive");
-const Brn HttpSocketHeaderConnection::kConnectionUpgrade("upgrade");
+const Brn SocketHttpHeaderConnection::kConnectionClose("close");
+const Brn SocketHttpHeaderConnection::kConnectionKeepAlive("keep-alive");
+const Brn SocketHttpHeaderConnection::kConnectionUpgrade("upgrade");
 
-TBool HttpSocketHeaderConnection::Close() const
+TBool SocketHttpHeaderConnection::Close() const
 {
     return (Received() ? iClose : false);
 }
 
-TBool HttpSocketHeaderConnection::KeepAlive() const
+TBool SocketHttpHeaderConnection::KeepAlive() const
 {
     return (Received() ? iKeepAlive : false);
 }
 
-TBool HttpSocketHeaderConnection::Upgrade() const
+TBool SocketHttpHeaderConnection::Upgrade() const
 {
     return (Received() ? iUpgrade : false);
 }
 
-TBool HttpSocketHeaderConnection::Recognise(const Brx& aHeader)
+TBool SocketHttpHeaderConnection::Recognise(const Brx& aHeader)
 {
     return Ascii::CaseInsensitiveEquals(aHeader, Http::kHeaderConnection);
 }
 
-void HttpSocketHeaderConnection::Process(const Brx& aValue)
+void SocketHttpHeaderConnection::Process(const Brx& aValue)
 {
     iClose = false;
     iKeepAlive = false;
@@ -57,38 +57,38 @@ void HttpSocketHeaderConnection::Process(const Brx& aValue)
 }
 
 
-// HttpSocket::ReaderUntilDynamic
+// SocketHttp::ReaderUntilDynamic
     
-HttpSocket::ReaderUntilDynamic::ReaderUntilDynamic(TUint aMaxBytes, IReader& aReader)    : ReaderUntil(aMaxBytes, aReader)
+SocketHttp::ReaderUntilDynamic::ReaderUntilDynamic(TUint aMaxBytes, IReader& aReader)    : ReaderUntil(aMaxBytes, aReader)
     , iBuf(aMaxBytes)
 {
 }
 
-TByte* HttpSocket::ReaderUntilDynamic::Ptr()
+TByte* SocketHttp::ReaderUntilDynamic::Ptr()
 {
     return const_cast<TByte*>(iBuf.Ptr());
 }
 
 
-// HttpSocket::Swd
+// SocketHttp::Swd
 
-HttpSocket::Swd::Swd(TUint aMaxBytes, IWriter& aWriter)
+SocketHttp::Swd::Swd(TUint aMaxBytes, IWriter& aWriter)
     : Swx(aMaxBytes, aWriter)
     , iBuf(aMaxBytes)
 {
 }
 
-TByte* HttpSocket::Swd::Ptr()
+TByte* SocketHttp::Swd::Ptr()
 {
     return const_cast<TByte*>(iBuf.Ptr());
 }
 
 
-// HttpSocket
+// SocketHttp
 
-const Brn HttpSocket::kSchemeHttp("http");
+const Brn SocketHttp::kSchemeHttp("http");
 
-HttpSocket::HttpSocket(Environment& aEnv, const Brx& aUserAgent, TUint aReadBufferBytes, TUint aWriteBufferBytes, TUint aConnectTimeoutMs, TUint aResponseTimeoutMs, TUint aReceiveTimeoutMs, TBool aFollowRedirects)
+SocketHttp::SocketHttp(Environment& aEnv, const Brx& aUserAgent, TUint aReadBufferBytes, TUint aWriteBufferBytes, TUint aConnectTimeoutMs, TUint aResponseTimeoutMs, TUint aReceiveTimeoutMs, TBool aFollowRedirects)
     : iEnv(aEnv)
     , iUserAgent(aUserAgent)
     , iConnectTimeoutMs(aConnectTimeoutMs)
@@ -116,17 +116,17 @@ HttpSocket::HttpSocket(Environment& aEnv, const Brx& aUserAgent, TUint aReadBuff
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
 }
 
-HttpSocket::~HttpSocket()
+SocketHttp::~SocketHttp()
 {
     Disconnect();
 }
 
-void HttpSocket::SetUri(const Uri& aUri)
+void SocketHttp::SetUri(const Uri& aUri)
 {
     // Check if new endpoint is same as current endpoint. If so, possible to re-use connection.
 
     if (aUri.Scheme() != kSchemeHttp) {
-        THROW(HttpSocketUriError);
+        THROW(SocketHttpUriError);
     }
 
     TBool baseUrlChanged = false;
@@ -135,7 +135,7 @@ void HttpSocket::SetUri(const Uri& aUri)
             || aUri.Port() != iUri.Port()) {
         baseUrlChanged = true;
     }
-    LOG(kHttp, "HttpSocket::SetUri baseUrlChanged: %u\n\tiUri: %.*s\n\taUri: %.*s\n", baseUrlChanged, PBUF(iUri.AbsoluteUri()), PBUF(aUri.AbsoluteUri()));
+    LOG(kHttp, "SocketHttp::SetUri baseUrlChanged: %u\n\tiUri: %.*s\n\taUri: %.*s\n", baseUrlChanged, PBUF(iUri.AbsoluteUri()), PBUF(aUri.AbsoluteUri()));
 
     TInt port = aUri.Port();
     if (port == Uri::kPortNotSpecified) {
@@ -152,10 +152,10 @@ void HttpSocket::SetUri(const Uri& aUri)
             iEndpoint.Replace(ep);
         }
 
-        LOG(kHttp, "HttpSocket::SetUri iPersistConnection: %u\n", iPersistConnection);
+        LOG(kHttp, "SocketHttp::SetUri iPersistConnection: %u\n", iPersistConnection);
         if (!iPersistConnection) {
             // Previous response required that this connection not be re-used.
-            // Call Disconnect() here in case, for some unknown reason, previous client of this HttpSocket didn't read until end of stream and trigger Disconnect() in the Read() method, or in case there was some error in stream length, or for any other reason.
+            // Call Disconnect() here in case, for some unknown reason, previous client of this SocketHttp didn't read until end of stream and trigger Disconnect() in the Read() method, or in case there was some error in stream length, or for any other reason.
             Disconnect();
         }
 
@@ -164,7 +164,7 @@ void HttpSocket::SetUri(const Uri& aUri)
             iUri.Replace(aUri.AbsoluteUri());
         }
         catch (const UriError&) {
-            THROW(HttpSocketUriError);
+            THROW(SocketHttpUriError);
         }
 
         iReaderResponse.Flush();
@@ -185,19 +185,19 @@ void HttpSocket::SetUri(const Uri& aUri)
         }
     }
     catch (const NetworkError&) {
-        LOG(kHttp, "HttpSocket::SetUri error setting address and port\n");
-        THROW(HttpSocketUriError);
+        LOG(kHttp, "SocketHttp::SetUri error setting address and port\n");
+        THROW(SocketHttpUriError);
     }
 }
 
-const Brn HttpSocket::GetRequestMethod() const
+const Brn SocketHttp::GetRequestMethod() const
 {
     return iMethod;
 }
 
-void HttpSocket::SetRequestMethod(const Brx& aMethod)
+void SocketHttp::SetRequestMethod(const Brx& aMethod)
 {
-    // FIXME - should maybe throw exception if not connected
+    // FIXME - should maybe throw exception if already connected
 
     // Invalid operation to set this following a call to Connect().
     if (aMethod == Http::kMethodGet) {
@@ -207,29 +207,29 @@ void HttpSocket::SetRequestMethod(const Brx& aMethod)
         iMethod.Set(Http::kMethodPost);
     }
     else {
-        THROW(HttpSocketMethodInvalid);
+        THROW(SocketHttpMethodInvalid);
     }
 }
 
-void HttpSocket::Connect()
+void SocketHttp::Connect()
 {
     // Underlying socket may already be open and connected if this new connection is part of an HTTP persistent connection.
 
     if (!iConnected) {
         try {
-            LOG(kHttp, "HttpSocket::Connect connecting...\n");
+            LOG(kHttp, "SocketHttp::Connect connecting...\n");
             iTcpClient.Open(iEnv);
             iTcpClient.Connect(iEndpoint, iConnectTimeoutMs);
         }
         catch (const NetworkTimeout&) {
             iTcpClient.Close();
-            LOG(kHttp, "<HttpSocket::Connect caught NetworkTimeout\n");
-            THROW(HttpSocketConnectionError);
+            LOG(kHttp, "<SocketHttp::Connect caught NetworkTimeout\n");
+            THROW(SocketHttpConnectionError);
         }
         catch (const NetworkError&) {
             iTcpClient.Close();
-            LOG(kHttp, "<HttpSocket::Connect caught NetworkError\n");
-            THROW(HttpSocketConnectionError);
+            LOG(kHttp, "<SocketHttp::Connect caught NetworkError\n");
+            THROW(SocketHttpConnectionError);
         }
 
         // Not all implementations support a receive timeout.
@@ -238,14 +238,14 @@ void HttpSocket::Connect()
             iTcpClient.SetRecvTimeout(iReceiveTimeoutMs);
         }
         catch (NetworkError&) {
-            LOG(kHttp, "HttpSocket::Connect Unable to set recv timeout of %u ms\n", iReceiveTimeoutMs);
+            LOG(kHttp, "SocketHttp::Connect Unable to set recv timeout of %u ms\n", iReceiveTimeoutMs);
         }
         iConnected = true;
         LOG(kHttp, "<HttpReader::Connect\n");
     }
 }
 
-void HttpSocket::Disconnect()
+void SocketHttp::Disconnect()
 {
     LOG(kHttp, "HttpReader::Disconnect\n");
     if (iConnected) {
@@ -257,7 +257,7 @@ void HttpSocket::Disconnect()
         }
         catch (const WriterError&) {
             // Nothing to do.
-            LOG(kHttp, "HttpSocket::Disconnect caught WriterError\n");
+            LOG(kHttp, "SocketHttp::Disconnect caught WriterError\n");
         }
         iTcpClient.Close();
     }
@@ -279,7 +279,7 @@ void HttpSocket::Disconnect()
     }
 }
 
-IReader& HttpSocket::GetInputStream()
+IReader& SocketHttp::GetInputStream()
 {
     Connect();
     SendRequestHeaders();
@@ -287,7 +287,7 @@ IReader& HttpSocket::GetInputStream()
     return *this;
 }
 
-IWriter& HttpSocket::GetOutputStream()
+IWriter& SocketHttp::GetOutputStream()
 {
     Connect();
     SendRequestHeaders();
@@ -295,7 +295,7 @@ IWriter& HttpSocket::GetOutputStream()
     return iWriteBuffer;
 }
 
-TInt HttpSocket::GetResponseCode()
+TInt SocketHttp::GetResponseCode()
 {
     Connect();
     SendRequestHeaders();
@@ -303,7 +303,7 @@ TInt HttpSocket::GetResponseCode()
     return iCode;
 }
 
-TInt HttpSocket::GetContentLength()
+TInt SocketHttp::GetContentLength()
 {
     Connect();
     SendRequestHeaders();
@@ -311,12 +311,12 @@ TInt HttpSocket::GetContentLength()
     return iContentLength;
 }
 
-void HttpSocket::Interrupt(TBool aInterrupt)
+void SocketHttp::Interrupt(TBool aInterrupt)
 {
     iTcpClient.Interrupt(aInterrupt);
 }
 
-Brn HttpSocket::Read(TUint aBytes)
+Brn SocketHttp::Read(TUint aBytes)
 {
     if (!iConnected || !iResponseReceived) {
         THROW(ReaderError);
@@ -373,19 +373,19 @@ Brn HttpSocket::Read(TUint aBytes)
     }
 }
 
-void HttpSocket::ReadFlush()
+void SocketHttp::ReadFlush()
 {
     iDechunker.ReadFlush();
 }
 
-void HttpSocket::ReadInterrupt()
+void SocketHttp::ReadInterrupt()
 {
     iDechunker.ReadInterrupt();
 }
 
-void HttpSocket::WriteRequest(const Uri& aUri, Brx& aMethod)
+void SocketHttp::WriteRequest(const Uri& aUri, Brx& aMethod)
 {
-    LOG(kHttp, ">HttpSocket::WriteRequest aUri: %.*s, aMethod: %.*s\n", PBUF(aUri.AbsoluteUri()), PBUF(aMethod));
+    LOG(kHttp, ">SocketHttp::WriteRequest aUri: %.*s, aMethod: %.*s\n", PBUF(aUri.AbsoluteUri()), PBUF(aMethod));
     try {
         iWriterRequest.WriteMethod(aMethod, aUri.PathAndQuery(), Http::eHttp11);
 
@@ -402,22 +402,22 @@ void HttpSocket::WriteRequest(const Uri& aUri, Brx& aMethod)
     }
     catch(const WriterError&) {
         LOG(kHttp, "<HttpReader::WriteRequest caught WriterError\n");
-        THROW(HttpSocketRequestError);
+        THROW(SocketHttpRequestError);
     }
 }
 
-TUint HttpSocket::ReadResponse()
+TUint SocketHttp::ReadResponse()
 {
     try {
         iReaderResponse.Read(iResponseTimeoutMs);
     }
     catch(HttpError&) {
         LOG(kHttp, "HttpReader::ReadResponse caught HttpError\n");
-        THROW(HttpSocketResponseError);
+        THROW(SocketHttpResponseError);
     }
     catch(ReaderError&) {
         LOG(kHttp, "HttpReader::ReadResponse caught ReaderError\n");
-        THROW(HttpSocketResponseError);
+        THROW(SocketHttpResponseError);
     }
 
     const auto code = iReaderResponse.Status().Code();
@@ -425,7 +425,7 @@ TUint HttpSocket::ReadResponse()
     return code;
 }
 
-void HttpSocket::SendRequestHeaders()
+void SocketHttp::SendRequestHeaders()
 {
     if (!iRequestHeadersSent) {
         // Send request headers.
@@ -433,9 +433,9 @@ void HttpSocket::SendRequestHeaders()
             WriteRequest(iUri, iMethod);
             iRequestHeadersSent = true;
         }
-        catch (const HttpSocketRequestError&) {
+        catch (const SocketHttpRequestError&) {
             Disconnect();   // FIXME - correct, or up to caller to do?
-            THROW(HttpSocketConnectionError);
+            THROW(SocketHttpConnectionError);
         }
     }
 
@@ -444,7 +444,7 @@ void HttpSocket::SendRequestHeaders()
     // Following either of the above, GetInputStream(), GetResponseCode(), etc., can be called to handle responses to the request.
 }
 
-void HttpSocket::ProcessResponse()
+void SocketHttp::ProcessResponse()
 {
     if (!iResponseReceived) {
         try {
@@ -456,16 +456,35 @@ void HttpSocket::ProcessResponse()
                     if (iFollowRedirects && iMethod == Http::kMethodGet) {
                         if (!iHeaderLocation.Received()) {
                             LOG(kHttp, "<HttpReader::ProcessResponse expected redirection but did not receive a location field. code: %d\n", code);
-                            THROW(HttpSocketError);
+                            THROW(SocketHttpError);
                         }
 
                         try {
                             Uri uri(iHeaderLocation.Location());
+
+
+
+                            // URI may be redirecting to a different endpoint, so close connection before following redirect.
+                            // NOTE: This makes no attempt to accomodate HTTP->HTTPS redirects or vice-versa.
+                            Disconnect();
+
+
+
+                            // FIXME - disconnect clears EVERY bit of state about this socket, including following redirects. Almost certainly unintended.
+                            // Need to do SetUri() and then the following:
+                            // Connect();
+                            // SendRequestHeaders();
+
+
+
+
+                            // FIXME - if this is done without Disconnect(), means can only redirect to same host.
+
                             WriteRequest(uri, iMethod);
                         }
                         catch (const UriError&) {
                             LOG(kHttp, "<HttpReader::ProcessResponse caught UriError\n");
-                            THROW(HttpSocketError);
+                            THROW(SocketHttpError);
                         }
                         continue;
                     }
@@ -508,15 +527,15 @@ void HttpSocket::ProcessResponse()
                 }
             }
         }
-        catch (const HttpSocketRequestError&) {
-            LOG(kHttp, "<HttpReader::ProcessResponse caught HttpSocketRequestError\n");
+        catch (const SocketHttpRequestError&) {
+            LOG(kHttp, "<HttpReader::ProcessResponse caught SocketHttpRequestError\n");
             Disconnect();   // FIXME - correct, or up to caller to do?
-            THROW(HttpSocketError);
+            THROW(SocketHttpError);
         }
-        catch (const HttpSocketResponseError&) {
-            LOG(kHttp, "<HttpReader::ProcessResponse caught HttpSocketResponseError\n");
+        catch (const SocketHttpResponseError&) {
+            LOG(kHttp, "<HttpReader::ProcessResponse caught SocketHttpResponseError\n");
             Disconnect();   // FIXME - correct, or up to caller to do?
-            THROW(HttpSocketError);
+            THROW(SocketHttpError);
         }
     }
 }
