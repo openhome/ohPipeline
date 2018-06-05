@@ -221,6 +221,8 @@ void SocketHttp::SetUri(const Uri& aUri)
         catch (const UriError&) {
             THROW(SocketHttpUriError);
         }
+
+        ResetResponseState();
     }
     catch (const NetworkError&) {
         LOG(kHttp, "SocketHttp::SetUri error setting address and port\n");
@@ -318,30 +320,11 @@ void SocketHttp::Connect()
 void SocketHttp::Disconnect()
 {
     LOG(kHttp, "SocketHttp::Disconnect\n");
+    ResetResponseState();
     if (iConnected) {
-        iReaderResponse.Flush();
-        iDechunker.ReadFlush();
-        try {
-            // iWriterRequest.WriteFlush();
-            // iWriteBuffer.WriteFlush();
-        }
-        catch (const WriterError&) {
-            // Nothing to do.
-            LOG(kHttp, "SocketHttp::Disconnect caught WriterError\n");
-        }
         iSocket.Close();
+        iConnected = false;
     }
-
-    iConnected = false;
-    iRequestHeadersSent = false;
-    iResponseReceived = false;
-    iCode = -1;
-    iContentLength = -1;
-    iBytesRemaining = -1;
-    iDechunker.SetChunked(false);
-
-    // Persistence is per-connection; not a global client-settable state of this socket.
-    iPersistConnection = true;
 }
 
 void SocketHttp::Reset()
@@ -609,4 +592,31 @@ void SocketHttp::ProcessResponse()
             THROW(SocketHttpError);
         }
     }
+}
+
+void SocketHttp::ResetResponseState()
+{
+    // Does not clear iConnected value. Only done by Disconnect().
+    if (iConnected) {
+        iReaderResponse.Flush();
+        iDechunker.ReadFlush();
+
+        try {
+            iWriterRequest.WriteFlush();
+            iWriteBuffer.WriteFlush();
+        }
+        catch (const WriterError&) {
+            // Nothing to do.
+        }
+    }
+
+    iDechunker.SetChunked(false);
+    iRequestHeadersSent = false;
+    iResponseReceived = false;
+    iCode = -1;
+    iContentLength = -1;
+    iBytesRemaining = -1;
+
+    // Persistence is per-connection; not a global client-settable state of this socket.
+    iPersistConnection = true;
 }

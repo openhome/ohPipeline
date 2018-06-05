@@ -183,6 +183,7 @@ private:
     TUint ReadResponse();
     void SendRequestHeaders();
     void ProcessResponse();
+    void ResetResponseState();
 private:
     Environment& iEnv;
     Bwh iUserAgent;
