@@ -248,8 +248,9 @@ const Brn SocketHttp::GetRequestMethod() const
 
 void SocketHttp::SetRequestMethod(const Brx& aMethod)
 {
-    // FIXME - should maybe throw exception if already connected
-
+    if (iConnected) {
+        THROW(SocketHttpError);
+    }
     // Invalid operation to set this following a call to Connect().
     if (aMethod == Http::kMethodGet) {
         iMethod.Set(Http::kMethodGet);
@@ -265,7 +266,7 @@ void SocketHttp::SetRequestMethod(const Brx& aMethod)
 void SocketHttp::SetRequestChunked()
 {
     if (iConnected) {
-        THROW(SocketHttpUriError);
+        THROW(SocketHttpError);
     }
 
     iRequestChunked = true;
@@ -277,7 +278,7 @@ void SocketHttp::SetRequestChunked()
 void SocketHttp::SetRequestContentLength(TUint64 aContentLength)
 {
     if (iConnected) {
-        THROW(SocketHttpUriError);
+        THROW(SocketHttpError);
     }
 
     iRequestChunked = false;
@@ -289,7 +290,7 @@ void SocketHttp::SetRequestContentLength(TUint64 aContentLength)
 void SocketHttp::SetRequestHeader(const Brx& aField, const Brx& aValue)
 {
     if (iConnected) {
-        THROW(SocketHttpUriError);
+        THROW(SocketHttpError);
     }
 
     for (auto& h : iRequestHeaders) {

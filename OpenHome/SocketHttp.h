@@ -114,7 +114,7 @@ public:
     /*
      * Default request method is GET.
      *
-     * Throws SocketHttpMethodInvalid.
+     * Throws SocketHttpMethodInvalid if method not supported; SocketHttpError if socket already connected.
      */
     void SetRequestMethod(const Brx& aMethod);
     /*
