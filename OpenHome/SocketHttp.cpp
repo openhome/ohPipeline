@@ -187,18 +187,27 @@ void SocketHttp::SetUri(const Uri& aUri)
     }
     LOG(kHttp, "SocketHttp::SetUri baseUrlChanged: %u\n\tiUri: %.*s\n\taUri: %.*s\n", baseUrlChanged, PBUF(iUri.AbsoluteUri()), PBUF(aUri.AbsoluteUri()));
 
-    TInt port = aUri.Port();
-    if (port == Uri::kPortNotSpecified) {
-        if (aUri.Scheme() == kSchemeHttps) {
-            port = kDefaultHttpsPort;
-        }
-        else {
-            port = kDefaultHttpPort;
-        }
-    }
-
     try {
         if (baseUrlChanged) {
+            // Get port.
+            TInt port = aUri.Port();
+            if (port == Uri::kPortNotSpecified) {
+                if (aUri.Scheme() == kSchemeHttps) {
+                    port = kDefaultHttpsPort;
+                }
+                else {
+                    port = kDefaultHttpPort;
+                }
+            }
+
+            // Set up socket for HTTP or HTTPS.
+            if (aUri.Scheme() == kSchemeHttps) {
+                iSocket.SetSecure(true);
+            }
+            else {
+                iSocket.SetSecure(false);
+            }
+
             // Endpoint constructor may throw NetworkError if unable to resolve host.
             const Endpoint ep(port, aUri.Host());
             // New base URL is not the same as current base URL.
@@ -526,6 +535,7 @@ void SocketHttp::ProcessResponse()
 
                 // Check for redirection
                 if (code >= HttpStatus::kRedirectionCodes && code < HttpStatus::kClientErrorCodes) {
+                    // Only redirect if client has set this socket to follow redirects, and this is a GET request.
                     if (iFollowRedirects && iMethod == Http::kMethodGet) {
                         if (!iHeaderLocation.Received()) {
                             LOG(kHttp, "<SocketHttp::ProcessResponse expected redirection but did not receive a location field. code: %d\n", code);
@@ -534,7 +544,9 @@ void SocketHttp::ProcessResponse()
 
                         try {
                             Uri uri(iHeaderLocation.Location());
-                            WriteRequest(uri, iMethod);
+                            SetUri(uri);    // This will handle any disconnect if redirect is to a different endpoint.
+                            Connect();
+                            SendRequestHeaders();
                         }
                         catch (const UriError&) {
                             LOG(kHttp, "<SocketHttp::ProcessResponse caught UriError\n");
@@ -542,7 +554,6 @@ void SocketHttp::ProcessResponse()
                         }
                         continue;
                     }
-                    // Not following redirects.
                 }
                 else if (code >= HttpStatus::kClientErrorCodes) {
                     LOG(kHttp, "<SocketHttp::ProcessResponse received error code: %u\n", code);
