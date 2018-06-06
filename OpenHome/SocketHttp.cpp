@@ -451,17 +451,12 @@ void SocketHttp::ReadInterrupt()
     iDechunker.ReadInterrupt();
 }
 
-void SocketHttp::WriteRequest(const Uri& aUri, Brx& aMethod)
+void SocketHttp::WriteRequest()
 {
-    LOG(kHttp, ">SocketHttp::WriteRequest aUri: %.*s, aMethod: %.*s\n", PBUF(aUri.AbsoluteUri()), PBUF(aMethod));
+    LOG(kHttp, ">SocketHttp::WriteRequest iUri: %.*s, iEndpoint.Port(): %u, iMethod: %.*s\n", PBUF(iUri.AbsoluteUri()), iEndpoint.Port(), PBUF(iMethod));
     try {
-        iWriterRequest.WriteMethod(aMethod, aUri.PathAndQuery(), Http::eHttp11);
-
-        TInt port = aUri.Port();
-        if (port == Uri::kPortNotSpecified) {
-            port = kDefaultHttpPort;
-        }
-        Http::WriteHeaderHostAndPort(iWriterRequest, aUri.Host(), port);
+        iWriterRequest.WriteMethod(iMethod, iUri.PathAndQuery(), Http::eHttp11);
+        Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), iEndpoint.Port());
 
         if (iRequestChunked) {
             iWriterRequest.WriteHeader(Http::kHeaderTransferEncoding, Http::kTransferEncodingChunked);
@@ -511,7 +506,7 @@ void SocketHttp::SendRequestHeaders()
     if (!iRequestHeadersSent) {
         // Send request headers.
         try {
-            WriteRequest(iUri, iMethod);
+            WriteRequest();
             iRequestHeadersSent = true;
         }
         catch (const SocketHttpRequestError&) {

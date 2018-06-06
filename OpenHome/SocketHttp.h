@@ -176,7 +176,7 @@ private:
     /*
      * Throws SocketHttpRequestError if error occurred writing request.
      */
-    void WriteRequest(const Uri& aUri, Brx& aMethod);
+    void WriteRequest();
     /*
      * Throws SocketHttpResponseError if error occurred reading response.
      */
