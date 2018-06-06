@@ -185,7 +185,6 @@ private:
     void ProcessResponse();
     void ResetResponseState();
 private:
-    Environment& iEnv;
     Bwh iUserAgent;
     const TUint iConnectTimeoutMs;
     const TUint iResponseTimeoutMs;

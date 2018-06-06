@@ -130,8 +130,7 @@ const Brn SocketHttp::kSchemeHttp("http");
 const Brn SocketHttp::kSchemeHttps("https");
 
 SocketHttp::SocketHttp(Environment& aEnv, const Brx& aUserAgent, TUint aReadBufferBytes, TUint aWriteBufferBytes, TUint aConnectTimeoutMs, TUint aResponseTimeoutMs, TBool aFollowRedirects)
-    : iEnv(aEnv)
-    , iUserAgent(aUserAgent)
+    : iUserAgent(aUserAgent)
     , iConnectTimeoutMs(aConnectTimeoutMs)
     , iResponseTimeoutMs(aResponseTimeoutMs)
     , iFollowRedirects(aFollowRedirects)
