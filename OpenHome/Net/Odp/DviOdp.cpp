@@ -123,6 +123,23 @@ IPropertyWriter* PropertyWriterFactoryOdp::ClaimWriter(const IDviSubscriptionUse
         iWriterNotify.Set(*iWriter);
         iWriterNotify.WriteString(Odp::kKeyType, Odp::kTypeNotify);
         iWriterNotify.WriteString(Odp::kKeySid, aSid);
+        auto subscription = iSubscriptionManager.Find(aSid);
+        if (subscription == nullptr) {
+            LOG_ERROR(kOdp, "PropertyWriterFactoryOdp::ClaimWriter - subscription %.*s not found\n", PBUF(aSid));
+            THROW(WriterError);
+        }
+        else {
+            AutoSubscriptionRef __(*subscription);
+            DviService* service = subscription->ServiceLocked();
+            if (service != nullptr) {
+                AutoServiceRef ___(service);
+                auto serviceType = service->ServiceType();
+                auto writerService = iWriterNotify.CreateObject(Odp::kKeyService);
+                writerService.WriteString(Odp::kKeyName, serviceType.Name());
+                writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
+                writerService.WriteEnd();
+            }
+        }
         iWriterProperties = iWriterNotify.CreateArray(Odp::kKeyProperties);
     }
     catch (WriterError&) {
