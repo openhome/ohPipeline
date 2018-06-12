@@ -279,6 +279,7 @@ def build(bld):
                 'OpenHome/Configuration/BufferPtrCmp.cpp',
                 'OpenHome/Configuration/ConfigManager.cpp',
                 'OpenHome/Media/Utils/Silencer.cpp',
+                'OpenHome/SocketHttp.cpp',
                 'OpenHome/SocketSsl.cpp',
             ],
             use=['ohNetCore', 'OHNET', 'OPENSSL'],
@@ -909,7 +910,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestProtocolHlsMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
             target='TestProtocolHls',
             install_path=None)
     bld.program(
