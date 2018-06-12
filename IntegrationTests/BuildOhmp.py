@@ -54,7 +54,7 @@ class BuildOhmp( BASE.CommonBuild ):
 
     def Test( self, aArgs ):
         """Perform update and build"""
-        buildOpts = ['--steps=default,-integration_test', '--incremental-fetch']
+        buildOpts = ['--steps=default,-integration_test,-test', '--incremental-fetch']
 
         if len( aArgs ) > 1:
             if aArgs[1].lower() == 'debug':
