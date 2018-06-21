@@ -448,7 +448,7 @@ void SuitePinSet::TestSaveLoad()
     auto pin = pinSet.iPins[1];
     PinTestUtils::Init(*pin);
     TEST(pin->Mode() == PinTestUtils::kMode);
-    pinSet.WriteToStore(*pin);
+    pinSet.WriteToStore(1);
 
     PinSet pinSet2(kPinCount, *this, *iStore, "pt");
     const auto pin2 = pinSet2.iPins[1];

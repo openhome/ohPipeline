@@ -124,8 +124,8 @@ public:
     const std::vector<TUint>& IdArray() const;
     TUint IndexFromId(TUint aId) const;
 private:
-    void WriteToStore(const Pin& aPin);
-    void GetStoreKey(TUint aId, Bwx& aKey);
+    void WriteToStore(TUint aIndex);
+    void GetStoreKey(TUint aIndex, Bwx& aKey);
 private:
     IPinIdProvider& iIdProvider;
     Configuration::IStoreReadWrite& iStore;

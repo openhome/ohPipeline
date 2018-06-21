@@ -288,7 +288,7 @@ TBool PinSet::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& a
         return false;
     }
     iIds[aIndex] = pin->Id();
-    WriteToStore(*pin);
+    WriteToStore(aIndex);
     return true;
 }
 
@@ -303,7 +303,7 @@ TBool PinSet::Clear(TUint aId)
         return false;
     }
     iIds[index] = IPinIdProvider::kIdEmpty;
-    WriteToStore(*pin);
+    WriteToStore(index);
     return true;
 }
 
@@ -318,13 +318,11 @@ TBool PinSet::Swap(TUint aIndex1, TUint aIndex2)
     }
     std::iter_swap(iPins.begin() + aIndex1, iPins.begin() + aIndex2);
 
-    const auto pin1 = iPins[aIndex1];
-    iIds[aIndex1] = pin1->Id();
-    WriteToStore(*pin1);
+    iIds[aIndex1] = iPins[aIndex1]->Id();
+    WriteToStore(aIndex1);
 
-    const auto pin2 = iPins[aIndex2];
-    iIds[aIndex2] = pin2->Id();
-    WriteToStore(*pin2);
+    iIds[aIndex2] = iPins[aIndex2]->Id();
+    WriteToStore(aIndex2);
 
     return true;
 }
@@ -373,20 +371,21 @@ TUint PinSet::IndexFromId(TUint aId) const
     return std::distance(iPins.begin(), it);
 }
 
-void PinSet::WriteToStore(const Pin& aPin)
+void PinSet::WriteToStore(TUint aIndex)
 {
-    aPin.Externalise(iStoreBuf);
+    const auto pin = iPins[aIndex];
+    pin->Externalise(iStoreBuf);
     Bws<32> key;
-    GetStoreKey(aPin.Id(), key);
+    GetStoreKey(aIndex, key);
     iStore.Write(key, iStoreBuf.Buffer());
 }
 
-void PinSet::GetStoreKey(TUint aId, Bwx& aKey)
+void PinSet::GetStoreKey(TUint aIndex, Bwx& aKey)
 {
     aKey.Replace("Pin.");
     aKey.Replace(iName);
     aKey.Replace(".");
-    Ascii::AppendDec(aKey, aId);
+    Ascii::AppendDec(aKey, aIndex);
 }
 
 
