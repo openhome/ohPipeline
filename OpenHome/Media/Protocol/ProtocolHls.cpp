@@ -261,7 +261,6 @@ IReader& UriLoader::Load(const Uri& aUri)
         try {
             iSemRetry.Clear();
             iSocket.SetUri(aUri);
-            iSocket.SetRequestMethod(Http::kMethodGet);
 
             const TInt code = iSocket.GetResponseCode();
             LOG(kMedia, "UriLoader::Load code: %d\n", code);
