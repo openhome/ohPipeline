@@ -383,8 +383,8 @@ void PinSet::WriteToStore(TUint aIndex)
 void PinSet::GetStoreKey(TUint aIndex, Bwx& aKey)
 {
     aKey.Replace("Pin.");
-    aKey.Replace(iName);
-    aKey.Replace(".");
+    aKey.Append(iName);
+    aKey.Append(".");
     Ascii::AppendDec(aKey, aIndex);
 }
 
