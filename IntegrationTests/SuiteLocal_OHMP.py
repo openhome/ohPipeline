@@ -122,6 +122,9 @@ tests = [
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'standby',   'unicast'                        ],
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'standby',   'multicast'                      ],
 
+    # Pins
+    [ 'TestPins',                     'local', 'qobuzUser', 'qobuzPwd', 'tidalUser', 'tidalPwd'                                      ],
+
     # Airplay
     ['TestAirplayFunctions', 'local'],
     ['TestAirplayDropout', 'local', '1800'],
