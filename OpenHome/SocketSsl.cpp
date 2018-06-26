@@ -86,6 +86,7 @@ SSL_CTX* SslContext::Get(Environment& aEnv)
 void SslContext::RemoveRef(Environment& aEnv)
 { // static
     AutoMutex a(aEnv.Mutex());
+    ASSERT(iRefCount != 0);
     if (--iRefCount == 0) {
         SSL_CTX_free(iCtx);
         iCtx = nullptr;
