@@ -205,7 +205,6 @@ SocketSslImpl::~SocketSslImpl()
     catch (NetworkError&) {
     }
     free(iBioReadBuf);
-    SslContext::RemoveRef(iEnv);
 }
 
 void SocketSslImpl::SetSecure(TBool aSecure)
@@ -245,6 +244,7 @@ void SocketSslImpl::Connect(const Endpoint& aEndpoint, TUint aTimeoutMs)
         if (1 != SSL_connect(iSsl)) {
             SSL_free(iSsl);
             iSsl = nullptr;
+            SslContext::RemoveRef(iEnv);
             iSocketTcp.Close();
             THROW(NetworkError);
         }
@@ -262,6 +262,7 @@ void SocketSslImpl::Close()
             (void)SSL_shutdown(iSsl);
             SSL_free(iSsl);
             iSsl = nullptr;
+            SslContext::RemoveRef(iEnv);
         }
         iConnected = false;
         try {
