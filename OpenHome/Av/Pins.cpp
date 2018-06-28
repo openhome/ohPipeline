@@ -261,6 +261,7 @@ void PinSet::SetCount(TUint aCount)
     for (TUint i = 0; i < aCount; i++) {
         auto pin = new Pin(iIdProvider);
         try {
+            iStoreBuf.Reset();
             GetStoreKey(i, key);
             iStore.Read(key, iStoreBuf);
             pin->Internalise(iStoreBuf.Buffer());
@@ -374,6 +375,7 @@ TUint PinSet::IndexFromId(TUint aId) const
 void PinSet::WriteToStore(TUint aIndex)
 {
     const auto pin = iPins[aIndex];
+    iStoreBuf.Reset();
     pin->Externalise(iStoreBuf);
     Bws<32> key;
     GetStoreKey(aIndex, key);
