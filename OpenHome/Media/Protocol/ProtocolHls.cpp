@@ -243,6 +243,7 @@ UriLoader::UriLoader(Environment& aEnv, const Brx& aUserAgent, ITimerFactory& aT
     , iSemRetry("URIS", 0)
 {
     iTimerRetry = aTimerFactory.CreateTimer(MakeFunctor(iSemRetry, &Semaphore::Signal), "UriLoader");
+    iSocket.SetRequestMethod(Http::kMethodGet);
 }
 
 UriLoader::~UriLoader()
