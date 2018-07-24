@@ -60,7 +60,7 @@ TBool CodecRaopApple::Recognise(const EncodedStreamInfo& aStreamInfo)
 
 void CodecRaopApple::StreamInitialise()
 {
-    LOG(kCodec, "CodecRaopApple::StreamInitialise\n");
+    LOG(kCodec, ">CodecRaopApple::StreamInitialise\n");
 
     CodecAlacAppleBase::Initialise();
 
@@ -78,15 +78,18 @@ void CodecRaopApple::StreamInitialise()
         ParseFmtp(iInBuf);
     }
     catch (AsciiError&) {
+        LOG(kCodec, "CodecRaopApple::StreamInitialise caught AsciiError. Throwing CodecStreamCorrupt.\n");
         THROW(CodecStreamCorrupt);
     }
 
     if (iFrameLength > kMaxSamplesPerFrame) {
         // Current buffer size doesn't accomodate more than kMaxSamplesPerFrame.
+        LOG(kCodec, "CodecRaopApple::StreamInitialise iFrameLength (%u) > kMaxSamplesPerFrame (%u). Throwing CodecStreamCorrupt.\n", iFrameLength, kMaxSamplesPerFrame);
         THROW(CodecStreamCorrupt);
     }
     if (iChannels > kMaxChannels) {
         // Current buffer size doesn't support more than kMaxChannels.
+        LOG(kCodec, "CodecRaopApple::StreamInitialise iChannels (%u) > kMaxChannels (%u). Throwing CodecStreamCorrupt.\n", iChannels, kMaxChannels);
         THROW(CodecStreamCorrupt);
     }
 
@@ -99,6 +102,7 @@ void CodecRaopApple::StreamInitialise()
     // Configure decoder (re-initialise rather than delete/new whole object).
     TInt status = iDecoder->Init((void*)(config.Ptr()), config.Bytes());
     if (status != ALAC_noErr) {
+        LOG(kCodec, "CodecRaopApple::StreamInitialise status (%d) != ALAC_noErr (%d). Throwing CodecStreamCorrupt.\n", status, ALAC_noErr);
         THROW(CodecStreamCorrupt);
     }
 
@@ -111,6 +115,7 @@ void CodecRaopApple::StreamInitialise()
     /*LOG(kCodec, "CodecRaopApple::StreamInitialise  iBitRate: %u, iBitDepth %u, iTimeScale: %u, iSampleRate: %u, iSamplesTotal %llu, iChannels %u, iTrackLengthJiffies %u\n", iBitRate, 
                   iContainer->BitDepth(), iContainer->Timescale(), iContainer->SampleRate(), iContainer->Duration(), iContainer->Channels(), iTrackLengthJiffies);*/
     iController->OutputDecodedStream(iBitRate, iBitDepth, iSampleRate, iChannels, kCodecAlac, iTrackLengthJiffies, 0, true, DeriveProfile(iChannels));
+    LOG(kCodec, "<CodecRaopApple::StreamInitialise\n");
 }
 
 TBool CodecRaopApple::TrySeek(TUint aStreamId, TUint64 aSample)
@@ -127,7 +132,7 @@ void CodecRaopApple::StreamCompleted()
 
 void CodecRaopApple::Process() 
 {
-    //LOG(kCodec, "CodecRaopApple::Process\n");
+    // LOG(kCodec, "CodecRaopApple::Process\n");
     iInBuf.SetBytes(0);
 
     try {
