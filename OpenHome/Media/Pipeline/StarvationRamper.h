@@ -54,7 +54,7 @@ class RampGenerator : public IPcmProcessor
 public:
     RampGenerator(MsgFactory& iMsgFactory, TUint aInputJiffies, TUint aRampJiffies, TUint aThreadPriority);
     ~RampGenerator();
-    void Start(const Brx& aRecentAudio, TUint aSampleRate, TUint aNumChannels, TUint aCurrentRampValue);
+    void Start(const Brx& aRecentAudio, TUint aSampleRate, TUint aNumChannels, TUint aBitDepth, TUint aCurrentRampValue);
     TBool TryGetAudio(Msg*& aMsg); // returns false / nullptr when all msgs generated & returned
 private:
     void FlywheelRamperThread();
@@ -77,6 +77,7 @@ private:
     const Brx* iRecentAudio;
     TUint iSampleRate;
     TUint iNumChannels;
+    TUint iBitDepth;
     TUint iCurrentRampValue;
     TUint iRemainingRampSize;
     std::atomic<bool> iActive;
