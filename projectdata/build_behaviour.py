@@ -194,7 +194,7 @@ def test_full(context):
 def install(context):
     python("waf", "install")
 
-@build_step("integration_test", optional=True)
+@build_step("integration_test", optional=True, default=False)
 @build_condition(OH_PLATFORM="Windows-x86")
 @build_condition(OH_PLATFORM="Windows-x64")
 def integration_test(context):
