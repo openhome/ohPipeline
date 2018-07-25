@@ -95,8 +95,12 @@ def configure(conf):
     # Using http://svn.macosforge.org/repository/alac/trunk
     # Revision: 4
     # (2012-12-12 22:09:07 +0000 (Wed, 12 Dec 2012))
+    #
+    # thirdparty/apple_alac/codec/EndianPortable.c attempts to define TARGET_RT_LITTLE_ENDIAN for little endian platforms (leaving it unset implies big endian).
     if conf.options.dest_platform in ['Windows-x86', 'Windows-x64']:
-        conf.env.DEFINES_ALAC_APPLE = ['TARGET_OS_WIN32']
+        conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # Could define TARGET_OS_WIN32, but that is ultimately used by EndianPortable.c to set TARGET_RT_LITTLE_ENDIAN.
+    elif conf.options.dest_platform in ['Linux-armhf']:
+        conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # EndianPortable.c does not handle '__arm__', so define TARGET_RT_LITTLE_ENDIAN here.
     conf.env.INCLUDES_ALAC_APPLE = [
         'thirdparty/apple_alac/codec/',
         ]

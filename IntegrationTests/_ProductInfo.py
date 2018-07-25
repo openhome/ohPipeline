@@ -12,6 +12,10 @@ class ProductInfo:
     #
 
     @property
+    def upnpAv( self ):
+        return True
+
+    @property
     def exaktOnly( self ):
         return False
 
