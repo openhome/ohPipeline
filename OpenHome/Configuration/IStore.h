@@ -66,11 +66,11 @@ public:
      */
     virtual void Delete(const Brx& aKey) = 0;
     /**
-     * Signal that all store contents should be deleted.
+     * Signal that all store contents should be cleared.
      *
      * May require a device reboot to take effect.
      */
-    virtual void DeleteAll() = 0;
+    virtual void ResetToDefaults() = 0;
     virtual ~IStoreReadWrite() {}
 };
 

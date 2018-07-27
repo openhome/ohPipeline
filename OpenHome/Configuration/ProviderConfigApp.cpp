@@ -458,7 +458,7 @@ void ProviderConfigApp::GetValue(IDvInvocation& aInvocation, const Brx& aKey, ID
 
 void ProviderConfigApp::ResetAll(IDvInvocation& aInvocation)
 {
-    iStore.DeleteAll();
+    iStore.ResetToDefaults();
     ASSERT(iRebootHandler != nullptr);
     iRebootHandler->Reboot(kRebootReason);
     aInvocation.StartResponse();

@@ -81,7 +81,7 @@ public: // from IStoreReadWrite
     void Read(const Brx& aKey, IWriter& aWriter) override;
     void Write(const Brx& aKey, const Brx& aSource) override;
     void Delete(const Brx& aKey) override;
-    void DeleteAll() override;
+    void ResetToDefaults() override;
 public: // from IStoreVisitable
     void Accept(IStoreVisitor& aVisitor) override;
 private:

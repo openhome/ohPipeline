@@ -191,7 +191,7 @@ void ConfigRamStore::Delete(const Brx& aKey)
     }
 }
 
-void ConfigRamStore::DeleteAll()
+void ConfigRamStore::ResetToDefaults()
 {
     Clear();
 }
