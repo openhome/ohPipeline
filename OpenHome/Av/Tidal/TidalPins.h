@@ -11,7 +11,7 @@
 #include <OpenHome/Av/MediaPlayer.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
-#include <OpenHome/Av/Pins.h>
+#include <OpenHome/Av/Pins/Pins.h>
         
 namespace OpenHome {
     class Environment;

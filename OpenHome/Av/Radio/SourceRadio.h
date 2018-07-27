@@ -6,7 +6,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
-#include <OpenHome/Av/PodcastPins.h>
+#include <OpenHome/Av/Pins/PodcastPins.h>
 
 namespace OpenHome {
     class Environment;

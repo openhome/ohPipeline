@@ -27,7 +27,6 @@
 #include <OpenHome/Web/WebAppFramework.h>
 #include <OpenHome/Av/RebootHandler.h>
 #include <OpenHome/Net/Odp/DviServerOdp.h>
-#include <OpenHome/Av/PodcastPins.h>
 
 #include <memory>
 

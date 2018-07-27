@@ -13,7 +13,7 @@
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Av/Pins.h>
+#include <OpenHome/Av/Pins/Pins.h>
         
 EXCEPTION(ITunesResponseInvalid);
 EXCEPTION(ITunesRequestInvalid);

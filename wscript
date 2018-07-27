@@ -306,7 +306,7 @@ def build(bld):
                 'Generated/CpAvOpenhomeOrgTransport1.cpp',
                 'OpenHome/Av/TransportControl.cpp',
                 'OpenHome/Av/ProviderTransport.cpp',
-                'OpenHome/Av/TransportPins.cpp',
+                'OpenHome/Av/Pins/TransportPins.cpp',
                 'Generated/CpAvOpenhomeOrgRadio1.cpp',
                 'Generated/DvAvOpenhomeOrgVolume3.cpp',
                 'OpenHome/Av/ProviderVolume.cpp',
@@ -330,9 +330,9 @@ def build(bld):
                 'OpenHome/Av/FriendlyNameAdapter.cpp',
                 'Generated/DvAvOpenhomeOrgDebug1.cpp',
                 'OpenHome/Av/ProviderDebug.cpp',
-                'OpenHome/Av/Pins.cpp',
+                'OpenHome/Av/Pins/Pins.cpp',
                 'Generated/DvAvOpenhomeOrgPins1.cpp',
-                'OpenHome/Av/ProviderPins.cpp',
+                'OpenHome/Av/Pins/ProviderPins.cpp',
             ],
             use=['OHNET', 'OPENSSL', 'ohPipeline'],
             target='ohMediaPlayer')
@@ -459,7 +459,7 @@ def build(bld):
 
     # Podcast
     bld.stlib(
-            source=['OpenHome/Av/PodcastPins.cpp'],
+            source=['OpenHome/Av/Pins/PodcastPins.cpp'],
             use=['OHNET', 'ohMediaPlayer'],
             target='Podcast')
 

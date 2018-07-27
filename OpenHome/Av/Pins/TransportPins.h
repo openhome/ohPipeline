@@ -6,7 +6,7 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <Generated/CpAvOpenhomeOrgTransport1.h>
-#include <OpenHome/Av/Pins.h>
+#include <OpenHome/Av/Pins/Pins.h>
         
 namespace OpenHome {
     class Environment;

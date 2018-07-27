@@ -3,7 +3,6 @@
 #include <OpenHome/Types.h>
 #include <Generated/DvAvOpenhomeOrgDebug1.h>
 #include <OpenHome/Optional.h>
-#include <OpenHome/Av/PodcastPins.h>
 
 namespace OpenHome {
     class RingBufferLogger;

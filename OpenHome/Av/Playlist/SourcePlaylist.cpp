@@ -14,7 +14,7 @@
 #include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Media/MimeTypeList.h>
-#include <OpenHome/Av/PodcastPins.h>
+#include <OpenHome/Av/Pins/PodcastPins.h>
 
 #include <limits.h>
 

@@ -1,4 +1,4 @@
-#include <OpenHome/Av/Pins.h>
+#include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Json.h>
@@ -339,6 +339,16 @@ TBool PinSet::Contains(TUint aId) const
     }
 }
 
+TBool PinSet::IsEmpty() const
+{
+    for (auto pin : iPins) {
+        if (pin->Id() != IPinIdProvider::kIdEmpty) {
+            return false;
+        }
+    }
+    return true;
+}
+
 const Pin& PinSet::PinFromId(TUint aId) const
 {
     const auto index = IndexFromId(aId);
@@ -582,6 +592,42 @@ void PinsManager::InvokeIndex(TUint aIndex)
         invoker = it->second;
     }
     invoker->Invoke(iInvoke);
+}
+
+void PinsManager::InvokeUri(const Brx& aMode, const Brx& aType, const Brx& aUri, TBool aShuffle)
+{
+    Pin pin(iIdProvider);
+    (void)pin.TryUpdate(aMode, aType, aUri, Brx::Empty(), Brx::Empty(), Brx::Empty(), aShuffle);
+
+    AutoMutex _(iLockInvoke);
+    IPinInvoker* invoker = nullptr;
+    {
+        AutoMutex __(iLock);
+        Brn mode(aMode);
+        if (mode.Bytes() == 0) {
+            THROW(PinModeNotSupported);
+        }
+        auto it = iInvokers.find(mode);
+        if (it == iInvokers.end()) {
+            THROW(PinModeNotSupported);
+        }
+        invoker = it->second;
+    }
+    invoker->Invoke(pin);
+}
+
+void PinsManager::NotifySettable(TBool aSettable)
+{
+    AutoMutex _(iLock);
+    iObserver->NotifyCloudConnected(aSettable);
+    if (aSettable) {
+        iObserver->NotifyAccountPinsMax(iPinsAccount.Count());
+    }
+    else {
+        if (iPinsAccount.IsEmpty()) {
+            iObserver->NotifyAccountPinsMax(0);
+        }
+    }
 }
 
 void PinsManager::NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,

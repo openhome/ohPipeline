@@ -24,9 +24,9 @@
 #include <OpenHome/Media/MimeTypeList.h>
 #include <OpenHome/Av/Logger.h>
 #include <OpenHome/UnixTimestamp.h>
-#include <OpenHome/Av/Pins.h>
-#include <OpenHome/Av/ProviderPins.h>
-#include <OpenHome/Av/TransportPins.h>
+#include <OpenHome/Av/Pins/Pins.h>
+#include <OpenHome/Av/Pins/ProviderPins.h>
+#include <OpenHome/Av/Pins/TransportPins.h>
 
 #include <memory>
 

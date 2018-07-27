@@ -2,7 +2,7 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Uri.h>
-#include <OpenHome/Av/Pins.h>
+#include <OpenHome/Av/Pins/Pins.h>
 
 namespace OpenHome {
 namespace Av {

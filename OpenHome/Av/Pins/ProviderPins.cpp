@@ -1,9 +1,9 @@
-#include <OpenHome/Av/ProviderPins.h>
+#include <OpenHome/Av/Pins/ProviderPins.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Thread.h>
 #include <Generated/DvAvOpenhomeOrgPins1.h>
-#include <OpenHome/Av/Pins.h>
+#include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Json.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Printer.h>
@@ -19,6 +19,8 @@ static const TUint kCodeIndexOutOfRange = 801;
 static const Brn kMsgIndexOutOfRange("Pin index out of range");
 static const TUint kCodeIdNotFound = 802;
 static const Brn kMsgIdNotFound("Pin id not found");
+static const TUint kCodeModeNotSupported = 803;
+static const Brn kMsgModeNotSupported("Pin mode not supported");
 
 const TUint ProviderPins::kModerationMs = 50;
 
@@ -37,13 +39,17 @@ ProviderPins::ProviderPins(DvDevice& aDevice, Environment& aEnv, IPinsManager& a
     EnablePropertyAccountMax();
     EnablePropertyModes();
     EnablePropertyIdArray();
+    EnablePropertyCloudConnected();
 
-    EnableActionGetDeviceAccountMax();
+    EnableActionGetDeviceMax();
+    EnableActionGetAccountMax();
     EnableActionGetModes();
     EnableActionGetIdArray();
+    EnableActionGetCloudConnected();
     EnableActionReadList();
     EnableActionInvokeId();
     EnableActionInvokeIndex();
+    EnableActionInvokeUri();
     EnableActionSetDevice();
     EnableActionSetAccount();
     EnableActionClear();
@@ -53,6 +59,7 @@ ProviderPins::ProviderPins(DvDevice& aDevice, Environment& aEnv, IPinsManager& a
     (void)SetPropertyAccountMax(0);
     (void)SetPropertyModes(Brx::Empty());
     (void)SetPropertyIdArray(Brx::Empty());
+    (void)SetPropertyCloudConnected(false);
     iManager.SetObserver(*this);
 }
 
@@ -96,6 +103,11 @@ void ProviderPins::NotifyModeAdded(const Brx& aMode)
     iModes.push_back(mode);
 }
 
+void ProviderPins::NotifyCloudConnected(TBool aConnected)
+{
+    (void)SetPropertyCloudConnected(aConnected);
+}
+
 void ProviderPins::NotifyUpdatesDevice(const std::vector<TUint>& aIdArray)
 {
     AutoMutex _(iLock);
@@ -134,12 +146,16 @@ void ProviderPins::UpdateIdArrayLocked()
     (void)SetPropertyIdArray(iWriterIdArray.Buffer());
 }
 
-void ProviderPins::GetDeviceAccountMax(IDvInvocation& aInvocation,
-                                       IDvInvocationResponseUint& aDeviceMax,
-                                       IDvInvocationResponseUint& aAccountMax)
+void ProviderPins::GetDeviceMax(IDvInvocation& aInvocation, IDvInvocationResponseUint& aDeviceMax)
 {
     aInvocation.StartResponse();
     aDeviceMax.Write(iDeviceMax);
+    aInvocation.EndResponse();
+}
+
+void ProviderPins::GetAccountMax(IDvInvocation& aInvocation, IDvInvocationResponseUint& aAccountMax)
+{
+    aInvocation.StartResponse();
     aAccountMax.Write(iAccountMax);
     aInvocation.EndResponse();
 }
@@ -157,6 +173,15 @@ void ProviderPins::GetIdArray(IDvInvocation& aInvocation, IDvInvocationResponseS
     aInvocation.StartResponse();
     WritePropertyIdArray(aIdArray);
     aIdArray.WriteFlush();
+    aInvocation.EndResponse();
+}
+
+void ProviderPins::GetCloudConnected(IDvInvocation& aInvocation, IDvInvocationResponseBool& aCloudConnected)
+{
+    TBool cloudConnected;
+    GetPropertyCloudConnected(cloudConnected);
+    aInvocation.StartResponse();
+    aCloudConnected.Write(cloudConnected);
     aInvocation.EndResponse();
 }
 
@@ -185,6 +210,9 @@ void ProviderPins::InvokeId(IDvInvocation& aInvocation, TUint aId)
     catch (PinIdNotFound&) {
         aInvocation.Error(kCodeIdNotFound, kMsgIdNotFound);
     }
+    catch (PinModeNotSupported&) {
+        aInvocation.Error(kCodeModeNotSupported, kMsgModeNotSupported);
+    }
 
     aInvocation.StartResponse();
     aInvocation.EndResponse();
@@ -197,6 +225,22 @@ void ProviderPins::InvokeIndex(Net::IDvInvocation& aInvocation, TUint aIndex)
     }
     catch (PinIndexOutOfRange&) {
         aInvocation.Error(kCodeIndexOutOfRange, kMsgIndexOutOfRange);
+    }
+    catch (PinModeNotSupported&) {
+        aInvocation.Error(kCodeModeNotSupported, kMsgModeNotSupported);
+    }
+
+    aInvocation.StartResponse();
+    aInvocation.EndResponse();
+}
+
+void ProviderPins::InvokeUri(IDvInvocation& aInvocation, const Brx& aMode, const Brx& aType, const Brx& aUri, TBool aShuffle)
+{
+    try {
+        iManager.InvokeUri(aMode, aType, aUri, aShuffle);
+    }
+    catch (PinModeNotSupported&) {
+        aInvocation.Error(kCodeModeNotSupported, kMsgModeNotSupported);
     }
 
     aInvocation.StartResponse();

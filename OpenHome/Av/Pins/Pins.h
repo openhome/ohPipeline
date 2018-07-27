@@ -119,6 +119,7 @@ public:
     TBool Clear(TUint aId);
     TBool Swap(TUint aId1, TUint aId2);
     TBool Contains(TUint aId) const;
+    TBool IsEmpty() const;
     const Pin& PinFromId(TUint aId) const;
     const Pin& PinFromIndex(TUint aIndex) const;
     const std::vector<TUint>& IdArray() const;
@@ -139,6 +140,7 @@ class IPinsAccountObserver
 {
 public:
     virtual ~IPinsAccountObserver() {}
+    virtual void NotifySettable(TBool aSettable) = 0;
     virtual void NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,
                                   const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
                                   const Brx& aArtworkUri, TBool aShuffle) = 0;
@@ -161,6 +163,7 @@ public:
     virtual void NotifyDevicePinsMax(TUint aMax) = 0;
     virtual void NotifyAccountPinsMax(TUint aMax) = 0;
     virtual void NotifyModeAdded(const Brx& aMode) = 0;
+    virtual void NotifyCloudConnected(TBool aConnected) = 0;
     virtual void NotifyUpdatesDevice(const std::vector<TUint>& aIdArray) = 0;
     virtual void NotifyUpdatesAccount(const std::vector<TUint>& aIdArray) = 0;
     virtual ~IPinsObserver() {}
@@ -179,6 +182,7 @@ public:
     virtual void WriteJson(IWriter& aWriter, const std::vector<TUint>& aIds) = 0;
     virtual void InvokeId(TUint aId) = 0;
     virtual void InvokeIndex(TUint aIndex) = 0;
+    virtual void InvokeUri(const Brx& aMode, const Brx& aType, const Brx& aUri, TBool aShuffle) = 0;
 };
 
 class IPinInvoker
@@ -226,7 +230,9 @@ private: // from IPinsManager
     void WriteJson(IWriter& aWriter, const std::vector<TUint>& aIds) override;
     void InvokeId(TUint aId) override;
     void InvokeIndex(TUint aIndex) override;
+    void InvokeUri(const Brx& aMode, const Brx& aType, const Brx& aUri, TBool aShuffle) override;
 private: // from IPinAccountObserver
+    void NotifySettable(TBool aSettable) override;
     void NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,
                           const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
                           const Brx& aArtworkUri, TBool aShuffle) override;

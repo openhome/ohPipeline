@@ -1,4 +1,4 @@
-#include <OpenHome/Av/PodcastPins.h>
+#include <OpenHome/Av/Pins/PodcastPins.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Types.h>

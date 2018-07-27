@@ -1,4 +1,4 @@
-#include <OpenHome/Av/TransportPins.h>
+#include <OpenHome/Av/Pins/TransportPins.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Types.h>
