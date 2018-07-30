@@ -297,6 +297,7 @@ def build(bld):
                 'OpenHome/Av/ProviderUtils.cpp',
                 'OpenHome/Av/Product.cpp',
                 'Generated/DvAvOpenhomeOrgProduct2.cpp',
+                'Generated/CpAvOpenhomeOrgProduct2.cpp',
                 'OpenHome/Av/ProviderProduct.cpp',
                 'Generated/DvAvOpenhomeOrgTime1.cpp',
                 'OpenHome/Av/ProviderTime.cpp',
@@ -1004,7 +1005,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestMediaPlayerMain.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
+            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
             target='TestMediaPlayer',
             install_path=os.path.join(bld.path.abspath(), 'install', 'bin'))
     bld.program(

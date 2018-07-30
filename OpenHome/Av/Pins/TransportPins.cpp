@@ -23,12 +23,14 @@ TransportPins::TransportPins(DvDeviceStandard& aDevice, CpStack& aCpStack)
     , iCpStack(aCpStack)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
+    iCpProduct = new CpProxyAvOpenhomeOrgProduct2(*cpDevice);
     iCpTransport = new CpProxyAvOpenhomeOrgTransport1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
 }
 
 TransportPins::~TransportPins()
 {
+    delete iCpProduct;
     delete iCpTransport;
 }
 
@@ -57,20 +59,10 @@ const TChar* TransportPins::Mode() const
 TBool TransportPins::SelectLocalInput(const Brx& aSourceSystemName)
 {
     Bws<20> input;
+    Uri::Unescape(input, aSourceSystemName);
     try {
-        if (aSourceSystemName == Brn("Songcast")) {
-            input.ReplaceThrow(Brn("Receiver"));
-        }
-        else if (aSourceSystemName == Brn("Net Aux") || aSourceSystemName == Brn("Airplay")) {
-            input.ReplaceThrow(Brn("RAOP"));
-        }
-        else if (aSourceSystemName == Brn("UPnP AV")) {
-            input.ReplaceThrow(Brn("UpnpAv"));
-        }
-        else {
-            input.ReplaceThrow(aSourceSystemName);
-        }
-        iCpTransport->SyncPlayAs(input, Brx::Empty());
+        iCpProduct->SyncSetSourceBySystemName(input);
+        iCpTransport->SyncPlay();
         return true;
     }
     catch (Exception& ex) {

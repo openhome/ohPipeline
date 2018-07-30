@@ -5,6 +5,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
+#include <Generated/CpAvOpenhomeOrgProduct2.h>
 #include <Generated/CpAvOpenhomeOrgTransport1.h>
 #include <OpenHome/Av/Pins/Pins.h>
         
@@ -30,6 +31,7 @@ private:
     TBool SelectLocalInput(const Brx& aSourceSystemName); // source system name remains constant always
 private:
     Mutex iLock;
+    Net::CpProxyAvOpenhomeOrgProduct2* iCpProduct;
     Net::CpProxyAvOpenhomeOrgTransport1* iCpTransport;
     Net::CpStack& iCpStack;
 };
