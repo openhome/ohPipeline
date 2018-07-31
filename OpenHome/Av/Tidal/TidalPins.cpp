@@ -76,6 +76,8 @@ void TidalPins::Invoke(const IPin& aPin)
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTidal)) {
+        Bwh token(128);
+        iTidal.Login(token);
         if (Brn(pin.Type()) == Brn(kPinTypeArtist)) { res = LoadTracksByArtist(pin.Value(), aPin.Shuffle()); }
         else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) { res = LoadTracksByAlbum(pin.Value(), aPin.Shuffle()); }
         else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) { res = LoadTracksByTrack(pin.Value(), aPin.Shuffle()); }
@@ -191,11 +193,16 @@ TBool TidalPins::LoadTracksByFavorites(TBool aShuffle)
     InitPlaylist(aShuffle);
     Bwh albumIds[kMaxFavoriteAlbums];
     TUint lastId = 0;
+    TBool tracksFound = false;
 
     try {
         // load favorite tracks
-        lastId = LoadTracksById(TidalMetadata::kIdTypeUserSpecific, TidalMetadata::eFavorites, lastId);
-
+        try {
+            lastId = LoadTracksById(TidalMetadata::kIdTypeUserSpecific, TidalMetadata::eFavorites, lastId);
+            tracksFound = true;
+        }
+        catch (PinNothingToPlay&) {
+        }
         // request favorite albums (returned as list - place an arbitrary limit on the number of albums to return for now)
         iJsonResponse.Reset();
         TBool success = iTidal.TryGetIds(iJsonResponse, TidalMetadata::kIdTypeUserSpecific, TidalMetadata::eFavorites, kMaxFavoriteAlbums); // send request to Tidal
@@ -209,35 +216,43 @@ TBool TidalPins::LoadTracksByFavorites(TBool aShuffle)
         TUint idCount = 0;
         if (parser.HasKey(Brn("totalNumberOfItems"))) {
             TUint albums = parser.Num(Brn("totalNumberOfItems"));
-            if (albums == 0) {
-                return false;
-            }
-            auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
-            JsonParser parserItem;
-            try {
-                for (TUint i = 0; i < kMaxFavoriteAlbums; i++) {
-                    parserItem.Parse(parserItems.NextObject());
+            if (albums != 0) {
+                auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
+                JsonParser parserItem;
+                try {
+                    for (TUint i = 0; i < kMaxFavoriteAlbums; i++) {
+                        parserItem.Parse(parserItems.NextObject());
 
-                    JsonParser parserAlbum;
-                    parserAlbum.Parse(parserItem.String(Brn("item")));
+                        JsonParser parserAlbum;
+                        parserAlbum.Parse(parserItem.String(Brn("item")));
 
-                    albumIds[i].Grow(20);
-                    albumIds[i].ReplaceThrow(parserAlbum.String(Brn("id"))); // parse response from Tidal
-                    idCount++;
-                    if (albumIds[i].Bytes() == 0) {
-                        return false;
+                        albumIds[i].Grow(20);
+                        albumIds[i].ReplaceThrow(parserAlbum.String(Brn("id"))); // parse response from Tidal
+                        idCount++;
+                        if (albumIds[i].Bytes() == 0) {
+                            return false;
+                        }
                     }
                 }
-            }
-            catch (JsonArrayEnumerationComplete&) {}
-            for (TUint j = 0; j < idCount; j++) {
-                lastId = LoadTracksById(albumIds[j], TidalMetadata::eAlbum, lastId);
-            }  
+                catch (JsonArrayEnumerationComplete&) {}
+                for (TUint j = 0; j < idCount; j++) {
+                    try {
+                        lastId = LoadTracksById(albumIds[j], TidalMetadata::eAlbum, lastId);
+                        tracksFound = true;
+                    }
+                    catch (PinNothingToPlay&) {
+                    }
+                } 
+            } 
         }
     }   
     catch (Exception& ex) {
         LOG_ERROR(kPipeline, "%s in TidalPins::LoadTracksByFavorites\n", ex.Message());
         return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
     }
 
     return true;
@@ -249,6 +264,7 @@ TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::
     JsonParser parser;
     InitPlaylist(aShuffle);
     Bwh playlistIds[kMaxPlaylistsPerSmartType];
+    TBool tracksFound = false;
 
     try {
         // request tracks from smart types (returned as list of playlists - place an arbitrary limit on the number of playlists to return for now)
@@ -264,32 +280,40 @@ TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::
         TUint idCount = 0;
         if (parser.HasKey(Brn("totalNumberOfItems"))) {
             TUint playlists = parser.Num(Brn("totalNumberOfItems"));
-            if (playlists == 0) {
-                return false;
-            }
-            auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
-            JsonParser parserItem;
-            try {
-                for (TUint i = 0; i < kMaxPlaylistsPerSmartType; i++) {
-                    parserItem.Parse(parserItems.NextObject());
-                    playlistIds[i].Grow(50);
-                    playlistIds[i].ReplaceThrow(parserItem.String(Brn("uuid"))); // parse response from Tidal
-                    idCount++;
-                    if (playlistIds[i].Bytes() == 0) {
-                        return false;
+            if (playlists != 0) {
+                auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
+                JsonParser parserItem;
+                try {
+                    for (TUint i = 0; i < kMaxPlaylistsPerSmartType; i++) {
+                        parserItem.Parse(parserItems.NextObject());
+                        playlistIds[i].Grow(50);
+                        playlistIds[i].ReplaceThrow(parserItem.String(Brn("uuid"))); // parse response from Tidal
+                        idCount++;
+                        if (playlistIds[i].Bytes() == 0) {
+                            return false;
+                        }
                     }
                 }
+                catch (JsonArrayEnumerationComplete&) {}
+                TUint lastId = 0;
+                for (TUint j = 0; j < idCount; j++) {
+                    try {
+                        lastId = LoadTracksById(playlistIds[j], aType, lastId);
+                        tracksFound = true;
+                    }
+                    catch (PinNothingToPlay&) {
+                    }
+                }  
             }
-            catch (JsonArrayEnumerationComplete&) {}
-            TUint lastId = 0;
-            for (TUint j = 0; j < idCount; j++) {
-                lastId = LoadTracksById(playlistIds[j], aType, lastId);
-            }  
         }
     }   
     catch (Exception& ex) {
         LOG_ERROR(kPipeline, "%s in TidalPins::LoadTracksByMultiplePlaylists\n", ex.Message());
         return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
     }
 
     return true;
@@ -302,6 +326,7 @@ TBool TidalPins::LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aTy
     JsonParser parser;
     InitPlaylist(aShuffle);
     Bwh inputBuf(64);
+    TBool tracksFound = false;
 
     try {
         if (aQuery.Bytes() == 0) {
@@ -322,11 +347,20 @@ TBool TidalPins::LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aTy
         else {
             inputBuf.ReplaceThrow(aQuery);
         }
-        lastId = LoadTracksById(inputBuf, aType, lastId);
+        try {
+            lastId = LoadTracksById(inputBuf, aType, lastId);
+            tracksFound = true;
+        }
+        catch (PinNothingToPlay&) {
+        }
     }   
     catch (Exception& ex) {
         LOG_ERROR(kMedia, "%s in TidalPins::LoadTracksByQuery\n", ex.Message());
         return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
     }
 
     return lastId;
@@ -359,7 +393,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType, TU
             if (parser.HasKey(Brn("totalNumberOfItems"))) { 
                 TUint tracks = parser.Num(Brn("totalNumberOfItems"));
                 if (tracks == 0) {
-                    return false;
+                    break;
                 }
                 if (tracks < total) {
                     total = tracks;
@@ -400,6 +434,11 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType, TU
         }
         
     }
+
+    if (!isPlayable) {
+        THROW(PinNothingToPlay);
+    }
+
     return currId;
 }
 

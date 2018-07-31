@@ -68,6 +68,8 @@ void QobuzPins::Invoke(const IPin& aPin)
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeQobuz)) {
+        Bwh token(128);
+        iQobuz.Login(token);
         if (Brn(pin.Type()) == Brn(kPinTypeArtist)) { res = LoadTracksByArtist(pin.Value(), aPin.Shuffle()); }
         else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) { res = LoadTracksByAlbum(pin.Value(), aPin.Shuffle()); }
         else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) { res = LoadTracksByTrack(pin.Value(), aPin.Shuffle()); }
@@ -178,6 +180,7 @@ TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType
     InitPlaylist(aShuffle);
     Bwh inputBuf(64);
     Bwh albumIds[kMaxAlbumsPerSmartType];
+    TBool tracksFound = false;
 
     try {
         if (aGenre.Bytes() == 0) {
@@ -215,32 +218,40 @@ TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType
         }
         if (parser.HasKey(Brn("items"))) {
             TUint albums = parser.Num(Brn("total"));
-            if (albums == 0) {
-                return false;
-            }
-            auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
-            JsonParser parserItem;
-            try {
-                for (TUint i = 0; i < kMaxAlbumsPerSmartType; i++) {
-                    parserItem.Parse(parserItems.NextObject());
-                    albumIds[i].Grow(20);
-                    albumIds[i].ReplaceThrow(parserItem.String(Brn("id"))); // parse response from Qobuz
-                    idCount++;
-                    if (albumIds[i].Bytes() == 0) {
-                        return false;
+            if (albums != 0) {
+                auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
+                JsonParser parserItem;
+                try {
+                    for (TUint i = 0; i < kMaxAlbumsPerSmartType; i++) {
+                        parserItem.Parse(parserItems.NextObject());
+                        albumIds[i].Grow(20);
+                        albumIds[i].ReplaceThrow(parserItem.String(Brn("id"))); // parse response from Qobuz
+                        idCount++;
+                        if (albumIds[i].Bytes() == 0) {
+                            return false;
+                        }
                     }
                 }
-            }
-            catch (JsonArrayEnumerationComplete&) {}
-            TUint lastId = 0;
-            for (TUint j = 0; j < idCount; j++) {
-                lastId = LoadTracksById(albumIds[j], aType, lastId);
-            }  
+                catch (JsonArrayEnumerationComplete&) {}
+                TUint lastId = 0;
+                for (TUint j = 0; j < idCount; j++) {
+                    try {
+                        lastId = LoadTracksById(albumIds[j], aType, lastId);
+                        tracksFound = true;
+                    }
+                    catch (PinNothingToPlay&) {
+                    }
+                } 
+            } 
         }
     }   
     catch (Exception& ex) {
         LOG_ERROR(kPipeline, "%s in QobuzPins::LoadTracksBySmartType\n", ex.Message());
         return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
     }
 
     return true;
@@ -253,6 +264,7 @@ TBool QobuzPins::LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aTy
     JsonParser parser;
     InitPlaylist(aShuffle);
     Bwh inputBuf(64);
+    TBool tracksFound = false;
 
     try {
         if (aQuery.Bytes() == 0) {
@@ -273,17 +285,32 @@ TBool QobuzPins::LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aTy
         else {
             inputBuf.ReplaceThrow(aQuery);
         }
-        lastId = LoadTracksById(inputBuf, aType, lastId);
+
+        try {
+            lastId = LoadTracksById(inputBuf, aType, lastId);
+            tracksFound = true;
+        }
+        catch (PinNothingToPlay&) {
+        }
 
         if (aType == QobuzMetadata::ePurchased || aType == QobuzMetadata::eCollection) {
             // should not be required but collection endpoint not working correctly (only returns albums, no tracks)
-            lastId = LoadTracksById(inputBuf, QobuzMetadata::ePurchasedTracks, lastId);
+            try {
+                lastId = LoadTracksById(inputBuf, QobuzMetadata::ePurchasedTracks, lastId);
+                tracksFound = true;
+            }
+            catch (PinNothingToPlay&) {
+            }
         }
 
     }   
     catch (Exception& ex) {
         LOG_ERROR(kPipeline, "%s in QobuzPins::LoadTracksByQuery\n", ex.Message());
         return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
     }
 
     return lastId;
@@ -319,7 +346,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TU
             if (parser.HasKey(Brn("items"))) { 
                 TUint tracks = parser.Num(Brn("total"));
                 if (tracks == 0) {
-                    return false;
+                    break;
                 }
                 if (tracks < total) {
                     total = tracks;
@@ -360,6 +387,11 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TU
         }
         
     }
+
+    if (!isPlayable) {
+        THROW(PinNothingToPlay);
+    }
+
     return currId;
 }
 
