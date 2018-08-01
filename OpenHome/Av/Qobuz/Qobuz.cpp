@@ -261,7 +261,7 @@ TBool Qobuz::TryGetResponse(WriterBwh& aWriter, TUint aLimit, TUint aOffset)
             Brn buf = iDechunker.Read(kReadBufferBytes);
             LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
             THROW(ReaderError);
-        }  
+        }
         
         TUint count = iHeaderContentLength.ContentLength();
         //Log::Print("Read Qobuz response (%d): ", count);
