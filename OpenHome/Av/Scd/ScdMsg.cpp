@@ -13,6 +13,7 @@
 
 using namespace OpenHome;
 using namespace OpenHome::Scd;
+using namespace OpenHome::Av;
 
 inline Brn BufferFromString(const std::string& aStr)
 {

@@ -333,6 +333,7 @@ def build(bld):
                 'OpenHome/Av/Pins/Pins.cpp',
                 'Generated/DvAvOpenhomeOrgPins1.cpp',
                 'OpenHome/Av/Pins/ProviderPins.cpp',
+                'OpenHome/Av/OhMetadata.cpp',
             ],
             use=['OHNET', 'OPENSSL', 'ohPipeline'],
             target='ohMediaPlayer')
@@ -423,7 +424,6 @@ def build(bld):
                 'OpenHome/Av/Scd/ScdMsg.cpp',
                 'OpenHome/Av/Scd/Receiver/ProtocolScd.cpp',
                 'OpenHome/Av/Scd/Receiver/SupplyScd.cpp',
-                'OpenHome/Av/Scd/Receiver/OhMetadata.cpp',
                 'OpenHome/Av/Scd/Receiver/UriProviderScd.cpp',
                 'OpenHome/Av/Scd/Receiver/SourceScd.cpp'
             ],

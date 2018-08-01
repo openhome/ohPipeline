@@ -3,11 +3,16 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Standard.h>
-#include <OpenHome/Av/Scd/ScdMsg.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
+#include <vector>
+#include <utility>
+
 namespace OpenHome {
-namespace Scd {
+namespace Av {
+
+typedef std::vector<std::pair<std::string, std::string>> OpenHomeMetadata;
+typedef std::vector<std::pair<Brn, Brn>> OpenHomeMetadataBuf;
 
 class OhMetadata : private INonCopyable
 {
@@ -18,6 +23,7 @@ public:
     static Media::Track* ToTrack(const OpenHomeMetadataBuf& aMetadata,
                                  Media::TrackFactory& aTrackFactory);
     static void ToDidlLite(const OpenHomeMetadataBuf& aMetadata, Bwx& aDidl);
+    static void ToUriDidlLite(const OpenHomeMetadataBuf& aMetadata, Bwx& aUri, Bwx& aDidl);
 private:
     OhMetadata(const OpenHomeMetadataBuf& aMetadata);
     void Parse();
@@ -36,5 +42,5 @@ private:
     Media::BwsTrackMetaData iMetaDataDidl;
 };
 
-} // namespace Scd
+} // namespace Av
 } // namespace OpenHome

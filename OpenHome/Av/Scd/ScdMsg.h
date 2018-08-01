@@ -5,6 +5,7 @@
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Fifo.h>
 #include <OpenHome/Private/Thread.h>
+#include <OpenHome/Av/OhMetadata.h>
 
 #include <atomic>
 #include <string>
@@ -63,9 +64,6 @@ class ScdMsgHalt;
 class ScdMsgDisconnect;
 class ScdMsgSeek;
 class ScdMsgSkip;
-
-typedef std::vector<std::pair<std::string, std::string>> OpenHomeMetadata;
-typedef std::vector<std::pair<Brn, Brn>> OpenHomeMetadataBuf;
 
 class IScdMsgProcessor
 {
@@ -177,13 +175,13 @@ class ScdMsgKvp : public ScdMsg
     static const TUint kMaxBytes = 4 * 1024;
 protected:
     ScdMsgKvp(IScdMsgAllocator& aAllocator);
-    void Initialise(const OpenHomeMetadata& aKvps);
+    void Initialise(const Av::OpenHomeMetadata& aKvps);
     void Initialise(IReader& aReader, TUint aBytes);
     void DoExternalise(IWriter& aWriter, TUint aType) const;
 private: // from ScdMsg
     void Clear() override;
 protected:
-    OpenHomeMetadataBuf iKvps;
+    Av::OpenHomeMetadataBuf iKvps;
     Bws<kMaxBytes> iBuf;
 };
 
@@ -191,7 +189,7 @@ class ScdMsgMetadataOh : public ScdMsgKvp
 {
     friend class ScdMsgFactory;
 public:
-    const OpenHomeMetadataBuf& Metadata() const;
+    const Av::OpenHomeMetadataBuf& Metadata() const;
 private:
     ScdMsgMetadataOh(IScdMsgAllocator& aAllocator);
     void Initialise(IReader& aReader, const ScdHeader& aHeader);
@@ -354,7 +352,7 @@ class ScdMsgMetatextOh : public ScdMsgKvp
 {
     friend class ScdMsgFactory;
 public:
-    const OpenHomeMetadataBuf& Metatext() const;
+    const Av::OpenHomeMetadataBuf& Metatext() const;
 private:
     ScdMsgMetatextOh(IScdMsgAllocator& aAllocator);
     void Initialise(IReader& aReader, const ScdHeader& aHeader);
@@ -427,7 +425,7 @@ public:
     ~ScdMsgFactory();
     ScdMsgReady* CreateMsgReady();
     ScdMsgMetadataDidl* CreateMsgMetadataDidl(const std::string& aUri, const std::string& aMetadata);
-    ScdMsgMetadataOh* CreateMsgMetadataOh(const OpenHomeMetadata& aMetadata);
+    ScdMsgMetadataOh* CreateMsgMetadataOh(const Av::OpenHomeMetadata& aMetadata);
     ScdMsgFormat* CreateMsgFormat(TUint aBitDepth, TUint aSampleRate, TUint aNumChannels,
                                   TUint aBitRate, TUint64 aSampleStart, TUint64 aSamplesTotal,
                                   TBool aSeekable, TBool aLossless, TBool aLive,
@@ -439,7 +437,7 @@ public:
     ScdMsgFormatDsd* CreateMsgFormatDsd(ScdMsgFormatDsd& aFormat, TUint64 aSampleStart);
     ScdMsgAudioOut* CreateMsgAudioOut(const std::string& aAudio, TUint aNumSamples);
     ScdMsgMetatextDidl* CreateMsgMetatextDidl(const std::string& aMetatext);
-    ScdMsgMetatextOh* CreateMsgMetatextOh(const OpenHomeMetadata& aMetatext);
+    ScdMsgMetatextOh* CreateMsgMetatextOh(const Av::OpenHomeMetadata& aMetatext);
     ScdMsgHalt* CreateMsgHalt();
     ScdMsgDisconnect* CreateMsgDisconnect();
     ScdMsg* CreateMsg(IReader& aReader);

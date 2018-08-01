@@ -1,4 +1,4 @@
-#include <OpenHome/Av/Scd/Receiver/OhMetadata.h>
+#include <OpenHome/Av/OhMetadata.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Av/Scd/ScdMsg.h>
@@ -40,6 +40,7 @@ public:
 
 using namespace OpenHome;
 using namespace OpenHome::Scd;
+using namespace OpenHome::Av;
 
 const Brn OhMetadata::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
 const Brn OhMetadata::kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
@@ -67,6 +68,20 @@ void OhMetadata::ToDidlLite(const OpenHomeMetadataBuf& aMetadata, Bwx& aDidl)
         aDidl.Replace(self.iMetaDataDidl);
     }
     catch (BufferOverflow&) {
+        aDidl.Replace(Brx::Empty());
+    }
+}
+
+void OhMetadata::ToUriDidlLite(const OpenHomeMetadataBuf& aMetadata, Bwx& aUri, Bwx& aDidl)
+{ // static
+    OhMetadata self(aMetadata);
+    try {
+        self.Parse();
+        aUri.Replace(self.iUri);
+        aDidl.Replace(self.iMetaDataDidl);
+    }
+    catch (BufferOverflow&) {
+        aUri.Replace(Brx::Empty());
         aDidl.Replace(Brx::Empty());
     }
 }
@@ -109,6 +124,7 @@ void OhMetadata::Parse()
         { "details", "oh:details", kNsOh },
         { "extensions", "oh:extensions", kNsOh },
         { "publisher", "dc:publisher", kNsDc },
+        { "description", "dc:description", kNsDc },
         { "rating", "upnp:rating", kNsUpnp }
     };
     static const TUint kNumOh2DidlMappings = sizeof kOh2Didl / sizeof kOh2Didl[0];
@@ -126,9 +142,14 @@ void OhMetadata::Parse()
     TryAppend("<item");
     TryAddAttribute("id", "id");
     TryAppend(" parentID=\"-1\" restricted=\"1\">");
-    for (TUint i=0; i<kNumOh2DidlMappings; i++) {
-        auto& mapping = kOh2Didl[i];
-        TryAddTag(mapping.iOhKey, mapping.iDidlTag, mapping.iNs, mapping.iRole);
+    for (auto kvp : iMetadata) {
+        for (TUint i = 0; i < kNumOh2DidlMappings; i++) {
+            const auto& mapping = kOh2Didl[i];
+            if (kvp.first == mapping.iOhKey) {
+                TryAppendTag(mapping.iDidlTag, mapping.iNs, mapping.iRole, kvp.second);
+                break;
+            }
+        }
     }
     TryAppend("<res");
     if (TryGetValue("duration", val)) {
@@ -188,7 +209,7 @@ TBool OhMetadata::TryGetValue(const TChar* aKey, Brn& aValue) const
 TBool OhMetadata::TryGetValue(const Brx& aKey, Brn& aValue) const
 {
     for (auto kvp : iMetadata) {
-        if (kvp.first== aKey) {
+        if (kvp.first == aKey) {
             aValue.Set(kvp.second);
             return true;
         }
