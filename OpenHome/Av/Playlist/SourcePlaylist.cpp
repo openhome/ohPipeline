@@ -9,6 +9,7 @@
 #include <OpenHome/Av/Playlist/ProviderPlaylist.h>
 #include <OpenHome/Av/Playlist/UriProviderPlaylist.h>
 #include <OpenHome/Av/Playlist/PinInvokerPlaylist.h>
+#include <OpenHome/Av/Playlist/PinInvokerKazooServer.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Av/KvpStore.h>
 #include <OpenHome/Av/SourceFactory.h>
@@ -128,14 +129,18 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     iUriProvider->SetTransportPrev(MakeFunctor(*this, &SourcePlaylist::Prev));
     iUriProvider->SetTransportSeek(MakeFunctorGeneric<TUint>(*this, &SourcePlaylist::SeekAbsolute));
     iPipeline.Add(iUriProvider); // ownership passes to iPipeline
-    iProviderPlaylist = new ProviderPlaylist(aMediaPlayer.Device(), env, *this, *iDatabase, *iRepeater, aMediaPlayer.TransportRepeatRandom());
+    auto& dvDevice = aMediaPlayer.Device();
+    iProviderPlaylist = new ProviderPlaylist(dvDevice, env, *this, *iDatabase, *iRepeater, aMediaPlayer.TransportRepeatRandom());
     aMediaPlayer.MimeTypes().AddUpnpProtocolInfoObserver(MakeFunctorGeneric(*iProviderPlaylist, &ProviderPlaylist::NotifyProtocolInfo));
     iPipeline.AddObserver(*this);
     auto pinsInvocable = aMediaPlayer.PinsInvocable();
     if (pinsInvocable.Ok()) {
-        auto podcastPins = new PodcastPinsEpisodeList(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(),
-                                                      aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
+        auto& cpStack = aMediaPlayer.CpStack();
+        auto podcastPins = new PodcastPinsEpisodeList(dvDevice, aMediaPlayer.TrackFactory(),
+                                                      cpStack, aMediaPlayer.ReadWriteStore());
         pinsInvocable.Unwrap().Add(podcastPins);
+        auto pinsKazooServer = new PinInvokerKazooServer(env, cpStack, dvDevice, aMediaPlayer.ThreadPool());
+        pinsInvocable.Unwrap().Add(pinsKazooServer);
         if (aPlaylistLoader.Ok()) {
             auto invoker = new PinInvokerPlaylist(*iDatabase,
                                                   aPlaylistLoader.Unwrap());

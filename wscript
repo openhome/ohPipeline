@@ -371,6 +371,7 @@ def build(bld):
                 'OpenHome/Av/Qobuz/ProtocolQobuz.cpp',
                 'Generated/CpAvOpenhomeOrgTransport1.cpp',
                 'OpenHome/Av/Playlist/PinInvokerPlaylist.cpp',
+                'OpenHome/Av/Playlist/PinInvokerKazooServer.cpp',
             ],
             use=['OHNET', 'ohMediaPlayer', 'Podcast'],
             target='SourcePlaylist')

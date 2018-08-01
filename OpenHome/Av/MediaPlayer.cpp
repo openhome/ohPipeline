@@ -206,6 +206,8 @@ MediaPlayer::~MediaPlayer()
     delete iConfigAutoPlay;
     delete iConfigProductRoom;
     delete iConfigProductName;
+    delete iProviderPins;
+    delete iPinsManager;
     delete iThreadPool;
     delete iPowerManager;
     delete iProviderConfigApp;
@@ -214,8 +216,6 @@ MediaPlayer::~MediaPlayer()
     delete iKvpStore;
     delete iLoggerBuffered;
     delete iUnixTimestamp;
-    delete iProviderPins;
-    delete iPinsManager;
 }
 
 void MediaPlayer::Quit()
