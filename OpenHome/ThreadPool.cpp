@@ -90,9 +90,6 @@ void ThreadPool::Handle::Run()
     }
     catch (Exception& ex) {
         LOG_ERROR(kThreadPool, "ThreadPool::Handle::Run %s exception - %s\n", iId, ex.Message());
-        iLock.Signal();
-        RemoveRef();
-        throw;
     }
     iLock.Signal();
     RemoveRef();
