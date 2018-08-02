@@ -76,7 +76,7 @@ bool WavSender::TryParseHeader(uint32_t& aAudioBytes)
     }
     const uint32_t subChunk2Size = header[40] | (header[41] << 8) | (header[42] << 16) | (header[43] << 24);
 
-    OpenHomeMetadata metadata;
+    Av::OpenHomeMetadata metadata;
     metadata.push_back(std::pair<std::string, std::string>("uri", iFilename));
     //metadata.push_back(std::pair<std::string, std::string>("title", iFilename));
     metadata.push_back(std::pair<std::string, std::string>("albumArtwork", "http://images.roonlabs.com/im/1/albums/a6003834313232363334/cover/512sq.jpg"));

@@ -26,7 +26,7 @@ void ScdSupply::OutputMetadataDidl(const std::string& aUri, const std::string& a
     iQueue.Enqueue(msg);
 }
 
-void ScdSupply::OutputMetadataOh(const OpenHomeMetadata& aMetadata)
+void ScdSupply::OutputMetadataOh(const Av::OpenHomeMetadata& aMetadata)
 {
     auto msg = iFactory.CreateMsgMetadataOh(aMetadata);
     iQueue.Enqueue(msg);
@@ -83,7 +83,7 @@ void ScdSupply::OutputMetatextDidl(const std::string& aMetatext)
     iQueue.Enqueue(msg);
 }
 
-void ScdSupply::OutputMetatextOh(const OpenHomeMetadata& aMetatext)
+void ScdSupply::OutputMetatextOh(const Av::OpenHomeMetadata& aMetatext)
 {
     auto msg = iFactory.CreateMsgMetatextOh(aMetatext);
     iQueue.Enqueue(msg);

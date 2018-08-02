@@ -32,7 +32,7 @@ class DummySupply : public IScdSupply
 {
 public:
     void OutputMetadataDidl(const std::string& /*aUri*/, const std::string& /*aMetadata*/) override {}
-    void OutputMetadataOh(const OpenHomeMetadata& /*aMetadata*/) override {}
+    void OutputMetadataOh(const Av::OpenHomeMetadata& /*aMetadata*/) override {}
     void OutputFormat(TUint aBitDepth, TUint aSampleRate, TUint aNumChannels,
                       TUint /*aBitRate*/, TUint64 /*aSampleStart*/, TUint64 /*aSamplesTotal*/,
                       TBool /*aSeekable*/, TBool /*aLossless*/, TBool /*aLive*/,
@@ -42,7 +42,7 @@ public:
     }
     void OutputAudio(const TByte* /*aData*/, TUint /*aBytes*/) {}
     void OutputMetatextDidl(const std::string& /*aMetatext*/) {}
-    void OutputMetatextOh(const OpenHomeMetadata& /*aMetatext*/) {}
+    void OutputMetatextOh(const Av::OpenHomeMetadata& /*aMetatext*/) {}
     void OutputHalt() {}
 };
 
