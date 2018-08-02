@@ -57,6 +57,7 @@ public:
         eSmartExclusive,
         eSmartRising,
         eSmartDiscovery,
+        ePath, // workaround for now to use path url supplied by control point
     };
     enum EImageResolution {
         eNone,

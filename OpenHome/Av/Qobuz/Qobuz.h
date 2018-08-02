@@ -49,8 +49,10 @@ public:
     TBool TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl);
     TBool TryGetId(WriterBwh& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType);
     TBool TryGetIds(WriterBwh& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aMaxAlbumsPerResponse);
+    TBool TryGetIdsByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse);
     TBool TryGetGenreList(WriterBwh& aWriter);
     TBool TryGetTracksById(WriterBwh& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset);
+    TBool TryGetTracksByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
     const Brx& Id() const override;
@@ -61,8 +63,8 @@ private: // from ICredentialConsumer
 private:
     TBool TryConnect();
     TBool TryLoginLocked();
-    TUint WriteRequestReadResponse(const Brx& aMethod, const Brx& aPathAndQuery);
-    TBool TryGetResponse(WriterBwh& aWriter, TUint aLimit, TUint aOffset);
+    TUint WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery);
+    TBool TryGetResponse(WriterBwh& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset);
     Brn ReadString();
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
     static void AppendMd5(Bwx& aBuffer, const Brx& aToHash);

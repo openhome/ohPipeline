@@ -51,6 +51,8 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
     , iUriProviderPresets(nullptr)
     , iTrack(nullptr)
     , iPodcastPins(nullptr)
+    , iTuneInPins(nullptr)
+    , iRadioPins(nullptr)
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
     , iLive(false)
@@ -112,6 +114,13 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
     if (aMediaPlayer.PinsInvocable().Ok()) {
         iPodcastPins = new PodcastPinsLatestEpisode(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
         aMediaPlayer.PinsInvocable().Unwrap().Add(iPodcastPins);
+
+        if (iTuneIn != nullptr) {
+            iTuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.CpStack(), aTuneInPartnerId);
+            aMediaPlayer.PinsInvocable().Unwrap().Add(iTuneInPins);
+            iRadioPins = new RadioPins(aMediaPlayer.Device(), aMediaPlayer.CpStack());
+            aMediaPlayer.PinsInvocable().Unwrap().Add(iRadioPins);
+        }
     }
 }
 

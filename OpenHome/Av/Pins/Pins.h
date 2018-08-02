@@ -18,9 +18,11 @@ EXCEPTION(PinTypeNotSupported);
 EXCEPTION(PinSmartTypeNotSupported);
 EXCEPTION(PinUriError);
 EXCEPTION(PinNothingToPlay);
+EXCEPTION(PinMissingRequiredParameter);
 
 namespace OpenHome {
     class WriterJsonObject;
+    class Uri;
     namespace Configuration {
         class IStoreReadWrite;
     }
@@ -263,15 +265,24 @@ public:
     ~PinUri();
     const Brx& Mode() const;
     const Brx& Type() const ;
-    const Brx& SubType() const;
-    const Brx& Value() const;
-    const Brx& Genre() const;
+    TBool TryGetValue(const TChar* aKey, Brn& aValue) const;
+    TBool TryGetValue(const Brx& aKey, Brn& aValue) const;
 private:
     Bwh iMode;
     Bwh iType;
-    Bwh iSubType;
-    Bwh iValue;
-    Bwh iGenre;
+    OpenHome::Uri* iUri;
+    std::vector<std::pair<Brn, Brn>> iQueryKvps;
+};
+
+class PinMetadata
+{
+public:
+    static void GetDidlLite(const IPin& aPin, Bwx& aDidlLite);
+private:
+    static void TryAppend(Bwx& aDidlLite, const TChar* aStr);
+    static void TryAppend(Bwx& aDidlLite, const Brx& aBuf);
+    static void TryAddTag(Bwx& aDidlLite, const Brx& aDidlTag, const Brx& aNs, const Brx& aRole, const Brx& aValue);
+    static void TryAddAttribute(Bwx& aDidlLite, const TChar* aValue, const TChar* aDidlAttr);
 };
 
 } // namespace Av

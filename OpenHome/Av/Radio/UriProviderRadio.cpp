@@ -141,7 +141,8 @@ void UriProviderRadio::MoveTo(const Brx& aCommand)
     }
 
     Parser parser(aCommand);
-    Brn buf = parser.Next('=');
+    parser.Next('=');
+    Brn buf = parser.NextToEnd();
     TUint id = IPresetDatabaseReader::kPresetIdNone;
     try {
         id = Ascii::Uint(buf);

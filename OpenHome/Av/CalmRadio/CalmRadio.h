@@ -16,6 +16,7 @@ namespace Av {
 
 class CalmRadio : public ICredentialConsumer
 {
+    friend class CalmRadioPins;
     static const TUint kReadBufferBytes = 4 * 1024;
     static const TUint kWriteBufferBytes = 1024;
     static const TUint kConnectTimeoutMs = 10000; // FIXME - should read this + ProtocolNetwork's equivalent from a single client-changable location

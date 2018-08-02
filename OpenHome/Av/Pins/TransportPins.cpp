@@ -18,6 +18,9 @@ static const TChar* kPinModeTransport = "transport";
 // Pin types
 static const TChar* kPinTypeSource = "source";
 
+// Pin params
+static const TChar* kPinKeySourceSystemName = "id";
+
 TransportPins::TransportPins(DvDeviceStandard& aDevice, CpStack& aCpStack)
     : iLock("IPIN")
     , iCpStack(aCpStack)
@@ -40,7 +43,13 @@ void TransportPins::Invoke(const IPin& aPin)
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTransport)) {
         if (Brn(pin.Type()) == Brn(kPinTypeSource)) { 
-            res = SelectLocalInput(pin.Value());
+            Brn sourceSystemName;
+            if (pin.TryGetValue(kPinKeySourceSystemName, sourceSystemName)) {
+                res = SelectLocalInput(sourceSystemName);
+            }
+            else {
+                THROW(PinMissingRequiredParameter);
+            }
         }
         else {
             THROW(PinTypeNotSupported);

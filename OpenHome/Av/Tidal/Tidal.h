@@ -45,7 +45,9 @@ public:
     TBool TryLogout(const Brx& aSessionId);
     TBool TryGetId(WriterBwh& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType);
     TBool TryGetIds(WriterBwh& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aMaxAlbumsPerResponse);
+    TBool TryGetIdsByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse);
     TBool TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset);
+    TBool TryGetTracksByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
     const Brx& Id() const override;
@@ -59,8 +61,8 @@ private:
     TBool TryLoginLocked(Bwx& aSessionId);
     TBool TryLogoutLocked(const Brx& aSessionId);
     TBool TryGetSubscriptionLocked();
-    TBool TryGetResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset);
-    void WriteRequestHeaders(const Brx& aMethod, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
+    TBool TryGetResponse(WriterBwh& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset);
+    void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
     static Brn ReadInt(ReaderUntil& aReader, const Brx& aTag);
     static Brn ReadString(ReaderUntil& aReader, const Brx& aTag);
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);

@@ -15,6 +15,7 @@
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Protocol/Icy.h>
+#include <OpenHome/Av/CalmRadio/CalmRadioPins.h>
 
 namespace OpenHome {
 namespace Av {
@@ -26,7 +27,7 @@ class ProtocolCalmRadio : public Media::ProtocolNetwork
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
     static const TUint kMaxUserAgentBytes = 64;
 public:
-    ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, Credentials& aCredentialsManager);
+    ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, Credentials& aCredentialsManager, Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable);
     ~ProtocolCalmRadio();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -55,6 +56,7 @@ private:
     TBool IsCurrentStream(TUint aStreamId) const;
 private:
     CalmRadio* iCalm;
+    CalmRadioPins* iPins;
     Media::SupplyAggregator* iSupply;
     Uri iUri;
     Media::BwsTrackUri iUriBase;
@@ -97,14 +99,15 @@ using namespace OpenHome::Configuration;
 
 Protocol* ProtocolFactory::NewCalmRadio(Environment& aEnv, const Brx& aUserAgent, Av::IMediaPlayer& aMediaPlayer)
 { // static
-    return new ProtocolCalmRadio(aEnv, aUserAgent, aMediaPlayer.CredentialsManager());
+    return new ProtocolCalmRadio(aEnv, aUserAgent, aMediaPlayer.CredentialsManager(), aMediaPlayer.Device(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable());
 }
 
 
 // ProtocolCalmRadio
 
-ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, Credentials& aCredentialsManager)
+ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, Credentials& aCredentialsManager, Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable)
     : ProtocolNetwork(aEnv)
+    , iPins(nullptr)
     , iSupply(nullptr)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
@@ -126,6 +129,11 @@ ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, C
 
     iCalm = new CalmRadio(aEnv, aCredentialsManager, aUserAgent);
     aCredentialsManager.Add(iCalm);
+
+    if (aPinsInvocable.Ok()) {
+        iPins = new CalmRadioPins(*iCalm, aDevice, aCpStack);
+        aPinsInvocable.Unwrap().Add(iPins);
+    }
 }
 
 ProtocolCalmRadio::~ProtocolCalmRadio()

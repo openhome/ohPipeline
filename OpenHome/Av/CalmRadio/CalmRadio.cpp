@@ -164,7 +164,9 @@ void CalmRadio::Login(Bwx& aToken)
         aToken.Replace(token);
     }
     else {
-        (void)TryLoginLocked(aToken);
+        if (!TryLoginLocked(aToken)) {
+            THROW(CredentialsLoginFailed);
+        }
     }
 }
 
@@ -172,7 +174,9 @@ void CalmRadio::ReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
 {
     AutoMutex _(iLock);
     if (iToken.Buffer() == aCurrentToken) {
-        (void)TryLoginLocked(aNewToken);
+        if (!TryLoginLocked(aNewToken)) {
+            THROW(CredentialsLoginFailed);
+        }
     }
 }
 

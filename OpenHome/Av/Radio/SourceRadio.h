@@ -7,6 +7,8 @@
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
 #include <OpenHome/Av/Pins/PodcastPins.h>
+#include <OpenHome/Av/Radio/TuneInPins.h>
+#include <OpenHome/Av/Radio/RadioPins.h>
 
 namespace OpenHome {
     class Environment;
@@ -89,6 +91,8 @@ private:
     RadioPresetsTuneIn* iTuneIn;
     Media::Track* iTrack;
     Av::PodcastPinsLatestEpisode* iPodcastPins;
+    Av::TuneInPins* iTuneInPins;
+    Av::RadioPins* iRadioPins;
     TUint iTrackPosSeconds;
     TUint iStreamId;
     TBool iLive;

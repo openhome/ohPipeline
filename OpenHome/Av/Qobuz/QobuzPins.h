@@ -25,7 +25,7 @@ class QobuzPins
     : public IPinInvoker
 {
     static const TUint kTrackLimitPerRequest = 10;
-    static const TUint kMaxAlbumsPerSmartType = 15;
+    static const TUint kMaxAlbums = 25;
     static const TUint kJsonResponseChunks = 4 * 1024;
 public:
     QobuzPins(Qobuz& aQobuz, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, TUint aMaxTracks = ITrackDatabase::kMaxTracks);
@@ -54,6 +54,8 @@ private:
     TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TUint aPlaylistId);
     TBool LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType, TBool aShuffle);
     TBool LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType, TBool aShuffle);
+    TBool LoadTracksByPath(const Brx& aPath, TBool aShuffle);
+    TBool LoadAlbumsByPath(const Brx& aPath, TBool aShuffle);
     TBool IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aType);
     TBool IsValidGenreId(const Brx& aRequest);
     void InitPlaylist(TBool aShuffle);

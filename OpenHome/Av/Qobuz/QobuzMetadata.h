@@ -55,6 +55,7 @@ public:
         eSmartBestSellers,
         eSmartAwardWinning,
         eSmartMostFeatured,
+        ePath, // workaround for now to use path url supplied by control point
     };
 public:
     QobuzMetadata(OpenHome::Media::TrackFactory& aTrackFactory);

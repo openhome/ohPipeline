@@ -29,9 +29,21 @@ static const TChar* kPinModeQobuz = "qobuz";
 // Pin types
 static const TChar* kPinTypeArtist = "artist";
 static const TChar* kPinTypeAlbum = "album";
-static const TChar* kPinTypePlaylist = "pls";
+static const TChar* kPinTypePlaylist = "playlist";
 static const TChar* kPinTypeSmart = "smart";
 static const TChar* kPinTypeTrack = "track";
+
+// Pin params
+static const TChar* kPinKeyId = "id";
+static const TChar* kPinKeyTrackId = "trackId";
+static const TChar* kPinKeyPath = "path";
+static const TChar* kPinKeyResponseType = "response";
+static const TChar* kPinKeySmartType = "smartType";
+static const TChar* kPinKeyGenre = "genre";
+
+// Pin response types
+static const TChar* kPinResponseTracks = "tracks";
+static const TChar* kPinResponseAlbums = "albums";
 
 // Pin smart types
 static const TChar* kSmartTypeAwardWinning = "awards";
@@ -43,7 +55,7 @@ static const TChar* kSmartTypeMostStreamed = "moststreamed";
 static const TChar* kSmartTypeNew = "new";
 static const TChar* kSmartTypePurchased = "purchased";
 static const TChar* kSmartTypeRecommended = "recommended";
-static const TChar* kSmartTypeSavedPlaylist = "savedpls";
+static const TChar* kSmartTypeSavedPlaylist = "savedplaylist";
 
 QobuzPins::QobuzPins(Qobuz& aQobuz, DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, TUint aMaxTracks)
     : iLock("QPIN")
@@ -70,21 +82,96 @@ void QobuzPins::Invoke(const IPin& aPin)
     if (Brn(pin.Mode()) == Brn(kPinModeQobuz)) {
         Bwh token(128);
         iQobuz.Login(token);
-        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) { res = LoadTracksByArtist(pin.Value(), aPin.Shuffle()); }
-        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) { res = LoadTracksByAlbum(pin.Value(), aPin.Shuffle()); }
-        else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) { res = LoadTracksByTrack(pin.Value(), aPin.Shuffle()); }
-        else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) { res = LoadTracksByPlaylist(pin.Value(), aPin.Shuffle()); }
+        Brn id;
+        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) {
+            if (pin.TryGetValue(kPinKeyId, id)) {
+                res = LoadTracksByArtist(id, aPin.Shuffle());
+            }
+            else if (pin.TryGetValue(kPinKeyPath, id)) {
+                Brn response(Brx::Empty());
+                pin.TryGetValue(kPinKeyResponseType, response);
+                if (response == Brn(kPinResponseTracks)) {
+                    res = LoadTracksByPath(id, aPin.Shuffle());
+                }
+                else if (response == Brn(kPinResponseAlbums)) {
+                    res = LoadAlbumsByPath(id, aPin.Shuffle());
+                }
+                else {
+                    THROW(PinMissingRequiredParameter);
+                }
+            }
+            else {
+                THROW(PinMissingRequiredParameter);
+            }
+        }
+        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) {
+            if (pin.TryGetValue(kPinKeyId, id)) {
+                res = LoadTracksByAlbum(id, aPin.Shuffle());
+            }
+            else if (pin.TryGetValue(kPinKeyPath, id)) {
+                Brn response(Brx::Empty());
+                pin.TryGetValue(kPinKeyResponseType, response);
+                if (response == Brn(kPinResponseTracks)) {
+                    res = LoadTracksByPath(id, aPin.Shuffle());
+                }
+                else if (response == Brn(kPinResponseAlbums)) {
+                    res = LoadAlbumsByPath(id, aPin.Shuffle());
+                }
+                else {
+                    THROW(PinMissingRequiredParameter);
+                }
+            }
+            else {
+                THROW(PinMissingRequiredParameter);
+            }
+        }
+        else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) {
+            if (pin.TryGetValue(kPinKeyTrackId, id)) {
+                res = LoadTracksByTrack(id, aPin.Shuffle());
+            }
+            else {
+                THROW(PinMissingRequiredParameter);
+            }
+        }
+        else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) {
+            if (pin.TryGetValue(kPinKeyId, id)) {
+                res = LoadTracksByPlaylist(id, aPin.Shuffle());
+            }
+            else if (pin.TryGetValue(kPinKeyPath, id)) {
+                Brn response(Brx::Empty());
+                pin.TryGetValue(kPinKeyResponseType, response);
+                if (response == Brn(kPinResponseTracks)) {
+                    res = LoadTracksByPath(id, aPin.Shuffle());
+                }
+                else if (response == Brn(kPinResponseAlbums)) {
+                    res = LoadAlbumsByPath(id, aPin.Shuffle());
+                }
+                else {
+                    THROW(PinMissingRequiredParameter);
+                }
+            }
+            else {
+                THROW(PinMissingRequiredParameter);
+            }
+        }
         else if (Brn(pin.Type()) == Brn(kPinTypeSmart)) {
-            if (Brn(pin.Value()) == Brn(kSmartTypeNew)) { res = LoadTracksByNew(pin.Genre(), aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(pin.Genre(), aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeMostStreamed)) { res = LoadTracksByMostStreamed(pin.Genre(), aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeBestSellers)) { res = LoadTracksByBestSellers(pin.Genre(), aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeAwardWinning)) { res = LoadTracksByAwardWinning(pin.Genre(), aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeMostFeatured)) { res = LoadTracksByMostFeatured(pin.Genre(), aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeFavorites)) { res = LoadTracksByFavorites(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypePurchased)) { res = LoadTracksByPurchased(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeCollection)) { res = LoadTracksByCollection(aPin.Shuffle()); }
-            else if (Brn(pin.Value()) == Brn(kSmartTypeSavedPlaylist)) { res = LoadTracksBySavedPlaylist(aPin.Shuffle()); }
+            Brn smartType;
+            if (!pin.TryGetValue(kPinKeySmartType, smartType)) {
+                THROW(PinMissingRequiredParameter);
+            }
+            Brn genre(QobuzMetadata::kGenreNone);
+            pin.TryGetValue(kPinKeyGenre, genre);
+
+            if (smartType == Brn(kSmartTypeNew)) { res = LoadTracksByNew(genre, aPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(genre, aPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeMostStreamed)) { res = LoadTracksByMostStreamed(genre, aPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeBestSellers)) { res = LoadTracksByBestSellers(genre, aPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeAwardWinning)) { res = LoadTracksByAwardWinning(genre, aPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeMostFeatured)) { res = LoadTracksByMostFeatured(genre, aPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeFavorites)) { res = LoadTracksByFavorites(aPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypePurchased)) { res = LoadTracksByPurchased(aPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeCollection)) { res = LoadTracksByCollection(aPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeSavedPlaylist)) { res = LoadTracksBySavedPlaylist(aPin.Shuffle()); }
             else {
                 THROW(PinSmartTypeNotSupported);
             }
@@ -179,7 +266,7 @@ TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType
     JsonParser parser;
     InitPlaylist(aShuffle);
     Bwh inputBuf(64);
-    Bwh albumIds[kMaxAlbumsPerSmartType];
+    Bwh albumIds[kMaxAlbums];
     TBool tracksFound = false;
 
     try {
@@ -204,7 +291,7 @@ TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType
 
         // request tracks from smart types (returned as list of albums - place an arbitrary limit on the number of albums to return for now)
         iJsonResponse.Reset();
-        TBool success = iQobuz.TryGetIds(iJsonResponse, inputBuf, aType, kMaxAlbumsPerSmartType); // send request to Qobuz
+        TBool success = iQobuz.TryGetIds(iJsonResponse, inputBuf, aType, kMaxAlbums); // send request to Qobuz
         if (!success) {
             return false;
         }
@@ -222,7 +309,7 @@ TBool QobuzPins::LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType
                 auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
                 JsonParser parserItem;
                 try {
-                    for (TUint i = 0; i < kMaxAlbumsPerSmartType; i++) {
+                    for (TUint i = 0; i < kMaxAlbums; i++) {
                         parserItem.Parse(parserItems.NextObject());
                         albumIds[i].Grow(20);
                         albumIds[i].ReplaceThrow(parserItem.String(Brn("id"))); // parse response from Qobuz
@@ -316,6 +403,100 @@ TBool QobuzPins::LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aTy
     return lastId;
 }
 
+TBool QobuzPins::LoadTracksByPath(const Brx& aPath, TBool aShuffle)
+{
+    AutoMutex _(iLock);
+    TUint lastId = 0;
+    InitPlaylist(aShuffle);
+    TBool tracksFound = false;
+
+    try {
+        if (aPath.Bytes() == 0) {
+            return false;
+        }
+        try {
+            lastId = LoadTracksById(aPath, QobuzMetadata::ePath, lastId);
+            tracksFound = true;
+        }
+        catch (PinNothingToPlay&) {
+        }
+    }   
+    catch (Exception& ex) {
+        LOG_ERROR(kMedia, "%s in QobuzPins::LoadTracksByPath\n", ex.Message());
+        return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
+    }
+
+    return lastId;
+}
+
+TBool QobuzPins::LoadAlbumsByPath(const Brx& aPath, TBool aShuffle)
+{
+    AutoMutex _(iLock);
+    JsonParser parser;
+    InitPlaylist(aShuffle);
+    Bwh albumIds[kMaxAlbums];
+    TUint lastId = 0;
+    TBool tracksFound = false;
+
+    try {
+        // request favorite albums (returned as list - place an arbitrary limit on the number of albums to return for now)
+        iJsonResponse.Reset();
+        TBool success = iQobuz.TryGetIdsByRequest(iJsonResponse, aPath, kMaxAlbums); // send request to Qobuz
+        if (!success) {
+            return false;
+        }
+        
+        // response is list of albums, so need to loop through albums
+        parser.Reset();
+        parser.Parse(iJsonResponse.Buffer());
+        TUint idCount = 0;
+        if (parser.HasKey(Brn("albums"))) { 
+            parser.Parse(parser.String(Brn("albums")));
+        }
+        if (parser.HasKey(Brn("items"))) {
+            TUint albums = parser.Num(Brn("total"));
+            if (albums != 0) {
+                auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
+                JsonParser parserItem;
+                try {
+                    for (TUint i = 0; i < kMaxAlbums; i++) {
+                        parserItem.Parse(parserItems.NextObject());
+                        albumIds[i].Grow(20);
+                        albumIds[i].ReplaceThrow(parserItem.String(Brn("id"))); // parse response from Qobuz
+                        idCount++;
+                        if (albumIds[i].Bytes() == 0) {
+                            return false;
+                        }
+                    }
+                }
+                catch (JsonArrayEnumerationComplete&) {}
+                for (TUint j = 0; j < idCount; j++) {
+                    try {
+                        lastId = LoadTracksById(albumIds[j], QobuzMetadata::eAlbum, lastId);
+                        tracksFound = true;
+                    }
+                    catch (PinNothingToPlay&) {
+                    }
+                } 
+            } 
+        }
+    }   
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in QobuzPins::LoadTracksByFavorites\n", ex.Message());
+        return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
+    }
+
+    return true;
+}
+
 TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TUint aPlaylistId)
 {
     QobuzMetadata qm(iTrackFactory);
@@ -332,7 +513,13 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TU
     while (offset < total) {
         try {
             iJsonResponse.Reset();
-            TBool success = iQobuz.TryGetTracksById(iJsonResponse, aId, aType, kTrackLimitPerRequest, offset);
+            TBool success = false;
+            if (aType == QobuzMetadata::ePath) {
+                success = iQobuz.TryGetTracksByRequest(iJsonResponse, aId, kTrackLimitPerRequest, offset);
+            }
+            else {
+                success = iQobuz.TryGetTracksById(iJsonResponse, aId, aType, kTrackLimitPerRequest, offset);
+            }
             if (!success) {
                 return false;
             }

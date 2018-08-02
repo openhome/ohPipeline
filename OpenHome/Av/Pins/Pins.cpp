@@ -8,6 +8,7 @@
 #include <OpenHome/Configuration/IStore.h>
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Private/Uri.h>
+#include <OpenHome/Private/Converter.h>
 
 #include <algorithm>
 #include <iterator>
@@ -669,44 +670,32 @@ const Pin& PinsManager::PinFromId(TUint aId) const
     }
 }
 
-// <mode>://<type>?<subtype>=<value>[&genre=<genreFilter>][&version=1]
-// <subtype> = 'id' or 'trackId' or anything (not checked)
-// <value> = <smartType> if <type> = 'smart', otherwise id or text string
-// <genreFilter> = OPTIONAL genre ID for 'smart' type filtering (qobuz only)
-// version is not currently checked
+// <mode>://<type>?<key>=<value>[&<key>=<value>]...
 
 PinUri::PinUri(const IPin& aPin)
-    : iMode(256)
-    , iType(256)
-    , iSubType(256)
-    , iValue(256)
-    , iGenre(256)
+    : iMode(64)
+    , iType(64)
 {
-    OpenHome::Uri req(aPin.Uri());
-    iMode.Replace(req.Scheme());
-    iType.Replace(req.Host());
-    OpenHome::Parser parser(req.Query());
+    iUri = new Uri(aPin.Uri());
+    iMode.Replace(iUri->Scheme());
+    iType.Replace(iUri->Host());
+    OpenHome::Parser parser(iUri->Query());
     parser.Next('?');
+    iQueryKvps.clear();
     while (!parser.Finished()) {
         Brn entry(parser.Next('&'));
         if (entry.Bytes() > 0) {
             OpenHome::Parser pe(entry);
-            Brn left(pe.Next('='));
-            Brn right(pe.Remaining());
-            if (left == Brn("genre")) {
-                iGenre.Replace(right);
-            }
-            else if (left != Brn("version")) {
-                iSubType.Replace(left);
-                iValue.Replace(right);
-            }
+            Brn key(pe.Next('='));
+            Brn val(pe.Remaining());
+            iQueryKvps.push_back(std::pair<Brn, Brn>(key, val));
         }
     }
 }
 
-
 PinUri::~PinUri()
 {
+    delete iUri;
 }
 
 const Brx& PinUri::Mode() const
@@ -719,17 +708,88 @@ const Brx& PinUri::Type() const
     return iType;
 }
 
-const Brx& PinUri::SubType() const
+TBool PinUri::TryGetValue(const TChar* aKey, Brn& aValue) const
 {
-    return iSubType;
+    return TryGetValue(Brn(aKey), aValue);
 }
 
-const Brx& PinUri::Value() const
+TBool PinUri::TryGetValue(const Brx& aKey, Brn& aValue) const
 {
-    return iValue;
+    for (auto kvp : iQueryKvps) {
+        if (kvp.first == aKey) {
+            aValue.Set(kvp.second);
+            return true;
+        }
+    }
+    return false;
 }
 
-const Brx& PinUri::Genre() const
+static const Brn kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
+static const Brn kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
+
+void PinMetadata::GetDidlLite(const IPin& aPin, Bwx& aDidlLite)
 {
-    return iGenre;
+    aDidlLite.ReplaceThrow(Brx::Empty());
+
+    TryAppend(aDidlLite, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+    TryAppend(aDidlLite, "<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
+    TryAppend(aDidlLite, "<item id=\"");
+    Ascii::AppendDec(aDidlLite, aPin.Id());;
+    TryAppend(aDidlLite, "\" parentID=\"-1\" restricted=\"1\">");
+    TryAppend(aDidlLite, ">");
+    TryAddTag(aDidlLite, Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), aPin.ArtworkUri());
+    TryAddTag(aDidlLite, Brn("upnp:class"), kNsUpnp, Brx::Empty(), Brn("object.item.audioItem.musicTrack"));
+    TryAddTag(aDidlLite, Brn("dc:title"), kNsDc, Brx::Empty(), aPin.Title());
+    TryAddTag(aDidlLite, Brn("dc:description"), kNsDc, Brx::Empty(), aPin.Description());
+    TryAppend(aDidlLite, "<res");
+    TryAddAttribute(aDidlLite, "http-get:*:*:*", "protocolInfo");
+    TryAppend(aDidlLite, ">");
+    if (aPin.Uri().Bytes() > 0) {
+        WriterBuffer writer(aDidlLite);
+        Converter::ToXmlEscaped(writer, aPin.Uri());
+    }
+    TryAppend(aDidlLite, "</res>");
+    TryAppend(aDidlLite, "</item>");
+    TryAppend(aDidlLite, "</DIDL-Lite>");
+}
+
+void PinMetadata::TryAppend(Bwx& aDidlLite, const TChar* aStr)
+{
+    Brn buf(aStr);
+    TryAppend(aDidlLite, buf);
+}
+
+void PinMetadata::TryAppend(Bwx& aDidlLite, const Brx& aBuf)
+{
+    if (!aDidlLite.TryAppend(aBuf)) {
+        THROW(BufferOverflow);
+    }
+}
+
+void PinMetadata::TryAddTag(Bwx& aDidlLite, const Brx& aDidlTag, const Brx& aNs, const Brx& aRole, const Brx& aValue)
+{
+    TryAppend(aDidlLite, "<");
+    TryAppend(aDidlLite, aDidlTag);
+    TryAppend(aDidlLite, " xmlns:");
+    TryAppend(aDidlLite, aNs);
+    if (aRole.Bytes() > 0) {
+        TryAppend(aDidlLite, " role=\"");
+        TryAppend(aDidlLite, aRole);
+        TryAppend(aDidlLite, "\"");
+    }
+    TryAppend(aDidlLite, ">");
+    WriterBuffer writer(aDidlLite);
+    Converter::ToXmlEscaped(writer, aValue);
+    TryAppend(aDidlLite, "</");
+    TryAppend(aDidlLite, aDidlTag);
+    TryAppend(aDidlLite, ">");
+}
+
+void PinMetadata::TryAddAttribute(Bwx& aDidlLite, const TChar* aValue, const TChar* aDidlAttr)
+{
+    TryAppend(aDidlLite, " ");
+    TryAppend(aDidlLite, aDidlAttr);
+    TryAppend(aDidlLite, "=\"");
+    TryAppend(aDidlLite, aValue);
+    TryAppend(aDidlLite, "\"");
 }

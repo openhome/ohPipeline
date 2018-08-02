@@ -30,6 +30,9 @@ static const TChar* kPinModeItunesEpisodeList = "ituneslist";
 // Pin types
 static const TChar* kPinTypePodcast = "podcast";
 
+// Pin params
+static const TChar* kPinKeyEpisodeId = "id";
+
 
 const Brn PodcastPins::kPodcastKey("Pins.Podcast");
 const TUint kTimerDurationMs = (1000 * 60 * 60 * 24) - (1000 * 60 * 10); // 23h:50m, anything a bit under 1 day would do
@@ -57,7 +60,13 @@ void PodcastPinsLatestEpisode::Invoke(const IPin& aPin)
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeItunesLatestEpisode)) {
         if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
-            res = iPodcastPins->LoadPodcastLatest(pin.Value(), *this);
+            Brn episodeId;
+            if (pin.TryGetValue(kPinKeyEpisodeId, episodeId)) {
+                res = iPodcastPins->LoadPodcastLatest(episodeId, *this);
+            }
+            else {
+                THROW(PinMissingRequiredParameter);
+            }
         }
         else {
             THROW(PinTypeNotSupported);
@@ -116,7 +125,13 @@ void PodcastPinsEpisodeList::Invoke(const IPin& aPin)
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeItunesEpisodeList)) {
         if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
-            res = iPodcastPins->LoadPodcastList(pin.Value(), *this, aPin.Shuffle());
+            Brn episodeId;
+            if (pin.TryGetValue(kPinKeyEpisodeId, episodeId)) {
+                res = iPodcastPins->LoadPodcastList(episodeId, *this, aPin.Shuffle());
+            }
+            else {
+                THROW(PinMissingRequiredParameter);
+            }
         }
         else {
             THROW(PinTypeNotSupported);

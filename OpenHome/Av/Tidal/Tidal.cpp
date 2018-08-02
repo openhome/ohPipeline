@@ -25,7 +25,7 @@ using namespace OpenHome::Configuration;
 static const TChar* kSoundQualities[3] = {"LOW", "HIGH", "LOSSLESS"};
 static const TUint kNumSoundQualities = sizeof(kSoundQualities) / sizeof(kSoundQualities[0]);
 
-const Brn Tidal::kHost("api.tidalhifi.com");
+const Brn Tidal::kHost("api.tidal.com");
 const Brn Tidal::kId("tidalhifi.com");
 const Brn Tidal::kConfigKeySoundQuality("tidalhifi.com.SoundQuality");
 
@@ -99,7 +99,7 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
     iLockConfig.Signal();
     Brn url;
     try {
-        WriteRequestHeaders(Http::kMethodGet, pathAndQuery, kPort);
+        WriteRequestHeaders(Http::kMethodGet, kHost, pathAndQuery, kPort);
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
@@ -141,7 +141,7 @@ TBool Tidal::TryGetId(WriterBwh& aWriter, const Brx& aQuery, TidalMetadata::EIdT
     pathAndQuery.Append("&types=");
     pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
 
-    return TryGetResponse(aWriter, pathAndQuery, 1, 0);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, 1, 0);
 }
 
 TBool Tidal::TryGetIds(WriterBwh& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
@@ -176,7 +176,16 @@ TBool Tidal::TryGetIds(WriterBwh& aWriter, const Brx& aMood, TidalMetadata::EIdT
         pathAndQuery.Append(Brn("/albums?order=NAME&orderDirection=ASC"));
     }
 
-    return TryGetResponse(aWriter, pathAndQuery, aMaxAlbumsPerResponse, 0);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, aMaxAlbumsPerResponse, 0);
+}
+
+TBool Tidal::TryGetIdsByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse)
+{
+    Bwh uri(1024);
+    Uri::Unescape(uri, aRequestUrl);
+    Uri request(uri);
+    Bws<kMaxPathAndQueryBytes> pathAndQuery(request.PathAndQuery());
+    return TryGetResponse(aWriter, request.Host(), pathAndQuery, aMaxAlbumsPerResponse, 0);
 }
 
 TBool Tidal::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset)
@@ -215,10 +224,19 @@ TBool Tidal::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata:
         case TidalMetadata::eTrack: pathAndQuery.Append(Brn("?")); break;
     }
 
-    return TryGetResponse(aWriter, pathAndQuery, aLimit, aOffset);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimit, aOffset);
 }
 
-TBool Tidal::TryGetResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset)
+TBool Tidal::TryGetTracksByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset)
+{
+    Bwh uri(1024);
+    Uri::Unescape(uri, aRequestUrl);
+    Uri request(uri);
+    Bws<kMaxPathAndQueryBytes> pathAndQuery(request.PathAndQuery());
+    return TryGetResponse(aWriter, request.Host(), pathAndQuery, aLimit, aOffset);
+}
+
+TBool Tidal::TryGetResponse(WriterBwh& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset)
 {
     AutoMutex _(iLock);
     TBool success = false;
@@ -227,17 +245,25 @@ TBool Tidal::TryGetResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit
         return false;
     }
     AutoSocketSsl __(iSocket);
+    if (!Ascii::Contains(aPathAndQuery, '?')) {
+        aPathAndQuery.Append("?");
+    }
     aPathAndQuery.Append("&limit=");
     Ascii::AppendDec(aPathAndQuery, aLimit);
     aPathAndQuery.Append("&offset=");
     Ascii::AppendDec(aPathAndQuery, aOffset);
-    aPathAndQuery.Append("&sessionId=");
-    aPathAndQuery.Append(iSessionId);
-    aPathAndQuery.Append("&countryCode=");
-    aPathAndQuery.Append(iCountryCode);
+    if (!Ascii::Contains(aPathAndQuery, Brn("sessionId"))) {
+        aPathAndQuery.Append("&sessionId=");
+        aPathAndQuery.Append(iSessionId);
+    }
+    if (!Ascii::Contains(aPathAndQuery, Brn("countryCode"))) {
+        aPathAndQuery.Append("&countryCode=");
+        aPathAndQuery.Append(iCountryCode);
+    }
+    
     try {
-        LOG(kMedia, "Write Tidal request: http://%.*s%.*s\n", PBUF(kHost), PBUF(aPathAndQuery));
-        WriteRequestHeaders(Http::kMethodGet, aPathAndQuery, kPort);
+        LOG(kMedia, "Write Tidal request: http://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
+        WriteRequestHeaders(Http::kMethodGet, aHost, aPathAndQuery, kPort);
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
@@ -378,7 +404,7 @@ TBool Tidal::TryLoginLocked()
         Bws<128> pathAndQuery("/v1/login/username?token=");
         pathAndQuery.Append(iToken);
         try {
-            WriteRequestHeaders(Http::kMethodPost, pathAndQuery, kPort, reqBody.Bytes());
+            WriteRequestHeaders(Http::kMethodPost, kHost, pathAndQuery, kPort, reqBody.Bytes());
             iWriterBuf.Write(reqBody);
             iWriterBuf.WriteFlush();
 
@@ -447,7 +473,7 @@ TBool Tidal::TryLogoutLocked(const Brx& aSessionId)
     Bws<128> pathAndQuery("/v1/logout?sessionId=");
     pathAndQuery.Append(aSessionId);
     try {
-        WriteRequestHeaders(Http::kMethodPost, pathAndQuery, kPort);
+        WriteRequestHeaders(Http::kMethodPost, kHost, pathAndQuery, kPort);
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
@@ -490,7 +516,7 @@ TBool Tidal::TryGetSubscriptionLocked()
     pathAndQuery.Append(iSessionId);
 
     try {
-        WriteRequestHeaders(Http::kMethodGet, pathAndQuery, kPort, 0);
+        WriteRequestHeaders(Http::kMethodGet, kHost, pathAndQuery, kPort, 0);
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
@@ -536,10 +562,10 @@ TBool Tidal::TryGetSubscriptionLocked()
     return success;
 }
 
-void Tidal::WriteRequestHeaders(const Brx& aMethod, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength)
+void Tidal::WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength)
 {
     iWriterRequest.WriteMethod(aMethod, aPathAndQuery, Http::eHttp11);
-    Http::WriteHeaderHostAndPort(iWriterRequest, kHost, aPort);
+    Http::WriteHeaderHostAndPort(iWriterRequest, aHost, aPort);
     if (aContentLength > 0) {
         Http::WriteHeaderContentLength(iWriterRequest, aContentLength);
     }

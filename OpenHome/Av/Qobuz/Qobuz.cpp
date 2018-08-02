@@ -123,7 +123,7 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
     iPathAndQuery.Append("&intent=stream");
 
     try {
-        const TUint code = WriteRequestReadResponse(Http::kMethodGet, iPathAndQuery);
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery);
         if (code != 200) {
             LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetStreamUrl.\n", code);
             LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
@@ -162,7 +162,7 @@ TBool Qobuz::TryGetId(WriterBwh& aWriter, const Brx& aQuery, QobuzMetadata::EIdT
     iPathAndQuery.Append("/search?query=");
     Uri::Escape(iPathAndQuery, aQuery);
 
-    return TryGetResponse(aWriter, 1, 0); // return top hit
+    return TryGetResponse(aWriter, kHost, 1, 0); // return top hit
 }
 
 TBool Qobuz::TryGetIds(WriterBwh& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
@@ -189,7 +189,16 @@ TBool Qobuz::TryGetIds(WriterBwh& aWriter, const Brx& aGenre, QobuzMetadata::EId
         iPathAndQuery.Append(aGenre);
     }
 
-    return TryGetResponse(aWriter, aMaxAlbumsPerResponse, 0);
+    return TryGetResponse(aWriter, kHost, aMaxAlbumsPerResponse, 0);
+}
+
+TBool Qobuz::TryGetIdsByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse)
+{
+    Bwh uri(1024);
+    Uri::Unescape(uri, aRequestUrl);
+    Uri request(uri);
+    iPathAndQuery.Replace(request.PathAndQuery());
+    return TryGetResponse(aWriter, request.Host(), aMaxAlbumsPerResponse, 0);
 }
 
 TBool Qobuz::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset)
@@ -223,7 +232,7 @@ TBool Qobuz::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, QobuzMetadata:
         }
     }
 
-    return TryGetResponse(aWriter, aLimit, aOffset);
+    return TryGetResponse(aWriter, kHost, aLimit, aOffset);
 }
 
 TBool Qobuz::TryGetGenreList(WriterBwh& aWriter)
@@ -231,10 +240,19 @@ TBool Qobuz::TryGetGenreList(WriterBwh& aWriter)
     iPathAndQuery.Replace(kVersionAndFormat);
     iPathAndQuery.Append("genre/list?");
 
-    return TryGetResponse(aWriter, 50, 0);
+    return TryGetResponse(aWriter, kHost, 50, 0);
 }
 
-TBool Qobuz::TryGetResponse(WriterBwh& aWriter, TUint aLimit, TUint aOffset)
+TBool Qobuz::TryGetTracksByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset)
+{
+    Bwh uri(1024);
+    Uri::Unescape(uri, aRequestUrl);
+    Uri request(uri);
+    iPathAndQuery.Replace(request.PathAndQuery());
+    return TryGetResponse(aWriter, request.Host(), aLimit, aOffset);
+}
+
+TBool Qobuz::TryGetResponse(WriterBwh& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset)
 {
     AutoMutex _(iLock);
     TBool success = false;
@@ -243,17 +261,24 @@ TBool Qobuz::TryGetResponse(WriterBwh& aWriter, TUint aLimit, TUint aOffset)
         return false;
     }
     AutoSocketReader __(iSocket, iReaderUntil2);
+    if (!Ascii::Contains(iPathAndQuery, '?')) {
+        iPathAndQuery.Append("?");
+    }
     iPathAndQuery.Append("&limit=");
     Ascii::AppendDec(iPathAndQuery, aLimit);
     iPathAndQuery.Append("&offset=");
     Ascii::AppendDec(iPathAndQuery, aOffset);
-    iPathAndQuery.Append("&app_id=");
-    iPathAndQuery.Append(iAppId);
-    iPathAndQuery.Append("&user_auth_token=");
-    iPathAndQuery.Append(iAuthToken);
+    if (!Ascii::Contains(iPathAndQuery, Brn("app_id"))) {
+        iPathAndQuery.Append("&app_id=");
+        iPathAndQuery.Append(iAppId);
+    }
+    if (!Ascii::Contains(iPathAndQuery, Brn("user_auth_token"))) {
+        iPathAndQuery.Append("&user_auth_token=");
+        iPathAndQuery.Append(iAuthToken);
+    }
     try {
-        LOG(kMedia, "Write Qobuz request: http://%.*s%.*s\n", PBUF(kHost), PBUF(iPathAndQuery));
-        const TUint code = WriteRequestReadResponse(Http::kMethodGet, iPathAndQuery);
+        LOG(kMedia, "Write Qobuz request: http://%.*s%.*s\n", PBUF(aHost), PBUF(iPathAndQuery));
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery);
         if (code != 200) {
             LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetResponse.\n", code);
             LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
@@ -384,7 +409,7 @@ TBool Qobuz::TryLoginLocked()
     iLockConfig.Signal();
 
     try {
-        const TUint code = WriteRequestReadResponse(Http::kMethodGet, iPathAndQuery);
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery);
         if (code != 200) {
             Bws<kMaxStatusBytes> status;
             TUint len = std::min(status.MaxBytes(), iHeaderContentLength.ContentLength());
@@ -434,10 +459,10 @@ TBool Qobuz::TryLoginLocked()
     return success;
 }
 
-TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aPathAndQuery)
+TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery)
 {
     iWriterRequest.WriteMethod(aMethod, aPathAndQuery, Http::eHttp11);
-    Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
+    Http::WriteHeaderHostAndPort(iWriterRequest, aHost, kPort);
     Http::WriteHeaderConnectionClose(iWriterRequest);
     iWriterRequest.WriteFlush();
     iReaderResponse.Read();
