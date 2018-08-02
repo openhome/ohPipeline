@@ -17,6 +17,7 @@ EXCEPTION(PinModeNotSupported);
 EXCEPTION(PinTypeNotSupported);
 EXCEPTION(PinSmartTypeNotSupported);
 EXCEPTION(PinUriError);
+EXCEPTION(PinNothingToPlay);
 
 namespace OpenHome {
     class WriterJsonObject;

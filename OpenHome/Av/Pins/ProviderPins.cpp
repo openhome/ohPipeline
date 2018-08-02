@@ -8,6 +8,7 @@
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Timer.h>
+#include <OpenHome/Av/Credentials.h>
 
 #include <vector>
 
@@ -21,6 +22,10 @@ static const TUint kCodeIdNotFound = 802;
 static const Brn kMsgIdNotFound("Pin id not found");
 static const TUint kCodeModeNotSupported = 803;
 static const Brn kMsgModeNotSupported("Pin mode not supported");
+static const TUint kCodeLoginFailed = 804;
+static const Brn kMsgLoginRequired("Login required");
+static const TUint kCodeNothingToPlay = 805;
+static const Brn kMsgNothingToPlay("Nothing to Play");
 
 const TUint ProviderPins::kModerationMs = 50;
 
@@ -213,6 +218,12 @@ void ProviderPins::InvokeId(IDvInvocation& aInvocation, TUint aId)
     catch (PinModeNotSupported&) {
         aInvocation.Error(kCodeModeNotSupported, kMsgModeNotSupported);
     }
+    catch (CredentialsLoginFailed&) {
+        aInvocation.Error(kCodeLoginFailed, kMsgLoginRequired);
+    }
+    catch (PinNothingToPlay&) {
+        aInvocation.Error(kCodeNothingToPlay, kMsgNothingToPlay);
+    }
 
     aInvocation.StartResponse();
     aInvocation.EndResponse();
@@ -229,6 +240,12 @@ void ProviderPins::InvokeIndex(Net::IDvInvocation& aInvocation, TUint aIndex)
     catch (PinModeNotSupported&) {
         aInvocation.Error(kCodeModeNotSupported, kMsgModeNotSupported);
     }
+    catch (CredentialsLoginFailed&) {
+        aInvocation.Error(kCodeLoginFailed, kMsgLoginRequired);
+    }
+    catch (PinNothingToPlay&) {
+        aInvocation.Error(kCodeNothingToPlay, kMsgNothingToPlay);
+    }
 
     aInvocation.StartResponse();
     aInvocation.EndResponse();
@@ -241,6 +258,12 @@ void ProviderPins::InvokeUri(IDvInvocation& aInvocation, const Brx& aMode, const
     }
     catch (PinModeNotSupported&) {
         aInvocation.Error(kCodeModeNotSupported, kMsgModeNotSupported);
+    }
+    catch (CredentialsLoginFailed&) {
+        aInvocation.Error(kCodeLoginFailed, kMsgLoginRequired);
+    }
+    catch (PinNothingToPlay&) {
+        aInvocation.Error(kCodeNothingToPlay, kMsgNothingToPlay);
     }
 
     aInvocation.StartResponse();
