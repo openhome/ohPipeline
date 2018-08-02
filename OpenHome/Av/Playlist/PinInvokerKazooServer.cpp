@@ -152,7 +152,6 @@ PinInvokerKazooServer::PinInvokerKazooServer(Environment& aEnv,
                                              DvDevice& aDevice,
                                              IThreadPool& aThreadPool)
     : iEnv(aEnv)
-    , iCpStack(aCpStack)
     , iReaderBuf(iSocket)
     , iReaderUntil1(iReaderBuf)
     , iWriterBuf(iSocket)

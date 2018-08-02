@@ -91,7 +91,6 @@ private:
     static const TChar* OhMetadataKey(TUint aKsTag);
 private:
     Environment & iEnv;
-    Net::CpStack& iCpStack;
     IThreadPoolHandle* iThreadPoolHandle;
     DeviceListKazooServer* iDeviceList;
     Net::CpDeviceDv* iCpDeviceSelf;
