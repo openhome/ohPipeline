@@ -38,6 +38,7 @@ class QobuzMetadata : private OpenHome::INonCopyable
 public:
     static const OpenHome::Brn kIdTypeSmart;
     static const OpenHome::Brn kIdTypeUserSpecific;
+    static const OpenHome::Brn kIdTypePath;
     static const OpenHome::Brn kGenreNone;
     enum EIdType {
         eArtist,

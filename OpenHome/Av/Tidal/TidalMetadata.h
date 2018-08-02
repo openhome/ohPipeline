@@ -42,6 +42,7 @@ class TidalMetadata : private OpenHome::INonCopyable
 public:
     static const OpenHome::Brn kIdTypeSmart;
     static const OpenHome::Brn kIdTypeUserSpecific;
+    static const OpenHome::Brn kIdTypePath;
     enum EIdType {
         eArtist,
         eAlbum,

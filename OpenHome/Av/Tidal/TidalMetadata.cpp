@@ -82,6 +82,7 @@ const Brn TidalMetadata::kSmartTypeRising("rising/new");
 const Brn TidalMetadata::kSmartTypeDiscovery("discovery/new");
 const Brn TidalMetadata::kIdTypeSmart("smart");
 const Brn TidalMetadata::kIdTypeUserSpecific("users");
+const Brn TidalMetadata::kIdTypePath("linnpath");
 
 TidalMetadata::TidalMetadata(Media::TrackFactory& aTrackFactory)
     : iTrackFactory(aTrackFactory)
@@ -382,6 +383,7 @@ const Brx& TidalMetadata::IdTypeToString(EIdType aType)
         case eSmartExclusive: return kSmartTypeExclusive;
         case eSmartRising: return kSmartTypeRising;
         case eSmartDiscovery: return kSmartTypeDiscovery;
+        case ePath: return kIdTypePath;
     }
     return Brx::Empty();
 }

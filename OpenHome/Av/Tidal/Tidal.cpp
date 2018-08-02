@@ -222,6 +222,7 @@ TBool Tidal::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata:
         case TidalMetadata::eSavedPlaylist:
         case TidalMetadata::ePlaylist: pathAndQuery.Append(Brn("/items?order=INDEX&orderDirection=ASC")); break;
         case TidalMetadata::eTrack: pathAndQuery.Append(Brn("?")); break;
+        case TidalMetadata::ePath: break;
     }
 
     return TryGetResponse(aWriter, kHost, pathAndQuery, aLimit, aOffset);

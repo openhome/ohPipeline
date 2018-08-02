@@ -60,6 +60,7 @@ const Brn QobuzMetadata::kSmartTypeAwardWinning("album");
 const Brn QobuzMetadata::kSmartTypeMostFeatured("album");
 const Brn QobuzMetadata::kIdTypeSmart("smart");
 const Brn QobuzMetadata::kIdTypeUserSpecific("users");
+const Brn QobuzMetadata::kIdTypePath("linnpath");
 const Brn QobuzMetadata::kGenreNone("none");
 
 QobuzMetadata::QobuzMetadata(Media::TrackFactory& aTrackFactory)
@@ -385,6 +386,7 @@ const Brx& QobuzMetadata::IdTypeToString(EIdType aType)
         case eSmartBestSellers: return kSmartTypeBestSellers;
         case eSmartAwardWinning: return kSmartTypeAwardWinning;
         case eSmartMostFeatured: return kSmartTypeMostFeatured;
+        case ePath: return kIdTypePath;
     }
     return Brx::Empty();
 }
