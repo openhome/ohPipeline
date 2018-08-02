@@ -44,9 +44,9 @@ private:
     void DeviceAdded(Net::CpDevice& aDevice);
     void DeviceRemoved(Net::CpDevice& aDevice);
 private:
+    Environment & iEnv;
     Mutex iLock;
     Semaphore iSemAdded;
-    Environment& iEnv;
     Net::CpDeviceList* iDeviceList;
     std::map<Brn, Net::CpDevice*, BufferCmp> iMap;
     Uri iUri; // only used in GetPropertyServerUri but too large for the stack

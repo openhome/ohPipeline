@@ -5,6 +5,7 @@
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
+#include <string>
 #include <vector>
 #include <utility>
 
