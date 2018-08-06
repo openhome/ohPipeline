@@ -32,8 +32,6 @@ public:
 class ProviderFactory
 {
 public:
-    static IProvider* NewConfiguration(Net::DvDevice& aDevice,
-                                       Configuration::IConfigManager& aConfigManager);
     static IProvider* NewConfigApp(Net::DvDevice& aDevice,
                                    Configuration::IConfigManager& aConfigManager,
                                    Configuration::IConfigObservable& aConfigObservable,
