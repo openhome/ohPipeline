@@ -9,7 +9,6 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Configuration/ConfigManager.h>
-#include <OpenHome/Configuration/ProviderConfig.h>
 #include <OpenHome/Configuration/Tests/ConfigRamStore.h>
 
 #include <stdlib.h>
