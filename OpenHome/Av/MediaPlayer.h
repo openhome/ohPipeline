@@ -40,6 +40,7 @@ namespace Configuration {
     class IStoreReadWrite;
     class ConfigText;
     class ConfigChoice;
+    class ProviderConfig;
     class ProviderConfigApp;
 }
 namespace Av {
@@ -199,6 +200,7 @@ private:
     ProviderInfo* iProviderInfo;
     ProviderTransport* iProviderTransport;
     Av::TransportRepeatRandom iTransportRepeatRandom;
+    Configuration::ProviderConfig* iProviderConfig;
     Configuration::ProviderConfigApp* iProviderConfigApp;
     LoggerBuffered* iLoggerBuffered;
     IUnixTimestamp* iUnixTimestamp;

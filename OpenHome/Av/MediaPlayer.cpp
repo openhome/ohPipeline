@@ -18,6 +18,7 @@
 #include <OpenHome/Av/Songcast/ZoneHandler.h>
 #include <OpenHome/Configuration/IStore.h>
 #include <OpenHome/Configuration/ConfigManager.h>
+#include <OpenHome/Configuration/ProviderConfig.h>
 #include <OpenHome/Configuration/ProviderConfigApp.h>
 #include <OpenHome/Av/Credentials.h>
 #include <OpenHome/Media/MimeTypeList.h>
@@ -164,6 +165,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     iProduct->AddAttribute("Time");
     iProviderInfo = new ProviderInfo(aDevice, *iPipeline);
     iProduct->AddAttribute("Info");
+    iProviderConfig = new ProviderConfig(aDevice, *iConfigManager);
     iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
     iProduct->AddAttribute("Transport");
     if (iProviderConfigApp != nullptr) {
@@ -198,6 +200,7 @@ MediaPlayer::~MediaPlayer()
     delete iVolumeManager;
     delete iVolumeConfig;
     delete iProviderTransport;
+    delete iProviderConfig;
     delete iProviderTime;
     delete iProviderInfo;
     delete iConfigAutoPlay;
