@@ -246,25 +246,24 @@ TUint Product::CurrentSourceIndex() const
     return iCurrentSource;
 }
 
-void Product::GetSourceXml(Bwx& aXml)
+void Product::GetSourceXml(IWriter& aWriter)
 {
-    WriterBuffer writer(aXml);
-    writer.Write(Brn("<SourceList>"));
+    aWriter.Write(Brn("<SourceList>"));
     iLock.Wait();
     for (TUint i=0; i<iSources.size(); i++) {
         ISource* src = iSources[i];
         Bws<ISource::kMaxSourceNameBytes> name;
         src->Name(name);
-        writer.Write(Brn("<Source>"));
-        AppendTag(writer, "Name", name);
-        AppendTag(writer, "Type", src->Type());
-        AppendTag(writer, "Visible", src->IsVisible()? Brn("true") : Brn("false"));
-        AppendTag(writer, "SystemName", src->SystemName());
-        writer.Write(Brn("</Source>"));
+        aWriter.Write(Brn("<Source>"));
+        AppendTag(aWriter, "Name", name);
+        AppendTag(aWriter, "Type", src->Type());
+        AppendTag(aWriter, "Visible", src->IsVisible()? Brn("true") : Brn("false"));
+        AppendTag(aWriter, "SystemName", src->SystemName());
+        aWriter.Write(Brn("</Source>"));
     }
     iLock.Signal();
-    writer.Write(Brn("</SourceList>"));
-    writer.WriteFlush();
+    aWriter.Write(Brn("</SourceList>"));
+    aWriter.WriteFlush();
 }
 
 void Product::AppendTag(IWriter& aWriter, const TChar* aTag, const Brx& aValue)

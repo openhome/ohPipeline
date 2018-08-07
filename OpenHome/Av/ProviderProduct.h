@@ -6,6 +6,7 @@
 #include <Generated/DvAvOpenhomeOrgProduct2.h>
 #include <OpenHome/Net/Core/DvInvocationResponse.h>
 #include <OpenHome/Av/Product.h>
+#include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
 
 namespace OpenHome {
@@ -55,7 +56,7 @@ private:
     Av::Product& iProduct;
     IPowerManager& iPowerManager;
     Mutex iLock;
-    Bws<Product::kMaxSourceXmlBytes> iSourceXml;
+    WriterBwh iSourceXml;
     IStandbyObserver* iStandbyObserver;
     Bws<Product::kMaxAttributeBytes> iAttributes;
 };

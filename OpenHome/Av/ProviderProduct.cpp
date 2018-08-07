@@ -16,6 +16,7 @@ ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, 
     , iProduct(aProduct)
     , iPowerManager(aPowerManager)
     , iLock("PrPr")
+    , iSourceXml(4 * 1024)
 {
     EnablePropertyManufacturerName();
     EnablePropertyManufacturerInfo();
@@ -193,7 +194,7 @@ void ProviderProduct::SourceCount(IDvInvocation& aInvocation, IDvInvocationRespo
 void ProviderProduct::SourceXml(IDvInvocation& aInvocation, IDvInvocationResponseString& aValue)
 {
     aInvocation.StartResponse();
-    aValue.Write(iSourceXml);
+    aValue.Write(iSourceXml.Buffer());
     aValue.WriteFlush();
     aInvocation.EndResponse();
 }
@@ -324,9 +325,9 @@ void ProviderProduct::SourceIndexChanged()
 void ProviderProduct::SourceXmlChanged()
 {
     iLock.Wait();
-    iSourceXml.SetBytes(0);
+    iSourceXml.Reset();
     iProduct.GetSourceXml(iSourceXml);
-    SetPropertySourceXml(iSourceXml);
+    SetPropertySourceXml(iSourceXml.Buffer());
     iLock.Signal();
 }
 

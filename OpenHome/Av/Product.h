@@ -103,7 +103,6 @@ public:
     static const TUint kMaxNameBytes = 20;
     static const TUint kMinRoomBytes = 1;
     static const TUint kMaxRoomBytes = 40;
-    static const TUint kMaxSourceXmlBytes = 1024 * 3;
     static const TUint kMaxUriBytes = 128;
     static const TUint kMaxAttributeBytes = 1024;
 public:
@@ -124,7 +123,7 @@ public:
     void GetProductDetails(Bwx& aRoom, Bwx& aName, Brn& aInfo, Bwx& aImageUri);
     TUint SourceCount() const;
     TUint CurrentSourceIndex() const;
-    void GetSourceXml(Bwx& aXml);
+    void GetSourceXml(IWriter& aWriter);
     void SetCurrentSource(TUint aIndex);
     void SetCurrentSourceBySystemName(const Brx& aSystemName);
     void SetCurrentSourceByName(const Brx& aName);
