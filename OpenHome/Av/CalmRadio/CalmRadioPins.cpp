@@ -39,8 +39,9 @@ CalmRadioPins::~CalmRadioPins()
     delete iCpRadio;
 }
 
-void CalmRadioPins::Invoke(const IPin& aPin)
+void CalmRadioPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeCalmRadio)) {
@@ -71,6 +72,10 @@ void CalmRadioPins::Invoke(const IPin& aPin)
             THROW(PinInvokeError);
         }
     }
+}
+
+void CalmRadioPins::Cancel()
+{
 }
 
 const TChar* CalmRadioPins::Mode() const

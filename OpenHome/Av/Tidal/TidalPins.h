@@ -49,7 +49,8 @@ private:
     TBool LoadTracksBySavedPlaylist(TBool aShuffle); // user's most recently created/updated tidal playlists
 
 private: // from IPinInvoker
-    void Invoke(const IPin& aPin) override;
+    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
+    void Cancel() override;
     const TChar* Mode() const override;
 private:
     TUint LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType, TUint aPlaylistId);

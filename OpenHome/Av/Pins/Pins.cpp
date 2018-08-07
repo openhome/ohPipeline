@@ -1,6 +1,7 @@
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Functor.h>
 #include <OpenHome/Json.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Stream.h>
@@ -416,16 +417,26 @@ inline IPinsAccount& PinsManager::AccountSetter()
 PinsManager::PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevice)
     : iLock("Pin1")
     , iLockInvoke("Pin2")
+    , iLockInvoker("Pin3")
+    , iSemInvokerComplete("Pin4", 1)
     , iPinsDevice(aMaxDevice, iIdProvider, aStore, "Dv")
     , iPinsAccount(0, iIdProvider, aStore, "Ac")
     , iObserver(nullptr)
     , iAccountSetter(nullptr)
     , iInvoke(iIdProvider)
+    , iCurrent(nullptr)
 {
 }
 
 PinsManager::~PinsManager()
 {
+    {
+        AutoMutex __(iLockInvoker);
+        if (iCurrent != nullptr) {
+            iCurrent->Cancel();
+        }
+    }
+    iSemInvokerComplete.Wait();
     for (auto kvp : iInvokers) {
         delete kvp.second;
     }
@@ -548,28 +559,17 @@ void PinsManager::WriteJson(IWriter& aWriter, const std::vector<TUint>& aIds)
 void PinsManager::InvokeId(TUint aId)
 {
     AutoMutex _(iLockInvoke);
-    IPinInvoker* invoker = nullptr;
     {
         AutoMutex __(iLock);
         const auto& pin = PinFromId(aId);
         iInvoke.Copy(pin);
-        Brn mode(iInvoke.Mode());
-        if (mode.Bytes() == 0) {
-            THROW(PinModeNotSupported);
-        }
-        auto it = iInvokers.find(mode);
-        if (it == iInvokers.end()) {
-            THROW(PinModeNotSupported);
-        }
-        invoker = it->second;
     }
-    invoker->Invoke(iInvoke);
+    BeginInvoke();
 }
 
 void PinsManager::InvokeIndex(TUint aIndex)
 {
     AutoMutex _(iLockInvoke);
-    IPinInvoker* invoker = nullptr;
     {
         AutoMutex __(iLock);
         if (IsAccountIndex(aIndex)) {
@@ -581,7 +581,23 @@ void PinsManager::InvokeIndex(TUint aIndex)
             const auto& pin = iPinsDevice.PinFromIndex(aIndex);
             iInvoke.Copy(pin);
         }
+    }
+    BeginInvoke();
+}
 
+void PinsManager::InvokeUri(const Brx& aMode, const Brx& aType, const Brx& aUri, TBool aShuffle)
+{
+    AutoMutex _(iLockInvoke);
+    Pin pin(iIdProvider);
+    (void)iInvoke.TryUpdate(aMode, aType, aUri, Brx::Empty(), Brx::Empty(), Brx::Empty(), aShuffle);
+    BeginInvoke();
+}
+
+void PinsManager::BeginInvoke()
+{
+    IPinInvoker* invoker = nullptr;
+    {
+        AutoMutex _(iLock);
         Brn mode(iInvoke.Mode());
         if (mode.Bytes() == 0) {
             THROW(PinModeNotSupported);
@@ -592,29 +608,23 @@ void PinsManager::InvokeIndex(TUint aIndex)
         }
         invoker = it->second;
     }
-    invoker->Invoke(iInvoke);
+    {
+        AutoMutex __(iLockInvoker);
+        if (iCurrent != nullptr) {
+            iCurrent->Cancel();
+        }
+    }
+    iSemInvokerComplete.Wait();
+    iCurrent = invoker;
+    Functor complete = MakeFunctor(*this, &PinsManager::NotifyInvocationCompleted);
+    iCurrent->BeginInvoke(iInvoke, complete);
 }
 
-void PinsManager::InvokeUri(const Brx& aMode, const Brx& aType, const Brx& aUri, TBool aShuffle)
+void PinsManager::NotifyInvocationCompleted()
 {
-    Pin pin(iIdProvider);
-    (void)pin.TryUpdate(aMode, aType, aUri, Brx::Empty(), Brx::Empty(), Brx::Empty(), aShuffle);
-
-    AutoMutex _(iLockInvoke);
-    IPinInvoker* invoker = nullptr;
-    {
-        AutoMutex __(iLock);
-        Brn mode(aMode);
-        if (mode.Bytes() == 0) {
-            THROW(PinModeNotSupported);
-        }
-        auto it = iInvokers.find(mode);
-        if (it == iInvokers.end()) {
-            THROW(PinModeNotSupported);
-        }
-        invoker = it->second;
-    }
-    invoker->Invoke(pin);
+    AutoMutex __(iLockInvoker);
+    iCurrent = nullptr;
+    iSemInvokerComplete.Signal();
 }
 
 void PinsManager::NotifySettable(TBool aSettable)

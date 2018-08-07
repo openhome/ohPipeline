@@ -75,8 +75,9 @@ QobuzPins::~QobuzPins()
     delete iCpPlaylist;
 }
 
-void QobuzPins::Invoke(const IPin& aPin)
+void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeQobuz)) {
@@ -183,6 +184,10 @@ void QobuzPins::Invoke(const IPin& aPin)
             THROW(PinInvokeError);
         }
     }
+}
+
+void QobuzPins::Cancel()
+{
 }
 
 const TChar* QobuzPins::Mode() const

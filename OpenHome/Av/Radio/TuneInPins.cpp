@@ -39,8 +39,9 @@ TuneInPins::~TuneInPins()
     delete iCpRadio;
 }
 
-void TuneInPins::Invoke(const IPin& aPin)
+void TuneInPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTuneIn)) {
@@ -69,6 +70,10 @@ void TuneInPins::Invoke(const IPin& aPin)
             THROW(PinInvokeError);
         }
     }
+}
+
+void TuneInPins::Cancel()
+{
 }
 
 const TChar* TuneInPins::Mode() const

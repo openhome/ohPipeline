@@ -37,8 +37,9 @@ TransportPins::~TransportPins()
     delete iCpTransport;
 }
 
-void TransportPins::Invoke(const IPin& aPin)
+void TransportPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTransport)) {
@@ -58,6 +59,10 @@ void TransportPins::Invoke(const IPin& aPin)
             THROW(PinInvokeError);
         }
     }
+}
+
+void TransportPins::Cancel()
+{
 }
 
 const TChar* TransportPins::Mode() const

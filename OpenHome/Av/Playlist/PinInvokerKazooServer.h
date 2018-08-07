@@ -73,7 +73,8 @@ public:
                           IThreadPool& aThreadPool);
     ~PinInvokerKazooServer();
 private: // from IPinInvoker
-    void Invoke(const IPin& aPin) override;
+    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
+    void Cancel() override;
     const TChar* Mode() const override;
 private:
     Brn FromQuery(const TChar* aKey) const;

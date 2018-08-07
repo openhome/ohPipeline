@@ -48,7 +48,8 @@ private:
     TBool LoadTracksByMostFeatured(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: most featured) by genre (optional id)
 
 private: // from IPinInvoker
-    void Invoke(const IPin& aPin) override;
+    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
+    void Cancel() override;
     const TChar* Mode() const override;
 private:
     TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TUint aPlaylistId);

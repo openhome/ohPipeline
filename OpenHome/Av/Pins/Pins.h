@@ -3,6 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
+#include <OpenHome/Functor.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
 
@@ -193,7 +194,9 @@ class IPinInvoker
 {
 public:
     virtual ~IPinInvoker() {}
-    virtual void Invoke(const IPin& aPin) = 0;
+    virtual void BeginInvoke(const IPin& aPin, Functor aCompleted) = 0;
+    virtual void Cancel() = 0; // will only be called on an in-progress invocation
+                               // (BeginInvoke returned but its Completed callback not yet called or returned)
     virtual const TChar* Mode() const = 0;
 };
 
@@ -246,9 +249,13 @@ private:
     TUint AccountFromCombinedIndex(TUint aCombinedIndex) const;
     const Pin& PinFromId(TUint aId) const;
     inline IPinsAccount& AccountSetter();
+    void BeginInvoke();
+    void NotifyInvocationCompleted();
 private:
     Mutex iLock;
     Mutex iLockInvoke;
+    Mutex iLockInvoker;
+    Semaphore iSemInvokerComplete;
     PinIdProvider iIdProvider;
     PinSet iPinsDevice;
     PinSet iPinsAccount;
@@ -256,6 +263,7 @@ private:
     IPinsAccount* iAccountSetter;
     std::map<Brn, IPinInvoker*, BufferCmp> iInvokers;
     Pin iInvoke;
+    IPinInvoker* iCurrent;
 };
 
 class PinUri

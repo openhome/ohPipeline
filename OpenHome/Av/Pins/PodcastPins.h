@@ -225,7 +225,8 @@ private:  // from IPodcastTransportHandler
     virtual void Play() override;
     virtual TBool SingleShot() override;
 private: // from IPinInvoker
-    void Invoke(const IPin& aPin) override;
+    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
+    void Cancel() override;
     const TChar* Mode() const override;
 private:
     PodcastPins* iPodcastPins;
@@ -245,9 +246,9 @@ private:  // from IPodcastTransportHandler
     virtual void Play() override;
     virtual TBool SingleShot() override;
 private: // from IPinInvoker
-    void Invoke(const IPin& aPin) override;
+    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
+    void Cancel() override;
     const TChar* Mode() const override;
-    
 private:
     PodcastPins* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;

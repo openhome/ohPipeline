@@ -16,7 +16,8 @@ public:
     PinInvokerPlaylist(ITrackDatabase& aTrackDatabase,
                        IPlaylistLoader& aPlaylistLoader);
 private: // from IPinInvoker
-    void Invoke(const IPin& aPin) override;
+    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
+    void Cancel() override;
     const TChar* Mode() const override;
 private:
     ITrackDatabase& iTrackDatabase;

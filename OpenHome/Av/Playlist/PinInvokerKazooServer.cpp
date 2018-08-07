@@ -181,8 +181,9 @@ PinInvokerKazooServer::~PinInvokerKazooServer()
     iCpDeviceSelf->RemoveRef();
 }
 
-void PinInvokerKazooServer::Invoke(const IPin& aPin)
+void PinInvokerKazooServer::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     if (aPin.Mode() != Brn(kMode)) {
         return;
     }
@@ -209,7 +210,14 @@ void PinInvokerKazooServer::Invoke(const IPin& aPin)
     Bws<128> psUri;
     iDeviceList->GetPropertyServerUri(iUdn, psUri, 5000);
     iEndpointUri.Replace(psUri);
+    iSocket.Interrupt(false);
+    iSocket.Open(iEnv);
     (void)iThreadPoolHandle->TrySchedule();
+}
+
+void PinInvokerKazooServer::Cancel()
+{
+    iSocket.Interrupt(true);
 }
 
 const TChar* PinInvokerKazooServer::Mode() const
@@ -236,7 +244,6 @@ Brn PinInvokerKazooServer::FromQuery(const TChar* aKey) const
 
 void PinInvokerKazooServer::ReadFromServer()
 {
-    iSocket.Open(iEnv);
     AutoSocketReader _(iSocket, iReaderUntil2);
     Endpoint ep(iEndpointUri.Port(), iEndpointUri.Host());
     iSocket.Connect(ep, kConnectTimeoutMs);

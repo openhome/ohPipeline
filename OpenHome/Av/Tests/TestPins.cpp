@@ -96,7 +96,8 @@ public:
 public: // from IPinInvoker
     const TChar* Mode() const override;
 private: // from IPinInvoker
-    void Invoke(const IPin& aPin) override;
+    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
+    void Cancel() override;
 private:
     const TChar* iMode;
     TUint iInvocationCount;
@@ -625,10 +626,15 @@ TUint DummyPinInvoker::InvocationCount() const
     return iInvocationCount;
 }
 
-void DummyPinInvoker::Invoke(const IPin& aPin)
+void DummyPinInvoker::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
     TEST(aPin.Mode() == Brn(iMode));
     iInvocationCount++;
+    aCompleted();
+}
+
+void DummyPinInvoker::Cancel()
+{
 }
 
 

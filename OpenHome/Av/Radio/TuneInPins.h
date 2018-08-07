@@ -24,7 +24,8 @@ public:
     ~TuneInPins();
 
 private: // from IPinInvoker
-    void Invoke(const IPin& aPin) override;
+    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
+    void Cancel() override;
     const TChar* Mode() const override;
 private:
     TBool LoadStream(const Brx& aStream, const IPin& aPin); // playable stream (tunein url)

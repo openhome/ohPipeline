@@ -25,7 +25,8 @@ public:
     ~RadioPins();
 
 private: // from IPinInvoker
-    void Invoke(const IPin& aPin) override;
+    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
+    void Cancel() override;
     const TChar* Mode() const override;
 private:
     TBool LoadPreset(TUint aPreset);

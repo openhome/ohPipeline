@@ -18,8 +18,9 @@ PinInvokerPlaylist::PinInvokerPlaylist(ITrackDatabase& aTrackDatabase,
 {
 }
 
-void PinInvokerPlaylist::Invoke(const IPin& aPin)
+void PinInvokerPlaylist::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     iUri.Replace(aPin.Uri());
     const Brx& scheme = iUri.Scheme();
     if (scheme != Brn("playlist")) {
@@ -39,6 +40,10 @@ void PinInvokerPlaylist::Invoke(const IPin& aPin)
     Brn id = query.Split(3); // remainder of query after "id="
     iTrackDatabase.DeleteAll();
     iLoader.LoadPlaylist(id, ITrackDatabase::kTrackIdNone);
+}
+
+void PinInvokerPlaylist::Cancel()
+{
 }
 
 const TChar* PinInvokerPlaylist::Mode() const

@@ -35,8 +35,9 @@ RadioPins::~RadioPins()
     delete iCpTransport;
 }
 
-void RadioPins::Invoke(const IPin& aPin)
+void RadioPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeRadio)) {
@@ -56,6 +57,10 @@ void RadioPins::Invoke(const IPin& aPin)
             THROW(PinInvokeError);
         }
     }
+}
+
+void RadioPins::Cancel()
+{
 }
 
 const TChar* RadioPins::Mode() const

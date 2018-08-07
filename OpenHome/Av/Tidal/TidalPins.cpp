@@ -82,8 +82,9 @@ TidalPins::~TidalPins()
     delete iCpPlaylist;
 }
 
-void TidalPins::Invoke(const IPin& aPin)
+void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTidal)) {
@@ -215,6 +216,10 @@ void TidalPins::Invoke(const IPin& aPin)
             THROW(PinInvokeError);
         }
     }
+}
+
+void TidalPins::Cancel()
+{
 }
 
 const TChar* TidalPins::Mode() const
