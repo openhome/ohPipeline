@@ -61,6 +61,7 @@ private: // from IPinInvoker
     const TChar* Mode() const override;
 private:
     TUint LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType, TUint aPlaylistId);
+    TBool LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle);
     TBool LoadTracksBySmartType(TidalMetadata::EIdType aType, TBool aShuffle);
     TBool LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aType, TBool aShuffle);
     TBool LoadTracksByPath(const Brx& aPath, TBool aShuffle);

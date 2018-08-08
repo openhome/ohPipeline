@@ -32,6 +32,7 @@ static const TChar* kPinTypeAlbum = "album";
 static const TChar* kPinTypePlaylist = "playlist";
 static const TChar* kPinTypeSmart = "smart";
 static const TChar* kPinTypeTrack = "track";
+static const TChar* kPinTypeContainer = "container";
 
 // Pin params
 static const TChar* kPinKeyId = "id";
@@ -78,90 +79,68 @@ QobuzPins::~QobuzPins()
 void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
     AutoFunctor _(aCompleted);
-    PinUri pin(aPin);
+    PinUri pinUri(aPin);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeQobuz)) {
+    if (Brn(pinUri.Mode()) == Brn(kPinModeQobuz)) {
         Bwh token(128);
         iQobuz.Login(token);
         Brn id;
-        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) {
-            if (pin.TryGetValue(kPinKeyId, id)) {
+        if (Brn(pinUri.Type()) == Brn(kPinTypeArtist)) {
+            if (pinUri.TryGetValue(kPinKeyId, id)) {
                 res = LoadTracksByArtist(id, aPin.Shuffle());
             }
-            else if (pin.TryGetValue(kPinKeyPath, id)) {
-                Brn response(Brx::Empty());
-                pin.TryGetValue(kPinKeyResponseType, response);
-                if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, aPin.Shuffle());
-                }
-                else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, aPin.Shuffle());
-                }
-                else {
-                    THROW(PinMissingRequiredParameter);
-                }
+            else if (pinUri.TryGetValue(kPinKeyPath, id)) {
+                res = LoadByPath(id, pinUri, aPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) {
-            if (pin.TryGetValue(kPinKeyId, id)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeAlbum)) {
+            if (pinUri.TryGetValue(kPinKeyId, id)) {
                 res = LoadTracksByAlbum(id, aPin.Shuffle());
             }
-            else if (pin.TryGetValue(kPinKeyPath, id)) {
-                Brn response(Brx::Empty());
-                pin.TryGetValue(kPinKeyResponseType, response);
-                if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, aPin.Shuffle());
-                }
-                else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, aPin.Shuffle());
-                }
-                else {
-                    THROW(PinMissingRequiredParameter);
-                }
+            else if (pinUri.TryGetValue(kPinKeyPath, id)) {
+                res = LoadByPath(id, pinUri, aPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) {
-            if (pin.TryGetValue(kPinKeyTrackId, id)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeTrack)) {
+            if (pinUri.TryGetValue(kPinKeyTrackId, id)) {
                 res = LoadTracksByTrack(id, aPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) {
-            if (pin.TryGetValue(kPinKeyId, id)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypePlaylist)) {
+            if (pinUri.TryGetValue(kPinKeyId, id)) {
                 res = LoadTracksByPlaylist(id, aPin.Shuffle());
             }
-            else if (pin.TryGetValue(kPinKeyPath, id)) {
-                Brn response(Brx::Empty());
-                pin.TryGetValue(kPinKeyResponseType, response);
-                if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, aPin.Shuffle());
-                }
-                else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, aPin.Shuffle());
-                }
-                else {
-                    THROW(PinMissingRequiredParameter);
-                }
+            else if (pinUri.TryGetValue(kPinKeyPath, id)) {
+                res = LoadByPath(id, pinUri, aPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeSmart)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeContainer)) {
+            if (pinUri.TryGetValue(kPinKeyPath, id)) {
+                res = LoadByPath(id, pinUri, aPin.Shuffle());
+            }
+            else {
+                THROW(PinMissingRequiredParameter);
+            }
+        }
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeSmart)) {
             Brn smartType;
-            if (!pin.TryGetValue(kPinKeySmartType, smartType)) {
+            if (!pinUri.TryGetValue(kPinKeySmartType, smartType)) {
                 THROW(PinMissingRequiredParameter);
             }
             Brn genre(QobuzMetadata::kGenreNone);
-            pin.TryGetValue(kPinKeyGenre, genre);
+            pinUri.TryGetValue(kPinKeyGenre, genre);
 
             if (smartType == Brn(kSmartTypeNew)) { res = LoadTracksByNew(genre, aPin.Shuffle()); }
             else if (smartType == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(genre, aPin.Shuffle()); }
@@ -193,6 +172,23 @@ void QobuzPins::Cancel()
 const TChar* QobuzPins::Mode() const
 {
     return kPinModeQobuz;
+}
+
+TBool QobuzPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle)
+{
+    TBool res = false;
+    Brn response(Brx::Empty());
+    aPinUri.TryGetValue(kPinKeyResponseType, response);
+    if (response == Brn(kPinResponseTracks)) {
+        res = LoadTracksByPath(aPath, aShuffle);
+    }
+    else if (response == Brn(kPinResponseAlbums)) {
+        res = LoadAlbumsByPath(aPath, aShuffle);
+    }
+    else {
+        THROW(PinMissingRequiredParameter);
+    }
+    return res;
 }
 
 TBool QobuzPins::LoadTracksByArtist(const Brx& aArtist, TBool aShuffle)

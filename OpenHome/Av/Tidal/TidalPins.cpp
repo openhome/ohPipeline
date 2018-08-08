@@ -37,6 +37,7 @@ static const TChar* kPinTypeMood = "mood";
 static const TChar* kPinTypePlaylist = "playlist";
 static const TChar* kPinTypeSmart = "smart";
 static const TChar* kPinTypeTrack = "track";
+static const TChar* kPinTypeContainer = "container";
 
 // Pin params
 static const TChar* kPinKeyId = "id";
@@ -126,104 +127,72 @@ void TidalPins::Invoke()
                 res = LoadTracksByArtist(id, iPin.Shuffle());
             }
             else if (pin.TryGetValue(kPinKeyPath, id)) {
-                Brn response(Brx::Empty());
-                pin.TryGetValue(kPinKeyResponseType, response);
-                if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, iPin.Shuffle());
-                }
-                else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, iPin.Shuffle());
-                }
-                else {
-                    THROW(PinMissingRequiredParameter);
-                }
+                res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) {
-            if (pin.TryGetValue(kPinKeyId, id)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeAlbum)) { 
+            if (pinUri.TryGetValue(kPinKeyId, id)) {
                 res = LoadTracksByAlbum(id, iPin.Shuffle());
             }
-            else if (pin.TryGetValue(kPinKeyPath, id)) {
-                Brn response(Brx::Empty());
-                pin.TryGetValue(kPinKeyResponseType, response);
-                if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, iPin.Shuffle());
-                }
-                else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, iPin.Shuffle());
-                }
-                else {
-                    THROW(PinMissingRequiredParameter);
-                }
+            else if (pinUri.TryGetValue(kPinKeyPath, id)) {
+                res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) {
-            if (pin.TryGetValue(kPinKeyTrackId, id)) {
+            if (pinUri.TryGetValue(kPinKeyTrackId, id)) {
                 res = LoadTracksByTrack(id, iPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) {
-            if (pin.TryGetValue(kPinKeyId, id)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypePlaylist)) {
+            if (pinUri.TryGetValue(kPinKeyId, id)) {
                 res = LoadTracksByPlaylist(id, iPin.Shuffle());
             }
-            else if (pin.TryGetValue(kPinKeyPath, id)) {
-                Brn response(Brx::Empty());
-                pin.TryGetValue(kPinKeyResponseType, response);
-                if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, iPin.Shuffle());
-                }
-                else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, iPin.Shuffle());
-                }
-                else {
-                    THROW(PinMissingRequiredParameter);
-                }
+            else if (pinUri.TryGetValue(kPinKeyPath, id)) {
+                res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeGenre)) {
-            if (pin.TryGetValue(kPinKeyId, id)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeContainer)) {
+            if (pinUri.TryGetValue(kPinKeyPath, id)) {
+                res = LoadByPath(id, pinUri, iPin.Shuffle());
+            }
+            else {
+                THROW(PinMissingRequiredParameter);
+            }
+        }
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeGenre)) {
+            if (pinUri.TryGetValue(kPinKeyId, id)) {
                 res = LoadTracksByGenre(id, iPin.Shuffle());
             }
-            else if (pin.TryGetValue(kPinKeyPath, id)) {
-                Brn response(Brx::Empty());
-                pin.TryGetValue(kPinKeyResponseType, response);
-                if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, iPin.Shuffle());
-                }
-                else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, iPin.Shuffle());
-                }
-                else {
-                    THROW(PinMissingRequiredParameter);
-                }
+            else if (pinUri.TryGetValue(kPinKeyPath, id)) {
+                res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeMood)) {
-            if (pin.TryGetValue(kPinKeyId, id)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeMood)) {
+            if (pinUri.TryGetValue(kPinKeyId, id)) {
                 res = LoadTracksByMood(id, iPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeSmart)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeSmart)) {
             Brn smartType;
-            if (!pin.TryGetValue(kPinKeySmartType, smartType)) {
+            if (!pinUri.TryGetValue(kPinKeySmartType, smartType)) {
                 THROW(PinMissingRequiredParameter);
             }
 
@@ -253,6 +222,23 @@ void TidalPins::Invoke()
     if (!res) {
         THROW(PinInvokeError);
     }
+}
+
+TBool TidalPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle)
+{
+    TBool res = false;
+    Brn response(Brx::Empty());
+    aPinUri.TryGetValue(kPinKeyResponseType, response);
+    if (response == Brn(kPinResponseTracks)) {
+        res = LoadTracksByPath(aPath, aShuffle);
+    }
+    else if (response == Brn(kPinResponseAlbums)) {
+        res = LoadAlbumsByPath(aPath, aShuffle);
+    }
+    else {
+        THROW(PinMissingRequiredParameter);
+    }
+    return res;
 }
 
 TBool TidalPins::LoadTracksByArtist(const Brx& aArtist, TBool aShuffle)
