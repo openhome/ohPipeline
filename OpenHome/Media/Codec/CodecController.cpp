@@ -490,9 +490,7 @@ Msg* CodecController::PullMsg()
         ASSERT(iRecognising);
         THROW(CodecRecognitionOutOfData);
     }
-    iLock.Wait();
     msg = msg->Process(*this);
-    iLock.Signal();
     return msg;
 }
 
@@ -1001,31 +999,38 @@ Msg* CodecController::ProcessMsg(MsgHalt* aMsg)
 Msg* CodecController::ProcessMsg(MsgFlush* aMsg)
 {
     ReleaseAudioEncoded();
-    ASSERT(iExpectedFlushId == MsgFlush::kIdInvalid || iExpectedFlushId >= aMsg->Id());
-    if (iRecognising) {
-        iStreamEnded = true;
-        aMsg->RemoveRef();
-        return nullptr;
-    }
-    if (iExpectedFlushId == MsgFlush::kIdInvalid || iExpectedFlushId != aMsg->Id()) {
-        // Return aMsg so that it becomes a pending msg, allowing a codec to flush out any audio that it has buffered before the MsgFlush is pushed down the pipeline.
-        return aMsg;
-    }
-    else {
-        iExpectedFlushId = MsgFlush::kIdInvalid;
-        if (iConsumeExpectedFlush) {
-            iConsumeExpectedFlush = false;
+    TBool queue = false;
+    {
+        AutoMutex _(iLock);
+        ASSERT(iExpectedFlushId == MsgFlush::kIdInvalid || iExpectedFlushId >= aMsg->Id());
+        if (iRecognising) {
+            iStreamEnded = true;
             aMsg->RemoveRef();
+            return nullptr;
         }
-        else if (aMsg->Id() == iExpectedSeekFlushId && iSeekInProgress) {
-            if (iPostSeekFlush != nullptr) {
-                iPostSeekFlush->RemoveRef();
-            }
-            iPostSeekFlush = aMsg;
+        if (iExpectedFlushId == MsgFlush::kIdInvalid || iExpectedFlushId != aMsg->Id()) {
+            // Return aMsg so that it becomes a pending msg, allowing a codec to flush out any audio that it has buffered before the MsgFlush is pushed down the pipeline.
+            return aMsg;
         }
         else {
-            Queue(aMsg);
+            iExpectedFlushId = MsgFlush::kIdInvalid;
+            if (iConsumeExpectedFlush) {
+                iConsumeExpectedFlush = false;
+                aMsg->RemoveRef();
+            }
+            else if (aMsg->Id() == iExpectedSeekFlushId && iSeekInProgress) {
+                if (iPostSeekFlush != nullptr) {
+                    iPostSeekFlush->RemoveRef();
+                }
+                iPostSeekFlush = aMsg;
+            }
+            else {
+                queue = true;
+            }
         }
+    }
+    if (queue) {
+        Queue(aMsg);
     }
     return nullptr;
 }
