@@ -15,8 +15,8 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Av/Pins/Pins.h>
         
-EXCEPTION(ITunesResponseInvalid);
-EXCEPTION(ITunesRequestInvalid);
+EXCEPTION(PodcastProviderResponseInvalid);
+EXCEPTION(IPodcastProviderRequestInvalid);
 
 namespace OpenHome {
     class Environment;
@@ -73,8 +73,7 @@ namespace Av {
         TUint iDuration;
     };
 
-    class ITunes;
-    class ITunesMetadata : private OpenHome::INonCopyable
+    class PodcastMetadata : private OpenHome::INonCopyable
     {
         static const OpenHome::Brn kNsDc;
         static const OpenHome::Brn kNsUpnp;
@@ -82,18 +81,18 @@ namespace Av {
     public:
         static const OpenHome::Brn kMediaTypePodcast;
     public:
-        ITunesMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
+        PodcastMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
         Media::Track* GetNextEpisodeTrack(PodcastInfo& aPodcast, const Brx& aXmlItem);
         const Brx& GetNextEpisodePublishedDate(const Brx& aXmlItem);
         static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse);
     private:
-        void ParseITunesMetadata(PodcastInfo& aPodcast, const OpenHome::Brx& aMetadata);
+        void ParsePodcastMetadata(PodcastInfo& aPodcast, const OpenHome::Brx& aMetadata);
 
         void TryAddAttribute(OpenHome::JsonParser& aParser,
-                             const TChar* aITunesKey, const TChar* aDidlAttr);
+                             const TChar* aKey, const TChar* aDidlAttr);
         void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
 
-        void TryAddTag(OpenHome::JsonParser& aParser, const OpenHome::Brx& aITunesKey,
+        void TryAddTag(OpenHome::JsonParser& aParser, const OpenHome::Brx& aKey,
                        const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs);
         void TryAddTag(const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs,
                        const OpenHome::Brx& aRole, const OpenHome::Brx& aValue);
@@ -105,7 +104,7 @@ namespace Av {
         OpenHome::Media::BwsTrackMetaData iMetaDataDidl;
     };
 
-class ITunes
+class PodcastProvider
 {
     static const TUint kReadBufferBytes = 8 * 1024;
     static const TUint kSingleEpisodesBlockSize = 2; // 1 block is kReadBufferBytes
@@ -117,8 +116,8 @@ class ITunes
     static const TUint kMaxStatusBytes = 512;
     static const TUint kMaxPathAndQueryBytes = 512;
 public:
-    ITunes(Environment& aEnv);
-    ~ITunes();
+    PodcastProvider(Environment& aEnv);
+    ~PodcastProvider();
 
     TBool TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery);
     TBool TryGetPodcastById(WriterBwh& aWriter, const Brx& aId);
@@ -176,9 +175,9 @@ public:
     static PodcastPins* GetInstance(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
     ~PodcastPins();
     void AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObserver); // event describing podcast IDs with new episodes available (compared to last listened stored data)
-    TBool CheckForNewEpisode(const Brx& aQuery); // poll using iTunes id or search string (single episode)
-    TBool LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler); // iTunes id or search string (single episode - radio single)
-    TBool LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle); // iTunes id or search string (episode list - playlist)
+    TBool CheckForNewEpisode(const Brx& aQuery); // poll using podcast id or search string (single episode)
+    TBool LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler); // podcast id or search string (single episode - radio single)
+    TBool LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle); // podcast id or search string (episode list - playlist)
 private:
     PodcastPins(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
 
@@ -197,7 +196,7 @@ private:
 private:
     static PodcastPins* iInstance;
     Mutex iLock;
-    ITunes* iITunes;
+    PodcastProvider* iPodcastProvider;
     WriterBwh iJsonResponse;
     WriterBwh iXmlResponse;
     Media::TrackFactory& iTrackFactory;
