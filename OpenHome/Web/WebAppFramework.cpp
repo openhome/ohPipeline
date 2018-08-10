@@ -1216,6 +1216,7 @@ void HttpSession::Run()
                 iErrorStatus = &HttpStatus::kNotFound;
             }
             iWriterResponse->WriteHeader(version, *iErrorStatus, Brx::Empty());
+            iWriterResponse->WriteFlush();
             // FIXME - serve up some kind of error page in case browser does not display its own?
         }
         else if (!iResponseEnded) {
