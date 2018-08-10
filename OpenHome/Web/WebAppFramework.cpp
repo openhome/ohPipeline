@@ -139,12 +139,13 @@ void FrameworkTabHandler::WriteMessagesLocked(IWriter& aWriter)
     // This writes nothing if there are no messages to be sent.
     TBool msgOutput = false;
     while (iFifo.SlotsUsed() > 0) {
+        if (!msgOutput) {
+            aWriter.Write(Brn("["));
+            msgOutput = true;
+        }
+
         ITabMessage* msg = iFifo.Read();
         try {
-            if (!msgOutput) {
-                aWriter.Write(Brn("["));
-                msgOutput = true;
-            }
             msg->Send(aWriter); // May throw WriterError.
             msg->Destroy();
             iSemWrite.Signal();
@@ -162,8 +163,8 @@ void FrameworkTabHandler::WriteMessagesLocked(IWriter& aWriter)
 
             // Empty remaining messages from FIFO.
             while (iFifo.SlotsUsed() > 0) {
-                ITabMessage* msg = iFifo.Read();
-                msg->Destroy();
+                ITabMessage* msgDiscard = iFifo.Read();
+                msgDiscard->Destroy();
                 iSemWrite.Signal(); // Unblock any Send() calls.
             }
 
