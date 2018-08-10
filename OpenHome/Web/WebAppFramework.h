@@ -143,6 +143,8 @@ private: // from IFrameworkTabHandler
 private: // from IFrameworkTimerHandler
     void Complete() override;
 private:
+    void WriteMessagesLocked(IWriter& aWriter);
+private:
     const TUint iSendTimeoutMs;
     FifoLiteDynamic<ITabMessage*> iFifo;
     TBool iEnabled;

@@ -584,7 +584,6 @@ void SuiteFrameworkTabHandler::TestDestroyUnsentMessages()
     // Memory leak if tab is not destroyed.
     IFrameworkTabHandler& tabHandler = *iTabHandler;
     tabHandler.Enable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
     HelperTabMessage& msg = iTabAllocator->Allocate();
     msg.Set(0);
     tabHandler.Send(msg);
@@ -604,7 +603,6 @@ void SuiteFrameworkTabHandler::TestBlockingQueueEmpty()
     // Queue no msgs, but try a blocking send. Should block until timer fired.
     IFrameworkTabHandler& tabHandler = *iTabHandler;
     tabHandler.Enable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
     ThreadFunctor thread("LP thread", MakeFunctor(*this, &SuiteFrameworkTabHandler::LongPollThread));
     thread.Start();
     iSemRead->BlockUntilWait(); // LongPoll() should block on read Semaphore.
@@ -618,6 +616,8 @@ void SuiteFrameworkTabHandler::TestBlockingQueueEmpty()
 
     TEST(iHelperBufferWriter->Buffer().Bytes() == 0);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal READ")));  // Caused by calling Complete().
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
     TEST(iTestPipe->ExpectEmpty());
 }
 
@@ -626,7 +626,6 @@ void SuiteFrameworkTabHandler::TestDisableWhileBlockingSend()
     // Queue no msgs, but try a blocking send. Should block until timer fired.
     IFrameworkTabHandler& tabHandler = *iTabHandler;
     tabHandler.Enable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
     ThreadFunctor thread("LP thread", MakeFunctor(*this, &SuiteFrameworkTabHandler::LongPollThread));
     thread.Start();
     iSemRead->BlockUntilWait(); // LongPoll() should block on read Semaphore.
@@ -636,8 +635,9 @@ void SuiteFrameworkTabHandler::TestDisableWhileBlockingSend()
     tabHandler.Disable();   // Should terminate long poll.
     iSemLpComplete->Wait();
     TEST(iHelperBufferWriter->Buffer().Bytes() == 0);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal READ")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
     TEST(iTestPipe->ExpectEmpty());
 }
 
@@ -645,7 +645,6 @@ void SuiteFrameworkTabHandler::TestBlockingSendOneMessage()
 {
     IFrameworkTabHandler& tabHandler = *iTabHandler;
     tabHandler.Enable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
 
     // Queue up msg.
     HelperTabMessage& msg = iTabAllocator->Allocate();
@@ -664,8 +663,9 @@ void SuiteFrameworkTabHandler::TestBlockingSendOneMessage()
 
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait READ")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
     TEST(iTestPipe->ExpectEmpty());
 }
 
@@ -673,7 +673,6 @@ void SuiteFrameworkTabHandler::TestBlockingSendMultipleMessages()
 {
     IFrameworkTabHandler& tabHandler = *iTabHandler;
     tabHandler.Enable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
 
     // Queue up msg.
     HelperTabMessage& msg1 = iTabAllocator->Allocate();
@@ -686,7 +685,7 @@ void SuiteFrameworkTabHandler::TestBlockingSendMultipleMessages()
     msg2.Set(1);
     tabHandler.Send(msg2);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait WRITE")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal READ")));
+    // Only expect read semaphore to be signalled on first message into FIFO.
 
     ThreadFunctor thread("LP thread", MakeFunctor(*this, &SuiteFrameworkTabHandler::LongPollThread));
     thread.Start();
@@ -698,9 +697,9 @@ void SuiteFrameworkTabHandler::TestBlockingSendMultipleMessages()
 
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait READ")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait READ")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
     TEST(iTestPipe->ExpectEmpty());
 }
@@ -709,14 +708,16 @@ void SuiteFrameworkTabHandler::TestBlockingSendQueueFull()
 {
     IFrameworkTabHandler& tabHandler = *iTabHandler;
     tabHandler.Enable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
 
     for (TUint i=0; i<kSendQueueSize; i++) {
         HelperTabMessage& msg = iTabAllocator->Allocate();
         msg.Set(i);
         tabHandler.Send(msg);
         TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait WRITE")));
-        TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal READ")));
+        if (i == 0) {
+            // Only expect read semaphore to be signalled on first message into FIFO.
+            TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal READ")));
+        }
     }
 
     ThreadFunctor thread("LP thread", MakeFunctor(*this, &SuiteFrameworkTabHandler::LongPollThread));
@@ -729,10 +730,9 @@ void SuiteFrameworkTabHandler::TestBlockingSendQueueFull()
 
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait READ")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    for (TUint i=0; i<kSendQueueSize-1; i++) {
-        TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait READ")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
+    for (TUint i=0; i<kSendQueueSize; i++) {
         TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
     }
     TEST(iTestPipe->ExpectEmpty());
@@ -743,7 +743,6 @@ void SuiteFrameworkTabHandler::TestBlockingSendNewMessageQueued()
     // Try blocking send with no msgs ready, and then queue msg while blocking.
     IFrameworkTabHandler& tabHandler = *iTabHandler;
     tabHandler.Enable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
 
     // Start long polling without message queued.
     ThreadFunctor thread("LP thread", MakeFunctor(*this, &SuiteFrameworkTabHandler::LongPollThread));
@@ -760,12 +759,17 @@ void SuiteFrameworkTabHandler::TestBlockingSendNewMessageQueued()
     // Check message was written out.
     TEST(iHelperBufferWriter->Buffer() == Brn("[0]"));
 
+    // Check ::LongPoll() call waited on sem.
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait READ")));
+    // Check ::Send() call pushed message in.
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait WRITE")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal READ")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
+    // Check ::LongPoll() call pulled message.
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
+    
     TEST(iTestPipe->ExpectEmpty());
 }
 
@@ -773,7 +777,6 @@ void SuiteFrameworkTabHandler::TestWriterDisconnected()
 {
     IFrameworkTabHandler& tabHandler = *iTabHandler;
     tabHandler.Enable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
 
     // Allocate and send msg.
     HelperTabMessage& msg = iTabAllocator->Allocate();
@@ -787,8 +790,9 @@ void SuiteFrameworkTabHandler::TestWriterDisconnected()
     TEST_THROWS(tabHandler.LongPoll(writer), WriterError);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Wait READ")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Clear READ")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkSemaphore::Signal WRITE")));
 
     TEST(iTestPipe->ExpectEmpty());
 }
