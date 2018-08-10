@@ -2,14 +2,18 @@
 """TestPins - test device-side Pins operation
 
 Parameters:
-    arg#1 - Device Under Test (local for SoftPlayer)
-    arg#2 - Qobuz username
-    arg#3 - Qobuz password
-    arg#4 - Tidal username
-    arg#5 - Tidal password
-    arg#6 - Cloud ID
-    arg#7 - Cloud secret
-    arg#8 - Cloud token
+    arg#1  - Device Under Test
+    arg#2  - CalmRadio username
+    arg#3  - CalmRadio password
+    arg#4  - Qobuz username
+    arg#5  - Qobuz password
+    arg#6  - Tidal username
+    arg#7  - Tidal password
+    arg#8  - Tunein partner ID
+    arg#9  - Tunein user
+    arg#10 - Cloud ID
+    arg#11 - Cloud secret
+    arg#12 - Cloud token
 """
 import _Paths   # NOQA
 import CommonPins as BASE

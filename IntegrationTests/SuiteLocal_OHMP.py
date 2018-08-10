@@ -65,6 +65,8 @@ qobuzUser   = config.Get( 'qobuz.user' )
 qobuzPwd    = config.Get( 'qobuz.password' )
 crUser      = config.Get( 'calmradio.user' )
 crPwd       = config.Get( 'calmradio.password' )
+tuneinWw    = config.Get( 'tunein.user.worldwide' )
+tuneinId    = config.Get( 'tunein.partnerid' )
 
 tests = [
     # UPnP compliance
@@ -123,7 +125,7 @@ tests = [
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'standby',   'multicast'                      ],
 
     # Pins
-    [ 'TestPins',                     'local', qobuzUser, qobuzPwd,  tidalUser,   tidalPwd,    cloudId, cloudSecret, cloudToken      ],
+    [ 'TestPins',                     'local', crUser, crPwd, qobuzUser, qobuzPwd, tidalUser, tidalPwd, tuneinId, tuneinWw, cloudId, cloudSecret, cloudToken],
 
     # Airplay
     ['TestAirplayFunctions', 'local'],
