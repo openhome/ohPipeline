@@ -7,9 +7,9 @@ Parameters:
     arg#3 - Qobuz password
     arg#4 - Tidal username
     arg#5 - Tidal password
-    # arg#6 - Cloud ID
-    # arg#7 - Cloud secret
-    # arg#8 - Cloud token
+    arg#6 - Cloud ID
+    arg#7 - Cloud secret
+    arg#8 - Cloud token
 """
 import _Paths   # NOQA
 import CommonPins as BASE

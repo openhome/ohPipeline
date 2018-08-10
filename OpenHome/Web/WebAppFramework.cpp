@@ -68,97 +68,39 @@ void FrameworkTabHandler::LongPoll(IWriter& aWriter)
 
     // Start timer.
     iTimer.Start(iSendTimeoutMs, *this);
+    iSemRead.Wait();
+    iTimer.Cancel();    // Cancel timer here, in case it wasn't timer that signalled iSemRead.
 
-    TBool msgOutput = false;
-    for (;;) {
-        TBool cancelTimer = false;
-        TBool slotsZero = false;
-        iSemRead.Wait();
-        {
-            // Check if this was interrupted.
-            AutoMutex a(iLock);
-            if (!iEnabled || !iPolling) {
-                // No need to cancel timer.
-                // Can only get here via Disable() call (which cancels timer if
-                // polling active) or Complete() call (in which case, timer has
-                // already fired due to timeout).
-                if (msgOutput) {
-                    aWriter.Write(Brn("]"));
-                }
-                return;
-            }
+    // Check if ::Disable() was called.
+    AutoMutex a(iLock);
+    // Code below may throw exception, so clear state here while lock is held.
+    iPolling = false;
+    iSemRead.Clear();
 
-            ITabMessage* msg = iFifo.Read();
-            try {
-                if (!msgOutput) {
-                    // Now committed to sending a msg in response to this lp.
-                    // Cancel timer and clear polling state.
-                    cancelTimer = true;
-                    aWriter.Write(Brn("["));
-                    msgOutput = true;
-                }
-                msg->Send(aWriter);
-                // All but last msg should be followed by "," in a JSON array.
-                if (iFifo.SlotsUsed() > 0) {
-                    aWriter.Write(Brn(","));
-                }
-            }
-            catch (WriterError&) {
-                // Destroy msg and rethrow so that higher level can take
-                // appropriate action.
-                msg->Destroy();
-                iSemWrite.Signal();
-                if (cancelTimer) {
-                    iTimer.Cancel();
-                }
-                throw;
-            }
-            msg->Destroy();
-            iSemWrite.Signal();
-
-            // If FIFO has been exhausted, output what was queued and return
-            // instead of blocking for entire long poll duration.
-            if (iFifo.SlotsUsed() == 0) {
-                iPolling = false;
-                if (msgOutput) {
-                    aWriter.Write(Brn("]"));
-                }
-                slotsZero = true;
-            }
-        }
-        if (cancelTimer) {
-            iTimer.Cancel();
-        }
-        if (slotsZero) {
-            return;
-        }
-    }
+    // Output messages, if any (there will be none if timer callback signalled iSemRead (i.e., timeout) or if ::Disable() was called).
+    WriteMessagesLocked(aWriter);   // May throw WriterError.
 }
 
 void FrameworkTabHandler::Disable()
 {
-    // Set interrupted state so that no further polls/sends can take place.
-    TBool polling;
-    {
-        AutoMutex a(iLock);
-        iEnabled = false;
-        polling = iPolling;
-    }
-
-    if(polling){
-        iTimer.Cancel();
-        AutoMutex a(iLock);
-        iPolling = false;
-    }
-
-    // Only need to signal iSemRead here. When FIFO is cleared, iSemWrite will be signalled.
-    iSemRead.Signal();
-
     AutoMutex a(iLock);
+
     while (iFifo.SlotsUsed() > 0) {
         ITabMessage* msg = iFifo.Read();
         msg->Destroy();
-        iSemWrite.Signal(); // Unblock any Send() calls. Should just discard messages.
+        iSemWrite.Signal(); // Unblock any Send() calls.
+    }
+
+    iEnabled = false;
+
+    if (iPolling) {
+        // Safe to do this here, as long as iLock is held. ::LongPoll() call
+        // can't progress beyond its iSemRead.Wait() call until this method
+        // releases iLock.
+        iSemRead.Signal();
+    }
+    else {
+        iSemRead.Clear();
     }
 }
 
@@ -166,9 +108,6 @@ void FrameworkTabHandler::Enable()
 {
     AutoMutex a(iLock);
     iEnabled = true;
-    // Clear iSemRead in case it wasn't being waited on when Disable() was last called.
-    // No need to clear iSemWrite as its Wait()/Signal() calls should always match up.
-    iSemRead.Clear();
 }
 
 void FrameworkTabHandler::Send(ITabMessage& aMessage)
@@ -183,16 +122,59 @@ void FrameworkTabHandler::Send(ITabMessage& aMessage)
     }
     else {
         iFifo.Write(&aMessage);
-        iSemRead.Signal();
+        // Only need to signal first message going into queue.
+        if (iFifo.SlotsUsed() == 1) {
+            iSemRead.Signal();
+        }
     }
 }
 
 void FrameworkTabHandler::Complete()
 {
-    AutoMutex a(iLock);
-    if (iPolling) {
-        iPolling = false;
-        iSemRead.Signal();      // FIXME - will this mess up sem count? Not if we are still in blocking send method. But what if Cancel() is called?
+    iSemRead.Signal();
+}
+
+void FrameworkTabHandler::WriteMessagesLocked(IWriter& aWriter)
+{
+    // This writes nothing if there are no messages to be sent.
+    TBool msgOutput = false;
+    while (iFifo.SlotsUsed() > 0) {
+        ITabMessage* msg = iFifo.Read();
+        try {
+            if (!msgOutput) {
+                aWriter.Write(Brn("["));
+                msgOutput = true;
+            }
+
+            msg->Send(aWriter); // May throw WriterError.
+            msg->Destroy();
+            iSemWrite.Signal();
+
+            // All but last msg should be followed by "," in a JSON array.
+            if (iFifo.SlotsUsed() > 0) {
+                aWriter.Write(Brn(","));
+            }
+        }
+        catch (const WriterError&) {
+            // Destroy msg and rethrow so that higher level can take
+            // appropriate action.
+            msg->Destroy();
+            iSemWrite.Signal();
+
+            // Empty remaining messages from FIFO.
+            while (iFifo.SlotsUsed() > 0) {
+                ITabMessage* msgDiscard = iFifo.Read();
+                msgDiscard->Destroy();
+                iSemWrite.Signal(); // Unblock any Send() calls.
+            }
+
+            throw;
+        }
+    }
+
+    // Doesn't matter if this throws WriterError here, as FIFO has been emptied so nothing to clean up.
+    if (msgOutput) {
+        aWriter.Write(Brn("]"));
     }
 }
 
@@ -1227,12 +1209,14 @@ void HttpSession::Run()
     }
     catch (WriterError&) {
     }
+
     try {
         if (!iResponseStarted) {
             if (iErrorStatus == &HttpStatus::kOk) {
                 iErrorStatus = &HttpStatus::kNotFound;
             }
             iWriterResponse->WriteHeader(version, *iErrorStatus, Brx::Empty());
+            iWriterResponse->WriteFlush();
             // FIXME - serve up some kind of error page in case browser does not display its own?
         }
         else if (!iResponseEnded) {
