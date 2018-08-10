@@ -555,11 +555,11 @@ Brn JsonParserArray::NextString()
     return val;
 }
 
-Brn JsonParserArray::NextStringEscaped()
+Brn JsonParserArray::NextStringEscaped(Json::Encoding aEncoding)
 {
     Brn val = NextString();
     Bwn buf(val.Ptr(), val.Bytes(), val.Bytes());
-    Json::Unescape(buf);
+    Json::Unescape(buf, aEncoding);
     val.Set(buf.Ptr(), buf.Bytes());
     return val;
 }

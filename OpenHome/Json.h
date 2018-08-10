@@ -96,7 +96,7 @@ public:
     TInt NextInt();
     TBool NextBool();
     Brn NextString();
-    Brn NextStringEscaped(); // array passed to Set must be writable in this case
+    Brn NextStringEscaped(Json::Encoding aEncoding = Json::Encoding::Utf8); // array passed to Set must be writable in this case
     Brn NextArray();
     Brn NextObject();
 private:

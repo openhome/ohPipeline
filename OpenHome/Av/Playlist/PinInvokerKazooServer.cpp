@@ -13,6 +13,7 @@
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Net/Private/XmlParser.h>
 #include <OpenHome/Private/Ascii.h>
+#include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Network.h>
 #include <OpenHome/Private/Parser.h>
@@ -20,6 +21,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Timer.h>
 #include <OpenHome/Private/Uri.h>
+#include <OpenHome/Media/Debug.h>
 
 #include <map>
 #include <vector>
@@ -236,7 +238,7 @@ Brn PinInvokerKazooServer::FromQuery(const TChar* aKey) const
         }
     }
     if (val.Bytes() == 0) {
-        Log::Print("PinInvokerKazooServer - no %s in query - %.*s\n", aKey, PBUF(iPinUri.Query()));
+        LOG_ERROR(kPipeline, "PinInvokerKazooServer - no %s in query - %.*s\n", aKey, PBUF(iPinUri.Query()));
         THROW(PinUriError);
     }
     return val;
@@ -262,7 +264,6 @@ void PinInvokerKazooServer::ReadFromServer()
         parser3.Parse(endpoint);
         Brn path = parser3.String("Path");
         mePathBase.AppendThrow(path);
-        Log::Print("path is %.*s\n", PBUF(path));
     }
 
     Bws<64> sessionId;
@@ -314,12 +315,13 @@ void PinInvokerKazooServer::ReadFromServer()
         for (TUint i = startIndex; i < total && playlistCapacity > 0; i++) {
             ReadIdAddAlbum(mePathBase, sessionId, genreId, i, lastTrackId, playlistCapacity);
         }
+        Browse(mePathBase, sessionId, genreId); // ReadIdAddAlbum for aIndex==0 will skip repositioning the server's cursor
         for (TUint i = 0; i < startIndex && playlistCapacity > 0; i++) {
             ReadIdAddAlbum(mePathBase, sessionId, genreId, i, lastTrackId, playlistCapacity);
         }
     }
     else {
-        Log::Print("PinInvokerKazooServer - unhandled path in %.*s\n", PBUF(iPinUri.Query()));
+        LOG_ERROR(kPipeline, "PinInvokerKazooServer - unhandled path in %.*s\n", PBUF(iPinUri.Query()));
     }
 
     // destroy session
@@ -343,7 +345,8 @@ void PinInvokerKazooServer::WriteRequestReadResponse(const Brx& aPathAndQuery, T
     iResponseBody.Reset();
 
     if (code != 200) {
-        // FIXME - log error
+        LOG_ERROR(kPipeline, "PinInvokerKazooServer::WriteRequestReadResponse http error %d from query %.*s\n",
+                             code, PBUF(aPathAndQuery));
         THROW(HttpError);
     }
 
@@ -436,38 +439,47 @@ void PinInvokerKazooServer::AddAlbum(const Brx& aMePath, const Brx& aSessionId, 
 
 void PinInvokerKazooServer::AddTrack(TUint& aInsertAfterId)
 {
-    iTrackUri.Replace(Brx::Empty());
-    iTrackMetadata.Replace(Brx::Empty());
-    OpenHomeMetadataBuf metadata;
-    auto parserArray1 = JsonParserArray::Create(iResponseBody.Buffer());
-    JsonParser parserObj;
-    parserObj.Parse(parserArray1.NextObject());
-    auto parserArray2 = JsonParserArray::Create(parserObj.String("Metadata"));
     try {
-        for (;;) {
-            auto parserArray3 = JsonParserArray::Create(parserArray2.NextArray());
-            auto keyNum = Ascii::Uint(parserArray3.NextString());
-            Brn key(OhMetadataKey(keyNum));
-            if (key.Bytes() == 0) {
-                continue;
-            }
-            try {
-                for (;;) {
-                    Brn val = parserArray3.NextStringEscaped();
-                    metadata.push_back(std::pair<Brn, Brn>(key, val));
+        iTrackUri.Replace(Brx::Empty());
+        iTrackMetadata.Replace(Brx::Empty());
+        OpenHomeMetadataBuf metadata;
+        auto parserArray1 = JsonParserArray::Create(iResponseBody.Buffer());
+        JsonParser parserObj;
+        parserObj.Parse(parserArray1.NextObject());
+        auto parserArray2 = JsonParserArray::Create(parserObj.String("Metadata"));
+        try {
+            for (;;) {
+                auto parserArray3 = JsonParserArray::Create(parserArray2.NextArray());
+                auto keyNum = Ascii::Uint(parserArray3.NextString());
+                Brn key(OhMetadataKey(keyNum));
+                if (key.Bytes() == 0) {
+                    continue;
                 }
+                try {
+                    for (;;) {
+                        Brn val = parserArray3.NextStringEscaped(Json::Encoding::Utf8);
+                        metadata.push_back(std::pair<Brn, Brn>(key, val));
+                    }
+                }
+                catch (JsonArrayEnumerationComplete&) {}
             }
-            catch (JsonArrayEnumerationComplete&) {}
+        }
+        catch (JsonArrayEnumerationComplete&) {}
+        metadata.push_back(std::pair<Brn, Brn>(Brn("type"), Brn("object.item.audioItem.musicTrack")));
+
+        OhMetadata::ToUriDidlLite(metadata, iTrackUri, iTrackMetadata);
+        iProxyPlaylist->SyncInsert(aInsertAfterId, iTrackUri, iTrackMetadata, aInsertAfterId);
+        if (!iPlaying) {
+            iProxyPlaylist->SyncPlay();
+            iPlaying = true;
         }
     }
-    catch (JsonArrayEnumerationComplete&) {}
-    metadata.push_back(std::pair<Brn, Brn>(Brn("type"), Brn("object.item.audioItem.musicTrack")));
-
-    OhMetadata::ToUriDidlLite(metadata, iTrackUri, iTrackMetadata);
-    iProxyPlaylist->SyncInsert(aInsertAfterId, iTrackUri, iTrackMetadata, aInsertAfterId);
-    if (!iPlaying) {
-        iProxyPlaylist->SyncPlay();
-        iPlaying = true;
+    catch (AssertionFailed&) {
+        throw;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "PinInvokerKazooServer::AddTrack exception - %s from %s:%d - processing %.*s\n",
+                             ex.Message(), ex.File(), ex.Line(), PBUF(iResponseBody.Buffer()));
     }
 }
 
