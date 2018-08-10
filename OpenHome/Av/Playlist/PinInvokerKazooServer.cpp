@@ -457,7 +457,7 @@ void PinInvokerKazooServer::AddTrack(TUint& aInsertAfterId)
                 }
                 try {
                     for (;;) {
-                        Brn val = parserArray3.NextStringEscaped(Json::Encoding::Utf8);
+                        Brn val = parserArray3.NextStringEscaped(Json::Encoding::Utf16);
                         metadata.push_back(std::pair<Brn, Brn>(key, val));
                     }
                 }
