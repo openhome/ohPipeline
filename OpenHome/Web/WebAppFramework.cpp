@@ -139,13 +139,13 @@ void FrameworkTabHandler::WriteMessagesLocked(IWriter& aWriter)
     // This writes nothing if there are no messages to be sent.
     TBool msgOutput = false;
     while (iFifo.SlotsUsed() > 0) {
-        if (!msgOutput) {
-            aWriter.Write(Brn("["));
-            msgOutput = true;
-        }
-
         ITabMessage* msg = iFifo.Read();
         try {
+            if (!msgOutput) {
+                aWriter.Write(Brn("["));
+                msgOutput = true;
+            }
+
             msg->Send(aWriter); // May throw WriterError.
             msg->Destroy();
             iSemWrite.Signal();
@@ -172,6 +172,7 @@ void FrameworkTabHandler::WriteMessagesLocked(IWriter& aWriter)
         }
     }
 
+    // Doesn't matter if this throws WriterError here, as FIFO has been emptied so nothing to clean up.
     if (msgOutput) {
         aWriter.Write(Brn("]"));
     }
@@ -1208,6 +1209,7 @@ void HttpSession::Run()
     }
     catch (WriterError&) {
     }
+
     try {
         if (!iResponseStarted) {
             if (iErrorStatus == &HttpStatus::kOk) {
