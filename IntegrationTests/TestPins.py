@@ -25,6 +25,14 @@ class TestPins( BASE.CommonPins ):
         BASE.CommonPins.__init__( self )
         self.doc = __doc__
 
+    def _SetupCloud( self, aId, aSecret, aToken ):
+        # no cloud support in OHMP
+        pass
+
+    def _CheckAccount( self ):
+        # no cloud support in OHMP
+        pass
+
 
 if __name__ == '__main__':
     BASE.Run( sys.argv )
