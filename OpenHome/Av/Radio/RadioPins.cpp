@@ -47,7 +47,7 @@ void RadioPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = LoadPreset(presetNum);
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else {

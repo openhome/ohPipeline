@@ -90,7 +90,7 @@ private:
     PresetDatabase* iPresetDatabase;
     RadioPresetsTuneIn* iTuneIn;
     Media::Track* iTrack;
-    Av::PodcastPinsLatestEpisode* iPodcastPinsITunes;
+    Av::PodcastPinsLatestEpisode* iPodcastPins;
     Av::TuneInPins* iTuneInPins;
     Av::RadioPins* iRadioPins;
     TUint iTrackPosSeconds;

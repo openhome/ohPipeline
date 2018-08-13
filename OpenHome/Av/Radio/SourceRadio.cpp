@@ -50,7 +50,7 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
     , iLock("SRAD")
     , iUriProviderPresets(nullptr)
     , iTrack(nullptr)
-    , iPodcastPinsITunes(nullptr)
+    , iPodcastPins(nullptr)
     , iTuneInPins(nullptr)
     , iRadioPins(nullptr)
     , iTrackPosSeconds(0)
@@ -112,11 +112,11 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
 
     
     if (aMediaPlayer.PinsInvocable().Ok()) {
-        iPodcastPinsITunes = new PodcastPinsLatestEpisodeITunes(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
-        aMediaPlayer.PinsInvocable().Unwrap().Add(iPodcastPinsITunes);
+        iPodcastPins = new PodcastPinsLatestEpisode(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
+        aMediaPlayer.PinsInvocable().Unwrap().Add(iPodcastPins);
 
         if (iTuneIn != nullptr) {
-            iTuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore(), aTuneInPartnerId);
+            iTuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.CpStack(), aTuneInPartnerId);
             aMediaPlayer.PinsInvocable().Unwrap().Add(iTuneInPins);
             iRadioPins = new RadioPins(aMediaPlayer.Device(), aMediaPlayer.CpStack());
             aMediaPlayer.PinsInvocable().Unwrap().Add(iRadioPins);

@@ -93,7 +93,7 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = LoadByPath(id, pinUri, aPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeAlbum)) {
@@ -104,7 +104,7 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = LoadByPath(id, pinUri, aPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeTrack)) {
@@ -112,7 +112,7 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = LoadTracksByTrack(id, aPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypePlaylist)) {
@@ -123,7 +123,7 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = LoadByPath(id, pinUri, aPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeContainer)) {
@@ -131,13 +131,13 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = LoadByPath(id, pinUri, aPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeSmart)) {
             Brn smartType;
             if (!pinUri.TryGetValue(kPinKeySmartType, smartType)) {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
             Brn genre(QobuzMetadata::kGenreNone);
             pinUri.TryGetValue(kPinKeyGenre, genre);
@@ -186,7 +186,7 @@ TBool QobuzPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuf
         res = LoadAlbumsByPath(aPath, aShuffle);
     }
     else {
-        THROW(PinUriMissingRequiredParameter);
+        THROW(PinMissingRequiredParameter);
     }
     return res;
 }

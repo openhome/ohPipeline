@@ -130,7 +130,7 @@ void TidalPins::Invoke()
                 res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeAlbum)) { 
@@ -141,7 +141,7 @@ void TidalPins::Invoke()
                 res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) {
@@ -149,7 +149,7 @@ void TidalPins::Invoke()
                 res = LoadTracksByTrack(id, iPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypePlaylist)) {
@@ -160,7 +160,7 @@ void TidalPins::Invoke()
                 res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeContainer)) {
@@ -168,7 +168,7 @@ void TidalPins::Invoke()
                 res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeGenre)) {
@@ -179,7 +179,7 @@ void TidalPins::Invoke()
                 res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeMood)) {
@@ -187,13 +187,13 @@ void TidalPins::Invoke()
                 res = LoadTracksByMood(id, iPin.Shuffle());
             }
             else {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeSmart)) {
             Brn smartType;
             if (!pinUri.TryGetValue(kPinKeySmartType, smartType)) {
-                THROW(PinUriMissingRequiredParameter);
+                THROW(PinMissingRequiredParameter);
             }
 
             if (smartType == Brn(kSmartTypeDiscovery)) { res = LoadTracksByDiscovery(iPin.Shuffle()); }
@@ -236,7 +236,7 @@ TBool TidalPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuf
         res = LoadAlbumsByPath(aPath, aShuffle);
     }
     else {
-        THROW(PinUriMissingRequiredParameter);
+        THROW(PinMissingRequiredParameter);
     }
     return res;
 }

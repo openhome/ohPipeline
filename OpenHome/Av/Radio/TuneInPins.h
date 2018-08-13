@@ -7,7 +7,6 @@
 #include <OpenHome/Av/MediaPlayer.h>
 #include <Generated/CpAvOpenhomeOrgRadio1.h>
 #include <OpenHome/Av/Pins/Pins.h>
-#include <OpenHome/Av/Pins/PodcastPins.h>
         
 namespace OpenHome {
     class Environment;
@@ -21,7 +20,7 @@ class TuneInPins
     : public IPinInvoker
 {
 public:
-    TuneInPins(Net::DvDeviceStandard& aDevice, OpenHome::Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const Brx& aPartnerId);
+    TuneInPins(Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack, const Brx& aPartnerId);
     ~TuneInPins();
 
 private: // from IPinInvoker
@@ -36,7 +35,6 @@ private:
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
     Net::CpStack& iCpStack;
     const Brx& iPartnerId;
-    Av::PodcastPinsLatestEpisode* iPodcastPinsEpisode;
 };
 
 };  // namespace Av
