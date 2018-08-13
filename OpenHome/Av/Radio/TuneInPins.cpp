@@ -19,24 +19,28 @@ static const TChar* kPinModeTuneIn = "tunein";
 // Pin types
 static const TChar* kPinTypeStation = "station";
 static const TChar* kPinTypeStream = "stream";
+static const TChar* kPinTypePodcast = "podcast";
 
 // Pin params
 static const TChar* kPinKeyStationId = "id";
 static const TChar* kPinKeyStreamUrl = "path";
 
-TuneInPins::TuneInPins(DvDeviceStandard& aDevice, CpStack& aCpStack, const Brx& aPartnerId)
+TuneInPins::TuneInPins(DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const Brx& aPartnerId)
     : iLock("IPIN")
     , iCpStack(aCpStack)
     , iPartnerId(aPartnerId)
+    , iPodcastPinsEpisode(nullptr)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
     iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+    iPodcastPinsEpisode = new PodcastPinsLatestEpisodeTuneIn(aDevice, aTrackFactory, aCpStack, aStore);
 }
 
 TuneInPins::~TuneInPins()
 {
     delete iCpRadio;
+    delete iPodcastPinsEpisode;
 }
 
 void TuneInPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
@@ -62,6 +66,9 @@ void TuneInPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
             else {
                 THROW(PinUriMissingRequiredParameter);
             }
+        }
+        else if (Brn(pin.Type()) == Brn(kPinTypePodcast)) { 
+            iPodcastPinsEpisode->Invoke(aPin);
         }
         else {
             THROW(PinTypeNotSupported);

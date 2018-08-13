@@ -16,8 +16,8 @@
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Av/Pins/PodcastPins.h>
         
-EXCEPTION(ITunesResponseInvalid);
-EXCEPTION(ITunesRequestInvalid);
+EXCEPTION(TuneInResponseInvalid);
+EXCEPTION(TuneInRequestInvalid);
 
 namespace OpenHome {
     class Environment;
@@ -34,11 +34,11 @@ namespace Net {
 }
 
 namespace Av {
-    class PodcastInfoITunes
+    class PodcastInfoTuneIn
     {
     public:
-        PodcastInfoITunes(const Brx& aJsonObj, const Brx& aId);
-        ~PodcastInfoITunes();
+        PodcastInfoTuneIn(const Brx& aJsonObj, const Brx& aId);
+        ~PodcastInfoTuneIn();
         const Brx& Name();
         const Brx& FeedUrl();
         const Brx& Artist();
@@ -54,11 +54,11 @@ namespace Av {
         Bwh iId;
     };
 
-    class PodcastEpisodeITunes
+    class PodcastEpisodeTuneIn
     {
     public:
-        PodcastEpisodeITunes(const Brx& aXmlItem);
-        ~PodcastEpisodeITunes();
+        PodcastEpisodeTuneIn(const Brx& aXmlItem);
+        ~PodcastEpisodeTuneIn();
         const Brx& Title();
         const Brx& Url();
         const Brx& PublishedDate();
@@ -74,8 +74,8 @@ namespace Av {
         TUint iDuration;
     };
 
-    class ITunes;
-    class ITunesMetadata : private OpenHome::INonCopyable
+    class TuneIn;
+    class TuneInMetadata : private OpenHome::INonCopyable
     {
         static const OpenHome::Brn kNsDc;
         static const OpenHome::Brn kNsUpnp;
@@ -83,18 +83,18 @@ namespace Av {
     public:
         static const OpenHome::Brn kMediaTypePodcast;
     public:
-        ITunesMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
-        Media::Track* GetNextEpisodeTrack(PodcastInfoITunes& aPodcast, const Brx& aXmlItem);
+        TuneInMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
+        Media::Track* GetNextEpisodeTrack(PodcastInfoTuneIn& aPodcast, const Brx& aXmlItem);
         const Brx& GetNextEpisodePublishedDate(const Brx& aXmlItem);
         static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse);
     private:
-        void ParseITunesMetadata(PodcastInfoITunes& aPodcast, const OpenHome::Brx& aMetadata);
+        void ParseTuneInMetadata(PodcastInfoTuneIn& aPodcast, const OpenHome::Brx& aMetadata);
 
         void TryAddAttribute(OpenHome::JsonParser& aParser,
-                             const TChar* aITunesKey, const TChar* aDidlAttr);
+                             const TChar* aTuneInKey, const TChar* aDidlAttr);
         void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
 
-        void TryAddTag(OpenHome::JsonParser& aParser, const OpenHome::Brx& aITunesKey,
+        void TryAddTag(OpenHome::JsonParser& aParser, const OpenHome::Brx& aTuneInKey,
                        const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs);
         void TryAddTag(const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs,
                        const OpenHome::Brx& aRole, const OpenHome::Brx& aValue);
@@ -106,7 +106,7 @@ namespace Av {
         OpenHome::Media::BwsTrackMetaData iMetaDataDidl;
     };
 
-class ITunes
+class TuneIn
 {
     static const TUint kReadBufferBytes = 8 * 1024;
     static const TUint kSingleEpisodesBlockSize = 2; // 1 block is kReadBufferBytes
@@ -118,8 +118,8 @@ class ITunes
     static const TUint kMaxStatusBytes = 512;
     static const TUint kMaxPathAndQueryBytes = 512;
 public:
-    ITunes(Environment& aEnv);
-    ~ITunes();
+    TuneIn(Environment& aEnv);
+    ~TuneIn();
 
     TBool TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery);
     TBool TryGetPodcastById(WriterBwh& aWriter, const Brx& aId);
@@ -142,9 +142,9 @@ private:
     HttpHeaderContentLength iHeaderContentLength;
 };
 
-class ListenedDatePooledITunes;
+class ListenedDatePooledTuneIn;
 
-class PodcastPinsITunes
+class PodcastPinsTuneIn
 {
     static const TUint kJsonResponseChunks = 8 * 1024;
     static const TUint kXmlResponseChunks = 8 * 1024;
@@ -157,14 +157,14 @@ public:
     static const TUint kMaxEntries = 26;
     static const TUint kNewEposdeListMaxBytes = kMaxEntries*kMaxPodcastIdBytes + (kMaxEntries-1); // kMaxEntries-1 covers commas
 public:
-    static PodcastPinsITunes* GetInstance(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
-    ~PodcastPinsITunes();
+    static PodcastPinsTuneIn* GetInstance(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
+    ~PodcastPinsTuneIn();
     void AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObserver); // event describing podcast IDs with new episodes available (compared to last listened stored data)
-    TBool CheckForNewEpisode(const Brx& aQuery); // poll using iTunes id or search string (single episode)
-    TBool LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler); // iTunes id or search string (single episode - radio single)
-    TBool LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle); // iTunes id or search string (episode list - playlist)
+    TBool CheckForNewEpisode(const Brx& aQuery); // poll using TuneIn id or search string (single episode)
+    TBool LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler); // TuneIn id or search string (single episode - radio single)
+    TBool LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn id or search string (episode list - playlist)
 private:
-    PodcastPinsITunes(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
+    PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
 
     void SetLastLoadedPodcastAsListened(); // save date of last podcast ID for new episode notification [option to allow this to be done outside of this class: currently done internally on cp->SyncPlay]
     void StartPollingForNewEpisodes(); // check existing mappings (latest selected podcasts) for new episodes (currently started in constructor)
@@ -179,14 +179,14 @@ private:
     void TimerCallback();
     void StartPollingForNewEpisodesLocked();
 private:
-    static PodcastPinsITunes* iInstance;
+    static PodcastPinsTuneIn* iInstance;
     Mutex iLock;
-    ITunes* iITunes;
+    TuneIn* iTuneIn;
     WriterBwh iJsonResponse;
     WriterBwh iXmlResponse;
     Media::TrackFactory& iTrackFactory;
 
-    std::list<ListenedDatePooledITunes*> iMappings;
+    std::list<ListenedDatePooledTuneIn*> iMappings;
     OpenHome::Configuration::IStoreReadWrite& iStore;
     OpenHome::Bwh iListenedDates;
     OpenHome::Bws<kMaxPodcastIdBytes> iLastSelectedId;
@@ -196,62 +196,61 @@ private:
     OpenHome::Bws<kNewEposdeListMaxBytes> iNewEpisodeList;
 };
 
-class PodcastPinsLatestEpisodeITunes
+class PodcastPinsLatestEpisodeTuneIn
     : public IPinInvoker
     , public IPodcastTransportHandler
 {
 public:
-    PodcastPinsLatestEpisodeITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
-    ~PodcastPinsLatestEpisodeITunes();
+    PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
+    ~PodcastPinsLatestEpisodeTuneIn();
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;
     virtual void Play() override;
     virtual TBool SingleShot() override;
-private: // from IPinInvoker
-    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
-    void Cancel() override;
+public: // from IPinInvoker
+    void Invoke(const IPin& aPin) override;
     const TChar* Mode() const override;
 private:
-    PodcastPinsITunes* iPodcastPins;
+    PodcastPinsTuneIn* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
 };
 
-class PodcastPinsEpisodeListITunes
+class PodcastPinsEpisodeListTuneIn
     : public IPinInvoker
     , public IPodcastTransportHandler
 {
 public:
-    PodcastPinsEpisodeListITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
-    ~PodcastPinsEpisodeListITunes();
+    PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
+    ~PodcastPinsEpisodeListTuneIn();
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;
     virtual void Play() override;
     virtual TBool SingleShot() override;
-private: // from IPinInvoker
-    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
-    void Cancel() override;
+public: // from IPinInvoker
+    void Invoke(const IPin& aPin) override;
     const TChar* Mode() const override;
+    
 private:
-    PodcastPinsITunes* iPodcastPins;
+    PodcastPinsTuneIn* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     TUint iLastId;
 };
 
-class ListenedDatePooledITunes
+class ListenedDatePooledTuneIn
 {
 public:
-    ListenedDatePooledITunes();
+    ListenedDatePooledTuneIn();
     void Set(const OpenHome::Brx& aId, const OpenHome::Brx& aDate, TUint aPriority);
     const OpenHome::Brx& Id() const;
     const OpenHome::Brx& Date() const;
     const TUint Priority() const;
     void DecPriority();
-    static TBool Compare(const ListenedDatePooledITunes* aFirst, const ListenedDatePooledITunes* aSecond);
+    static TBool Compare(const ListenedDatePooledTuneIn* aFirst, const ListenedDatePooledTuneIn* aSecond);
 private:
-    OpenHome::Bws<PodcastPinsITunes::kMaxPodcastIdBytes> iId;
-    OpenHome::Bws<PodcastPinsITunes::kMaxPodcastDateBytes> iDate;
+    OpenHome::Bws<PodcastPinsTuneIn::kMaxPodcastIdBytes> iId;
+    OpenHome::Bws<PodcastPinsTuneIn::kMaxPodcastDateBytes> iDate;
     TUint iPriority;
 };
 

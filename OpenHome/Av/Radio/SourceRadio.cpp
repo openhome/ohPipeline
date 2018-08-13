@@ -116,7 +116,7 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
         aMediaPlayer.PinsInvocable().Unwrap().Add(iPodcastPinsITunes);
 
         if (iTuneIn != nullptr) {
-            iTuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.CpStack(), aTuneInPartnerId);
+            iTuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore(), aTuneInPartnerId);
             aMediaPlayer.PinsInvocable().Unwrap().Add(iTuneInPins);
             iRadioPins = new RadioPins(aMediaPlayer.Device(), aMediaPlayer.CpStack());
             aMediaPlayer.PinsInvocable().Unwrap().Add(iRadioPins);
