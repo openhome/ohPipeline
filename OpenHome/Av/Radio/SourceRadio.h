@@ -6,7 +6,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
-#include <OpenHome/Av/Pins/PodcastPins.h>
+#include <OpenHome/Av/Pins/PodcastPinsITunes.h>
 #include <OpenHome/Av/Radio/TuneInPins.h>
 #include <OpenHome/Av/Radio/RadioPins.h>
 
@@ -90,7 +90,7 @@ private:
     PresetDatabase* iPresetDatabase;
     RadioPresetsTuneIn* iTuneIn;
     Media::Track* iTrack;
-    Av::PodcastPinsLatestEpisode* iPodcastPins;
+    Av::PodcastPinsLatestEpisodeITunes* iPodcastPinsITunes;
     Av::TuneInPins* iTuneInPins;
     Av::RadioPins* iRadioPins;
     TUint iTrackPosSeconds;
