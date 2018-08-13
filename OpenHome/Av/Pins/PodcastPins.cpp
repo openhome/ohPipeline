@@ -24,18 +24,20 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 
 // Pin modes
-static const TChar* kPinModeItunesLatestEpisode = "itunesepisode";
-static const TChar* kPinModeItunesEpisodeList = "ituneslist";
+static const TChar* kPinModeItunesEpisode = "itune";
+static const TChar* kPinModeItunesList = "ituneslist";
 
 // Pin types
 static const TChar* kPinTypePodcast = "podcast";
 
 // Pin params
 static const TChar* kPinKeyEpisodeId = "id";
+static const TChar* kPinKeyPath = "path";
 
+// Store values
+static const Brn kStoreKeyITunesPodcast("Pins.PodcastITunes");
 
-const Brn PodcastPins::kPodcastKey("Pins.Podcast");
-const TUint kTimerDurationMs = (1000 * 60 * 60 * 24) - (1000 * 60 * 10); // 23h:50m, anything a bit under 1 day would do
+const TUint kTimerDurationMs = (1000 * 60 * 60 * 1); // every hour
 //const TUint kTimerDurationMs = 1000 * 60; // 1 min - TEST ONLY
 
 // PodcastPinsLatestEpisode
@@ -59,7 +61,7 @@ void PodcastPinsLatestEpisode::BeginInvoke(const IPin& aPin, Functor aCompleted)
     AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeItunesLatestEpisode)) {
+    if (Brn(pin.Mode()) == Brn(kPinModeItunesEpisode)) {
         if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
             Brn episodeId;
             if (pin.TryGetValue(kPinKeyEpisodeId, episodeId)) {
@@ -84,7 +86,7 @@ void PodcastPinsLatestEpisode::Cancel()
 
 const TChar* PodcastPinsLatestEpisode::Mode() const
 {
-    return kPinModeItunesLatestEpisode;
+    return kPinModeItunesEpisode;
 }
 
 void PodcastPinsLatestEpisode::Init(TBool /*aShuffle*/)
@@ -129,7 +131,7 @@ void PodcastPinsEpisodeList::BeginInvoke(const IPin& aPin, Functor aCompleted)
     AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeItunesEpisodeList)) {
+    if (Brn(pin.Mode()) == Brn(kPinModeItunesList)) {
         if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
             Brn episodeId;
             if (pin.TryGetValue(kPinKeyEpisodeId, episodeId)) {
@@ -154,7 +156,7 @@ void PodcastPinsEpisodeList::Cancel()
 
 const TChar* PodcastPinsEpisodeList::Mode() const
 {
-    return kPinModeItunesEpisodeList;
+    return kPinModeItunesList;
 }
 
 void PodcastPinsEpisodeList::Init(TBool aShuffle)
@@ -210,12 +212,12 @@ PodcastPins::PodcastPins(Media::TrackFactory& aTrackFactory, Environment& aEnv, 
     TUint mapCount = 0;
     iListenedDates.SetBytes(0);
     try {
-        iStore.Read(kPodcastKey, iListenedDates);
+        iStore.Read(kStoreKeyITunesPodcast, iListenedDates);
         Log::Print("PodcastPins Load listened dates from store: %.*s\n", PBUF(iListenedDates));
     }
     catch (StoreKeyNotFound&) {
         // Key not in store, so no config stored yet and nothing to parse.
-        Log::Print("Store Key not found: %.*s\n", PBUF(kPodcastKey));
+        Log::Print("Store Key not found: %.*s\n", PBUF(kStoreKeyITunesPodcast));
     }
 
     if (iListenedDates.Bytes() > 0) {
@@ -594,7 +596,7 @@ void PodcastPins::SetLastListenedEpisodeDateLocked(const Brx& aId, const Brx& aD
         }
         writer.WriteEnd();
         writerJson.WriteFlush();
-        iStore.Write(kPodcastKey, iListenedDates);
+        iStore.Write(kStoreKeyITunesPodcast, iListenedDates);
     }
 }
 
