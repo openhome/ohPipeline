@@ -66,7 +66,7 @@ void PodcastPinsLatestEpisode::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = iPodcastPins->LoadPodcastLatest(episodeId, *this);
             }
             else {
-                THROW(PinMissingRequiredParameter);
+                THROW(PinUriMissingRequiredParameter);
             }
         }
         else {
@@ -136,7 +136,7 @@ void PodcastPinsEpisodeList::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = iPodcastPins->LoadPodcastList(episodeId, *this, aPin.Shuffle());
             }
             else {
-                THROW(PinMissingRequiredParameter);
+                THROW(PinUriMissingRequiredParameter);
             }
         }
         else {

@@ -51,7 +51,7 @@ void TuneInPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = LoadStation(stationId, aPin);
             }
             else {
-                THROW(PinMissingRequiredParameter);
+                THROW(PinUriMissingRequiredParameter);
             }
         }
         else if (Brn(pin.Type()) == Brn(kPinTypeStream)) { 
@@ -60,7 +60,7 @@ void TuneInPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = LoadStream(streamUrl, aPin);
             }
             else {
-                THROW(PinMissingRequiredParameter);
+                THROW(PinUriMissingRequiredParameter);
             }
         }
         else {
