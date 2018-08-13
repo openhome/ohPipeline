@@ -266,6 +266,16 @@ private:
     IPinInvoker* iCurrent;
 };
 
+class AutoPinComplete
+{
+public:
+    AutoPinComplete(Functor aFunctor);
+    ~AutoPinComplete();
+    void Cancel();
+private:
+    Functor iFunctor;
+};
+
 class PinUri
 {
 public:

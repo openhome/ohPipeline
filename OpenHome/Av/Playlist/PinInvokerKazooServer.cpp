@@ -185,11 +185,11 @@ PinInvokerKazooServer::~PinInvokerKazooServer()
 
 void PinInvokerKazooServer::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
-    AutoFunctor _(aCompleted);
     if (aPin.Mode() != Brn(kMode)) {
         return;
     }
 
+    AutoPinComplete completion(aCompleted);
     iPinUri.Replace(aPin.Uri());
     iShuffle = aPin.Shuffle();
     Brn query(iPinUri.Query());
@@ -208,12 +208,14 @@ void PinInvokerKazooServer::BeginInvoke(const IPin& aPin, Functor aCompleted)
 
     } while (!complete);
 
-    iUdn.ReplaceThrow(FromQuery("udn"));
+    Brn udn = FromQuery("udn");
     Bws<128> psUri;
-    iDeviceList->GetPropertyServerUri(iUdn, psUri, 5000);
+    iDeviceList->GetPropertyServerUri(udn, psUri, 5000);
     iEndpointUri.Replace(psUri);
     iSocket.Interrupt(false);
     iSocket.Open(iEnv);
+    completion.Cancel();
+    iCompleted = aCompleted;
     (void)iThreadPoolHandle->TrySchedule();
 }
 
@@ -246,7 +248,8 @@ Brn PinInvokerKazooServer::FromQuery(const TChar* aKey) const
 
 void PinInvokerKazooServer::ReadFromServer()
 {
-    AutoSocketReader _(iSocket, iReaderUntil2);
+    AutoFunctor _(iCompleted);
+    AutoSocketReader __(iSocket, iReaderUntil2);
     Endpoint ep(iEndpointUri.Port(), iEndpointUri.Host());
     iSocket.Connect(ep, kConnectTimeoutMs);
     //iSocket.LogVerbose(true);

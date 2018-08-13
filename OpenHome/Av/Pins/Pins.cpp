@@ -680,6 +680,27 @@ const Pin& PinsManager::PinFromId(TUint aId) const
     }
 }
 
+
+// AutoPinComplete
+
+AutoPinComplete::AutoPinComplete(Functor aFunctor)
+    : iFunctor(aFunctor)
+{
+}
+
+AutoPinComplete::~AutoPinComplete()
+{
+    iFunctor();
+}
+
+void AutoPinComplete::Cancel()
+{
+    iFunctor = Functor();
+}
+
+
+// PinUri
+
 // <mode>://<type>?<key>=<value>[&<key>=<value>]...
 
 PinUri::PinUri(const IPin& aPin)
@@ -733,6 +754,9 @@ TBool PinUri::TryGetValue(const Brx& aKey, Brn& aValue) const
     }
     return false;
 }
+
+
+// PinMetadata
 
 static const Brn kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
 static const Brn kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");

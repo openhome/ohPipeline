@@ -111,7 +111,7 @@ private:
     std::vector<std::pair<Brn, Brn>> iQueryKvps;
     Uri iEndpointUri;
     Semaphore iSemDeviceFound;
-    Bws<64> iUdn;
+    Functor iCompleted;
     Media::BwsTrackUri iTrackUri;
     Media::BwsTrackMetaData iTrackMetadata;
     TBool iShuffle;
