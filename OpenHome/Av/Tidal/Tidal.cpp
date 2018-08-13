@@ -132,7 +132,7 @@ TBool Tidal::TryLogout(const Brx& aSessionId)
     return TryLogoutLocked(aSessionId);
 }
 
-TBool Tidal::TryGetId(WriterBwh& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType)
+TBool Tidal::TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
 
@@ -144,7 +144,7 @@ TBool Tidal::TryGetId(WriterBwh& aWriter, const Brx& aQuery, TidalMetadata::EIdT
     return TryGetResponse(aWriter, kHost, pathAndQuery, 1, 0);
 }
 
-TBool Tidal::TryGetIds(WriterBwh& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
+TBool Tidal::TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
 
@@ -179,7 +179,7 @@ TBool Tidal::TryGetIds(WriterBwh& aWriter, const Brx& aMood, TidalMetadata::EIdT
     return TryGetResponse(aWriter, kHost, pathAndQuery, aMaxAlbumsPerResponse, 0);
 }
 
-TBool Tidal::TryGetIdsByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse)
+TBool Tidal::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse)
 {
     Bwh uri(1024);
     Uri::Unescape(uri, aRequestUrl);
@@ -188,7 +188,7 @@ TBool Tidal::TryGetIdsByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUin
     return TryGetResponse(aWriter, request.Host(), pathAndQuery, aMaxAlbumsPerResponse, 0);
 }
 
-TBool Tidal::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset)
+TBool Tidal::TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
     if (aType == TidalMetadata::eMood || aType == TidalMetadata::eSmartExclusive || aType == TidalMetadata::eSavedPlaylist) {
@@ -228,7 +228,7 @@ TBool Tidal::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, TidalMetadata:
     return TryGetResponse(aWriter, kHost, pathAndQuery, aLimit, aOffset);
 }
 
-TBool Tidal::TryGetTracksByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset)
+TBool Tidal::TryGetTracksByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset)
 {
     Bwh uri(1024);
     Uri::Unescape(uri, aRequestUrl);
@@ -237,7 +237,7 @@ TBool Tidal::TryGetTracksByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, T
     return TryGetResponse(aWriter, request.Host(), pathAndQuery, aLimit, aOffset);
 }
 
-TBool Tidal::TryGetResponse(WriterBwh& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset)
+TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset)
 {
     AutoMutex _(iLock);
     TBool success = false;
