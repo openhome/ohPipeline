@@ -14,6 +14,7 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/Json.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Private/Parser.h>
 
@@ -26,6 +27,7 @@ using namespace OpenHome::Configuration;
 
 // Pin mode
 static const TChar* kPinModeTidal = "tidal";
+static const Brn    kBufPinModeTidal = Brn(kPinModeTidal);
 
 // Pin types
 static const TChar* kPinTypeArtist = "artist";
@@ -64,45 +66,73 @@ static const TChar* kSmartTypeTop20 = "top20";
 // would need to call THROW(TidalRequestInvalid); on fail
 // rising and discovery have no validation
 
-TidalPins::TidalPins(Tidal& aTidal, DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, TUint aMaxTracks)
+TidalPins::TidalPins(Tidal& aTidal,
+                     DvDeviceStandard& aDevice,
+                     Media::TrackFactory& aTrackFactory,
+                     CpStack& aCpStack,
+                     IThreadPool& aThreadPool)
     : iLock("TPIN")
     , iTidal(aTidal)
     , iJsonResponse(kJsonResponseChunks)
     , iTrackFactory(aTrackFactory)
-    , iCpStack(aCpStack)
-    , iMaxTracks(aMaxTracks)
+    , iPin(iPinIdProvider)
 {
-    CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
+    CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &TidalPins::Invoke),
+                                                 "TidalPins", ThreadPoolPriority::Medium);
 }
 
 TidalPins::~TidalPins()
 {
+    iThreadPoolHandle->Destroy();
     delete iCpPlaylist;
 }
 
 void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
-    AutoFunctor _(aCompleted);
-    PinUri pin(aPin);
+    if (aPin.Mode() != kBufPinModeTidal) {
+        return;
+    }
+    AutoPinComplete completion(aCompleted);
+    iTidal.Login(iToken);
+    (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+                         aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    completion.Cancel();
+    iCompleted = aCompleted;
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
+void TidalPins::Cancel()
+{
+    iTidal.Interrupt(true);
+}
+
+const TChar* TidalPins::Mode() const
+{
+    return kPinModeTidal;
+}
+
+void TidalPins::Invoke()
+{
+    AutoFunctor _(iCompleted);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeTidal)) {
-        Bwh token(128);
-        iTidal.Login(token);
+    try {
+        PinUri pin(iPin);
         Brn id;
-        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) { 
+        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) {
             if (pin.TryGetValue(kPinKeyId, id)) {
-                res = LoadTracksByArtist(id, aPin.Shuffle());
+                res = LoadTracksByArtist(id, iPin.Shuffle());
             }
             else if (pin.TryGetValue(kPinKeyPath, id)) {
                 Brn response(Brx::Empty());
                 pin.TryGetValue(kPinKeyResponseType, response);
                 if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, aPin.Shuffle());
+                    res = LoadTracksByPath(id, iPin.Shuffle());
                 }
                 else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, aPin.Shuffle());
+                    res = LoadAlbumsByPath(id, iPin.Shuffle());
                 }
                 else {
                     THROW(PinMissingRequiredParameter);
@@ -112,18 +142,18 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 THROW(PinMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) { 
+        else if (Brn(pin.Type()) == Brn(kPinTypeAlbum)) {
             if (pin.TryGetValue(kPinKeyId, id)) {
-                res = LoadTracksByAlbum(id, aPin.Shuffle());
+                res = LoadTracksByAlbum(id, iPin.Shuffle());
             }
             else if (pin.TryGetValue(kPinKeyPath, id)) {
                 Brn response(Brx::Empty());
                 pin.TryGetValue(kPinKeyResponseType, response);
                 if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, aPin.Shuffle());
+                    res = LoadTracksByPath(id, iPin.Shuffle());
                 }
                 else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, aPin.Shuffle());
+                    res = LoadAlbumsByPath(id, iPin.Shuffle());
                 }
                 else {
                     THROW(PinMissingRequiredParameter);
@@ -135,7 +165,7 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         }
         else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) {
             if (pin.TryGetValue(kPinKeyTrackId, id)) {
-                res = LoadTracksByTrack(id, aPin.Shuffle());
+                res = LoadTracksByTrack(id, iPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
@@ -143,16 +173,16 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         }
         else if (Brn(pin.Type()) == Brn(kPinTypePlaylist)) {
             if (pin.TryGetValue(kPinKeyId, id)) {
-                res = LoadTracksByPlaylist(id, aPin.Shuffle());
+                res = LoadTracksByPlaylist(id, iPin.Shuffle());
             }
             else if (pin.TryGetValue(kPinKeyPath, id)) {
                 Brn response(Brx::Empty());
                 pin.TryGetValue(kPinKeyResponseType, response);
                 if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, aPin.Shuffle());
+                    res = LoadTracksByPath(id, iPin.Shuffle());
                 }
                 else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, aPin.Shuffle());
+                    res = LoadAlbumsByPath(id, iPin.Shuffle());
                 }
                 else {
                     THROW(PinMissingRequiredParameter);
@@ -164,16 +194,16 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         }
         else if (Brn(pin.Type()) == Brn(kPinTypeGenre)) {
             if (pin.TryGetValue(kPinKeyId, id)) {
-                res = LoadTracksByGenre(id, aPin.Shuffle());
+                res = LoadTracksByGenre(id, iPin.Shuffle());
             }
             else if (pin.TryGetValue(kPinKeyPath, id)) {
                 Brn response(Brx::Empty());
                 pin.TryGetValue(kPinKeyResponseType, response);
                 if (response == Brn(kPinResponseTracks)) {
-                    res = LoadTracksByPath(id, aPin.Shuffle());
+                    res = LoadTracksByPath(id, iPin.Shuffle());
                 }
                 else if (response == Brn(kPinResponseAlbums)) {
-                    res = LoadAlbumsByPath(id, aPin.Shuffle());
+                    res = LoadAlbumsByPath(id, iPin.Shuffle());
                 }
                 else {
                     THROW(PinMissingRequiredParameter);
@@ -185,7 +215,7 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         }
         else if (Brn(pin.Type()) == Brn(kPinTypeMood)) {
             if (pin.TryGetValue(kPinKeyId, id)) {
-                res = LoadTracksByMood(id, aPin.Shuffle());
+                res = LoadTracksByMood(id, iPin.Shuffle());
             }
             else {
                 THROW(PinMissingRequiredParameter);
@@ -197,34 +227,32 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 THROW(PinMissingRequiredParameter);
             }
 
-            if (smartType == Brn(kSmartTypeDiscovery)) { res = LoadTracksByDiscovery(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeExclusive)) { res = LoadTracksByExclusive(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeFavorites)) { res = LoadTracksByFavorites(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeNew)) { res = LoadTracksByNew(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeRising)) { res = LoadTracksByRising(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeSavedPlaylist)) { res = LoadTracksBySavedPlaylist(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeTop20)) { res = LoadTracksByTop20(aPin.Shuffle()); }
+            if (smartType == Brn(kSmartTypeDiscovery)) { res = LoadTracksByDiscovery(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeExclusive)) { res = LoadTracksByExclusive(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeFavorites)) { res = LoadTracksByFavorites(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeNew)) { res = LoadTracksByNew(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeRising)) { res = LoadTracksByRising(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeSavedPlaylist)) { res = LoadTracksBySavedPlaylist(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeTop20)) { res = LoadTracksByTop20(iPin.Shuffle()); }
             else {
+                LOG_ERROR(kPipeline, "TidalPins::Invoke - unsupported smart type in %.*s\n", PBUF(iPin.Uri()));
                 THROW(PinSmartTypeNotSupported);
             }
         }
         else {
+            LOG_ERROR(kPipeline, "TidalPins::Invoke - unsupported type - %.*s\n", PBUF(iPin.Type()));
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
     }
-}
+    catch (PinMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "TidalPins::Invoke - missing parameter in %.*s\n", PBUF(iPin.Uri()));
+        throw;
+    }
 
-void TidalPins::Cancel()
-{
-}
-
-const TChar* TidalPins::Mode() const
-{
-    return kPinModeTidal;
+    if (!res) {
+        THROW(PinInvokeError);
+    }
 }
 
 TBool TidalPins::LoadTracksByArtist(const Brx& aArtist, TBool aShuffle)
@@ -577,7 +605,8 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aType, TU
 {
     TidalMetadata tm(iTrackFactory);
     TUint offset = 0;
-    TUint total = iMaxTracks;
+    TUint total;
+    iCpPlaylist->SyncTracksMax(total);
     TUint newId = 0;
     TUint currId = aPlaylistId;
     TBool initPlay = (aPlaylistId == 0);

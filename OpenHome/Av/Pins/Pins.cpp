@@ -755,6 +755,24 @@ TBool PinUri::TryGetValue(const Brx& aKey, Brn& aValue) const
     return false;
 }
 
+TBool PinUri::TryGetValue(const TChar* aKey, Bwx& aValue) const
+{
+    return TryGetValue(Brn(aKey), aValue);
+}
+
+TBool PinUri::TryGetValue(const Brx& aKey, Bwx& aValue) const
+{
+    Brn val;
+    if (TryGetValue(aKey, val)) {
+        aValue.ReplaceThrow(val);
+        return true;
+    }
+    else {
+        aValue.Replace(Brx::Empty());
+        return false;
+    }
+}
+
 
 // PinMetadata
 

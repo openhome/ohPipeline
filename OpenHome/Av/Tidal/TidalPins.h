@@ -15,6 +15,8 @@
         
 namespace OpenHome {
     class Environment;
+    class IThreadPool;
+    class IThreadPoolHandle;
 namespace Configuration {
     class IConfigInitialiser;
     class ConfigChoice;
@@ -29,10 +31,15 @@ class TidalPins
     static const TUint kMaxAlbums = 25; // limit albums in loop (NOTE: tidal api will not give a conmtnet-length if the limit is too high - requires further investigation)
     static const TUint kJsonResponseChunks = 4 * 1024;
 public:
-    TidalPins(Tidal& aTidal, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, TUint aMaxTracks = ITrackDatabase::kMaxTracks);
+    TidalPins(Tidal& aTidal,
+              Net::DvDeviceStandard& aDevice,
+              Media::TrackFactory& aTrackFactory,
+              Net::CpStack& aCpStack,
+              IThreadPool& aThreadPool);
     ~TidalPins();
 
 private:
+    void Invoke();
     TBool LoadTracksByArtist(const Brx& aArtist, TBool aShuffle); // tidal id or search string 
     TBool LoadTracksByAlbum(const Brx& aAlbum, TBool aShuffle); // tidal id or search string 
     TBool LoadTracksByTrack(const Brx& aTrack, TBool aShuffle); // tidal id or search string 
@@ -66,14 +73,18 @@ private:
 private:
     Mutex iLock;
     Tidal& iTidal;
+    IThreadPoolHandle* iThreadPoolHandle;
     WriterBwh iJsonResponse;
     Media::TrackFactory& iTrackFactory;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
-    Net::CpStack& iCpStack;
-    TUint iMaxTracks;
+    Bws<128> iToken;
+    Functor iCompleted;
+    PinIdProvider iPinIdProvider;
+    Pin iPin;
+    Functor iTrackLoader;
+    Bws<IPin::kMaxUriBytes> iId;
+    TBool iShuffle;
 };
 
 };  // namespace Av
 };  // namespace OpenHome
-
-

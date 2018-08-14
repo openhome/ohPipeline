@@ -285,6 +285,8 @@ public:
     const Brx& Type() const ;
     TBool TryGetValue(const TChar* aKey, Brn& aValue) const;
     TBool TryGetValue(const Brx& aKey, Brn& aValue) const;
+    TBool TryGetValue(const TChar* aKey, Bwx& aValue) const;
+    TBool TryGetValue(const Brx& aKey, Bwx& aValue) const;
 private:
     Bwh iMode;
     Bwh iType;
