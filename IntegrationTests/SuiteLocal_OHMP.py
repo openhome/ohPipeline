@@ -54,9 +54,6 @@ radio4      = config.Get( 'tunein.user.o4' )
 plEnc       = config.Get( 'playlist.enc-free-dsd' )
 plMix       = config.Get( 'playlist.mixed-free-dsd' )
 server      = config.Get( 'mediaserver.name' )
-cloudId     = config.Get( 'linncloud.id' )
-cloudSecret = config.Get( 'linncloud.secret' )
-cloudToken  = config.Get( 'linncloud.token' )
 tidalId     = config.Get( 'tidal.id' )
 tidalUser   = config.Get( 'tidal.user' )
 tidalPwd    = config.Get( 'tidal.password' )
@@ -65,6 +62,8 @@ qobuzUser   = config.Get( 'qobuz.user' )
 qobuzPwd    = config.Get( 'qobuz.password' )
 crUser      = config.Get( 'calmradio.user' )
 crPwd       = config.Get( 'calmradio.password' )
+tuneinWw    = config.Get( 'tunein.user.worldwide' )
+tuneinId    = config.Get( 'tunein.partnerid' )
 
 tests = [
     # UPnP compliance
@@ -123,7 +122,7 @@ tests = [
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'standby',   'multicast'                      ],
 
     # Pins
-    [ 'TestPins',                     'local', qobuzUser, qobuzPwd,  tidalUser,   tidalPwd,    cloudId, cloudSecret, cloudToken      ],
+    [ 'TestPins',                     'local', crUser, crPwd, qobuzUser, qobuzPwd, tidalUser, tidalPwd, tuneinId, tuneinWw, '', '', ''],
 
     # Airplay
     ['TestAirplayFunctions', 'local'],

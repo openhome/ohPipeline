@@ -17,6 +17,7 @@ function StartLongPolling()
                         Web Config\
                         </title>\
                         </head>\
+                        <!-- Use onload to handle requesting new long poll session on page loads and onbeforeunload/onunload to notify server of termination of polling session on page refresh/close/leave.-->\
                         <body onload=\"StartLongPolling()\" onunload=\"EndLongPolling()\">\
                         \
                         <h1>Web Config UI</h1>\
