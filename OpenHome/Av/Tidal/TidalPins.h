@@ -81,9 +81,6 @@ private:
     Functor iCompleted;
     PinIdProvider iPinIdProvider;
     Pin iPin;
-    Functor iTrackLoader;
-    Bws<IPin::kMaxUriBytes> iId;
-    TBool iShuffle;
 };
 
 };  // namespace Av
