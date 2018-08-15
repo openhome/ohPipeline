@@ -17,6 +17,9 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Optional.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
+#include <OpenHome/Av/Pins/PodcastPinsITunes.h>
+#include <OpenHome/Av/Radio/TuneInPins.h>
+#include <OpenHome/Av/Radio/RadioPins.h>
 
 #include <limits.h>
 #include <memory>
@@ -50,9 +53,6 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
     , iLock("SRAD")
     , iUriProviderPresets(nullptr)
     , iTrack(nullptr)
-    , iPodcastPinsITunes(nullptr)
-    , iTuneInPins(nullptr)
-    , iRadioPins(nullptr)
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
     , iLive(false)
@@ -112,14 +112,14 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
 
     
     if (aMediaPlayer.PinsInvocable().Ok()) {
-        iPodcastPinsITunes = new PodcastPinsLatestEpisodeITunes(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
-        aMediaPlayer.PinsInvocable().Unwrap().Add(iPodcastPinsITunes);
+        auto podcastPinsITunes = new PodcastPinsLatestEpisodeITunes(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
+        aMediaPlayer.PinsInvocable().Unwrap().Add(podcastPinsITunes);
 
         if (iTuneIn != nullptr) {
-            iTuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore(), aTuneInPartnerId);
-            aMediaPlayer.PinsInvocable().Unwrap().Add(iTuneInPins);
-            iRadioPins = new RadioPins(aMediaPlayer.Device(), aMediaPlayer.CpStack());
-            aMediaPlayer.PinsInvocable().Unwrap().Add(iRadioPins);
+            auto tuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore(), aTuneInPartnerId);
+            aMediaPlayer.PinsInvocable().Unwrap().Add(tuneInPins);
+            auto radioPins = new RadioPins(aMediaPlayer.Device(), aMediaPlayer.CpStack());
+            aMediaPlayer.PinsInvocable().Unwrap().Add(radioPins);
         }
     }
 }
