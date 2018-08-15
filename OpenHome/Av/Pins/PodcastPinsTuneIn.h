@@ -106,15 +106,15 @@ public:
     TuneIn(Environment& aEnv);
     ~TuneIn();
 
-    TBool TryGetPodcastById(WriterBwh& aWriter, const Brx& aId);
-    TBool TryGetPodcastEpisodeInfoById(WriterBwh& aWriter, const Brx& aId);
-    TBool TryGetPodcastFromPath(WriterBwh& aWriter, const Brx& aPath);
+    TBool TryGetPodcastById(IWriter& aWriter, const Brx& aId);
+    TBool TryGetPodcastEpisodeInfoById(IWriter& aWriter, const Brx& aId);
+    TBool TryGetPodcastFromPath(IWriter& aWriter, const Brx& aPath);
     const Brx& GetPathFromId(const Brx& aId);
     static void SetPathFromId(Bwx& aPath, const Brx& aId);
     void Interrupt(TBool aInterrupt);
 private:
     TBool TryConnect(const Brx& aHost, TUint aPort);
-    TBool TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
+    TBool TryGetXmlResponse(IWriter& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
     void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
 private:
     Mutex iLock;
@@ -182,21 +182,17 @@ private:
 };
 
 class PodcastPinsLatestEpisodeTuneIn
-    : public IPinInvoker
-    , public IPodcastTransportHandler
+    : public IPodcastTransportHandler
 {
 public:
     PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const OpenHome::Brx& aPartnerId);
     ~PodcastPinsLatestEpisodeTuneIn();
+    void LoadPodcast(const IPin& aPin); // not required to be a separate pin invoker as it is created as part of TuneInPins
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;
     virtual void Play() override;
     virtual TBool SingleShot() override;
-public: // from IPinInvoker
-    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
-    void Cancel() override;
-    const TChar* Mode() const override;
 private:
     PodcastPinsTuneIn* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;

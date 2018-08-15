@@ -57,9 +57,8 @@ PodcastPinsLatestEpisodeTuneIn::~PodcastPinsLatestEpisodeTuneIn()
     delete iCpRadio;
 }
 
-void PodcastPinsLatestEpisodeTuneIn::BeginInvoke(const IPin& aPin, Functor aCompleted)
+void PodcastPinsLatestEpisodeTuneIn::LoadPodcast(const IPin& aPin)
 {
-    AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTuneInEpisode)) {
@@ -82,15 +81,6 @@ void PodcastPinsLatestEpisodeTuneIn::BeginInvoke(const IPin& aPin, Functor aComp
             THROW(PinInvokeError);
         }
     }
-}
-
-void PodcastPinsLatestEpisodeTuneIn::Cancel()
-{
-}
-
-const TChar* PodcastPinsLatestEpisodeTuneIn::Mode() const
-{
-    return kPinModeTuneInEpisode;
 }
 
 void PodcastPinsLatestEpisodeTuneIn::Init(TBool /*aShuffle*/)
@@ -723,7 +713,7 @@ void TuneIn::SetPathFromId(Bwx& aPath, const Brx& aId)
     aPath.Append(PodcastPinsTuneIn::GetPartnerId());
 }
 
-TBool TuneIn::TryGetPodcastFromPath(WriterBwh& aWriter, const Brx& aPath)
+TBool TuneIn::TryGetPodcastFromPath(IWriter& aWriter, const Brx& aPath)
 {
     TBool success = false;
     try {
@@ -736,13 +726,13 @@ TBool TuneIn::TryGetPodcastFromPath(WriterBwh& aWriter, const Brx& aPath)
     return success;
 }
 
-TBool TuneIn::TryGetPodcastById(WriterBwh& aWriter, const Brx& aId)
+TBool TuneIn::TryGetPodcastById(IWriter& aWriter, const Brx& aId)
 {
     SetPathFromId(iPath, aId);
     return TryGetPodcastFromPath(aWriter, iPath);
 }
 
-TBool TuneIn::TryGetPodcastEpisodeInfoById(WriterBwh& aWriter, const Brx& aId) {
+TBool TuneIn::TryGetPodcastEpisodeInfoById(IWriter& aWriter, const Brx& aId) {
     TBool success = false;
     SetPathFromId(iPath, aId);
     try {
@@ -756,7 +746,7 @@ TBool TuneIn::TryGetPodcastEpisodeInfoById(WriterBwh& aWriter, const Brx& aId) {
     return success;
 }
 
-TBool TuneIn::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead)
+TBool TuneIn::TryGetXmlResponse(IWriter& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead)
 {
     AutoMutex _(iLock);
     TBool success = false;
@@ -802,7 +792,7 @@ TBool TuneIn::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
         LOG_ERROR(kPipeline, "HttpError in TuneInMetadata::TryGetResponse\n");
     }
     catch (ReaderError&) {
-        if ( aWriter.Buffer().Bytes() > 0 ) {
+        if ( ((WriterBwh&)aWriter).Buffer().Bytes() > 0 ) {
             // lazy reading of xml has to account for this, particularly when there is no content length header and the length of the feed is less than our 'count'
             success = true;
         }

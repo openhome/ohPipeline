@@ -820,7 +820,7 @@ ITunes::~ITunes()
 {
 }
 
-TBool ITunes::TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery)
+TBool ITunes::TryGetPodcastId(IWriter& aWriter, const Brx& aQuery)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("");
 
@@ -842,7 +842,7 @@ TBool ITunes::TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery)
     return success;
 }
 
-TBool ITunes::TryGetPodcastById(WriterBwh& aWriter, const Brx& aId)
+TBool ITunes::TryGetPodcastById(IWriter& aWriter, const Brx& aId)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("");
 
@@ -864,7 +864,7 @@ TBool ITunes::TryGetPodcastById(WriterBwh& aWriter, const Brx& aId)
     return success;
 }
 
-TBool ITunes::TryGetPodcastEpisodeInfo(WriterBwh& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly) {
+TBool ITunes::TryGetPodcastEpisodeInfo(IWriter& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly) {
     TBool success = false;
     TUint blocksToRead = kSingleEpisodesBlockSize;
     if (!aLatestOnly) {
@@ -881,7 +881,7 @@ TBool ITunes::TryGetPodcastEpisodeInfo(WriterBwh& aWriter, const Brx& aXmlFeedUr
     return success;
 }
 
-TBool ITunes::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead)
+TBool ITunes::TryGetXmlResponse(IWriter& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead)
 {
     AutoMutex _(iLock);
     TBool success = false;
@@ -925,7 +925,7 @@ TBool ITunes::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
         LOG_ERROR(kPipeline, "HttpError in ITunesMetadata::TryGetResponse\n");
     }
     catch (ReaderError&) {
-        if ( aWriter.Buffer().Bytes() > 0 ) {
+        if ( ((WriterBwh&)aWriter).Buffer().Bytes() > 0 ) {
             // lazy reading of xml has to account for this, particularly when there is no content length header and the length of the feed is less than our 'count'
             success = true;
         }
@@ -939,7 +939,7 @@ TBool ITunes::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
     return success;
 }
 
-TBool ITunes::TryGetJsonResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit)
+TBool ITunes::TryGetJsonResponse(IWriter& aWriter, Bwx& aPathAndQuery, TUint aLimit)
 {
     AutoMutex _(iLock);
     TBool success = false;

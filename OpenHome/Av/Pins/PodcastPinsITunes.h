@@ -119,14 +119,14 @@ public:
     ITunes(Environment& aEnv);
     ~ITunes();
 
-    TBool TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery);
-    TBool TryGetPodcastById(WriterBwh& aWriter, const Brx& aId);
-    TBool TryGetPodcastEpisodeInfo(WriterBwh& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly);
+    TBool TryGetPodcastId(IWriter& aWriter, const Brx& aQuery);
+    TBool TryGetPodcastById(IWriter& aWriter, const Brx& aId);
+    TBool TryGetPodcastEpisodeInfo(IWriter& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly);
     void Interrupt(TBool aInterrupt);
 private:
     TBool TryConnect(const Brx& aHost, TUint aPort);
-    TBool TryGetJsonResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit);
-    TBool TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
+    TBool TryGetJsonResponse(IWriter& aWriter, Bwx& aPathAndQuery, TUint aLimit);
+    TBool TryGetXmlResponse(IWriter& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
     void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
 private:
     Mutex iLock;
