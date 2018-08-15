@@ -26,7 +26,6 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 
 // Pin modes
-static const TChar* kPinModeTuneInEpisode = "tunein";
 static const TChar* kPinModeTuneInList = "tuneinlist";
 
 // Pin types
