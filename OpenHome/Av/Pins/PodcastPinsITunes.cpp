@@ -37,7 +37,7 @@ static const TChar* kPinKeyPath = "path";
 // Store values
 static const Brn kStoreKeyITunesPodcast("Pins.PodcastITunes");
 
-const TUint kTimerDurationMs = (1000 * 60 * 60 * 1); // every hour
+const TUint kTimerDurationMs = (1000 * 60 * 60 * 12); // 12 hours
 //const TUint kTimerDurationMs = 1000 * 60; // 1 min - TEST ONLY
 
 // PodcastPinsLatestEpisodeITunes
