@@ -392,8 +392,7 @@ TBool PodcastPinsTuneIn::LoadByPath(const Brx& aPath, IPodcastTransportHandler& 
             while (!xmlParser.Finished()) {
                 Brn item = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("outline"));
                 Brn type = PodcastPins::GetFirstXmlAttribute(item, Brn("type"));
-                Brn sub = PodcastPins::GetFirstXmlAttribute(item, Brn("subtext"));
-                if (type == TuneInMetadata::kMediaTypePodcast && sub == Brn("Saturday Aug 4")) {
+                if (type == TuneInMetadata::kMediaTypePodcast) {
                     auto* track = tm.GetNextEpisodeTrack(podcast->Id(), item);
                     if (track != nullptr) {
                         aHandler.Load(*track);
