@@ -66,6 +66,7 @@ class PinInvokerKazooServer : public IPinInvoker
     static const Brn kHostArtist;
     static const Brn kHostContainer;
     static const Brn kHostGenre;
+    static const Brn kHostPlaylist;
 public:
     PinInvokerKazooServer(Environment& aEnv,
                           Net::CpStack& aCpStack,

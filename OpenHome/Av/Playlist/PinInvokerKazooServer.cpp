@@ -148,6 +148,7 @@ const Brn PinInvokerKazooServer::kHostAlbum("album");
 const Brn PinInvokerKazooServer::kHostArtist("artist");
 const Brn PinInvokerKazooServer::kHostContainer("container");
 const Brn PinInvokerKazooServer::kHostGenre("genre");
+const Brn PinInvokerKazooServer::kHostPlaylist("playlist");
 
 PinInvokerKazooServer::PinInvokerKazooServer(Environment& aEnv,
                                              CpStack& aCpStack,
@@ -322,6 +323,10 @@ void PinInvokerKazooServer::ReadFromServer()
         for (TUint i = 0; i < startIndex && playlistCapacity > 0; i++) {
             ReadIdAddAlbum(mePathBase, sessionId, genreId, i, lastTrackId, playlistCapacity);
         }
+    }
+    else if (host == kHostPlaylist) {
+        Brn id(FromQuery("browse"));
+        (void)AddAlbum(mePathBase, sessionId, id, lastTrackId, playlistCapacity); // not actually an album, but KS doesn't have a better term for a container of tracks...
     }
     else {
         LOG_ERROR(kPipeline, "PinInvokerKazooServer - unhandled path in %.*s\n", PBUF(iPinUri.Query()));
