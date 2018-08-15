@@ -15,7 +15,8 @@
 #include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Media/MimeTypeList.h>
-#include <OpenHome/Av/Pins/PodcastPins.h>
+#include <OpenHome/Av/Pins/PodcastPinsITunes.h>
+#include <OpenHome/Av/Pins/PodcastPinsTuneIn.h>
 
 #include <limits.h>
 
@@ -136,9 +137,10 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     auto pinsInvocable = aMediaPlayer.PinsInvocable();
     if (pinsInvocable.Ok()) {
         auto& cpStack = aMediaPlayer.CpStack();
-        auto podcastPins = new PodcastPinsEpisodeList(dvDevice, aMediaPlayer.TrackFactory(),
-                                                      cpStack, aMediaPlayer.ReadWriteStore());
-        pinsInvocable.Unwrap().Add(podcastPins);
+        auto podcastPinsITunes = new PodcastPinsEpisodeListITunes(dvDevice, aMediaPlayer.TrackFactory(), cpStack, aMediaPlayer.ReadWriteStore());
+        pinsInvocable.Unwrap().Add(podcastPinsITunes);
+        auto podcastPinsTuneIn = new PodcastPinsEpisodeListTuneIn(dvDevice, aMediaPlayer.TrackFactory(), cpStack, aMediaPlayer.ReadWriteStore());
+        pinsInvocable.Unwrap().Add(podcastPinsTuneIn);
         auto pinsKazooServer = new PinInvokerKazooServer(env, cpStack, dvDevice, aMediaPlayer.ThreadPool());
         pinsInvocable.Unwrap().Add(pinsKazooServer);
         if (aPlaylistLoader.Ok()) {

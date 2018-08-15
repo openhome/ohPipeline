@@ -25,12 +25,17 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Configuration;
 
+const Brn TuneInApi::kTuneInPresetsRequest("http://opml.radiotime.com/Browse.ashx?&c=presets&options=recurse:tuneShows");
+const Brn TuneInApi::kPartnerId("&partnerId=");
+const Brn TuneInApi::kUsername("&username=");
+
+const Brn TuneInApi::kTuneInStationRequest("http://opml.radiotime.com/Tune.ashx?");
+const Brn TuneInApi::kTuneInPodcastBrowse("&c=pbrowse");
+const Brn TuneInApi::kFormats("&formats=mp3,wma,aac,wmvideo,ogg,hls");
+const Brn TuneInApi::kTuneInItemId("&id=");
+
 const Brn RadioPresetsTuneIn::kConfigKeyUsername("Radio.TuneInUserName");
 const Brn RadioPresetsTuneIn::kConfigUsernameDefault("linnproducts");
-const Brn RadioPresetsTuneIn::kTuneInPresetsRequest("http://opml.radiotime.com/Browse.ashx?&c=presets&options=recurse:tuneShows");
-//const Brn RadioPresetsTuneIn::kFormats("&formats=mp3,wma,aac,wmvideo,ogg,hls");
-const Brn RadioPresetsTuneIn::kPartnerId("&partnerId=");
-const Brn RadioPresetsTuneIn::kUsername("&username=");
 
 typedef struct MimeTuneInPair
 {
@@ -110,11 +115,11 @@ RadioPresetsTuneIn::~RadioPresetsTuneIn()
 void RadioPresetsTuneIn::UpdateUsername(const Brx& aUsername)
 {
     Bws<256> uriBuf;
-    uriBuf.Append(kTuneInPresetsRequest);
+    uriBuf.Append(TuneInApi::kTuneInPresetsRequest);
     uriBuf.Append(iSupportedFormats);
-    uriBuf.Append(kPartnerId);
+    uriBuf.Append(TuneInApi::kPartnerId);
     uriBuf.Append(iPartnerId);
-    uriBuf.Append(kUsername);
+    uriBuf.Append(TuneInApi::kUsername);
     uriBuf.Append(aUsername);
     iRequestUri.Replace(uriBuf);
 }

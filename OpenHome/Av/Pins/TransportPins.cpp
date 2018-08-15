@@ -49,7 +49,7 @@ void TransportPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
                 res = SelectLocalInput(sourceSystemName);
             }
             else {
-                THROW(PinMissingRequiredParameter);
+                THROW(PinUriMissingRequiredParameter);
             }
         }
         else {

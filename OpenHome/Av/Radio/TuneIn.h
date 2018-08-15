@@ -30,6 +30,18 @@ namespace Media {
 }
 namespace Av {
 
+class TuneInApi
+{
+public:
+    static const Brn kTuneInPresetsRequest;
+    static const Brn kFormats;
+    static const Brn kPartnerId;
+    static const Brn kUsername;
+    static const Brn kTuneInStationRequest;
+    static const Brn kTuneInPodcastBrowse;
+    static const Brn kTuneInItemId;
+};
+
 class RadioPresetsTuneIn
 {
 private:
@@ -43,10 +55,6 @@ private:
     static const TUint kMaxPresetTitleBytes = 256;
     static const Brn kConfigKeyUsername;
     static const Brn kConfigUsernameDefault;
-    static const Brn kTuneInPresetsRequest;
-    static const Brn kFormats;
-    static const Brn kPartnerId;
-    static const Brn kUsername;
 public:
     RadioPresetsTuneIn(Environment& aEnv, const Brx& aPartnerId,
                        IPresetDatabaseWriter& aDbWriter, Configuration::IConfigInitialiser& aConfigInit,

@@ -25,7 +25,7 @@ using namespace OpenHome::Configuration;
 static const TChar* kSoundQualities[3] = {"LOW", "HIGH", "LOSSLESS"};
 static const TUint kNumSoundQualities = sizeof(kSoundQualities) / sizeof(kSoundQualities[0]);
 
-const Brn Tidal::kHost("api.tidal.com");
+const Brn Tidal::kHost("api.tidalhifi.com");
 const Brn Tidal::kId("tidalhifi.com");
 const Brn Tidal::kConfigKeySoundQuality("tidalhifi.com.SoundQuality");
 

@@ -53,6 +53,7 @@ private: // from IPinInvoker
     const TChar* Mode() const override;
 private:
     TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TUint aPlaylistId);
+    TBool LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle);
     TBool LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType, TBool aShuffle);
     TBool LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType, TBool aShuffle);
     TBool LoadTracksByPath(const Brx& aPath, TBool aShuffle);
