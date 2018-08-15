@@ -154,7 +154,7 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
     return success;
 }
 
-TBool Qobuz::TryGetId(WriterBwh& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType)
+TBool Qobuz::TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType)
 {
     iPathAndQuery.Replace(kVersionAndFormat);
 
@@ -165,7 +165,7 @@ TBool Qobuz::TryGetId(WriterBwh& aWriter, const Brx& aQuery, QobuzMetadata::EIdT
     return TryGetResponse(aWriter, kHost, 1, 0); // return top hit
 }
 
-TBool Qobuz::TryGetIds(WriterBwh& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
+TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
 {
     iPathAndQuery.Replace(kVersionAndFormat);
 
@@ -192,7 +192,7 @@ TBool Qobuz::TryGetIds(WriterBwh& aWriter, const Brx& aGenre, QobuzMetadata::EId
     return TryGetResponse(aWriter, kHost, aMaxAlbumsPerResponse, 0);
 }
 
-TBool Qobuz::TryGetIdsByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse)
+TBool Qobuz::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse)
 {
     Bwh uri(1024);
     Uri::Unescape(uri, aRequestUrl);
@@ -201,7 +201,7 @@ TBool Qobuz::TryGetIdsByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUin
     return TryGetResponse(aWriter, request.Host(), aMaxAlbumsPerResponse, 0);
 }
 
-TBool Qobuz::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset)
+TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset)
 {
     iPathAndQuery.Replace(kVersionAndFormat);
 
@@ -235,7 +235,7 @@ TBool Qobuz::TryGetTracksById(WriterBwh& aWriter, const Brx& aId, QobuzMetadata:
     return TryGetResponse(aWriter, kHost, aLimit, aOffset);
 }
 
-TBool Qobuz::TryGetGenreList(WriterBwh& aWriter)
+TBool Qobuz::TryGetGenreList(IWriter& aWriter)
 {
     iPathAndQuery.Replace(kVersionAndFormat);
     iPathAndQuery.Append("genre/list?");
@@ -243,7 +243,7 @@ TBool Qobuz::TryGetGenreList(WriterBwh& aWriter)
     return TryGetResponse(aWriter, kHost, 50, 0);
 }
 
-TBool Qobuz::TryGetTracksByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset)
+TBool Qobuz::TryGetTracksByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset)
 {
     Bwh uri(1024);
     Uri::Unescape(uri, aRequestUrl);
@@ -252,7 +252,7 @@ TBool Qobuz::TryGetTracksByRequest(WriterBwh& aWriter, const Brx& aRequestUrl, T
     return TryGetResponse(aWriter, request.Host(), aLimit, aOffset);
 }
 
-TBool Qobuz::TryGetResponse(WriterBwh& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset)
+TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset)
 {
     AutoMutex _(iLock);
     TBool success = false;
