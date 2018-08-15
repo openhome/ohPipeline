@@ -32,7 +32,7 @@ static const TChar* kPinTypePodcast = "podcast";
 
 // Pin params
 static const TChar* kPinKeyEpisodeId = "id";
-static const TChar* kPinKeyPath = "path";
+//static const TChar* kPinKeyPath = "path";
 
 // Store values
 static const Brn kStoreKeyITunesPodcast("Pins.PodcastITunes");
