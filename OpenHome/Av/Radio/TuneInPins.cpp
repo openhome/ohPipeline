@@ -68,7 +68,7 @@ void TuneInPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
             }
         }
         else if (Brn(pin.Type()) == Brn(kPinTypePodcast)) { 
-            iPodcastPinsEpisode->Invoke(aPin);
+            iPodcastPinsEpisode->BeginInvoke(aPin, aCompleted);
             return;
         }
         else {

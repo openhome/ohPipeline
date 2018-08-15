@@ -57,8 +57,9 @@ PodcastPinsLatestEpisodeTuneIn::~PodcastPinsLatestEpisodeTuneIn()
     delete iCpRadio;
 }
 
-void PodcastPinsLatestEpisodeTuneIn::Invoke(const IPin& aPin)
+void PodcastPinsLatestEpisodeTuneIn::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTuneInEpisode)) {
@@ -81,6 +82,10 @@ void PodcastPinsLatestEpisodeTuneIn::Invoke(const IPin& aPin)
             THROW(PinInvokeError);
         }
     }
+}
+
+void PodcastPinsLatestEpisodeTuneIn::Cancel()
+{
 }
 
 const TChar* PodcastPinsLatestEpisodeTuneIn::Mode() const
@@ -125,8 +130,9 @@ PodcastPinsEpisodeListTuneIn::~PodcastPinsEpisodeListTuneIn()
     delete iCpPlaylist;
 }
 
-void PodcastPinsEpisodeListTuneIn::Invoke(const IPin& aPin)
+void PodcastPinsEpisodeListTuneIn::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
+    AutoFunctor _(aCompleted);
     PinUri pin(aPin);
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTuneInList)) {
@@ -149,6 +155,10 @@ void PodcastPinsEpisodeListTuneIn::Invoke(const IPin& aPin)
             THROW(PinInvokeError);
         }
     }
+}
+
+void PodcastPinsEpisodeListTuneIn::Cancel()
+{
 }
 
 const TChar* PodcastPinsEpisodeListTuneIn::Mode() const

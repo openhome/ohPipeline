@@ -120,13 +120,13 @@ void TidalPins::Invoke()
     AutoFunctor _(iCompleted);
     TBool res = false;
     try {
-        PinUri pin(iPin);
+        PinUri pinUri(iPin);
         Brn id;
-        if (Brn(pin.Type()) == Brn(kPinTypeArtist)) {
-            if (pin.TryGetValue(kPinKeyId, id)) {
+        if (Brn(pinUri.Type()) == Brn(kPinTypeArtist)) {
+            if (pinUri.TryGetValue(kPinKeyId, id)) {
                 res = LoadTracksByArtist(id, iPin.Shuffle());
             }
-            else if (pin.TryGetValue(kPinKeyPath, id)) {
+            else if (pinUri.TryGetValue(kPinKeyPath, id)) {
                 res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
@@ -144,7 +144,7 @@ void TidalPins::Invoke()
                 THROW(PinUriMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeTrack)) {
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeTrack)) {
             if (pinUri.TryGetValue(kPinKeyTrackId, id)) {
                 res = LoadTracksByTrack(id, iPin.Shuffle());
             }
@@ -214,7 +214,7 @@ void TidalPins::Invoke()
             THROW(PinTypeNotSupported);
         }
     }
-    catch (PinMissingRequiredParameter&) {
+    catch (PinUriMissingRequiredParameter&) {
         LOG_ERROR(kPipeline, "TidalPins::Invoke - missing parameter in %.*s\n", PBUF(iPin.Uri()));
         throw;
     }

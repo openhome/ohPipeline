@@ -80,15 +80,11 @@ void PodcastPinsLatestEpisodeITunes::BeginInvoke(const IPin& aPin, Functor aComp
     }
 }
 
-<<<<<<< HEAD:OpenHome/Av/Pins/PodcastPins.cpp
-void PodcastPinsLatestEpisode::Cancel()
+void PodcastPinsLatestEpisodeITunes::Cancel()
 {
 }
 
-const TChar* PodcastPinsLatestEpisode::Mode() const
-=======
 const TChar* PodcastPinsLatestEpisodeITunes::Mode() const
->>>>>>> Rename existing podcast support to be specific to itunes:OpenHome/Av/Pins/PodcastPinsITunes.cpp
 {
     return kPinModeITunesEpisode;
 }
@@ -130,19 +126,15 @@ PodcastPinsEpisodeListITunes::~PodcastPinsEpisodeListITunes()
     delete iCpPlaylist;
 }
 
-<<<<<<< HEAD:OpenHome/Av/Pins/PodcastPins.cpp
-void PodcastPinsEpisodeList::BeginInvoke(const IPin& aPin, Functor aCompleted)
-=======
-void PodcastPinsEpisodeListITunes::Invoke(const IPin& aPin)
->>>>>>> Rename existing podcast support to be specific to itunes:OpenHome/Av/Pins/PodcastPinsITunes.cpp
+void PodcastPinsEpisodeListITunes::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
     AutoFunctor _(aCompleted);
-    PinUri pin(aPin);
+    PinUri pinUri(aPin);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeITunesList)) {
-        if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
+    if (Brn(pinUri.Mode()) == Brn(kPinModeITunesList)) {
+        if (Brn(pinUri.Type()) == Brn(kPinTypePodcast)) {
             Brn episodeId;
-            if (pin.TryGetValue(kPinKeyEpisodeId, episodeId)) {
+            if (pinUri.TryGetValue(kPinKeyEpisodeId, episodeId)) {
                 res = iPodcastPins->LoadPodcastList(episodeId, *this, aPin.Shuffle());
             }
             else {
@@ -158,15 +150,11 @@ void PodcastPinsEpisodeListITunes::Invoke(const IPin& aPin)
     }
 }
 
-<<<<<<< HEAD:OpenHome/Av/Pins/PodcastPins.cpp
-void PodcastPinsEpisodeList::Cancel()
+void PodcastPinsEpisodeListITunes::Cancel()
 {
 }
 
-const TChar* PodcastPinsEpisodeList::Mode() const
-=======
 const TChar* PodcastPinsEpisodeListITunes::Mode() const
->>>>>>> Rename existing podcast support to be specific to itunes:OpenHome/Av/Pins/PodcastPinsITunes.cpp
 {
     return kPinModeITunesList;
 }
