@@ -903,9 +903,9 @@ const Brx& PodcastInfoTuneIn::Id()
 PodcastEpisodeTuneIn::PodcastEpisodeTuneIn(const Brx& aXmlItem)
     : iTitle(512)
     , iUrl(1024)
+    , iArtworkUrl(1024)
     , iPublishedDate(50)
     , iDuration(0)
-    , iArtworkUrl(1024)
 {
     Parse(aXmlItem);
 }

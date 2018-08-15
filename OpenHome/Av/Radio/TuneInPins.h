@@ -35,7 +35,6 @@ private:
     Mutex iLock;
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
     Net::CpStack& iCpStack;
-    const Brx& iPartnerId;
     Av::PodcastPinsLatestEpisodeTuneIn* iPodcastPinsEpisode;
 };
 

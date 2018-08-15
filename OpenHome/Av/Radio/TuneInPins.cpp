@@ -28,7 +28,6 @@ static const TChar* kPinKeyStreamUrl = "path";
 TuneInPins::TuneInPins(DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const Brx& aPartnerId)
     : iLock("IPIN")
     , iCpStack(aCpStack)
-    , iPartnerId(aPartnerId)
     , iPodcastPinsEpisode(nullptr)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
