@@ -16,6 +16,7 @@
 #include <OpenHome/Private/Timer.h>
 #include <Generated/CpAvOpenhomeOrgRadio1.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
+#include <OpenHome/Av/Radio/TuneIn.h>
 
 #include <algorithm>
 
@@ -37,14 +38,14 @@ static const TChar* kPinKeyPath = "path";
 // Store values
 static const Brn kStoreKeyTuneInPodcast("Pins.PodcastTuneIn");
 
-const TUint kTimerDurationMs = (1000 * 60 * 60 * 1); // every hour
+const TUint kTimerDurationMs = (1000 * 60 * 60 * 12); // 12 hours
 //const TUint kTimerDurationMs = 1000 * 60; // 1 min - TEST ONLY
 
 // PodcastPinsLatestEpisodeTuneIn
 
-PodcastPinsLatestEpisodeTuneIn::PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore)
+PodcastPinsLatestEpisodeTuneIn::PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const Brx& aPartnerId)
 {
-    iPodcastPins = PodcastPinsTuneIn::GetInstance(aTrackFactory, aCpStack.Env(), aStore);
+    iPodcastPins = PodcastPinsTuneIn::GetInstance(aTrackFactory, aCpStack.Env(), aStore, aPartnerId);
 
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
@@ -62,9 +63,12 @@ void PodcastPinsLatestEpisodeTuneIn::Invoke(const IPin& aPin)
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTuneInEpisode)) {
         if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
-            Brn episodeId;
-            if (pin.TryGetValue(kPinKeyEpisodeId, episodeId)) {
-                res = iPodcastPins->LoadPodcastLatest(episodeId, *this);
+            Brn val;
+            if (pin.TryGetValue(kPinKeyEpisodeId, val)) {
+                res = iPodcastPins->LoadPodcastLatestById(val, *this);
+            }
+            else if (pin.TryGetValue(kPinKeyPath, val)) {
+                res = iPodcastPins->LoadPodcastLatestByPath(val, *this);
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -109,7 +113,7 @@ TBool PodcastPinsLatestEpisodeTuneIn::SingleShot()
 PodcastPinsEpisodeListTuneIn::PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore)
     : iLastId(0)
 {
-    iPodcastPins = PodcastPinsTuneIn::GetInstance(aTrackFactory, aCpStack.Env(), aStore);
+    iPodcastPins = PodcastPinsTuneIn::GetInstance(aTrackFactory, aCpStack.Env(), aStore, Brx::Empty());
 
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
@@ -127,9 +131,12 @@ void PodcastPinsEpisodeListTuneIn::Invoke(const IPin& aPin)
     TBool res = false;
     if (Brn(pin.Mode()) == Brn(kPinModeTuneInList)) {
         if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
-            Brn episodeId;
-            if (pin.TryGetValue(kPinKeyEpisodeId, episodeId)) {
-                res = iPodcastPins->LoadPodcastList(episodeId, *this, aPin.Shuffle());
+            Brn val;
+            if (pin.TryGetValue(kPinKeyEpisodeId, val)) {
+                res = iPodcastPins->LoadPodcastListById(val, *this, aPin.Shuffle());
+            }
+            else if (pin.TryGetValue(kPinKeyPath, val)) {
+                res = iPodcastPins->LoadPodcastListByPath(val, *this, aPin.Shuffle());
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -176,13 +183,24 @@ TBool PodcastPinsEpisodeListTuneIn::SingleShot()
 // PodcastPinsTuneIn
 
 PodcastPinsTuneIn* PodcastPinsTuneIn::iInstance = nullptr;
+Brh PodcastPinsTuneIn::iPartnerId;
 
-PodcastPinsTuneIn* PodcastPinsTuneIn::GetInstance(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore)
+PodcastPinsTuneIn* PodcastPinsTuneIn::GetInstance(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore, const Brx& aPartnerId)
 {
     if (iInstance == nullptr) {
         iInstance = new PodcastPinsTuneIn(aTrackFactory, aEnv, aStore);
     }
+
+    if (iPartnerId.Bytes() == 0 && aPartnerId.Bytes() > 0) {
+        iPartnerId.Set(aPartnerId);
+    }
+
     return iInstance;
+}
+
+const Brx& PodcastPinsTuneIn::GetPartnerId()
+{
+    return iPartnerId;
 }
 
 PodcastPinsTuneIn::PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore)
@@ -226,7 +244,7 @@ PodcastPinsTuneIn::PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environ
                         break;
                     }
                     else {
-                        ListenedDatePooledTuneIn* m = new ListenedDatePooledTuneIn();
+                        ListenedDatePooled* m = new ListenedDatePooled();
                         m->Set(id, date, priority);
                         iMappings.push_back(m);
                         mapCount++;
@@ -239,7 +257,7 @@ PodcastPinsTuneIn::PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environ
 
     // If iMappings doesn't contain kMaxEntries from store, fill up with empty values
     while (iMappings.size() < kMaxEntries) {
-        iMappings.push_back(new ListenedDatePooledTuneIn());
+        iMappings.push_back(new ListenedDatePooled());
     }
 
     iTimer = new Timer(aEnv, MakeFunctor(*this, &PodcastPinsTuneIn::TimerCallback), "PodcastPinsTuneIn");
@@ -306,41 +324,35 @@ void PodcastPinsTuneIn::TimerCallback()
     iTimer->FireIn(kTimerDurationMs);
 }
 
-TBool PodcastPinsTuneIn::LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler)
+TBool PodcastPinsTuneIn::LoadPodcastLatestById(const Brx& aId, IPodcastTransportHandler& aHandler)
 {
-    return LoadByQuery(aQuery, aHandler, false);
+    return LoadByPath(iTuneIn->GetPathFromId(aId), aHandler, false);
 }
 
-TBool PodcastPinsTuneIn::LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle)
+TBool PodcastPinsTuneIn::LoadPodcastLatestByPath(const Brx& aPath, IPodcastTransportHandler& aHandler)
 {
-    return LoadByQuery(aQuery, aHandler, aShuffle);
+    return LoadByPath(aPath, aHandler, false);
 }
 
-TBool PodcastPinsTuneIn::CheckForNewEpisode(const Brx& aQuery)
+TBool PodcastPinsTuneIn::LoadPodcastListById(const Brx& aId, IPodcastTransportHandler& aHandler, TBool aShuffle)
+{
+    return LoadByPath(iTuneIn->GetPathFromId(aId), aHandler, aShuffle);
+}
+
+TBool PodcastPinsTuneIn::LoadPodcastListByPath(const Brx& aPath, IPodcastTransportHandler& aHandler, TBool aShuffle)
+{
+    return LoadByPath(aPath, aHandler, aShuffle);
+}
+
+TBool PodcastPinsTuneIn::CheckForNewEpisode(const Brx& aId)
 {
     AutoMutex _(iLock);
-    Bwh inputBuf(64);
 
     try {
-        if (aQuery.Bytes() == 0) {
+        if (aId.Bytes() == 0) {
             return false;
         }
-        //search string to id
-        else if (!IsValidId(aQuery)) {
-            iJsonResponse.Reset();
-            TBool success = iTuneIn->TryGetPodcastId(iJsonResponse, aQuery); // send request to TuneIn
-            if (!success) {
-                return false;
-            }
-            inputBuf.ReplaceThrow(TuneInMetadata::FirstIdFromJson(iJsonResponse.Buffer())); // parse response from TuneIn
-            if (inputBuf.Bytes() == 0) {
-                return false;
-            }
-        }
-        else {
-            inputBuf.ReplaceThrow(aQuery);
-        }
-        return CheckForNewEpisodeById(inputBuf);
+        return CheckForNewEpisodeById(aId);
     }   
     catch (Exception& ex) {
         LOG_ERROR(kMedia, "%s in PodcastPinsTuneIn::CheckForNewEpisode\n", ex.Message());
@@ -348,119 +360,78 @@ TBool PodcastPinsTuneIn::CheckForNewEpisode(const Brx& aQuery)
     }
 }
 
-TBool PodcastPinsTuneIn::LoadByQuery(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle)
+TBool PodcastPinsTuneIn::LoadByPath(const Brx& aPath, IPodcastTransportHandler& aHandler, TBool aShuffle)
 {
     AutoMutex _(iLock);
     aHandler.Init(aShuffle);
-    Bwh inputBuf(64);
 
-    try {
-        if (aQuery.Bytes() == 0) {
-            return false;
-        }
-        //search string to id
-        else if (!IsValidId(aQuery)) {
-            iJsonResponse.Reset();
-            TBool success = iTuneIn->TryGetPodcastId(iJsonResponse, aQuery); // send request to TuneIn
-            if (!success) {
-                return false;
-            }
-            inputBuf.ReplaceThrow(TuneInMetadata::FirstIdFromJson(iJsonResponse.Buffer())); // parse response from TuneIn
-            if (inputBuf.Bytes() == 0) {
-                return false;
-            }
-        }
-        else {
-            inputBuf.ReplaceThrow(aQuery);
-        }
-        LoadById(inputBuf, aHandler);
-    }   
-    catch (Exception& ex) {
-        LOG_ERROR(kMedia, "%s in PodcastPinsTuneIn::LoadByQuery\n", ex.Message());
-        return false;
-    }
-
-    return true;
-}
-
-TBool PodcastPinsTuneIn::LoadById(const Brx& aId, IPodcastTransportHandler& aHandler)
-{
-    TuneInMetadata im(iTrackFactory);
-    JsonParser parser;
+    TuneInMetadata tm(iTrackFactory);
     TBool isPlayable = false;
     Parser xmlParser;
     Brn date;
     PodcastInfoTuneIn* podcast = nullptr;
 
-    // id to streamable url
-    LOG(kMedia, "PodcastPinsTuneIn::LoadById: %.*s\n", PBUF(aId));
     try {
-        iJsonResponse.Reset();
-        TBool success = iTuneIn->TryGetPodcastById(iJsonResponse, aId);
+        if (aPath.Bytes() == 0) {
+            return false;
+        }
+        
+        LOG(kMedia, "PodcastPinsTuneIn::LoadByPath: %.*s\n", PBUF(aPath));
+        iXmlResponse.Reset();
+        TBool success = iTuneIn->TryGetPodcastFromPath(iXmlResponse, aPath);
         if (!success) {
             return false;
         }
 
-        parser.Reset();
-        parser.Parse(iJsonResponse.Buffer());
-        if (parser.HasKey(Brn("resultCount"))) { 
-            TUint results = parser.Num(Brn("resultCount"));
-            if (results == 0) {
-                return false;
-            }
-            auto parserItems = JsonParserArray::Create(parser.String(Brn("results")));
-            podcast = new PodcastInfoTuneIn(parserItems.NextObject(), aId);
+        podcast = new PodcastInfoTuneIn(aPath);
 
-            iXmlResponse.Reset();
-            success = iTuneIn->TryGetPodcastEpisodeInfo(iXmlResponse, podcast->FeedUrl(), aHandler.SingleShot());
-            if (!success) {
-                return false;
-            }
+        try {
             xmlParser.Set(iXmlResponse.Buffer());
-
+            Brn topLevelContainer = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("outline"));
+            xmlParser.Set(topLevelContainer);
             while (!xmlParser.Finished()) {
-                try {
-                    Brn item = PodcastEpisodeTuneIn::GetNextXmlValueByTag(xmlParser, Brn("item"));
-
-                    auto* track = im.GetNextEpisodeTrack(*podcast, item);
+                Brn item = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("outline"));
+                Brn type = PodcastPins::GetFirstXmlAttribute(item, Brn("type"));
+                Brn sub = PodcastPins::GetFirstXmlAttribute(item, Brn("subtext"));
+                if (type == TuneInMetadata::kMediaTypePodcast && sub == Brn("Saturday Aug 4")) {
+                    auto* track = tm.GetNextEpisodeTrack(podcast->Id(), item);
                     if (track != nullptr) {
                         aHandler.Load(*track);
                         track->RemoveRef();
                         isPlayable = true;
                         if (date.Bytes() == 0) {
-                            date = Brn(im.GetNextEpisodePublishedDate(item));
+                            date = Brn(tm.GetNextEpisodePublishedDate(item));
                         }
                         if (aHandler.SingleShot()) {
                             break;
                         }
                     }
                 }
-                catch (ReaderError&) {
-                    if (aHandler.SingleShot()) {
-                        LOG_ERROR(kMedia, "PodcastPinsTuneIn::LoadById (ReaderError). Could not find a valid episode for latest - allocate a larger response block?\n");
-                    }
-                    break; 
-                }
             }
         }
-        if (isPlayable) {
+        catch (ReaderError&) {
+            if (aHandler.SingleShot()) {
+                LOG_ERROR(kMedia, "PodcastPinsTuneIn::LoadByPath (ReaderError). Could not find a valid episode for latest - allocate a larger response block?\n");
+            }
+        }
+         if (isPlayable) {
             aHandler.Play();
             // store these so SetLastLoadedPodcastAsListened will work as expected
-            iLastSelectedId.ReplaceThrow(aId);
+            iLastSelectedId.ReplaceThrow(podcast->Id());
             iLastSelectedDate.ReplaceThrow(date);
             // immediately save episode date as listened, meaning SetLastLoadedPodcastAsListened does not need to be called
-            SetLastListenedEpisodeDateLocked(aId, date);
+            SetLastListenedEpisodeDateLocked(podcast->Id(), date);
             // make sure episode polling is active (if not run on startup)
             StartPollingForNewEpisodesLocked();
         }
-    }
+    }   
     catch (Exception& ex) {
-        LOG_ERROR(kMedia, "%s in PodcastPinsTuneIn::LoadById\n", ex.Message());
+        LOG_ERROR(kMedia, "%s in PodcastPinsTuneIn::LoadByPath\n", ex.Message());
         if (podcast != nullptr) {
             delete podcast;
         }
         return false;
-    }  
+    }
     if (podcast != nullptr) {
         delete podcast;
     }
@@ -469,61 +440,38 @@ TBool PodcastPinsTuneIn::LoadById(const Brx& aId, IPodcastTransportHandler& aHan
 
 TBool PodcastPinsTuneIn::CheckForNewEpisodeById(const Brx& aId)
 {
-    TuneInMetadata im(iTrackFactory);
-    JsonParser parser;
+    TuneInMetadata tm(iTrackFactory);
     Parser xmlParser;
-    PodcastInfoTuneIn* podcast = nullptr;
 
-    // id to streamable url
-    LOG(kMedia, "PodcastPinsTuneIn::CheckForNewEpisodeById: %.*s\n", PBUF(aId));
     try {
-        iJsonResponse.Reset();
-        TBool success = iTuneIn->TryGetPodcastById(iJsonResponse, aId);
+        LOG(kMedia, "PodcastPinsTuneIn::CheckForNewEpisodeById: %.*s\n", PBUF(aId));
+        iXmlResponse.Reset();
+        TBool success = iTuneIn->TryGetPodcastById(iXmlResponse, aId);
         if (!success) {
             return false;
         }
 
-        parser.Reset();
-        parser.Parse(iJsonResponse.Buffer());
-        if (parser.HasKey(Brn("resultCount"))) { 
-            TUint results = parser.Num(Brn("resultCount"));
-            if (results == 0) {
-                return false;
-            }
-            auto parserItems = JsonParserArray::Create(parser.String(Brn("results")));
-            podcast = new PodcastInfoTuneIn(parserItems.NextObject(), aId);
-
-            iXmlResponse.Reset();
-            success = iTuneIn->TryGetPodcastEpisodeInfo(iXmlResponse, podcast->FeedUrl(), true); // get latest episode info only
-            if (!success) {
-                return false;
-            }
+        try {
             xmlParser.Set(iXmlResponse.Buffer());
-
+            Brn topLevelContainer = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("outline"));
+            xmlParser.Set(topLevelContainer);
             while (!xmlParser.Finished()) {
-                try {
-                    Brn item = PodcastEpisodeTuneIn::GetNextXmlValueByTag(xmlParser, Brn("item"));
-                    Brn latestEpDate = Brn(im.GetNextEpisodePublishedDate(item));
+                Brn item = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("outline"));
+                Brn type = PodcastPins::GetFirstXmlAttribute(item, Brn("type"));
+                if (type == TuneInMetadata::kMediaTypePodcast) {
+                    Brn latestEpDate = Brn(tm.GetNextEpisodePublishedDate(item));
                     Brn lastListenedEpDate = Brn(GetLastListenedEpisodeDateLocked(aId));
                     return (latestEpDate != lastListenedEpDate);
-                    
-                }
-                catch (ReaderError&) {
-                    LOG_ERROR(kMedia, "PodcastPinsTuneIn::CheckForNewEpisodeById (ReaderError). Could not find a valid episode for latest - allocate a larger response block?\n");
-                    break; 
                 }
             }
         }
-    }
+        catch (ReaderError&) {
+            LOG_ERROR(kMedia, "PodcastPinsTuneIn::CheckForNewEpisodeById (ReaderError). Could not find a valid episode for latest - allocate a larger response block?\n");
+        }
+    }   
     catch (Exception& ex) {
         LOG_ERROR(kMedia, "%s in PodcastPinsTuneIn::CheckForNewEpisodeById\n", ex.Message());
-        if (podcast != nullptr) {
-            delete podcast;
-        }
         return false;
-    }  
-    if (podcast != nullptr) {
-        delete podcast;
     }
     return false;
 }
@@ -567,7 +515,7 @@ void PodcastPinsTuneIn::SetLastListenedEpisodeDateLocked(const Brx& aId, const B
             }
         }
         // if new entry, replace last entry of sorted list
-        iMappings.sort(ListenedDatePooledTuneIn::Compare);
+        iMappings.sort(ListenedDatePooled::Compare);
         if (!found) {
             iMappings.back()->Set(aId, aDate, kMaxEntries);
         }
@@ -590,15 +538,6 @@ void PodcastPinsTuneIn::SetLastListenedEpisodeDateLocked(const Brx& aId, const B
     }
 }
 
-TBool PodcastPinsTuneIn::IsValidId(const Brx& aRequest) {
-    for (TUint i = 0; i<aRequest.Bytes(); i++) {
-        if (!Ascii::IsDigit(aRequest[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-
 void PodcastPinsTuneIn::AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObserver)
 {
     AutoMutex _(iLock);
@@ -607,40 +546,20 @@ void PodcastPinsTuneIn::AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObs
     aObserver.NewPodcastEpisodesAvailable(iNewEpisodeList);
 }
 
-namespace OpenHome {
-    namespace Av {
-    
-    class TuneIn2DidlTagMapping
-    {
-    public:
-        TuneIn2DidlTagMapping(const TChar* aTuneInKey, const TChar* aDidlTag, const OpenHome::Brx& aNs)
-            : iTuneInKey(aTuneInKey)
-            , iDidlTag(aDidlTag)
-            , iNs(aNs)
-        {}
-    public:
-        OpenHome::Brn iTuneInKey;
-        OpenHome::Brn iDidlTag;
-        OpenHome::Brn iNs;
-    };
-    
-} // namespace Av
-} // namespace OpenHome
-
 const Brn TuneInMetadata::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
 const Brn TuneInMetadata::kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
 const Brn TuneInMetadata::kNsOh("oh=\"http://www.openhome.org\"");
-const Brn TuneInMetadata::kMediaTypePodcast("podcast");
+const Brn TuneInMetadata::kMediaTypePodcast("audio");
 
 TuneInMetadata::TuneInMetadata(Media::TrackFactory& aTrackFactory)
     : iTrackFactory(aTrackFactory)
 {
 }
 
-Media::Track* TuneInMetadata::GetNextEpisodeTrack(PodcastInfoTuneIn& aPodcast, const Brx& aXmlItem)
+Media::Track* TuneInMetadata::GetNextEpisodeTrack(const Brx& aPodcastId, const Brx& aXmlItem)
 {
     try {
-        ParseTuneInMetadata(aPodcast, aXmlItem);
+        ParseTuneInMetadata(aPodcastId, aXmlItem);
         return iTrackFactory.CreateTrack(iTrackUri, iMetaDataDidl);
     }
     catch (AssertionFailed&) {
@@ -670,36 +589,7 @@ const Brx& TuneInMetadata::GetNextEpisodePublishedDate(const Brx& aXmlItem)
     }
 }
 
-Brn TuneInMetadata::FirstIdFromJson(const Brx& aJsonResponse)
-{
-    try {
-        JsonParser parser;
-        parser.Parse(aJsonResponse);
-        if (parser.Num(Brn("resultCount")) == 0) {
-            THROW(TuneInResponseInvalid);
-        }
-        auto parserArray = JsonParserArray::Create(parser.String("results"));
-        if (parserArray.Type() == JsonParserArray::ValType::Null) {
-            THROW(TuneInResponseInvalid);
-        }
-        parser.Parse(parserArray.NextObject());
-        if (parser.HasKey(Brn("collectionId"))) {
-            return parser.String(Brn("collectionId"));
-        }
-        else if (parser.HasKey(Brn("trackId"))) {
-            return parser.String(Brn("trackId"));
-        }
-    }
-    catch (AssertionFailed&) {
-        throw;
-    }
-    catch (Exception&) {
-        throw;
-    }
-    return Brx::Empty();
-}
-
-void TuneInMetadata::ParseTuneInMetadata(PodcastInfoTuneIn& aPodcast, const Brx& aXmlItem)
+void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlItem)
 {
     iTrackUri.ReplaceThrow(Brx::Empty());
     iMetaDataDidl.ReplaceThrow(Brx::Empty());
@@ -707,14 +597,12 @@ void TuneInMetadata::ParseTuneInMetadata(PodcastInfoTuneIn& aPodcast, const Brx&
     TryAppend("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
     TryAppend("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
     TryAppend("<item id=\"");
-    TryAppend(aPodcast.Id());;
+    TryAppend(aPodcastId);
     TryAppend("\" parentID=\"-1\" restricted=\"1\">");
     TryAppend(">");
-    TryAddTag(Brn("upnp:artist"), kNsUpnp, Brx::Empty(), aPodcast.Artist());
-    TryAddTag(Brn("upnp:album"), kNsUpnp, Brx::Empty(), aPodcast.Name());
-    TryAddTag(Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), aPodcast.ArtworkUrl());
+    PodcastEpisodeTuneIn* episode = new PodcastEpisodeTuneIn(aXmlItem);  // get Episode Title, release date, duration, artwork, and streamable url
+    TryAddTag(Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), episode->ArtworkUrl());
     TryAddTag(Brn("upnp:class"), kNsUpnp, Brx::Empty(), Brn("object.item.audioItem.musicTrack"));
-    PodcastEpisodeTuneIn* episode = new PodcastEpisodeTuneIn(aXmlItem);  // get Episode Title, release date, duration, and streamable url
     LOG(kMedia, "Podcast Title: %.*s\n", PBUF(episode->Title()));
     LOG(kMedia, "    Published Date: %.*s\n", PBUF(episode->PublishedDate()));
     LOG(kMedia, "    Duration: %ds\n", episode->Duration());
@@ -747,17 +635,6 @@ void TuneInMetadata::ParseTuneInMetadata(PodcastInfoTuneIn& aPodcast, const Brx&
     delete episode;
 }
 
-void TuneInMetadata::TryAddAttribute(JsonParser& aParser, const TChar* aTuneInKey, const TChar* aDidlAttr)
-{
-    if (aParser.HasKey(aTuneInKey)) {
-        TryAppend(" ");
-        TryAppend(aDidlAttr);
-        TryAppend("=\"");
-        TryAppend(aParser.String(aTuneInKey));
-        TryAppend("\"");
-    }
-}
-
 void TuneInMetadata::TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr)
 {
     TryAppend(" ");
@@ -765,18 +642,6 @@ void TuneInMetadata::TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr
     TryAppend("=\"");
     TryAppend(aValue);
     TryAppend("\"");
-}
-
-void TuneInMetadata::TryAddTag(JsonParser& aParser, const Brx& aTuneInKey,
-                           const Brx& aDidlTag, const Brx& aNs)
-{
-    if (!aParser.HasKey(aTuneInKey)) {
-        return;
-    }
-    Brn val = aParser.String(aTuneInKey);
-    Bwn valEscaped(val.Ptr(), val.Bytes(), val.Bytes());
-    Json::Unescape(valEscaped);
-    TryAddTag(aDidlTag, aNs, Brx::Empty(), valEscaped);
 }
 
 void TuneInMetadata::TryAddTag(const Brx& aDidlTag, const Brx& aNs,
@@ -812,8 +677,6 @@ void TuneInMetadata::TryAppend(const Brx& aBuf)
     }
 }
 
-const Brn TuneIn::kHost("opml.radiotime.com");
-
 TuneIn::TuneIn(Environment& aEnv)
     : iLock("ITUN")
     , iEnv(aEnv)
@@ -822,6 +685,7 @@ TuneIn::TuneIn(Environment& aEnv)
     , iWriterBuf(iSocket)
     , iWriterRequest(iSocket)
     , iReaderResponse(aEnv, iReaderUntil)
+    , iPath(1024)
 {
     iReaderResponse.AddHeader(iHeaderContentLength);
 }
@@ -830,21 +694,32 @@ TuneIn::~TuneIn()
 {
 }
 
-TBool TuneIn::TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery)
+const Brx& TuneIn::GetPathFromId(const Brx& aId)
 {
-    Bws<kMaxPathAndQueryBytes> pathAndQuery("");
+    SetPathFromId(iPath, aId);
+    return iPath;
+}
 
-    pathAndQuery.TryAppend("/search?term=");
-    Uri::Escape(pathAndQuery, aQuery);
-    pathAndQuery.TryAppend("&media=");
-    pathAndQuery.TryAppend(TuneInMetadata::kMediaTypePodcast);
-    pathAndQuery.TryAppend("&entity=");
-    pathAndQuery.TryAppend(TuneInMetadata::kMediaTypePodcast);
+void TuneIn::SetPathFromId(Bwx& aPath, const Brx& aId)
+{
+    aPath.Replace(Brx::Empty());
+    aPath.Append(TuneInApi::kTuneInStationRequest);
+    if (aId.Split(0, 1) == Brn("p")) {
+        aPath.Append(TuneInApi::kTuneInPodcastBrowse);
+    }
+    aPath.Append(TuneInApi::kTuneInItemId);
+    aPath.Append(aId);
+    aPath.Append(TuneInApi::kFormats);
+    aPath.Append(TuneInApi::kPartnerId);
+    aPath.Append(PodcastPinsTuneIn::GetPartnerId());
+}
 
+TBool TuneIn::TryGetPodcastFromPath(WriterBwh& aWriter, const Brx& aPath)
+{
     TBool success = false;
     try {
         iSocket.Open(iEnv);
-        success = TryGetJsonResponse(aWriter, pathAndQuery, 1); // only interested in one podcast collection at a time
+        success = TryGetXmlResponse(aWriter, aPath, kMultipleEpisodesBlockSize); // tune in only has one response type with all episodes
         iSocket.Close();
     }
     catch (NetworkError&) {
@@ -854,36 +729,17 @@ TBool TuneIn::TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery)
 
 TBool TuneIn::TryGetPodcastById(WriterBwh& aWriter, const Brx& aId)
 {
-    Bws<kMaxPathAndQueryBytes> pathAndQuery("");
-
-    pathAndQuery.TryAppend("/lookup?id=");
-    Uri::Escape(pathAndQuery, aId);
-    pathAndQuery.TryAppend("&media=");
-    pathAndQuery.TryAppend(TuneInMetadata::kMediaTypePodcast);
-    pathAndQuery.TryAppend("&entity=");
-    pathAndQuery.TryAppend(TuneInMetadata::kMediaTypePodcast);
-
-    TBool success = false;
-    try {
-        iSocket.Open(iEnv);
-        success = TryGetJsonResponse(aWriter, pathAndQuery, 1); // only interested in one podcast collection at a time
-        iSocket.Close();
-    }
-    catch (NetworkError&) {
-    }
-    return success;
+    SetPathFromId(iPath, aId);
+    return TryGetPodcastFromPath(aWriter, iPath);
 }
 
-TBool TuneIn::TryGetPodcastEpisodeInfo(WriterBwh& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly) {
+TBool TuneIn::TryGetPodcastEpisodeInfoById(WriterBwh& aWriter, const Brx& aId) {
     TBool success = false;
-    TUint blocksToRead = kSingleEpisodesBlockSize;
-    if (!aLatestOnly) {
-        blocksToRead = kMultipleEpisodesBlockSize;
-    }
+    SetPathFromId(iPath, aId);
     try {
         iSocket.Open(iEnv);
         // Get xml response using given feed url
-        success = TryGetXmlResponse(aWriter, aXmlFeedUrl, blocksToRead);
+        success = TryGetXmlResponse(aWriter, iPath, kMultipleEpisodesBlockSize); // tune in only has one response type with all episodes
         iSocket.Close();
     }
     catch (NetworkError&) {
@@ -895,14 +751,17 @@ TBool TuneIn::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
 {
     AutoMutex _(iLock);
     TBool success = false;
-    Uri xmlFeedUri(aFeedUrl);
-    if (!TryConnect(xmlFeedUri.Host(), kPort)) {
-        LOG_ERROR(kMedia, "TuneIn::TryGetXmlResponse - connection failure\n");
-        return false;
-    }
 
     try {
-        LOG(kMedia, "Write podcast feed request: %.*s\n", PBUF(aFeedUrl));
+        Bwh uri(1024);
+        Uri::Unescape(uri, aFeedUrl);
+        Uri xmlFeedUri(uri);
+        if (!TryConnect(xmlFeedUri.Host(), kPort)) {
+            LOG_ERROR(kMedia, "TuneIn::TryGetXmlResponse - connection failure\n");
+            return false;
+        }
+
+        LOG(kMedia, "Write podcast feed request: %.*s\n", PBUF(uri));
         WriteRequestHeaders(Http::kMethodGet, xmlFeedUri.Host(), xmlFeedUri.PathAndQuery(), kPort);
 
         iReaderResponse.Read();
@@ -919,14 +778,14 @@ TBool TuneIn::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
         if (length > 0 && length < count) {
             count = length;
         }
-        //LOG(kMedia, "Read TuneIn::TryGetXmlResponse (%d): ", count);
+        //Log::Print("Read TuneIn::TryGetXmlResponse (%d): ", count);
         while(count > 0) {
             Brn buf = iReaderUntil.Read(kReadBufferBytes);
-            //LOG(kMedia, buf);
+            //Log::Print(buf);
             aWriter.Write(buf);
             count -= buf.Bytes();
         }   
-        //LOG(kMedia, "\n");     
+        //Log::Print("\n");     
 
         success = true;
     }
@@ -945,54 +804,8 @@ TBool TuneIn::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
     catch (WriterError&) {
         LOG_ERROR(kPipeline, "WriterError in TuneInMetadata::TryGetResponse\n");
     }
-    return success;
-}
-
-TBool TuneIn::TryGetJsonResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit)
-{
-    AutoMutex _(iLock);
-    TBool success = false;
-
-    if (!TryConnect(kHost, kPort)) {
-        LOG_ERROR(kMedia, "TuneIn::TryGetResponse - connection failure\n");
-        return false;
-    }
-    aPathAndQuery.TryAppend("&limit=");
-    Ascii::AppendDec(aPathAndQuery, aLimit);
-
-    try {
-        LOG(kMedia, "Write TuneIn request: http://%.*s%.*s\n", PBUF(kHost), PBUF(aPathAndQuery));
-        WriteRequestHeaders(Http::kMethodGet, kHost, aPathAndQuery, kPort);
-
-        iReaderResponse.Read();
-        const TUint code = iReaderResponse.Status().Code();
-        if (code != 200) {
-            LOG_ERROR(kPipeline, "Http error - %d - in response to TuneIn TryGetResponse.  Some/all of response is:\n", code);
-            Brn buf = iReaderUntil.Read(kReadBufferBytes);
-            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
-            THROW(ReaderError);
-        }  
-        
-        TUint count = iHeaderContentLength.ContentLength();
-        //LOG(kMedia, "Read TuneIn response (%d): ", count);
-        while(count > 0) {
-            Brn buf = iReaderUntil.Read(kReadBufferBytes);
-            //LOG(kMedia, buf);
-            aWriter.Write(buf);
-            count -= buf.Bytes();
-        }   
-        //LOG(kMedia, "\n");     
-
-        success = true;
-    }
-    catch (HttpError&) {
-        LOG_ERROR(kPipeline, "HttpError in TuneIn::TryGetResponse\n");
-    }
-    catch (ReaderError&) {
-        LOG_ERROR(kPipeline, "ReaderError in TuneIn::TryGetResponse\n");
-    }
-    catch (WriterError&) {
-        LOG_ERROR(kPipeline, "WriterError in TuneIn::TryGetResponse\n");
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in TuneIn::TryGetXmlResponse\n", ex.Message());
     }
     return success;
 }
@@ -1031,56 +844,35 @@ void TuneIn::WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx
     iWriterRequest.WriteFlush();
 }
 
-PodcastInfoTuneIn::PodcastInfoTuneIn(const Brx& aJsonObj, const Brx& aId)
-    : iName(512)
-    , iFeedUrl(1024)
-    , iArtist(256)
-    , iArtworkUrl(1024)
-    , iId(aId)
+PodcastInfoTuneIn::PodcastInfoTuneIn(const Brx& aFeedUrl)
+    : iFeedUrl(1024)
+    , iId(32)
 {
-    Parse(aJsonObj);
+    Parse(aFeedUrl);
 }
 
-void PodcastInfoTuneIn::Parse(const Brx& aJsonObj)
+void PodcastInfoTuneIn::Parse(const Brx& aFeedUrl)
 {
-    JsonParser parser;
-    parser.Parse(aJsonObj);
+    // http://opml.radiotime.com/Tune.ashx?c=pbrowse&id=p244756...
+    try {
+        Uri::Unescape(iFeedUrl, aFeedUrl);
 
-    if (parser.HasKey("kind")) {
-        if (parser.String("kind") != TuneInMetadata::kMediaTypePodcast) {
-            THROW(TuneInResponseInvalid);
+        Parser parser(iFeedUrl);
+        while (!parser.Finished()) {
+            Brn entry(parser.Next('&'));
+            if (entry.Bytes() > 0) {
+                OpenHome::Parser pe(entry);
+                Brn key(pe.Next('='));
+                Brn val(pe.Remaining());
+                if (key == Brn("id")) {
+                    iId.ReplaceThrow(val);
+                    break;
+                }
+            }
         }
     }
-    if (!parser.HasKey("feedUrl")) {
-        THROW(TuneInResponseInvalid);
-    }
-
-    try {
-        iName.ReplaceThrow(parser.String("collectionName"));
-    }
     catch (Exception&) {
-        iName.ReplaceThrow(Brx::Empty());
-    }
-
-    try {
-        iFeedUrl.ReplaceThrow(parser.String("feedUrl"));
-    }
-    catch (Exception&) {
-        iFeedUrl.ReplaceThrow(Brx::Empty());
-    }
-
-    try {
-        iArtist.ReplaceThrow(parser.String("artistName"));
-    }
-    catch (Exception&) {
-        iArtist.ReplaceThrow(Brx::Empty());
-    }
-
-    try {
-        iArtworkUrl.ReplaceThrow(parser.String("artworkUrl600"));
-    }
-    catch (Exception&) {
-        iArtworkUrl.ReplaceThrow(Brx::Empty());
+        THROW(TuneInRequestInvalid);
     }
 }
 
@@ -1089,24 +881,9 @@ PodcastInfoTuneIn::~PodcastInfoTuneIn()
 
 }
 
-const Brx& PodcastInfoTuneIn::Name()
-{
-    return iName;
-}
-
 const Brx& PodcastInfoTuneIn::FeedUrl()
 {
     return iFeedUrl;
-}
-
-const Brx& PodcastInfoTuneIn::Artist()
-{
-    return iArtist;
-}
-
-const Brx& PodcastInfoTuneIn::ArtworkUrl()
-{
-    return iArtworkUrl;
 }
 
 const Brx& PodcastInfoTuneIn::Id()
@@ -1119,6 +896,7 @@ PodcastEpisodeTuneIn::PodcastEpisodeTuneIn(const Brx& aXmlItem)
     , iUrl(1024)
     , iPublishedDate(50)
     , iDuration(0)
+    , iArtworkUrl(1024)
 {
     Parse(aXmlItem);
 }
@@ -1145,21 +923,46 @@ void PodcastEpisodeTuneIn::Parse(const Brx& aXmlItem)
   </body>
 </opml>
 */
-    Parser xmlParser;
+    try {
+        Brn type = PodcastPins::GetFirstXmlAttribute(aXmlItem, Brn("type"));
+        if (type != TuneInMetadata::kMediaTypePodcast) {
+            throw;
+        }
+    }
+    catch (Exception&) {
+        THROW(TuneInResponseInvalid);
+    }
 
     try {
-        xmlParser.Set(aXmlItem);
-        Brn title = Ascii::Trim(PodcastEpisodeTuneIn::GetNextXmlValueByTag(xmlParser, Brn("title")));
+        Brn url = PodcastPins::GetFirstXmlAttribute(aXmlItem, Brn("URL"));
+        iUrl.ReplaceThrow(url);
+        Converter::FromXmlEscaped(iUrl);
+    }
+    catch (Exception& ex) {
+        LOG(kMedia, "PodcastEpisodeTuneIn::Parse %s (Error retrieving podcast URL). Podcast is not playable\n", ex.Message());
+        THROW(TuneInResponseInvalid);
+    }
+
+    try {
+        Brn title = PodcastPins::GetFirstXmlAttribute(aXmlItem, Brn("text"));
         iTitle.ReplaceThrow(title);
         Converter::FromXmlEscaped(iTitle);
     }
     catch (Exception&) {
         iTitle.ReplaceThrow(Brx::Empty());
     }
-    
+
     try {
-        xmlParser.Set(aXmlItem);
-        Brn date = PodcastEpisodeTuneIn::GetNextXmlValueByTag(xmlParser, Brn("pubDate"));
+        Brn art = PodcastPins::GetFirstXmlAttribute(aXmlItem, Brn("image"));
+        iArtworkUrl.ReplaceThrow(art);
+        Converter::FromXmlEscaped(iArtworkUrl);
+    }
+    catch (Exception&) {
+        iArtworkUrl.ReplaceThrow(Brx::Empty());
+    }
+
+    try {
+        Brn date = PodcastPins::GetFirstXmlAttribute(aXmlItem, Brn("current_track"));
         iPublishedDate.ReplaceThrow(date);
     }
     catch (Exception&) {
@@ -1167,11 +970,8 @@ void PodcastEpisodeTuneIn::Parse(const Brx& aXmlItem)
     }
 
     try {
-        xmlParser.Set(iPublishedDate);
-        xmlParser.Next(',');
-        Brn prettyDate = Ascii::Trim(xmlParser.Remaining()).Split(0, 11); // correct format is 'Thu, 07 Jun 2017'
         iTitle.TryAppend(Brn(" ("));
-        iTitle.TryAppend(prettyDate);
+        iTitle.TryAppend(iPublishedDate);
         iTitle.TryAppend(Brn(")"));
     }
     catch (Exception&) {
@@ -1179,45 +979,11 @@ void PodcastEpisodeTuneIn::Parse(const Brx& aXmlItem)
     }
     
     try {
-        xmlParser.Set(aXmlItem);
-        Brn duration = PodcastEpisodeTuneIn::GetNextXmlValueByTag(xmlParser, Brn("itunes:duration"));
-        Parser durParser(duration);
-        TUint count = 0;
-        TUint times[3] = {0, 0, 0};
-        while (!durParser.Finished()) {
-            times[count] = Ascii::Uint(durParser.Next(':'));
-            count++;
-        }
-        switch (count) {
-            case 1: { iDuration = times[0]; break; }
-            case 2: { iDuration = times[0]*60 + times[1]; break; }
-            case 3: { iDuration = times[0]*3600 + times[1]*60 + times[2]; break; }
-            default: { iDuration = 0; break; }
-        }
+        Brn duration = PodcastPins::GetFirstXmlAttribute(aXmlItem, Brn("topic_duration")); // seconds
+        iDuration = Ascii::Uint(duration);
     }
     catch (Exception&) {
         iDuration = 0;
-    }
-    
-    try {
-        xmlParser.Set(aXmlItem);
-        Brn enclosure = PodcastEpisodeTuneIn::GetNextXmlValueByTag(xmlParser, Brn("enclosure"));
-        Brn url = PodcastEpisodeTuneIn::GetFirstXmlAttribute(enclosure, Brn("url"));
-        if (url.BeginsWith(Brn("https"))) {
-            iUrl.ReplaceThrow(Brn("http"));
-            iUrl.TryAppend(url.Split(5, url.Bytes()-5));
-        }
-        else if (url.BeginsWith(Brn("http"))) {
-            iUrl.ReplaceThrow(url);
-        }
-        else {
-            THROW(UriError);
-        }
-        Converter::FromXmlEscaped(iUrl);
-    }
-    catch (Exception& ex) {
-        LOG(kMedia, "PodcastEpisodeTuneIn::Parse %s (Error retrieving podcast URL). Podcast is not playable\n", ex.Message());
-        throw;
     }
 }
 
@@ -1236,6 +1002,11 @@ const Brx& PodcastEpisodeTuneIn::Url()
     return iUrl;
 }
 
+const Brx& PodcastEpisodeTuneIn::ArtworkUrl()
+{
+    return iArtworkUrl;
+}
+
 const Brx& PodcastEpisodeTuneIn::PublishedDate()
 {
     return iPublishedDate;
@@ -1244,116 +1015,4 @@ const Brx& PodcastEpisodeTuneIn::PublishedDate()
 TUint PodcastEpisodeTuneIn::Duration()
 {
     return iDuration;
-}
-
-Brn PodcastEpisodeTuneIn::GetFirstXmlAttribute(const Brx& aXml, const Brx& aAttribute)
-{
-    Parser parser;
-    parser.Set(aXml);
-
-    Brn buf;
-    while (!parser.Finished()) {
-        parser.Next(' ');
-        if (parser.Next('=') == aAttribute) {
-            parser.Next('"');
-            return parser.Next('"');
-        }
-    }
-    THROW(ReaderError);
-}
-
-Brn PodcastEpisodeTuneIn::GetNextXmlValueByTag(Parser& aParser, const Brx& aTag)
-{
-    Brn remaining = aParser.Remaining();
-    TInt indexOffset = aParser.Index();
-
-    Brn buf;
-    TInt start = -1;
-    TInt end = -1;
-    TBool startFound = false;
-    TBool endFound = false;
-    while (!aParser.Finished()) {
-        aParser.Next('<');
-        start = aParser.Index();
-        buf.Set(aParser.Next('>'));
-        if (buf.BeginsWith(aTag)) {
-            if (aParser.At(-2) == '/') {
-                // tag with no true value, but info stored as attribute instead
-                end = aParser.Index()-2;
-                return remaining.Split(start-indexOffset, end-start);
-            }
-            else {
-                start = aParser.Index();
-                startFound = true;
-                break;
-            }
-        }
-    }
-    if (startFound) {
-        while (!aParser.Finished()) {
-            aParser.Next('<');
-            end = aParser.Index() - 1;
-            buf.Set(aParser.Next('>'));
-            Bwh endTag(aTag.Bytes()+1, aTag.Bytes()+1);
-            endTag.ReplaceThrow(Brn("/"));
-            endTag.TryAppend(aTag);
-            if (buf.BeginsWith(endTag)) {
-                endFound = true;
-                break;
-            }
-        }
-
-        if (endFound) {
-            return remaining.Split(start-indexOffset, end-start);
-        }
-    }
-    THROW(ReaderError);
-}
-
-// ListenedDatePooledTuneIn
-
-ListenedDatePooledTuneIn::ListenedDatePooledTuneIn()
-    : iId(Brx::Empty())
-    , iDate(Brx::Empty())
-    , iPriority(0)
-{
-}
-
-void ListenedDatePooledTuneIn::Set(const Brx& aId, const Brx& aDate, TUint aPriority)
-{
-    iId.Replace(aId);
-    iDate.Replace(aDate);
-    iPriority = aPriority;
-}
-
-const Brx& ListenedDatePooledTuneIn::Id() const
-{
-    return iId;
-}
-
-const Brx& ListenedDatePooledTuneIn::Date() const
-{
-    return iDate;
-}
-
-const TUint ListenedDatePooledTuneIn::Priority() const
-{
-    return iPriority;
-}
-
-void ListenedDatePooledTuneIn::DecPriority()
-{
-    if (iPriority > 0) {
-        iPriority--;
-    }
-}
-
-TBool ListenedDatePooledTuneIn::Compare(const ListenedDatePooledTuneIn* aFirst, const ListenedDatePooledTuneIn* aSecond)
-{
-    if (aFirst->Priority() == aSecond->Priority() &&
-        aFirst->Date() == aSecond->Date() &&
-        aFirst->Id() == aSecond->Id()) {
-        return false;
-    }
-    return (aFirst->Priority() >= aSecond->Priority());
 }

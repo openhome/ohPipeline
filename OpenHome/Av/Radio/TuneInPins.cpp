@@ -34,7 +34,7 @@ TuneInPins::TuneInPins(DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFac
     CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
     iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
-    iPodcastPinsEpisode = new PodcastPinsLatestEpisodeTuneIn(aDevice, aTrackFactory, aCpStack, aStore);
+    iPodcastPinsEpisode = new PodcastPinsLatestEpisodeTuneIn(aDevice, aTrackFactory, aCpStack, aStore, aPartnerId);
 }
 
 TuneInPins::~TuneInPins()
@@ -69,6 +69,7 @@ void TuneInPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         }
         else if (Brn(pin.Type()) == Brn(kPinTypePodcast)) { 
             iPodcastPinsEpisode->Invoke(aPin);
+            return;
         }
         else {
             THROW(PinTypeNotSupported);
@@ -92,7 +93,7 @@ TBool TuneInPins::LoadStation(const Brx& aStation, const IPin& aPin)
 {
     try {
         Bwh stream(1024);
-        stream.AppendPrintf("http://opml.radiotime.com/Tune.ashx?id=%.*s&formats=mp3,aac,ogg,hls&partnerId=%.*s", PBUF(aStation), PBUF(iPartnerId));
+        TuneIn::SetPathFromId(stream, aStation);
         LoadStream(stream, aPin);
         return true;
     }

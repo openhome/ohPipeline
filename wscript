@@ -465,6 +465,7 @@ def build(bld):
     # Podcast
     bld.stlib(
             source=[
+                'OpenHome/Av/Pins/PodcastPins.cpp',
                 'OpenHome/Av/Pins/PodcastPinsITunes.cpp',
                 'OpenHome/Av/Pins/PodcastPinsTuneIn.cpp'
             ],

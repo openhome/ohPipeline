@@ -248,7 +248,7 @@ PodcastPinsITunes::PodcastPinsITunes(Media::TrackFactory& aTrackFactory, Environ
                         break;
                     }
                     else {
-                        ListenedDatePooledITunes* m = new ListenedDatePooledITunes();
+                        ListenedDatePooled* m = new ListenedDatePooled();
                         m->Set(id, date, priority);
                         iMappings.push_back(m);
                         mapCount++;
@@ -261,7 +261,7 @@ PodcastPinsITunes::PodcastPinsITunes(Media::TrackFactory& aTrackFactory, Environ
 
     // If iMappings doesn't contain kMaxEntries from store, fill up with empty values
     while (iMappings.size() < kMaxEntries) {
-        iMappings.push_back(new ListenedDatePooledITunes());
+        iMappings.push_back(new ListenedDatePooled());
     }
 
     iTimer = new Timer(aEnv, MakeFunctor(*this, &PodcastPinsITunes::TimerCallback), "PodcastPinsITunes");
@@ -442,7 +442,7 @@ TBool PodcastPinsITunes::LoadById(const Brx& aId, IPodcastTransportHandler& aHan
 
             while (!xmlParser.Finished()) {
                 try {
-                    Brn item = PodcastEpisodeITunes::GetNextXmlValueByTag(xmlParser, Brn("item"));
+                    Brn item = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("item"));
 
                     auto* track = im.GetNextEpisodeTrack(*podcast, item);
                     if (track != nullptr) {
@@ -524,7 +524,7 @@ TBool PodcastPinsITunes::CheckForNewEpisodeById(const Brx& aId)
 
             while (!xmlParser.Finished()) {
                 try {
-                    Brn item = PodcastEpisodeITunes::GetNextXmlValueByTag(xmlParser, Brn("item"));
+                    Brn item = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("item"));
                     Brn latestEpDate = Brn(im.GetNextEpisodePublishedDate(item));
                     Brn lastListenedEpDate = Brn(GetLastListenedEpisodeDateLocked(aId));
                     return (latestEpDate != lastListenedEpDate);
@@ -589,7 +589,7 @@ void PodcastPinsITunes::SetLastListenedEpisodeDateLocked(const Brx& aId, const B
             }
         }
         // if new entry, replace last entry of sorted list
-        iMappings.sort(ListenedDatePooledITunes::Compare);
+        iMappings.sort(ListenedDatePooled::Compare);
         if (!found) {
             iMappings.back()->Set(aId, aDate, kMaxEntries);
         }
@@ -628,26 +628,6 @@ void PodcastPinsITunes::AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObs
     // Notify new observer immediately with its initial values.
     aObserver.NewPodcastEpisodesAvailable(iNewEpisodeList);
 }
-
-namespace OpenHome {
-    namespace Av {
-    
-    class ITunes2DidlTagMapping
-    {
-    public:
-        ITunes2DidlTagMapping(const TChar* aITunesKey, const TChar* aDidlTag, const OpenHome::Brx& aNs)
-            : iITunesKey(aITunesKey)
-            , iDidlTag(aDidlTag)
-            , iNs(aNs)
-        {}
-    public:
-        OpenHome::Brn iITunesKey;
-        OpenHome::Brn iDidlTag;
-        OpenHome::Brn iNs;
-    };
-    
-} // namespace Av
-} // namespace OpenHome
 
 const Brn ITunesMetadata::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
 const Brn ITunesMetadata::kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
@@ -917,13 +897,14 @@ TBool ITunes::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
 {
     AutoMutex _(iLock);
     TBool success = false;
-    Uri xmlFeedUri(aFeedUrl);
-    if (!TryConnect(xmlFeedUri.Host(), kPort)) {
-        LOG_ERROR(kMedia, "ITunes::TryGetXmlResponse - connection failure\n");
-        return false;
-    }
 
     try {
+        Uri xmlFeedUri(aFeedUrl);
+        if (!TryConnect(xmlFeedUri.Host(), kPort)) {
+            LOG_ERROR(kMedia, "ITunes::TryGetXmlResponse - connection failure\n");
+            return false;
+        }
+
         LOG(kMedia, "Write podcast feed request: %.*s\n", PBUF(aFeedUrl));
         WriteRequestHeaders(Http::kMethodGet, xmlFeedUri.Host(), xmlFeedUri.PathAndQuery(), kPort);
 
@@ -1157,7 +1138,7 @@ void PodcastEpisodeITunes::Parse(const Brx& aXmlItem)
 
     try {
         xmlParser.Set(aXmlItem);
-        Brn title = Ascii::Trim(PodcastEpisodeITunes::GetNextXmlValueByTag(xmlParser, Brn("title")));
+        Brn title = Ascii::Trim(PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("title")));
         iTitle.ReplaceThrow(title);
         Converter::FromXmlEscaped(iTitle);
     }
@@ -1167,7 +1148,7 @@ void PodcastEpisodeITunes::Parse(const Brx& aXmlItem)
     
     try {
         xmlParser.Set(aXmlItem);
-        Brn date = PodcastEpisodeITunes::GetNextXmlValueByTag(xmlParser, Brn("pubDate"));
+        Brn date = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("pubDate"));
         iPublishedDate.ReplaceThrow(date);
     }
     catch (Exception&) {
@@ -1188,7 +1169,7 @@ void PodcastEpisodeITunes::Parse(const Brx& aXmlItem)
     
     try {
         xmlParser.Set(aXmlItem);
-        Brn duration = PodcastEpisodeITunes::GetNextXmlValueByTag(xmlParser, Brn("itunes:duration"));
+        Brn duration = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("itunes:duration"));
         Parser durParser(duration);
         TUint count = 0;
         TUint times[3] = {0, 0, 0};
@@ -1209,8 +1190,8 @@ void PodcastEpisodeITunes::Parse(const Brx& aXmlItem)
     
     try {
         xmlParser.Set(aXmlItem);
-        Brn enclosure = PodcastEpisodeITunes::GetNextXmlValueByTag(xmlParser, Brn("enclosure"));
-        Brn url = PodcastEpisodeITunes::GetFirstXmlAttribute(enclosure, Brn("url"));
+        Brn enclosure = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("enclosure"));
+        Brn url = PodcastPins::GetFirstXmlAttribute(enclosure, Brn("url"));
         if (url.BeginsWith(Brn("https"))) {
             iUrl.ReplaceThrow(Brn("http"));
             iUrl.TryAppend(url.Split(5, url.Bytes()-5));
@@ -1252,116 +1233,4 @@ const Brx& PodcastEpisodeITunes::PublishedDate()
 TUint PodcastEpisodeITunes::Duration()
 {
     return iDuration;
-}
-
-Brn PodcastEpisodeITunes::GetFirstXmlAttribute(const Brx& aXml, const Brx& aAttribute)
-{
-    Parser parser;
-    parser.Set(aXml);
-
-    Brn buf;
-    while (!parser.Finished()) {
-        parser.Next(' ');
-        if (parser.Next('=') == aAttribute) {
-            parser.Next('"');
-            return parser.Next('"');
-        }
-    }
-    THROW(ReaderError);
-}
-
-Brn PodcastEpisodeITunes::GetNextXmlValueByTag(Parser& aParser, const Brx& aTag)
-{
-    Brn remaining = aParser.Remaining();
-    TInt indexOffset = aParser.Index();
-
-    Brn buf;
-    TInt start = -1;
-    TInt end = -1;
-    TBool startFound = false;
-    TBool endFound = false;
-    while (!aParser.Finished()) {
-        aParser.Next('<');
-        start = aParser.Index();
-        buf.Set(aParser.Next('>'));
-        if (buf.BeginsWith(aTag)) {
-            if (aParser.At(-2) == '/') {
-                // tag with no true value, but info stored as attribute instead
-                end = aParser.Index()-2;
-                return remaining.Split(start-indexOffset, end-start);
-            }
-            else {
-                start = aParser.Index();
-                startFound = true;
-                break;
-            }
-        }
-    }
-    if (startFound) {
-        while (!aParser.Finished()) {
-            aParser.Next('<');
-            end = aParser.Index() - 1;
-            buf.Set(aParser.Next('>'));
-            Bwh endTag(aTag.Bytes()+1, aTag.Bytes()+1);
-            endTag.ReplaceThrow(Brn("/"));
-            endTag.TryAppend(aTag);
-            if (buf.BeginsWith(endTag)) {
-                endFound = true;
-                break;
-            }
-        }
-
-        if (endFound) {
-            return remaining.Split(start-indexOffset, end-start);
-        }
-    }
-    THROW(ReaderError);
-}
-
-// ListenedDatePooledITunes
-
-ListenedDatePooledITunes::ListenedDatePooledITunes()
-    : iId(Brx::Empty())
-    , iDate(Brx::Empty())
-    , iPriority(0)
-{
-}
-
-void ListenedDatePooledITunes::Set(const Brx& aId, const Brx& aDate, TUint aPriority)
-{
-    iId.Replace(aId);
-    iDate.Replace(aDate);
-    iPriority = aPriority;
-}
-
-const Brx& ListenedDatePooledITunes::Id() const
-{
-    return iId;
-}
-
-const Brx& ListenedDatePooledITunes::Date() const
-{
-    return iDate;
-}
-
-const TUint ListenedDatePooledITunes::Priority() const
-{
-    return iPriority;
-}
-
-void ListenedDatePooledITunes::DecPriority()
-{
-    if (iPriority > 0) {
-        iPriority--;
-    }
-}
-
-TBool ListenedDatePooledITunes::Compare(const ListenedDatePooledITunes* aFirst, const ListenedDatePooledITunes* aSecond)
-{
-    if (aFirst->Priority() == aSecond->Priority() &&
-        aFirst->Date() == aSecond->Date() &&
-        aFirst->Id() == aSecond->Id()) {
-        return false;
-    }
-    return (aFirst->Priority() >= aSecond->Priority());
 }

@@ -21,7 +21,6 @@ EXCEPTION(TuneInRequestInvalid);
 
 namespace OpenHome {
     class Environment;
-    class JsonParser;
     class Parser;
     class Timer;
 namespace Configuration {
@@ -37,20 +36,14 @@ namespace Av {
     class PodcastInfoTuneIn
     {
     public:
-        PodcastInfoTuneIn(const Brx& aJsonObj, const Brx& aId);
+        PodcastInfoTuneIn(const Brx& aFeedUrl);
         ~PodcastInfoTuneIn();
-        const Brx& Name();
         const Brx& FeedUrl();
-        const Brx& Artist();
-        const Brx& ArtworkUrl();
         const Brx& Id();
     private:
-        void Parse(const Brx& aJsonObj);
+        void Parse(const Brx& aFeedUrl);
     private:
-        Bwh iName;
         Bwh iFeedUrl;
-        Bwh iArtist;
-        Bwh iArtworkUrl;
         Bwh iId;
     };
 
@@ -61,15 +54,15 @@ namespace Av {
         ~PodcastEpisodeTuneIn();
         const Brx& Title();
         const Brx& Url();
+        const Brx& ArtworkUrl();
         const Brx& PublishedDate();
         TUint Duration();
-        static Brn GetNextXmlValueByTag(OpenHome::Parser& aParser, const Brx& aTag);
     private:
         void Parse(const Brx& aXmlItem);
-        static Brn GetFirstXmlAttribute(const Brx& aXml, const Brx& aAttribute);
     private:
         Bwh iTitle;
         Bwh iUrl;
+        Bwh iArtworkUrl;
         Bwh iPublishedDate;
         TUint iDuration;
     };
@@ -84,18 +77,11 @@ namespace Av {
         static const OpenHome::Brn kMediaTypePodcast;
     public:
         TuneInMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
-        Media::Track* GetNextEpisodeTrack(PodcastInfoTuneIn& aPodcast, const Brx& aXmlItem);
+        Media::Track* GetNextEpisodeTrack(const OpenHome::Brx& aPodcastId, const Brx& aXmlItem);
         const Brx& GetNextEpisodePublishedDate(const Brx& aXmlItem);
-        static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse);
     private:
-        void ParseTuneInMetadata(PodcastInfoTuneIn& aPodcast, const OpenHome::Brx& aMetadata);
-
-        void TryAddAttribute(OpenHome::JsonParser& aParser,
-                             const TChar* aTuneInKey, const TChar* aDidlAttr);
+        void ParseTuneInMetadata(const Brx& aPodcastId, const OpenHome::Brx& aMetadata);
         void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
-
-        void TryAddTag(OpenHome::JsonParser& aParser, const OpenHome::Brx& aTuneInKey,
-                       const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs);
         void TryAddTag(const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs,
                        const OpenHome::Brx& aRole, const OpenHome::Brx& aValue);
         void TryAppend(const TChar* aStr);
@@ -113,7 +99,6 @@ class TuneIn
     static const TUint kMultipleEpisodesBlockSize = 50; // 1 block is kReadBufferBytes
     static const TUint kWriteBufferBytes = 1024;
     static const TUint kConnectTimeoutMs = 10000; // FIXME - should read this + ProtocolNetwork's equivalent from a single client-changable location
-    static const Brn kHost;
     static const TUint kPort = 80;
     static const TUint kMaxStatusBytes = 512;
     static const TUint kMaxPathAndQueryBytes = 512;
@@ -121,13 +106,14 @@ public:
     TuneIn(Environment& aEnv);
     ~TuneIn();
 
-    TBool TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery);
     TBool TryGetPodcastById(WriterBwh& aWriter, const Brx& aId);
-    TBool TryGetPodcastEpisodeInfo(WriterBwh& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly);
+    TBool TryGetPodcastEpisodeInfoById(WriterBwh& aWriter, const Brx& aId);
+    TBool TryGetPodcastFromPath(WriterBwh& aWriter, const Brx& aPath);
+    const Brx& GetPathFromId(const Brx& aId);
+    static void SetPathFromId(Bwx& aPath, const Brx& aId);
     void Interrupt(TBool aInterrupt);
 private:
     TBool TryConnect(const Brx& aHost, TUint aPort);
-    TBool TryGetJsonResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit);
     TBool TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
     void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
 private:
@@ -140,9 +126,8 @@ private:
     WriterHttpRequest iWriterRequest;
     ReaderHttpResponse iReaderResponse;
     HttpHeaderContentLength iHeaderContentLength;
+    Bwh iPath;
 };
-
-class ListenedDatePooledTuneIn;
 
 class PodcastPinsTuneIn
 {
@@ -150,19 +135,20 @@ class PodcastPinsTuneIn
     static const TUint kXmlResponseChunks = 8 * 1024;
     static const OpenHome::Brn kPodcastKey;
 public:
-    static const TUint kMaxPodcastIdBytes = 16;
-    static const TUint kMaxPodcastDateBytes = 40;
     static const TUint kMaxFormatBytes = 40; // cover json formatting
-    static const TUint kMaxEntryBytes = kMaxPodcastIdBytes + kMaxPodcastDateBytes + kMaxFormatBytes;  //{ "id" : "261447018", "date" : "Fri, 24 Nov 2017 20:15:00 GMT", "pty" : 26}, 
+    static const TUint kMaxEntryBytes = PodcastPins::kMaxPodcastIdBytes + PodcastPins::kMaxPodcastDateBytes + kMaxFormatBytes;  //{ "id" : "261447018", "date" : "Fri, 24 Nov 2017 20:15:00 GMT", "pty" : 26}, 
     static const TUint kMaxEntries = 26;
-    static const TUint kNewEposdeListMaxBytes = kMaxEntries*kMaxPodcastIdBytes + (kMaxEntries-1); // kMaxEntries-1 covers commas
+    static const TUint kNewEposdeListMaxBytes = kMaxEntries*(PodcastPins::kMaxPodcastIdBytes) + (kMaxEntries-1); // kMaxEntries-1 covers commas
 public:
-    static PodcastPinsTuneIn* GetInstance(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
+    static PodcastPinsTuneIn* GetInstance(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore, const OpenHome::Brx& aPartnerId);
+    static const Brx& GetPartnerId();
     ~PodcastPinsTuneIn();
     void AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObserver); // event describing podcast IDs with new episodes available (compared to last listened stored data)
-    TBool CheckForNewEpisode(const Brx& aQuery); // poll using TuneIn id or search string (single episode)
-    TBool LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler); // TuneIn id or search string (single episode - radio single)
-    TBool LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn id or search string (episode list - playlist)
+    TBool CheckForNewEpisode(const Brx& aId); // poll using TuneIn id (single episode)
+    TBool LoadPodcastLatestById(const Brx& aId, IPodcastTransportHandler& aHandler); // TuneIn id (single episode - radio single)
+    TBool LoadPodcastLatestByPath(const Brx& aPath, IPodcastTransportHandler& aHandler); // TuneIn path (single episode - radio single)
+    TBool LoadPodcastListById(const Brx& aId, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn id (episode list - playlist)
+    TBool LoadPodcastListByPath(const Brx& aPath, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn path (episode list - playlist)
 private:
     PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
 
@@ -170,9 +156,7 @@ private:
     void StartPollingForNewEpisodes(); // check existing mappings (latest selected podcasts) for new episodes (currently started in constructor)
     void StopPollingForNewEpisodes();
 private:
-    TBool LoadById(const Brx& aId, IPodcastTransportHandler& aHandler);
-    TBool LoadByQuery(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle);
-    TBool IsValidId(const Brx& aRequest);
+    TBool LoadByPath(const Brx& aPath, IPodcastTransportHandler& aHandler, TBool aShuffle);
     TBool CheckForNewEpisodeById(const Brx& aId);
     const Brx& GetLastListenedEpisodeDateLocked(const Brx& aId); // pull last stored date for given podcast ID
     void SetLastListenedEpisodeDateLocked(const Brx& aId, const Brx& aDate); // set last stored date for given podcast ID
@@ -180,17 +164,18 @@ private:
     void StartPollingForNewEpisodesLocked();
 private:
     static PodcastPinsTuneIn* iInstance;
+    static Brh iPartnerId;
     Mutex iLock;
     TuneIn* iTuneIn;
     WriterBwh iJsonResponse;
     WriterBwh iXmlResponse;
     Media::TrackFactory& iTrackFactory;
 
-    std::list<ListenedDatePooledTuneIn*> iMappings;
+    std::list<ListenedDatePooled*> iMappings;
     OpenHome::Configuration::IStoreReadWrite& iStore;
     OpenHome::Bwh iListenedDates;
-    OpenHome::Bws<kMaxPodcastIdBytes> iLastSelectedId;
-    OpenHome::Bws<kMaxPodcastDateBytes> iLastSelectedDate;
+    OpenHome::Bws<PodcastPins::kMaxPodcastIdBytes> iLastSelectedId;
+    OpenHome::Bws<PodcastPins::kMaxPodcastDateBytes> iLastSelectedDate;
     OpenHome::Timer* iTimer;
     std::vector<IPodcastPinsObserver*> iEpisodeObservers;
     OpenHome::Bws<kNewEposdeListMaxBytes> iNewEpisodeList;
@@ -201,7 +186,7 @@ class PodcastPinsLatestEpisodeTuneIn
     , public IPodcastTransportHandler
 {
 public:
-    PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
+    PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const OpenHome::Brx& aPartnerId);
     ~PodcastPinsLatestEpisodeTuneIn();
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
@@ -236,22 +221,6 @@ private:
     PodcastPinsTuneIn* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     TUint iLastId;
-};
-
-class ListenedDatePooledTuneIn
-{
-public:
-    ListenedDatePooledTuneIn();
-    void Set(const OpenHome::Brx& aId, const OpenHome::Brx& aDate, TUint aPriority);
-    const OpenHome::Brx& Id() const;
-    const OpenHome::Brx& Date() const;
-    const TUint Priority() const;
-    void DecPriority();
-    static TBool Compare(const ListenedDatePooledTuneIn* aFirst, const ListenedDatePooledTuneIn* aSecond);
-private:
-    OpenHome::Bws<PodcastPinsTuneIn::kMaxPodcastIdBytes> iId;
-    OpenHome::Bws<PodcastPinsTuneIn::kMaxPodcastDateBytes> iDate;
-    TUint iPriority;
 };
 
 };  // namespace Av

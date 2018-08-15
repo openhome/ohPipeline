@@ -63,10 +63,8 @@ namespace Av {
         const Brx& Url();
         const Brx& PublishedDate();
         TUint Duration();
-        static Brn GetNextXmlValueByTag(OpenHome::Parser& aParser, const Brx& aTag);
     private:
         void Parse(const Brx& aXmlItem);
-        static Brn GetFirstXmlAttribute(const Brx& aXml, const Brx& aAttribute);
     private:
         Bwh iTitle;
         Bwh iUrl;
@@ -142,20 +140,16 @@ private:
     HttpHeaderContentLength iHeaderContentLength;
 };
 
-class ListenedDatePooledITunes;
-
 class PodcastPinsITunes
 {
     static const TUint kJsonResponseChunks = 8 * 1024;
     static const TUint kXmlResponseChunks = 8 * 1024;
     static const OpenHome::Brn kPodcastKey;
 public:
-    static const TUint kMaxPodcastIdBytes = 16;
-    static const TUint kMaxPodcastDateBytes = 40;
     static const TUint kMaxFormatBytes = 40; // cover json formatting
-    static const TUint kMaxEntryBytes = kMaxPodcastIdBytes + kMaxPodcastDateBytes + kMaxFormatBytes;  //{ "id" : "261447018", "date" : "Fri, 24 Nov 2017 20:15:00 GMT", "pty" : 26}, 
+    static const TUint kMaxEntryBytes = PodcastPins::kMaxPodcastIdBytes + PodcastPins::kMaxPodcastDateBytes + kMaxFormatBytes;  //{ "id" : "261447018", "date" : "Fri, 24 Nov 2017 20:15:00 GMT", "pty" : 26}, 
     static const TUint kMaxEntries = 26;
-    static const TUint kNewEposdeListMaxBytes = kMaxEntries*kMaxPodcastIdBytes + (kMaxEntries-1); // kMaxEntries-1 covers commas
+    static const TUint kNewEposdeListMaxBytes = kMaxEntries*(PodcastPins::kMaxPodcastIdBytes) + (kMaxEntries-1); // kMaxEntries-1 covers commas
 public:
     static PodcastPinsITunes* GetInstance(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
     ~PodcastPinsITunes();
@@ -186,11 +180,11 @@ private:
     WriterBwh iXmlResponse;
     Media::TrackFactory& iTrackFactory;
 
-    std::list<ListenedDatePooledITunes*> iMappings;
+    std::list<ListenedDatePooled*> iMappings;
     OpenHome::Configuration::IStoreReadWrite& iStore;
     OpenHome::Bwh iListenedDates;
-    OpenHome::Bws<kMaxPodcastIdBytes> iLastSelectedId;
-    OpenHome::Bws<kMaxPodcastDateBytes> iLastSelectedDate;
+    OpenHome::Bws<PodcastPins::kMaxPodcastIdBytes> iLastSelectedId;
+    OpenHome::Bws<PodcastPins::kMaxPodcastDateBytes> iLastSelectedDate;
     OpenHome::Timer* iTimer;
     std::vector<IPodcastPinsObserver*> iEpisodeObservers;
     OpenHome::Bws<kNewEposdeListMaxBytes> iNewEpisodeList;
@@ -237,22 +231,6 @@ private:
     PodcastPinsITunes* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     TUint iLastId;
-};
-
-class ListenedDatePooledITunes
-{
-public:
-    ListenedDatePooledITunes();
-    void Set(const OpenHome::Brx& aId, const OpenHome::Brx& aDate, TUint aPriority);
-    const OpenHome::Brx& Id() const;
-    const OpenHome::Brx& Date() const;
-    const TUint Priority() const;
-    void DecPriority();
-    static TBool Compare(const ListenedDatePooledITunes* aFirst, const ListenedDatePooledITunes* aSecond);
-private:
-    OpenHome::Bws<PodcastPinsITunes::kMaxPodcastIdBytes> iId;
-    OpenHome::Bws<PodcastPinsITunes::kMaxPodcastDateBytes> iDate;
-    TUint iPriority;
 };
 
 };  // namespace Av
