@@ -27,7 +27,13 @@ class ProtocolCalmRadio : public Media::ProtocolNetwork
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
     static const TUint kMaxUserAgentBytes = 64;
 public:
-    ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, Credentials& aCredentialsManager, Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable);
+    ProtocolCalmRadio(Environment& aEnv, 
+                      const Brx& aUserAgent, 
+                      Credentials& aCredentialsManager, 
+                      Net::DvDeviceStandard& aDevice, 
+                      Net::CpStack& aCpStack, 
+                      Optional<IPinsInvocable> aPinsInvocable,
+                      IThreadPool& aThreadPool);
     ~ProtocolCalmRadio();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -99,15 +105,26 @@ using namespace OpenHome::Configuration;
 
 Protocol* ProtocolFactory::NewCalmRadio(Environment& aEnv, const Brx& aUserAgent, Av::IMediaPlayer& aMediaPlayer)
 { // static
-    return new ProtocolCalmRadio(aEnv, aUserAgent, aMediaPlayer.CredentialsManager(), aMediaPlayer.Device(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable());
+    return new ProtocolCalmRadio(aEnv, 
+                                 aUserAgent, 
+                                 aMediaPlayer.CredentialsManager(), 
+                                 aMediaPlayer.Device(), 
+                                 aMediaPlayer.CpStack(), 
+                                 aMediaPlayer.PinsInvocable(),
+                                 aMediaPlayer.ThreadPool());
 }
 
 
 // ProtocolCalmRadio
 
-ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, Credentials& aCredentialsManager, Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable)
+ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, 
+                                     const Brx& aUserAgent, 
+                                     Credentials& aCredentialsManager, 
+                                     Net::DvDeviceStandard& aDevice, 
+                                     Net::CpStack& aCpStack, 
+                                     Optional<IPinsInvocable> aPinsInvocable,
+                                     IThreadPool& aThreadPool)
     : ProtocolNetwork(aEnv)
-    , iPins(nullptr)
     , iSupply(nullptr)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
@@ -131,8 +148,8 @@ ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, const Brx& aUserAgent, C
     aCredentialsManager.Add(iCalm);
 
     if (aPinsInvocable.Ok()) {
-        iPins = new CalmRadioPins(*iCalm, aDevice, aCpStack);
-        aPinsInvocable.Unwrap().Add(iPins);
+        auto pins = new CalmRadioPins(*iCalm, aDevice, aCpStack, aThreadPool);
+        aPinsInvocable.Unwrap().Add(pins);
     }
 }
 

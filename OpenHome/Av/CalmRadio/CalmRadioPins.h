@@ -11,6 +11,8 @@
         
 namespace OpenHome {
     class Environment;
+    class IThreadPool;
+    class IThreadPoolHandle;
 namespace Configuration {
     class IConfigInitialiser;
     class ConfigChoice;
@@ -21,7 +23,7 @@ class CalmRadioPins
     : public IPinInvoker
 {
 public:
-    CalmRadioPins(CalmRadio& aCalmRadio, Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack);
+    CalmRadioPins(CalmRadio& aCalmRadio, Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack, IThreadPool& aThreadPool);
     ~CalmRadioPins();
 
 private: // from IPinInvoker
@@ -31,11 +33,16 @@ private: // from IPinInvoker
 private:
     TBool LoadStream(const Brx& aStream, const IPin& aPin); // playable stream (CalmRadio url)
     TBool LoadStation(const Brx& aStation, const IPin& aPin); // CalmRadio station id (ie s1234)
+    void Invoke();
 private:
     Mutex iLock;
     CalmRadio& iCalmRadio;
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
-    Net::CpStack& iCpStack;
+    IThreadPoolHandle* iThreadPoolHandle;
+    Bws<128> iToken;
+    Functor iCompleted;
+    PinIdProvider iPinIdProvider;
+    Pin iPin;
 };
 
 };  // namespace Av

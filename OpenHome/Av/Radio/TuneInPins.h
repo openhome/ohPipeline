@@ -11,6 +11,8 @@
         
 namespace OpenHome {
     class Environment;
+    class IThreadPool;
+    class IThreadPoolHandle;
 namespace Configuration {
     class IConfigInitialiser;
     class ConfigChoice;
@@ -21,7 +23,7 @@ class TuneInPins
     : public IPinInvoker
 {
 public:
-    TuneInPins(Net::DvDeviceStandard& aDevice, OpenHome::Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const Brx& aPartnerId);
+    TuneInPins(Net::DvDeviceStandard& aDevice, OpenHome::Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool, const Brx& aPartnerId);
     ~TuneInPins();
 
 private: // from IPinInvoker
@@ -31,11 +33,16 @@ private: // from IPinInvoker
 private:
     TBool LoadStream(const Brx& aStream, const IPin& aPin); // playable stream (tunein url)
     TBool LoadStation(const Brx& aStation, const IPin& aPin); // tunein station id (ie s1234)
+    void Invoke();
 private:
     Mutex iLock;
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
-    Net::CpStack& iCpStack;
     Av::PodcastPinsLatestEpisodeTuneIn* iPodcastPinsEpisode;
+    IThreadPoolHandle* iThreadPoolHandle;
+    Bws<128> iToken;
+    Functor iCompleted;
+    PinIdProvider iPinIdProvider;
+    Pin iPin;
 };
 
 };  // namespace Av

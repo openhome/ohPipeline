@@ -112,11 +112,11 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
 
     
     if (aMediaPlayer.PinsInvocable().Ok()) {
-        auto podcastPinsITunes = new PodcastPinsLatestEpisodeITunes(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore());
+        auto podcastPinsITunes = new PodcastPinsLatestEpisodeITunes(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore(), aMediaPlayer.ThreadPool());
         aMediaPlayer.PinsInvocable().Unwrap().Add(podcastPinsITunes);
 
         if (iTuneIn != nullptr) {
-            auto tuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore(), aTuneInPartnerId);
+            auto tuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore(), aMediaPlayer.ThreadPool(), aTuneInPartnerId);
             aMediaPlayer.PinsInvocable().Unwrap().Add(tuneInPins);
             auto radioPins = new RadioPins(aMediaPlayer.Device(), aMediaPlayer.CpStack());
             aMediaPlayer.PinsInvocable().Unwrap().Add(radioPins);

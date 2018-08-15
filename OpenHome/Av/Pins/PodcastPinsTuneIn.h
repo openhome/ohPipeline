@@ -21,6 +21,8 @@ EXCEPTION(TuneInRequestInvalid);
 
 namespace OpenHome {
     class Environment;
+    class IThreadPool;
+    class IThreadPoolHandle;
     class Parser;
     class Timer;
 namespace Configuration {
@@ -149,6 +151,7 @@ public:
     TBool LoadPodcastLatestByPath(const Brx& aPath, IPodcastTransportHandler& aHandler); // TuneIn path (single episode - radio single)
     TBool LoadPodcastListById(const Brx& aId, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn id (episode list - playlist)
     TBool LoadPodcastListByPath(const Brx& aPath, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn path (episode list - playlist)
+    void Cancel();
 private:
     PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
 
@@ -188,6 +191,7 @@ public:
     PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const OpenHome::Brx& aPartnerId);
     ~PodcastPinsLatestEpisodeTuneIn();
     void LoadPodcast(const IPin& aPin); // not required to be a separate pin invoker as it is created as part of TuneInPins
+    void Cancel();
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;
@@ -203,22 +207,28 @@ class PodcastPinsEpisodeListTuneIn
     , public IPodcastTransportHandler
 {
 public:
-    PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
+    PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool);
     ~PodcastPinsEpisodeListTuneIn();
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;
     virtual void Play() override;
     virtual TBool SingleShot() override;
-public: // from IPinInvoker
+private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
-    
+private:
+    void Invoke();
 private:
     PodcastPinsTuneIn* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     TUint iLastId;
+    IThreadPoolHandle* iThreadPoolHandle;
+    Bws<128> iToken;
+    Functor iCompleted;
+    PinIdProvider iPinIdProvider;
+    Pin iPin;
 };
 
 };  // namespace Av

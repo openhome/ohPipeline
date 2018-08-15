@@ -17,6 +17,7 @@
 #include <Generated/CpAvOpenhomeOrgRadio1.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Radio/TuneIn.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <algorithm>
 
@@ -59,15 +60,15 @@ PodcastPinsLatestEpisodeTuneIn::~PodcastPinsLatestEpisodeTuneIn()
 
 void PodcastPinsLatestEpisodeTuneIn::LoadPodcast(const IPin& aPin)
 {
-    PinUri pin(aPin);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeTuneInEpisode)) {
-        if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
+    try {
+        PinUri pinUri(aPin);
+        if (Brn(pinUri.Type()) == Brn(kPinTypePodcast)) {
             Brn val;
-            if (pin.TryGetValue(kPinKeyEpisodeId, val)) {
+            if (pinUri.TryGetValue(kPinKeyEpisodeId, val)) {
                 res = iPodcastPins->LoadPodcastLatestById(val, *this);
             }
-            else if (pin.TryGetValue(kPinKeyPath, val)) {
+            else if (pinUri.TryGetValue(kPinKeyPath, val)) {
                 res = iPodcastPins->LoadPodcastLatestByPath(val, *this);
             }
             else {
@@ -77,10 +78,20 @@ void PodcastPinsLatestEpisodeTuneIn::LoadPodcast(const IPin& aPin)
         else {
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
     }
+    catch (PinUriMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "PodcastPinsLatestEpisodeTuneIn::LoadPodcast - missing parameter in %.*s\n", PBUF(aPin.Uri()));
+        throw;
+    }
+
+    if (!res) {
+        THROW(PinInvokeError);
+    }
+}
+
+void PodcastPinsLatestEpisodeTuneIn::Cancel()
+{
+    iPodcastPins->Cancel();
 }
 
 void PodcastPinsLatestEpisodeTuneIn::Init(TBool /*aShuffle*/)
@@ -105,34 +116,51 @@ TBool PodcastPinsLatestEpisodeTuneIn::SingleShot()
 
 // PodcastPinsEpisodeListTuneIn
 
-PodcastPinsEpisodeListTuneIn::PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore)
+PodcastPinsEpisodeListTuneIn::PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool)
     : iLastId(0)
+    , iPin(iPinIdProvider)
 {
     iPodcastPins = PodcastPinsTuneIn::GetInstance(aTrackFactory, aCpStack.Env(), aStore, Brx::Empty());
 
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &PodcastPinsEpisodeListTuneIn::Invoke),
+                                                 "TuneInListPins", ThreadPoolPriority::Medium);
 }
 
 PodcastPinsEpisodeListTuneIn::~PodcastPinsEpisodeListTuneIn()
 {
+    iThreadPoolHandle->Destroy();
     delete iCpPlaylist;
 }
 
 void PodcastPinsEpisodeListTuneIn::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
-    AutoFunctor _(aCompleted);
-    PinUri pin(aPin);
+    if (aPin.Mode() != Brn(kPinModeTuneInList)) {
+        return;
+    }
+    AutoPinComplete completion(aCompleted);
+    (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+                         aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    completion.Cancel();
+    iCompleted = aCompleted;
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
+void PodcastPinsEpisodeListTuneIn::Invoke()
+{
+    AutoFunctor _(iCompleted);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeTuneInList)) {
-        if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
+     try {
+        PinUri pinUri(iPin);
+        if (Brn(pinUri.Type()) == Brn(kPinTypePodcast)) {
             Brn val;
-            if (pin.TryGetValue(kPinKeyEpisodeId, val)) {
-                res = iPodcastPins->LoadPodcastListById(val, *this, aPin.Shuffle());
+            if (pinUri.TryGetValue(kPinKeyEpisodeId, val)) {
+                res = iPodcastPins->LoadPodcastListById(val, *this, iPin.Shuffle());
             }
-            else if (pin.TryGetValue(kPinKeyPath, val)) {
-                res = iPodcastPins->LoadPodcastListByPath(val, *this, aPin.Shuffle());
+            else if (pinUri.TryGetValue(kPinKeyPath, val)) {
+                res = iPodcastPins->LoadPodcastListByPath(val, *this, iPin.Shuffle());
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -141,14 +169,20 @@ void PodcastPinsEpisodeListTuneIn::BeginInvoke(const IPin& aPin, Functor aComple
         else {
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
+    }
+    catch (PinUriMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "PodcastPinsEpisodeListTuneIn::Invoke - missing parameter in %.*s\n", PBUF(iPin.Uri()));
+        throw;
+    }
+
+    if (!res) {
+        THROW(PinInvokeError);
     }
 }
 
 void PodcastPinsEpisodeListTuneIn::Cancel()
 {
+    iPodcastPins->Cancel();
 }
 
 const TChar* PodcastPinsEpisodeListTuneIn::Mode() const
@@ -276,6 +310,11 @@ PodcastPinsTuneIn::~PodcastPinsTuneIn()
     delete iTuneIn;
     delete iTimer;
     delete iInstance;
+}
+
+void PodcastPinsTuneIn::Cancel()
+{
+    iTuneIn->Interrupt(true);
 }
 
 void PodcastPinsTuneIn::StartPollingForNewEpisodes()
