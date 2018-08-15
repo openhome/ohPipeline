@@ -680,7 +680,6 @@ Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
     const TByte* valStart = iPtr;
     Brn val;
 
-
     TBool escapeChar = false;
     TBool inString = false;
     TUint nestCount = 0;
@@ -695,13 +694,18 @@ Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
             }
             escapeChar = false;
         }
-        else if (ch == aStart) {
-            nestCount++;
-        }
-        else if (ch == aEnd) {
-            if (--nestCount == 0) {
-                val.Set(valStart, iPtr - valStart);
-                break;
+        else {
+            escapeChar = false;
+            if (!inString) {
+                if (ch == aStart) {
+                    nestCount++;
+                }
+                else if (ch == aEnd) {
+                    if (--nestCount == 0) {
+                        val.Set(valStart, iPtr - valStart);
+                        break;
+                    }
+                }
             }
         }
     }

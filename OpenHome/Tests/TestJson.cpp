@@ -133,7 +133,6 @@ public: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
 private:
-
     void TestIdentifyType();
     void TestIntArray();
     void TestBoolArray();
@@ -1096,6 +1095,11 @@ void SuiteParserJsonArray::TestObjectArray()
     TEST_THROWS(parser.NextArray(), JsonWrongType);
     TEST(parser.NextObject() == Brn("{\"val\":1}"));
     TEST_THROWS(parser.NextObject(), JsonArrayEnumerationComplete);
+
+    auto parser2 = JsonParserArray::Create(Brn("[{\"val\":\"open{\"}, {\"val\":\"close}\"} ]"));
+    TEST(parser2.NextObject() == Brn("{\"val\":\"open{\"}"));
+    TEST(parser2.NextObject() == Brn("{\"val\":\"close}\"}"));
+    TEST_THROWS(parser2.NextObject(), JsonArrayEnumerationComplete);
 }
 
 void SuiteParserJsonArray::TestArrayArray()
