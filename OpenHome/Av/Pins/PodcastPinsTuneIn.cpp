@@ -432,7 +432,7 @@ TBool PodcastPinsTuneIn::LoadByPath(const Brx& aPath, IPodcastTransportHandler& 
                 Brn item = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("outline"));
                 Brn type = PodcastPins::GetFirstXmlAttribute(item, Brn("type"));
                 if (type == TuneInMetadata::kMediaTypePodcast) {
-                    auto* track = tm.GetNextEpisodeTrack(podcast->Id(), item);
+                    auto* track = tm.GetNextEpisodeTrack(podcast->Id(), item, aHandler.SingleShot());
                     if (track != nullptr) {
                         aHandler.Load(*track);
                         track->RemoveRef();
@@ -594,10 +594,10 @@ TuneInMetadata::TuneInMetadata(Media::TrackFactory& aTrackFactory)
 {
 }
 
-Media::Track* TuneInMetadata::GetNextEpisodeTrack(const Brx& aPodcastId, const Brx& aXmlItem)
+Media::Track* TuneInMetadata::GetNextEpisodeTrack(const Brx& aPodcastId, const Brx& aXmlItem, TBool aLatestOnly)
 {
     try {
-        ParseTuneInMetadata(aPodcastId, aXmlItem);
+        ParseTuneInMetadata(aPodcastId, aXmlItem, aLatestOnly);
         return iTrackFactory.CreateTrack(iTrackUri, iMetaDataDidl);
     }
     catch (AssertionFailed&) {
@@ -627,7 +627,7 @@ const Brx& TuneInMetadata::GetNextEpisodePublishedDate(const Brx& aXmlItem)
     }
 }
 
-void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlItem)
+void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlItem, TBool aLatestOnly)
 {
     iTrackUri.ReplaceThrow(Brx::Empty());
     iMetaDataDidl.ReplaceThrow(Brx::Empty());
@@ -639,6 +639,10 @@ void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlI
     TryAppend("\" parentID=\"-1\" restricted=\"1\">");
     TryAppend(">");
     PodcastEpisodeTuneIn* episode = new PodcastEpisodeTuneIn(aXmlItem);  // get Episode Title, release date, duration, artwork, and streamable url
+    if (!aLatestOnly) {
+        //TryAddTag(Brn("upnp:artist"), kNsUpnp, Brx::Empty(), aPodcast.Artist());
+        TryAddTag(Brn("upnp:album"), kNsUpnp, Brx::Empty(), Brn("Podcast Collection")); // only relevant for podcast lists
+    }
     TryAddTag(Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), episode->ArtworkUrl());
     TryAddTag(Brn("upnp:class"), kNsUpnp, Brx::Empty(), Brn("object.item.audioItem.musicTrack"));
     LOG(kMedia, "Podcast Title: %.*s\n", PBUF(episode->Title()));

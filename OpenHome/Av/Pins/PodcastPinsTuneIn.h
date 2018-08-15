@@ -79,10 +79,10 @@ namespace Av {
         static const OpenHome::Brn kMediaTypePodcast;
     public:
         TuneInMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
-        Media::Track* GetNextEpisodeTrack(const OpenHome::Brx& aPodcastId, const Brx& aXmlItem);
+        Media::Track* GetNextEpisodeTrack(const OpenHome::Brx& aPodcastId, const Brx& aXmlItem, TBool aLatestOnly);
         const Brx& GetNextEpisodePublishedDate(const Brx& aXmlItem);
     private:
-        void ParseTuneInMetadata(const Brx& aPodcastId, const OpenHome::Brx& aMetadata);
+        void ParseTuneInMetadata(const Brx& aPodcastId, const OpenHome::Brx& aMetadata, TBool aLatestOnly);
         void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
         void TryAddTag(const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs,
                        const OpenHome::Brx& aRole, const OpenHome::Brx& aValue);
