@@ -47,6 +47,7 @@ static const TChar* kPinKeyGenre = "genre";
 // Pin response types
 static const TChar* kPinResponseTracks = "tracks";
 static const TChar* kPinResponseAlbums = "albums";
+static const TChar* kPinResponsePlaylists = "playlists";
 
 // Pin smart types
 static const TChar* kSmartTypeAwardWinning = "awards";
@@ -212,6 +213,9 @@ TBool QobuzPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuf
     }
     else if (response == Brn(kPinResponseAlbums)) {
         res = LoadAlbumsByPath(aPath, aShuffle);
+    }
+    else if (response == Brn(kPinResponsePlaylists)) {
+        res = LoadPlaylistsByPath(aPath, aShuffle);
     }
     else {
         THROW(PinUriMissingRequiredParameter);
@@ -460,6 +464,70 @@ TBool QobuzPins::LoadTracksByPath(const Brx& aPath, TBool aShuffle)
     }
 
     return lastId;
+}
+
+TBool QobuzPins::LoadPlaylistsByPath(const Brx& aPath, TBool aShuffle)
+{
+    AutoMutex _(iLock);
+    JsonParser parser;
+    InitPlaylist(aShuffle);
+    Bwh playlistIds[kMaxPlaylists];
+    TUint lastId = 0;
+    TBool tracksFound = false;
+
+    try {
+        // request list of playlists (returned as list - place an arbitrary limit on the number of playlists to return for now)
+        iJsonResponse.Reset();
+        TBool success = iQobuz.TryGetIdsByRequest(iJsonResponse, aPath, kMaxPlaylists); // send request to Qobuz
+        if (!success) {
+            return false;
+        }
+        
+        // response is list of playlists, so need to loop through playlists
+        parser.Reset();
+        parser.Parse(iJsonResponse.Buffer());
+        TUint idCount = 0;
+        if (parser.HasKey(Brn("playlists"))) { 
+            parser.Parse(parser.String(Brn("playlists")));
+        }
+        if (parser.HasKey(Brn("items"))) {
+            TUint playlists = parser.Num(Brn("total"));
+            if (playlists != 0) {
+                auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
+                JsonParser parserItem;
+                try {
+                    for (TUint i = 0; i < kMaxPlaylists; i++) {
+                        parserItem.Parse(parserItems.NextObject());
+                        playlistIds[i].Grow(20);
+                        playlistIds[i].ReplaceThrow(parserItem.String(Brn("id"))); // parse response from Qobuz
+                        idCount++;
+                        if (playlistIds[i].Bytes() == 0) {
+                            return false;
+                        }
+                    }
+                }
+                catch (JsonArrayEnumerationComplete&) {}
+                for (TUint j = 0; j < idCount; j++) {
+                    try {
+                        lastId = LoadTracksById(playlistIds[j], QobuzMetadata::ePlaylist, lastId);
+                        tracksFound = true;
+                    }
+                    catch (PinNothingToPlay&) {
+                    }
+                } 
+            } 
+        }
+    }   
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in QobuzPins::LoadTracksByFavorites\n", ex.Message());
+        return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
+    }
+
+    return true;
 }
 
 TBool QobuzPins::LoadAlbumsByPath(const Brx& aPath, TBool aShuffle)
