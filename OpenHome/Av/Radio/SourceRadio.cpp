@@ -20,6 +20,7 @@
 #include <OpenHome/Av/Pins/PodcastPinsITunes.h>
 #include <OpenHome/Av/Radio/TuneInPins.h>
 #include <OpenHome/Av/Radio/RadioPins.h>
+#include <OpenHome/Av/Pins/UrlPins.h>
 
 #include <limits.h>
 #include <memory>
@@ -120,6 +121,8 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
             aMediaPlayer.PinsInvocable().Unwrap().Add(tuneInPins);
             auto radioPins = new RadioPins(aMediaPlayer.Device(), aMediaPlayer.CpStack());
             aMediaPlayer.PinsInvocable().Unwrap().Add(radioPins);
+            auto urlPins = new UrlPins(aMediaPlayer.Device(), aMediaPlayer.CpStack(), aMediaPlayer.ThreadPool());
+            aMediaPlayer.PinsInvocable().Unwrap().Add(urlPins);
         }
     }
 }

@@ -310,6 +310,7 @@ def build(bld):
                 'OpenHome/Av/Pins/TransportPins.cpp',
                 'OpenHome/Av/Radio/TuneInPins.cpp',
                 'OpenHome/Av/Radio/RadioPins.cpp',
+                'OpenHome/Av/Pins/UrlPins.cpp',
                 'OpenHome/Av/CalmRadio/CalmRadioPins.cpp',
                 'Generated/CpAvOpenhomeOrgRadio1.cpp',
                 'Generated/DvAvOpenhomeOrgVolume3.cpp',
