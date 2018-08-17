@@ -433,7 +433,7 @@ void StoreInt::Write()
             Write(iKey, iVal, iStore);
             iLastWritten = iVal;
         }
-        iChanged = true;
+        iChanged = false;
     }
 }
 
