@@ -85,14 +85,18 @@ TBool ContentM3u::Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aD
      * above checks fail, the only way of recognising an M3U is to check the
      * file extension (assuming the file extension is correct!).
      */
-    Uri uri(aUri);
-    const auto& path = uri.Path();
-    // File extension must be at end of path portion of URI.
-    if (path.Bytes() >= kExtension.Bytes()) {
-        Brn extension(path.Ptr() + (path.Bytes() - kExtension.Bytes()), kExtension.Bytes());
-        if (Ascii::CaseInsensitiveEquals(extension, kExtension)) {
-            return true;
+    try {
+        Uri uri(aUri);
+        const auto& path = uri.Path();
+        // File extension must be at end of path portion of URI.
+        if (path.Bytes() >= kExtension.Bytes()) {
+            Brn extension(path.Ptr() + (path.Bytes() - kExtension.Bytes()), kExtension.Bytes());
+            if (Ascii::CaseInsensitiveEquals(extension, kExtension)) {
+                return true;
+            }
         }
+    }
+    catch (const UriError&) {
     }
 
     return false;

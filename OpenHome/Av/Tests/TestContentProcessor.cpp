@@ -426,6 +426,16 @@ void SuiteM3u::TestRecognise()
         "http://example.com/audio-only.m3u8\n";
     content.Set(kFile3);
     TEST(!iProcessor->Recognise(Brx::Empty(), Brx::Empty(), content));
+
+
+    // File with unrecognisable content, unknown mime type and unknown file extension.
+    TEST(!iProcessor->Recognise(Brn("http://example.com/playlist.txt"), Brx::Empty(), Brn("http://example.com/stream.mp3")));
+
+    // File containing only a URI (no uniquely recognisable content), unknown mime type but valid file extension.
+    TEST(iProcessor->Recognise(Brn("http://example.com/playlist.m3u"), Brx::Empty(), Brn("http://example.com/stream.mp3")));
+
+    // File with unrecognisable content, unknown mime type and invalid URI.
+    TEST(!iProcessor->Recognise(Brn("invalid"), Brx::Empty(), Brn("http://example.com/stream.mp3")));
 }
 
 void SuiteM3u::TestParse()
