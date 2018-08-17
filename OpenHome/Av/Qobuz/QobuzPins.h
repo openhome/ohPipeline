@@ -15,6 +15,8 @@
         
 namespace OpenHome {
     class Environment;
+    class IThreadPool;
+    class IThreadPoolHandle;
 namespace Configuration {
     class IConfigInitialiser;
     class ConfigChoice;
@@ -25,13 +27,19 @@ class QobuzPins
     : public IPinInvoker
 {
     static const TUint kTrackLimitPerRequest = 10;
+    static const TUint kMaxPlaylists = 15;
     static const TUint kMaxAlbums = 25;
     static const TUint kJsonResponseChunks = 4 * 1024;
 public:
-    QobuzPins(Qobuz& aQobuz, Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, TUint aMaxTracks = ITrackDatabase::kMaxTracks);
+    QobuzPins(Qobuz& aQobuz, 
+              Net::DvDeviceStandard& aDevice, 
+              Media::TrackFactory& aTrackFactory, 
+              Net::CpStack& aCpStack, 
+              IThreadPool& aThreadPool);
     ~QobuzPins();
     
 private:
+    void Invoke();
     TBool LoadTracksByArtist(const Brx& aArtist, TBool aShuffle); // Qobuz id or search string 
     TBool LoadTracksByAlbum(const Brx& aAlbum, TBool aShuffle); // Qobuz id or search string 
     TBool LoadTracksByTrack(const Brx& aTrack, TBool aShuffle); // Qobuz id or search string 
@@ -58,17 +66,21 @@ private:
     TBool LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType, TBool aShuffle);
     TBool LoadTracksByPath(const Brx& aPath, TBool aShuffle);
     TBool LoadAlbumsByPath(const Brx& aPath, TBool aShuffle);
+    TBool LoadPlaylistsByPath(const Brx& aPath, TBool aShuffle);
     TBool IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aType);
     TBool IsValidGenreId(const Brx& aRequest);
     void InitPlaylist(TBool aShuffle);
 private:
     Mutex iLock;
     Qobuz& iQobuz;
+    IThreadPoolHandle* iThreadPoolHandle;
     WriterBwh iJsonResponse;
     Media::TrackFactory& iTrackFactory;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
-    Net::CpStack& iCpStack;
-    TUint iMaxTracks;
+    Bws<128> iToken;
+    Functor iCompleted;
+    PinIdProvider iPinIdProvider;
+    Pin iPin;
 };
 
 };  // namespace Av

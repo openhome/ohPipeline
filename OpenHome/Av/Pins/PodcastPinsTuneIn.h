@@ -21,6 +21,8 @@ EXCEPTION(TuneInRequestInvalid);
 
 namespace OpenHome {
     class Environment;
+    class IThreadPool;
+    class IThreadPoolHandle;
     class Parser;
     class Timer;
 namespace Configuration {
@@ -77,10 +79,10 @@ namespace Av {
         static const OpenHome::Brn kMediaTypePodcast;
     public:
         TuneInMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
-        Media::Track* GetNextEpisodeTrack(const OpenHome::Brx& aPodcastId, const Brx& aXmlItem);
+        Media::Track* GetNextEpisodeTrack(const OpenHome::Brx& aPodcastId, const Brx& aXmlItem, TBool aLatestOnly);
         const Brx& GetNextEpisodePublishedDate(const Brx& aXmlItem);
     private:
-        void ParseTuneInMetadata(const Brx& aPodcastId, const OpenHome::Brx& aMetadata);
+        void ParseTuneInMetadata(const Brx& aPodcastId, const OpenHome::Brx& aMetadata, TBool aLatestOnly);
         void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
         void TryAddTag(const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs,
                        const OpenHome::Brx& aRole, const OpenHome::Brx& aValue);
@@ -106,15 +108,15 @@ public:
     TuneIn(Environment& aEnv);
     ~TuneIn();
 
-    TBool TryGetPodcastById(WriterBwh& aWriter, const Brx& aId);
-    TBool TryGetPodcastEpisodeInfoById(WriterBwh& aWriter, const Brx& aId);
-    TBool TryGetPodcastFromPath(WriterBwh& aWriter, const Brx& aPath);
+    TBool TryGetPodcastById(IWriter& aWriter, const Brx& aId);
+    TBool TryGetPodcastEpisodeInfoById(IWriter& aWriter, const Brx& aId);
+    TBool TryGetPodcastFromPath(IWriter& aWriter, const Brx& aPath);
     const Brx& GetPathFromId(const Brx& aId);
     static void SetPathFromId(Bwx& aPath, const Brx& aId);
     void Interrupt(TBool aInterrupt);
 private:
     TBool TryConnect(const Brx& aHost, TUint aPort);
-    TBool TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
+    TBool TryGetXmlResponse(IWriter& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
     void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
 private:
     Mutex iLock;
@@ -149,6 +151,7 @@ public:
     TBool LoadPodcastLatestByPath(const Brx& aPath, IPodcastTransportHandler& aHandler); // TuneIn path (single episode - radio single)
     TBool LoadPodcastListById(const Brx& aId, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn id (episode list - playlist)
     TBool LoadPodcastListByPath(const Brx& aPath, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn path (episode list - playlist)
+    void Cancel();
 private:
     PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
 
@@ -182,21 +185,18 @@ private:
 };
 
 class PodcastPinsLatestEpisodeTuneIn
-    : public IPinInvoker
-    , public IPodcastTransportHandler
+    : public IPodcastTransportHandler
 {
 public:
     PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const OpenHome::Brx& aPartnerId);
     ~PodcastPinsLatestEpisodeTuneIn();
+    void LoadPodcast(const IPin& aPin); // not required to be a separate pin invoker as it is created as part of TuneInPins
+    void Cancel();
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;
     virtual void Play() override;
     virtual TBool SingleShot() override;
-public: // from IPinInvoker
-    void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
-    void Cancel() override;
-    const TChar* Mode() const override;
 private:
     PodcastPinsTuneIn* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
@@ -207,22 +207,28 @@ class PodcastPinsEpisodeListTuneIn
     , public IPodcastTransportHandler
 {
 public:
-    PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
+    PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool);
     ~PodcastPinsEpisodeListTuneIn();
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;
     virtual void Play() override;
     virtual TBool SingleShot() override;
-public: // from IPinInvoker
+private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
-    
+private:
+    void Invoke();
 private:
     PodcastPinsTuneIn* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     TUint iLastId;
+    IThreadPoolHandle* iThreadPoolHandle;
+    Bws<128> iToken;
+    Functor iCompleted;
+    PinIdProvider iPinIdProvider;
+    Pin iPin;
 };
 
 };  // namespace Av

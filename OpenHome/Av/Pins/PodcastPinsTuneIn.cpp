@@ -17,6 +17,7 @@
 #include <Generated/CpAvOpenhomeOrgRadio1.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Radio/TuneIn.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <algorithm>
 
@@ -25,7 +26,6 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 
 // Pin modes
-static const TChar* kPinModeTuneInEpisode = "tunein";
 static const TChar* kPinModeTuneInList = "tuneinlist";
 
 // Pin types
@@ -57,18 +57,17 @@ PodcastPinsLatestEpisodeTuneIn::~PodcastPinsLatestEpisodeTuneIn()
     delete iCpRadio;
 }
 
-void PodcastPinsLatestEpisodeTuneIn::BeginInvoke(const IPin& aPin, Functor aCompleted)
+void PodcastPinsLatestEpisodeTuneIn::LoadPodcast(const IPin& aPin)
 {
-    AutoFunctor _(aCompleted);
-    PinUri pin(aPin);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeTuneInEpisode)) {
-        if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
+    try {
+        PinUri pinUri(aPin);
+        if (Brn(pinUri.Type()) == Brn(kPinTypePodcast)) {
             Brn val;
-            if (pin.TryGetValue(kPinKeyEpisodeId, val)) {
+            if (pinUri.TryGetValue(kPinKeyEpisodeId, val)) {
                 res = iPodcastPins->LoadPodcastLatestById(val, *this);
             }
-            else if (pin.TryGetValue(kPinKeyPath, val)) {
+            else if (pinUri.TryGetValue(kPinKeyPath, val)) {
                 res = iPodcastPins->LoadPodcastLatestByPath(val, *this);
             }
             else {
@@ -78,19 +77,20 @@ void PodcastPinsLatestEpisodeTuneIn::BeginInvoke(const IPin& aPin, Functor aComp
         else {
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
+    }
+    catch (PinUriMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "PodcastPinsLatestEpisodeTuneIn::LoadPodcast - missing parameter in %.*s\n", PBUF(aPin.Uri()));
+        throw;
+    }
+
+    if (!res) {
+        THROW(PinInvokeError);
     }
 }
 
 void PodcastPinsLatestEpisodeTuneIn::Cancel()
 {
-}
-
-const TChar* PodcastPinsLatestEpisodeTuneIn::Mode() const
-{
-    return kPinModeTuneInEpisode;
+    iPodcastPins->Cancel();
 }
 
 void PodcastPinsLatestEpisodeTuneIn::Init(TBool /*aShuffle*/)
@@ -115,34 +115,51 @@ TBool PodcastPinsLatestEpisodeTuneIn::SingleShot()
 
 // PodcastPinsEpisodeListTuneIn
 
-PodcastPinsEpisodeListTuneIn::PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore)
+PodcastPinsEpisodeListTuneIn::PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool)
     : iLastId(0)
+    , iPin(iPinIdProvider)
 {
     iPodcastPins = PodcastPinsTuneIn::GetInstance(aTrackFactory, aCpStack.Env(), aStore, Brx::Empty());
 
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &PodcastPinsEpisodeListTuneIn::Invoke),
+                                                 "TuneInListPins", ThreadPoolPriority::Medium);
 }
 
 PodcastPinsEpisodeListTuneIn::~PodcastPinsEpisodeListTuneIn()
 {
+    iThreadPoolHandle->Destroy();
     delete iCpPlaylist;
 }
 
 void PodcastPinsEpisodeListTuneIn::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
-    AutoFunctor _(aCompleted);
-    PinUri pin(aPin);
+    if (aPin.Mode() != Brn(kPinModeTuneInList)) {
+        return;
+    }
+    AutoPinComplete completion(aCompleted);
+    (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+                         aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    completion.Cancel();
+    iCompleted = aCompleted;
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
+void PodcastPinsEpisodeListTuneIn::Invoke()
+{
+    AutoFunctor _(iCompleted);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeTuneInList)) {
-        if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
+     try {
+        PinUri pinUri(iPin);
+        if (Brn(pinUri.Type()) == Brn(kPinTypePodcast)) {
             Brn val;
-            if (pin.TryGetValue(kPinKeyEpisodeId, val)) {
-                res = iPodcastPins->LoadPodcastListById(val, *this, aPin.Shuffle());
+            if (pinUri.TryGetValue(kPinKeyEpisodeId, val)) {
+                res = iPodcastPins->LoadPodcastListById(val, *this, iPin.Shuffle());
             }
-            else if (pin.TryGetValue(kPinKeyPath, val)) {
-                res = iPodcastPins->LoadPodcastListByPath(val, *this, aPin.Shuffle());
+            else if (pinUri.TryGetValue(kPinKeyPath, val)) {
+                res = iPodcastPins->LoadPodcastListByPath(val, *this, iPin.Shuffle());
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -151,14 +168,20 @@ void PodcastPinsEpisodeListTuneIn::BeginInvoke(const IPin& aPin, Functor aComple
         else {
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
+    }
+    catch (PinUriMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "PodcastPinsEpisodeListTuneIn::Invoke - missing parameter in %.*s\n", PBUF(iPin.Uri()));
+        throw;
+    }
+
+    if (!res) {
+        THROW(PinInvokeError);
     }
 }
 
 void PodcastPinsEpisodeListTuneIn::Cancel()
 {
+    iPodcastPins->Cancel();
 }
 
 const TChar* PodcastPinsEpisodeListTuneIn::Mode() const
@@ -288,6 +311,11 @@ PodcastPinsTuneIn::~PodcastPinsTuneIn()
     delete iInstance;
 }
 
+void PodcastPinsTuneIn::Cancel()
+{
+    iTuneIn->Interrupt(true);
+}
+
 void PodcastPinsTuneIn::StartPollingForNewEpisodes()
 {
     AutoMutex _(iLock);
@@ -403,7 +431,7 @@ TBool PodcastPinsTuneIn::LoadByPath(const Brx& aPath, IPodcastTransportHandler& 
                 Brn item = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("outline"));
                 Brn type = PodcastPins::GetFirstXmlAttribute(item, Brn("type"));
                 if (type == TuneInMetadata::kMediaTypePodcast) {
-                    auto* track = tm.GetNextEpisodeTrack(podcast->Id(), item);
+                    auto* track = tm.GetNextEpisodeTrack(podcast->Id(), item, aHandler.SingleShot());
                     if (track != nullptr) {
                         aHandler.Load(*track);
                         track->RemoveRef();
@@ -565,10 +593,10 @@ TuneInMetadata::TuneInMetadata(Media::TrackFactory& aTrackFactory)
 {
 }
 
-Media::Track* TuneInMetadata::GetNextEpisodeTrack(const Brx& aPodcastId, const Brx& aXmlItem)
+Media::Track* TuneInMetadata::GetNextEpisodeTrack(const Brx& aPodcastId, const Brx& aXmlItem, TBool aLatestOnly)
 {
     try {
-        ParseTuneInMetadata(aPodcastId, aXmlItem);
+        ParseTuneInMetadata(aPodcastId, aXmlItem, aLatestOnly);
         return iTrackFactory.CreateTrack(iTrackUri, iMetaDataDidl);
     }
     catch (AssertionFailed&) {
@@ -598,7 +626,7 @@ const Brx& TuneInMetadata::GetNextEpisodePublishedDate(const Brx& aXmlItem)
     }
 }
 
-void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlItem)
+void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlItem, TBool aLatestOnly)
 {
     iTrackUri.ReplaceThrow(Brx::Empty());
     iMetaDataDidl.ReplaceThrow(Brx::Empty());
@@ -610,6 +638,10 @@ void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlI
     TryAppend("\" parentID=\"-1\" restricted=\"1\">");
     TryAppend(">");
     PodcastEpisodeTuneIn* episode = new PodcastEpisodeTuneIn(aXmlItem);  // get Episode Title, release date, duration, artwork, and streamable url
+    if (!aLatestOnly) {
+        //TryAddTag(Brn("upnp:artist"), kNsUpnp, Brx::Empty(), aPodcast.Artist());
+        TryAddTag(Brn("upnp:album"), kNsUpnp, Brx::Empty(), Brn("Podcast Collection")); // only relevant for podcast lists
+    }
     TryAddTag(Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), episode->ArtworkUrl());
     TryAddTag(Brn("upnp:class"), kNsUpnp, Brx::Empty(), Brn("object.item.audioItem.musicTrack"));
     LOG(kMedia, "Podcast Title: %.*s\n", PBUF(episode->Title()));
@@ -723,7 +755,7 @@ void TuneIn::SetPathFromId(Bwx& aPath, const Brx& aId)
     aPath.Append(PodcastPinsTuneIn::GetPartnerId());
 }
 
-TBool TuneIn::TryGetPodcastFromPath(WriterBwh& aWriter, const Brx& aPath)
+TBool TuneIn::TryGetPodcastFromPath(IWriter& aWriter, const Brx& aPath)
 {
     TBool success = false;
     try {
@@ -736,13 +768,13 @@ TBool TuneIn::TryGetPodcastFromPath(WriterBwh& aWriter, const Brx& aPath)
     return success;
 }
 
-TBool TuneIn::TryGetPodcastById(WriterBwh& aWriter, const Brx& aId)
+TBool TuneIn::TryGetPodcastById(IWriter& aWriter, const Brx& aId)
 {
     SetPathFromId(iPath, aId);
     return TryGetPodcastFromPath(aWriter, iPath);
 }
 
-TBool TuneIn::TryGetPodcastEpisodeInfoById(WriterBwh& aWriter, const Brx& aId) {
+TBool TuneIn::TryGetPodcastEpisodeInfoById(IWriter& aWriter, const Brx& aId) {
     TBool success = false;
     SetPathFromId(iPath, aId);
     try {
@@ -756,7 +788,7 @@ TBool TuneIn::TryGetPodcastEpisodeInfoById(WriterBwh& aWriter, const Brx& aId) {
     return success;
 }
 
-TBool TuneIn::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead)
+TBool TuneIn::TryGetXmlResponse(IWriter& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead)
 {
     AutoMutex _(iLock);
     TBool success = false;
@@ -802,7 +834,7 @@ TBool TuneIn::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
         LOG_ERROR(kPipeline, "HttpError in TuneInMetadata::TryGetResponse\n");
     }
     catch (ReaderError&) {
-        if ( aWriter.Buffer().Bytes() > 0 ) {
+        if ( ((WriterBwh&)aWriter).Buffer().Bytes() > 0 ) {
             // lazy reading of xml has to account for this, particularly when there is no content length header and the length of the feed is less than our 'count'
             success = true;
         }

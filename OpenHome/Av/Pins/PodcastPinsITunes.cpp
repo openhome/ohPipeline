@@ -16,6 +16,7 @@
 #include <OpenHome/Private/Timer.h>
 #include <Generated/CpAvOpenhomeOrgRadio1.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <algorithm>
 
@@ -42,29 +43,46 @@ const TUint kTimerDurationMs = (1000 * 60 * 60 * 12); // 12 hours
 
 // PodcastPinsLatestEpisodeITunes
 
-PodcastPinsLatestEpisodeITunes::PodcastPinsLatestEpisodeITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore)
+PodcastPinsLatestEpisodeITunes::PodcastPinsLatestEpisodeITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool)
+    : iPin(iPinIdProvider)
 {
     iPodcastPins = PodcastPinsITunes::GetInstance(aTrackFactory, aCpStack.Env(), aStore);
 
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &PodcastPinsLatestEpisodeITunes::Invoke),
+                                                 "ITunesPins", ThreadPoolPriority::Medium);
 }
 
 PodcastPinsLatestEpisodeITunes::~PodcastPinsLatestEpisodeITunes()
 {
+    iThreadPoolHandle->Destroy();
     delete iCpRadio;
 }
 
 void PodcastPinsLatestEpisodeITunes::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
-    AutoFunctor _(aCompleted);
-    PinUri pin(aPin);
+    if (aPin.Mode() != Brn(kPinModeITunesEpisode)) {
+        return;
+    }
+    AutoPinComplete completion(aCompleted);
+    (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+                         aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    completion.Cancel();
+    iCompleted = aCompleted;
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
+void PodcastPinsLatestEpisodeITunes::Invoke()
+{
+    AutoFunctor _(iCompleted);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeITunesEpisode)) {
-        if (Brn(pin.Type()) == Brn(kPinTypePodcast)) {
+    try {
+        PinUri pinUri(iPin);
+        if (Brn(pinUri.Type()) == Brn(kPinTypePodcast)) {
             Brn episodeId;
-            if (pin.TryGetValue(kPinKeyEpisodeId, episodeId)) {
+            if (pinUri.TryGetValue(kPinKeyEpisodeId, episodeId)) {
                 res = iPodcastPins->LoadPodcastLatest(episodeId, *this);
             }
             else {
@@ -74,14 +92,20 @@ void PodcastPinsLatestEpisodeITunes::BeginInvoke(const IPin& aPin, Functor aComp
         else {
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
+    }
+    catch (PinUriMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "PodcastPinsLatestEpisodeITunes::Invoke - missing parameter in %.*s\n", PBUF(iPin.Uri()));
+        throw;
+    }
+
+    if (!res) {
+        THROW(PinInvokeError);
     }
 }
 
 void PodcastPinsLatestEpisodeITunes::Cancel()
 {
+    iPodcastPins->Cancel();
 }
 
 const TChar* PodcastPinsLatestEpisodeITunes::Mode() const
@@ -111,31 +135,48 @@ TBool PodcastPinsLatestEpisodeITunes::SingleShot()
 
 // PodcastPinsEpisodeListITunes
 
-PodcastPinsEpisodeListITunes::PodcastPinsEpisodeListITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore)
+PodcastPinsEpisodeListITunes::PodcastPinsEpisodeListITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool)
     : iLastId(0)
+    , iPin(iPinIdProvider)
 {
     iPodcastPins = PodcastPinsITunes::GetInstance(aTrackFactory, aCpStack.Env(), aStore);
 
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &PodcastPinsEpisodeListITunes::Invoke),
+                                                 "ITunesListPins", ThreadPoolPriority::Medium);
 }
 
 PodcastPinsEpisodeListITunes::~PodcastPinsEpisodeListITunes()
 {
+    iThreadPoolHandle->Destroy();
     delete iCpPlaylist;
 }
 
 void PodcastPinsEpisodeListITunes::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
-    AutoFunctor _(aCompleted);
-    PinUri pinUri(aPin);
+    if (aPin.Mode() != Brn(kPinModeITunesList)) {
+        return;
+    }
+    AutoPinComplete completion(aCompleted);
+    (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+                         aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    completion.Cancel();
+    iCompleted = aCompleted;
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
+void PodcastPinsEpisodeListITunes::Invoke()
+{
+    AutoFunctor _(iCompleted);
     TBool res = false;
-    if (Brn(pinUri.Mode()) == Brn(kPinModeITunesList)) {
+    try {
+        PinUri pinUri(iPin);
         if (Brn(pinUri.Type()) == Brn(kPinTypePodcast)) {
             Brn episodeId;
             if (pinUri.TryGetValue(kPinKeyEpisodeId, episodeId)) {
-                res = iPodcastPins->LoadPodcastList(episodeId, *this, aPin.Shuffle());
+                res = iPodcastPins->LoadPodcastList(episodeId, *this, iPin.Shuffle());
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -144,9 +185,14 @@ void PodcastPinsEpisodeListITunes::BeginInvoke(const IPin& aPin, Functor aComple
         else {
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
+    }
+    catch (PinUriMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "PodcastPinsEpisodeListITunes::Invoke - missing parameter in %.*s\n", PBUF(iPin.Uri()));
+        throw;
+    }
+
+    if (!res) {
+        THROW(PinInvokeError);
     }
 }
 
@@ -268,6 +314,11 @@ PodcastPinsITunes::~PodcastPinsITunes()
     delete iITunes;
     delete iTimer;
     delete iInstance;
+}
+
+void PodcastPinsITunes::Cancel()
+{
+    iITunes->Interrupt(true);
 }
 
 void PodcastPinsITunes::StartPollingForNewEpisodes()
@@ -820,7 +871,7 @@ ITunes::~ITunes()
 {
 }
 
-TBool ITunes::TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery)
+TBool ITunes::TryGetPodcastId(IWriter& aWriter, const Brx& aQuery)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("");
 
@@ -842,7 +893,7 @@ TBool ITunes::TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery)
     return success;
 }
 
-TBool ITunes::TryGetPodcastById(WriterBwh& aWriter, const Brx& aId)
+TBool ITunes::TryGetPodcastById(IWriter& aWriter, const Brx& aId)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("");
 
@@ -864,7 +915,7 @@ TBool ITunes::TryGetPodcastById(WriterBwh& aWriter, const Brx& aId)
     return success;
 }
 
-TBool ITunes::TryGetPodcastEpisodeInfo(WriterBwh& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly) {
+TBool ITunes::TryGetPodcastEpisodeInfo(IWriter& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly) {
     TBool success = false;
     TUint blocksToRead = kSingleEpisodesBlockSize;
     if (!aLatestOnly) {
@@ -881,7 +932,7 @@ TBool ITunes::TryGetPodcastEpisodeInfo(WriterBwh& aWriter, const Brx& aXmlFeedUr
     return success;
 }
 
-TBool ITunes::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead)
+TBool ITunes::TryGetXmlResponse(IWriter& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead)
 {
     AutoMutex _(iLock);
     TBool success = false;
@@ -925,7 +976,7 @@ TBool ITunes::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
         LOG_ERROR(kPipeline, "HttpError in ITunesMetadata::TryGetResponse\n");
     }
     catch (ReaderError&) {
-        if ( aWriter.Buffer().Bytes() > 0 ) {
+        if ( ((WriterBwh&)aWriter).Buffer().Bytes() > 0 ) {
             // lazy reading of xml has to account for this, particularly when there is no content length header and the length of the feed is less than our 'count'
             success = true;
         }
@@ -939,7 +990,7 @@ TBool ITunes::TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint a
     return success;
 }
 
-TBool ITunes::TryGetJsonResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit)
+TBool ITunes::TryGetJsonResponse(IWriter& aWriter, Bwx& aPathAndQuery, TUint aLimit)
 {
     AutoMutex _(iLock);
     TBool success = false;

@@ -19,25 +19,23 @@ namespace Configuration {
 }
 namespace Av {
 
-class TuneInPins
+class UrlPins
     : public IPinInvoker
 {
 public:
-    TuneInPins(Net::DvDeviceStandard& aDevice, OpenHome::Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool, const Brx& aPartnerId);
-    ~TuneInPins();
+    UrlPins(Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack, IThreadPool& aThreadPool);
+    ~UrlPins();
 
 private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
 private:
-    TBool LoadStream(const Brx& aStream, const IPin& aPin); // playable stream (tunein url)
-    TBool LoadStation(const Brx& aStation, const IPin& aPin); // tunein station id (ie s1234)
     void Invoke();
+    TBool LoadStream(const Brx& aStream, const IPin& aPin);
 private:
     Mutex iLock;
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
-    Av::PodcastPinsLatestEpisodeTuneIn* iPodcastPinsEpisode;
     IThreadPoolHandle* iThreadPoolHandle;
     Bws<128> iToken;
     Functor iCompleted;

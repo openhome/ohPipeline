@@ -6,6 +6,7 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <algorithm>
 
@@ -24,42 +25,57 @@ static const TChar* kPinTypeStream = "stream";
 static const TChar* kPinKeyStationId = "id";
 static const TChar* kPinKeyStreamUrl = "path";
 
-CalmRadioPins::CalmRadioPins(CalmRadio& aCalmRadio, DvDeviceStandard& aDevice, CpStack& aCpStack)
+CalmRadioPins::CalmRadioPins(CalmRadio& aCalmRadio, DvDeviceStandard& aDevice, CpStack& aCpStack, IThreadPool& aThreadPool)
     : iLock("IPIN")
     , iCalmRadio(aCalmRadio)
-    , iCpStack(aCpStack)
+    , iPin(iPinIdProvider)
 {
-    CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
+    CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &CalmRadioPins::Invoke),
+                                                 "CalmRadioPins", ThreadPoolPriority::Medium);
 }
 
 CalmRadioPins::~CalmRadioPins()
 {
+    iThreadPoolHandle->Destroy();
     delete iCpRadio;
 }
 
 void CalmRadioPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
-    AutoFunctor _(aCompleted);
-    PinUri pin(aPin);
+    if (aPin.Mode() != Brn(kPinModeCalmRadio)) {
+        return;
+    }
+    AutoPinComplete completion(aCompleted);
+    iCalmRadio.Login(iToken);
+    (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+                         aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    completion.Cancel();
+    iCompleted = aCompleted;
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
+void CalmRadioPins::Invoke()
+{
+    AutoFunctor _(iCompleted);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeCalmRadio)) {
-        Bwh token(128);
-        iCalmRadio.Login(token);
-        if (Brn(pin.Type()) == Brn(kPinTypeStation)) { 
+    try {
+        PinUri pinUri(iPin);
+        if (Brn(pinUri.Type()) == Brn(kPinTypeStation)) { 
             Brn stationId;
-            if (pin.TryGetValue(kPinKeyStationId, stationId)) {
-                res = LoadStation(stationId, aPin);
+            if (pinUri.TryGetValue(kPinKeyStationId, stationId)) {
+                res = LoadStation(stationId, iPin);
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeStream)) { 
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeStream)) { 
             Brn streamUrl;
-            if (pin.TryGetValue(kPinKeyStreamUrl, streamUrl)) {
-                res = LoadStream(streamUrl, aPin);
+            if (pinUri.TryGetValue(kPinKeyStreamUrl, streamUrl)) {
+                res = LoadStream(streamUrl, iPin);
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -68,14 +84,20 @@ void CalmRadioPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         else {
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
+    }
+    catch (PinUriMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "CalmRadioPins::Invoke - missing parameter in %.*s\n", PBUF(iPin.Uri()));
+        throw;
+    }
+
+    if (!res) {
+        THROW(PinInvokeError);
     }
 }
 
 void CalmRadioPins::Cancel()
 {
+    iCalmRadio.Interrupt(true);
 }
 
 const TChar* CalmRadioPins::Mode() const

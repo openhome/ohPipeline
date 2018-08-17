@@ -27,7 +27,7 @@ class TidalPins
     : public IPinInvoker
 {
     static const TUint kTrackLimitPerRequest = 10;
-    static const TUint kMaxPlaylistsPerSmartType = 15; // limit playlists in loop
+    static const TUint kMaxPlaylists = 15; // limit playlists in loop
     static const TUint kMaxAlbums = 25; // limit albums in loop (NOTE: tidal api will not give a conmtnet-length if the limit is too high - requires further investigation)
     static const TUint kJsonResponseChunks = 4 * 1024;
 public:
@@ -66,6 +66,7 @@ private:
     TBool LoadTracksByQuery(const Brx& aQuery, TidalMetadata::EIdType aType, TBool aShuffle);
     TBool LoadTracksByPath(const Brx& aPath, TBool aShuffle);
     TBool LoadAlbumsByPath(const Brx& aPath, TBool aShuffle);
+    TBool LoadPlaylistsByPath(const Brx& aPath, TBool aShuffle);
     TBool LoadTracksByMultiplePlaylists(TidalMetadata::EIdType aType, TBool aShuffle);
     TBool LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::EIdType aType, TBool aShuffle);
     TBool IsValidId(const Brx& aRequest, TidalMetadata::EIdType aType);

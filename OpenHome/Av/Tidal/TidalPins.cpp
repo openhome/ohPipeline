@@ -49,6 +49,7 @@ static const TChar* kPinKeySmartType = "smartType";
 // Pin response types
 static const TChar* kPinResponseTracks = "tracks";
 static const TChar* kPinResponseAlbums = "albums";
+static const TChar* kPinResponsePlaylists = "playlists";
 
 // Pin smart types
 static const TChar* kSmartTypeDiscovery = "discovery";
@@ -235,6 +236,9 @@ TBool TidalPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuf
     else if (response == Brn(kPinResponseAlbums)) {
         res = LoadAlbumsByPath(aPath, aShuffle);
     }
+    else if (response == Brn(kPinResponsePlaylists)) {
+        res = LoadPlaylistsByPath(aPath, aShuffle);
+    }
     else {
         THROW(PinUriMissingRequiredParameter);
     }
@@ -393,13 +397,13 @@ TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::
     AutoMutex _(iLock);
     JsonParser parser;
     InitPlaylist(aShuffle);
-    Bwh playlistIds[kMaxPlaylistsPerSmartType];
+    Bwh playlistIds[kMaxPlaylists];
     TBool tracksFound = false;
 
     try {
         // request tracks from smart types (returned as list of playlists - place an arbitrary limit on the number of playlists to return for now)
         iJsonResponse.Reset();
-        TBool success = iTidal.TryGetIds(iJsonResponse, aMood, aType, kMaxPlaylistsPerSmartType); // send request to Tidal
+        TBool success = iTidal.TryGetIds(iJsonResponse, aMood, aType, kMaxPlaylists); // send request to Tidal
         if (!success) {
             return false;
         }
@@ -414,7 +418,7 @@ TBool TidalPins::LoadTracksByMultiplePlaylists(const Brx& aMood, TidalMetadata::
                 auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
                 JsonParser parserItem;
                 try {
-                    for (TUint i = 0; i < kMaxPlaylistsPerSmartType; i++) {
+                    for (TUint i = 0; i < kMaxPlaylists; i++) {
                         parserItem.Parse(parserItems.NextObject());
                         playlistIds[i].Grow(50);
                         playlistIds[i].ReplaceThrow(parserItem.String(Brn("uuid"))); // parse response from Tidal
@@ -524,6 +528,67 @@ TBool TidalPins::LoadTracksByPath(const Brx& aPath, TBool aShuffle)
     }
 
     return lastId;
+}
+
+TBool TidalPins::LoadPlaylistsByPath(const Brx& aPath, TBool aShuffle)
+{
+    AutoMutex _(iLock);
+    JsonParser parser;
+    InitPlaylist(aShuffle);
+    Bwh playlistIds[kMaxPlaylists];
+    TBool tracksFound = false;
+
+    try {
+        // request tracks from smart types (returned as list of playlists - place an arbitrary limit on the number of playlists to return for now)
+        iJsonResponse.Reset();
+        TBool success = iTidal.TryGetIdsByRequest(iJsonResponse, aPath, kMaxPlaylists); // send request to Tidal
+        if (!success) {
+            return false;
+        }
+        
+        // response is list of playlists, so need to loop through playlists
+        parser.Reset();
+        parser.Parse(iJsonResponse.Buffer());
+        TUint idCount = 0;
+        if (parser.HasKey(Brn("totalNumberOfItems"))) {
+            TUint playlists = parser.Num(Brn("totalNumberOfItems"));
+            if (playlists != 0) {
+                auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
+                JsonParser parserItem;
+                try {
+                    for (TUint i = 0; i < kMaxPlaylists; i++) {
+                        parserItem.Parse(parserItems.NextObject());
+                        playlistIds[i].Grow(50);
+                        playlistIds[i].ReplaceThrow(parserItem.String(Brn("uuid"))); // parse response from Tidal
+                        idCount++;
+                        if (playlistIds[i].Bytes() == 0) {
+                            return false;
+                        }
+                    }
+                }
+                catch (JsonArrayEnumerationComplete&) {}
+                TUint lastId = 0;
+                for (TUint j = 0; j < idCount; j++) {
+                    try {
+                        lastId = LoadTracksById(playlistIds[j], TidalMetadata::ePlaylist, lastId);
+                        tracksFound = true;
+                    }
+                    catch (PinNothingToPlay&) {
+                    }
+                }  
+            }
+        }
+    }   
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in TidalPins::LoadTracksByMultiplePlaylists\n", ex.Message());
+        return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
+    }
+
+    return true;
 }
 
 TBool TidalPins::LoadAlbumsByPath(const Brx& aPath, TBool aShuffle)

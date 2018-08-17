@@ -26,7 +26,8 @@ public:
     ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
                   Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser,
                   IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
-                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable);
+                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, 
+                  IThreadPool& aThreadPool);
     ~ProtocolQobuz();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -52,7 +53,6 @@ private:
     TBool IsCurrentStream(TUint aStreamId) const;
 private:
     Qobuz* iQobuz;
-    QobuzPins* iPins;
     Media::SupplyAggregator* iSupply;
     Uri iUri;
     Bws<12> iTrackId;
@@ -91,7 +91,8 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
     return new ProtocolQobuz(aMediaPlayer.Env(), aAppId, aAppSecret,
                              aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(),
                              aMediaPlayer.UnixTimestamp(), aMediaPlayer.Device(), 
-                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable());
+                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable(), 
+                             aMediaPlayer.ThreadPool());
 }
 
 
@@ -100,9 +101,9 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
 ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
                              Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser,
                              IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
-                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable)
+                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, 
+                             IThreadPool& aThreadPool)
     : ProtocolNetwork(aEnv)
-    , iPins(nullptr)
     , iSupply(nullptr)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
@@ -119,8 +120,8 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
     aCredentialsManager.Add(iQobuz);
 
     if (aPinsInvocable.Ok()) {
-        iPins = new QobuzPins(*iQobuz, aDevice, aTrackFactory, aCpStack);
-        aPinsInvocable.Unwrap().Add(iPins);
+        auto pins = new QobuzPins(*iQobuz, aDevice, aTrackFactory, aCpStack, aThreadPool);
+        aPinsInvocable.Unwrap().Add(pins);
     }
 }
 

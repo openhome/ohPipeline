@@ -14,6 +14,7 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/Json.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 
 #include <algorithm>
@@ -25,6 +26,7 @@ using namespace OpenHome::Configuration;
 
 // Pin mode
 static const TChar* kPinModeQobuz = "qobuz";
+static const Brn    kBufPinModeQobuz = Brn(kPinModeQobuz);
 
 // Pin types
 static const TChar* kPinTypeArtist = "artist";
@@ -45,6 +47,7 @@ static const TChar* kPinKeyGenre = "genre";
 // Pin response types
 static const TChar* kPinResponseTracks = "tracks";
 static const TChar* kPinResponseAlbums = "albums";
+static const TChar* kPinResponsePlaylists = "playlists";
 
 // Pin smart types
 static const TChar* kSmartTypeAwardWinning = "awards";
@@ -58,39 +61,57 @@ static const TChar* kSmartTypePurchased = "purchased";
 static const TChar* kSmartTypeRecommended = "recommended";
 static const TChar* kSmartTypeSavedPlaylist = "savedplaylist";
 
-QobuzPins::QobuzPins(Qobuz& aQobuz, DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, TUint aMaxTracks)
+QobuzPins::QobuzPins(Qobuz& aQobuz, 
+                     DvDeviceStandard& aDevice,
+                     Media::TrackFactory& aTrackFactory, 
+                     CpStack& aCpStack, 
+                     IThreadPool& aThreadPool)
     : iLock("QPIN")
     , iQobuz(aQobuz)
     , iJsonResponse(kJsonResponseChunks)
     , iTrackFactory(aTrackFactory)
-    , iCpStack(aCpStack)
-    , iMaxTracks(aMaxTracks)
+    , iPin(iPinIdProvider)
 {
-    CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
+    CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &QobuzPins::Invoke),
+                                                 "QobuzPins", ThreadPoolPriority::Medium);
 }
 
 QobuzPins::~QobuzPins()
 {
+    iThreadPoolHandle->Destroy();
     delete iCpPlaylist;
 }
 
 void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
-    AutoFunctor _(aCompleted);
-    PinUri pinUri(aPin);
+    if (aPin.Mode() != kBufPinModeQobuz) {
+        return;
+    }
+    AutoPinComplete completion(aCompleted);
+    iQobuz.Login(iToken);
+    (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+                         aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    completion.Cancel();
+    iCompleted = aCompleted;
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
+void QobuzPins::Invoke()
+{
+    AutoFunctor _(iCompleted);
     TBool res = false;
-    if (Brn(pinUri.Mode()) == Brn(kPinModeQobuz)) {
-        Bwh token(128);
-        iQobuz.Login(token);
+    try {
+        PinUri pinUri(iPin);
         Brn id;
         if (Brn(pinUri.Type()) == Brn(kPinTypeArtist)) {
             if (pinUri.TryGetValue(kPinKeyId, id)) {
-                res = LoadTracksByArtist(id, aPin.Shuffle());
+                res = LoadTracksByArtist(id, iPin.Shuffle());
             }
             else if (pinUri.TryGetValue(kPinKeyPath, id)) {
-                res = LoadByPath(id, pinUri, aPin.Shuffle());
+                res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -98,10 +119,10 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeAlbum)) {
             if (pinUri.TryGetValue(kPinKeyId, id)) {
-                res = LoadTracksByAlbum(id, aPin.Shuffle());
+                res = LoadTracksByAlbum(id, iPin.Shuffle());
             }
             else if (pinUri.TryGetValue(kPinKeyPath, id)) {
-                res = LoadByPath(id, pinUri, aPin.Shuffle());
+                res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -109,7 +130,7 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeTrack)) {
             if (pinUri.TryGetValue(kPinKeyTrackId, id)) {
-                res = LoadTracksByTrack(id, aPin.Shuffle());
+                res = LoadTracksByTrack(id, iPin.Shuffle());
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -117,10 +138,10 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypePlaylist)) {
             if (pinUri.TryGetValue(kPinKeyId, id)) {
-                res = LoadTracksByPlaylist(id, aPin.Shuffle());
+                res = LoadTracksByPlaylist(id, iPin.Shuffle());
             }
             else if (pinUri.TryGetValue(kPinKeyPath, id)) {
-                res = LoadByPath(id, pinUri, aPin.Shuffle());
+                res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -128,7 +149,7 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         }
         else if (Brn(pinUri.Type()) == Brn(kPinTypeContainer)) {
             if (pinUri.TryGetValue(kPinKeyPath, id)) {
-                res = LoadByPath(id, pinUri, aPin.Shuffle());
+                res = LoadByPath(id, pinUri, iPin.Shuffle());
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -142,31 +163,39 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
             Brn genre(QobuzMetadata::kGenreNone);
             pinUri.TryGetValue(kPinKeyGenre, genre);
 
-            if (smartType == Brn(kSmartTypeNew)) { res = LoadTracksByNew(genre, aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(genre, aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeMostStreamed)) { res = LoadTracksByMostStreamed(genre, aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeBestSellers)) { res = LoadTracksByBestSellers(genre, aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeAwardWinning)) { res = LoadTracksByAwardWinning(genre, aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeMostFeatured)) { res = LoadTracksByMostFeatured(genre, aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeFavorites)) { res = LoadTracksByFavorites(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypePurchased)) { res = LoadTracksByPurchased(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeCollection)) { res = LoadTracksByCollection(aPin.Shuffle()); }
-            else if (smartType == Brn(kSmartTypeSavedPlaylist)) { res = LoadTracksBySavedPlaylist(aPin.Shuffle()); }
+            if (smartType == Brn(kSmartTypeNew)) { res = LoadTracksByNew(genre, iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeRecommended)) { res = LoadTracksByRecommended(genre, iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeMostStreamed)) { res = LoadTracksByMostStreamed(genre, iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeBestSellers)) { res = LoadTracksByBestSellers(genre, iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeAwardWinning)) { res = LoadTracksByAwardWinning(genre, iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeMostFeatured)) { res = LoadTracksByMostFeatured(genre, iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeFavorites)) { res = LoadTracksByFavorites(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypePurchased)) { res = LoadTracksByPurchased(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeCollection)) { res = LoadTracksByCollection(iPin.Shuffle()); }
+            else if (smartType == Brn(kSmartTypeSavedPlaylist)) { res = LoadTracksBySavedPlaylist(iPin.Shuffle()); }
             else {
+                LOG_ERROR(kPipeline, "QobuzPins::Invoke - unsupported smart type in %.*s\n", PBUF(iPin.Uri()));
                 THROW(PinSmartTypeNotSupported);
             }
         }
         else {
+            LOG_ERROR(kPipeline, "QobuzPins::Invoke - unsupported type - %.*s\n", PBUF(iPin.Type()));
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
+    }
+    catch (PinUriMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "QobuzPins::Invoke - missing parameter in %.*s\n", PBUF(iPin.Uri()));
+        throw;
+    }
+
+    if (!res) {
+        THROW(PinInvokeError);
     }
 }
 
 void QobuzPins::Cancel()
 {
+    iQobuz.Interrupt(true);
 }
 
 const TChar* QobuzPins::Mode() const
@@ -184,6 +213,9 @@ TBool QobuzPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuf
     }
     else if (response == Brn(kPinResponseAlbums)) {
         res = LoadAlbumsByPath(aPath, aShuffle);
+    }
+    else if (response == Brn(kPinResponsePlaylists)) {
+        res = LoadPlaylistsByPath(aPath, aShuffle);
     }
     else {
         THROW(PinUriMissingRequiredParameter);
@@ -434,6 +466,70 @@ TBool QobuzPins::LoadTracksByPath(const Brx& aPath, TBool aShuffle)
     return lastId;
 }
 
+TBool QobuzPins::LoadPlaylistsByPath(const Brx& aPath, TBool aShuffle)
+{
+    AutoMutex _(iLock);
+    JsonParser parser;
+    InitPlaylist(aShuffle);
+    Bwh playlistIds[kMaxPlaylists];
+    TUint lastId = 0;
+    TBool tracksFound = false;
+
+    try {
+        // request list of playlists (returned as list - place an arbitrary limit on the number of playlists to return for now)
+        iJsonResponse.Reset();
+        TBool success = iQobuz.TryGetIdsByRequest(iJsonResponse, aPath, kMaxPlaylists); // send request to Qobuz
+        if (!success) {
+            return false;
+        }
+        
+        // response is list of playlists, so need to loop through playlists
+        parser.Reset();
+        parser.Parse(iJsonResponse.Buffer());
+        TUint idCount = 0;
+        if (parser.HasKey(Brn("playlists"))) { 
+            parser.Parse(parser.String(Brn("playlists")));
+        }
+        if (parser.HasKey(Brn("items"))) {
+            TUint playlists = parser.Num(Brn("total"));
+            if (playlists != 0) {
+                auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
+                JsonParser parserItem;
+                try {
+                    for (TUint i = 0; i < kMaxPlaylists; i++) {
+                        parserItem.Parse(parserItems.NextObject());
+                        playlistIds[i].Grow(20);
+                        playlistIds[i].ReplaceThrow(parserItem.String(Brn("id"))); // parse response from Qobuz
+                        idCount++;
+                        if (playlistIds[i].Bytes() == 0) {
+                            return false;
+                        }
+                    }
+                }
+                catch (JsonArrayEnumerationComplete&) {}
+                for (TUint j = 0; j < idCount; j++) {
+                    try {
+                        lastId = LoadTracksById(playlistIds[j], QobuzMetadata::ePlaylist, lastId);
+                        tracksFound = true;
+                    }
+                    catch (PinNothingToPlay&) {
+                    }
+                } 
+            } 
+        }
+    }   
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in QobuzPins::LoadTracksByFavorites\n", ex.Message());
+        return false;
+    }
+
+    if (!tracksFound) {
+        THROW(PinNothingToPlay);
+    }
+
+    return true;
+}
+
 TBool QobuzPins::LoadAlbumsByPath(const Brx& aPath, TBool aShuffle)
 {
     AutoMutex _(iLock);
@@ -502,7 +598,8 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TU
 {
     QobuzMetadata qm(iTrackFactory);
     TUint offset = 0;
-    TUint total = iMaxTracks;
+    TUint total;
+    iCpPlaylist->SyncTracksMax(total);
     TUint newId = 0;
     TUint currId = aPlaylistId;
     TBool initPlay = (aPlaylistId == 0);

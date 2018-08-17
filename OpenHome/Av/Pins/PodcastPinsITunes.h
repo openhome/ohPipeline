@@ -21,6 +21,8 @@ EXCEPTION(ITunesRequestInvalid);
 
 namespace OpenHome {
     class Environment;
+    class IThreadPool;
+    class IThreadPoolHandle;
     class JsonParser;
     class Parser;
     class Timer;
@@ -119,14 +121,14 @@ public:
     ITunes(Environment& aEnv);
     ~ITunes();
 
-    TBool TryGetPodcastId(WriterBwh& aWriter, const Brx& aQuery);
-    TBool TryGetPodcastById(WriterBwh& aWriter, const Brx& aId);
-    TBool TryGetPodcastEpisodeInfo(WriterBwh& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly);
+    TBool TryGetPodcastId(IWriter& aWriter, const Brx& aQuery);
+    TBool TryGetPodcastById(IWriter& aWriter, const Brx& aId);
+    TBool TryGetPodcastEpisodeInfo(IWriter& aWriter, const Brx& aXmlFeedUrl, TBool aLatestOnly);
     void Interrupt(TBool aInterrupt);
 private:
     TBool TryConnect(const Brx& aHost, TUint aPort);
-    TBool TryGetJsonResponse(WriterBwh& aWriter, Bwx& aPathAndQuery, TUint aLimit);
-    TBool TryGetXmlResponse(WriterBwh& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
+    TBool TryGetJsonResponse(IWriter& aWriter, Bwx& aPathAndQuery, TUint aLimit);
+    TBool TryGetXmlResponse(IWriter& aWriter, const Brx& aFeedUrl, TUint aBlocksToRead);
     void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
 private:
     Mutex iLock;
@@ -157,6 +159,7 @@ public:
     TBool CheckForNewEpisode(const Brx& aQuery); // poll using iTunes id or search string (single episode)
     TBool LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler); // iTunes id or search string (single episode - radio single)
     TBool LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle); // iTunes id or search string (episode list - playlist)
+    void Cancel();
 private:
     PodcastPinsITunes(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
 
@@ -195,7 +198,7 @@ class PodcastPinsLatestEpisodeITunes
     , public IPodcastTransportHandler
 {
 public:
-    PodcastPinsLatestEpisodeITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
+    PodcastPinsLatestEpisodeITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool);
     ~PodcastPinsLatestEpisodeITunes();
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
@@ -207,8 +210,15 @@ private: // from IPinInvoker
     void Cancel() override;
     const TChar* Mode() const override;
 private:
+    void Invoke();
+private:
     PodcastPinsITunes* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
+    IThreadPoolHandle* iThreadPoolHandle;
+    Bws<128> iToken;
+    Functor iCompleted;
+    PinIdProvider iPinIdProvider;
+    Pin iPin;
 };
 
 class PodcastPinsEpisodeListITunes
@@ -216,7 +226,7 @@ class PodcastPinsEpisodeListITunes
     , public IPodcastTransportHandler
 {
 public:
-    PodcastPinsEpisodeListITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore);
+    PodcastPinsEpisodeListITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool);
     ~PodcastPinsEpisodeListITunes();
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
@@ -228,9 +238,16 @@ private: // from IPinInvoker
     void Cancel() override;
     const TChar* Mode() const override;
 private:
+    void Invoke();
+private:
     PodcastPinsITunes* iPodcastPins;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     TUint iLastId;
+    IThreadPoolHandle* iThreadPoolHandle;
+    Bws<128> iToken;
+    Functor iCompleted;
+    PinIdProvider iPinIdProvider;
+    Pin iPin;
 };
 
 };  // namespace Av

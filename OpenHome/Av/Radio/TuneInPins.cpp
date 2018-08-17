@@ -6,6 +6,7 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <algorithm>
 
@@ -25,62 +26,86 @@ static const TChar* kPinTypePodcast = "podcast";
 static const TChar* kPinKeyStationId = "id";
 static const TChar* kPinKeyStreamUrl = "path";
 
-TuneInPins::TuneInPins(DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const Brx& aPartnerId)
+TuneInPins::TuneInPins(DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool, const Brx& aPartnerId)
     : iLock("IPIN")
-    , iCpStack(aCpStack)
     , iPodcastPinsEpisode(nullptr)
+    , iPin(iPinIdProvider)
 {
-    CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
+    CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
     iPodcastPinsEpisode = new PodcastPinsLatestEpisodeTuneIn(aDevice, aTrackFactory, aCpStack, aStore, aPartnerId);
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &TuneInPins::Invoke),
+                                                 "TuneInPins", ThreadPoolPriority::Medium);
 }
 
 TuneInPins::~TuneInPins()
 {
+    iThreadPoolHandle->Destroy();
     delete iCpRadio;
     delete iPodcastPinsEpisode;
 }
 
 void TuneInPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 {
-    AutoFunctor _(aCompleted);
-    PinUri pin(aPin);
+    if (aPin.Mode() != Brn(kPinModeTuneIn)) {
+        return;
+    }
+    AutoPinComplete completion(aCompleted);
+    (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
+                         aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+    completion.Cancel();
+    iCompleted = aCompleted;
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
+void TuneInPins::Invoke()
+{
+    AutoFunctor _(iCompleted);
     TBool res = false;
-    if (Brn(pin.Mode()) == Brn(kPinModeTuneIn)) {
-        if (Brn(pin.Type()) == Brn(kPinTypeStation)) { 
+    try {
+        PinUri pinUri(iPin);
+        if (Brn(pinUri.Type()) == Brn(kPinTypeStation)) { 
             Brn stationId;
-            if (pin.TryGetValue(kPinKeyStationId, stationId)) {
-                res = LoadStation(stationId, aPin);
+            if (pinUri.TryGetValue(kPinKeyStationId, stationId)) {
+                res = LoadStation(stationId, iPin);
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypeStream)) { 
+        else if (Brn(pinUri.Type()) == Brn(kPinTypeStream)) { 
             Brn streamUrl;
-            if (pin.TryGetValue(kPinKeyStreamUrl, streamUrl)) {
-                res = LoadStream(streamUrl, aPin);
+            if (pinUri.TryGetValue(kPinKeyStreamUrl, streamUrl)) {
+                res = LoadStream(streamUrl, iPin);
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
             }
         }
-        else if (Brn(pin.Type()) == Brn(kPinTypePodcast)) { 
-            iPodcastPinsEpisode->BeginInvoke(aPin, aCompleted);
+        else if (Brn(pinUri.Type()) == Brn(kPinTypePodcast)) { 
+            iPodcastPinsEpisode->LoadPodcast(iPin);
             return;
         }
         else {
             THROW(PinTypeNotSupported);
         }
-        if (!res) {
-            THROW(PinInvokeError);
-        }
+    }
+    catch (PinUriMissingRequiredParameter&) {
+        LOG_ERROR(kPipeline, "TuneInPins::Invoke - missing parameter in %.*s\n", PBUF(iPin.Uri()));
+        throw;
+    }
+
+    if (!res) {
+        THROW(PinInvokeError);
     }
 }
 
 void TuneInPins::Cancel()
 {
+    if (iPin.Type() == Brn(kPinTypePodcast)) { 
+        iPodcastPinsEpisode->Cancel();
+    }
 }
 
 const TChar* TuneInPins::Mode() const
