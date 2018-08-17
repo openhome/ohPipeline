@@ -76,6 +76,13 @@ public:
     virtual ~IStandbyHandler() {}
 };
 
+class IFsFlushHandler
+{
+public:
+    virtual void FsFlush() = 0;
+    virtual ~IFsFlushHandler() {}
+};
+
 /**
  * Interface that IPowerHandlers will be returned when they register with an
  * IPowerManager.
@@ -95,24 +102,34 @@ public:
     virtual ~IStandbyObserver() {}
 };
 
+class IFsFlushObserver
+{
+public:
+    virtual ~IFsFlushObserver() {}
+};
+
 class IPowerManager
 {
 public:
     virtual void NotifyPowerDown() = 0;
     virtual void StandbyEnable() = 0;
     virtual void StandbyDisable(StandbyDisableReason aReason) = 0;
+    virtual void FsFlush() = 0;
     virtual IPowerManagerObserver* RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority) = 0;
     virtual IStandbyObserver* RegisterStandbyHandler(IStandbyHandler& aHandler, TUint aPriority, const TChar* aClientId) = 0;
+    virtual IFsFlushObserver* RegisterFsFlushHandler(IFsFlushHandler& aHandler) = 0;
     virtual ~IPowerManager() {}
 };
 
 class PowerManagerObserver;
 class StandbyObserver;
+class FsFlushObserver;
 
 class PowerManager : public IPowerManager
 {
     friend class PowerManagerObserver;
     friend class StandbyObserver;
+    friend class FsFlushObserver;
     static const Brn kConfigKey;
     static const TUint kConfigIdStartupStandbyEnabled;
     static const TUint kConfigIdStartupStandbyDisabled;
@@ -124,11 +141,14 @@ public: // from IPowerManager
     void NotifyPowerDown() override;
     void StandbyEnable() override;
     void StandbyDisable(StandbyDisableReason aReason) override;
+    void FsFlush() override;
     IPowerManagerObserver* RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority) override;
     IStandbyObserver* RegisterStandbyHandler(IStandbyHandler& aHandler, TUint aPriority, const TChar* aClientId) override;
+    IFsFlushObserver* RegisterFsFlushHandler(IFsFlushHandler& aHandler) override;
 private:
     void DeregisterPower(TUint aId);
     void DeregisterStandby(TUint aId);
+    void DeregisterFsFlush(TUint aId);
     void StartupStandbyChanged(Configuration::KeyValuePair<TUint>& aKvp);
 private:
     enum class Standby {
@@ -140,8 +160,10 @@ private:
     typedef std::list<PowerManagerObserver*> PriorityList;  // efficient insertion and removal
     PriorityList iPowerObservers;
     std::vector<StandbyObserver*> iStandbyObservers;
+    std::vector<FsFlushObserver*> iFsFlushObservers;
     TUint iNextPowerId;
     TUint iNextStandbyId;
+    TUint iNextFsFlushId;
     TBool iPowerDown;
     Standby iStandby;
     StandbyDisableReason iLastDisableReason;
@@ -195,10 +217,25 @@ private:
     const TChar* iClientId;
 };
 
+class FsFlushObserver : public IFsFlushObserver, private INonCopyable
+{
+public:
+    FsFlushObserver(PowerManager& aPowerManager, IFsFlushHandler& aHandler, TUint aId);
+    ~FsFlushObserver();
+    IFsFlushHandler& Handler() const;
+    TUint Id() const;
+private:
+    PowerManager & iPowerManager;
+    IFsFlushHandler& iHandler;
+    const TUint iId;
+};
+
 /*
  * Abstract class that only writes its value out to store at power down.
  */
-class StoreVal : protected IPowerHandler, protected IStandbyHandler
+class StoreVal : protected IPowerHandler
+               , protected IStandbyHandler
+               , protected IFsFlushHandler
 {
 public:
     static const TUint kMaxIdLength = 32;
@@ -211,6 +248,8 @@ protected: // from IPowerHandler
 private: // from IStandbyHandler
     void StandbyEnabled() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;
+private: // from IFsFlushHandler
+    void FsFlush() override;
 public:
     virtual void Write() = 0;
 protected:
@@ -220,6 +259,7 @@ protected:
     mutable Mutex iLock;
 private:
     std::unique_ptr<IStandbyObserver> iStandbyObserver;
+    std::unique_ptr<IFsFlushObserver> iFsFlushObserver;
 };
 
 /*
