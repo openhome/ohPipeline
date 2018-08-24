@@ -486,6 +486,15 @@ void PinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Br
                      const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
                      TBool aShuffle)
 {
+    Brn mode(aMode);
+    auto it = iInvokers.find(mode);
+    if (it == iInvokers.end()) {
+        THROW(PinModeNotSupported);
+    }
+    if (aUri.Bytes() == 0) {
+        THROW(PinUriError);
+    }
+
     if (IsAccountIndex(aIndex)) {
         const auto accountIndex = AccountFromCombinedIndex(aIndex);
         AccountSetter().Set(accountIndex, aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle);

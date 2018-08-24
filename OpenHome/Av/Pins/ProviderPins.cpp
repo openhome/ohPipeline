@@ -26,6 +26,8 @@ static const TUint kCodeLoginFailed = 804;
 static const Brn kMsgLoginRequired("Login required");
 static const TUint kCodeNothingToPlay = 805;
 static const Brn kMsgNothingToPlay("Nothing to Play");
+static const TUint kCodeUriNotSupported = 806;
+static const Brn kMsgUriNotSupported("Pin uri not supported");
 
 const TUint ProviderPins::kModerationMs = 50;
 
@@ -280,6 +282,12 @@ void ProviderPins::SetDevice(IDvInvocation& aInvocation, TUint aIndex, const Brx
     catch (PinIndexOutOfRange&) {
         aInvocation.Error(kCodeIndexOutOfRange, kMsgIndexOutOfRange);
     }
+    catch (PinModeNotSupported&) {
+        aInvocation.Error(kCodeModeNotSupported, kMsgModeNotSupported);
+    }
+    catch (PinUriError&) {
+        aInvocation.Error(kCodeUriNotSupported, kMsgUriNotSupported);
+    }
 
     aInvocation.StartResponse();
     aInvocation.EndResponse();
@@ -294,6 +302,12 @@ void ProviderPins::SetAccount(IDvInvocation& aInvocation, TUint aIndex, const Br
     }
     catch (PinIndexOutOfRange&) {
         aInvocation.Error(kCodeIndexOutOfRange, kMsgIndexOutOfRange);
+    }
+    catch (PinModeNotSupported&) {
+        aInvocation.Error(kCodeModeNotSupported, kMsgModeNotSupported);
+    }
+    catch (PinUriError&) {
+        aInvocation.Error(kCodeUriNotSupported, kMsgUriNotSupported);
     }
 
     aInvocation.StartResponse();
