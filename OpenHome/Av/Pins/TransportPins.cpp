@@ -76,7 +76,7 @@ TBool TransportPins::SelectLocalInput(const Brx& aSourceSystemName)
     Uri::Unescape(input, aSourceSystemName);
     try {
         iCpProduct->SyncSetSourceBySystemName(input);
-        iCpTransport->SyncPlay();
+        //iCpTransport->SyncPlay();
         return true;
     }
     catch (Exception& ex) {
