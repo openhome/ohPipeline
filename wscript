@@ -328,6 +328,7 @@ def build(bld):
                 'OpenHome/Configuration/ProviderConfigApp.cpp',
                 'OpenHome/PowerManager.cpp',
                 'OpenHome/ThreadPool.cpp',
+                'OpenHome/FsFlushPeriodic.cpp',
                 'OpenHome/Av/Credentials.cpp',
                 'Generated/DvAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Av/ProviderCredentials.cpp',

@@ -231,6 +231,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     iFnUpdaterStandard = new FriendlyNameAttributeUpdater(iMediaPlayer->FriendlyNameObservable(), iMediaPlayer->ThreadPool(), *iDevice);
     iFnManagerUpnpAv = new FriendlyNameManagerUpnpAv(iMediaPlayer->Product());
     iFnUpdaterUpnpAv = new FriendlyNameAttributeUpdater(*iFnManagerUpnpAv, iMediaPlayer->ThreadPool(), *iDeviceUpnpAv);
+    iFsFlushPeriodic = new FsFlushPeriodic(iMediaPlayer->Env(), iMediaPlayer->PowerManager(), iMediaPlayer->ThreadPool(), kFsFlushFreqMs);
 
     // Register with the PowerManager
     IPowerManager& powerManager = iMediaPlayer->PowerManager();
@@ -255,6 +256,7 @@ TestMediaPlayer::~TestMediaPlayer()
     delete iFnUpdaterStandard;
     delete iFnUpdaterUpnpAv;
     delete iFnManagerUpnpAv;
+    delete iFsFlushPeriodic;
     delete iMediaPlayer;
     delete iPipelineObserver;
     delete iInfoLogger;
@@ -326,6 +328,7 @@ void TestMediaPlayer::Run()
     iMediaPlayer->PowerManager().StandbyDisable(StandbyDisableReason::Boot);
     iDevice->SetEnabled();
     iDeviceUpnpAv->SetEnabled();
+    iFsFlushPeriodic->Start();
 
     StorePrinter storePrinter(*iConfigRamStore);
     storePrinter.Print();

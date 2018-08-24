@@ -21,6 +21,7 @@ const TUint PowerManager::kConfigIdStartupStandbyDisabled  = 1;
 PowerManager::PowerManager(IConfigInitialiser& aConfigInit)
     : iNextPowerId(0)
     , iNextStandbyId(0)
+    , iNextFsFlushId(0)
     , iPowerDown(false)
     , iStandby(Standby::Undefined)
     , iLock("PMLO")
@@ -34,6 +35,7 @@ PowerManager::~PowerManager()
 {
     AutoMutex _(iLock);
     ASSERT(iPowerObservers.empty());
+    ASSERT(iFsFlushObservers.empty());
     delete iConfigStartupStandby;
 }
 
@@ -86,6 +88,20 @@ void PowerManager::StandbyDisable(StandbyDisableReason aReason)
         (*it)->Handler().StandbyDisabled(aReason);
     }
     LOG(kPowerManager, "PowerManager::StandbyDisable complete\n");
+}
+
+void PowerManager::FsFlush()
+{
+    AutoMutex _(iLock);
+    for (auto it = iFsFlushObservers.begin(); it != iFsFlushObservers.end(); ++it) {
+        try {
+            (*it)->Handler().FsFlush();
+        }
+        catch (AssertionFailed&) {
+            throw;
+        }
+        catch (Exception&) {}
+    }
 }
 
 IPowerManagerObserver* PowerManager::RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority)
@@ -144,6 +160,14 @@ IStandbyObserver* PowerManager::RegisterStandbyHandler(IStandbyHandler& aHandler
     return observer;
 }
 
+IFsFlushObserver* PowerManager::RegisterFsFlushHandler(IFsFlushHandler& aHandler)
+{
+    AutoMutex _(iLock);
+    auto obs = new FsFlushObserver(*this, aHandler, iNextFsFlushId++);
+    iFsFlushObservers.push_back(obs);
+    return obs;
+}
+
 // Called from destructor of PowerManagerObserver.
 void PowerManager::DeregisterPower(TUint aId)
 {
@@ -171,6 +195,17 @@ void PowerManager::DeregisterStandby(TUint aId)
         if ((*it)->Id() == aId) {
             LOG(kPowerManager, "PowerManager::DeregisterStandby %s\n", (*it)->ClientId());
             iStandbyObservers.erase(it);
+            return;
+        }
+    }
+}
+
+void PowerManager::DeregisterFsFlush(TUint aId)
+{
+    AutoMutex _(iLock);
+    for (auto it = iFsFlushObservers.begin(); it != iFsFlushObservers.end(); ++it) {
+        if ((*it)->Id() == aId) {
+            iFsFlushObservers.erase(it);
             return;
         }
     }
@@ -265,6 +300,31 @@ TUint StandbyObserver::Priority() const
 }
 
 
+// FsFlushObserver
+
+FsFlushObserver::FsFlushObserver(PowerManager& aPowerManager, IFsFlushHandler& aHandler, TUint aId)
+    : iPowerManager(aPowerManager)
+    , iHandler(aHandler)
+    , iId(aId)
+{
+}
+
+FsFlushObserver::~FsFlushObserver()
+{
+    iPowerManager.DeregisterFsFlush(iId);
+}
+
+IFsFlushHandler& FsFlushObserver::Handler() const
+{
+    return iHandler;
+}
+
+TUint FsFlushObserver::Id() const
+{
+    return iId;
+}
+
+
 // StoreVal
 
 StoreVal::StoreVal(IStoreReadWrite& aStore, const Brx& aKey)
@@ -289,6 +349,7 @@ void StoreVal::RegisterPowerHandlers(IPowerManager& aPowerManager, TUint aPowerH
     // priority enum describes importance when exiting Standby - we only do any work when we enter Standby
     iStandbyObserver.reset(aPowerManager.RegisterStandbyHandler(*this, kStandbyHandlerPriorityHighest - 1, "StoreVal"));
     iObserver = aPowerManager.RegisterPowerHandler(*this, aPowerHandlerPriority);
+    iFsFlushObserver.reset(aPowerManager.RegisterFsFlushHandler(*this));
 }
 
 void StoreVal::PowerDown()
@@ -303,6 +364,11 @@ void StoreVal::StandbyEnabled()
 
 void StoreVal::StandbyDisabled(StandbyDisableReason /*aReason*/)
 {
+}
+
+void StoreVal::FsFlush()
+{
+    Write();
 }
 
 
@@ -367,7 +433,7 @@ void StoreInt::Write()
             Write(iKey, iVal, iStore);
             iLastWritten = iVal;
         }
-        iChanged = true;
+        iChanged = false;
     }
 }
 

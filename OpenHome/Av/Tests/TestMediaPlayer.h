@@ -27,6 +27,7 @@
 #include <OpenHome/Web/WebAppFramework.h>
 #include <OpenHome/Av/RebootHandler.h>
 #include <OpenHome/Net/Odp/DviServerOdp.h>
+#include <OpenHome/FsFlushPeriodic.h>
 
 #include <memory>
 
@@ -110,6 +111,7 @@ private:
     static const TUint kMaxWebUiTabs = 4;
     static const TUint kUiSendQueueSize = 100;
     static const TUint kMaxPinsDevice = 6;
+    static const TUint kFsFlushFreqMs = 60 * 1000; // 1 minute
 public:
     TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                     const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
@@ -173,6 +175,7 @@ private:
     Av::FriendlyNameAttributeUpdater* iFnUpdaterStandard;
     FriendlyNameManagerUpnpAv* iFnManagerUpnpAv;
     Av::FriendlyNameAttributeUpdater* iFnUpdaterUpnpAv;
+    FsFlushPeriodic* iFsFlushPeriodic;
     RamStore* iRamStore;
     Configuration::ConfigRamStore* iConfigRamStore;
     Configuration::StoreFileWriterJson* iStoreFileWriter;
