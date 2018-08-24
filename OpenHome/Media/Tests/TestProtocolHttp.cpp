@@ -1219,7 +1219,7 @@ SuiteHttpBase::SuiteHttpBase(const TChar* aSuiteName)
     : Suite(aSuiteName)
 {
     // Get a list of network adapters (using loopback, so first one should do).
-    std::vector<NetworkAdapter*>* ifs = Os::NetworkListAdapters(*gEnv, Net::InitialisationParams::ELoopbackUse, "Loopback");
+    std::vector<NetworkAdapter*>* ifs = Os::NetworkListAdapters(*gEnv, Environment::ELoopbackUse, "Loopback");
     TIpAddress addr = (*ifs)[0]->Address();
     for (TUint i=0; i<ifs->size(); i++) {
         (*ifs)[i]->RemoveRef("Loopback");
@@ -1433,7 +1433,7 @@ void SuiteHttpLiveReconnect::Test()
 SuiteHttpChunked::SuiteHttpChunked()
     : Suite("Chunked HTTP")
 {
-    std::vector<NetworkAdapter*>* ifs = Os::NetworkListAdapters(*gEnv, Net::InitialisationParams::ELoopbackUse, "SuiteHttpChunked");
+    std::vector<NetworkAdapter*>* ifs = Os::NetworkListAdapters(*gEnv, Environment::ELoopbackUse, "SuiteHttpChunked");
     TIpAddress addr = (*ifs)[0]->Address();
     for (TUint i=0; i<ifs->size(); i++) {
         (*ifs)[i]->RemoveRef("SuiteHttpChunked");
