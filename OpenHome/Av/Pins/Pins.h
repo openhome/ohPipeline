@@ -122,6 +122,7 @@ public:
              const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
              TBool aShuffle);
     TBool Clear(TUint aId);
+    void ClearAll();
     TBool Swap(TUint aId1, TUint aId2);
     TBool Contains(TUint aId) const;
     TBool IsEmpty() const;
@@ -145,7 +146,7 @@ class IPinsAccountObserver
 {
 public:
     virtual ~IPinsAccountObserver() {}
-    virtual void NotifySettable(TBool aSettable) = 0;
+    virtual void NotifySettable(TBool aConnected, TBool aAssociated) = 0;
     virtual void NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,
                                   const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
                                   const Brx& aArtworkUri, TBool aShuffle) = 0;
@@ -238,8 +239,8 @@ private: // from IPinsManager
     void InvokeId(TUint aId) override;
     void InvokeIndex(TUint aIndex) override;
     void InvokeUri(const Brx& aMode, const Brx& aType, const Brx& aUri, TBool aShuffle) override;
-private: // from IPinAccountObserver
-    void NotifySettable(TBool aSettable) override;
+private: // from IPinsAccountObserver
+    void NotifySettable(TBool aConnected, TBool aAssociated) override;
     void NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,
                           const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
                           const Brx& aArtworkUri, TBool aShuffle) override;

@@ -310,6 +310,13 @@ TBool PinSet::Clear(TUint aId)
     return true;
 }
 
+void PinSet::ClearAll()
+{
+    for (auto pin : iPins) {
+        (void)pin->Clear();
+    }
+}
+
 TBool PinSet::Swap(TUint aIndex1, TUint aIndex2)
 {
     if (aIndex1 >= iPins.size() || aIndex2 >= iPins.size()) {
@@ -636,14 +643,18 @@ void PinsManager::NotifyInvocationCompleted()
     iSemInvokerComplete.Signal();
 }
 
-void PinsManager::NotifySettable(TBool aSettable)
+void PinsManager::NotifySettable(TBool aConnected, TBool aAssociated)
 {
     AutoMutex _(iLock);
-    iObserver->NotifyCloudConnected(aSettable);
-    if (aSettable) {
+    const TBool settable = aConnected && aAssociated;
+    iObserver->NotifyCloudConnected(settable);
+    if (settable) {
         iObserver->NotifyAccountPinsMax(iPinsAccount.Count());
     }
     else {
+        if (aConnected && !aAssociated) {
+            iPinsAccount.ClearAll();
+        }
         if (iPinsAccount.IsEmpty()) {
             iObserver->NotifyAccountPinsMax(0);
         }

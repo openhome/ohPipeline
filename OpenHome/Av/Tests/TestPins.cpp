@@ -82,6 +82,7 @@ private:
     void TestSwap();
     void TestContains();
     void TestIsEmpty();
+    void TestClearAll();
     void TestIdArray();
 private:
     Configuration::ConfigRamStore* iStore;
@@ -394,6 +395,7 @@ SuitePinSet::SuitePinSet()
     AddTest(MakeFunctor(*this, &SuitePinSet::TestSwap), "TestSwap");
     AddTest(MakeFunctor(*this, &SuitePinSet::TestContains), "TestContains");
     AddTest(MakeFunctor(*this, &SuitePinSet::TestIsEmpty), "TestIsEmpty");
+    AddTest(MakeFunctor(*this, &SuitePinSet::TestClearAll), "TestClearAll");
     AddTest(MakeFunctor(*this, &SuitePinSet::TestIdArray), "TestIdArray");
 }
 
@@ -568,6 +570,18 @@ void SuitePinSet::TestIsEmpty()
     TEST(pinSet.IsEmpty());
     PinTestUtils::Init(*pinSet.iPins[3]);
     TEST(!pinSet.IsEmpty());
+}
+
+void SuitePinSet::TestClearAll()
+{
+    static const TUint kPinCount = 5;
+    PinSet pinSet(kPinCount, *this, *iStore, "pt");
+    for (TUint i = 0; i < kPinCount; i++) {
+        PinTestUtils::Init(*pinSet.iPins[i]);
+    }
+    TEST(!pinSet.IsEmpty());
+    pinSet.ClearAll();
+    TEST(pinSet.IsEmpty());
 }
 
 void SuitePinSet::TestIdArray()
@@ -1001,17 +1015,24 @@ void SuitePinsManager::TestNotifyAccountSettableObserverNotified()
     iPinsManager->SetAccount(*this, kMaxAccountPins);
     TEST(!iCloudConnected);
 
-    iAccountObserver->NotifySettable(false);
+    iAccountObserver->NotifySettable(false, false);
     TEST(iAccountPinsMax == 0);
     TEST(!iCloudConnected);
 
-    iAccountObserver->NotifySettable(true);
+    iAccountObserver->NotifySettable(true, false);
+    TEST(iAccountPinsMax == 0);
+    TEST(!iCloudConnected);
+
+    iAccountObserver->NotifySettable(true, true);
     TEST(iAccountPinsMax == kMaxAccountPins);
     TEST(iCloudConnected);
 
     iAccountObserver->NotifyAccountPin(1, kMode, kType, kUri, kTitle, kDescription, kArtworkUri, kShuffle);
-    iAccountObserver->NotifySettable(false);
+    iAccountObserver->NotifySettable(false, false);
     TEST(iAccountPinsMax == kMaxAccountPins);
+    TEST(!iCloudConnected);
+    iAccountObserver->NotifySettable(true, false);
+    TEST(iAccountPinsMax == 0);
     TEST(!iCloudConnected);
 }
 
