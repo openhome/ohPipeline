@@ -82,6 +82,7 @@ private:
     void TestSwap();
     void TestContains();
     void TestIsEmpty();
+    void TestClearAll();
     void TestIdArray();
 private:
     Configuration::ConfigRamStore* iStore;
@@ -138,6 +139,8 @@ private:
     void TestSetDevicePinObserverNotified();
     void TestSetDevicePin();
     void TestSetDevicePinInvalidIndex();
+    void TestSetDevicePinInvalidMode();
+    void TestSetDevicePinInvalidUri();
     void TestClearDevicePin();
     void TestClearDevicePinObserverNotified();
     void TestClearDevicePinInvalidId();
@@ -183,6 +186,7 @@ private:
 private:
     static const TUint kMaxDevicePins;
     static const TUint kMaxAccountPins;
+    static const TChar* kModeStr;
     static const Brn kMode;
     static const Brn kType;
     static const Brn kUri;
@@ -391,6 +395,7 @@ SuitePinSet::SuitePinSet()
     AddTest(MakeFunctor(*this, &SuitePinSet::TestSwap), "TestSwap");
     AddTest(MakeFunctor(*this, &SuitePinSet::TestContains), "TestContains");
     AddTest(MakeFunctor(*this, &SuitePinSet::TestIsEmpty), "TestIsEmpty");
+    AddTest(MakeFunctor(*this, &SuitePinSet::TestClearAll), "TestClearAll");
     AddTest(MakeFunctor(*this, &SuitePinSet::TestIdArray), "TestIdArray");
 }
 
@@ -567,6 +572,18 @@ void SuitePinSet::TestIsEmpty()
     TEST(!pinSet.IsEmpty());
 }
 
+void SuitePinSet::TestClearAll()
+{
+    static const TUint kPinCount = 5;
+    PinSet pinSet(kPinCount, *this, *iStore, "pt");
+    for (TUint i = 0; i < kPinCount; i++) {
+        PinTestUtils::Init(*pinSet.iPins[i]);
+    }
+    TEST(!pinSet.IsEmpty());
+    pinSet.ClearAll();
+    TEST(pinSet.IsEmpty());
+}
+
 void SuitePinSet::TestIdArray()
 {
     static const TUint kPinCount = 3;
@@ -642,7 +659,8 @@ void DummyPinInvoker::Cancel()
 
 const TUint SuitePinsManager::kMaxDevicePins = 6;
 const TUint SuitePinsManager::kMaxAccountPins = 10;
-const Brn SuitePinsManager::kMode("mode");
+const TChar* SuitePinsManager::kModeStr = "mode";
+const Brn SuitePinsManager::kMode(kModeStr);
 const Brn SuitePinsManager::kType("type");
 const Brn SuitePinsManager::kUri("scheme://host");
 const Brn SuitePinsManager::kTitle("title");
@@ -662,6 +680,8 @@ SuitePinsManager::SuitePinsManager()
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinObserverNotified), "TestSetDevicePinObserverNotified");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePin), "TestSetDevicePin");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinInvalidIndex), "TestSetDevicePinInvalidIndex");
+    AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinInvalidMode), "TestSetDevicePinInvalidMode");
+    AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinInvalidUri), "TestSetDevicePinInvalidUri");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestClearDevicePin), "TestClearDevicePin");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestClearDevicePinObserverNotified), "TestClearDevicePinObserverNotified");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestClearDevicePinInvalidId), "TestClearDevicePinInvalidId");
@@ -836,6 +856,7 @@ void SuitePinsManager::TestObserverModes()
 void SuitePinsManager::TestSetDevicePinObserverNotified()
 {
     Manager()->SetObserver(*this);
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     TEST(iIdArrayDevice[1] == IPinIdProvider::kIdEmpty);
     SetPin(1);
     TEST(iIdArrayDevice[1] != IPinIdProvider::kIdEmpty);
@@ -844,6 +865,7 @@ void SuitePinsManager::TestSetDevicePinObserverNotified()
 void SuitePinsManager::TestSetDevicePin()
 {
     Manager()->SetObserver(*this);
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     SetPin(1);
     const auto id = iIdArrayDevice[1];
     TEST(id != IPinIdProvider::kIdEmpty);
@@ -860,14 +882,30 @@ void SuitePinsManager::TestSetDevicePin()
 void SuitePinsManager::TestSetDevicePinInvalidIndex()
 {
     Manager()->SetObserver(*this);
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     const auto index = iIdArrayDevice.size();
-    TEST_THROWS(Manager()->Set(index, Brx::Empty(), Brx::Empty(), Brx::Empty(),
+    TEST_THROWS(Manager()->Set(index, kMode, Brx::Empty(), Brn("http://host?query"),
                                Brx::Empty(), Brx::Empty(), Brx::Empty(), false),
                 PinIndexOutOfRange);
 }
 
+void SuitePinsManager::TestSetDevicePinInvalidMode()
+{
+    TEST_THROWS(Manager()->Set(0, Brx::Empty(), Brx::Empty(), Brn("http://host?query"),
+                               Brx::Empty(), Brx::Empty(), Brx::Empty(), false),
+                PinModeNotSupported);
+}
+
+void SuitePinsManager::TestSetDevicePinInvalidUri()
+{
+    TEST_THROWS(Manager()->Set(0, kMode, Brx::Empty(), Brx::Empty(),
+        Brx::Empty(), Brx::Empty(), Brx::Empty(), false),
+        PinModeNotSupported);
+}
+
 void SuitePinsManager::TestClearDevicePin()
 {
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     SetPin(1);
     TEST(iPinsManager->iPinsDevice.iPins[1]->Mode() == kMode);
     Manager()->Clear(iPinsManager->iPinsDevice.iIds[1]);
@@ -884,6 +922,7 @@ void SuitePinsManager::TestClearDevicePin()
 void SuitePinsManager::TestClearDevicePinObserverNotified()
 {
     Manager()->SetObserver(*this);
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     SetPin(1);
     TEST(iIdArrayDevice[1] != IPinIdProvider::kIdEmpty);
     Manager()->Clear(iIdArrayDevice[1]);
@@ -899,6 +938,7 @@ void SuitePinsManager::TestClearDevicePinInvalidId()
 void SuitePinsManager::TestSwapDevicePins()
 {
     Manager()->SetObserver(*this);
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     SetPin(1);
     Manager()->Swap(1, 2);
     {
@@ -926,6 +966,7 @@ void SuitePinsManager::TestSwapDevicePins()
 void SuitePinsManager::TestSwapDevicePinsObserverNotified()
 {
     Manager()->SetObserver(*this);
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     SetPin(1);
     const auto id = iIdArrayDevice[1];
     TEST(iIdArrayDevice[1] != IPinIdProvider::kIdEmpty);
@@ -974,22 +1015,30 @@ void SuitePinsManager::TestNotifyAccountSettableObserverNotified()
     iPinsManager->SetAccount(*this, kMaxAccountPins);
     TEST(!iCloudConnected);
 
-    iAccountObserver->NotifySettable(false);
+    iAccountObserver->NotifySettable(false, false);
     TEST(iAccountPinsMax == 0);
     TEST(!iCloudConnected);
 
-    iAccountObserver->NotifySettable(true);
+    iAccountObserver->NotifySettable(true, false);
+    TEST(iAccountPinsMax == 0);
+    TEST(!iCloudConnected);
+
+    iAccountObserver->NotifySettable(true, true);
     TEST(iAccountPinsMax == kMaxAccountPins);
     TEST(iCloudConnected);
 
     iAccountObserver->NotifyAccountPin(1, kMode, kType, kUri, kTitle, kDescription, kArtworkUri, kShuffle);
-    iAccountObserver->NotifySettable(false);
+    iAccountObserver->NotifySettable(false, false);
     TEST(iAccountPinsMax == kMaxAccountPins);
+    TEST(!iCloudConnected);
+    iAccountObserver->NotifySettable(true, false);
+    TEST(iAccountPinsMax == 0);
     TEST(!iCloudConnected);
 }
 
 void SuitePinsManager::TestSetAccountPin()
 {
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     iPinsManager->SetAccount(*this, kMaxAccountPins);
     TEST(iAccountSetMode != kMode);
     SetPin(kMaxDevicePins + 1);
@@ -1007,6 +1056,7 @@ void SuitePinsManager::TestSetAccountPin()
 void SuitePinsManager::TestClearAccountPin()
 {
     Manager()->SetObserver(*this);
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     iPinsManager->SetAccount(*this, kMaxAccountPins);
     TEST(iAccountSetMode != kMode);
     SetPin(kMaxDevicePins + 1);
@@ -1045,6 +1095,7 @@ void SuitePinsManager::TestSwapDeviceAccountPins()
 void SuitePinsManager::TestWriteJson()
 {
     Manager()->SetObserver(*this);
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
     SetPin(1);
     const auto id = iIdArrayDevice[1];
     TEST(id != IPinIdProvider::kIdEmpty);
@@ -1078,7 +1129,7 @@ void SuitePinsManager::TestInvokeDevicePinId()
     auto invoker = new DummyPinInvoker("dummy");
     Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
-    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
+    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brn("scheme://host"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
     Manager()->InvokeId(iIdArrayDevice[0]);
     TEST(invoker->InvocationCount() == 1);
 }
@@ -1109,7 +1160,7 @@ void SuitePinsManager::TestInvokeDevicePinIndex()
     auto invoker = new DummyPinInvoker("dummy");
     Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
-    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
+    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brn("scheme://host"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
     Manager()->InvokeIndex(0);
     TEST(invoker->InvocationCount() == 1);
 }
@@ -1141,8 +1192,8 @@ void SuitePinsManager::TestInvokeUri()
     auto invoker = new DummyPinInvoker("dummy");
     Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
-    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
-    Manager()->InvokeUri(Brn("dummy"), Brx::Empty(), Brx::Empty(), false);
+    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brn("scheme://host"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
+    Manager()->InvokeUri(Brn("dummy"), Brx::Empty(), Brn("scheme://host"), false);
     TEST(invoker->InvocationCount() == 1);
 }
 

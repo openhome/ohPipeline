@@ -1051,12 +1051,12 @@ void TestCodec(Environment& aEnv, CreateTestCodecPipelineFunc aFunc, GetTestFile
     }
     ASSERT(optionPort.Value() <= 65535);
 
-    Net::InitialisationParams::ELoopback loopback;
+    Environment::ELoopback loopback;
     if (optionServer.Value().Equals(Brn("127.0.0.1"))) { // using loopback
-        loopback = Net::InitialisationParams::ELoopbackUse;
+        loopback = Environment::ELoopbackUse;
     }
     else {
-        loopback = Net::InitialisationParams::ELoopbackExclude;
+        loopback = Environment::ELoopbackExclude;
     }
     std::vector<NetworkAdapter*>* ifs = Os::NetworkListAdapters(aEnv, loopback, "TestCodec");
     ASSERT(ifs->size() > 0);

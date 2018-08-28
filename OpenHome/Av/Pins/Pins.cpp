@@ -310,6 +310,13 @@ TBool PinSet::Clear(TUint aId)
     return true;
 }
 
+void PinSet::ClearAll()
+{
+    for (auto pin : iPins) {
+        (void)pin->Clear();
+    }
+}
+
 TBool PinSet::Swap(TUint aIndex1, TUint aIndex2)
 {
     if (aIndex1 >= iPins.size() || aIndex2 >= iPins.size()) {
@@ -486,6 +493,15 @@ void PinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Br
                      const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
                      TBool aShuffle)
 {
+    Brn mode(aMode);
+    auto it = iInvokers.find(mode);
+    if (it == iInvokers.end()) {
+        THROW(PinModeNotSupported);
+    }
+    if (aUri.Bytes() == 0) {
+        THROW(PinUriError);
+    }
+
     if (IsAccountIndex(aIndex)) {
         const auto accountIndex = AccountFromCombinedIndex(aIndex);
         AccountSetter().Set(accountIndex, aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle);
@@ -627,14 +643,18 @@ void PinsManager::NotifyInvocationCompleted()
     iSemInvokerComplete.Signal();
 }
 
-void PinsManager::NotifySettable(TBool aSettable)
+void PinsManager::NotifySettable(TBool aConnected, TBool aAssociated)
 {
     AutoMutex _(iLock);
-    iObserver->NotifyCloudConnected(aSettable);
-    if (aSettable) {
+    const TBool settable = aConnected && aAssociated;
+    iObserver->NotifyCloudConnected(settable);
+    if (settable) {
         iObserver->NotifyAccountPinsMax(iPinsAccount.Count());
     }
     else {
+        if (aConnected && !aAssociated) {
+            iPinsAccount.ClearAll();
+        }
         if (iPinsAccount.IsEmpty()) {
             iObserver->NotifyAccountPinsMax(0);
         }
