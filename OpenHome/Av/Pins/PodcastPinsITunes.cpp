@@ -750,7 +750,6 @@ void ITunesMetadata::ParseITunesMetadata(PodcastInfoITunes& aPodcast, const Brx&
     TryAppend("<item id=\"");
     TryAppend(aPodcast.Id());;
     TryAppend("\" parentID=\"-1\" restricted=\"1\">");
-    TryAppend(">");
     TryAddTag(Brn("upnp:artist"), kNsUpnp, Brx::Empty(), aPodcast.Artist());
     TryAddTag(Brn("upnp:album"), kNsUpnp, Brx::Empty(), aPodcast.Name());
     TryAddTag(Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), aPodcast.ArtworkUrl());

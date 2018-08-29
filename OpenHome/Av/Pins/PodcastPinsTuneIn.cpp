@@ -636,7 +636,6 @@ void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlI
     TryAppend("<item id=\"");
     TryAppend(aPodcastId);
     TryAppend("\" parentID=\"-1\" restricted=\"1\">");
-    TryAppend(">");
     PodcastEpisodeTuneIn* episode = new PodcastEpisodeTuneIn(aXmlItem);  // get Episode Title, release date, duration, artwork, and streamable url
     if (!aLatestOnly) {
         //TryAddTag(Brn("upnp:artist"), kNsUpnp, Brx::Empty(), aPodcast.Artist());

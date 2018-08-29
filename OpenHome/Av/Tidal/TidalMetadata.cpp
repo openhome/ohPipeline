@@ -203,7 +203,6 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata)
     TryAppend("<item");
     TryAddAttribute(parser, "id", "id");
     TryAppend(" parentID=\"-1\" restricted=\"1\">");
-    TryAppend(">");
     for (TUint i=0; i<kNumTidal2DidlMappings; i++) {
         auto& mapping = kTidal2Didl[i];
         TryAddTag(parser, mapping.iTidalKey, mapping.iDidlTag, mapping.iNs);
