@@ -1099,29 +1099,36 @@ void OhmSender::RunUnicast()
                         header.Internalise(iRxBuffer);
                         
                         if (header.MsgType() == OhmHeader::kMsgTypeJoin) {
-                            LOG(kSongcast, "OhmSender::RunUnicast sending/join\n");
                             Endpoint sender(iSocketOhm.Sender());
+                            if (Debug::TestLevel(Debug::kSongcast)) {
+                                Endpoint::EndpointBuf endptBuf;
+                                sender.AppendEndpoint(endptBuf);
+                                LOG(kSongcast, "OhmSender::RunUnicast sending/join from %s\n", endptBuf.Ptr());
+                            }
                             if (sender.Equals(iTargetEndpoint)) {
                                 iTimerExpiry->FireIn(kTimerExpiryTimeoutMs);
                             }
                             else {
                                 TUint slave = FindSlave(sender);
-                                if (slave >= iSlaveCount) {
-                                    if (slave < kMaxSlaveCount) {
+                                if (slave < iSlaveCount) {
+                                    iSlaveExpiry[slave] = Time::Now(iEnv) + kTimerExpiryTimeoutMs;
+                                }
+                                else {
+                                    if (slave >= kMaxSlaveCount) {
+                                        LOG(kSongcast, "OhmSender::RunUnicast ignoring join request - already have %u slaves\n", slave-1);
+                                    }
+                                    else {
                                         iSlaveList[slave].Replace(sender);
                                         iSlaveExpiry[slave] = Time::Now(iEnv) + kTimerExpiryTimeoutMs;
                                         iSlaveCount++;
-
-                                        Endpoint::EndpointBuf buf;
-                                        sender.AppendEndpoint(buf);
-                                        LOG(kSongcast, "OhmSender::RunUnicast new slave: %s (#%u)\n", buf.Ptr(), iSlaveCount);
-
+                                        if (Debug::TestLevel(Debug::kSongcast)) {
+                                            Endpoint::EndpointBuf buf;
+                                            sender.AppendEndpoint(buf);
+                                            LOG(kSongcast, "OhmSender::RunUnicast new slave: %s (#%u)\n", buf.Ptr(), iSlaveCount);
+                                        }
                                         AutoMutex mutex(iMutexActive);
                                         SendListen(sender);
                                     }
-                                }
-                                else {
-                                    iSlaveExpiry[slave] = Time::Now(iEnv) + kTimerExpiryTimeoutMs;
                                 }
                             }
 
@@ -1132,11 +1139,6 @@ void OhmSender::RunUnicast()
                         }
                         else if (header.MsgType() == OhmHeader::kMsgTypeListen) {
                             Endpoint sender(iSocketOhm.Sender());
-
-                            Endpoint::EndpointBuf endptBuf;
-                            sender.AppendEndpoint(endptBuf);
-                            LOG(kSongcast, "OhmSender::RunUnicast sending/listen from %s\n", endptBuf.Ptr());
-
                             if (sender.Equals(iTargetEndpoint)) {
                                 iTimerExpiry->FireIn(kTimerExpiryTimeoutMs);
                                 if (CheckSlaveExpiry()) {
@@ -1156,7 +1158,11 @@ void OhmSender::RunUnicast()
                                         iSlaveExpiry[slave] = Time::Now(iEnv) + kTimerExpiryTimeoutMs;
                                         iSlaveCount++;
 
-                                        LOG(kSongcast, "OhmSender::RunUnicast new slave: %s (#%u)\n", endptBuf.Ptr(), iSlaveCount);
+                                        if (Debug::TestLevel(Debug::kSongcast)) {
+                                            Endpoint::EndpointBuf endptBuf;
+                                            sender.AppendEndpoint(endptBuf);
+                                            LOG(kSongcast, "OhmSender::RunUnicast new slave: %s (#%u)\n", endptBuf.Ptr(), iSlaveCount);
+                                        }
 
                                         AutoMutex mutex(iMutexActive);
                                         SendListen(sender);
@@ -1405,10 +1411,8 @@ void OhmSender::SendSlaveList()
     writer.Flush();
     header.Externalise(writer);
     headerSlave.Externalise(writer);
-    WriterBinary binary(writer);
     for (TUint i = 0; i < iSlaveCount; i++) {
-        binary.WriteUint32Be(iSlaveList[i].Address());
-        binary.WriteUint16Be(iSlaveList[i].Port());
+        iSlaveList[i].Externalise(writer);
     }
     Send();
 }
