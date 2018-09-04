@@ -26,61 +26,46 @@ namespace Av {
 class QobuzPins
     : public IPinInvoker
 {
-    static const TUint kTrackLimitPerRequest = 10;
-    static const TUint kMaxPlaylists = 15;
-    static const TUint kMaxAlbums = 25;
+    static const TUint kItemLimitPerRequest = 10;
     static const TUint kJsonResponseChunks = 4 * 1024;
 public:
     QobuzPins(Qobuz& aQobuz, 
+              Environment& iEnv,
               Net::DvDeviceStandard& aDevice, 
               Media::TrackFactory& aTrackFactory, 
               Net::CpStack& aCpStack, 
               IThreadPool& aThreadPool);
     ~QobuzPins();
-    
-private:
-    void Invoke();
-    TBool LoadTracksByArtist(const Brx& aArtist, TBool aShuffle); // Qobuz id or search string 
-    TBool LoadTracksByAlbum(const Brx& aAlbum, TBool aShuffle); // Qobuz id or search string 
-    TBool LoadTracksByTrack(const Brx& aTrack, TBool aShuffle); // Qobuz id or search string 
-    TBool LoadTracksByPlaylist(const Brx& aPlaylist, TBool aShuffle); // Qobuz id or search string 
-    TBool LoadTracksByFavorites(TBool aShuffle); // user's favorited tracks and albums (flattened list)
-    TBool LoadTracksByPurchased(TBool aShuffle); // user's purchased tracks and albums (flattened list)
-    TBool LoadTracksByCollection(TBool aShuffle); // collection of user's purchased, favorited and playlisted tracks and albums (flattened list)
-    TBool LoadTracksBySavedPlaylist(TBool aShuffle); // user's most recently created/updated qobuz playlist
-    TBool LoadTracksByNew(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: new releases) by genre (optional id)
-    TBool LoadTracksByRecommended(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: qobuz picks) by genre (optional id)
-    TBool LoadTracksByMostStreamed(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: most streamed) by genre (optional id)
-    TBool LoadTracksByBestSellers(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: best sellers) by genre (optional id)
-    TBool LoadTracksByAwardWinning(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: press awards) by genre (optional id)
-    TBool LoadTracksByMostFeatured(const Brx& aGenre, TBool aShuffle); // Qobuz smart playlist (featured: most featured) by genre (optional id)
-
 private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
 private:
+    void Invoke();
     TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TUint aPlaylistId);
     TBool LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle);
-    TBool LoadTracksBySmartType(const Brx& aGenre, QobuzMetadata::EIdType aType, TBool aShuffle);
-    TBool LoadTracksByQuery(const Brx& aQuery, QobuzMetadata::EIdType aType, TBool aShuffle);
-    TBool LoadTracksByPath(const Brx& aPath, TBool aShuffle);
-    TBool LoadAlbumsByPath(const Brx& aPath, TBool aShuffle);
-    TBool LoadPlaylistsByPath(const Brx& aPath, TBool aShuffle);
-    TBool IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aType);
-    TBool IsValidGenreId(const Brx& aRequest);
+    TBool LoadTracks(const Brx& aPath, TBool aShuffle);
+    TBool LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType, TBool aShuffle);
+    TBool LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aIdType, TBool aShuffle);
+    TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount);
+private: // helpers
+    TUint GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadata::EIdType aIdType, TBool aIsContainer, TUint& aStartIndex, TUint& aEndIndex);
+    void UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TUint& aOffset);
+    TBool IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aIdType);
     void InitPlaylist(TBool aShuffle);
 private:
     Mutex iLock;
     Qobuz& iQobuz;
     IThreadPoolHandle* iThreadPoolHandle;
     WriterBwh iJsonResponse;
-    Media::TrackFactory& iTrackFactory;
+    QobuzMetadata iQobuzMetadata;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
+    TUint iMaxPlaylistTracks;
     Bws<128> iToken;
     Functor iCompleted;
     PinIdProvider iPinIdProvider;
     Pin iPin;
+    Environment& iEnv;
 };
 
 };  // namespace Av

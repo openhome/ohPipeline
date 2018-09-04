@@ -8,6 +8,7 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Parser.h>
+#include <OpenHome/Av/Pins/Pins.h>
 
 namespace OpenHome {
 namespace Av {
@@ -60,7 +61,7 @@ const Brn QobuzMetadata::kSmartTypeAwardWinning("album");
 const Brn QobuzMetadata::kSmartTypeMostFeatured("album");
 const Brn QobuzMetadata::kIdTypeSmart("smart");
 const Brn QobuzMetadata::kIdTypeUserSpecific("users");
-const Brn QobuzMetadata::kIdTypePath("linnpath");
+const Brn QobuzMetadata::kIdTypeNone("none");
 const Brn QobuzMetadata::kGenreNone("none");
 
 QobuzMetadata::QobuzMetadata(Media::TrackFactory& aTrackFactory)
@@ -386,7 +387,16 @@ const Brx& QobuzMetadata::IdTypeToString(EIdType aType)
         case eSmartBestSellers: return kSmartTypeBestSellers;
         case eSmartAwardWinning: return kSmartTypeAwardWinning;
         case eSmartMostFeatured: return kSmartTypeMostFeatured;
-        case ePath: return kIdTypePath;
+        case eNone: return kIdTypeNone;
     }
     return Brx::Empty();
+}
+
+QobuzMetadata::EIdType QobuzMetadata::StringToIdType(const Brx& aString)
+{
+    if (aString == kIdTypeArtist) return eArtist;
+    else if (aString == kIdTypeAlbum) return eAlbum;
+    else if (aString == kIdTypeTrack) return eTrack;
+    else if (aString == kIdTypePlaylist) return ePlaylist;
+    else THROW(PinUriMissingRequiredParameter);
 }

@@ -48,11 +48,10 @@ public:
     TBool TryLogin();
     TBool TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl);
     TBool TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType);
-    TBool TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aMaxAlbumsPerResponse);
-    TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse);
+    TBool TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aLimitPerResponse);
+    TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset);
     TBool TryGetGenreList(IWriter& aWriter);
     TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset);
-    TBool TryGetTracksByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
     const Brx& Id() const override;
@@ -93,6 +92,8 @@ private:
     Bws<512> iPathAndQuery; // slightly too large for the stack; requires that all network operations are serialised
     Configuration::ConfigChoice* iConfigQuality;
     TUint iSubscriberIdQuality;
+    Bwh iUri;
+    Uri iRequest;
 };
 
 };  // namespace Av

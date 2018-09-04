@@ -8,6 +8,7 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Parser.h>
+#include <OpenHome/Av/Pins/Pins.h>
 
 namespace OpenHome {
 namespace Av {
@@ -22,7 +23,7 @@ public:
         , iRole(OpenHome::Brx::Empty())
         , iTidalSubKey(OpenHome::Brx::Empty())
         , iIsImage(false)
-        , iResolution(TidalMetadata::eNone)
+        , iResolution(TidalMetadata::eNoImage)
     {}
     Tidal2DidlTagMapping(const TChar* aTidalKey, const TChar* aDidlTag, const OpenHome::Brx& aNs, const TChar* aRole)
         : iTidalKey(aTidalKey)
@@ -31,7 +32,7 @@ public:
         , iRole(aRole)
         , iTidalSubKey(OpenHome::Brx::Empty())
         , iIsImage(false)
-        , iResolution(TidalMetadata::eNone)
+        , iResolution(TidalMetadata::eNoImage)
     {}
     Tidal2DidlTagMapping(const TChar* aTidalKey, const TChar* aDidlTag, const OpenHome::Brx& aNs, const TChar* aSubKey, TBool aIsImage, TidalMetadata::EImageResolution aResolution)
         : iTidalKey(aTidalKey)
@@ -82,7 +83,7 @@ const Brn TidalMetadata::kSmartTypeRising("rising/new");
 const Brn TidalMetadata::kSmartTypeDiscovery("discovery/new");
 const Brn TidalMetadata::kIdTypeSmart("smart");
 const Brn TidalMetadata::kIdTypeUserSpecific("users");
-const Brn TidalMetadata::kIdTypePath("linnpath");
+const Brn TidalMetadata::kIdTypeNone("none");
 
 TidalMetadata::TidalMetadata(Media::TrackFactory& aTrackFactory)
     : iTrackFactory(aTrackFactory)
@@ -162,8 +163,8 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata)
         { "album", "upnp:albumArtURI", kNsUpnp, "cover", true, eLow },
         { "album", "upnp:albumArtURI", kNsUpnp, "cover", true, eMed },
         { "album", "upnp:albumArtURI", kNsUpnp, "cover", true, eHigh },
-        { "album", "upnp:album", kNsUpnp, "title", false, eNone },
-        { "artist", "upnp:artist", kNsUpnp, "name", false, eNone },
+        { "album", "upnp:album", kNsUpnp, "title", false, eNoImage },
+        { "artist", "upnp:artist", kNsUpnp, "name", false, eNoImage },
     };
     static const TUint kNumTidalObj2DidlMappings = sizeof kTidalObj2Didl / sizeof kTidalObj2Didl[0];
 
@@ -382,7 +383,21 @@ const Brx& TidalMetadata::IdTypeToString(EIdType aType)
         case eSmartExclusive: return kSmartTypeExclusive;
         case eSmartRising: return kSmartTypeRising;
         case eSmartDiscovery: return kSmartTypeDiscovery;
-        case ePath: return kIdTypePath;
+        case eNone: return kIdTypeNone;
     }
     return Brx::Empty();
+}
+
+TidalMetadata::EIdType TidalMetadata::StringToIdType(const Brx& aString)
+{
+    Bws<10> plural(aString);
+    if (aString.At(aString.Bytes()-1) != TByte('s')) {
+        plural.Append("s");
+    }
+    if (plural == kIdTypeArtist) return eArtist;
+    else if (plural == kIdTypeAlbum) return eAlbum;
+    else if (plural == kIdTypeTrack) return eTrack;
+    else if (plural == kIdTypePlaylist) return ePlaylist;
+    else if (plural == kIdTypeGenre) return eGenre;
+    else THROW(PinUriMissingRequiredParameter);
 }

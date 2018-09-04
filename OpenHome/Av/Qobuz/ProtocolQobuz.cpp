@@ -120,7 +120,7 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
     aCredentialsManager.Add(iQobuz);
 
     if (aPinsInvocable.Ok()) {
-        auto pins = new QobuzPins(*iQobuz, aDevice, aTrackFactory, aCpStack, aThreadPool);
+        auto pins = new QobuzPins(*iQobuz, aEnv, aDevice, aTrackFactory, aCpStack, aThreadPool);
         aPinsInvocable.Unwrap().Add(pins);
     }
 }
