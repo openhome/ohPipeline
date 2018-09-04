@@ -23,6 +23,11 @@ const Brn CodecAacFdkBase::kCodecAac("AAC");
 CodecAacFdkBase::CodecAacFdkBase(const TChar* aId, IMimeTypeList& aMimeTypeList)
     : CodecBase(aId)
     , iDecoderHandle(nullptr)
+#ifdef FDK_LITTLE_ENDIAN
+    , iEndianness(AudioDataEndian::Little)
+#else
+    , iEndianness(AudioDataEndian::Big)
+#endif
 {
     aMimeTypeList.Add("audio/aac");
     aMimeTypeList.Add("audio/aacp");
@@ -90,11 +95,7 @@ void CodecAacFdkBase::Process()
 void CodecAacFdkBase::FlushOutput()
 {
     if ((iStreamEnded || iNewStreamStarted) && iOutBuf.Bytes() > 0) {
-#ifdef FDK_LITTLE_ENDIAN
-        iTrackOffset += iController->OutputAudioPcm(iOutBuf, iChannels, iOutputSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
-#else
-        iTrackOffset += iController->OutputAudioPcm(iOutBuf, iChannels, iOutputSampleRate, iBitDepth, AudioDataEndian::Big, iTrackOffset);
-#endif
+        iTrackOffset += iController->OutputAudioPcm(iOutBuf, iChannels, iOutputSampleRate, iBitDepth, iEndianness, iTrackOffset);
         iOutBuf.SetBytes(0);
     }
     //LOG(kCodec, "CodecAac::Process complete - total samples = %lld\n", iTotalSamplesOutput);
@@ -158,13 +159,7 @@ void CodecAacFdkBase::DecodeFrame()
 
         Brn outBuf(iOutBuf.Ptr(), bytes);
         if (outBuf.Bytes() > 0) {
-
-#ifdef FDK_LITTLE_ENDIAN
-            iTrackOffset += iController->OutputAudioPcm(outBuf, iChannels, iOutputSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
-#else
-            iTrackOffset += iController->OutputAudioPcm(outBuf, iChannels, iOutputSampleRate, iBitDepth, AudioDataEndian::Big, iTrackOffset);
-#endif
-
+            iTrackOffset += iController->OutputAudioPcm(outBuf, iChannels, iOutputSampleRate, iBitDepth, iEndianness, iTrackOffset);
             iTotalSamplesOutput += samplesToWrite;
 
             iOutBuf.Replace(iOutBuf.Ptr() + outBuf.Bytes(), iOutBuf.Bytes() - outBuf.Bytes());

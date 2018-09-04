@@ -54,6 +54,7 @@ protected:
     TBool iStreamEnded;
 private:
     HANDLE_AACDECODER iDecoderHandle;
+    AudioDataEndian iEndianness;
 };
 
 } //namespace Codec
