@@ -61,12 +61,13 @@ void ProtocolOhu::HandleSlave(const OhmHeader& aHeader)
     headerSlave.Internalise(iReadBuffer, aHeader);
     iSlaveCount = headerSlave.SlaveCount();
 
-    ReaderBinary reader(iReadBuffer);
     for (TUint i = 0; i < iSlaveCount; i++) {
-        TIpAddress address = reader.ReadUintBe(4);
-        TUint port = reader.ReadUintBe(2);
-        iSlaveList[i].SetAddress(address);
-        iSlaveList[i].SetPort(port);
+        iSlaveList[i].Internalise(iReadBuffer);
+        if (Debug::TestLevel(Debug::kSongcast)) {
+            Endpoint::EndpointBuf endptBuf;
+            iSlaveList[i].AppendEndpoint(endptBuf);
+            LOG(kSongcast, "ProtocolOhu - slave #%u - %s\n", i, endptBuf.Ptr());
+        }
     }
 }
 
