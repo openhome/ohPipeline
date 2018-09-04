@@ -298,7 +298,7 @@ void QobuzMetadata::TryAddTagFromObj(JsonParser& aParser,
     Bwn valEscaped;
     val.ReplaceThrow(nestedParser.String(aQobuzSubKey));
     valEscaped.Set(val.Ptr(), val.Bytes(), val.Bytes());
-    Json::Unescape(valEscaped);
+    Json::Unescape(valEscaped, Json::Encoding::Utf16);
     TryAddTag(aDidlTag, aNs, aRole, valEscaped);
 }
 
@@ -317,7 +317,7 @@ void QobuzMetadata::TryAddTagsFromArray(JsonParser& aParser,
         for (;;) {
             Brn val = parserArray.NextString();
             Bwn valEscaped(val.Ptr(), val.Bytes(), val.Bytes());
-            Json::Unescape(valEscaped);
+            Json::Unescape(valEscaped, Json::Encoding::Utf16);
             TryAddTag(aDidlTag, aNs, aRole, valEscaped);
         }
     }
@@ -332,7 +332,7 @@ void QobuzMetadata::TryAddTag(JsonParser& aParser, const Brx& aQobuzKey,
     }
     Brn val = aParser.String(aQobuzKey);
     Bwn valEscaped(val.Ptr(), val.Bytes(), val.Bytes());
-    Json::Unescape(valEscaped);
+    Json::Unescape(valEscaped, Json::Encoding::Utf16);
     TryAddTag(aDidlTag, aNs, Brx::Empty(), valEscaped);
 }
 
