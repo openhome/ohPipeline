@@ -121,6 +121,25 @@ def configure(conf):
         'thirdparty/ETSI_aacPlusdec/etsioplib',
         ]
 
+    # Setup FDK AAC lib.
+    # FDK AAC is maintained as part of the Android Open Source Project (AOSP): https://android.googlesource.com/platform/external/aac/+/master/
+    # However, we are using a stand-alone version maintained here: https://github.com/mstorsjo/fdk-aac
+    # 651ff34d8d35fb6a3b75471d54b271852f5924cc
+    # (Mon Sep 3 10:44:32 2018 +0300)
+    if conf.options.dest_platform not in ['Core-ppc32']:
+        conf.env.append_value('DEFINES', ['FDK_LITTLE_ENDIAN']) # Not setting FDK_LITTLE_ENDIAN assumes big endian.
+    conf.env.INCLUDES_AAC_FDK = [
+        'thirdparty/fdk-aac/libAACdec/include',
+        'thirdparty/fdk-aac/libArithCoding/include',
+        'thirdparty/fdk-aac/libDRCdec/include',
+        'thirdparty/fdk-aac/libFDK/include',
+        'thirdparty/fdk-aac/libMpegTPDec/include',
+        'thirdparty/fdk-aac/libPCMutils/include',
+        'thirdparty/fdk-aac/libSACdec/include',
+        'thirdparty/fdk-aac/libSBRdec/include',
+        'thirdparty/fdk-aac/libSYS/include'
+        ]
+
     # Setup Mad (mp3) lib options
     fixed_point_model = 'FPM_INTEL'
     if conf.options.with_default_fpm:
@@ -555,13 +574,13 @@ def build(bld):
     # AlacAppleBase
     bld.stlib(
             source=[
-                 'OpenHome/Media/Codec/AlacAppleBase.cpp',
-                 'thirdparty/apple_alac/codec/ag_dec.c',
-                 'thirdparty/apple_alac/codec/ALACDecoder.cpp',
-                 'thirdparty/apple_alac/codec/ALACBitUtilities.c',
-                 'thirdparty/apple_alac/codec/dp_dec.c',
-                 'thirdparty/apple_alac/codec/EndianPortable.c',
-                 'thirdparty/apple_alac/codec/matrix_dec.c',
+                'OpenHome/Media/Codec/AlacAppleBase.cpp',
+                'thirdparty/apple_alac/codec/ag_dec.c',
+                'thirdparty/apple_alac/codec/ALACDecoder.cpp',
+                'thirdparty/apple_alac/codec/ALACBitUtilities.c',
+                'thirdparty/apple_alac/codec/dp_dec.c',
+                'thirdparty/apple_alac/codec/EndianPortable.c',
+                'thirdparty/apple_alac/codec/matrix_dec.c',
             ],
             use=['ALAC_APPLE', 'OHNET', 'ohMediaPlayer'],
             target='CodecAlacAppleBase')
@@ -569,7 +588,7 @@ def build(bld):
     # AlacApple
     bld.stlib(
             source=[
-                 'OpenHome/Media/Codec/AlacApple.cpp',
+                'OpenHome/Media/Codec/AlacApple.cpp',
             ],
             use=['CodecAlacAppleBase', 'OHNET'],
             target='CodecAlacApple')
@@ -627,7 +646,7 @@ def build(bld):
     # AAC
     bld.stlib(
             source=[
-                 'OpenHome/Media/Codec/Aac.cpp',
+                'OpenHome/Media/Codec/Aac.cpp',
             ],
             use=['CodecAacBase', 'OHNET'],
             target='CodecAac')
@@ -635,10 +654,144 @@ def build(bld):
     # ADTS
     bld.stlib(
             source=[
-                 'OpenHome/Media/Codec/Adts.cpp',
+                'OpenHome/Media/Codec/Adts.cpp',
             ],
             use=['CodecAacBase', 'OHNET'],
             target='CodecAdts')
+
+    # AacFdkBase
+    bld.stlib(
+            source=[
+                'OpenHome/Media/Codec/AacFdkBase.cpp',
+
+                'thirdparty/fdk-aac/libAACdec/src/aacdec_drc.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/aacdec_hcr_bit.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/aacdec_hcr.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/aacdec_hcrs.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/aacdecoder.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/aacdecoder_lib.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/aacdec_pns.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/aacdec_tns.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/aac_ram.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/aac_rom.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/block.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/channel.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/channelinfo.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/conceal.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/FDK_delay.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/ldfiltbank.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/pulsedata.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/rvlcbit.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/rvlcconceal.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/rvlc.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/stereo.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/usacdec_ace_d4t64.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/usacdec_acelp.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/usacdec_ace_ltp.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/usacdec_fac.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/usacdec_lpc.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/usacdec_lpd.cpp',
+                'thirdparty/fdk-aac/libAACdec/src/usacdec_rom.cpp',
+
+                'thirdparty/fdk-aac/libArithCoding/src/ac_arith_coder.cpp',
+
+                'thirdparty/fdk-aac/libDRCdec/src/drcDec_gainDecoder.cpp',
+                'thirdparty/fdk-aac/libDRCdec/src/drcDec_reader.cpp',
+                'thirdparty/fdk-aac/libDRCdec/src/drcDec_rom.cpp',
+                'thirdparty/fdk-aac/libDRCdec/src/drcDec_selectionProcess.cpp',
+                'thirdparty/fdk-aac/libDRCdec/src/drcDec_tools.cpp',
+                'thirdparty/fdk-aac/libDRCdec/src/drcGainDec_init.cpp',
+                'thirdparty/fdk-aac/libDRCdec/src/drcGainDec_preprocess.cpp',
+                'thirdparty/fdk-aac/libDRCdec/src/drcGainDec_process.cpp',
+                'thirdparty/fdk-aac/libDRCdec/src/FDK_drcDecLib.cpp',
+
+                'thirdparty/fdk-aac/libFDK/src/autocorr2nd.cpp',
+                'thirdparty/fdk-aac/libFDK/src/dct.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_bitbuffer.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_core.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_crc.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_decorrelate.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_hybrid.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_lpc.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_matrixCalloc.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_qmf_domain.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_tools_rom.cpp',
+                'thirdparty/fdk-aac/libFDK/src/FDK_trigFcts.cpp',
+                'thirdparty/fdk-aac/libFDK/src/fft.cpp',
+                'thirdparty/fdk-aac/libFDK/src/fft_rad2.cpp',
+                'thirdparty/fdk-aac/libFDK/src/fixpoint_math.cpp',
+                'thirdparty/fdk-aac/libFDK/src/huff_nodes.cpp',
+                'thirdparty/fdk-aac/libFDK/src/mdct.cpp',
+                'thirdparty/fdk-aac/libFDK/src/nlc_dec.cpp',
+                'thirdparty/fdk-aac/libFDK/src/qmf.cpp',
+                'thirdparty/fdk-aac/libFDK/src/scale.cpp',
+
+                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_adif.cpp',
+                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_adts.cpp',
+                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_asc.cpp',
+                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_drm.cpp',
+                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_latm.cpp',
+                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_lib.cpp',
+
+                'thirdparty/fdk-aac/libPCMutils/src/limiter.cpp',
+                'thirdparty/fdk-aac/libPCMutils/src/pcmdmx_lib.cpp',
+                'thirdparty/fdk-aac/libPCMutils/src/pcm_utils.cpp',
+
+                'thirdparty/fdk-aac/libSACdec/src/sac_bitdec.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_calcM1andM2.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_dec_conceal.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_dec.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_dec_lib.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_process.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_qmf.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_reshapeBBEnv.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_rom.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_smoothing.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_stp.cpp',
+                'thirdparty/fdk-aac/libSACdec/src/sac_tsd.cpp',
+
+                'thirdparty/fdk-aac/libSBRdec/src/env_calc.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/env_dec.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/env_extr.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/hbe.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/HFgen_preFlat.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/huff_dec.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/lpp_tran.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/psbitdec.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/psdec.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/psdec_drm.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/psdecrom_drm.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/pvc_dec.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/sbr_crc.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/sbr_deb.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/sbr_dec.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/sbrdec_drc.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/sbrdec_freq_sca.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/sbrdecoder.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/sbr_ram.cpp',
+                'thirdparty/fdk-aac/libSBRdec/src/sbr_rom.cpp',
+
+                'thirdparty/fdk-aac/libSYS/src/genericStds.cpp',
+                'thirdparty/fdk-aac/libSYS/src/syslib_channelMapDescr.cpp'
+            ],
+            use=['AAC_FDK', 'OHNET', 'ohMediaPlayer'],
+            target='CodecAacFdkBase')
+
+    # AacFdkMp4
+    bld.stlib(
+            source=[
+                 'OpenHome/Media/Codec/AacFdkMp4.cpp',
+            ],
+            use=['CodecAacFdkBase', 'OHNET'],
+            target='CodecAacFdkMp4')
+
+    # AacFdkAdts
+    bld.stlib(
+            source=[
+                 'OpenHome/Media/Codec/AacFdkAdts.cpp',
+            ],
+            use=['CodecAacFdkBase', 'OHNET'],
+            target='CodecAacFdkAdts')
 
     # MP3
     bld.stlib(
@@ -785,7 +938,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestPins.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
