@@ -38,9 +38,10 @@ class QobuzMetadata : private OpenHome::INonCopyable
 public:
     static const OpenHome::Brn kIdTypeSmart;
     static const OpenHome::Brn kIdTypeUserSpecific;
-    static const OpenHome::Brn kIdTypePath;
+    static const OpenHome::Brn kIdTypeNone;
     static const OpenHome::Brn kGenreNone;
     enum EIdType {
+        eNone,
         eArtist,
         eAlbum,
         eTrack,
@@ -56,7 +57,6 @@ public:
         eSmartBestSellers,
         eSmartAwardWinning,
         eSmartMostFeatured,
-        ePath, // workaround for now to use path url supplied by control point
     };
 public:
     QobuzMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
@@ -64,6 +64,7 @@ public:
     static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse, EIdType aType);
     static Brn GenreIdFromJson(const OpenHome::Brx& aJsonResponse, const OpenHome::Brx& aGenre);
     static const Brx& IdTypeToString(EIdType aType);
+    static EIdType StringToIdType(const Brx& aString);
 private:
     void ParseQobuzMetadata(const OpenHome::Brx& aJsonResponse, const OpenHome::Brx& aTrackObj, EIdType aType);
     void TryAddAttribute(OpenHome::JsonParser& aParser,

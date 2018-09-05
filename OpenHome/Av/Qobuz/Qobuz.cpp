@@ -49,6 +49,7 @@ Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
     , iAppSecret(aAppSecret)
     , iUsername(kGranularityUsername)
     , iPassword(kGranularityPassword)
+    , iUri(1024)
 {
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
@@ -165,7 +166,7 @@ TBool Qobuz::TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdTyp
     return TryGetResponse(aWriter, kHost, 1, 0); // return top hit
 }
 
-TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
+TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aLimitPerResponse)
 {
     iPathAndQuery.Replace(kVersionAndFormat);
 
@@ -189,16 +190,7 @@ TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdTy
         iPathAndQuery.Append(aGenre);
     }
 
-    return TryGetResponse(aWriter, kHost, aMaxAlbumsPerResponse, 0);
-}
-
-TBool Qobuz::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse)
-{
-    Bwh uri(1024);
-    Uri::Unescape(uri, aRequestUrl);
-    Uri request(uri);
-    iPathAndQuery.Replace(request.PathAndQuery());
-    return TryGetResponse(aWriter, request.Host(), aMaxAlbumsPerResponse, 0);
+    return TryGetResponse(aWriter, kHost, aLimitPerResponse, 0);
 }
 
 TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset)
@@ -243,13 +235,13 @@ TBool Qobuz::TryGetGenreList(IWriter& aWriter)
     return TryGetResponse(aWriter, kHost, 50, 0);
 }
 
-TBool Qobuz::TryGetTracksByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset)
+TBool Qobuz::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset)
 {
-    Bwh uri(1024);
-    Uri::Unescape(uri, aRequestUrl);
-    Uri request(uri);
-    iPathAndQuery.Replace(request.PathAndQuery());
-    return TryGetResponse(aWriter, request.Host(), aLimit, aOffset);
+    iUri.SetBytes(0);
+    Uri::Unescape(iUri, aRequestUrl);
+    iRequest.Replace(iUri);
+    iPathAndQuery.Replace(iRequest.PathAndQuery());
+    return TryGetResponse(aWriter, iRequest.Host(), aLimitPerResponse, aOffset);
 }
 
 TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset)
@@ -277,7 +269,7 @@ TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TU
         iPathAndQuery.Append(iAuthToken);
     }
     try {
-        LOG(kMedia, "Write Qobuz request: http://%.*s%.*s\n", PBUF(aHost), PBUF(iPathAndQuery));
+        Log::Print("Write Qobuz request: http://%.*s%.*s\n", PBUF(aHost), PBUF(iPathAndQuery));
         const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery);
         if (code != 200) {
             LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetResponse.\n", code);

@@ -16,7 +16,6 @@ EXCEPTION(PinIndexOutOfRange)
 EXCEPTION(PinIdNotFound)
 EXCEPTION(PinModeNotSupported);
 EXCEPTION(PinTypeNotSupported);
-EXCEPTION(PinSmartTypeNotSupported);
 EXCEPTION(PinUriError);
 EXCEPTION(PinNothingToPlay);
 EXCEPTION(PinUriMissingRequiredParameter);
