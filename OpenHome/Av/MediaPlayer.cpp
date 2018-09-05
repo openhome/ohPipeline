@@ -166,7 +166,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     iProviderInfo = new ProviderInfo(aDevice, *iPipeline);
     iProduct->AddAttribute("Info");
     iProviderConfig = new ProviderConfig(aDevice, *iConfigManager);
-    iProviderTransport = new ProviderTransport(iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
+    iProviderTransport = new ProviderTransport(aDvStack.Env(), iDevice, *iPipeline, *iPowerManager, *iProduct, iTransportRepeatRandom);
     iProduct->AddAttribute("Transport");
     if (iProviderConfigApp != nullptr) {
         iProduct->AddAttribute("ConfigApp"); // iProviderConfigApp is instantiated before iProduct
