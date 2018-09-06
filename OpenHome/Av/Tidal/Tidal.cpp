@@ -42,6 +42,7 @@ Tidal::Tidal(Environment& aEnv, const Brx& aToken, ICredentialsState& aCredentia
     , iToken(aToken)
     , iUsername(kGranularityUsername)
     , iPassword(kGranularityPassword)
+    , iUri(1024)
 {
     iReaderResponse.AddHeader(iHeaderContentLength);
     const int arr[] = {0, 1, 2};
@@ -144,7 +145,7 @@ TBool Tidal::TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdTyp
     return TryGetResponse(aWriter, kHost, pathAndQuery, 1, 0);
 }
 
-TBool Tidal::TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aMaxAlbumsPerResponse)
+TBool Tidal::TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
 
@@ -176,16 +177,7 @@ TBool Tidal::TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdTyp
         pathAndQuery.Append(Brn("/albums?order=NAME&orderDirection=ASC"));
     }
 
-    return TryGetResponse(aWriter, kHost, pathAndQuery, aMaxAlbumsPerResponse, 0);
-}
-
-TBool Tidal::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aMaxAlbumsPerResponse)
-{
-    Bwh uri(1024);
-    Uri::Unescape(uri, aRequestUrl);
-    Uri request(uri);
-    Bws<kMaxPathAndQueryBytes> pathAndQuery(request.PathAndQuery());
-    return TryGetResponse(aWriter, request.Host(), pathAndQuery, aMaxAlbumsPerResponse, 0);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimitPerResponse, 0);
 }
 
 TBool Tidal::TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset)
@@ -222,19 +214,19 @@ TBool Tidal::TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::E
         case TidalMetadata::eSavedPlaylist:
         case TidalMetadata::ePlaylist: pathAndQuery.Append(Brn("/items?order=INDEX&orderDirection=ASC")); break;
         case TidalMetadata::eTrack: pathAndQuery.Append(Brn("?")); break;
-        case TidalMetadata::ePath: break;
+        case TidalMetadata::eNone: break;
     }
 
     return TryGetResponse(aWriter, kHost, pathAndQuery, aLimit, aOffset);
 }
 
-TBool Tidal::TryGetTracksByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimit, TUint aOffset)
+TBool Tidal::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset)
 {
-    Bwh uri(1024);
-    Uri::Unescape(uri, aRequestUrl);
-    Uri request(uri);
-    Bws<kMaxPathAndQueryBytes> pathAndQuery(request.PathAndQuery());
-    return TryGetResponse(aWriter, request.Host(), pathAndQuery, aLimit, aOffset);
+    iUri.SetBytes(0);
+    Uri::Unescape(iUri, aRequestUrl);
+    iRequest.Replace(iUri);
+    iUri.Replace(iRequest.PathAndQuery());
+    return TryGetResponse(aWriter, iRequest.Host(), iUri, aLimitPerResponse, aOffset);
 }
 
 TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset)
@@ -263,7 +255,7 @@ TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQue
     }
     
     try {
-        LOG(kMedia, "Write Tidal request: http://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
+        Log::Print("Write Tidal request: http://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
         WriteRequestHeaders(Http::kMethodGet, aHost, aPathAndQuery, kPort);
 
         iReaderResponse.Read();

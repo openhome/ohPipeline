@@ -12,6 +12,7 @@
 
 namespace OpenHome {
     class IPowerManager;
+    class Timer;
     namespace Media {
         class PipelineManager;
     }
@@ -22,18 +23,20 @@ class ProviderTransport : public Net::DvProviderAvOpenhomeOrgTransport1
                         , private Media::IModeObserver
                         , private ITransportRepeatRandomObserver
 {
+    static const TUint kBufferingModerationMs;
     static const TUint kModesGranularity;
-    static const TUint kRepeatOff;
-    static const TUint kRepeatOnAll;
-    static const TUint kShuffleOff;
-    static const TUint kShuffleOnAll;
 public:
-    ProviderTransport(Net::DvDevice& aDevice,
+    ProviderTransport(Environment& aEnv,
+                      Net::DvDevice& aDevice,
                       Media::PipelineManager& aPipeline,
                       IPowerManager& aPowerManager,
                       ITransportActivator& aTransportActivator,
                       ITransportRepeatRandom& aTransportRepeatRandom);
+    ~ProviderTransport();
     void Start();
+private:
+    void ReportBuffering();
+    void DoNotifyPipelineState(Media::EPipelineState aState);
 private: // from Media::IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo, const Media::ModeTransportControls& aTransportControls) override;
@@ -73,6 +76,7 @@ private:
     Mutex iLockTransportControls;
     Media::ModeTransportControls iTransportControls;
     Media::EPipelineState iTransportState;
+    Timer* iBufferingModerator;
     TUint iStreamId;
     TUint iTrackPosSeconds;
     WriterBwh iModes;

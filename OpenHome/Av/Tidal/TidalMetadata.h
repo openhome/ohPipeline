@@ -42,8 +42,9 @@ class TidalMetadata : private OpenHome::INonCopyable
 public:
     static const OpenHome::Brn kIdTypeSmart;
     static const OpenHome::Brn kIdTypeUserSpecific;
-    static const OpenHome::Brn kIdTypePath;
+    static const OpenHome::Brn kIdTypeNone;
     enum EIdType {
+        eNone,
         eArtist,
         eAlbum,
         eTrack,
@@ -58,10 +59,9 @@ public:
         eSmartExclusive,
         eSmartRising,
         eSmartDiscovery,
-        ePath, // workaround for now to use path url supplied by control point
     };
     enum EImageResolution {
-        eNone,
+        eNoImage,
         eLow,
         eMed,
         eHigh
@@ -71,6 +71,7 @@ public:
     OpenHome::Media::Track* TrackFromJson(const OpenHome::Brx& aMetadata);
     static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse, EIdType aType);
     static const Brx& IdTypeToString(EIdType aType);
+    static EIdType StringToIdType(const Brx& aString);
 private:
     void ParseTidalMetadata(const OpenHome::Brx& aMetadata);
     void TryAddAttribute(OpenHome::JsonParser& aParser,

@@ -112,7 +112,7 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& 
     aCredentialsManager.Add(iTidal);
 
     if (aPinsInvocable.Ok()) {
-        auto pins = new TidalPins(*iTidal, aDevice, aTrackFactory, aCpStack, aThreadPool);
+        auto pins = new TidalPins(*iTidal, aEnv, aDevice, aTrackFactory, aCpStack, aThreadPool);
         aPinsInvocable.Unwrap().Add(pins);
     }
 }

@@ -117,8 +117,8 @@ IPropertyWriter* PropertyWriterFactoryOdp::ClaimWriter(const IDviSubscriptionUse
         if (!iEnabled) {
             return nullptr;
         }
-        iWriter = &iSession.WriteLock();
     }
+    iWriter = &iSession.WriteLock();
     try {
         iWriterNotify.Set(*iWriter);
         iWriterNotify.WriteString(Odp::kKeyType, Odp::kTypeNotify);
@@ -128,21 +128,19 @@ IPropertyWriter* PropertyWriterFactoryOdp::ClaimWriter(const IDviSubscriptionUse
             LOG_ERROR(kOdp, "PropertyWriterFactoryOdp::ClaimWriter - subscription %.*s not found\n", PBUF(aSid));
             THROW(WriterError);
         }
-        else {
-            AutoSubscriptionRef __(*subscription);
-            DviService* service = subscription->ServiceLocked();
-            if (service != nullptr) {
-                AutoServiceRef ___(service);
-                auto serviceType = service->ServiceType();
-                auto writerService = iWriterNotify.CreateObject(Odp::kKeyService);
-                writerService.WriteString(Odp::kKeyName, serviceType.Name());
-                writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
-                writerService.WriteEnd();
-            }
+        AutoSubscriptionRef __(*subscription);
+        DviService* service = subscription->ServiceLocked();
+        if (service != nullptr) {
+            AutoServiceRef ___(service);
+            auto serviceType = service->ServiceType();
+            auto writerService = iWriterNotify.CreateObject(Odp::kKeyService);
+            writerService.WriteString(Odp::kKeyName, serviceType.Name());
+            writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
+            writerService.WriteEnd();
         }
         iWriterProperties = iWriterNotify.CreateArray(Odp::kKeyProperties);
     }
-    catch (WriterError&) {
+    catch (Exception&) {
         iSession.WriteUnlock();
         throw;
     }

@@ -7,11 +7,13 @@
 #include <OpenHome/Media/Pipeline/Pipeline.h> // for PipelineStreamNotPausable
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Json.h>
+#include <OpenHome/Private/Timer.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Net;
 using namespace OpenHome::Media;
+
 
 static const TUint kCodeNotSupportedByMode = 801;
 static const Brn kMsgNotSupportedByMode("Action not supported by current mode");
@@ -20,9 +22,11 @@ static const Brn kSeekFailureMsg("Seek failed");
 static const TUint kCodeBadStreamId = 804;
 static const Brn kMsgBadStreamId("Stream id not current");
 
+const TUint ProviderTransport::kBufferingModerationMs = 800;
 const TUint ProviderTransport::kModesGranularity = 1024;
 
-ProviderTransport::ProviderTransport(Net::DvDevice& aDevice,
+ProviderTransport::ProviderTransport(Environment& aEnv,
+                                     Net::DvDevice& aDevice,
                                      PipelineManager& aPipeline,
                                      IPowerManager& aPowerManager,
                                      ITransportActivator& aTransportActivator,
@@ -69,6 +73,8 @@ ProviderTransport::ProviderTransport(Net::DvDevice& aDevice,
     EnableActionRepeat();
     EnableActionShuffle();
 
+    iBufferingModerator = new Timer(aEnv, MakeFunctor(*this, &ProviderTransport::ReportBuffering), "ProviderTransport");
+
     iPipeline.AddObserver(*static_cast<Media::IPipelineObserver*>(this));
     iPipeline.AddObserver(*static_cast<Media::IModeObserver*>(this));
     iTransportRepeatRandom.AddObserver(*this);
@@ -84,18 +90,42 @@ ProviderTransport::ProviderTransport(Net::DvDevice& aDevice,
     (void)SetPropertyTransportState(state);
 }
 
+ProviderTransport::~ProviderTransport()
+{
+    delete iBufferingModerator;
+}
+
 void ProviderTransport::Start()
 {
     iWriterModes.WriteEnd();
     (void)SetPropertyModes(iModes.Buffer());
 }
 
-void ProviderTransport::NotifyPipelineState(EPipelineState aState)
+void ProviderTransport::ReportBuffering()
 {
     AutoMutex _(iLock);
+    DoNotifyPipelineState(EPipelineBuffering);
+}
+
+void ProviderTransport::DoNotifyPipelineState(EPipelineState aState)
+{
     iTransportState = aState;
     Brn state(TransportState::FromPipelineState(iTransportState));
     (void)SetPropertyTransportState(state);
+}
+
+void ProviderTransport::NotifyPipelineState(EPipelineState aState)
+{
+    if (aState != EPipelineBuffering) {
+        iBufferingModerator->Cancel();
+    }
+    AutoMutex _(iLock);
+    if (aState == EPipelineBuffering && iTransportState == EPipelineStopped) {
+        iBufferingModerator->FireIn(kBufferingModerationMs);
+    }
+    else {
+        DoNotifyPipelineState(aState);
+    }
 }
 
 void ProviderTransport::NotifyMode(const Brx& /*aMode*/,
