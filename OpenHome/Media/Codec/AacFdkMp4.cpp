@@ -13,6 +13,7 @@ namespace Codec {
 class CodecAacFdkMp4 : public CodecAacFdkBase
 {
 private:
+    static const TUint kMaxRecogBytes = 4;  // Only comparing against "mp4a".
     static const TUint kDefaultAscBytes = 2;
 public:
     CodecAacFdkMp4(IMimeTypeList& aMimeTypeList);
@@ -27,7 +28,6 @@ private:
     void ProcessMpeg4();
     TUint SkipEsdsTag(IReader& aReader, TByte& aDescLen);
 private:
-    static const TUint kMaxRecogBytes = 6 * 1024; // copied from previous CodecController behaviour
     Bws<kMaxRecogBytes> iRecogBuf;
     SampleSizeTable iSampleSizeTable;
     SeekTable iSeekTable;
