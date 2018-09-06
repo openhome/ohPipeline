@@ -123,21 +123,15 @@ def configure(conf):
 
     # Setup FDK AAC lib.
     # FDK AAC is maintained as part of the Android Open Source Project (AOSP): https://android.googlesource.com/platform/external/aac/+/master/
-    # However, we are using a stand-alone version maintained here: https://github.com/mstorsjo/fdk-aac
-    # 651ff34d8d35fb6a3b75471d54b271852f5924cc
-    # (Mon Sep 3 10:44:32 2018 +0300)
+    # However, we are using a stand-alone version, which contains PowerPC enhancements, maintained here: https://github.com/mstorsjo/fdk-aac
+    #
+    # Latest commit (651ff34d8d35fb6a3b75471d54b271852f5924cc) causes memory corruption (which results in a crash) on Core-ppc32 platform when attempting to decode any AAC track.
+    # So, using most-recent commit that works on all platforms (which means using the previous major version of the decoder):
+    # a30bfced6b6d6d976c728552d247cb30dd86e238
+    # (Tue Mar 6 12:22:48 2018 +0200)
     if conf.options.dest_platform not in ['Core-ppc32']:
         conf.env.append_value('DEFINES', ['FDK_LITTLE_ENDIAN']) # Not setting FDK_LITTLE_ENDIAN assumes big endian.
     conf.env.INCLUDES_AAC_FDK = [
-        'thirdparty/fdk-aac/libAACdec/include',
-        'thirdparty/fdk-aac/libArithCoding/include',
-        'thirdparty/fdk-aac/libDRCdec/include',
-        'thirdparty/fdk-aac/libFDK/include',
-        'thirdparty/fdk-aac/libMpegTPDec/include',
-        'thirdparty/fdk-aac/libPCMutils/include',
-        'thirdparty/fdk-aac/libSACdec/include',
-        'thirdparty/fdk-aac/libSBRdec/include',
-        'thirdparty/fdk-aac/libSYS/include'
         ]
 
     # Setup Mad (mp3) lib options
@@ -663,116 +657,6 @@ def build(bld):
     bld.stlib(
             source=[
                 'OpenHome/Media/Codec/AacFdkBase.cpp',
-
-                'thirdparty/fdk-aac/libAACdec/src/aacdec_drc.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/aacdec_hcr_bit.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/aacdec_hcr.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/aacdec_hcrs.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/aacdecoder.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/aacdecoder_lib.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/aacdec_pns.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/aacdec_tns.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/aac_ram.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/aac_rom.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/block.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/channel.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/channelinfo.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/conceal.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/FDK_delay.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/ldfiltbank.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/pulsedata.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/rvlcbit.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/rvlcconceal.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/rvlc.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/stereo.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/usacdec_ace_d4t64.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/usacdec_acelp.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/usacdec_ace_ltp.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/usacdec_fac.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/usacdec_lpc.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/usacdec_lpd.cpp',
-                'thirdparty/fdk-aac/libAACdec/src/usacdec_rom.cpp',
-
-                'thirdparty/fdk-aac/libArithCoding/src/ac_arith_coder.cpp',
-
-                'thirdparty/fdk-aac/libDRCdec/src/drcDec_gainDecoder.cpp',
-                'thirdparty/fdk-aac/libDRCdec/src/drcDec_reader.cpp',
-                'thirdparty/fdk-aac/libDRCdec/src/drcDec_rom.cpp',
-                'thirdparty/fdk-aac/libDRCdec/src/drcDec_selectionProcess.cpp',
-                'thirdparty/fdk-aac/libDRCdec/src/drcDec_tools.cpp',
-                'thirdparty/fdk-aac/libDRCdec/src/drcGainDec_init.cpp',
-                'thirdparty/fdk-aac/libDRCdec/src/drcGainDec_preprocess.cpp',
-                'thirdparty/fdk-aac/libDRCdec/src/drcGainDec_process.cpp',
-                'thirdparty/fdk-aac/libDRCdec/src/FDK_drcDecLib.cpp',
-
-                'thirdparty/fdk-aac/libFDK/src/autocorr2nd.cpp',
-                'thirdparty/fdk-aac/libFDK/src/dct.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_bitbuffer.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_core.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_crc.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_decorrelate.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_hybrid.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_lpc.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_matrixCalloc.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_qmf_domain.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_tools_rom.cpp',
-                'thirdparty/fdk-aac/libFDK/src/FDK_trigFcts.cpp',
-                'thirdparty/fdk-aac/libFDK/src/fft.cpp',
-                'thirdparty/fdk-aac/libFDK/src/fft_rad2.cpp',
-                'thirdparty/fdk-aac/libFDK/src/fixpoint_math.cpp',
-                'thirdparty/fdk-aac/libFDK/src/huff_nodes.cpp',
-                'thirdparty/fdk-aac/libFDK/src/mdct.cpp',
-                'thirdparty/fdk-aac/libFDK/src/nlc_dec.cpp',
-                'thirdparty/fdk-aac/libFDK/src/qmf.cpp',
-                'thirdparty/fdk-aac/libFDK/src/scale.cpp',
-
-                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_adif.cpp',
-                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_adts.cpp',
-                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_asc.cpp',
-                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_drm.cpp',
-                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_latm.cpp',
-                'thirdparty/fdk-aac/libMpegTPDec/src/tpdec_lib.cpp',
-
-                'thirdparty/fdk-aac/libPCMutils/src/limiter.cpp',
-                'thirdparty/fdk-aac/libPCMutils/src/pcmdmx_lib.cpp',
-                'thirdparty/fdk-aac/libPCMutils/src/pcm_utils.cpp',
-
-                'thirdparty/fdk-aac/libSACdec/src/sac_bitdec.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_calcM1andM2.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_dec_conceal.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_dec.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_dec_lib.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_process.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_qmf.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_reshapeBBEnv.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_rom.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_smoothing.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_stp.cpp',
-                'thirdparty/fdk-aac/libSACdec/src/sac_tsd.cpp',
-
-                'thirdparty/fdk-aac/libSBRdec/src/env_calc.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/env_dec.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/env_extr.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/hbe.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/HFgen_preFlat.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/huff_dec.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/lpp_tran.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/psbitdec.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/psdec.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/psdec_drm.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/psdecrom_drm.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/pvc_dec.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/sbr_crc.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/sbr_deb.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/sbr_dec.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/sbrdec_drc.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/sbrdec_freq_sca.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/sbrdecoder.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/sbr_ram.cpp',
-                'thirdparty/fdk-aac/libSBRdec/src/sbr_rom.cpp',
-
-                'thirdparty/fdk-aac/libSYS/src/genericStds.cpp',
-                'thirdparty/fdk-aac/libSYS/src/syslib_channelMapDescr.cpp'
             ],
             use=['AAC_FDK', 'OHNET', 'ohMediaPlayer'],
             target='CodecAacFdkBase')
