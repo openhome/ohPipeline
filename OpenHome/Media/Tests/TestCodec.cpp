@@ -337,8 +337,8 @@ void TestCodecMinimalPipeline::RegisterPlugins()
     iController->AddCodec(CodecFactory::NewAiff(*this));
     iController->AddCodec(CodecFactory::NewAifc(*this));
     iController->AddCodec(CodecFactory::NewFlac(*this));
-    iController->AddCodec(CodecFactory::NewAac(*this));
-    iController->AddCodec(CodecFactory::NewAdts(*this));
+    iController->AddCodec(CodecFactory::NewAacFdkAdts(*this));
+    iController->AddCodec(CodecFactory::NewAacFdkMp4(*this));
     //iController->AddCodec(CodecFactory::NewAlac(*this));
     iController->AddCodec(CodecFactory::NewAlacApple(*this));
     iController->AddCodec(CodecFactory::NewMp3(*this));
@@ -996,8 +996,8 @@ void SuiteCodecZeroCrossings::TestZeroCrossings()
     TEST(iJiffies == jiffies);
     //LOG(kMedia, "iZeroCrossings: %u, expectedZeroCrossings: %u, iUnacceptableCrossingDeltas: %u\n", iZeroCrossings, expectedZeroCrossings, iUnacceptableCrossingDeltas);
     Log::Print("iZeroCrossings: %u, expectedZeroCrossings: %u, iUnacceptableCrossingDeltas: %u\n", iZeroCrossings, expectedZeroCrossings, iUnacceptableCrossingDeltas);
-    TEST(iZeroCrossings >= expectedZeroCrossings-100);
-    TEST(iZeroCrossings <= expectedZeroCrossings+100);
+    TEST(iZeroCrossings >= expectedZeroCrossings-200);
+    TEST(iZeroCrossings <= expectedZeroCrossings+200);
     // Test that less than 2% of the zero crossings have an unnaceptable spacing.
     TEST(iUnacceptableCrossingDeltas < expectedZeroCrossings/100);
 }

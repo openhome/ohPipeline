@@ -736,11 +736,11 @@ int CDECL main(int aArgc, char* aArgv[])
     //decoder->AddContainer(new Mpeg4Container(*decoder));
     decoder->AddContainer(new MpegTsContainer(*decoder));
 
-    decoder->AddCodec(CodecFactory::NewAac(*decoder));
+    decoder->AddCodec(CodecFactory::NewAacFdkAdts(*decoder));
+    decoder->AddCodec(CodecFactory::NewAacFdkMp4(*decoder));
     decoder->AddCodec(CodecFactory::NewAifc(*decoder));
     decoder->AddCodec(CodecFactory::NewAiff(*decoder));
     decoder->AddCodec(CodecFactory::NewAlacApple(*decoder));
-    decoder->AddCodec(CodecFactory::NewAdts(*decoder));
     decoder->AddCodec(CodecFactory::NewFlac(*decoder));
     decoder->AddCodec(CodecFactory::NewPcm());
     decoder->AddCodec(CodecFactory::NewVorbis(*decoder));
