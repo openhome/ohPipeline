@@ -285,8 +285,10 @@ void CodecAacFdkMp4::StreamInitialise()
     iTrackLengthJiffies = (iSamplesTotal * Jiffies::kPerSecond) / iSampleRate;
     iTrackOffset = 0;
 
-    LOG(kCodec, "CodecAacFdkMp4::StreamInitialise iBitrateAverage %u, iBitDepth %u, iSampleRate: %u, iSamplesTotal %llu, iChannels %u, iTrackLengthJiffies %u\n", iBitrateAverage, iBitDepth, iOutputSampleRate, iSamplesTotal, iChannels, iTrackLengthJiffies);
+    LOG(kCodec, "CodecAacFdkMp4::StreamInitialise iBitrateAverage %u, iBitDepth %u, iSampleRate: %u, iSamplesTotal %llu, iChannels %u, iTrackLengthJiffies %llu\n", iBitrateAverage, iBitDepth, iOutputSampleRate, iSamplesTotal, iChannels, iTrackLengthJiffies);
     iController->OutputDecodedStream(iBitrateAverage, iBitDepth, iOutputSampleRate, iChannels, kCodecAac, iTrackLengthJiffies, 0, false, DeriveProfile(iChannels));
+
+    LOG(kCodec, "<CodecAacFdkMp4::StreamInitialise\n");
 }
 
 TBool CodecAacFdkMp4::TrySeek(TUint aStreamId, TUint64 aSample)
