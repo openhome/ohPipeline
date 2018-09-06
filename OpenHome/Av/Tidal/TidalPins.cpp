@@ -343,11 +343,12 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
         try {
             iJsonResponse.Reset();
             TBool success = false;
+            auto connection = aCount < iMaxPlaylistTracks - 1 ? Tidal::Connection::KeepAlive : Tidal::Connection::Close;
             if (aIdType == TidalMetadata::eNone) {
-                success = iTidal.TryGetIdsByRequest(iJsonResponse, aId, kItemLimitPerRequest, offset);
+                success = iTidal.TryGetIdsByRequest(iJsonResponse, aId, kItemLimitPerRequest, offset, connection);
             }
             else {
-                success = iTidal.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset);
+                success = iTidal.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset, connection);
             }
             if (!success) {
                 return aPlaylistId;
