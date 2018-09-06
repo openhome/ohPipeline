@@ -875,8 +875,8 @@ sbrGetEnvelope (HANDLE_SBR_HEADER_DATA hHeaderData,  /*!< Static control data */
 
 
 //static const FRAME_INFO v_frame_info1_8 = { 0, 1, {0, 8}, {1}, -1, 1, {0, 8} };
-static const FRAME_INFO v_frame_info2_8 = { 0, 2, {0, 4, 8}, {1, 1}, -1, 2, {0, 4, 8} };
-static const FRAME_INFO v_frame_info4_8 = { 0, 4, {0, 2, 4, 6, 8}, {1, 1, 1, 1}, -1, 2, {0, 4, 8} };
+//static const FRAME_INFO v_frame_info2_8 = { 0, 2, {0, 4, 8}, {1, 1}, -1, 2, {0, 4, 8} };
+//static const FRAME_INFO v_frame_info4_8 = { 0, 4, {0, 2, 4, 6, 8}, {1, 1, 1, 1}, -1, 2, {0, 4, 8} };
 
 /***************************************************************************/
 /*!
