@@ -240,12 +240,13 @@ TBool CodecAacFdkAdts::Recognise(const EncodedStreamInfo& aStreamInfo)
 
 void CodecAacFdkAdts::StreamInitialise()
 {
-    LOG(kCodec, "CodecAacFdkAdts::StreamInitialise\n");
+    LOG(kCodec, ">CodecAacFdkAdts::StreamInitialise\n");
 
     CodecAacFdkBase::StreamInitialise();
 
     iChannels = iAdts.ChannelConfig() == 0 ? 2 : iAdts.ChannelConfig();
     iSampleRate = iAdts.SamplingFreq();
+    iOutputSampleRate = iSampleRate;
 
     TUint rate;
     TUint incr;
@@ -279,11 +280,14 @@ void CodecAacFdkAdts::StreamInitialise()
     iTrackLengthJiffies = (iSamplesTotal * Jiffies::kPerSecond) / iSampleRate;
     iTrackOffset = 0;
 
-    LOG(kCodec, "CodecAacFdkAdts::StreamInitialise iBitrateAverage %u, iBitDepth %u, iSampleRate: %u, iSamplesTotal %llu, iChannels %u, iTrackLengthJiffies %u\n", iBitrateAverage, iBitDepth, iOutputSampleRate, iSamplesTotal, iChannels, iTrackLengthJiffies);
+    LOG(kCodec, "CodecAacFdkAdts::StreamInitialise iBitrateAverage %u, iBitDepth %u, iSampleRate: %u, iSamplesTotal %llu, iChannels %u, iTrackLengthJiffies %llu\n", iBitrateAverage, iBitDepth, iOutputSampleRate, iSamplesTotal, iChannels, iTrackLengthJiffies);
+
     // Output decoded stream here, if possible. Otherwise, let it be picked up when decoding starts.
-    if (iSampleRate != 0 && iChannels != 0) {
+    if (iOutputSampleRate != 0 && iChannels != 0) {
         iController->OutputDecodedStream(iBitrateAverage, iBitDepth, iOutputSampleRate, iChannels, kCodecAac, iTrackLengthJiffies, 0, false, DeriveProfile(iChannels));
     }
+
+    LOG(kCodec, "<CodecAacFdkAdts::StreamInitialise\n");
 }
 
 void CodecAacFdkAdts::Process()
@@ -341,7 +345,7 @@ void CodecAacFdkAdts::ProcessAdts()
             const TUint64 sampleStart = iTrackOffset / jiffiesPerSample;
 
             // Output decoded stream here, if possible. Otherwise, let it be picked up during decoding.
-            if (iSampleRate != 0 && iChannels != 0) {
+            if (iOutputSampleRate != 0 && iChannels != 0) {
                 iController->OutputDecodedStream(iBitrateAverage, iBitDepth, iOutputSampleRate, iChannels, kCodecAac, iTrackLengthJiffies, sampleStart, false, DeriveProfile(iChannels));
             }
         }
@@ -379,6 +383,6 @@ void CodecAacFdkAdts::ProcessAdts()
         iStreamEnded = true;
         //LOG(kCodec, "CodecAacFdkAdts::ProcessAdts caught CodecStreamEnded\n");
     }
-    
+
     FlushOutput();
 }
