@@ -13,13 +13,11 @@ class CodecBase;
 class CodecFactory
 {
 public:
-    static CodecBase* NewAac(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewAacFdkAdts(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewAacFdkMp4(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewAifc(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewAiff(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewAlacApple(IMimeTypeList& aMimeTypeList);
-    static CodecBase* NewAdts(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewFlac(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewMp3(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewDsdDsf(IMimeTypeList& aMimeTypeList);
