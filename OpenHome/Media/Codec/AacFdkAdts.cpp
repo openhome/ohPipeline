@@ -40,6 +40,9 @@ private:
 
 class CodecAacFdkAdts : public CodecAacFdkBase
 {
+private:
+    static const TUint kMaxRecogBytes = 6 * 1024; // copied from previous CodecController behaviour
+    static const TUint kHeaderBytes = 7;
 public:
     CodecAacFdkAdts(IMimeTypeList& aMimeTypeList);
     ~CodecAacFdkAdts();
@@ -52,7 +55,6 @@ private: // from CodecBase
 private:
     void ProcessAdts();
 private:
-    static const TUint kMaxRecogBytes = 6 * 1024; // copied from previous CodecController behaviour
     Bws<kMaxRecogBytes> iRecogBuf;
     Adts iAdts;
 };
@@ -310,10 +312,9 @@ void CodecAacFdkAdts::ProcessAdts()
     // Process 1 packet.
     try {
         // Read in a single aac frame at a time.
-        TUint headerBytes = 7;
         iInBuf.SetBytes(0);
-        iController->Read(iInBuf, headerBytes);
-        if (iInBuf.Bytes() < headerBytes) {
+        iController->Read(iInBuf, kHeaderBytes);
+        if (iInBuf.Bytes() < kHeaderBytes) {
             THROW(CodecStreamEnded);
         }
 
@@ -335,7 +336,7 @@ void CodecAacFdkAdts::ProcessAdts()
             // Failed to find header. Shift buffer along by 1 byte and append next byte to end, then attempt to re-recognise header.
             iInBuf.Replace(iInBuf.Ptr()+1, iInBuf.Bytes()-1);
             iController->Read(iInBuf, 1);
-            if (iInBuf.Bytes() < headerBytes) {
+            if (iInBuf.Bytes() < kHeaderBytes) {
                 THROW(CodecStreamEnded);
             }
         }
@@ -357,9 +358,9 @@ void CodecAacFdkAdts::ProcessAdts()
         }
         LOG(kCodec, ", payloadBytes: %u, aacFrames: %u\n", adts.PayloadBytes(), adts.AacFrames());
 
-        if(adts.HeaderBytes() > 7) {
+        if(adts.HeaderBytes() > kHeaderBytes) {
             // This is a 9-byte header (standard 7-byte header + 2 bytes CRC). Read remainder of header.
-            TUint readBytes = adts.HeaderBytes()-7;
+            TUint readBytes = adts.HeaderBytes() - kHeaderBytes;
             iController->Read(iInBuf, readBytes);
             if (iInBuf.Bytes() < readBytes) {
                 THROW(CodecStreamEnded);
