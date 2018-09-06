@@ -105,22 +105,6 @@ def configure(conf):
         'thirdparty/apple_alac/codec/',
         ]
 
-    # Setup AAC lib options
-    if conf.options.dest_platform in ['Windows-x86', 'Windows-x64']:
-        conf.env.DEFINES_AAC = ['WIN32', 'MONO_ONLY', 'LP_SBR_ONLY']
-    else:
-        conf.env.DEFINES_AAC = ['linux', 'i386', 'MONO_ONLY', 'LP_SBR_ONLY']
-    conf.env.INCLUDES_AAC = [
-        'thirdparty/ETSI_aacPlusdec/src',
-        'thirdparty/ETSI_aacPlusdec/etsiop_aacdec',
-        'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src',
-        'thirdparty/ETSI_aacPlusdec/etsiop_bitbuf',
-        'thirdparty/ETSI_aacPlusdec/etsiop_ffrlib',
-        'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec',
-        'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src',
-        'thirdparty/ETSI_aacPlusdec/etsioplib',
-        ]
-
     # Setup FDK AAC lib.
     # FDK AAC is maintained as part of the Android Open Source Project (AOSP): https://android.googlesource.com/platform/external/aac/+/master/
     # However, we are using a stand-alone version maintained here: https://github.com/mstorsjo/fdk-aac
@@ -591,72 +575,6 @@ def build(bld):
             use=['CodecAlacAppleBase', 'OHNET'],
             target='CodecAlacApple')
 
-    # AACBase
-    bld.stlib(
-            source=[
-                'OpenHome/Media/Codec/AacBase.cpp',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/aacdecoder.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/shortblock.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/longblock.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/aac_ram.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/aac_rom.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/bitstream.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/block.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/channel.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/channelinfo.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/conceal.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/datastream.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/imdct.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/pns.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/pulsedata.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/stereo.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/streaminfo.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_aacdec/src/tns.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_bitbuf/src/bitbuffer.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_ffrlib/src/dsp_fft32x32s.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_ffrlib/src/intrinsics-native.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_ffrlib/src/transcendent.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_ffrlib/src/transcendent_enc.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_ffrlib/src/vector.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/aacpluscheck.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/env_calc.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/env_dec.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/env_extr.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/freq_sca.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/hybrid.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/lpp_tran.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/ps_bitdec.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/ps_dec.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/qmf_dec.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/sbr_crc.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/sbr_dec.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/sbr_ram.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/sbr_rom.c',
-                'thirdparty/ETSI_aacPlusdec/etsiop_sbrdec/src/sbrdecoder.c',
-                'thirdparty/ETSI_aacPlusdec/etsioplib/basicop2.c',
-                'thirdparty/ETSI_aacPlusdec/etsioplib/count.c',
-                'thirdparty/ETSI_aacPlusdec/etsioplib/oper_32b.c',
-                'thirdparty/ETSI_aacPlusdec/src/spline_resampler.c',
-            ],
-            use=['AAC', 'OHNET', 'ohMediaPlayer'],
-            target='CodecAacBase')
-
-    # AAC
-    bld.stlib(
-            source=[
-                'OpenHome/Media/Codec/Aac.cpp',
-            ],
-            use=['CodecAacBase', 'OHNET'],
-            target='CodecAac')
-
-    # ADTS
-    bld.stlib(
-            source=[
-                'OpenHome/Media/Codec/Adts.cpp',
-            ],
-            use=['CodecAacBase', 'OHNET'],
-            target='CodecAdts')
-
     # AacFdkBase
     bld.stlib(
             source=[
@@ -894,7 +812,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestPins.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAac', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecAdts', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
@@ -1278,9 +1196,6 @@ def bundle(ctx):
                  'CodecAacFdkAdts',
                  'CodecAacFdkBase',
                  'CodecAacFdkMp4',
-                 'CodecAac',
-                 'CodecAacBase',
-                 'CodecAdts',
                  'CodecAifc',
                  'CodecAiff',
                  'CodecAiffBase',
