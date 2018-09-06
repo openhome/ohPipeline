@@ -114,7 +114,7 @@ void CodecAacFdkBase::DecodeFrame()
             THROW(CodecStreamCorrupt);
         }
 
-        auto errDecode = aacDecoder_DecodeFrame(iDecoderHandle, (INT_PCM*) iOutBuf.Ptr(), (const INT) iOutBuf.BytesRemaining(), 0);
+        auto errDecode = aacDecoder_DecodeFrame(iDecoderHandle, (INT_PCM*) iOutBuf.Ptr(), (const INT) (iOutBuf.BytesRemaining() / sizeof(INT_PCM)), 0);
 
         // If AAC_DEC_TRANSPORT_SYNC_ERROR encountered should "just feed new bitstream data" (see aacdecoder_lib.h).
         if (errDecode != AAC_DEC_OK && errDecode != AAC_DEC_TRANSPORT_SYNC_ERROR) {
@@ -164,7 +164,7 @@ void CodecAacFdkBase::DecodeFrame()
 
             iOutBuf.Replace(iOutBuf.Ptr() + outBuf.Bytes(), iOutBuf.Bytes() - outBuf.Bytes());
         }
-        
+
         //LOG(kCodec, "CodecAac::iSamplesWrittenTotal: %llu\n", iTotalSamplesOutput);
     }
 }
