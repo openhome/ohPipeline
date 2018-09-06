@@ -19,6 +19,7 @@
 #include <OpenHome/Private/Parser.h>
 
 #include <algorithm>
+#include <atomic>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -61,6 +62,7 @@ TidalPins::TidalPins(Tidal& aTidal,
     , iTidalMetadata(aTrackFactory)
     , iPin(iPinIdProvider)
     , iEnv(aEnv)
+    , iInterrupted(false)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
@@ -81,6 +83,7 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         return;
     }
     AutoPinComplete completion(aCompleted);
+    iInterrupted.store(false);
     iTidal.Login(iToken);
     (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
                          aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
@@ -91,6 +94,7 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 
 void TidalPins::Cancel()
 {
+    iInterrupted.store(true);
     iTidal.Interrupt(true);
 }
 
@@ -317,6 +321,11 @@ TBool TidalPins::LoadContainers(const Brx& aPath, TidalMetadata::EIdType aIdType
 
 TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount)
 {
+    if (iInterrupted.load()) {
+        LOG(kMedia, "TidalPins::LoadTracksById - interrupted\n");
+        THROW(TidalPinsInterrupted);
+    }
+
     TUint newId = 0;
     TUint currId = aPlaylistId;
     TBool initPlay = (aPlaylistId == 0);
@@ -341,7 +350,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
                 success = iTidal.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset);
             }
             if (!success) {
-                return false;
+                return aPlaylistId;
             }
             UpdateOffset(total, end, false, offset);
 

@@ -2,6 +2,7 @@
 
 #include <OpenHome/Av/Credentials.h>
 #include <OpenHome/Types.h>
+#include <OpenHome/Exception.h>
 #include <OpenHome/SocketSsl.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Private/Http.h>
@@ -12,6 +13,10 @@
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Pins/Pins.h>
+
+#include <atomic>
+
+EXCEPTION(TidalPinsInterrupted)
         
 namespace OpenHome {
     class Environment;
@@ -66,6 +71,7 @@ private:
     PinIdProvider iPinIdProvider;
     Pin iPin;
     Environment& iEnv;
+    std::atomic<TBool> iInterrupted;
 };
 
 };  // namespace Av
