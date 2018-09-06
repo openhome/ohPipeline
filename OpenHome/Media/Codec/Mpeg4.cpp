@@ -2670,7 +2670,8 @@ Msg* Mpeg4OutOfBandReader::Pull()
             iDiscardBytes = 0;
         }
         else {
-            iReadBuffer.Replace(iReadBuffer.Ptr() + iDiscardBytes, iReadBuffer.Bytes() - iDiscardBytes);
+            Brn remaining(iReadBuffer.Ptr() + iDiscardBytes, iReadBuffer.Bytes() - iDiscardBytes);
+            iReadBuffer.Replace(remaining);
             iDiscardBytes = 0;
         }
     }

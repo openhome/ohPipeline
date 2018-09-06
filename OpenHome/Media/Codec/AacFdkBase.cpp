@@ -162,7 +162,8 @@ void CodecAacFdkBase::DecodeFrame()
             iTrackOffset += iController->OutputAudioPcm(outBuf, iChannels, iOutputSampleRate, iBitDepth, iEndianness, iTrackOffset);
             iTotalSamplesOutput += samplesToWrite;
 
-            iOutBuf.Replace(iOutBuf.Ptr() + outBuf.Bytes(), iOutBuf.Bytes() - outBuf.Bytes());
+            Brn remaining(iOutBuf.Ptr() + outBuf.Bytes(), iOutBuf.Bytes() - outBuf.Bytes());
+            iOutBuf.Replace(remaining);
         }
 
         //LOG(kCodec, "CodecAac::iSamplesWrittenTotal: %llu\n", iTotalSamplesOutput);
