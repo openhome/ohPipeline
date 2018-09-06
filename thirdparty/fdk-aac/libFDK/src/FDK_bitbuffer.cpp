@@ -110,8 +110,6 @@ const UINT BitMask [32+1] =
   0xffffffff
 };
 
-const UINT *const RESTRICT pBitMask = BitMask;
-
 void FDK_CreateBitBuffer (HANDLE_FDK_BITBUF *hBitBuf, UCHAR *pBuffer,
                           UINT bufSize)
 {
