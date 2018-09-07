@@ -360,6 +360,7 @@ amm-info@iis.fraunhofer.de
   #pragma warning( disable : 4505 )
   #pragma warning( disable : 4701 )
   #pragma warning( disable : 4706 )
+  #pragma warning( disable : 4389 )
 #endif
 
 #endif /* __MACHINE_TYPE_H__ */
