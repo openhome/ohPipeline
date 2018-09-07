@@ -1210,6 +1210,7 @@ def bundle(ctx):
                  'SourceRaop',
                  'SourceScd',
                  'SourceUpnpAv',
+                 'CodecAacFdk',
                  'CodecAacFdkAdts',
                  'CodecAacFdkBase',
                  'CodecAacFdkMp4',
