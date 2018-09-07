@@ -84,6 +84,7 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
     }
     AutoPinComplete completion(aCompleted);
     iInterrupted.store(false);
+    iTidal.Interrupt(false);
     iTidal.Login(iToken);
     (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
                          aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
