@@ -90,7 +90,7 @@ amm-info@iis.fraunhofer.de
 
 
 
-#define _CRT_SECURE_NO_WARNINGS
+//#define _CRT_SECURE_NO_WARNINGS
 
 #include <stdarg.h>
 #include <stdio.h>
