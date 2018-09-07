@@ -701,7 +701,7 @@ def build(bld):
             target='CodecMp3')
 
     # Vorbis
-    bld.stlib(
+    vorbis = bld.stlib(
             source=[
                 'OpenHome/Media/Codec/Vorbis.cpp',
                 'thirdparty/Tremor/block.c',
@@ -720,6 +720,9 @@ def build(bld):
             ],
             use=['VORBIS', 'OGG', 'libOgg', 'OHNET'],
             target='CodecVorbis')
+    # Vorbis decoder reports warnings under msvc compiler. Ignore these as it is third-party code.
+    if bld.env.CC_NAME == 'msvc':
+        vorbis.cflags=['/w']
 
     # WebAppFramework
     bld.stlib(
