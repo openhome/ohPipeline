@@ -575,11 +575,9 @@ def build(bld):
             use=['CodecAlacAppleBase', 'OHNET'],
             target='CodecAlacApple')
 
-    # AacFdkBase
-    bld.stlib(
+    # AacFdk (raw decoder only; no codec wrapper).
+    aac_fdk = bld.stlib(
             source=[
-                'OpenHome/Media/Codec/AacFdkBase.cpp',
-
                 'thirdparty/fdk-aac/libAACdec/src/aacdec_drc.cpp',
                 'thirdparty/fdk-aac/libAACdec/src/aacdec_hcr_bit.cpp',
                 'thirdparty/fdk-aac/libAACdec/src/aacdec_hcr.cpp',
@@ -648,7 +646,17 @@ def build(bld):
                 'thirdparty/fdk-aac/libSYS/src/genericStds.cpp',
                 'thirdparty/fdk-aac/libSYS/src/wav_file.cpp'
             ],
-            use=['AAC_FDK', 'OHNET', 'ohMediaPlayer'],
+            use=['AAC_FDK', 'OHNET'],
+            target='CodecAacFdk')
+    if bld.env.CXX_NAME == 'msvc':
+        aac_fdk.cxxflags=['/w']         # Ignore all warnings for third-party libfdk-aac decoder when compiling under msvc.
+
+    # AacFdkBase
+    bld.stlib(
+            source=[
+                'OpenHome/Media/Codec/AacFdkBase.cpp'
+            ],
+            use=['CodecAacFdk', 'OHNET'],
             target='CodecAacFdkBase')
 
     # AacFdkMp4
