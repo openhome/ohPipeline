@@ -1340,6 +1340,8 @@ TRANSPORTDEC_ERROR transportDec_CrcCheck(HANDLE_TRANSPORTDEC pTp)
   case TT_MP4_ADTS:
     if ( (pTp->parser.adts.bs.num_raw_blocks > 0) && (pTp->parser.adts.bs.protection_absent == 0) )
     {
+      HANDLE_FDK_BITSTREAM hBs = &pTp->bitStream[0];
+      
       transportDec_AdjustEndOfAccessUnit(pTp);
     }
     return adtsRead_CrcCheck(&pTp->parser.adts);

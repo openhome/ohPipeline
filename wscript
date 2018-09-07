@@ -107,9 +107,10 @@ def configure(conf):
 
     # Setup FDK AAC lib.
     # FDK AAC is maintained as part of the Android Open Source Project (AOSP): https://android.googlesource.com/platform/external/aac/+/master/
-    # However, we are using a stand-alone version maintained here: https://github.com/mstorsjo/fdk-aac
-    # 651ff34d8d35fb6a3b75471d54b271852f5924cc
-    # (Mon Sep 3 10:44:32 2018 +0300)
+    # However, we are using a stand-alone version with PowerPC optimisations maintained here: https://github.com/mstorsjo/fdk-aac
+    # We are also using an older version, from before FDKv2, as FDKv2 causes memory corruption when attempting to decode any AAC file on Core-ppc32 platform, resulting in a crash (but works fine on all other platforms).
+    # a30bfced6b6d6d976c728552d247cb30dd86e238
+    # (Tue Mar 6 12:22:48 2018 +0200)
     conf.env.DEFINES_AAC_FDK = ['FDK_ASSERT_ENABLE']
     if conf.options.dest_platform not in ['Core-ppc32']:
         conf.env.append_value('DEFINES', ['FDK_LITTLE_ENDIAN']) # Not setting FDK_LITTLE_ENDIAN assumes big endian.
@@ -650,6 +651,8 @@ def build(bld):
             target='CodecAacFdk')
     if bld.env.CXX_NAME == 'msvc':
         aac_fdk.cxxflags=['/w']         # Ignore all warnings for third-party libfdk-aac decoder when compiling under msvc.
+    elif bld.env.CXX_NAME == 'gcc':
+        aac_fdk.cxxflags=['-w']         # Ignore all warnings for third-party libfdk-aac decoder when compiling under gcc.
 
     # AacFdkBase
     bld.stlib(

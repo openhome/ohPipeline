@@ -512,6 +512,7 @@ AAC_DECODER_ERROR  CBlock_ReadSpectralData(HANDLE_FDK_BITSTREAM bs,
   const SHORT *RESTRICT BandOffsets = GetScaleFactorBandOffsets(&pAacDecoderChannelInfo->icsInfo, pSamplingRateInfo);
 
   SPECTRAL_PTR pSpectralCoefficient = pAacDecoderChannelInfo->pSpectralCoefficient;
+  FIXP_DBL locMax;
 
   int ScaleFactorBandsTransmitted = GetScaleFactorBandsTransmitted(&pAacDecoderChannelInfo->icsInfo);
 
@@ -551,6 +552,8 @@ AAC_DECODER_ERROR  CBlock_ReadSpectralData(HANDLE_FDK_BITSTREAM bs,
             window = groupoffset + groupwin;
 
             FIXP_DBL *mdctSpectrum = SPEC(pSpectralCoefficient, window, pAacDecoderChannelInfo->granuleLength);
+
+            locMax = (FIXP_DBL)0 ;
 
             for (index=BandOffsets[band]; index < BandOffsets[band+1]; index+=step)
             {

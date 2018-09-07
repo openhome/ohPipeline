@@ -881,8 +881,7 @@ SBR_ERROR sbrDecoder_drcFeedChannel ( HANDLE_SBRDECODER  self,
                                       USHORT            *pBandTop )
 {
   SBRDEC_DRC_CHANNEL *pSbrDrcChannelData = NULL;
-  UINT band;
-  int isValidData = 0;
+  int band, isValidData = 0;
 
   if (self == NULL) {
     return SBRDEC_NOT_INITIALIZED;
@@ -959,7 +958,7 @@ SBR_ERROR sbrDecoder_Parse(
         int fGlobalIndependencyFlag
         )
 {
-  SBR_DECODER_ELEMENT   *hSbrElement = NULL;
+  SBR_DECODER_ELEMENT   *hSbrElement;
   HANDLE_SBR_HEADER_DATA hSbrHeader = NULL;
   HANDLE_SBR_CHANNEL    *pSbrChannel;
 

@@ -273,8 +273,16 @@ void  FDKafree (void *ptr)
  *--------------------------------------------------------------------------*/
 void *FDKcalloc_L(const UINT dim, const UINT size, MEMORY_SECTION s)
 {
+  int a_size;
+
   if (s == SECT_DATA_EXTERN)
     goto fallback;
+
+  a_size = ((dim*size+3)&0xfffffffc); /* force 4 byte alignment (1111 .... 1111 1100) */
+
+
+
+
 
   //printf("Warning, out of internal memory\n");
 

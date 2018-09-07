@@ -165,7 +165,8 @@ typedef enum {
   /** See #H_ALLOC_MEM for description. */
   #define C_ALLOC_MEM_STATIC(name,type,num) \
     static type * Get ## name(int n) { FDK_ASSERT((n) == 0); return ((type*)FDKcalloc(num, sizeof(type))); } \
-    static void Free ## name(type** p) { if (p != NULL) { FDKfree(*p); *p=NULL; } }
+    static void Free ## name(type** p) { if (p != NULL) { FDKfree(*p); *p=NULL; } } \
+    static UINT GetRequiredMem ## name(void) { return ALGN_SIZE_EXTRES((num) * sizeof(type)); }
 
   /** See #H_ALLOC_MEM for description. */
   #define C_ALLOC_MEM2(name,type,n1,n2) \

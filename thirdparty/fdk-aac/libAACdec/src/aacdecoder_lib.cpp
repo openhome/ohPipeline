@@ -400,12 +400,14 @@ aacDecoder_SetParam ( const HANDLE_AACDECODER  self,   /*!< Handle of the decode
                       const INT                value)  /*!< Parameter valued               */
 {
   AAC_DECODER_ERROR errorStatus = AAC_DEC_OK;
+  CConcealParams  *pConcealData = NULL;
   HANDLE_AAC_DRC hDrcInfo = NULL;
   HANDLE_PCM_DOWNMIX hPcmDmx = NULL;
   TDLimiterPtr hPcmTdl = NULL;
 
   /* check decoder handle */
   if (self != NULL) {
+    pConcealData = &self->concealCommonData;
     hDrcInfo = self->hDrcInfo;
     hPcmDmx = self->hPcmUtils;
     hPcmTdl = self->hLimiter;
