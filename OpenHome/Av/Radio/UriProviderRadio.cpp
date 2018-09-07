@@ -14,6 +14,7 @@ using namespace OpenHome::Media;
 // UriProviderRadio
 
 const Brn UriProviderRadio::kCommandId("id");
+const Brn UriProviderRadio::kCommandIndex("index");
 
 UriProviderRadio::UriProviderRadio(TrackFactory& aTrackFactory,
                                    IPresetDatabaseReaderTrack& aDbReader)
@@ -136,21 +137,29 @@ void UriProviderRadio::MovePrevious()
 
 void UriProviderRadio::MoveTo(const Brx& aCommand)
 {
-    if (!aCommand.BeginsWith(kCommandId)) {
+    const TBool byId = aCommand.BeginsWith(kCommandId);
+    const TBool byIndex = aCommand.BeginsWith(kCommandIndex);
+    if (!byId && !byIndex) {
         THROW(FillerInvalidCommand);
     }
 
     Parser parser(aCommand);
     parser.Next('=');
     Brn buf = parser.NextToEnd();
-    TUint id = IPresetDatabaseReader::kPresetIdNone;
+    TUint num = IPresetDatabaseReader::kPresetIdNone;
     try {
-        id = Ascii::Uint(buf);
+        num = Ascii::Uint(buf);
     }
     catch (AsciiError&) {
         THROW(FillerInvalidCommand);
     }
-    auto track = iDbReader.TrackRefById(id);
+    Track* track = nullptr;
+    if (byId) {
+        track = iDbReader.TrackRefById(num);
+    }
+    else { // byIndex
+        track = iDbReader.TrackRefByIndex(num);
+    }
     if (track == nullptr) {
         THROW(FillerInvalidCommand);
     }

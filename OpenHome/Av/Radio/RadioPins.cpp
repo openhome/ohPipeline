@@ -82,7 +82,7 @@ TBool RadioPins::LoadPreset(const Brx& aPreset)
 TBool RadioPins::LoadPreset(TUint aPreset)
 {
     try {
-        Bws<10> preset("id=");
+        Bws<10> preset("index=");
         Ascii::AppendDec(preset, aPreset);
         iCpTransport->SyncPlayAs(Brn("Radio"), preset);
         return true;

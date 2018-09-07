@@ -60,6 +60,7 @@ public:
     virtual Media::Track* PrevTrackRef(TUint& aId) = 0;
     virtual Media::Track* FirstTrackRef() = 0;
     virtual Media::Track* LastTrackRef() = 0;
+    virtual Media::Track* TrackRefByIndex(TUint aIndex) = 0;
 };
 
 class PresetDatabase : public IPresetDatabaseWriter
@@ -97,6 +98,7 @@ public: // from IPresetDatabaseReaderTrack
     Media::Track* PrevTrackRef(TUint& aId) override;
     Media::Track* FirstTrackRef() override;
     Media::Track* LastTrackRef() override;
+    Media::Track* TrackRefByIndex(TUint aIndex) override;
 private:
     TBool TryGetPresetByIdLocked(TUint aId, Bwx& aMetaData) const;
 private:

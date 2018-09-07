@@ -14,6 +14,7 @@ class IPresetDatabaseReaderTrack;
 class UriProviderRadio : public Media::UriProvider
 {
     static const Brn kCommandId;
+    static const Brn kCommandIndex;
 public:
     UriProviderRadio(Media::TrackFactory& aTrackFactory, IPresetDatabaseReaderTrack& aDbReader);
     ~UriProviderRadio();

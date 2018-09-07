@@ -278,6 +278,19 @@ Media::Track* PresetDatabase::LastTrackRef()
     return nullptr;
 }
 
+Media::Track* PresetDatabase::TrackRefByIndex(TUint aIndex)
+{
+    AutoMutex _(iLock);
+    if (aIndex >= kMaxPresets) {
+        return nullptr;
+    }
+    const Preset& preset = iPresets[aIndex];
+    if (!preset.IsEmpty()) {
+        return iTrackFactory.CreateTrack(preset.Uri(), preset.MetaData());
+    }
+    return nullptr;
+}
+
 
 // PresetDatabase::Preset
 
