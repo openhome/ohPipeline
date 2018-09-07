@@ -352,14 +352,6 @@ amm-info@iis.fraunhofer.de
    * We consider this warning irrelevant and disable it.
    */
   #pragma warning( disable : 4065 )
-  #pragma warning( disable : 4100 )
-  #pragma warning( disable : 4244 )
-  #pragma warning( disable : 4310 )
-  #pragma warning( disable : 4456 )
-  #pragma warning( disable : 4459 )
-  #pragma warning( disable : 4505 )
-  #pragma warning( disable : 4701 )
-  #pragma warning( disable : 4706 )
 #endif
 
 #endif /* __MACHINE_TYPE_H__ */
