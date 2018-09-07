@@ -649,10 +649,13 @@ def build(bld):
             ],
             use=['AAC_FDK', 'OHNET'],
             target='CodecAacFdk')
+    # Ignore all warnings for third-party libfdk-aac decoder.
     if bld.env.CXX_NAME == 'msvc':
-        aac_fdk.cxxflags=['/w']         # Ignore all warnings for third-party libfdk-aac decoder when compiling under msvc.
-    elif bld.env.CXX_NAME == 'gcc':
-        aac_fdk.cxxflags=['-w']         # Ignore all warnings for third-party libfdk-aac decoder when compiling under gcc.
+        aac_fdk.cxxflags=['/w']
+    elif bld.env.CXX_NAME == 'g++' or bld.env.CXX_NAME == 'gcc':
+        aac_fdk.cxxflags=['-w']
+    elif bld.env.CXX_NAME == 'clang++' or bld.env.CXX_NAME == 'clang':
+        aac_fdk.cxxflags=['-w']
 
     # AacFdkBase
     bld.stlib(
