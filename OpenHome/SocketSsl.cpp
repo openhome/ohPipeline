@@ -37,6 +37,7 @@ public:
     void Close();
     void Interrupt(TBool aInterrupt);
     void LogVerbose(TBool aVerbose);
+    TBool IsConnected() const;
 public: // from IWriter
     void Write(TByte aValue) override;
     void Write(const Brx& aBuffer) override;
@@ -134,6 +135,11 @@ void SocketSsl::Interrupt(TBool aInterrupt)
 void SocketSsl::LogVerbose(TBool aVerbose)
 {
     iImpl->LogVerbose(aVerbose);
+}
+
+TBool SocketSsl::IsConnected() const
+{
+    return iImpl->IsConnected();
 }
 
 void SocketSsl::Write(TByte aValue)
@@ -280,6 +286,11 @@ void SocketSslImpl::Interrupt(TBool aInterrupt)
 void SocketSslImpl::LogVerbose(TBool aVerbose)
 {
     iVerbose = aVerbose;
+}
+
+TBool SocketSslImpl::IsConnected() const
+{
+    return iConnected;
 }
 
 void SocketSslImpl::Write(TByte aValue)

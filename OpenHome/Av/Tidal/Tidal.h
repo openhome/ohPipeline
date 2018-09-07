@@ -14,6 +14,7 @@
         
 namespace OpenHome {
     class Environment;
+    class Timer;
 namespace Configuration {
     class IConfigInitialiser;
     class ConfigChoice;
@@ -34,8 +35,14 @@ class Tidal : public ICredentialConsumer
     static const Brn kId;
     static const TUint kMaxStatusBytes = 512;
     static const TUint kMaxPathAndQueryBytes = 512;
+    static const TUint kSocketKeepAliveMs = 5000; // close socket after 5s inactivity
 public:
     static const Brn kConfigKeySoundQuality;
+    enum class Connection
+    {
+        KeepAlive,
+        Close
+    };
 public:
     Tidal(Environment& aEnv, const Brx& aToken, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser);
     ~Tidal();
@@ -43,10 +50,10 @@ public:
     TBool TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken);
     TBool TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl);
     TBool TryLogout(const Brx& aSessionId);
-    TBool TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType);
-    TBool TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse);
-    TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset);
-    TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset);
+    TBool TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection = Connection::KeepAlive);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
     const Brx& Id() const override;
@@ -60,16 +67,18 @@ private:
     TBool TryLoginLocked(Bwx& aSessionId);
     TBool TryLogoutLocked(const Brx& aSessionId);
     TBool TryGetSubscriptionLocked();
-    TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset);
-    void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength = 0);
+    TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, Connection aConnection);
+    void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, Connection aConnection = Connection::Close, TUint aContentLength = 0);
     static Brn ReadInt(ReaderUntil& aReader, const Brx& aTag);
     static Brn ReadString(ReaderUntil& aReader, const Brx& aTag);
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
+    void SocketInactive();
 private:
     Mutex iLock;
     Mutex iLockConfig;
     ICredentialsState& iCredentialsState;
     SocketSsl iSocket;
+    Timer* iTimerSocketActivity;
     Srs<1024> iReaderBuf;
     ReaderUntilS<kReadBufferBytes> iReaderUntil;
     Sws<kWriteBufferBytes> iWriterBuf;

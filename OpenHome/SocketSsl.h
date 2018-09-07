@@ -21,6 +21,7 @@ public:
     void Close();
     void Interrupt(TBool aInterrupt);
     void LogVerbose(TBool aVerbose);
+    TBool IsConnected() const;
 public: // from IWriter
     void Write(TByte aValue) override;
     void Write(const Brx& aBuffer) override;

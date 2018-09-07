@@ -383,6 +383,7 @@ TBool Product::DoSetCurrentSourceLocked(TUint aIndex, TBool aReActivateIfNoSourc
         }
         iCurrentSource = aIndex;
         iLastSelectedSource->Set(iSources[iCurrentSource]->SystemName());
+        iLastSelectedSource->Write();
         {
             AutoMutex amx(iObserverLock);
             for (auto observer : iObservers) {
@@ -520,6 +521,7 @@ void Product::ActivateIfNotActive(ISource& aSource, TBool aPrefetchAllowed)
         if (name == nameExpected) {
             iCurrentSource = i;
             iLastSelectedSource->Set(iSources[iCurrentSource]->SystemName());
+            iLastSelectedSource->Write();
             srcNew = iSources[i];
             srcNew->Activate(iAutoPlay, aPrefetchAllowed);
             {

@@ -8,6 +8,7 @@
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Stream.h>
+#include <OpenHome/Private/Timer.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
@@ -44,6 +45,7 @@ Tidal::Tidal(Environment& aEnv, const Brx& aToken, ICredentialsState& aCredentia
     , iPassword(kGranularityPassword)
     , iUri(1024)
 {
+    iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Tidal::SocketInactive), "Tidal");
     iReaderResponse.AddHeader(iHeaderContentLength);
     const int arr[] = {0, 1, 2};
     std::vector<TUint> qualities(arr, arr + sizeof(arr)/sizeof(arr[0]));
@@ -54,18 +56,21 @@ Tidal::Tidal(Environment& aEnv, const Brx& aToken, ICredentialsState& aCredentia
 
 Tidal::~Tidal()
 {
+    delete iTimerSocketActivity;
     iConfigQuality->Unsubscribe(iSubscriberIdQuality);
     delete iConfigQuality;
 }
 
 TBool Tidal::TryLogin(Bwx& aSessionId)
 {
+    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
     AutoMutex _(iLock);
     return TryLoginLocked(aSessionId);
 }
 
 TBool Tidal::TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
 {
+    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
     AutoMutex _(iLock);
     if (iSessionId.Bytes() == 0 || aCurrentToken == iSessionId) {
         (void)TryLogoutLocked(aCurrentToken);
@@ -81,6 +86,7 @@ TBool Tidal::TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
 
 TBool Tidal::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
 {
+    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
     AutoMutex _(iLock);
     TBool success = false;
     if (!TryConnect(kPort)) {
@@ -129,11 +135,12 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
 
 TBool Tidal::TryLogout(const Brx& aSessionId)
 {
+    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
     AutoMutex _(iLock);
     return TryLogoutLocked(aSessionId);
 }
 
-TBool Tidal::TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType)
+TBool Tidal::TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType, Connection aConnection)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
 
@@ -142,10 +149,10 @@ TBool Tidal::TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdTyp
     pathAndQuery.Append("&types=");
     pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
 
-    return TryGetResponse(aWriter, kHost, pathAndQuery, 1, 0);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, 1, 0, aConnection);
 }
 
-TBool Tidal::TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse)
+TBool Tidal::TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse, Connection aConnection)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
 
@@ -177,10 +184,10 @@ TBool Tidal::TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdTyp
         pathAndQuery.Append(Brn("/albums?order=NAME&orderDirection=ASC"));
     }
 
-    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimitPerResponse, 0);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimitPerResponse, 0, aConnection);
 }
 
-TBool Tidal::TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset)
+TBool Tidal::TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
     if (aType == TidalMetadata::eMood || aType == TidalMetadata::eSmartExclusive || aType == TidalMetadata::eSavedPlaylist) {
@@ -217,27 +224,27 @@ TBool Tidal::TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::E
         case TidalMetadata::eNone: break;
     }
 
-    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimit, aOffset);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimit, aOffset, aConnection);
 }
 
-TBool Tidal::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset)
+TBool Tidal::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection)
 {
     iUri.SetBytes(0);
     Uri::Unescape(iUri, aRequestUrl);
     iRequest.Replace(iUri);
     iUri.Replace(iRequest.PathAndQuery());
-    return TryGetResponse(aWriter, iRequest.Host(), iUri, aLimitPerResponse, aOffset);
+    return TryGetResponse(aWriter, iRequest.Host(), iUri, aLimitPerResponse, aOffset, aConnection);
 }
 
-TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset)
+TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, Connection aConnection)
 {
+    iTimerSocketActivity->Cancel();
     AutoMutex _(iLock);
     TBool success = false;
     if (!TryConnect(kPort)) {
         LOG_ERROR(kMedia, "Tidal::TryGetResponse - connection failure\n");
         return false;
     }
-    AutoSocketSsl __(iSocket);
     if (!Ascii::Contains(aPathAndQuery, '?')) {
         aPathAndQuery.Append("?");
     }
@@ -255,8 +262,8 @@ TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQue
     }
     
     try {
-        Log::Print("Write Tidal request: http://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
-        WriteRequestHeaders(Http::kMethodGet, aHost, aPathAndQuery, kPort);
+        //Log::Print("Write Tidal request: http://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
+        WriteRequestHeaders(Http::kMethodGet, aHost, aPathAndQuery, kPort, aConnection);
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
@@ -279,14 +286,14 @@ TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQue
 
         success = true;
     }
-    catch (HttpError&) {
-        LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetResponse\n");
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in Tidal::TryGetResponse\n", ex.Message());
     }
-    catch (ReaderError&) {
-        LOG_ERROR(kPipeline, "ReaderError in Tidal::TryGetResponse\n");
+    if (aConnection == Connection::Close) {
+        iSocket.Close();
     }
-    catch (WriterError&) {
-        LOG_ERROR(kPipeline, "WriterError in Tidal::TryGetResponse\n");
+    else { // KeepAlive
+        iTimerSocketActivity->FireIn(kSocketKeepAliveMs);
     }
     return success;
 }
@@ -346,6 +353,9 @@ void Tidal::ReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
 
 TBool Tidal::TryConnect(TUint aPort)
 {
+    if (iSocket.IsConnected()) {
+        return true;
+    }
     Endpoint ep;
     try {
         ep.SetAddress(kHost);
@@ -397,7 +407,7 @@ TBool Tidal::TryLoginLocked()
         Bws<128> pathAndQuery("/v1/login/username?token=");
         pathAndQuery.Append(iToken);
         try {
-            WriteRequestHeaders(Http::kMethodPost, kHost, pathAndQuery, kPort, reqBody.Bytes());
+            WriteRequestHeaders(Http::kMethodPost, kHost, pathAndQuery, kPort, Connection::Close, reqBody.Bytes());
             iWriterBuf.Write(reqBody);
             iWriterBuf.WriteFlush();
 
@@ -509,7 +519,7 @@ TBool Tidal::TryGetSubscriptionLocked()
     pathAndQuery.Append(iSessionId);
 
     try {
-        WriteRequestHeaders(Http::kMethodGet, kHost, pathAndQuery, kPort, 0);
+        WriteRequestHeaders(Http::kMethodGet, kHost, pathAndQuery, kPort);
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
@@ -555,7 +565,7 @@ TBool Tidal::TryGetSubscriptionLocked()
     return success;
 }
 
-void Tidal::WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, TUint aContentLength)
+void Tidal::WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, Connection aConnection, TUint aContentLength)
 {
     iWriterRequest.WriteMethod(aMethod, aPathAndQuery, Http::eHttp11);
     Http::WriteHeaderHostAndPort(iWriterRequest, aHost, aPort);
@@ -563,7 +573,9 @@ void Tidal::WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx&
         Http::WriteHeaderContentLength(iWriterRequest, aContentLength);
     }
     Http::WriteHeaderContentType(iWriterRequest, Brn("application/x-www-form-urlencoded"));
-    Http::WriteHeaderConnectionClose(iWriterRequest);
+    if (aConnection == Connection::Close) {
+        Http::WriteHeaderConnectionClose(iWriterRequest);
+    }
     iWriterRequest.WriteFlush();
 }
 
@@ -602,4 +614,10 @@ void Tidal::QualityChanged(Configuration::KeyValuePair<TUint>& aKvp)
     iLockConfig.Wait();
     iSoundQuality = std::min(aKvp.Value(), iMaxSoundQuality);
     iLockConfig.Signal();
+}
+
+void Tidal::SocketInactive()
+{
+    AutoMutex _(iLock);
+    iSocket.Close();
 }
