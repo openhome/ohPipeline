@@ -151,7 +151,7 @@ public:
     TBool LoadPodcastLatestByPath(const Brx& aPath, IPodcastTransportHandler& aHandler); // TuneIn path (single episode - radio single)
     TBool LoadPodcastListById(const Brx& aId, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn id (episode list - playlist)
     TBool LoadPodcastListByPath(const Brx& aPath, IPodcastTransportHandler& aHandler, TBool aShuffle); // TuneIn path (episode list - playlist)
-    void Cancel();
+    void Cancel(TBool aCancelState);
 private:
     PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
 
@@ -170,6 +170,7 @@ private:
     static Brh iPartnerId;
     Mutex iLock;
     TuneIn* iTuneIn;
+    TBool iStarted;
     WriterBwh iJsonResponse;
     WriterBwh iXmlResponse;
     Media::TrackFactory& iTrackFactory;
@@ -191,7 +192,7 @@ public:
     PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const OpenHome::Brx& aPartnerId);
     ~PodcastPinsLatestEpisodeTuneIn();
     void LoadPodcast(const IPin& aPin); // not required to be a separate pin invoker as it is created as part of TuneInPins
-    void Cancel();
+    void Cancel(TBool aCancelState);
 private:  // from IPodcastTransportHandler
     void Init(TBool aShuffle) override;
     virtual void Load(Media::Track& aTrack) override;

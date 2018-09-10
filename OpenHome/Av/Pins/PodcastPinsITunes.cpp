@@ -67,6 +67,7 @@ void PodcastPinsLatestEpisodeITunes::BeginInvoke(const IPin& aPin, Functor aComp
         return;
     }
     AutoPinComplete completion(aCompleted);
+    iPodcastPins->Cancel(false);
     (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
                          aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
     completion.Cancel();
@@ -105,7 +106,7 @@ void PodcastPinsLatestEpisodeITunes::Invoke()
 
 void PodcastPinsLatestEpisodeITunes::Cancel()
 {
-    iPodcastPins->Cancel();
+    iPodcastPins->Cancel(true);
 }
 
 const TChar* PodcastPinsLatestEpisodeITunes::Mode() const
@@ -160,6 +161,7 @@ void PodcastPinsEpisodeListITunes::BeginInvoke(const IPin& aPin, Functor aComple
         return;
     }
     AutoPinComplete completion(aCompleted);
+    iPodcastPins->Cancel(false);
     (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
                          aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
     completion.Cancel();
@@ -198,6 +200,7 @@ void PodcastPinsEpisodeListITunes::Invoke()
 
 void PodcastPinsEpisodeListITunes::Cancel()
 {
+    iPodcastPins->Cancel(true);
 }
 
 const TChar* PodcastPinsEpisodeListITunes::Mode() const
@@ -243,6 +246,7 @@ PodcastPinsITunes* PodcastPinsITunes::GetInstance(Media::TrackFactory& aTrackFac
 
 PodcastPinsITunes::PodcastPinsITunes(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore)
     : iLock("PPIN")
+    , iStarted(false)
     , iJsonResponse(kJsonResponseChunks)
     , iXmlResponse(kXmlResponseChunks)
     , iTrackFactory(aTrackFactory)
@@ -316,9 +320,9 @@ PodcastPinsITunes::~PodcastPinsITunes()
     delete iInstance;
 }
 
-void PodcastPinsITunes::Cancel()
+void PodcastPinsITunes::Cancel(TBool aCancelState)
 {
-    iITunes->Interrupt(true);
+    iITunes->Interrupt(aCancelState);
 }
 
 void PodcastPinsITunes::StartPollingForNewEpisodes()
@@ -329,13 +333,19 @@ void PodcastPinsITunes::StartPollingForNewEpisodes()
 
 void PodcastPinsITunes::StartPollingForNewEpisodesLocked()
 {
-    iTimer->FireIn(50);
+    if (!iStarted) {
+        iTimer->FireIn(50);
+        iStarted = true;
+    }
 }
 
 void PodcastPinsITunes::StopPollingForNewEpisodes()
 {
     AutoMutex _(iLock);
-    iTimer->Cancel();
+    if (iStarted) {
+        iTimer->Cancel();
+        iStarted = false;
+    }
 }
 
 void PodcastPinsITunes::TimerCallback()
@@ -434,14 +444,12 @@ TBool PodcastPinsITunes::LoadByQuery(const Brx& aQuery, IPodcastTransportHandler
         else {
             inputBuf.ReplaceThrow(aQuery);
         }
-        LoadById(inputBuf, aHandler);
+        return LoadById(inputBuf, aHandler);
     }   
     catch (Exception& ex) {
         LOG_ERROR(kMedia, "%s in PodcastPinsITunes::LoadByQuery\n", ex.Message());
         return false;
     }
-
-    return true;
 }
 
 TBool PodcastPinsITunes::LoadById(const Brx& aId, IPodcastTransportHandler& aHandler)
@@ -452,6 +460,7 @@ TBool PodcastPinsITunes::LoadById(const Brx& aId, IPodcastTransportHandler& aHan
     Parser xmlParser;
     Brn date;
     PodcastInfoITunes* podcast = nullptr;
+    Media::Track* track = nullptr;
 
     // id to streamable url
     LOG(kMedia, "PodcastPinsITunes::LoadById: %.*s\n", PBUF(aId));
@@ -483,10 +492,11 @@ TBool PodcastPinsITunes::LoadById(const Brx& aId, IPodcastTransportHandler& aHan
                 try {
                     Brn item = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("item"));
 
-                    auto* track = im.GetNextEpisodeTrack(*podcast, item);
+                    track = im.GetNextEpisodeTrack(*podcast, item);
                     if (track != nullptr) {
                         aHandler.Load(*track);
                         track->RemoveRef();
+                        track = nullptr;
                         isPlayable = true;
                         if (date.Bytes() == 0) {
                             date = Brn(im.GetNextEpisodePublishedDate(item));
@@ -499,6 +509,10 @@ TBool PodcastPinsITunes::LoadById(const Brx& aId, IPodcastTransportHandler& aHan
                 catch (ReaderError&) {
                     if (aHandler.SingleShot()) {
                         LOG_ERROR(kMedia, "PodcastPinsITunes::LoadById (ReaderError). Could not find a valid episode for latest - allocate a larger response block?\n");
+                    }
+                    if (track != nullptr) {
+                        track->RemoveRef();
+                        track = nullptr;
                     }
                     break; 
                 }
@@ -519,6 +533,10 @@ TBool PodcastPinsITunes::LoadById(const Brx& aId, IPodcastTransportHandler& aHan
         LOG_ERROR(kMedia, "%s in PodcastPinsITunes::LoadById\n", ex.Message());
         if (podcast != nullptr) {
             delete podcast;
+        }
+        if (track != nullptr) {
+            track->RemoveRef();
+            track = nullptr;
         }
         return false;
     }  

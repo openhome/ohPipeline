@@ -178,7 +178,7 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery, TidalMetadata::EIdType aId
     JsonParser parser;
     InitPlaylist(aShuffle);
     Bwh inputBuf(64);
-    TBool tracksFound = false;
+    TUint tracksFound = 0;
 
     try {
         if (aQuery.Bytes() == 0) {
@@ -200,9 +200,7 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery, TidalMetadata::EIdType aId
             inputBuf.ReplaceThrow(aQuery);
         }
         try {
-            TUint count = 0;
-            lastId = LoadTracksById(inputBuf, aIdType, lastId, count);
-            tracksFound = true;
+            lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound);
         }
         catch (PinNothingToPlay&) {
         }
@@ -212,7 +210,7 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery, TidalMetadata::EIdType aId
         return false;
     }
 
-    if (!tracksFound) {
+    if (tracksFound == 0) {
         THROW(PinNothingToPlay);
     }
 
@@ -224,16 +222,14 @@ TBool TidalPins::LoadTracks(const Brx& aPath, TBool aShuffle)
     AutoMutex _(iLock);
     TUint lastId = 0;
     InitPlaylist(aShuffle);
-    TBool tracksFound = false;
+    TUint tracksFound = 0;
 
     try {
         if (aPath.Bytes() == 0) {
             return false;
         }
         try {
-            TUint count = 0;
-            lastId = LoadTracksById(aPath, TidalMetadata::eNone, lastId, count);
-            tracksFound = true;
+            lastId = LoadTracksById(aPath, TidalMetadata::eNone, lastId, tracksFound);
         }
         catch (PinNothingToPlay&) {
         }
@@ -243,7 +239,7 @@ TBool TidalPins::LoadTracks(const Brx& aPath, TBool aShuffle)
         return false;
     }
 
-    if (!tracksFound) {
+    if (tracksFound == 0) {
         THROW(PinNothingToPlay);
     }
 
@@ -296,14 +292,14 @@ TBool TidalPins::LoadContainers(const Brx& aPath, TidalMetadata::EIdType aIdType
             }
             catch (JsonArrayEnumerationComplete&) {}
             for (TUint j = 0; j < idCount; j++) {
-                try { 
+                try {
                     lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound);
-                    containersFound++;
-                    if ( (tracksFound >= iMaxPlaylistTracks) || (containersFound >= total) ) {
-                        return true;
-                    }
                 }
                 catch (PinNothingToPlay&) {
+                }
+                containersFound++;
+                if ( (tracksFound >= iMaxPlaylistTracks) || (containersFound >= total) ) {
+                    return true;
                 }
             } 
         }   
@@ -324,7 +320,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
 {
     if (iInterrupted.load()) {
         LOG(kMedia, "TidalPins::LoadTracksById - interrupted\n");
-        THROW(TidalPinsInterrupted);
+        THROW(PinInterrupted);
     }
 
     TUint newId = 0;
@@ -352,7 +348,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
                 success = iTidal.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset, connection);
             }
             if (!success) {
-                return aPlaylistId;
+                THROW(PinNothingToPlay);
             }
             UpdateOffset(total, end, false, offset);
 
@@ -367,6 +363,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
                             aCount++;
                             iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
                             track->RemoveRef();
+                            track = nullptr;
                             currId = newId;
                             isPlayable = true;
                             if (aCount >= iMaxPlaylistTracks) {
@@ -383,6 +380,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
                         aCount++;
                         iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
                         track->RemoveRef();
+                        track = nullptr;
                         currId = newId;
                         isPlayable = true;
                     }
@@ -399,6 +397,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
             LOG_ERROR(kMedia, "%s in TidalPins::LoadTracksById (finding tracks)\n", ex.Message());
             if (track != nullptr) {
                 track->RemoveRef();
+                track = nullptr;
             }
             throw;
         }

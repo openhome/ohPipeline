@@ -88,9 +88,9 @@ void PodcastPinsLatestEpisodeTuneIn::LoadPodcast(const IPin& aPin)
     }
 }
 
-void PodcastPinsLatestEpisodeTuneIn::Cancel()
+void PodcastPinsLatestEpisodeTuneIn::Cancel(TBool aCancelState)
 {
-    iPodcastPins->Cancel();
+    iPodcastPins->Cancel(aCancelState);
 }
 
 void PodcastPinsLatestEpisodeTuneIn::Init(TBool /*aShuffle*/)
@@ -140,6 +140,7 @@ void PodcastPinsEpisodeListTuneIn::BeginInvoke(const IPin& aPin, Functor aComple
         return;
     }
     AutoPinComplete completion(aCompleted);
+    iPodcastPins->Cancel(false);
     (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
                          aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
     completion.Cancel();
@@ -181,7 +182,7 @@ void PodcastPinsEpisodeListTuneIn::Invoke()
 
 void PodcastPinsEpisodeListTuneIn::Cancel()
 {
-    iPodcastPins->Cancel();
+    iPodcastPins->Cancel(true);
 }
 
 const TChar* PodcastPinsEpisodeListTuneIn::Mode() const
@@ -238,6 +239,7 @@ const Brx& PodcastPinsTuneIn::GetPartnerId()
 
 PodcastPinsTuneIn::PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore)
     : iLock("PPIN")
+    , iStarted(false)
     , iJsonResponse(kJsonResponseChunks)
     , iXmlResponse(kXmlResponseChunks)
     , iTrackFactory(aTrackFactory)
@@ -311,9 +313,9 @@ PodcastPinsTuneIn::~PodcastPinsTuneIn()
     delete iInstance;
 }
 
-void PodcastPinsTuneIn::Cancel()
+void PodcastPinsTuneIn::Cancel(TBool aCancelState)
 {
-    iTuneIn->Interrupt(true);
+    iTuneIn->Interrupt(aCancelState);
 }
 
 void PodcastPinsTuneIn::StartPollingForNewEpisodes()
@@ -324,13 +326,19 @@ void PodcastPinsTuneIn::StartPollingForNewEpisodes()
 
 void PodcastPinsTuneIn::StartPollingForNewEpisodesLocked()
 {
-    iTimer->FireIn(50);
+    if (!iStarted) {
+        iTimer->FireIn(50);
+        iStarted = true;
+    }
 }
 
 void PodcastPinsTuneIn::StopPollingForNewEpisodes()
 {
     AutoMutex _(iLock);
-    iTimer->Cancel();
+    if (iStarted) {
+        iTimer->Cancel();
+        iStarted = false;
+    }
 }
 
 void PodcastPinsTuneIn::TimerCallback()
@@ -408,6 +416,7 @@ TBool PodcastPinsTuneIn::LoadByPath(const Brx& aPath, IPodcastTransportHandler& 
     Parser xmlParser;
     Brn date;
     PodcastInfoTuneIn* podcast = nullptr;
+    Media::Track* track = nullptr;
 
     try {
         if (aPath.Bytes() == 0) {
@@ -431,10 +440,11 @@ TBool PodcastPinsTuneIn::LoadByPath(const Brx& aPath, IPodcastTransportHandler& 
                 Brn item = PodcastPins::GetNextXmlValueByTag(xmlParser, Brn("outline"));
                 Brn type = PodcastPins::GetFirstXmlAttribute(item, Brn("type"));
                 if (type == TuneInMetadata::kMediaTypePodcast) {
-                    auto* track = tm.GetNextEpisodeTrack(podcast->Id(), item, aHandler.SingleShot());
+                    track = tm.GetNextEpisodeTrack(podcast->Id(), item, aHandler.SingleShot());
                     if (track != nullptr) {
                         aHandler.Load(*track);
                         track->RemoveRef();
+                        track = nullptr;
                         isPlayable = true;
                         if (date.Bytes() == 0) {
                             date = Brn(tm.GetNextEpisodePublishedDate(item));
@@ -449,6 +459,10 @@ TBool PodcastPinsTuneIn::LoadByPath(const Brx& aPath, IPodcastTransportHandler& 
         catch (ReaderError&) {
             if (aHandler.SingleShot()) {
                 LOG_ERROR(kMedia, "PodcastPinsTuneIn::LoadByPath (ReaderError). Could not find a valid episode for latest - allocate a larger response block?\n");
+            }
+            if (track != nullptr) {
+                track->RemoveRef();
+                track = nullptr;
             }
         }
          if (isPlayable) {
@@ -466,6 +480,10 @@ TBool PodcastPinsTuneIn::LoadByPath(const Brx& aPath, IPodcastTransportHandler& 
         LOG_ERROR(kMedia, "%s in PodcastPinsTuneIn::LoadByPath\n", ex.Message());
         if (podcast != nullptr) {
             delete podcast;
+        }
+        if (track != nullptr) {
+            track->RemoveRef();
+            track = nullptr;
         }
         return false;
     }

@@ -58,6 +58,7 @@ QobuzPins::QobuzPins(Qobuz& aQobuz,
     , iQobuzMetadata(aTrackFactory)
     , iPin(iPinIdProvider)
     , iEnv(aEnv)
+    , iInterrupted(false)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
@@ -78,6 +79,8 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         return;
     }
     AutoPinComplete completion(aCompleted);
+    iInterrupted.store(false);
+    iQobuz.Interrupt(false);
     iQobuz.Login(iToken);
     (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
                          aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
@@ -88,6 +91,7 @@ void QobuzPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
 
 void QobuzPins::Cancel()
 {
+    iInterrupted.store(true);
     iQobuz.Interrupt(true);
 }
 
@@ -169,7 +173,7 @@ TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aId
     JsonParser parser;
     InitPlaylist(aShuffle);
     Bwh inputBuf(64);
-    TBool tracksFound = false;
+    TUint tracksFound = 0;
 
     try {
         if (aQuery.Bytes() == 0) {
@@ -192,9 +196,7 @@ TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aId
         }
 
         try {
-            TUint count = 0;
-            lastId = LoadTracksById(inputBuf, aIdType, lastId, count);
-            tracksFound = true;
+            lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound);
         }
         catch (PinNothingToPlay&) {
         }
@@ -204,7 +206,7 @@ TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aId
         return false;
     }
 
-    if (!tracksFound) {
+    if (tracksFound == 0) {
         THROW(PinNothingToPlay);
     }
 
@@ -216,16 +218,14 @@ TBool QobuzPins::LoadTracks(const Brx& aPath, TBool aShuffle)
     AutoMutex _(iLock);
     TUint lastId = 0;
     InitPlaylist(aShuffle);
-    TBool tracksFound = false;
+    TUint tracksFound = 0;
 
     try {
         if (aPath.Bytes() == 0) {
             return false;
         }
         try {
-            TUint count = 0;
-            lastId = LoadTracksById(aPath, QobuzMetadata::eNone, lastId, count);
-            tracksFound = true;
+            lastId = LoadTracksById(aPath, QobuzMetadata::eNone, lastId, tracksFound);
         }
         catch (PinNothingToPlay&) {
         }
@@ -235,7 +235,7 @@ TBool QobuzPins::LoadTracks(const Brx& aPath, TBool aShuffle)
         return false;
     }
 
-    if (!tracksFound) {
+    if (tracksFound == 0) {
         THROW(PinNothingToPlay);
     }
 
@@ -293,12 +293,12 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
             for (TUint j = 0; j < idCount; j++) {
                 try {
                     lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound);
-                    containersFound++;
-                    if ( (tracksFound >= iMaxPlaylistTracks) || (containersFound >= total) ) {
-                        return true;
-                    }
                 }
                 catch (PinNothingToPlay&) {
+                }
+                containersFound++;
+                if ( (tracksFound >= iMaxPlaylistTracks) || (containersFound >= total) ) {
+                    return true;
                 }
             }
         }   
@@ -317,6 +317,11 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
 
 TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount)
 {
+    if (iInterrupted.load()) {
+        LOG(kMedia, "QobuzPins::LoadTracksById - interrupted\n");
+        THROW(PinInterrupted);
+    }
+
     TUint newId = 0;
     TUint currId = aPlaylistId;
     TBool initPlay = (aPlaylistId == 0);
@@ -341,7 +346,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                 success = iQobuz.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset);
             }
             if (!success) {
-                return false;
+                THROW(PinNothingToPlay);
             }
             UpdateOffset(total, end, false, offset);
 
@@ -359,6 +364,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                             aCount++;
                             iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
                             track->RemoveRef();
+                            track = nullptr;
                             currId = newId;
                             isPlayable = true;
                             if (aCount >= iMaxPlaylistTracks) {
@@ -374,6 +380,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                         aCount++;
                         iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
                         track->RemoveRef();
+                        track = nullptr;
                         currId = newId;
                         isPlayable = true;
                     }
@@ -390,6 +397,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
             LOG_ERROR(kPipeline, "%s in QobuzPins::LoadTracksById \n", ex.Message());
             if (track != nullptr) {
                 track->RemoveRef();
+                track = nullptr;
             }
             throw;
         }

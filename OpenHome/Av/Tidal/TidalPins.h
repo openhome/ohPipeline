@@ -15,8 +15,6 @@
 #include <OpenHome/Av/Pins/Pins.h>
 
 #include <atomic>
-
-EXCEPTION(TidalPinsInterrupted)
         
 namespace OpenHome {
     class Environment;

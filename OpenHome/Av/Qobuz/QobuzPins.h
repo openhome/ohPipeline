@@ -42,7 +42,6 @@ private: // from IPinInvoker
     const TChar* Mode() const override;
 private:
     void Invoke();
-    TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aType, TUint aPlaylistId);
     TBool LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle);
     TBool LoadTracks(const Brx& aPath, TBool aShuffle);
     TBool LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType, TBool aShuffle);
@@ -66,6 +65,7 @@ private:
     PinIdProvider iPinIdProvider;
     Pin iPin;
     Environment& iEnv;
+    std::atomic<TBool> iInterrupted;
 };
 
 };  // namespace Av

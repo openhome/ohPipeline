@@ -159,7 +159,7 @@ public:
     TBool CheckForNewEpisode(const Brx& aQuery); // poll using iTunes id or search string (single episode)
     TBool LoadPodcastLatest(const Brx& aQuery, IPodcastTransportHandler& aHandler); // iTunes id or search string (single episode - radio single)
     TBool LoadPodcastList(const Brx& aQuery, IPodcastTransportHandler& aHandler, TBool aShuffle); // iTunes id or search string (episode list - playlist)
-    void Cancel();
+    void Cancel(TBool aCancelState);
 private:
     PodcastPinsITunes(Media::TrackFactory& aTrackFactory, Environment& aEnv, Configuration::IStoreReadWrite& aStore);
 
@@ -179,6 +179,7 @@ private:
     static PodcastPinsITunes* iInstance;
     Mutex iLock;
     ITunes* iITunes;
+    TBool iStarted;
     WriterBwh iJsonResponse;
     WriterBwh iXmlResponse;
     Media::TrackFactory& iTrackFactory;

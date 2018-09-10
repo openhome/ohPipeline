@@ -52,6 +52,9 @@ void TuneInPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
         return;
     }
     AutoPinComplete completion(aCompleted);
+    if (aPin.Type() == Brn(kPinTypePodcast)) { 
+        iPodcastPinsEpisode->Cancel(false);
+    }
     (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
                          aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
     completion.Cancel();
@@ -104,7 +107,7 @@ void TuneInPins::Invoke()
 void TuneInPins::Cancel()
 {
     if (iPin.Type() == Brn(kPinTypePodcast)) { 
-        iPodcastPinsEpisode->Cancel();
+        iPodcastPinsEpisode->Cancel(true);
     }
 }
 
