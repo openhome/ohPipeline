@@ -79,7 +79,7 @@ private:
     Sws<kWriteBufferBytes> iWriterBuf;
     WriterHttpRequest iWriterRequest;
     ReaderHttpResponse iReaderResponse;
-    ReaderHttpChunked iDechunker;
+    ReaderHttpEntity iReaderEntity;
     ReaderUntilS<kReadBufferBytes> iReaderUntil2;
     HttpHeaderContentLength iHeaderContentLength;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;

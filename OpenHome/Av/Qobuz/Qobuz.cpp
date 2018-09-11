@@ -43,8 +43,8 @@ Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
     , iWriterBuf(iSocket)
     , iWriterRequest(iWriterBuf)
     , iReaderResponse(aEnv, iReaderUntil1)
-    , iDechunker(iReaderUntil1)
-    , iReaderUntil2(iDechunker)
+    , iReaderEntity(iReaderUntil1)
+    , iReaderUntil2(iReaderEntity)
     , iAppId(aAppId)
     , iAppSecret(aAppSecret)
     , iUsername(kGranularityUsername)
@@ -129,7 +129,7 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
             LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetStreamUrl.\n", code);
             LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
             LOG_ERROR(kPipeline, "Some/all of response is:\n");
-            Brn buf = iDechunker.Read(kReadBufferBytes);
+            Brn buf = iReaderEntity.Read(kReadBufferBytes);
             LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
             THROW(ReaderError);
         }
@@ -275,21 +275,11 @@ TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TU
             LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetResponse.\n", code);
             LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
             LOG_ERROR(kPipeline, "Some/all of response is:\n");
-            Brn buf = iDechunker.Read(kReadBufferBytes);
+            Brn buf = iReaderEntity.Read(kReadBufferBytes);
             LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
             THROW(ReaderError);
         }
-        
-        TUint count = iHeaderContentLength.ContentLength();
-        //Log::Print("Read Qobuz response (%d): ", count);
-        while(count > 0) {
-            Brn buf = iReaderUntil2.Read(kReadBufferBytes);
-        //    Log::Print(buf);
-            aWriter.Write(buf);
-            count -= buf.Bytes();
-        }   
-        //Log::Print("\n");     
-
+        iReaderEntity.ReadAll(aWriter);
         success = true;
     }
     catch (HttpError&) {
@@ -406,12 +396,12 @@ TBool Qobuz::TryLoginLocked()
             Bws<kMaxStatusBytes> status;
             TUint len = std::min(status.MaxBytes(), iHeaderContentLength.ContentLength());
             if (len > 0) {
-                status.Replace(iDechunker.Read(len));
+                status.Replace(iReaderEntity.Read(len));
                 iCredentialsState.SetState(kId, status, Brx::Empty());
             }
             else {
                 status.AppendPrintf("Login Error (Response Code %d): ", code);
-                Brn buf = iDechunker.Read(kReadBufferBytes);
+                Brn buf = iReaderEntity.Read(kReadBufferBytes);
                 len = std::min(status.MaxBytes() - status.Bytes(), buf.Bytes());
                 buf.Set(buf.Ptr(), len);
                 status.Append(buf);
@@ -459,7 +449,7 @@ TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, cons
     iWriterRequest.WriteFlush();
     iReaderResponse.Read();
     const TUint code = iReaderResponse.Status().Code();
-    iDechunker.SetChunked(iHeaderTransferEncoding.IsChunked());
+    iReaderEntity.Set(iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
     return code;
 }
 
