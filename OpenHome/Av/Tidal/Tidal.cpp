@@ -262,7 +262,7 @@ TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQue
     }
     
     try {
-        //Log::Print("Write Tidal request: http://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
+        Log::Print("Write Tidal request: http://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
         WriteRequestHeaders(Http::kMethodGet, aHost, aPathAndQuery, kPort, aConnection);
 
         iReaderResponse.Read();

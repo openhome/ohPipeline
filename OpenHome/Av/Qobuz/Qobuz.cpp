@@ -8,6 +8,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Stream.h>
+#include <OpenHome/Private/Timer.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/UnixTimestamp.h>
 #include <OpenHome/Private/Ascii.h>
@@ -50,7 +51,9 @@ Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
     , iUsername(kGranularityUsername)
     , iPassword(kGranularityPassword)
     , iUri(1024)
+    , iConnected(false)
 {
+    iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Qobuz::SocketInactive), "Qobuz");
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
 
@@ -68,18 +71,21 @@ Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
 
 Qobuz::~Qobuz()
 {
+    delete iTimerSocketActivity;
     iConfigQuality->Unsubscribe(iSubscriberIdQuality);
     delete iConfigQuality;
 }
 
 TBool Qobuz::TryLogin()
 {
+    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
     AutoMutex _(iLock);
     return TryLoginLocked();
 }
 
 TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
 {
+    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
     AutoMutex _(iLock);
     TBool success = false;
     if (!TryConnect()) {
@@ -155,7 +161,7 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
     return success;
 }
 
-TBool Qobuz::TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType)
+TBool Qobuz::TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType, Connection aConnection)
 {
     iPathAndQuery.Replace(kVersionAndFormat);
 
@@ -163,10 +169,10 @@ TBool Qobuz::TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdTyp
     iPathAndQuery.Append("/search?query=");
     Uri::Escape(iPathAndQuery, aQuery);
 
-    return TryGetResponse(aWriter, kHost, 1, 0); // return top hit
+    return TryGetResponse(aWriter, kHost, 1, 0, aConnection); // return top hit
 }
 
-TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aLimitPerResponse)
+TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aLimitPerResponse, Connection aConnection)
 {
     iPathAndQuery.Replace(kVersionAndFormat);
 
@@ -190,10 +196,10 @@ TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdTy
         iPathAndQuery.Append(aGenre);
     }
 
-    return TryGetResponse(aWriter, kHost, aLimitPerResponse, 0);
+    return TryGetResponse(aWriter, kHost, aLimitPerResponse, 0, aConnection);
 }
 
-TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset)
+TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection)
 {
     iPathAndQuery.Replace(kVersionAndFormat);
 
@@ -224,35 +230,36 @@ TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::E
         }
     }
 
-    return TryGetResponse(aWriter, kHost, aLimit, aOffset);
+    return TryGetResponse(aWriter, kHost, aLimit, aOffset, aConnection);
 }
 
-TBool Qobuz::TryGetGenreList(IWriter& aWriter)
+TBool Qobuz::TryGetGenreList(IWriter& aWriter, Connection aConnection)
 {
     iPathAndQuery.Replace(kVersionAndFormat);
     iPathAndQuery.Append("genre/list?");
 
-    return TryGetResponse(aWriter, kHost, 50, 0);
+    return TryGetResponse(aWriter, kHost, 50, 0, aConnection);
 }
 
-TBool Qobuz::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset)
+TBool Qobuz::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection)
 {
     iUri.SetBytes(0);
     Uri::Unescape(iUri, aRequestUrl);
     iRequest.Replace(iUri);
     iPathAndQuery.Replace(iRequest.PathAndQuery());
-    return TryGetResponse(aWriter, iRequest.Host(), aLimitPerResponse, aOffset);
+    return TryGetResponse(aWriter, iRequest.Host(), aLimitPerResponse, aOffset, aConnection);
 }
 
-TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset)
+TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset, Connection aConnection)
 {
+    iTimerSocketActivity->Cancel();
     AutoMutex _(iLock);
     TBool success = false;
     if (!TryConnect()) {
         LOG_ERROR(kMedia, "Qobuz::TryGetResponse - connection failure\n");
         return false;
     }
-    AutoSocketReader __(iSocket, iReaderUntil2);
+    //AutoSocketReader __(iSocket, iReaderUntil2);
     if (!Ascii::Contains(iPathAndQuery, '?')) {
         iPathAndQuery.Append("?");
     }
@@ -270,7 +277,7 @@ TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TU
     }
     try {
         Log::Print("Write Qobuz request: http://%.*s%.*s\n", PBUF(aHost), PBUF(iPathAndQuery));
-        const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery);
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery, aConnection);
         if (code != 200) {
             LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetResponse.\n", code);
             LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
@@ -282,16 +289,24 @@ TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TU
         iReaderEntity.ReadAll(aWriter);
         success = true;
     }
-    catch (HttpError&) {
-        LOG_ERROR(kPipeline, "HttpError in Qobuz::TryGetResponse\n");
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in Qobuz::TryGetResponse\n", ex.Message());
     }
-    catch (ReaderError&) {
-        LOG_ERROR(kPipeline, "ReaderError in Qobuz::TryGetResponse\n");
+    if (aConnection == Connection::Close) {
+        CloseConnection();
     }
-    catch (WriterError&) {
-        LOG_ERROR(kPipeline, "WriterError in Qobuz::TryGetResponse\n");
+    else { // KeepAlive
+        iTimerSocketActivity->FireIn(kSocketKeepAliveMs);
     }
     return success;
+}
+
+void Qobuz::CloseConnection()
+{
+    if (iConnected) {
+        iSocket.Close();
+        iConnected = false;
+    }
 }
 
 void Qobuz::Interrupt(TBool aInterrupt)
@@ -349,19 +364,23 @@ void Qobuz::ReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
 
 TBool Qobuz::TryConnect()
 {
+    if (iConnected) {
+        return true;
+    }
     Endpoint ep;
     try {
         iSocket.Open(iEnv);
         ep.SetAddress(kHost);
         ep.SetPort(kPort);
         iSocket.Connect(ep, kConnectTimeoutMs);
+        iConnected = true;
     }
     catch (NetworkTimeout&) {
-        iSocket.Close();
+        CloseConnection();
         return false;
     }
     catch (NetworkError&) {
-        iSocket.Close();
+        CloseConnection();
         return false;
     }
     return true;
@@ -391,7 +410,7 @@ TBool Qobuz::TryLoginLocked()
     iLockConfig.Signal();
 
     try {
-        const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery);
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery, Connection::Close);
         if (code != 200) {
             Bws<kMaxStatusBytes> status;
             TUint len = std::min(status.MaxBytes(), iHeaderContentLength.ContentLength());
@@ -441,11 +460,13 @@ TBool Qobuz::TryLoginLocked()
     return success;
 }
 
-TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery)
+TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, Connection aConnection)
 {
     iWriterRequest.WriteMethod(aMethod, aPathAndQuery, Http::eHttp11);
     Http::WriteHeaderHostAndPort(iWriterRequest, aHost, kPort);
-    Http::WriteHeaderConnectionClose(iWriterRequest);
+    if (aConnection == Connection::Close) {
+        Http::WriteHeaderConnectionClose(iWriterRequest);
+    }
     iWriterRequest.WriteFlush();
     iReaderResponse.Read();
     const TUint code = iReaderResponse.Status().Code();
@@ -476,4 +497,10 @@ void Qobuz::AppendMd5(Bwx& aBuffer, const Brx& aToHash)
     for (TUint i=0; i<sizeof(digest); i++) {
         Ascii::AppendHex(aBuffer, digest[i]);
     }
+}
+
+void Qobuz::SocketInactive()
+{
+    AutoMutex _(iLock);
+    CloseConnection();
 }

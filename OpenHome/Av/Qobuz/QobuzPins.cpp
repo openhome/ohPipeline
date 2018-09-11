@@ -339,11 +339,12 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
         try {
             iJsonResponse.Reset();
             TBool success = false;
+            auto connection = aCount < iMaxPlaylistTracks - 1 ? Qobuz::Connection::KeepAlive : Qobuz::Connection::Close;
             if (aIdType == QobuzMetadata::eNone) {
-                success = iQobuz.TryGetIdsByRequest(iJsonResponse, aId, kItemLimitPerRequest, offset);
+                success = iQobuz.TryGetIdsByRequest(iJsonResponse, aId, kItemLimitPerRequest, offset, connection);
             }
             else {
-                success = iQobuz.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset);
+                success = iQobuz.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset, connection);
             }
             if (!success) {
                 THROW(PinNothingToPlay);

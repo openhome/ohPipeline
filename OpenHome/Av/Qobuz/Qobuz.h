@@ -15,6 +15,7 @@
 
 namespace OpenHome {
     class Environment;
+    class Timer;
     class IUnixTimestamp;
 namespace Configuration {
     class IConfigInitialiser;
@@ -38,8 +39,14 @@ class Qobuz : public ICredentialConsumer
     static const TUint kSecsBetweenNtpAndUnixEpoch = 2208988800; // secs between 1900 and 1970
     static const TUint kMaxStatusBytes = 512;
     static const TUint kMaxPathAndQueryBytes = 512;
+    static const TUint kSocketKeepAliveMs = 5000; // close socket after 5s inactivity
 public:
     static const Brn kConfigKeySoundQuality;
+    enum class Connection
+    {
+        KeepAlive,
+        Close
+    };
 public:
     Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
           ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser,
@@ -47,11 +54,11 @@ public:
     ~Qobuz();
     TBool TryLogin();
     TBool TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl);
-    TBool TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType);
-    TBool TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aLimitPerResponse);
-    TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset);
-    TBool TryGetGenreList(IWriter& aWriter);
-    TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset);
+    TBool TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aLimitPerResponse, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetGenreList(IWriter& aWriter, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection = Connection::KeepAlive);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
     const Brx& Id() const override;
@@ -62,11 +69,13 @@ private: // from ICredentialConsumer
 private:
     TBool TryConnect();
     TBool TryLoginLocked();
-    TUint WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery);
-    TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset);
+    TUint WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, Connection aConnection = Connection::Close);
+    TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset, Connection aConnection);
     Brn ReadString();
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
     static void AppendMd5(Bwx& aBuffer, const Brx& aToHash);
+    void SocketInactive();
+    void CloseConnection();
 private:
     Environment& iEnv;
     Mutex iLock;
@@ -74,6 +83,7 @@ private:
     ICredentialsState& iCredentialsState;
     IUnixTimestamp& iUnixTimestamp;
     SocketTcpClient iSocket;
+    Timer* iTimerSocketActivity;
     Srs<1024> iReaderBuf;
     ReaderUntilS<1024> iReaderUntil1;
     Sws<kWriteBufferBytes> iWriterBuf;
@@ -94,6 +104,7 @@ private:
     TUint iSubscriberIdQuality;
     Bwh iUri;
     Uri iRequest;
+    TBool iConnected;
 };
 
 };  // namespace Av
