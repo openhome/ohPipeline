@@ -397,3 +397,8 @@ Optional<IPinsInvocable> MediaPlayer::PinsInvocable()
 {
     return Optional<IPinsInvocable>(iPinsManager);
 }
+
+Optional<IPinSetObservable> MediaPlayer::PinSetObservable()
+{
+    return Optional<IPinSetObservable>(iPinsManager);
+}

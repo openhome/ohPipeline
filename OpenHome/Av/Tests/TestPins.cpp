@@ -107,6 +107,7 @@ private:
 class SuitePinsManager : public SuiteUnitTest
                        , private IPinsAccount
                        , private IPinsObserver
+                       , private IPinSetObserver
 {
 public:
     SuitePinsManager();
@@ -126,6 +127,8 @@ private: // from IPinsObserver
     void NotifyCloudConnected(TBool aConnected) override;
     void NotifyUpdatesDevice(const std::vector<TUint>& aIdArray) override;
     void NotifyUpdatesAccount(const std::vector<TUint>& aIdArray) override;
+private: // IPinSetObserver
+    void NotifyPin(TUint aIndex, const Brx& aMode, const Brx& aType) override;
 private:
     inline IPinsManager* Manager();
     inline IPinsInvocable* Invocable();
@@ -711,6 +714,10 @@ void SuitePinsManager::Setup()
     iStore = new Configuration::ConfigRamStore();
     iPinsManager = new PinsManager(*iStore, kMaxDevicePins);
 
+    // We don't test activity stat callbacks fully.  Registering an observer
+    // at least confirms that it doesn't crash in normal use.
+    iPinsManager->Add(static_cast<IPinSetObserver&>(*this));
+
     iAccountSetIndex = UINT_MAX;
     iAccountSetMode.Replace(Brx::Empty());
     iAccountSetType.Replace(Brx::Empty());
@@ -789,6 +796,10 @@ void SuitePinsManager::NotifyUpdatesDevice(const std::vector<TUint>& aIdArray)
 void SuitePinsManager::NotifyUpdatesAccount(const std::vector<TUint>& aIdArray)
 {
     iIdArrayAccount = aIdArray;
+}
+
+void SuitePinsManager::NotifyPin(TUint /*aIndex*/, const Brx& /*aMode*/, const Brx& /*aType*/)
+{
 }
 
 inline IPinsManager* SuitePinsManager::Manager()

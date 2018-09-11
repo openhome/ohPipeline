@@ -215,9 +215,24 @@ public:
     virtual void SetAccount(IPinsAccount& aAccount, TUint aCount) = 0;
 };
 
+class IPinSetObserver
+{
+public:
+    virtual void NotifyPin(TUint aIndex, const Brx& aMode, const Brx& aType) = 0;
+    virtual ~IPinSetObserver() {}
+};
+
+class IPinSetObservable
+{
+public:
+    virtual void Add(IPinSetObserver& aObserver) = 0;
+    virtual ~IPinSetObservable() {}
+};
+
 class PinsManager : public IPinsManager
                   , public IPinsAccountStore
                   , public IPinsInvocable
+                  , public IPinSetObservable
                   , private IPinsAccountObserver
 {
     friend class SuitePinsManager;
@@ -244,6 +259,8 @@ private: // from IPinsAccountObserver
     void NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,
                           const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
                           const Brx& aArtworkUri, TBool aShuffle) override;
+private: // from  IPinSetObservable
+    void Add(IPinSetObserver& aObserver) override;
 private:
     TBool IsAccountId(TUint aId) const;
     TBool IsAccountIndex(TUint aIndex) const;
@@ -262,6 +279,7 @@ private:
     PinSet iPinsAccount;
     IPinsObserver* iObserver;
     IPinsAccount* iAccountSetter;
+    IPinSetObserver* iPinSetObserver;
     std::map<Brn, IPinInvoker*, BufferCmp> iInvokers;
     Pin iInvoke;
     IPinInvoker* iCurrent;
