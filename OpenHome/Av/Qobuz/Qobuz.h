@@ -23,10 +23,13 @@ namespace Configuration {
 }
 namespace Av {
 
+    class AutoConnectionQobuz;
+
 class Qobuz : public ICredentialConsumer
 {
     friend class TestQobuz;
     friend class QobuzPins;
+    friend class AutoConnectionQobuz;
     static const TUint kReadBufferBytes = 4 * 1024;
     static const TUint kWriteBufferBytes = 1024;
     static const TUint kConnectTimeoutMs = 10000; // FIXME - should read this + ProtocolNetwork's equivalent from a single client-changable location
@@ -107,7 +110,15 @@ private:
     TBool iConnected;
 };
 
+class AutoConnectionQobuz
+{
+public:
+    AutoConnectionQobuz(Qobuz& aQobuz, IReader& aReader);
+    ~AutoConnectionQobuz();
+private:
+    Qobuz& iQobuz;
+    IReader& iReader;
+};
+
 };  // namespace Av
 };  // namespace OpenHome
-
-

@@ -92,7 +92,7 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
         LOG_ERROR(kPipeline, "Qobuz::TryGetStreamUrl - connection failure\n");
         return false;
     }
-    AutoSocketReader __(iSocket, iReaderUntil2);
+    AutoConnectionQobuz __(*this, iReaderUntil2);
 
     // see https://github.com/Qobuz/api-documentation#request-signature for rules on creating request_sig value
     TUint timestamp;
@@ -397,7 +397,7 @@ TBool Qobuz::TryLoginLocked()
         iCredentialsState.SetState(kId, Brn("Login Error (Connection Failed): Please Try Again."), Brx::Empty());
         return false;
     }
-    AutoSocketReader _(iSocket, iReaderUntil2);
+    AutoConnectionQobuz _(*this, iReaderUntil2);
 
     iPathAndQuery.Replace(kVersionAndFormat);
     iPathAndQuery.Append("user/login?app_id=");
@@ -503,4 +503,19 @@ void Qobuz::SocketInactive()
 {
     AutoMutex _(iLock);
     CloseConnection();
+}
+
+
+// AutoConnectionQobuz
+
+AutoConnectionQobuz::AutoConnectionQobuz(Qobuz& aQobuz, IReader& aReader)
+    : iQobuz(aQobuz)
+    , iReader(aReader)
+{
+}
+
+AutoConnectionQobuz::~AutoConnectionQobuz()
+{
+    iReader.ReadFlush();
+    iQobuz.CloseConnection();
 }
