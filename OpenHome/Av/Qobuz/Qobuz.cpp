@@ -259,7 +259,6 @@ TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TU
         LOG_ERROR(kMedia, "Qobuz::TryGetResponse - connection failure\n");
         return false;
     }
-    //AutoSocketReader __(iSocket, iReaderUntil2);
     if (!Ascii::Contains(iPathAndQuery, '?')) {
         iPathAndQuery.Append("?");
     }
