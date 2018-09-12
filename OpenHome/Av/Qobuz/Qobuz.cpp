@@ -302,10 +302,8 @@ TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TU
 
 void Qobuz::CloseConnection()
 {
-    if (iConnected) {
-        iSocket.Close();
-        iConnected = false;
-    }
+    iConnected = false;
+    iSocket.Close();
 }
 
 void Qobuz::Interrupt(TBool aInterrupt)
