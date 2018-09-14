@@ -14,8 +14,6 @@
 #include <OpenHome/Optional.h>
 #include <OpenHome/Av/TransportControl.h>
 
-#include <limits.h>
-
 using namespace OpenHome;
 using namespace OpenHome::Net;
 using namespace OpenHome::Av;
@@ -41,12 +39,19 @@ ConfigStartupSource::~ConfigStartupSource()
 // Product
 
 const Brn Product::kKeyLastSelectedSource("Last.Source");
+const TUint Product::kCurrentSourceNone;
+const TBool Product::kPrefetchAllowedDefault;
+const TUint Product::kAttributeGranularityBytes;
 const Brn Product::kConfigIdRoomBase("Product.Room");
 const Brn Product::kConfigIdNameBase("Product.Name");
 const Brn Product::kConfigIdAutoPlay("Device.AutoPlay");
-const TUint Product::kAutoPlayDisable = 0;
-const TUint Product::kAutoPlayEnable  = 1;
-const TUint Product::kCurrentSourceNone = UINT_MAX;
+const TUint Product::kAutoPlayDisable;
+const TUint Product::kAutoPlayEnable;
+const TUint Product::kMinNameBytes;
+const TUint Product::kMaxNameBytes;
+const TUint Product::kMinRoomBytes;
+const TUint Product::kMaxRoomBytes;
+const TUint Product::kMaxUriBytes;
 
 Product::Product(Environment& aEnv, Net::DvDeviceStandard& aDevice, IReadStore& aReadStore,
                  Configuration::IStoreReadWrite& aReadWriteStore, Configuration::IConfigManager& aConfigReader,

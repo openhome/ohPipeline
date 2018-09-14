@@ -14,6 +14,7 @@
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Av/TransportControl.h>
 
+#include <limits>
 #include <map>
 #include <vector>
 
@@ -91,15 +92,15 @@ class Product : private IProduct
 {
 private:
     static const Brn kKeyLastSelectedSource;
-    static const TUint kCurrentSourceNone;
+    static const TUint kCurrentSourceNone = std::numeric_limits<TUint>::max();
     static const TBool kPrefetchAllowedDefault = true;
     static const TUint kAttributeGranularityBytes = 128;
 public:
     static const Brn kConfigIdRoomBase;
     static const Brn kConfigIdNameBase;
     static const Brn kConfigIdAutoPlay;
-    static const TUint kAutoPlayDisable;
-    static const TUint kAutoPlayEnable;
+    static const TUint kAutoPlayDisable = 0;
+    static const TUint kAutoPlayEnable = 1;
     static const TUint kMinNameBytes = 1;
     static const TUint kMaxNameBytes = 20;
     static const TUint kMinRoomBytes = 1;
