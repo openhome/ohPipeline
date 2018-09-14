@@ -93,6 +93,7 @@ private:
     static const Brn kKeyLastSelectedSource;
     static const TUint kCurrentSourceNone;
     static const TBool kPrefetchAllowedDefault = true;
+    static const TUint kAttributeGranularityBytes = 128;
 public:
     static const Brn kConfigIdRoomBase;
     static const Brn kConfigIdNameBase;
@@ -104,7 +105,6 @@ public:
     static const TUint kMinRoomBytes = 1;
     static const TUint kMaxRoomBytes = 40;
     static const TUint kMaxUriBytes = 128;
-    static const TUint kMaxAttributeBytes = 1024;
 public:
     Product(Environment& aEnv, Net::DvDeviceStandard& aDevice, IReadStore& aReadStore,
             Configuration::IStoreReadWrite& aReadWriteStore, Configuration::IConfigManager& aConfigReader,
@@ -129,7 +129,7 @@ public:
     void SetCurrentSourceByName(const Brx& aName);
     void GetSourceDetails(TUint aIndex, Bwx& aSystemName, Bwx& aType, Bwx& aName, TBool& aVisible) const;
     void GetSourceDetails(const Brx& aSystemName, Bwx& aType, Bwx& aName, TBool& aVisible) const;
-    void GetAttributes(Bwx& aAttributes) const;
+    void GetAttributes(IWriter& aWriter) const;
     TUint SourceXmlChangeCount();
 private:
     TBool DoSetCurrentSourceLocked(TUint aIndex, TBool aReActivateIfNoSourceChange);
@@ -169,7 +169,7 @@ private:
     std::vector<IProductNameObserver*> iNameObservers;
     std::vector<IProductAttributesObserver*> iAttributeObservers;
     std::vector<ISource*> iSources;
-    Bws<kMaxAttributeBytes> iAttributes;
+    WriterBwh iAttributes;
     Endpoint::AddressBuf iConfigAppAddress;
     Bws<256> iConfigAppUrlTail;
     TBool iStarted;
