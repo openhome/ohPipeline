@@ -266,7 +266,6 @@ private:
     TBool IsAccountIndex(TUint aIndex) const;
     TUint AccountFromCombinedIndex(TUint aCombinedIndex) const;
     const Pin& PinFromId(TUint aId) const;
-    TBool TryGetIndexFromId(TUint aId, TUint& aIndex);
     inline IPinsAccount& AccountSetter();
     void BeginInvoke();
     void NotifyInvocationCompleted();
