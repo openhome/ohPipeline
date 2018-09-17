@@ -534,6 +534,7 @@ void PinsManager::Clear(TUint aId)
                 iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
             }
             if (iPinSetObserver != nullptr) {
+                const TUint index = iPinsAccount.IndexFromId(aId);
                 iPinSetObserver->NotifyPin(index, Brx::Empty(), Brx::Empty());
             }
         }
