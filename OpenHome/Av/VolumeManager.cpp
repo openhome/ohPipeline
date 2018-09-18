@@ -437,11 +437,11 @@ void VolumeRamperPipeline::SetVolume(TUint aValue)
 
 void VolumeRamperPipeline::ApplyVolumeMultiplier(TUint aValue)
 {
-    LOG(kVolume, "VolumeRamperPipeline::ApplyVolumeMultiplier aValue: %u\n", aValue);
     AutoMutex _(iLock);
     if (iMultiplier == aValue) {
         return;
     }
+    LOG(kVolume, "VolumeRamperPipeline::ApplyVolumeMultiplier aValue: %u\n", aValue);
     iMultiplier = aValue;
     SetVolume();
 }
