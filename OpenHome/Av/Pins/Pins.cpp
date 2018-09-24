@@ -529,12 +529,12 @@ void PinsManager::Clear(TUint aId)
     }
     else {
         AutoMutex _(iLock);
-        const TUint index = iPinsDevice.IndexFromId(aId);
         if (iPinsDevice.Clear(aId)) {
             if (iObserver != nullptr) {
                 iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
             }
             if (iPinSetObserver != nullptr) {
+                const TUint index = iPinsAccount.IndexFromId(aId);
                 iPinSetObserver->NotifyPin(index, Brx::Empty(), Brx::Empty());
             }
         }
