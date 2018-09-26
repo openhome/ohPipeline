@@ -243,7 +243,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     initParams->SetMinServerThreadsResources(aMinWebUiResourceThreads);
     initParams->SetMaxServerThreadsLongPoll(aMaxWebUiTabs);
     initParams->SetSendQueueSize(aUiSendQueueSize);
-    iAppFramework = new WebAppFramework(aDvStack.Env(), initParams);
+    iAppFramework = new WebAppFramework(aDvStack.Env(), initParams, iMediaPlayer->ThreadPool());
 }
 
 TestMediaPlayer::~TestMediaPlayer()

@@ -14,6 +14,7 @@
 #include <OpenHome/Av/RebootHandler.h>
 #include <OpenHome/Av/Tests/RamStore.h>
 #include <OpenHome/Av/KvpStore.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <stdlib.h>
 
@@ -88,6 +89,7 @@ int CDECL main(int aArgc, char* aArgv[])
     Library* lib = new Library(initParams);
     DvStack* dvStack = lib->StartDv();
     Environment& env = dvStack->Env();
+    ThreadPool* tp = new ThreadPool(1, 1, 1);
     Media::AllocatorInfoLogger infoAggregator;
     MockRebootHandler rebootHandler;
 
@@ -113,7 +115,7 @@ int CDECL main(int aArgc, char* aArgv[])
     wafInitParams->SetMaxServerThreadsLongPoll(kMaxSessions);
     wafInitParams->SetSendQueueSize(1024);
 
-    WebAppFramework* server = new WebAppFramework(env, wafInitParams);
+    WebAppFramework* server = new WebAppFramework(env, wafInitParams, *tp);
 
      // Web App should only be initialised once ConfigManager is opened (i.e.,
      // once ALL ConfigVals have been registered).
@@ -143,6 +145,7 @@ int CDECL main(int aArgc, char* aArgv[])
     delete productRoom;
     delete productName;
     delete configRamStore;
+    delete tp;
     delete lib;
 
     return 0;
