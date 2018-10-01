@@ -82,10 +82,16 @@ TBool RadioPins::LoadPreset(const Brx& aPreset)
 TBool RadioPins::LoadPreset(TUint aPreset)
 {
     try {
-        Bws<10> preset("index=");
-        Ascii::AppendDec(preset, aPreset);
-        iCpTransport->SyncPlayAs(Brn("Radio"), preset);
-        return true;
+        if (aPreset > 0) {
+            // expect preset number from kazoo (1-100)
+            Bws<10> preset("index=");
+            Ascii::AppendDec(preset, (aPreset-1));
+            iCpTransport->SyncPlayAs(Brn("Radio"), preset);
+            return true;
+        }
+        else {
+            return false;
+        }
     }
     catch (Exception& ex) {
         Log::Print("%s in RadioPins::LoadPreset\n", ex.Message());
