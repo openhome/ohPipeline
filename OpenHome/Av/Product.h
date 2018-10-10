@@ -92,7 +92,7 @@ class Product : private IProduct
 {
 private:
     static const Brn kKeyLastSelectedSource;
-    static const TUint kCurrentSourceNone = std::numeric_limits<TUint>::max();
+    static const TUint kCurrentSourceNone;
     static const TBool kPrefetchAllowedDefault = true;
     static const TUint kAttributeGranularityBytes = 128;
 public:

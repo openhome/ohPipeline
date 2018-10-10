@@ -39,7 +39,7 @@ ConfigStartupSource::~ConfigStartupSource()
 // Product
 
 const Brn Product::kKeyLastSelectedSource("Last.Source");
-const TUint Product::kCurrentSourceNone;
+const TUint Product::kCurrentSourceNone = std::numeric_limits<TUint>::max();
 const TBool Product::kPrefetchAllowedDefault;
 const TUint Product::kAttributeGranularityBytes;
 const Brn Product::kConfigIdRoomBase("Product.Room");
