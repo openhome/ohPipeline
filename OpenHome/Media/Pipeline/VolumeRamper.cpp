@@ -95,7 +95,6 @@ Msg* VolumeRamper::ProcessMsg(MsgAudioDsd* aMsg)
 Msg* VolumeRamper::ProcessMsg(MsgSilence* aMsg)
 {
     if (iEnabled) {
-        LOG(kVolume, "VolumeRamper::ProcessMsg(MsgSilence*) iEnabled rampMultiplier: %u\n", IVolumeRamper::kMultiplierZero);
         iVolumeRamper->ApplyVolumeMultiplier(IVolumeRamper::kMultiplierZero);
     }
     return aMsg;
@@ -105,7 +104,6 @@ void VolumeRamper::ProcessAudio(MsgAudioDecoded* aMsg)
 {
     if (iEnabled) {
         const TUint rampMultiplier = aMsg->MedianRampMultiplier();
-        LOG(kVolume, "VolumeRamper::ProcessAudio() iEnabled rampMultiplier: %u\n", rampMultiplier);
         iVolumeRamper->ApplyVolumeMultiplier(rampMultiplier);
     }
     else if (iHalted) {
