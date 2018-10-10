@@ -30,6 +30,8 @@ private:
  */
 class SocketUdpServer
 {
+private:
+    static const TChar* kAdapterCookie;
 public:
     SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority, TUint aPort, TIpAddress aInterface);
     ~SocketUdpServer();

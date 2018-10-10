@@ -11,6 +11,7 @@
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Configuration/ProviderConfig.h>
 #include <OpenHome/Configuration/Tests/ConfigRamStore.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <stdlib.h>
 
@@ -307,6 +308,7 @@ int CDECL main(int aArgc, char* aArgv[])
     Library* lib = new Library(initParams);
     DvStack* dvStack = lib->StartDv();
     Environment& env = dvStack->Env();
+    ThreadPool* tp = new ThreadPool(1, 1, 1);
 
     // Set up the server.
     Debug::SetLevel(Debug::kHttp);
@@ -320,7 +322,7 @@ int CDECL main(int aArgc, char* aArgv[])
     wafInitParams->SetMaxServerThreadsLongPoll(kMaxTabs);
     wafInitParams->SetSendQueueSize(1024);
 
-    WebAppFramework* server = new WebAppFramework(env, wafInitParams);
+    WebAppFramework* server = new WebAppFramework(env, wafInitParams, *tp);
 
     TestHttpApp* app = new TestHttpApp(kMinResourceThreads, kMaxTabs, optionDir.Value());  // read files from posix-style filesystem
 
@@ -341,6 +343,7 @@ int CDECL main(int aArgc, char* aArgv[])
 
     // Shutdown.
     delete server;
+    delete tp;
     delete lib;
     delete urlHandler;
 

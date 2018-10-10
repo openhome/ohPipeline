@@ -358,7 +358,7 @@ FLAC__StreamDecoderWriteStatus CodecFlac::CallbackWrite(const FLAC__StreamDecode
         iSampleRate = sampleRate;
         iNumChannels = channels;
         iBitDepth = bitDepth;
-        iStreamMsgDue = false; // OutputDecodedStream below
+        iStreamMsgDue = true; // OutputDecodedStream below
     }
 
     if (iStreamMsgDue) {

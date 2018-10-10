@@ -533,7 +533,7 @@ Msg* MpegPes::Pull()
         else if (iState == eInspectOptionalHeader) {
             ASSERT(iInspectBuf.Bytes() == kPesHeaderOptionalFixedBytes);
             iBytesRemaining -= iInspectBuf.Bytes();
-            const TBool isOptionalPesHeader = (iInspectBuf[0] & 0x80) == 0x80;
+            const TBool isOptionalPesHeader = (iInspectBuf[0] & 0xC0) == 0x80;
 
             if (isOptionalPesHeader) {
                 const TUint length = iInspectBuf[2];

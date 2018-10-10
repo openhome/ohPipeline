@@ -11,12 +11,16 @@ using namespace OpenHome;
 using namespace OpenHome::Net;
 using namespace OpenHome::Av;
 
+const TUint ProviderProduct::kSourceXmlGranularityBytes;
+const TUint ProviderProduct::kAttributeGranularityBytes;
+
 ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, IPowerManager& aPowerManager)
     : DvProviderAvOpenhomeOrgProduct2(aDevice)
     , iProduct(aProduct)
     , iPowerManager(aPowerManager)
     , iLock("PrPr")
-    , iSourceXml(4 * 1024)
+    , iSourceXml(kSourceXmlGranularityBytes)
+    , iAttributes(kAttributeGranularityBytes)
 {
     EnablePropertyManufacturerName();
     EnablePropertyManufacturerInfo();
@@ -194,7 +198,10 @@ void ProviderProduct::SourceCount(IDvInvocation& aInvocation, IDvInvocationRespo
 void ProviderProduct::SourceXml(IDvInvocation& aInvocation, IDvInvocationResponseString& aValue)
 {
     aInvocation.StartResponse();
-    aValue.Write(iSourceXml.Buffer());
+    {
+        AutoMutex amx(iLock);
+        aValue.Write(iSourceXml.Buffer());
+    }
     aValue.WriteFlush();
     aInvocation.EndResponse();
 }
@@ -271,7 +278,7 @@ void ProviderProduct::Attributes(IDvInvocation& aInvocation, IDvInvocationRespon
     aInvocation.StartResponse();
     {
         AutoMutex _(iLock);
-        aValue.Write(iAttributes);
+        aValue.Write(iAttributes.Buffer());
     }
     aValue.WriteFlush();
     aInvocation.EndResponse();
@@ -324,11 +331,10 @@ void ProviderProduct::SourceIndexChanged()
 
 void ProviderProduct::SourceXmlChanged()
 {
-    iLock.Wait();
+    AutoMutex amx(iLock);
     iSourceXml.Reset();
     iProduct.GetSourceXml(iSourceXml);
     SetPropertySourceXml(iSourceXml.Buffer());
-    iLock.Signal();
 }
 
 void ProviderProduct::RoomChanged(const Brx& aRoom)
@@ -344,8 +350,9 @@ void ProviderProduct::NameChanged(const Brx& aName)
 void ProviderProduct::AttributesChanged()
 {
     AutoMutex _(iLock);
+    iAttributes.Reset();
     iProduct.GetAttributes(iAttributes);
-    SetPropertyAttributes(iAttributes);
+    SetPropertyAttributes(iAttributes.Buffer());
 }
 
 void ProviderProduct::StandbyEnabled()

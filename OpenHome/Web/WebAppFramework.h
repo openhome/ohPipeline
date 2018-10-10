@@ -21,6 +21,8 @@ EXCEPTION(WebAppServiceUnavailable);
 
 
 namespace OpenHome {
+    class IThreadPool;
+    class IThreadPoolHandle;
     class NetworkAdapter;
 
 namespace Web {
@@ -197,12 +199,17 @@ class IFrameworkTab
 public:
     static const TUint kInvalidTabId = 0;
 public:
+    virtual ~IFrameworkTab() {}
+
     virtual TUint SessionId() const = 0;
+
     virtual void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) = 0;
+
     virtual void Clear() = 0;   // Terminates any blocking sends or outstanding timers.
+    virtual void ClearAndCancelTimeout() = 0;
+
     virtual void Receive(const Brx& aMessage) = 0;
     virtual void LongPoll(IWriter& aWriter) = 0;    // Terminates poll timer on entry; restarts poll timer on exit. THROWS WriterError.
-    virtual ~IFrameworkTab() {}
 };
 
 /**
@@ -212,18 +219,21 @@ class FrameworkTab : public IFrameworkTab, public ITabHandler, public IFramework
 {
 
 public:
-    FrameworkTab(TUint aTabId, IFrameworkTimer& aTimer, IFrameworkTabHandler& aTabHandler, TUint aPollTimeoutMs);
+    FrameworkTab(TUint aTabId, IFrameworkTimer& aTimer, IFrameworkTabHandler& aTabHandler, TUint aPollTimeoutMs, IThreadPool& aThreadPool);
     ~FrameworkTab();
 public: // from IFrameworkTab
     TUint SessionId() const override;
     void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
     void Clear() override;   // Terminates any blocking sends or outstanding timers.
+    void ClearAndCancelTimeout() override;
     void Receive(const Brx& aMessage) override;
     void LongPoll(IWriter& aWriter) override;    // Terminates poll timer on entry; restarts poll timer on exit. THROWS WriterError.
 private: // from ITabHandler
     void Send(ITabMessage& aMessage) override;
 private: // from IFrameworkTimerHandler
     void Complete() override;
+private:
+    void TaskDestroy();
 private:
     const TUint iTabId;
     const TUint iPollTimeoutMs;
@@ -235,6 +245,8 @@ private:
     std::vector<Bws<10>> iLanguages; // Takes ownership of pointers.
     TBool iPollActive;
     mutable Mutex iLock;
+
+    IThreadPoolHandle* iThreadPoolHandle;
 };
 
 /**
@@ -244,11 +256,12 @@ private:
 class FrameworkTabFull : public IFrameworkTab
 {
 public:
-    FrameworkTabFull(Environment& aEnv, TUint aTabId, TUint aSendQueueSize, TUint aSendTimeoutMs, TUint aPollTimeoutMs);
+    FrameworkTabFull(Environment& aEnv, TUint aTabId, TUint aSendQueueSize, TUint aSendTimeoutMs, TUint aPollTimeoutMs, IThreadPool& aThreadPool);
 public: // from IFrameworkTab
     TUint SessionId() const override;
     void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
     void Clear() override;
+    void ClearAndCancelTimeout() override;
     void Receive(const Brx& aMessage) override;
     void LongPoll(IWriter& aWriter) override;   // THROWS WriterError.
 private:
@@ -263,20 +276,18 @@ private:
 /**
  * Interface allowing a client to create and interact with IWebApp tabs.
  */
-class ITabManager : public ITabDestroyHandler
+class ITabManager
 {
-public: // from ITabDestroyHandler
-    virtual void Destroy(TUint aId) = 0;
 public:
+    virtual ~ITabManager() {}
     virtual TUint CreateTab(ITabCreator& aTabCreator, const std::vector<char*>& aLanguageList) = 0;    // Returns tab ID; THROWS TabManagerFull, TabAllocatorFull.
-
     // Following calls may all throw InvalidTabId.
     virtual void LongPoll(TUint aId, IWriter& aWriter) = 0;  // Will block until something is written or poll timeout. THROWS WriterError on write failure.
     virtual void Receive(TUint aId, const Brx& aMessage) = 0;
-    virtual ~ITabManager() {}
+    virtual void DestroyTab(TUint aId) = 0;
 };
 
-class TabManager : public ITabManager, private INonCopyable
+class TabManager : public ITabManager, public ITabDestroyHandler, private INonCopyable
 {
 public:
     TabManager(const std::vector<IFrameworkTab*>& aTabs);
@@ -286,7 +297,11 @@ public: // from ITabManager
     TUint CreateTab(ITabCreator& aTabCreator, const std::vector<char*>& aLanguageList) override;
     void LongPoll(TUint aId, IWriter& aWriter) override;    // THROWS WriterError.
     void Receive(TUint aId, const Brx& aMessage) override;
+    void DestroyTab(TUint aId) override;
+public: // from ITabDestroyHandler
     void Destroy(TUint aId) override;
+private:
+    void Destroy(TUint aId, TBool aCancelTimeout);
 private:
     const std::vector<IFrameworkTab*> iTabs;
     TUint iNextSessionId;
@@ -413,7 +428,7 @@ private:
     typedef std::map<const Brx*, WebAppInternal*, BrxPtrCmp> WebAppMap;
 public:
     // FIXME - replace this with an init params object, similar to what ohNet and the pipeline take.
-    WebAppFramework(Environment& aEnv, WebAppFrameworkInitParams* aInitParms);
+    WebAppFramework(Environment& aEnv, WebAppFrameworkInitParams* aInitParms, IThreadPool& aThreadPool);
     ~WebAppFramework();
     void Start();
     /**
@@ -436,6 +451,7 @@ private:
 private:
     Environment& iEnv;
     WebAppFrameworkInitParams* iInitParams;
+    IThreadPool& iThreadPool;
     TUint iAdapterListenerId;
     SocketTcpServer* iServer;
     TabManager* iTabManager;    // Should there be one tab manager for ALL apps, or one TabManager per app? (And, similarly, one set of server sessions for all apps, or a set of server sessions per app? Also, need at least one extra session for receiving (and declining) additional long polling requests.)

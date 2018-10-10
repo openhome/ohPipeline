@@ -36,6 +36,8 @@ Endpoint& MsgUdp::Endpoint()
 
 // SocketUdpServer
 
+const TChar* SocketUdpServer::kAdapterCookie = "SocketUdpServer";
+
 SocketUdpServer::SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority, TUint aPort, TIpAddress aInterface)
     : iEnv(aEnv)
     , iSocket(aEnv, aPort, aInterface)
@@ -288,24 +290,27 @@ void SocketUdpServer::CheckRebind()
 void SocketUdpServer::CurrentAdapterChanged()
 {
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
-    AutoNetworkAdapterRef ref(iEnv, "UdpServer::UpdateAdapter");
-    NetworkAdapter* current = ref.Adapter();
+    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie);
 
     // Get current subnet, otherwise choose first from a list
     if (current == nullptr) {
         std::vector<NetworkAdapter*>* subnetList = nifList.CreateSubnetList();
         if (subnetList->size() > 0) {
             current = (*subnetList)[0];
+            current->AddRef(kAdapterCookie);
         }
         NetworkAdapterList::DestroySubnetList(subnetList);
     }
 
-    // Don't rebind if we have nothing to rebind to - should this ever be the case?
+    // Only rebind if we have something to rebind to.
     if (current != nullptr) {
         Semaphore waiter("", 0);
         PostRebind(current->Address(), iSocket.Port(), MakeFunctor(waiter, &Semaphore::Signal));
         waiter.Wait();
         iSocket.Interrupt(false);
+
+        // Finished with current now, so remove ref.
+        current->RemoveRef(kAdapterCookie);
     }
 }
 

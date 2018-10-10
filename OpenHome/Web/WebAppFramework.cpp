@@ -15,6 +15,7 @@
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
 #include <OpenHome/Configuration/ConfigManager.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <functional>
 #include <limits>
@@ -265,7 +266,7 @@ void FrameworkSemaphore::Signal()
 
 // FrameworkTab
 
-FrameworkTab::FrameworkTab(TUint aTabId, IFrameworkTimer& aTimer, IFrameworkTabHandler& aTabHandler, TUint aPollTimeoutMs)
+FrameworkTab::FrameworkTab(TUint aTabId, IFrameworkTimer& aTimer, IFrameworkTabHandler& aTabHandler, TUint aPollTimeoutMs, IThreadPool& aThreadPool)
     : iTabId(aTabId)
     , iPollTimeoutMs(aPollTimeoutMs)
     , iHandler(aTabHandler)
@@ -276,10 +277,13 @@ FrameworkTab::FrameworkTab(TUint aTabId, IFrameworkTimer& aTimer, IFrameworkTabH
     , iPollActive(false)
     , iLock("FRTL")
 {
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &FrameworkTab::TaskDestroy), "FrameworkTab", ThreadPoolPriority::Low);
 }
 
 FrameworkTab::~FrameworkTab()
 {
+    iThreadPoolHandle->Destroy();
+
     // Owner must have called Clear().
     //TBool tabIsAllocated = false;
     //{
@@ -340,10 +344,35 @@ void FrameworkTab::Clear()
     // Must be forgiving for cases where:
     // - Tab is in use, but framework is being destroyed.
     // - Tab has already been destroyed, but destroy is being called again (e.g., where a terminate request has come in from a client while a long poll request is active. The terminate request could cause a WriterError during the long poll request, which would cause Destroy() to be called again).
-    AutoMutex a(iLock);
 
+    // This call should be used when the FrameworkTab itself has notified a destroyer handler that it should be destroyed due to a timeout.
+    // This does not call iThreadPoolHandle->Cancel(), as that would result in an attempted recursive lock on thread pool as this call will have originated in ::TaskDestroy().
+
+    iTimer.Cancel();
+
+    AutoMutex a(iLock);
     if (iTab != nullptr) {
-        iTimer.Cancel();    // FIXME - recursive if this Clear() comes from a FrameworkTab::Complete() call.
+        iHandler.Disable();   // Should reject/drop any further calls to Send() from ITab.
+        iSessionId = kInvalidTabId;
+        iTab->Destroy();
+        iTab = nullptr;
+        iLanguages.clear();
+    }
+}
+
+void FrameworkTab::ClearAndCancelTimeout()
+{
+    // Should not be used internally. Should only be called via owner of this class.
+
+    // Must be forgiving for cases where:
+    // - Tab is in use, but framework is being destroyed.
+    // - Tab has already been destroyed, but destroy is being called again (e.g., where a terminate request has come in from a client while a long poll request is active. The terminate request could cause a WriterError during the long poll request, which would cause Destroy() to be called again).
+
+    iTimer.Cancel();
+    iThreadPoolHandle->Cancel();
+
+    AutoMutex a(iLock);
+    if (iTab != nullptr) {
         iHandler.Disable();   // Should reject/drop any further calls to Send() from ITab.
         iSessionId = kInvalidTabId;
         iTab->Destroy();
@@ -363,6 +392,7 @@ void FrameworkTab::LongPoll(IWriter& aWriter)
         }
 
         iTimer.Cancel();
+        iThreadPoolHandle->Cancel();
         iPollActive = true;
     }
     iHandler.LongPoll(aWriter);
@@ -395,19 +425,39 @@ void FrameworkTab::Send(ITabMessage& aMessage)
 
 void FrameworkTab::Complete()
 {
-    iDestroyHandler->Destroy(iSessionId);
+    // Client has failed to start another long poll within timeout period, so this tab should be destroyed.
+    // ITabDestroyHandler may attempt to acquire a lock and/or perform time-consuming operations. Don't want those things to happen on TimerManager thread, so push to thread pool.
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
+void FrameworkTab::TaskDestroy()
+{
+    TUint id = kInvalidTabId;
+    {
+        AutoMutex amx(iLock);
+        id = iSessionId;
+    }
+
+    if (id != kInvalidTabId) {
+        // Tab may already have been destroyed by this point (directly by the TabManager) so be prepared to catch InvalidTabId.
+        try {
+            iDestroyHandler->Destroy(id);
+        }
+        catch (const InvalidTabId&) {
+        }
+    }
 }
 
 
 // FrameworkTabFull
 
-FrameworkTabFull::FrameworkTabFull(Environment& aEnv, TUint aTabId, TUint aSendQueueSize, TUint aSendTimeoutMs, TUint aPollTimeoutMs)
+FrameworkTabFull::FrameworkTabFull(Environment& aEnv, TUint aTabId, TUint aSendQueueSize, TUint aSendTimeoutMs, TUint aPollTimeoutMs, IThreadPool& aThreadPool)
     : iSemRead("FTSR", 0)
     , iSemWrite("FTSW", aSendQueueSize)
     , iTabHandlerTimer(aEnv, "TabHandlerTimer", aTabId)
     , iTabHandler(iSemRead, iSemWrite, iTabHandlerTimer, aSendQueueSize, aSendTimeoutMs)
     , iTabTimer(aEnv, "TabTimer", aTabId)
-    , iTab(aTabId, iTabTimer, iTabHandler, aPollTimeoutMs)
+    , iTab(aTabId, iTabTimer, iTabHandler, aPollTimeoutMs, aThreadPool)
 {
 }
 
@@ -424,6 +474,11 @@ void FrameworkTabFull::CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITa
 void FrameworkTabFull::Clear()
 {
     iTab.Clear();
+}
+
+void FrameworkTabFull::ClearAndCancelTimeout()
+{
+    iTab.ClearAndCancelTimeout();
 }
 
 void FrameworkTabFull::Receive(const Brx& aMessage)
@@ -452,7 +507,7 @@ TabManager::~TabManager()
     AutoMutex a(iLock);
     ASSERT(!iEnabled);  // Disable() must have been called.
     for (TUint i=0; i<iTabs.size(); i++) {
-        iTabs[i]->Clear();
+        iTabs[i]->ClearAndCancelTimeout();
         delete iTabs[i];    // Will remove any references still held (i.e., when client holds a browser tab open).
     }
 }
@@ -465,7 +520,7 @@ void TabManager::Disable()
     // Clear active tabs. Will terminate any blocking LongPolls.
     for (TUint i=0; i<iTabs.size(); i++) {
         if (iTabs[i]->SessionId() != FrameworkTab::kInvalidTabId) {
-            iTabs[i]->Clear();
+            iTabs[i]->ClearAndCancelTimeout();
         }
     }
 }
@@ -543,14 +598,26 @@ void TabManager::Receive(TUint aId, const Brx& aMessage)
     THROW(InvalidTabId);
 }
 
+void TabManager::DestroyTab(TUint aId)
+{
+    // This is a request from a client, so must tell tab to cancel any timeouts.
+    Destroy(aId, true);
+}
+
 void TabManager::Destroy(TUint aId)
 {
+    // This is a request from a tab itself, so must not tell it to cancel any timeouts, otherwise attempted recursive locks may occur.
+    Destroy(aId, false);
+}
+
+void TabManager::Destroy(TUint aId, TBool aCancelTimeout)
+{
     if (aId == IFrameworkTab::kInvalidTabId) {
-        LOG(kHttp, "TabManager::Destroy kInvalidTabId\n");
+        LOG(kHttp, "TabManager::Destroy kInvalidTabId aId: %u, aCancelTimeout: %u\n", aId, aCancelTimeout);
         THROW(InvalidTabId);
     }
 
-    LOG(kHttp, "TabManager::Destroy aId: %u\n", aId);
+    LOG(kHttp, "TabManager::Destroy aId: %u, aCancelTimeout: %u\n", aId, aCancelTimeout);
     {
         AutoMutex a(iLock);
         if (!iEnabled) {
@@ -560,7 +627,12 @@ void TabManager::Destroy(TUint aId)
         for (TUint i=0; i<iTabs.size(); i++) {
             IFrameworkTab* tab = iTabs[i];
             if (tab->SessionId() == aId) {
-                tab->Clear();
+                if (aCancelTimeout) {
+                    tab->ClearAndCancelTimeout();
+                }
+                else {
+                    tab->Clear();
+                }
                 return;
             }
         }
@@ -690,9 +762,10 @@ const TChar* WebAppFramework::kName("WebUiServer");
 const TChar* WebAppFramework::kAdapterCookie("WebAppFramework");
 const Brn WebAppFramework::kSessionPrefix("WebUiSession");
 
-WebAppFramework::WebAppFramework(Environment& aEnv, WebAppFrameworkInitParams* aInitParams)
+WebAppFramework::WebAppFramework(Environment& aEnv, WebAppFrameworkInitParams* aInitParams, IThreadPool& aThreadPool)
     : iEnv(aEnv)
     , iInitParams(aInitParams)
+    , iThreadPool(aThreadPool)
     , iServer(nullptr)
     , iDefaultApp(nullptr)
     , iStarted(false)
@@ -712,7 +785,7 @@ WebAppFramework::WebAppFramework(Environment& aEnv, WebAppFrameworkInitParams* a
     // it will be immediately rejected, therefore not blocking any thread.)
     std::vector<IFrameworkTab*> tabs;
     for (TUint i=0; i<iInitParams->MaxServerThreadsLongPoll(); i++) {
-        tabs.push_back(new FrameworkTabFull(aEnv, i, iInitParams->SendQueueSize(), iInitParams->SendTimeoutMs(), iInitParams->LongPollTimeoutMs()));
+        tabs.push_back(new FrameworkTabFull(aEnv, i, iInitParams->SendQueueSize(), iInitParams->SendTimeoutMs(), iInitParams->LongPollTimeoutMs(), iThreadPool));
     }
     iTabManager = new TabManager(tabs); // Takes ownership.
 
@@ -888,27 +961,29 @@ void WebAppFramework::AddSessions()
 void WebAppFramework::CurrentAdapterChanged()
 {
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
-    AutoNetworkAdapterRef ref(iEnv, "WebAppFramework::CurrentAdapterChanged");
-    NetworkAdapter* current = ref.Adapter();
-
-    // Get current subnet, otherwise choose first from a list
+    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie);
+    // If no current adapter, choose first (if any) from subnet list.
     if (current == nullptr) {
         std::vector<NetworkAdapter*>* subnetList = nifList.CreateSubnetList();
         if (subnetList->size() > 0) {
             current = (*subnetList)[0];
+            current->AddRef(kAdapterCookie);    // Add ref before destroying subnet list.
         }
         NetworkAdapterList::DestroySubnetList(subnetList);
     }
 
+    // If "current" is not the same as "iCurrentAdapter" update iCurrentAdapter.
     AutoMutex amx(iMutex);
-
     if (iCurrentAdapter != current) {
         if (iCurrentAdapter != nullptr) {
             iCurrentAdapter->RemoveRef(kAdapterCookie);
         }
-        iCurrentAdapter = current;
-        if (iCurrentAdapter != nullptr) {
-            iCurrentAdapter->AddRef(kAdapterCookie);
+        iCurrentAdapter = current;  // Ref already added to current above; ref passes to iCurrentAdapter (if current != nullptr).
+    }
+    else {
+        if (current != nullptr) {
+            current->RemoveRef(kAdapterCookie); // current is not different from iCurrentAdapter. Remove reference from current.
+            current = nullptr;
         }
     }
 
@@ -916,7 +991,8 @@ void WebAppFramework::CurrentAdapterChanged()
     // Could potentially resume session. In the worst case, they will time out
     // and be recreated, which is what would otherwise be done here anyway.
 
-    // Don't rebind if we have nothing to rebind to - should this ever be the case?
+    // If current != nullptr (because iCurrentAdapter has been set to current), recreate server and sessions.
+    // Ref for current is held by iCurrentAdapter at this point (and should not be removed here).
     if (current != nullptr) {
         delete iServer;
         iSessions.clear();
@@ -1355,7 +1431,7 @@ void HttpSession::Post()
             }
             catch (WriterError&) {
                 try {
-                    iTabManager.Destroy(sessionId);
+                    iTabManager.DestroyTab(sessionId);
                 }
                 catch (InvalidTabId&) {
                     // Don't set error state to kNotFound.
@@ -1392,7 +1468,7 @@ void HttpSession::Post()
             }
             //Log::Print("lpterminate session-id: %u\n", sessionId);
             try {
-                iTabManager.Destroy(sessionId);
+                iTabManager.DestroyTab(sessionId);
                 iResponseStarted = true;
                 iWriterResponseLongPoll->WriteHeader(version);
                 iWriterResponseLongPoll->WriteFlush();
