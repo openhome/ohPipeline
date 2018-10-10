@@ -5,6 +5,7 @@
 #include <OpenHome/Private/Standard.h>
 
 #include <OpenHome/Web/WebAppFramework.h>
+#include <OpenHome/ThreadPool.h>
 
 namespace OpenHome {
 namespace Web {
@@ -296,6 +297,46 @@ private:
     Bws<20> iMsg;
 };
 
+/*
+ * Calling Destroy() on this class does nothing other than push a message into the test pipe.
+ * That allows for checking that a client destroys their IThreadPoolHandle instance as expected.
+ * The actual instance will be deleted when MockThreadPool is deleted.
+ */
+class MockThreadPoolHandle : public IThreadPoolHandle
+{
+public:
+    MockThreadPoolHandle(ITestPipeWritable& aTestPipe, Functor aFunctor);
+    ~MockThreadPoolHandle();
+    // Return true if task was scheduled; false otherwise.
+    TBool RunScheduledTask();   // Note: It should be possible for a task to call TrySchedule() on itself again (i.e., don't hold any lock while running functor).
+public: // from IThreadPoolHandle
+    void Destroy() override;
+    TBool TrySchedule() override;
+    void Cancel() override;
+private:
+    ITestPipeWritable& iTestPipe;
+    Functor iFunctor;
+    TBool iPending;
+    TBool iDestroyed;
+    Mutex iLock;
+};
+
+class MockThreadPool : public IThreadPool
+{
+public:
+    MockThreadPool(ITestPipeWritable& aTestPipe);
+    ~MockThreadPool();
+    // Return true if task was scheduled; false otherwise.
+    // Asserts if no such ID.
+    TBool RunScheduledTask(const TChar* aId);
+public: // from IThreadPool
+    IThreadPoolHandle* CreateHandle(Functor aCb, const TChar* aId, ThreadPoolPriority aPriority) override;
+private:
+    ITestPipeWritable& iTestPipe;
+    std::map<const TChar*, MockThreadPoolHandle*> iMap;
+    Mutex iLock;
+};
+
 class SuiteFrameworkTab : public TestFramework::SuiteUnitTest, private INonCopyable
 {
 public:
@@ -315,6 +356,7 @@ private:
     void TestDeleteWhileTabAllocated();
 private:
     TestPipeDynamic* iTestPipe;
+    MockThreadPool* iThreadPool;
     TestHelperDestroyHandler* iDestroyHandler;
     TestHelperFrameworkTimer* iFrameworkTimer;
     TestHelperTabHandler* iTabHandler;
@@ -332,6 +374,7 @@ public: // from IFrameworkTab
     TUint SessionId() const override;
     void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
     void Clear() override;
+    void ClearAndCancelTimeout() override;
     void Receive(const Brx& aMessage) override;
     void LongPoll(IWriter& aWriter) override;
 private:
@@ -347,6 +390,7 @@ public: // from IFrameworkTab
     TUint SessionId() const override;
     void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
     void Clear() override;
+    void ClearAndCancelTimeout() override;
     void Receive(const Brx& aMessage) override;
     void LongPoll(IWriter& aWriter) override;
 };
@@ -393,6 +437,7 @@ private:
 private:
     Environment& iEnv;
     Bws<Uri::kMaxUriBytes> iPresentationUrl;
+    ThreadPool* iThreadPool;
     WebAppFramework* iFramework;
 };
 
@@ -520,6 +565,142 @@ void MockWriterThrowsWriterError::Write(const Brx& /*aBuffer*/)
 void MockWriterThrowsWriterError::WriteFlush()
 {
     THROW(WriterError);
+}
+
+
+// MockThreadPoolHandle
+
+MockThreadPoolHandle::MockThreadPoolHandle(ITestPipeWritable& aTestPipe, Functor aFunctor)
+    : iTestPipe(aTestPipe)
+    , iFunctor(aFunctor)
+    , iPending(false)
+    , iDestroyed(false)
+    , iLock("MTPH")
+{
+}
+
+MockThreadPoolHandle::~MockThreadPoolHandle()
+{
+}
+
+TBool MockThreadPoolHandle::RunScheduledTask()
+{
+    TBool pending = false;
+    {
+        AutoMutex amx(iLock);
+        if (iPending) {
+            iPending = false;
+            pending = true;
+        }
+    }
+
+    if (pending) {
+        iFunctor();
+        return true;
+    }
+    return false;
+}
+
+void MockThreadPoolHandle::Destroy()
+{
+    {
+        AutoMutex amx(iLock);
+        iDestroyed = true;
+    }
+
+    iTestPipe.Write(Brn("MTPH::Destroy"));
+}
+
+TBool MockThreadPoolHandle::TrySchedule()
+{
+    TBool pending = true;
+    {
+        AutoMutex amx(iLock);
+        ASSERT(!iDestroyed);
+        if (!iPending) {
+            iPending = true;
+            pending = false;
+        }
+    }
+
+    Bws<32> buf("MTPH::TrySchedule ");
+    if (pending) {
+        buf.Append('F');
+        iTestPipe.Write(buf);
+        return false;
+    }
+    else {
+        buf.Append('T');
+        iTestPipe.Write(buf);
+        return true;
+    }
+}
+
+void MockThreadPoolHandle::Cancel()
+{
+    TBool pending = false;
+    {
+        AutoMutex amx(iLock);
+        ASSERT(!iDestroyed);
+        pending = iPending;
+        iPending = false;
+    }
+
+    Bws<16> buf("MTPH::Cancel ");
+    if (pending) {
+        buf.Append('T');
+    }
+    else {
+        buf.Append('F');
+    }
+    iTestPipe.Write(buf);
+}
+
+
+// MockThreadPool
+
+MockThreadPool::MockThreadPool(ITestPipeWritable& aTestPipe)
+    : iTestPipe(aTestPipe)
+    , iLock("MTPL")
+{
+}
+
+MockThreadPool::~MockThreadPool()
+{
+    for (auto& kvp : iMap) {
+        delete kvp.second;
+    }
+}
+
+TBool MockThreadPool::RunScheduledTask(const TChar* aId)
+{
+    MockThreadPoolHandle* handle = nullptr;
+    {
+        AutoMutex amx(iLock);
+        auto it = iMap.find(aId);
+        if (it != iMap.end()) {
+            handle = it->second;
+        }
+    }
+
+    ASSERT(handle != nullptr);
+    return handle->RunScheduledTask();
+}
+
+IThreadPoolHandle* MockThreadPool::CreateHandle(Functor aCb, const TChar* aId, ThreadPoolPriority /*aPriority*/)
+{
+    AutoMutex amx(iLock);
+    auto itFind = iMap.find(aId);
+    ASSERT(itFind == iMap.end());
+
+    MockThreadPoolHandle* handle = new MockThreadPoolHandle(iTestPipe, aCb);
+    auto itInsert = iMap.insert(std::pair<const TChar*, MockThreadPoolHandle*>(aId, handle));
+    if (!itInsert.second) {
+        delete handle;
+        ASSERTS();
+    }
+
+    return handle;
 }
 
 
@@ -1323,12 +1504,13 @@ SuiteFrameworkTab::SuiteFrameworkTab()
 void SuiteFrameworkTab::Setup()
 {
     iTestPipe = new TestPipeDynamic();
+    iThreadPool = new MockThreadPool(*iTestPipe);
     iDestroyHandler = new TestHelperDestroyHandler(*iTestPipe);
     iFrameworkTimer = new TestHelperFrameworkTimer(*iTestPipe);
     iTabHandler = new TestHelperTabHandler(*iTestPipe);
     iTabCreator = new TestHelperTabCreator(*iTestPipe);
 
-    iFrameworkTab = new FrameworkTab(0, *iFrameworkTimer, *iTabHandler, 5000);
+    iFrameworkTab = new FrameworkTab(0, *iFrameworkTimer, *iTabHandler, 5000, *iThreadPool);
 }
 
 void SuiteFrameworkTab::TearDown()
@@ -1338,6 +1520,8 @@ void SuiteFrameworkTab::TearDown()
     delete iTabHandler;
     delete iFrameworkTimer;
     delete iDestroyHandler;
+    TEST(iTestPipe->Expect(Brn("MTPH::Destroy")));
+    delete iThreadPool;
     delete iTestPipe;
 }
 
@@ -1351,8 +1535,9 @@ void SuiteFrameworkTab::TestCreateTab()
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
 
-    iFrameworkTab->Clear();
+    iFrameworkTab->ClearAndCancelTimeout();
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
 
@@ -1362,6 +1547,7 @@ void SuiteFrameworkTab::TestCreateTab()
     WriterBuffer writerBuffer(buf);
     TEST_THROWS(iFrameworkTab->LongPoll(writerBuffer), AssertionFailed);
     iFrameworkTab->Clear(); // No effect.
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
 
     TEST(iTestPipe->ExpectEmpty());
 }
@@ -1371,16 +1557,18 @@ void SuiteFrameworkTab::TestReuseTab()
     iFrameworkTab->CreateTab(1, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
-    iFrameworkTab->Clear();
+    iFrameworkTab->ClearAndCancelTimeout();
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
 
     iFrameworkTab->CreateTab(2, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
-    iFrameworkTab->Clear();
+    iFrameworkTab->ClearAndCancelTimeout();
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
 
@@ -1404,8 +1592,9 @@ void SuiteFrameworkTab::TestSessionId()
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     TEST(iFrameworkTab->SessionId() == 1);
-    iFrameworkTab->Clear();
+    iFrameworkTab->ClearAndCancelTimeout();
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
     TEST(iFrameworkTab->SessionId() == FrameworkTab::kInvalidTabId);
@@ -1419,8 +1608,9 @@ void SuiteFrameworkTab::TestReceive()
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     iFrameworkTab->Receive(Brn("TestReceive"));
     TEST(iTestPipe->Expect(Brn("Tab::Receive TestReceive")));
-    iFrameworkTab->Clear();
+    iFrameworkTab->ClearAndCancelTimeout();
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
 }
@@ -1434,11 +1624,13 @@ void SuiteFrameworkTab::TestLongPoll()
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     iFrameworkTab->LongPoll(writerBuffer);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::LongPoll")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     TEST(buf.Bytes() == 0);
-    iFrameworkTab->Clear();
+    iFrameworkTab->ClearAndCancelTimeout();
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
     TEST(iTestPipe->ExpectEmpty());
@@ -1457,8 +1649,9 @@ void SuiteFrameworkTab::TestSend()
     TEST(iTestPipe->Expect(Brn("HelperTabMessage::Destroy")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Send TestSend")));
 
-    iFrameworkTab->Clear();
+    iFrameworkTab->ClearAndCancelTimeout();
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
     TEST(iTestPipe->ExpectEmpty());
@@ -1472,11 +1665,13 @@ void SuiteFrameworkTab::TestTabTimeout()
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     // Simulate tab timeout.
     timerHandler.Complete();
+    TEST(iTestPipe->Expect(Brn("MTPH::TrySchedule T")));
+    TEST(iThreadPool->RunScheduledTask("FrameworkTab"));
 
     // Check destroy handler has been called (and then call Clear() from here).
     // In production code, the destroy handler MUST call Clear() on the tab.
     TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy 1")));
-    iFrameworkTab->Clear();
+    iFrameworkTab->Clear(); // Must be Clear() that is called when tab times out; not ClearAndCancelTimeout().
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
@@ -1491,10 +1686,14 @@ void SuiteFrameworkTab::TestTabTimeout()
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     iFrameworkTab->LongPoll(writerBuffer);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::LongPoll")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     // Simulate tab timeout.
     timerHandler.Complete();
+    TEST(iTestPipe->Expect(Brn("MTPH::TrySchedule T")));
+    TEST(iThreadPool->RunScheduledTask("FrameworkTab"));
+
     TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy 2")));
     iFrameworkTab->Clear();
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
@@ -1558,6 +1757,15 @@ void TestHelperFrameworkTab::Clear()
     iDestroyHandler = nullptr;
 }
 
+void TestHelperFrameworkTab::ClearAndCancelTimeout()
+{
+    Bws<50> buf("TestHelperFrameworkTab::ClearAndCancelTimeout ");
+    Ascii::AppendDec(buf, iId);
+    iTestPipe.Write(buf);
+    iSessionId = IFrameworkTab::kInvalidTabId;
+    iDestroyHandler = nullptr;
+}
+
 void TestHelperFrameworkTab::Receive(const Brx& aMessage)
 {
     Bws<50> buf("TestHelperFrameworkTab::Receive ");
@@ -1588,6 +1796,10 @@ void TestHelperFrameworkTabFull::CreateTab(TUint /*aSessionId*/, ITabCreator& /*
 }
 
 void TestHelperFrameworkTabFull::Clear()
+{
+}
+
+void TestHelperFrameworkTabFull::ClearAndCancelTimeout()
 {
 }
 
@@ -1688,7 +1900,7 @@ void SuiteTabManager::TestDisable()
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 0 1")));
     iTabManager->Disable();
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::ClearAndCancelTimeout 0")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
@@ -1971,8 +2183,9 @@ SuiteWebAppFramework::SuiteWebAppFramework(Environment& aEnv)
 void SuiteWebAppFramework::Setup()
 {
     iPresentationUrl.SetBytes(0);
+    iThreadPool = new ThreadPool(1, 1, 1);
     WebAppFrameworkInitParams* initParams = new WebAppFrameworkInitParams();
-    iFramework = new WebAppFramework(iEnv, initParams);
+    iFramework = new WebAppFramework(iEnv, initParams, *iThreadPool);
     TestHelperWebApp* webApp = new TestHelperWebApp();
     iFramework->Add(webApp, MakeFunctorGeneric(*this, &SuiteWebAppFramework::PresentationUrlChanged));
 }
@@ -1980,6 +2193,7 @@ void SuiteWebAppFramework::Setup()
 void SuiteWebAppFramework::TearDown()
 {
     delete iFramework;
+    delete iThreadPool;
 }
 
 void SuiteWebAppFramework::PresentationUrlChanged(const Brx& aUrl)

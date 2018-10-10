@@ -2,7 +2,7 @@
     {   "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.22.3131",
+        "version": "1.22.3172",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
@@ -14,7 +14,7 @@
     {   "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.0.99",
+        "version": "0.0.115",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -50,10 +50,25 @@
         "type": "openhome",
         "platform-specific": true,
         "version": "0.2.65",
-        "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.bz2"
+        "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.bz2",
+        "platform-ignore": {
+            "Linux-rpi": true,
+            "*": false },
+        "ignore": "${platform-ignore[$platform]}"
+    },
+    {
+        "name": "openssl",
+        "type": "openhome",
+        "platform-specific": true,
+        "version": "0.2.61",
+        "archive-filename": "${name}-${version}-Linux-armhf-${debugmode}.tar.bz2",
+        "platform-ignore": {
+            "Linux-rpi": false,
+            "*": true },
+        "ignore": "${platform-ignore[$platform]}"
     },
     {   "name":             "testharness",
-        "version":          "0.1.50",
+        "version":          "0.1.51",
         "cross-check":      false,
         "type":             "openhome",
         "archive-filename": "${name}-${version}.tar.gz",
@@ -92,7 +107,7 @@
     {
         "name": "FunctionalTest",
         "type": "openhome",
-        "version": "0.0.1127",
+        "version": "0.0.1131",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "FunctionalTest-${version}.zip",

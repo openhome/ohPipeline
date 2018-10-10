@@ -99,7 +99,7 @@ def configure(conf):
     # thirdparty/apple_alac/codec/EndianPortable.c attempts to define TARGET_RT_LITTLE_ENDIAN for little endian platforms (leaving it unset implies big endian).
     if conf.options.dest_platform in ['Windows-x86', 'Windows-x64']:
         conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # Could define TARGET_OS_WIN32, but that is ultimately used by EndianPortable.c to set TARGET_RT_LITTLE_ENDIAN.
-    elif conf.options.dest_platform in ['Linux-armhf']:
+    elif conf.options.dest_platform in ['Linux-armhf', 'Linux-rpi']:
         conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # EndianPortable.c does not handle '__arm__', so define TARGET_RT_LITTLE_ENDIAN here.
     conf.env.INCLUDES_ALAC_APPLE = [
         'thirdparty/apple_alac/codec/',
@@ -127,7 +127,7 @@ def configure(conf):
     fixed_point_model = 'FPM_INTEL'
     if conf.options.with_default_fpm:
         fixed_point_model = 'FPM_DEFAULT'
-    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Core-armv5', 'Core-armv6']:
+    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
@@ -290,6 +290,7 @@ def build(bld):
             ],
             use=['ohNetCore', 'OHNET', 'OPENSSL'],
             target='ohPipeline')
+    bld.add_group()
 
     # Library
     bld.stlib(
