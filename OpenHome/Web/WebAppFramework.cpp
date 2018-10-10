@@ -961,27 +961,29 @@ void WebAppFramework::AddSessions()
 void WebAppFramework::CurrentAdapterChanged()
 {
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
-    AutoNetworkAdapterRef ref(iEnv, "WebAppFramework::CurrentAdapterChanged");
-    NetworkAdapter* current = ref.Adapter();
-
-    // Get current subnet, otherwise choose first from a list
+    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie);
+    // If no current adapter, choose first (if any) from subnet list.
     if (current == nullptr) {
         std::vector<NetworkAdapter*>* subnetList = nifList.CreateSubnetList();
         if (subnetList->size() > 0) {
             current = (*subnetList)[0];
+            current->AddRef(kAdapterCookie);    // Add ref before destroying subnet list.
         }
         NetworkAdapterList::DestroySubnetList(subnetList);
     }
 
+    // If "current" is not the same as "iCurrentAdapter" update iCurrentAdapter.
     AutoMutex amx(iMutex);
-
     if (iCurrentAdapter != current) {
         if (iCurrentAdapter != nullptr) {
             iCurrentAdapter->RemoveRef(kAdapterCookie);
         }
-        iCurrentAdapter = current;
-        if (iCurrentAdapter != nullptr) {
-            iCurrentAdapter->AddRef(kAdapterCookie);
+        iCurrentAdapter = current;  // Ref already added to current above; ref passes to iCurrentAdapter (if current != nullptr).
+    }
+    else {
+        if (current != nullptr) {
+            current->RemoveRef(kAdapterCookie); // current is not different from iCurrentAdapter. Remove reference from current.
+            current = nullptr;
         }
     }
 
@@ -989,7 +991,8 @@ void WebAppFramework::CurrentAdapterChanged()
     // Could potentially resume session. In the worst case, they will time out
     // and be recreated, which is what would otherwise be done here anyway.
 
-    // Don't rebind if we have nothing to rebind to - should this ever be the case?
+    // If current != nullptr (because iCurrentAdapter has been set to current), recreate server and sessions.
+    // Ref for current is held by iCurrentAdapter at this point (and should not be removed here).
     if (current != nullptr) {
         delete iServer;
         iSessions.clear();

@@ -513,9 +513,6 @@ void PinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Br
             if (iObserver != nullptr) {
                 iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
             }
-            if (iPinSetObserver != nullptr) {
-                iPinSetObserver->NotifyPin(aIndex, aMode, aType);
-            }
         }
     }
 }
@@ -559,12 +556,6 @@ void PinsManager::Swap(TUint aIndex1, TUint aIndex2)
         if (iPinsDevice.Swap(aIndex1, aIndex2))  {
             if (iObserver != nullptr) {
                 iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
-            }
-            if (iPinSetObserver != nullptr) {
-                const auto& pin1 = iPinsDevice.PinFromIndex(aIndex1);
-                iPinSetObserver->NotifyPin(aIndex2, pin1.Mode(), pin1.Type());
-                const auto& pin2 = iPinsDevice.PinFromIndex(aIndex2);
-                iPinSetObserver->NotifyPin(aIndex1, pin2.Mode(), pin2.Type());
             }
         }
     }
@@ -647,6 +638,12 @@ void PinsManager::BeginInvoke()
     iSemInvokerComplete.Wait();
     iCurrent = invoker;
     Functor complete = MakeFunctor(*this, &PinsManager::NotifyInvocationCompleted);
+    if (iPinSetObserver != nullptr) {
+        TUint index = 0;
+        if (TryGetIndexFromId(iInvoke.Id(), index)) {
+            iPinSetObserver->NotifyPin(index, iInvoke.Mode(), iInvoke.Type());
+        }
+    }
     iCurrent->BeginInvoke(iInvoke, complete);
 }
 
@@ -655,6 +652,23 @@ void PinsManager::NotifyInvocationCompleted()
     AutoMutex __(iLockInvoker);
     iCurrent = nullptr;
     iSemInvokerComplete.Signal();
+}
+
+TBool PinsManager::TryGetIndexFromId(TUint aId, TUint& aIndex)
+{
+    try {
+        AutoMutex _(iLock);
+        if (IsAccountId(aId)) {
+            aIndex = iPinsAccount.IndexFromId(aId);
+        }
+        else {
+            aIndex = iPinsDevice.IndexFromId(aId);
+        }
+    }
+    catch (Exception&) {
+        return false;
+    }
+    return true;
 }
 
 void PinsManager::NotifySettable(TBool aConnected, TBool aAssociated)
@@ -668,13 +682,6 @@ void PinsManager::NotifySettable(TBool aConnected, TBool aAssociated)
     else {
         if (aConnected && !aAssociated) {
             iPinsAccount.ClearAll();
-            if (iPinSetObserver != nullptr) {
-                const TUint count = iPinsAccount.Count();
-                TUint index = iPinsDevice.Count();
-                for (TUint i = 0; i < count; i++) {
-                    iPinSetObserver->NotifyPin(index++, Brx::Empty(), Brx::Empty());
-                }
-            }
         }
         if (iPinsAccount.IsEmpty()) {
             iObserver->NotifyAccountPinsMax(0);
@@ -691,27 +698,12 @@ void PinsManager::NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aT
         if (iObserver != nullptr) {
             iObserver->NotifyUpdatesAccount(iPinsAccount.IdArray());
         }
-        if (iPinSetObserver != nullptr) {
-            iPinSetObserver->NotifyPin(iPinsDevice.Count() + aIndex, aMode, aType);
-        }
     }
 }
 
 void PinsManager::Add(IPinSetObserver& aObserver)
 {
     iPinSetObserver = &aObserver;
-    AutoMutex _(iLock);
-    TUint index = 0;
-    TUint count = iPinsDevice.Count();
-    for (TUint i = 0; i < count; i++) {
-        const auto& pin = iPinsDevice.PinFromIndex(i);
-        iPinSetObserver->NotifyPin(index++, pin.Mode(), pin.Type());
-    }
-    count = iPinsAccount.Count();
-    for (TUint i = 0; i < count; i++) {
-        const auto& pin = iPinsAccount.PinFromIndex(i);
-        iPinSetObserver->NotifyPin(index++, pin.Mode(), pin.Type());
-    }
 }
 
 TBool PinsManager::IsAccountId(TUint aId) const
