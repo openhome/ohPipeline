@@ -149,6 +149,8 @@ const Brn PinInvokerKazooServer::kHostArtist("artist");
 const Brn PinInvokerKazooServer::kHostContainer("container");
 const Brn PinInvokerKazooServer::kHostGenre("genre");
 const Brn PinInvokerKazooServer::kHostPlaylist("playlist");
+const Brn PinInvokerKazooServer::kResponseTracks("tracks");
+const Brn PinInvokerKazooServer::kResponseAlbums("albums");
 
 PinInvokerKazooServer::PinInvokerKazooServer(Environment& aEnv,
                                              CpStack& aCpStack,
@@ -253,7 +255,7 @@ void PinInvokerKazooServer::ReadFromServer()
     AutoSocketReader __(iSocket, iReaderUntil2);
     Endpoint ep(iEndpointUri.Port(), iEndpointUri.Host());
     iSocket.Connect(ep, kConnectTimeoutMs);
-    //iSocket.LogVerbose(true);
+    iSocket.LogVerbose(true);
 
     Bws<128> mePathBase;
     {   // get path for media endpoint
@@ -295,9 +297,27 @@ void PinInvokerKazooServer::ReadFromServer()
     else if (host == kHostContainer) {
         Brn tag(FromQuery("list"));
         const TUint total = List(mePathBase, sessionId, tag);
-        for (TUint i = 0; i < total; i++) {
-            Read(mePathBase, sessionId, i, 1);
-            AddTrack(lastTrackId);
+        Brn resp(FromQuery("response"));
+        if (resp == kResponseTracks) {
+            for (TUint i = 0; i < total; i++) {
+                Read(mePathBase, sessionId, i, 1);
+                AddTrack(lastTrackId);
+            }
+        }
+        else if (resp == kResponseAlbums) {
+            // We may find more tracks than fit in a playlist. Insert all tracks from a
+            // randomly selected album as a very coarse way of randomising selected content.
+            const TUint startIndex = iEnv.Random(total);
+            TBool repositionCursor = false;
+            for (TUint i = startIndex; i < total && playlistCapacity > 0; i++) {
+                ListReadIdAddAlbum(mePathBase, sessionId, tag, i, lastTrackId, playlistCapacity, repositionCursor);
+            }
+            for (TUint i = 0; i < startIndex && playlistCapacity > 0; i++) {
+                ListReadIdAddAlbum(mePathBase, sessionId, tag, i, lastTrackId, playlistCapacity, repositionCursor);
+            }
+        }
+        else {
+            LOG_ERROR(kPipeline, "PinInvokerKazooServer - unknown response type in %.*s\n", PBUF(iPinUri.Query()));
         }
     }
     else if (host == kHostArtist) {
@@ -305,8 +325,9 @@ void PinInvokerKazooServer::ReadFromServer()
         const TUint total = Browse(mePathBase, sessionId, artistId);
 
         // read albums, one at a time
+        TBool repositionCursor = false;
         for (TUint i = 0; i < total && playlistCapacity > 0; i++) {
-            ReadIdAddAlbum(mePathBase, sessionId, artistId, i, lastTrackId, playlistCapacity);
+            BrowseReadIdAddAlbum(mePathBase, sessionId, artistId, i, lastTrackId, playlistCapacity, repositionCursor);
         }
     }
     else if (host == kHostGenre) {
@@ -316,12 +337,12 @@ void PinInvokerKazooServer::ReadFromServer()
         // insert all tracks from a randomly selected album as a very coarse
         // way of randomising selected content
         const TUint startIndex = iEnv.Random(total);
+        TBool repositionCursor = false;
         for (TUint i = startIndex; i < total && playlistCapacity > 0; i++) {
-            ReadIdAddAlbum(mePathBase, sessionId, genreId, i, lastTrackId, playlistCapacity);
+            BrowseReadIdAddAlbum(mePathBase, sessionId, genreId, i, lastTrackId, playlistCapacity, repositionCursor);
         }
-        Browse(mePathBase, sessionId, genreId); // ReadIdAddAlbum for aIndex==0 will skip repositioning the server's cursor
         for (TUint i = 0; i < startIndex && playlistCapacity > 0; i++) {
-            ReadIdAddAlbum(mePathBase, sessionId, genreId, i, lastTrackId, playlistCapacity);
+            BrowseReadIdAddAlbum(mePathBase, sessionId, genreId, i, lastTrackId, playlistCapacity, repositionCursor);
         }
     }
     else if (host == kHostPlaylist) {
@@ -418,12 +439,9 @@ void PinInvokerKazooServer::Read(const Brx& aMePath, const Brx& aSessionId, TUin
     WriteRequestReadResponse(pathAndQuery, true);
 }
 
-void PinInvokerKazooServer::ReadIdAddAlbum(const Brx& aMePath, const Brx& aSessionId, const Brx& aContainerId,
+void PinInvokerKazooServer::ReadIdAddAlbum(const Brx& aMePath, const Brx& aSessionId,
                                            TUint aIndex, TUint& aInsertAfterId, TUint& aPlaylistCapacity)
 {
-    if (aIndex > 0) {
-        (void)Browse(aMePath, aSessionId, aContainerId);
-    }
     Read(aMePath, aSessionId, aIndex, 1);
 
     auto parserArray = JsonParserArray::Create(iResponseBody.Buffer());
@@ -431,6 +449,32 @@ void PinInvokerKazooServer::ReadIdAddAlbum(const Brx& aMePath, const Brx& aSessi
     parserObj.Parse(parserArray.NextObject());
     Brn albumId = parserObj.String("Id");
     (void)AddAlbum(aMePath, aSessionId, albumId, aInsertAfterId, aPlaylistCapacity);
+}
+
+void PinInvokerKazooServer::BrowseReadIdAddAlbum(const Brx& aMePath, const Brx& aSessionId, const Brx& aContainerId,
+                                                 TUint aIndex, TUint& aInsertAfterId, TUint& aPlaylistCapacity,
+                                                 TBool& aRepositionCursor)
+{
+    if (aRepositionCursor) {
+        (void)Browse(aMePath, aSessionId, aContainerId);
+    }
+    else {
+        aRepositionCursor = true;
+    }
+    ReadIdAddAlbum(aMePath, aSessionId, aIndex, aInsertAfterId, aPlaylistCapacity);
+}
+
+void PinInvokerKazooServer::ListReadIdAddAlbum(const Brx& aMePath, const Brx& aSessionId, const Brx& aTag,
+                                               TUint aIndex, TUint& aInsertAfterId, TUint& aPlaylistCapacity,
+                                               TBool& aRepositionCursor)
+{
+    if (aRepositionCursor) {
+        (void)List(aMePath, aSessionId, aTag);
+    }
+    else {
+        aRepositionCursor = true;
+    }
+    ReadIdAddAlbum(aMePath, aSessionId, aIndex, aInsertAfterId, aPlaylistCapacity);
 }
 
 void PinInvokerKazooServer::AddAlbum(const Brx& aMePath, const Brx& aSessionId, const Brx& aId,

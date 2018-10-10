@@ -67,6 +67,8 @@ class PinInvokerKazooServer : public IPinInvoker
     static const Brn kHostContainer;
     static const Brn kHostGenre;
     static const Brn kHostPlaylist;
+    static const Brn kResponseTracks;
+    static const Brn kResponseAlbums;
 public:
     PinInvokerKazooServer(Environment& aEnv,
                           Net::CpStack& aCpStack,
@@ -85,8 +87,14 @@ private:
     TUint Browse(const Brx& aMePath, const Brx& aSessionId, const Brx& aId);
     TUint List(const Brx& aMePath, const Brx& aSessionId, const Brx& aTag);
     void Read(const Brx& aMePath, const Brx& aSessionId, TUint aIndex, TUint aCount);
-    void ReadIdAddAlbum(const Brx& aMePath, const Brx& aSessionId, const Brx& aContainerId,
-                        TUint aIndex, TUint& aInsertAfterId, TUint& aPlaylistCapacity);
+    void ReadIdAddAlbum(const Brx& aMePath, const Brx& aSessionId, TUint aIndex,
+                        TUint& aInsertAfterId, TUint& aPlaylistCapacity);
+    void BrowseReadIdAddAlbum(const Brx& aMePath, const Brx& aSessionId, const Brx& aContainerId,
+                              TUint aIndex, TUint& aInsertAfterId, TUint& aPlaylistCapacity,
+                              TBool& aRepositionCursor);
+    void ListReadIdAddAlbum(const Brx& aMePath, const Brx& aSessionId, const Brx& aContainerId,
+                            TUint aIndex, TUint& aInsertAfterId, TUint& aPlaylistCapacity,
+                            TBool& aRepositionCursor);
     void AddAlbum(const Brx& aMePath, const Brx& aSessionId, const Brx& aId,
                   TUint& aInsertAfterId, TUint& aPlaylistCapacity);
     void AddTrack(TUint& aInsertAfterId);
