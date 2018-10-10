@@ -290,7 +290,6 @@ def build(bld):
             ],
             use=['ohNetCore', 'OHNET', 'OPENSSL'],
             target='ohPipeline')
-    bld.add_group()
 
     # Library
     bld.stlib(
