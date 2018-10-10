@@ -21,6 +21,9 @@ class ProviderProduct : public Net::DvProviderAvOpenhomeOrgProduct2
                       , IProductAttributesObserver
                       , private IStandbyHandler
 {
+private:
+    static const TUint kSourceXmlGranularityBytes = 4 * 1024;
+    static const TUint kAttributeGranularityBytes = 128;
 public:
     ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, IPowerManager& aPowerManager);
     ~ProviderProduct();
@@ -58,7 +61,7 @@ private:
     Mutex iLock;
     WriterBwh iSourceXml;
     IStandbyObserver* iStandbyObserver;
-    Bws<Product::kMaxAttributeBytes> iAttributes;
+    WriterBwh iAttributes;
 };
 
 } // namespace Av

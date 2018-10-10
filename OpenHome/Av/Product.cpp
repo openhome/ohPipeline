@@ -14,8 +14,6 @@
 #include <OpenHome/Optional.h>
 #include <OpenHome/Av/TransportControl.h>
 
-#include <limits.h>
-
 using namespace OpenHome;
 using namespace OpenHome::Net;
 using namespace OpenHome::Av;
@@ -41,12 +39,19 @@ ConfigStartupSource::~ConfigStartupSource()
 // Product
 
 const Brn Product::kKeyLastSelectedSource("Last.Source");
+const TUint Product::kCurrentSourceNone;
+const TBool Product::kPrefetchAllowedDefault;
+const TUint Product::kAttributeGranularityBytes;
 const Brn Product::kConfigIdRoomBase("Product.Room");
 const Brn Product::kConfigIdNameBase("Product.Name");
 const Brn Product::kConfigIdAutoPlay("Device.AutoPlay");
-const TUint Product::kAutoPlayDisable = 0;
-const TUint Product::kAutoPlayEnable  = 1;
-const TUint Product::kCurrentSourceNone = UINT_MAX;
+const TUint Product::kAutoPlayDisable;
+const TUint Product::kAutoPlayEnable;
+const TUint Product::kMinNameBytes;
+const TUint Product::kMaxNameBytes;
+const TUint Product::kMinRoomBytes;
+const TUint Product::kMaxRoomBytes;
+const TUint Product::kMaxUriBytes;
 
 Product::Product(Environment& aEnv, Net::DvDeviceStandard& aDevice, IReadStore& aReadStore,
                  Configuration::IStoreReadWrite& aReadWriteStore, Configuration::IConfigManager& aConfigReader,
@@ -59,6 +64,7 @@ Product::Product(Environment& aEnv, Net::DvDeviceStandard& aDevice, IReadStore& 
     , iPowerManager(aPowerManager)
     , iLock("PRDM")
     , iLockDetails("PRDD")
+    , iAttributes(kAttributeGranularityBytes)
     , iStarted(false)
     , iStandby(true)
     , iAutoPlay(false)
@@ -192,10 +198,10 @@ void Product::AddAttribute(const TChar* aAttribute)
 
 void Product::AddAttribute(const Brx& aAttribute)
 {
-    if (iAttributes.Bytes() > 0) {
-        iAttributes.Append(' ');
+    if (iAttributes.Buffer().Bytes() > 0) {
+        iAttributes.Write(' ');
     }
-    iAttributes.Append(aAttribute);
+    iAttributes.Write(aAttribute);
 }
 
 void Product::SetConfigAppUrl(const Brx& aUrl)
@@ -471,16 +477,17 @@ void Product::GetSourceDetails(const Brx& aSystemName, Bwx& aType, Bwx& aName, T
     THROW(AvSourceNotFound);
 }
 
-void Product::GetAttributes(Bwx& aAttributes) const
+void Product::GetAttributes(IWriter& aWriter) const
 {
     AutoMutex _(iLock);
-    aAttributes.Replace(iAttributes);
+    aWriter.Write(iAttributes.Buffer());
     if (iConfigAppAddress.Bytes() > 0) {
-        aAttributes.Append(" App:Config=");
-        aAttributes.Append("http://");
-        aAttributes.Append(iConfigAppAddress);
-        aAttributes.Append(iConfigAppUrlTail);
+        aWriter.Write(Brn(" App:Config="));
+        aWriter.Write(Brn("http://"));
+        aWriter.Write(iConfigAppAddress);
+        aWriter.Write(iConfigAppUrlTail);
     }
+    aWriter.WriteFlush();
 }
 
 TUint Product::SourceXmlChangeCount()
