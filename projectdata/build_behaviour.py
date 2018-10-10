@@ -93,6 +93,7 @@ def choose_platform(context):
                 "Linux-x64" : "Linux-x64",
                 "Linux-ARM" : "Linux-ARM",
                 "Linux-armhf" : "Linux-armhf",
+                "Linux-rpi" : "Linux-rpi",
                 "Linux-ppc32" : "Linux-ppc32",
                 "Linux-mipsel" : "Linux-mipsel",
                 "Mac-x86" : "Mac-x86",
@@ -143,6 +144,7 @@ def setup_windows(context):
 @build_condition(OH_PLATFORM="Linux-x64")
 @build_condition(OH_PLATFORM="Linux-ARM")
 @build_condition(OH_PLATFORM="Linux-armhf")
+@build_condition(OH_PLATFORM="Linux-rpi")
 @build_condition(OH_PLATFORM="Linux-ppc32")
 @build_condition(OH_PLATFORM="Linux-mipsel")
 def setup_linux(context):
@@ -176,7 +178,7 @@ def bundle(context):
 
 @build_step("test", optional=True)
 def test(context):
-    if context.env["OH_PLATFORM"] not in ['Linux-mipsel']:
+    if context.env["OH_PLATFORM"] not in ['Linux-mipsel', 'Linux-rpi']:
         if context.env["OH_PLATFORM"]=='Windows-x86':
             python("dependencies/AnyPlatform/testharness/Test", "-p", context.env["OH_PLATFORM"], "-b", context.env["BUILDDIR"], "-m", "oncommit.test")
         else:
@@ -184,7 +186,7 @@ def test(context):
 
 @build_step("test_full", optional=True, default=False)
 def test_full(context):
-    if context.env["OH_PLATFORM"] not in ['Linux-mipsel']:
+    if context.env["OH_PLATFORM"] not in ['Linux-mipsel', 'Linux-rpi']:
         if context.env["OH_PLATFORM"]=='Windows-x86':
             python("dependencies/AnyPlatform/testharness/Test", "-p", context.env["OH_PLATFORM"], "-b", context.env["BUILDDIR"], "-m", "nightly.test")
         else:
