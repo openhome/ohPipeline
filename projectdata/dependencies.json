@@ -49,7 +49,7 @@
     {   "name": "openssl",
         "type": "openhome",
         "platform-specific": true,
-        "version": "0.2.65",
+        "version": "0.2.90",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.bz2",
         "platform-ignore": {
             "Linux-rpi": true,
