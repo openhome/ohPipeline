@@ -255,7 +255,7 @@ void PinInvokerKazooServer::ReadFromServer()
     AutoSocketReader __(iSocket, iReaderUntil2);
     Endpoint ep(iEndpointUri.Port(), iEndpointUri.Host());
     iSocket.Connect(ep, kConnectTimeoutMs);
-    iSocket.LogVerbose(true);
+    //iSocket.LogVerbose(true);
 
     Bws<128> mePathBase;
     {   // get path for media endpoint
