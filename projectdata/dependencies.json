@@ -14,7 +14,7 @@
     {   "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.0.115",
+        "version": "0.0.116",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -49,23 +49,8 @@
     {   "name": "openssl",
         "type": "openhome",
         "platform-specific": true,
-        "version": "0.2.65",
-        "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.bz2",
-        "platform-ignore": {
-            "Linux-rpi": true,
-            "*": false },
-        "ignore": "${platform-ignore[$platform]}"
-    },
-    {
-        "name": "openssl",
-        "type": "openhome",
-        "platform-specific": true,
-        "version": "0.2.61",
-        "archive-filename": "${name}-${version}-Linux-armhf-${debugmode}.tar.bz2",
-        "platform-ignore": {
-            "Linux-rpi": false,
-            "*": true },
-        "ignore": "${platform-ignore[$platform]}"
+        "version": "0.2.91",
+        "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.bz2"
     },
     {   "name":             "testharness",
         "version":          "0.1.51",
