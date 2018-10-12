@@ -6,6 +6,18 @@
 using namespace OpenHome;
 using namespace OpenHome::Av;
 
+
+static void TryReadReplace(ReaderBinary& aReader, TUint aBytes, Bwx& aBuf)
+{
+    if (aBytes <= aBuf.MaxBytes()) {
+        aReader.ReadReplace(aBytes, aBuf);
+    }
+    else {
+        aBuf.Replace(Brx::Empty());
+    }
+}
+
+
 // OhmMsg
 
 OhmMsg::OhmMsg(OhmMsgFactory& aFactory)
@@ -429,8 +441,8 @@ void OhmMsgTrack::Create(IReader& aReader, const OhmHeader& aHeader)
     iSequence = reader.ReadUintBe(4);
     TUint uri = reader.ReadUintBe(4);
     TUint metadata = reader.ReadUintBe(4);
-    reader.ReadReplace(uri, iUri);
-    reader.ReadReplace(metadata, iMetadata);
+    TryReadReplace(reader, uri, iUri);
+    TryReadReplace(reader, metadata, iMetadata);
 }
 
 void OhmMsgTrack::Create(TUint aSequence, const Brx& aUri, const Brx& aMetadata)
@@ -495,7 +507,7 @@ void OhmMsgMetatext::Create(IReader& aReader, const OhmHeader& aHeader)
     ReaderBinary reader(aReader);
     iSequence = reader.ReadUintBe(4);
     TUint metatext = reader.ReadUintBe(4);
-    reader.ReadReplace(metatext, iMetatext);
+    TryReadReplace(reader, metatext, iMetatext);
 }
 
 void OhmMsgMetatext::Create(TUint aSequence, const Brx& aMetatext)
