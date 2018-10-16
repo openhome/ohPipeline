@@ -141,6 +141,8 @@ private:
     void TestArrayArray();
     void TestEmptyArray();
     void TestArrayInObject();
+    void TestNullObjectArray();
+    void TestNullArrayArray();
 };
 
 } // namespace OpenHome
@@ -994,6 +996,9 @@ SuiteParserJsonArray::SuiteParserJsonArray()
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestArrayArray), "TestArrayArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestEmptyArray), "TestEmptyArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestArrayInObject), "TestArrayInObject");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestNullObjectArray), "TestNullObjectArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestNullArrayArray), "TestNullArrayArray");
+
 }
 
 void SuiteParserJsonArray::Setup()
@@ -1166,6 +1171,49 @@ void SuiteParserJsonArray::TestArrayInObject()
     TEST(arrParser.NextInt() == 9);
 }
 
+void SuiteParserJsonArray::TestNullObjectArray()
+{
+    auto parser = JsonParserArray::Create(Brn("[{\"val\":0}, null ]"));
+    TEST(parser.NextObject() == Brn("{\"val\":0}"));
+    TEST_THROWS(parser.NextBool(), JsonWrongType);
+    TEST_THROWS(parser.NextInt(), JsonWrongType);
+    TEST_THROWS(parser.NextString(), JsonWrongType);
+    TEST_THROWS(parser.NextArray(), JsonWrongType);
+    TEST(parser.NextObject() == Brn("null"));
+    TEST_THROWS(parser.NextObject(), JsonArrayEnumerationComplete);
+
+    auto parser2 = JsonParserArray::Create(Brn("[ null, {\"val\":0}]"));
+    TEST(parser2.NextObject() == Brn("null"));
+    TEST_THROWS(parser2.NextBool(), JsonWrongType);
+    TEST_THROWS(parser2.NextInt(), JsonWrongType);
+    TEST_THROWS(parser2.NextString(), JsonWrongType);
+    TEST_THROWS(parser2.NextArray(), JsonWrongType);
+    TEST(parser2.NextObject() == Brn("{\"val\":0}"));
+    TEST_THROWS(parser2.NextObject(), JsonArrayEnumerationComplete);
+}
+
+
+
+void SuiteParserJsonArray::TestNullArrayArray()
+{
+    auto parser = JsonParserArray::Create(Brn("[[1,2], null]"));
+    TEST(parser.NextArray() == Brn("[1,2]"));
+    TEST_THROWS(parser.NextBool(), JsonWrongType);
+    TEST_THROWS(parser.NextInt(), JsonWrongType);
+    TEST_THROWS(parser.NextString(), JsonWrongType);
+    TEST_THROWS(parser.NextObject(), JsonWrongType);
+    TEST(parser.NextArray() == Brn("null"));
+    TEST_THROWS(parser.NextArray(), JsonArrayEnumerationComplete);
+
+    auto parser2 = JsonParserArray::Create(Brn("[null, [3,4,5]]"));
+    TEST(parser2.NextArray() == Brn("null"));
+    TEST_THROWS(parser2.NextBool(), JsonWrongType);
+    TEST_THROWS(parser2.NextInt(), JsonWrongType);
+    TEST_THROWS(parser2.NextString(), JsonWrongType);
+    TEST_THROWS(parser2.NextObject(), JsonWrongType);
+    TEST(parser2.NextArray() == Brn("[3,4,5]"));
+    TEST_THROWS(parser2.NextArray(), JsonArrayEnumerationComplete);
+}
 
 
 void TestJson()
