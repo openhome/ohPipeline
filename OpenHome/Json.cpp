@@ -486,7 +486,7 @@ TInt JsonParserArray::NextInt()
     if (iType != ValType::Int) {
         THROW(JsonWrongType);
     }
-    Brn val = NextNumOrBool();
+    Brn val = NextNumOrBoolOrNull();
     try {
         return Ascii::Int(val);
     }
@@ -501,7 +501,7 @@ TBool JsonParserArray::NextBool()
     if (iType != ValType::Bool) {
         THROW(JsonWrongType);
     }
-    Brn val = NextNumOrBool();
+    Brn val = NextNumOrBoolOrNull();
     if (val == WriterJson::kBoolTrue) {
         return true;
     }
@@ -575,12 +575,9 @@ Brn JsonParserArray::NextArray()
             return NextCollection('[', ']');
         }
         else if (*iPtr == 'n') {
-            if ((iPtr + WriterJson::kNull.Bytes()) <= iEnd) {
-                Brn buf(iPtr, WriterJson::kNull.Bytes());
-                if (buf == WriterJson::kNull) {
-                    iPtr += WriterJson::kNull.Bytes();
-                    return buf;
-                }
+            Brn val = NextNumOrBoolOrNull();
+            if (val == WriterJson::kNull) {
+                return val;
             }
         }
         iPtr++;
@@ -599,12 +596,9 @@ Brn JsonParserArray::NextObject()
             return NextCollection('{', '}');
         }
         else if (*iPtr == 'n') {
-            if ((iPtr + WriterJson::kNull.Bytes()) <= iEnd) {
-                Brn buf(iPtr, WriterJson::kNull.Bytes());
-                if (buf == WriterJson::kNull) {
-                    iPtr += WriterJson::kNull.Bytes();
-                    return buf;
-                }
+            Brn val = NextNumOrBoolOrNull();
+            if (val == WriterJson::kNull) {
+                return val;
             }
         }
         iPtr++;
@@ -622,15 +616,13 @@ JsonParserArray::JsonParserArray(const Brx& aArray)
 
 void JsonParserArray::StartParse()
 {
-    bool resetPtr = false;
     bool ptrStartFlag = false;
-    auto tempPtr = iPtr;
+    auto startPtr = iPtr;
 
     if (iBuf == WriterJson::kNull || iBuf.Bytes() == 0) {
         iType = ValType::Null;
         return;
     }
-
     if (*iPtr++ != '[') {
         THROW(JsonCorrupt);
     }
@@ -638,11 +630,6 @@ void JsonParserArray::StartParse()
         const TChar ch = (TChar)*iPtr;
         if (Ascii::IsWhitespace(ch)) {
             iPtr++;
-            continue;
-        }
-        if (ch == ',') {
-            iPtr++;
-            resetPtr = true;
             continue;
         }
         if (ch == '{') {
@@ -667,14 +654,12 @@ void JsonParserArray::StartParse()
             iType = ValType::Bool;
         }
         else if (ch == 'n') {
-            if ((iPtr + WriterJson::kNull.Bytes()) <= iEnd) {
-                Brn buf(iPtr, WriterJson::kNull.Bytes());
-                if (buf == WriterJson::kNull) {
-                    if (!ptrStartFlag) {
-                        tempPtr = iPtr;
-                        ptrStartFlag = true;
-                    }
-                    iPtr += WriterJson::kNull.Bytes();
+            auto tempPtr = iPtr;
+            Brn val = NextNumOrBoolOrNull();
+            if (val == WriterJson::kNull) {
+                if (!ptrStartFlag) {
+                    startPtr = tempPtr;
+                    ptrStartFlag = true;
                 }
             }
         }
@@ -683,15 +668,15 @@ void JsonParserArray::StartParse()
         }
     }
     // if we've skipped a null value, return to the start and reset the locks
-    if (resetPtr) {
-        iPtr = tempPtr;
+    if (ptrStartFlag) {
+        iPtr = startPtr;
     }
     if (iType == ValType::Undefined) {
         THROW(JsonCorrupt);
     }
 }
 
-Brn JsonParserArray::NextNumOrBool()
+Brn JsonParserArray::NextNumOrBoolOrNull()
 {
     EndEnumerationIfNullType();
     while (iPtr < iEnd) {
