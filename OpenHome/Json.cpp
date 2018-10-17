@@ -486,7 +486,7 @@ TInt JsonParserArray::NextInt()
     if (iType != ValType::Int) {
         THROW(JsonWrongType);
     }
-    Brn val = NextNumOrBoolOrNull();
+    auto val = NextNumOrBoolOrNull();
     try {
         return Ascii::Int(val);
     }
@@ -501,7 +501,7 @@ TBool JsonParserArray::NextBool()
     if (iType != ValType::Bool) {
         THROW(JsonWrongType);
     }
-    Brn val = NextNumOrBoolOrNull();
+    auto val = NextNumOrBoolOrNull();
     if (val == WriterJson::kBoolTrue) {
         return true;
     }
@@ -575,7 +575,7 @@ Brn JsonParserArray::NextArray()
             return NextCollection('[', ']');
         }
         else if (*iPtr == 'n') {
-            Brn val = NextNumOrBoolOrNull();
+            auto val = NextNumOrBoolOrNull();
             if (val == WriterJson::kNull) {
                 return val;
             }
@@ -596,7 +596,7 @@ Brn JsonParserArray::NextObject()
             return NextCollection('{', '}');
         }
         else if (*iPtr == 'n') {
-            Brn val = NextNumOrBoolOrNull();
+            auto val = NextNumOrBoolOrNull();
             if (val == WriterJson::kNull) {
                 return val;
             }
@@ -655,7 +655,7 @@ void JsonParserArray::StartParse()
         }
         else if (ch == 'n') {
             auto tempPtr = iPtr;
-            Brn val = NextNumOrBoolOrNull();
+            auto val = NextNumOrBoolOrNull();
             if (val == WriterJson::kNull) {
                 if (!ptrStartFlag) {
                     startPtr = tempPtr;
