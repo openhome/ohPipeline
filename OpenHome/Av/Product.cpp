@@ -13,6 +13,7 @@
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Optional.h>
 #include <OpenHome/Av/TransportControl.h>
+#include <OpenHome/ThreadPool.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Net;
@@ -616,26 +617,38 @@ void Product::StandbyDisabled(StandbyDisableReason aReason)
 
 // FriendlyNameManager
 
-FriendlyNameManager::FriendlyNameManager(IProductNameObservable& aProduct)
+FriendlyNameManager::FriendlyNameManager(IProductNameObservable& aProduct, IThreadPool& aThreadPool)
     : iNextObserverId(1)
     , iMutex("FNHM")
 {
+    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &FriendlyNameManager::NotifyObservers), "FriendlyNameManager", ThreadPoolPriority::Medium);
     aProduct.AddNameObserver(*this);    // Observer methods called during registration.
 }
 
 FriendlyNameManager::~FriendlyNameManager()
 {
-    AutoMutex a(iMutex);
-    ASSERT(iObservers.size() == 0);
+    // Note: no way to deregister name observer that was registered with aProduct in constructor.
+    // So, it is only safe to call this destructor as long as aProduct does not attempt to call back into an instance of this class (i.e., aProduct must have somehow purged its observers, possibly by already being deleted, by this point).
+    {
+        AutoMutex a(iMutex);
+        ASSERT(iObservers.size() == 0);
+    }
+    iThreadPoolHandle->Destroy();
 }
 
 TUint FriendlyNameManager::RegisterFriendlyNameObserver(FunctorGeneric<const Brx&> aObserver)
 {
-    AutoMutex a(iMutex);
     const TUint id = iNextObserverId++;
     auto it = iObservers.insert(std::pair<TUint,FunctorGeneric<const Brx&>>(id, aObserver));
     ASSERT(it.second);
-    aObserver(iFriendlyName);
+
+    Bws<kMaxFriendlyNameBytes> friendlyName;
+    {
+        AutoMutex a(iMutex);
+        friendlyName.Replace(iFriendlyName);
+    }
+    aObserver(friendlyName);
+
     return id;
 }
 
@@ -647,18 +660,22 @@ void FriendlyNameManager::DeregisterFriendlyNameObserver(TUint aId)
 
 void FriendlyNameManager::RoomChanged(const Brx& aRoom)
 {
-    AutoMutex a(iMutex);
-    iRoom.Replace(aRoom);
-    ConstructFriendlyNameLocked();
-    NotifyObserversLocked();
+    {
+        AutoMutex a(iMutex);
+        iRoom.Replace(aRoom);
+        ConstructFriendlyNameLocked();
+    }
+    (void)iThreadPoolHandle->TrySchedule();
 }
 
 void FriendlyNameManager::NameChanged(const Brx& aName)
 {
-    AutoMutex a(iMutex);
-    iName.Replace(aName);
-    ConstructFriendlyNameLocked();
-    NotifyObserversLocked();
+    {
+        AutoMutex a(iMutex);
+        iName.Replace(aName);
+        ConstructFriendlyNameLocked();
+    }
+    (void)iThreadPoolHandle->TrySchedule();
 }
 
 void FriendlyNameManager::ConstructFriendlyNameLocked()
@@ -668,9 +685,18 @@ void FriendlyNameManager::ConstructFriendlyNameLocked()
     iFriendlyName.Append(iName);
 }
 
-void FriendlyNameManager::NotifyObserversLocked()
+void FriendlyNameManager::NotifyObservers()
 {
+    // It is known that some existing observers undertake time-consuming (many seconds up to tens-of-seconds) tasks during the callbacks from here.
+    // While it would be desirable that observers offload time-consuming tasks to another thread, the simplest solution for now is to perform these callbacks on either a dedicated thread, or via the thread pool.
+
+    Bws<kMaxFriendlyNameBytes> friendlyName;
+    {
+        AutoMutex a(iMutex);
+        friendlyName.Replace(iFriendlyName);
+    }
+
     for (auto observer : iObservers) {
-        observer.second(iFriendlyName);
+        observer.second(friendlyName);
     }
 }

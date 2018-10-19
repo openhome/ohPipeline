@@ -21,6 +21,9 @@
 EXCEPTION(AvSourceNotFound);
 
 namespace OpenHome {
+    class IThreadPool;
+    class IThreadPoolHandle;
+
 namespace Av {
 
 class IReadStore;
@@ -198,7 +201,7 @@ private:
 class IFriendlyNameObservable
 {
 public:
-    static const TUint kMaxFriendlyNameBytes = Product::kMaxRoomBytes+1+Product::kMaxNameBytes;
+    static const TUint kMaxFriendlyNameBytes = Product::kMaxRoomBytes + 1 + Product::kMaxNameBytes;
 public:
     virtual TUint RegisterFriendlyNameObserver(FunctorGeneric<const Brx&> aObserver) = 0;
     virtual void DeregisterFriendlyNameObserver(TUint aId) = 0;
@@ -208,7 +211,7 @@ public:
 class FriendlyNameManager : public IFriendlyNameObservable, public IProductNameObserver
 {
 public:
-    FriendlyNameManager(IProductNameObservable& aProduct);
+    FriendlyNameManager(IProductNameObservable& aProduct, IThreadPool& aThreadPool);
     ~FriendlyNameManager();
 private: // from IFriendlyNameObservable
     TUint RegisterFriendlyNameObserver(FunctorGeneric<const Brx&> aObserver) override;
@@ -219,7 +222,7 @@ private: // from IProductNameObserver
 private:
     void UpdateDetails();
     void ConstructFriendlyNameLocked();
-    void NotifyObserversLocked();
+    void NotifyObservers();
 private:
     Bws<Product::kMaxRoomBytes> iRoom;
     Bws<Product::kMaxNameBytes> iName;
@@ -227,6 +230,7 @@ private:
     TUint iNextObserverId;
     std::map<TUint, FunctorGeneric<const Brx&>> iObservers;
     Mutex iMutex;
+    IThreadPoolHandle* iThreadPoolHandle;
 };
 
 } // namespace Av
