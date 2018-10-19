@@ -482,12 +482,13 @@ JsonParserArray::ValType JsonParserArray::Type() const
 
 TInt JsonParserArray::NextInt()
 {
-    EndEnumerationIfNullType();
+    EndEnumerationIfNull();
     if (iType != ValType::Int) {
         THROW(JsonWrongType);
     }
     auto val = NextNumOrBoolOrNull();
     try {
+        ReturnType();
         return Ascii::Int(val);
     }
     catch (AsciiError&) {
@@ -497,23 +498,39 @@ TInt JsonParserArray::NextInt()
 
 TBool JsonParserArray::NextBool()
 {
-    EndEnumerationIfNullType();
+    EndEnumerationIfNull();
     if (iType != ValType::Bool) {
         THROW(JsonWrongType);
     }
     auto val = NextNumOrBoolOrNull();
     if (val == WriterJson::kBoolTrue) {
+        ReturnType();
         return true;
     }
     else if (val == WriterJson::kBoolFalse) {
+        ReturnType();
         return false;
+    }
+    THROW(JsonCorrupt);
+}
+
+Brn JsonParserArray::NextNullEntry()
+{
+    EndEnumerationIfNull();
+    if (iType != ValType::NullEntry) {
+        THROW(JsonWrongType);
+    }
+    auto val = NextNumOrBoolOrNull();
+    if (val == WriterJson::kNull) {
+        ReturnType();
+        return val;
     }
     THROW(JsonCorrupt);
 }
 
 Brn JsonParserArray::NextString()
 {
-    EndEnumerationIfNullType();
+    EndEnumerationIfNull();
     if (iType != ValType::String) {
         THROW(JsonWrongType);
     }
@@ -551,7 +568,7 @@ Brn JsonParserArray::NextString()
     if (val.Bytes() == 0 && complete) {
         THROW(JsonArrayEnumerationComplete);
     }
-
+    ReturnType();
     return val;
 }
 
@@ -566,17 +583,20 @@ Brn JsonParserArray::NextStringEscaped(Json::Encoding aEncoding)
 
 Brn JsonParserArray::NextArray()
 {
-    EndEnumerationIfNullType();
+    EndEnumerationIfNull();
     if (iType != ValType::Array) {
         THROW(JsonWrongType);
     }
     while (iPtr < iEnd) {
         if (*iPtr == '[') {
-            return NextCollection('[', ']');
+            auto val = NextCollection('[', ']');
+            ReturnType();
+            return val;
         }
         else if (*iPtr == 'n') {
             auto val = NextNumOrBoolOrNull();
             if (val == WriterJson::kNull) {
+                ReturnType();
                 return val;
             }
         }
@@ -587,17 +607,20 @@ Brn JsonParserArray::NextArray()
 
 Brn JsonParserArray::NextObject()
 {
-    EndEnumerationIfNullType();
+    EndEnumerationIfNull();
     if (iType != ValType::Object) {
         THROW(JsonWrongType);
     }
     while (iPtr < iEnd) {
         if (*iPtr == '{') {
-            return NextCollection('{', '}');
+            auto val = NextCollection('{', '}');
+            ReturnType();
+            return val;
         }
         else if (*iPtr == 'n') {
             auto val = NextNumOrBoolOrNull();
             if (val == WriterJson::kNull) {
+                ReturnType();
                 return val;
             }
         }
@@ -616,9 +639,6 @@ JsonParserArray::JsonParserArray(const Brx& aArray)
 
 void JsonParserArray::StartParse()
 {
-    bool ptrStartFlag = false;
-    auto startPtr = iPtr;
-
     if (iBuf == WriterJson::kNull || iBuf.Bytes() == 0) {
         iType = ValType::Null;
         return;
@@ -626,11 +646,20 @@ void JsonParserArray::StartParse()
     if (*iPtr++ != '[') {
         THROW(JsonCorrupt);
     }
-    while (iType == ValType::Undefined && iPtr < iEnd) {
+    ReturnType();
+}
+
+void JsonParserArray::ReturnType()
+{
+    iType = ValType::Undefined;
+    while (iType == ValType::Undefined && iPtr <= iEnd) {
         const TChar ch = (TChar)*iPtr;
-        if (Ascii::IsWhitespace(ch)) {
+        if (Ascii::IsWhitespace(ch) || ch == ',') {
             iPtr++;
             continue;
+        }
+        if (iBuf == Brn("[]") || iBuf == WriterJson::kNull) {
+            iType = ValType::Null;
         }
         if (ch == '{') {
             iType = ValType::Object;
@@ -647,29 +676,15 @@ void JsonParserArray::StartParse()
         else if (ch == '-' || Ascii::IsDigit(ch)) {
             iType = ValType::Int;
         }
-        else if (iBuf == WriterJson::kNull) {
-            iType = ValType::Null;
-        }
         else if (ch == 't' || ch == 'f') {
             iType = ValType::Bool;
         }
         else if (ch == 'n') {
-            auto tempPtr = iPtr;
-            auto val = NextNumOrBoolOrNull();
-            if (val == WriterJson::kNull) {
-                if (!ptrStartFlag) {
-                    startPtr = tempPtr;
-                    ptrStartFlag = true;
-                }
-            }
+            iType = ValType::NullEntry;
         }
         else {
             THROW(JsonCorrupt);
         }
-    }
-    // if we've skipped a null value, return to the start and reset the locks
-    if (ptrStartFlag) {
-        iPtr = startPtr;
     }
     if (iType == ValType::Undefined) {
         THROW(JsonCorrupt);
@@ -678,7 +693,7 @@ void JsonParserArray::StartParse()
 
 Brn JsonParserArray::NextNumOrBoolOrNull()
 {
-    EndEnumerationIfNullType();
+    EndEnumerationIfNull();
     while (iPtr < iEnd) {
         TChar ch = (TChar)*iPtr;
         if (!Ascii::IsWhitespace(ch)) {
@@ -690,23 +705,23 @@ Brn JsonParserArray::NextNumOrBoolOrNull()
     Brn val;
 
     while (iPtr < iEnd) {
-        TChar ch = (TChar)*iPtr++;
+        TChar ch = (TChar)*iPtr;
         if (ch == ',' || ch == ']' || ch == ' ') {
-            val.Set(valStart, iPtr - valStart - 1);
+            val.Set(valStart, iPtr - valStart);
             break;
         }
+        iPtr++;
     }
     if (val.Bytes() == 0) {
         THROW(JsonArrayEnumerationComplete);
     }
-
     return val;
 }
 
+
 Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
 {
-    EndEnumerationIfNullType();
-
+    EndEnumerationIfNull();
     while (iPtr < iEnd) {
         if (*iPtr == aStart) {
             break;
@@ -751,11 +766,10 @@ Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
     if (val.Bytes() == 0) {
         THROW(JsonArrayEnumerationComplete);
     }
-
     return val;
 }
 
-void JsonParserArray::EndEnumerationIfNullType()
+void JsonParserArray::EndEnumerationIfNull()
 {
     if (iType == ValType::Null) {
         THROW(JsonArrayEnumerationComplete);

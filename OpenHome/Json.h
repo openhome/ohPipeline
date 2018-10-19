@@ -83,6 +83,7 @@ public:
     enum class ValType
     {
         Undefined,
+        NullEntry,
         Null,
         Int,
         Bool,
@@ -95,6 +96,8 @@ public:
     ValType Type() const;
     TInt NextInt();
     TBool NextBool();
+    Brn NextNullEntry();
+    Brn NextNullArray();
     Brn NextString();
     Brn NextStringEscaped(Json::Encoding aEncoding = Json::Encoding::Utf8); // array passed to Set must be writable in this case
     Brn NextArray();
@@ -102,9 +105,10 @@ public:
 private:
     JsonParserArray(const Brx& aArray);
     void StartParse();
+    void ReturnType();
     Brn NextNumOrBoolOrNull();
     Brn NextCollection(TChar aStart, TChar aEnd);
-    void EndEnumerationIfNullType();
+    void EndEnumerationIfNull();
 private:
     Brn iBuf;
     ValType iType;
