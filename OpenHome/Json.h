@@ -106,7 +106,7 @@ private:
     JsonParserArray(const Brx& aArray);
     void StartParse();
     void ReturnType();
-    Brn NextNumOrBoolOrNull();
+    Brn ValueToDelimiter();
     Brn NextCollection(TChar aStart, TChar aEnd);
     void EndEnumerationIfNull();
 private:
