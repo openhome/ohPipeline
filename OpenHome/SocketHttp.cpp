@@ -92,7 +92,8 @@ void RequestHeader::Set(const Brx& aValue)
 
 // SocketHttp::ReaderUntilDynamic
 
-SocketHttp::ReaderUntilDynamic::ReaderUntilDynamic(TUint aMaxBytes, IReader& aReader)    : ReaderUntil(aMaxBytes, aReader)
+SocketHttp::ReaderUntilDynamic::ReaderUntilDynamic(TUint aMaxBytes, IReader& aReader)
+    : ReaderUntil(aMaxBytes, aReader)
     , iBuf(aMaxBytes)
 {
 }
