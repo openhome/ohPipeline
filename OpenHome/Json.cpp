@@ -488,7 +488,6 @@ TInt JsonParserArray::NextInt()
     }
     auto val = ValueToDelimiter();
     try {
-        ReturnType();
         return Ascii::Int(val);
     }
     catch (AsciiError&) {
@@ -504,11 +503,9 @@ TBool JsonParserArray::NextBool()
     }
     auto val = ValueToDelimiter();
     if (val == WriterJson::kBoolTrue) {
-        ReturnType();
         return true;
     }
     else if (val == WriterJson::kBoolFalse) {
-        ReturnType();
         return false;
     }
     THROW(JsonCorrupt);
@@ -522,7 +519,6 @@ Brn JsonParserArray::NextNullEntry()
     }
     auto val = ValueToDelimiter();
     if (val == WriterJson::kNull) {
-        ReturnType();
         return val;
     }
     THROW(JsonCorrupt);
@@ -596,7 +592,6 @@ Brn JsonParserArray::NextArray()
         else if (*iPtr == 'n') {
             auto val = ValueToDelimiter();
             if (val == WriterJson::kNull) {
-                ReturnType();
                 return val;
             }
         }
@@ -620,11 +615,57 @@ Brn JsonParserArray::NextObject()
         else if (*iPtr == 'n') {
             auto val = ValueToDelimiter();
             if (val == WriterJson::kNull) {
-                ReturnType();
                 return val;
             }
         }
         iPtr++;
+    }
+    THROW(JsonArrayEnumerationComplete);
+}
+
+Brn JsonParserArray::Next()
+{
+    while (iPtr <= iEnd) {
+        const TChar ch = (TChar)*iPtr;
+        if (Ascii::IsWhitespace(ch) || ch == ',') {
+            iPtr++;
+            continue;
+        }
+        if (iBuf == Brn("[]") || iBuf == WriterJson::kNull) {
+            auto val = NextNullEntry();
+            return val;
+        }
+        if (ch == '{') {
+            auto val = NextObject();
+            return val;
+        }
+        else if (ch == '[') {
+            auto val = NextArray();
+            return val;
+        }
+        else if (ch == ']') {
+            auto val = NextNullEntry();
+            return val;
+        }
+        else if (ch == '\"') {
+            auto val = NextString();
+            return val;
+        }
+        else if (ch == '-' || Ascii::IsDigit(ch)) {
+            auto val = ValueToDelimiter();
+            return val;
+        }
+        else if (ch == 't' || ch == 'f') {
+            auto val = ValueToDelimiter();
+            return val;
+        }
+        else if (ch == 'n') {
+            auto val = NextNullEntry();
+            return val;
+        }
+        else {
+            THROW(JsonCorrupt);
+        }
     }
     THROW(JsonArrayEnumerationComplete);
 }
@@ -715,6 +756,7 @@ Brn JsonParserArray::ValueToDelimiter()
     if (val.Bytes() == 0) {
         THROW(JsonArrayEnumerationComplete);
     }
+    ReturnType();
     return val;
 }
 

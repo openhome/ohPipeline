@@ -144,6 +144,7 @@ private:
     void TestNullObjectArray();
     void TestNullArrayArray();
     void TestMultiTypeArray();
+    void TestSubsetTypeArray();
 };
 
 } // namespace OpenHome
@@ -1000,6 +1001,7 @@ SuiteParserJsonArray::SuiteParserJsonArray()
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestNullObjectArray), "TestNullObjectArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestNullArrayArray), "TestNullArrayArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestMultiTypeArray), "TestMultiTypeArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestSubsetTypeArray), "TestSubsetTypeArray");
 
 }
 
@@ -1239,6 +1241,32 @@ void SuiteParserJsonArray::TestMultiTypeArray()
     TEST(parser.Type() == JsonParserArray::ValType::Object);
     TEST(parser.NextObject() == Brn("{\"val\":0}"));
     TEST_THROWS(parser.NextArray(), JsonArrayEnumerationComplete);
+}
+
+void SuiteParserJsonArray::TestSubsetTypeArray()
+{
+    auto parser = JsonParserArray::Create(Brn("[[1,2] ,null, \"foo\", {\"val\":0}]"));
+    TEST(parser.Type() == JsonParserArray::ValType::Array);
+    TEST(parser.Next() == Brn("[1,2]"));
+    TEST(parser.Next() == Brn("null"));
+    TEST(parser.Next() == Brn("foo"));
+    TEST(parser.Next() == Brn("{\"val\":0}"));
+    TEST_THROWS(parser.Next(), JsonArrayEnumerationComplete);
+
+    auto parser2 = JsonParserArray::Create(Brn("[42, true, [1,2],null ,\"foo\", {\"val\":0}]"));
+    TEST(parser2.Type() == JsonParserArray::ValType::Int);
+    TEST(parser2.Next() == Brn("42"));
+    TEST(parser2.Type() == JsonParserArray::ValType::Bool);
+    TEST(parser2.Next() == Brn("true"));
+    TEST(parser2.Type() == JsonParserArray::ValType::Array);
+    TEST(parser2.Next() == Brn("[1,2]"));
+    TEST(parser2.Type() == JsonParserArray::ValType::NullEntry);
+    TEST(parser2.Next() == Brn("null"));
+    TEST(parser2.Type() == JsonParserArray::ValType::String);
+    TEST(parser2.Next() == Brn("foo"));
+    TEST(parser2.Type() == JsonParserArray::ValType::Object);
+    TEST(parser2.Next() == Brn("{\"val\":0}"));
+    TEST_THROWS(parser2.Next(), JsonArrayEnumerationComplete);
 }
 
 void TestJson()

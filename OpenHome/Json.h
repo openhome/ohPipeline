@@ -102,6 +102,7 @@ public:
     Brn NextStringEscaped(Json::Encoding aEncoding = Json::Encoding::Utf8); // array passed to Set must be writable in this case
     Brn NextArray();
     Brn NextObject();
+    Brn Next();
 private:
     JsonParserArray(const Brx& aArray);
     void StartParse();
