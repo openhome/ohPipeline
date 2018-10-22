@@ -686,7 +686,13 @@ void JsonParserArray::ReturnType()
             iType = ValType::Array;
         }
         else if (ch == ']') {
-            iType = ValType::Null;
+            auto tempPtr = iPtr;
+            if (*tempPtr-- == '[') {
+                iType = ValType::Null;
+            }
+            else if (ch == *iEnd--) {
+                iType = ValType::End;
+            }
         }
         else if (ch == '\"') {
             iType = ValType::String;

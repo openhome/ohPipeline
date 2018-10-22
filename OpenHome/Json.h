@@ -89,7 +89,8 @@ public:
         Bool,
         String,
         Object,
-        Array
+        Array,
+        End
     };
 public:
     static JsonParserArray Create(const Brx& aArray);
