@@ -511,17 +511,17 @@ TBool JsonParserArray::NextBool()
     THROW(JsonCorrupt);
 }
 
-Brn JsonParserArray::NextNullEntry()
+Brn JsonParserArray::NextNull()
 {
     EndEnumerationIfNull();
     if (iType != ValType::NullEntry) {
         THROW(JsonWrongType);
     }
     auto val = ValueToDelimiter();
-    if (val == WriterJson::kNull) {
-        return val;
+    if (val != WriterJson::kNull) {
+        THROW(JsonCorrupt);
     }
-    THROW(JsonCorrupt);
+    return val;
 }
 
 Brn JsonParserArray::NextString()
@@ -589,12 +589,6 @@ Brn JsonParserArray::NextArray()
             ReturnType();
             return val;
         }
-        else if (*iPtr == 'n') {
-            auto val = ValueToDelimiter();
-            if (val == WriterJson::kNull) {
-                return val;
-            }
-        }
         iPtr++;
     }
     THROW(JsonArrayEnumerationComplete);
@@ -612,12 +606,6 @@ Brn JsonParserArray::NextObject()
             ReturnType();
             return val;
         }
-        else if (*iPtr == 'n') {
-            auto val = ValueToDelimiter();
-            if (val == WriterJson::kNull) {
-                return val;
-            }
-        }
         iPtr++;
     }
     THROW(JsonArrayEnumerationComplete);
@@ -625,26 +613,23 @@ Brn JsonParserArray::NextObject()
 
 Brn JsonParserArray::Next()
 {
-    Brn val;
     if (iType == ValType::Object) {
-        val = NextObject();
+        return NextObject();
     }
     else if (iType == ValType::Array) {
-        val = NextArray();
+        return NextArray();
     }
     else if (iType == ValType::NullEntry) {
-        val = NextNullEntry();
+        return NextNull();
     }
     else if (iType == ValType::String) {
-        val = NextString();
+        return NextString();
     }
     else if (iType == ValType::Int || iType == ValType::Bool) {
-        val = ValueToDelimiter();
+        return ValueToDelimiter();
     }
-    else {
-        THROW(JsonArrayEnumerationComplete);
-    }
-    return val;
+    THROW(JsonArrayEnumerationComplete);
+
 }
 
 JsonParserArray::JsonParserArray(const Brx& aArray)
@@ -670,29 +655,39 @@ void JsonParserArray::StartParse()
 void JsonParserArray::ReturnType()
 {
     iType = ValType::Undefined;
-    while (iType == ValType::Undefined && iPtr <= iEnd) {
+    while (iType == ValType::Undefined && iPtr < iEnd) {
         const TChar ch = (TChar)*iPtr;
         if (Ascii::IsWhitespace(ch) || ch == ',') {
             iPtr++;
             continue;
         }
-        if (iBuf == Brn("[]") || iBuf == WriterJson::kNull) {
-            iType = ValType::Null;
-        }
-        if (ch == '{') {
-            iType = ValType::Object;
-        }
-        else if (ch == '[') {
-            iType = ValType::Array;
-        }
-        else if (ch == ']') {
-            auto tempPtr = iPtr;
-            if (*tempPtr-- == '[') {
+        if (ch == ']') {
+            if (iBuf == Brn("[]") || iBuf == WriterJson::kNull){
                 iType = ValType::Null;
             }
-            else if (ch == *iEnd--) {
+            else {
                 iType = ValType::End;
             }
+        }
+        else if (ch == '[') {
+            auto tempPtr = iPtr;
+            while (*tempPtr != ']') {
+                if (Ascii::IsWhitespace(*tempPtr)) {
+                    tempPtr++;
+                }
+                if (!Ascii::IsWhitespace(*tempPtr)) {
+                    if (*tempPtr == ']') {
+                        iType = ValType::NullEntry;
+                    }
+                    else {
+                        iType = ValType::Array;
+                        break;
+                    }
+                }
+            }
+        }
+        else if (ch == '{') {
+            iType = ValType::Object;
         }
         else if (ch == '\"') {
             iType = ValType::String;
@@ -706,12 +701,6 @@ void JsonParserArray::ReturnType()
         else if (ch == 'n') {
             iType = ValType::NullEntry;
         }
-        else {
-            THROW(JsonCorrupt);
-        }
-    }
-    if (iType == ValType::Undefined) {
-        THROW(JsonCorrupt);
     }
 }
 

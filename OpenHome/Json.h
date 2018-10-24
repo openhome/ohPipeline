@@ -97,8 +97,7 @@ public:
     ValType Type() const;
     TInt NextInt();
     TBool NextBool();
-    Brn NextNullEntry();
-    Brn NextNullArray();
+    Brn NextNull();
     Brn NextString();
     Brn NextStringEscaped(Json::Encoding aEncoding = Json::Encoding::Utf8); // array passed to Set must be writable in this case
     Brn NextArray();
