@@ -628,8 +628,12 @@ Brn JsonParserArray::Next()
     else if (iType == ValType::Int || iType == ValType::Bool) {
         return ValueToDelimiter();
     }
-    THROW(JsonArrayEnumerationComplete);
-
+    else if (iType == ValType::Undefined) {
+        THROW(JsonCorrupt);
+    }
+    else {
+        THROW(JsonArrayEnumerationComplete);
+    }
 }
 
 JsonParserArray::JsonParserArray(const Brx& aArray)
@@ -661,30 +665,14 @@ void JsonParserArray::ReturnType()
             iPtr++;
             continue;
         }
-        if (ch == ']') {
-            if (iBuf == Brn("[]") || iBuf == WriterJson::kNull){
+        if (iBuf == Brn("[]") || iBuf == WriterJson::kNull){
                 iType = ValType::Null;
-            }
-            else {
-                iType = ValType::End;
-            }
+        }
+        if (ch == ']') {
+            iType = ValType::End;
         }
         else if (ch == '[') {
-            auto tempPtr = iPtr;
-            while (*tempPtr != ']') {
-                if (Ascii::IsWhitespace(*tempPtr)) {
-                    tempPtr++;
-                }
-                if (!Ascii::IsWhitespace(*tempPtr)) {
-                    if (*tempPtr == ']') {
-                        iType = ValType::NullEntry;
-                    }
-                    else {
-                        iType = ValType::Array;
-                        break;
-                    }
-                }
-            }
+            iType = ValType::Array;
         }
         else if (ch == '{') {
             iType = ValType::Object;
@@ -700,6 +688,9 @@ void JsonParserArray::ReturnType()
         }
         else if (ch == 'n') {
             iType = ValType::NullEntry;
+        }
+        else {
+            break;
         }
     }
 }
@@ -785,7 +776,7 @@ Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
 
 void JsonParserArray::EndEnumerationIfNull()
 {
-    if (iType == ValType::Null) {
+    if (iType == ValType::End) {
         THROW(JsonArrayEnumerationComplete);
     }
 }

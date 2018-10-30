@@ -145,6 +145,7 @@ private:
     void TestNullArrayArray();
     void TestMultiTypeArray();
     void TestSubsetTypeArray();
+    void TestCorruptArray();
 };
 
 } // namespace OpenHome
@@ -1002,6 +1003,7 @@ SuiteParserJsonArray::SuiteParserJsonArray()
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestNullArrayArray), "TestNullArrayArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestMultiTypeArray), "TestMultiTypeArray");
     AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestSubsetTypeArray), "TestSubsetTypeArray");
+    AddTest(MakeFunctor(*this, &SuiteParserJsonArray::TestCorruptArray), "TestCorruptArray");
 
 }
 
@@ -1041,7 +1043,7 @@ void SuiteParserJsonArray::TestIdentifyType()
     TEST(parser9.Type() == JsonParserArray::ValType::NullEntry);
 
     auto parser10 = JsonParserArray::Create(Brn("[]"));
-    TEST(parser10.Type() == JsonParserArray::ValType::Null);
+    TEST(parser10.Type() == JsonParserArray::ValType::End);
 }
 
 void SuiteParserJsonArray::TestIntArray()
@@ -1269,6 +1271,12 @@ void SuiteParserJsonArray::TestSubsetTypeArray()
     TEST(parser2.Next() == Brn("{\"val\":0}"));
     TEST(parser2.Type() == JsonParserArray::ValType::End);
     TEST_THROWS(parser.Next(), JsonArrayEnumerationComplete);
+}
+
+void SuiteParserJsonArray::TestCorruptArray()
+{
+    auto parser = JsonParserArray::Create(Brn("[abc]"));
+    TEST_THROWS(parser.Next(), JsonCorrupt);
 }
 
 void TestJson()
