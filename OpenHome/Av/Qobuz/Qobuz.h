@@ -103,6 +103,7 @@ private:
     TUint iSoundQuality;
     Bws<128> iAuthToken;
     Bws<512> iPathAndQuery; // slightly too large for the stack; requires that all network operations are serialised
+    WriterBwh iResponseBody;
     Configuration::ConfigChoice* iConfigQuality;
     TUint iSubscriberIdQuality;
     Bwh iUri;

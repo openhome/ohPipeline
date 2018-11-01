@@ -622,7 +622,7 @@ void VolumeMuterStepped::Run()
 
 // VolumeMuter
 
-VolumeMuter::VolumeMuter(IVolume& aVolume)
+VolumeMuter::VolumeMuter(IVolume* aVolume)
     : iVolume(aVolume)
     , iLock("VMUT")
     , iUpstreamVolume(0)
@@ -648,8 +648,10 @@ void VolumeMuter::SetVolumeMuted(TBool aMuted)
 
 void VolumeMuter::DoSetVolume()
 {
-    const TUint volume = (iMuted? 0 : iUpstreamVolume);
-    iVolume.SetVolume(volume);
+    if (iVolume != nullptr) {
+        const TUint volume = (iMuted ? 0 : iUpstreamVolume);
+        iVolume->SetVolume(volume);
+    }
 }
 
 
@@ -972,7 +974,7 @@ VolumeManager::VolumeManager(VolumeConsumer& aVolumeConsumer, IMute* aMute, Volu
     }
     const TUint milliDbPerStep = iVolumeConfig.VolumeMilliDbPerStep();
     const TUint volumeUnity = iVolumeConfig.VolumeUnity() * milliDbPerStep;
-    iVolumeMuter = new VolumeMuter(*aVolumeConsumer.Volume());
+    iVolumeMuter = new VolumeMuter(aVolumeConsumer.Volume());
     iVolumeMuterStepped = new VolumeMuterStepped(*iVolumeMuter, milliDbPerStep, iVolumeConfig.ThreadPriority());
     iVolumeRamperPipeline = new VolumeRamperPipeline(*iVolumeMuterStepped);
     iVolumeSurroundBoost = new VolumeSurroundBoost(*iVolumeRamperPipeline);
