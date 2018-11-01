@@ -665,10 +665,10 @@ void JsonParserArray::ReturnType()
             iPtr++;
             continue;
         }
-        if (iBuf == Brn("[]") || iBuf == WriterJson::kNull){
-                iType = ValType::Null;
+        if (iBuf == Brn("[]") || iBuf == WriterJson::kNull) {
+            iType = ValType::Null;
         }
-        if (ch == ']') {
+        else if (ch == ']') {
             iType = ValType::End;
         }
         else if (ch == '[') {
@@ -776,7 +776,7 @@ Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
 
 void JsonParserArray::EndEnumerationIfNull()
 {
-    if (iType == ValType::End) {
+    if (iType == ValType::Null) {
         THROW(JsonArrayEnumerationComplete);
     }
 }

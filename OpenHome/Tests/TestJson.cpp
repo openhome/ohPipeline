@@ -1043,7 +1043,7 @@ void SuiteParserJsonArray::TestIdentifyType()
     TEST(parser9.Type() == JsonParserArray::ValType::NullEntry);
 
     auto parser10 = JsonParserArray::Create(Brn("[]"));
-    TEST(parser10.Type() == JsonParserArray::ValType::End);
+    TEST(parser10.Type() == JsonParserArray::ValType::Null);
 }
 
 void SuiteParserJsonArray::TestIntArray()
