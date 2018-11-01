@@ -422,7 +422,7 @@ class VolumeMuter : public IVolume
                   , private INonCopyable
 {
 public:
-    VolumeMuter(IVolume& aVolume);
+    VolumeMuter(IVolume* aVolume);
 private: // from IVolume
     void SetVolume(TUint aValue) override;
 private: // from IVolumeMuter
@@ -430,7 +430,7 @@ private: // from IVolumeMuter
 private:
     void DoSetVolume();
 private:
-    IVolume& iVolume;
+    IVolume* iVolume;
     Mutex iLock;
     TUint iUpstreamVolume;
     TBool iMuted;
