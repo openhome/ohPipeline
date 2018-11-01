@@ -99,7 +99,7 @@ class TestHelperDestroyHandler : public ITabDestroyHandler, private INonCopyable
 public:
     TestHelperDestroyHandler(ITestPipeWritable& aTestPipe);
 public: // from ITabDestroyHandler
-    void Destroy(TUint aId) override;
+    void Destroy(IFrameworkTab* aTab) override;
 private:
     ITestPipeWritable& iTestPipe;
 };
@@ -179,6 +179,13 @@ class TestHelperResourceHandler : public IResourceHandler
 public: // from IResourceHandler
     TUint Bytes() override;
     void Write(IWriter& aWriter) override;
+    void Destroy() override;
+};
+
+class MockTab : public ITab
+{
+public: // from ITab
+    void Receive(const Brx& aMessage) override;
     void Destroy() override;
 };
 
@@ -369,30 +376,34 @@ class TestHelperFrameworkTab : public IFrameworkTab, private INonCopyable
 {
 public:
     TestHelperFrameworkTab(ITestPipeWritable& aTestPipe, TUint aId);
+    ~TestHelperFrameworkTab();
     void CallDestroyHandler();
 public: // from IFrameworkTab
     TUint SessionId() const override;
-    void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
-    void Clear() override;
-    void ClearAndCancelTimeout() override;
+    void Initialise(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
+    void AddRef() override;
+    void RemoveRef() override;
     void Receive(const Brx& aMessage) override;
     void LongPoll(IWriter& aWriter) override;
+    void Interrupt() override;
 private:
     ITestPipeWritable& iTestPipe;
     const TUint iId;
     TUint iSessionId;
     ITabDestroyHandler* iDestroyHandler;
+    TUint iRefCount;
 };
 
 class TestHelperFrameworkTabFull: public IFrameworkTab, private INonCopyable
 {
 public: // from IFrameworkTab
     TUint SessionId() const override;
-    void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
-    void Clear() override;
-    void ClearAndCancelTimeout() override;
+    void Initialise(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
+    void AddRef() override;
+    void RemoveRef() override;
     void Receive(const Brx& aMessage) override;
     void LongPoll(IWriter& aWriter) override;
+    void Interrupt() override;
 };
 
 class SuiteTabManager : public TestFramework::SuiteUnitTest, private INonCopyable
@@ -1002,6 +1013,17 @@ void TestHelperResourceHandler::Destroy()
 }
 
 
+// MockTab
+
+void MockTab::Receive(const Brx& /*aMessage*/)
+{
+}
+
+void MockTab::Destroy()
+{
+}
+
+
 // TestHelperWebApp
 
 const Brn TestHelperWebApp::kPrefix("TestHelperWebApp");
@@ -1028,10 +1050,8 @@ IResourceHandler* TestHelperWebApp::CreateResourceHandler(const Brx& /*aResource
 
 ITab& TestHelperWebApp::Create(ITabHandler& /*aHandler*/, const std::vector<Bws<10>>& /*aLanguageList*/)
 {
-    //ITab* tab = new TestHelperTab();
-    //iTabs.push_back(tab);
-    //return *tab;
-    ITab* tab = nullptr;
+    ITab* tab = new MockTab();
+    iTabs.push_back(tab);
     return *tab;
 }
 
@@ -1319,10 +1339,9 @@ TestHelperDestroyHandler::TestHelperDestroyHandler(ITestPipeWritable& aTestPipe)
 {
 }
 
-void TestHelperDestroyHandler::Destroy(TUint aId)
+void TestHelperDestroyHandler::Destroy(IFrameworkTab* aTab)
 {
-    Bws<100> buf("TestHelperDestroyHandler::Destroy ");
-    Ascii::AppendDec(buf, aId);
+    Bws<100> buf("TestHelperDestroyHandler::Destroy");
     iTestPipe.Write(buf);
 }
 
@@ -1520,7 +1539,7 @@ void SuiteFrameworkTab::TearDown()
     delete iTabHandler;
     delete iFrameworkTimer;
     delete iDestroyHandler;
-    TEST(iTestPipe->Expect(Brn("MTPH::Destroy")));
+    TEST(iTestPipe->ExpectEmpty());
     delete iThreadPool;
     delete iTestPipe;
 }
@@ -1528,49 +1547,34 @@ void SuiteFrameworkTab::TearDown()
 void SuiteFrameworkTab::TestCreateTab()
 {
     // Try create tab with invalid tab ID.
-    TEST_THROWS(iFrameworkTab->CreateTab(FrameworkTab::kInvalidTabId, *iTabCreator, *iDestroyHandler, iLanguages), AssertionFailed);
+    TEST_THROWS(iFrameworkTab->Initialise(FrameworkTab::kInvalidTabId, *iTabCreator, *iDestroyHandler, iLanguages), AssertionFailed);
 
     // Create tab with valid tab ID.
-    iFrameworkTab->CreateTab(1, *iTabCreator, *iDestroyHandler, iLanguages);
+    iFrameworkTab->Initialise(1, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
 
-    iFrameworkTab->ClearAndCancelTimeout();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
+    iFrameworkTab->RemoveRef();
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
-
-    // Try do some operations on a Clear()ed tab.
-    TEST_THROWS(iFrameworkTab->Receive(Brn("TestCreateTab Receive")), AssertionFailed);
-    Bws<1> buf;
-    WriterBuffer writerBuffer(buf);
-    TEST_THROWS(iFrameworkTab->LongPoll(writerBuffer), AssertionFailed);
-    iFrameworkTab->Clear(); // No effect.
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-
+    TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy")));
     TEST(iTestPipe->ExpectEmpty());
 }
 
 void SuiteFrameworkTab::TestReuseTab()
 {
-    iFrameworkTab->CreateTab(1, *iTabCreator, *iDestroyHandler, iLanguages);
+    iFrameworkTab->Initialise(1, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
-    iFrameworkTab->ClearAndCancelTimeout();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
+    iFrameworkTab->RemoveRef();
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
+    TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy")));
 
-    iFrameworkTab->CreateTab(2, *iTabCreator, *iDestroyHandler, iLanguages);
+    iFrameworkTab->Initialise(2, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
-    iFrameworkTab->ClearAndCancelTimeout();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
+    iFrameworkTab->RemoveRef();
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
+    TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy")));
 
     TEST(iTestPipe->ExpectEmpty());
 }
@@ -1578,7 +1582,7 @@ void SuiteFrameworkTab::TestReuseTab()
 void SuiteFrameworkTab::TestCreateTabAllocatorEmpty()
 {
     TestHelperTabCreatorEmpty tabCreator;
-    TEST_THROWS(iFrameworkTab->CreateTab(1, tabCreator, *iDestroyHandler, iLanguages), TabAllocatorFull);
+    TEST_THROWS(iFrameworkTab->Initialise(1, tabCreator, *iDestroyHandler, iLanguages), TabAllocatorFull);
     // TabHandler should be enabled/disabled as it must be active before attempting to pass it into tab at allocation time.
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
@@ -1587,60 +1591,48 @@ void SuiteFrameworkTab::TestCreateTabAllocatorEmpty()
 
 void SuiteFrameworkTab::TestSessionId()
 {
-    TEST(iFrameworkTab->SessionId() == FrameworkTab::kInvalidTabId);
-    iFrameworkTab->CreateTab(1, *iTabCreator, *iDestroyHandler, iLanguages);
+    iFrameworkTab->Initialise(1, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     TEST(iFrameworkTab->SessionId() == 1);
-    iFrameworkTab->ClearAndCancelTimeout();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
+    iFrameworkTab->RemoveRef();
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
-    TEST(iFrameworkTab->SessionId() == FrameworkTab::kInvalidTabId);
+    TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy")));
     TEST(iTestPipe->ExpectEmpty());
 }
 
 void SuiteFrameworkTab::TestReceive()
 {
-    iFrameworkTab->CreateTab(1, *iTabCreator, *iDestroyHandler, iLanguages);
+    iFrameworkTab->Initialise(1, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     iFrameworkTab->Receive(Brn("TestReceive"));
     TEST(iTestPipe->Expect(Brn("Tab::Receive TestReceive")));
-    iFrameworkTab->ClearAndCancelTimeout();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
+    iFrameworkTab->RemoveRef();
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
+    TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy")));
 }
 
 void SuiteFrameworkTab::TestLongPoll()
 {
     Bws<1> buf;
     WriterBuffer writerBuffer(buf);
-    iFrameworkTab->CreateTab(1, *iTabCreator, *iDestroyHandler, iLanguages);
+    iFrameworkTab->Initialise(1, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     iFrameworkTab->LongPoll(writerBuffer);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
     TEST(iTestPipe->Expect(Brn("TabHandler::LongPoll")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
     TEST(buf.Bytes() == 0);
-    iFrameworkTab->ClearAndCancelTimeout();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
+    iFrameworkTab->RemoveRef();
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
+    TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy")));
     TEST(iTestPipe->ExpectEmpty());
 }
 
 void SuiteFrameworkTab::TestSend()
 {
-    iFrameworkTab->CreateTab(1, *iTabCreator, *iDestroyHandler, iLanguages);
+    iFrameworkTab->Initialise(1, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
 
     TestHelperTabMessage msg(*iTestPipe, Brn("TestSend"));
     ITabHandler& tabHandler = *iFrameworkTab;
@@ -1649,63 +1641,62 @@ void SuiteFrameworkTab::TestSend()
     TEST(iTestPipe->Expect(Brn("HelperTabMessage::Destroy")));
     TEST(iTestPipe->Expect(Brn("TabHandler::Send TestSend")));
 
-    iFrameworkTab->ClearAndCancelTimeout();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
+    iFrameworkTab->RemoveRef();
     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
+    TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy")));
     TEST(iTestPipe->ExpectEmpty());
 }
 
 void SuiteFrameworkTab::TestTabTimeout()
 {
-    IFrameworkTimerHandler& timerHandler = *iFrameworkTab;
-    iFrameworkTab->CreateTab(1, *iTabCreator, *iDestroyHandler, iLanguages);
-    TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
-    // Simulate tab timeout.
-    timerHandler.Complete();
-    TEST(iTestPipe->Expect(Brn("MTPH::TrySchedule T")));
-    TEST(iThreadPool->RunScheduledTask("FrameworkTab"));
+//     IFrameworkTimerHandler& timerHandler = *iFrameworkTab;
+//     iFrameworkTab->Initialise(1, *iTabCreator, *iDestroyHandler, iLanguages);
+//     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
+//     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
+//     // Simulate tab timeout.
+//     timerHandler.Complete();
+//     TEST(iTestPipe->Expect(Brn("MTPH::TrySchedule T")));
+//     TEST(iThreadPool->RunScheduledTask("FrameworkTab"));
 
-    // Check destroy handler has been called (and then call Clear() from here).
-    // In production code, the destroy handler MUST call Clear() on the tab.
-    TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy 1")));
-    iFrameworkTab->Clear(); // Must be Clear() that is called when tab times out; not ClearAndCancelTimeout().
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
-    TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
-    // Check tab cleared.
-    TEST(iFrameworkTab->SessionId() == FrameworkTab::kInvalidTabId);
+//     // Check destroy handler has been called (and then call Clear() from here).
+//     // In production code, the destroy handler MUST call Clear() on the tab.
+//     TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy 1")));
+//     iFrameworkTab->Clear(); // Must be Clear() that is called when tab times out; not ClearAndCancelTimeout().
+//     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+//     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
+//     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
+//     // Check tab cleared.
+//     TEST(iFrameworkTab->SessionId() == FrameworkTab::kInvalidTabId);
 
 
-    Bws<1> buf;
-    WriterBuffer writerBuffer(buf);
-    iFrameworkTab->CreateTab(2, *iTabCreator, *iDestroyHandler, iLanguages);
-    TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
-    iFrameworkTab->LongPoll(writerBuffer);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
-    TEST(iTestPipe->Expect(Brn("TabHandler::LongPoll")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
-    // Simulate tab timeout.
-    timerHandler.Complete();
-    TEST(iTestPipe->Expect(Brn("MTPH::TrySchedule T")));
-    TEST(iThreadPool->RunScheduledTask("FrameworkTab"));
+//     Bws<1> buf;
+//     WriterBuffer writerBuffer(buf);
+//     iFrameworkTab->CreateTab(2, *iTabCreator, *iDestroyHandler, iLanguages);
+//     TEST(iTestPipe->Expect(Brn("TabHandler::Enable")));
+//     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
+//     iFrameworkTab->LongPoll(writerBuffer);
+//     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+//     TEST(iTestPipe->Expect(Brn("MTPH::Cancel F")));
+//     TEST(iTestPipe->Expect(Brn("TabHandler::LongPoll")));
+//     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Start 5000")));
+//     // Simulate tab timeout.
+//     timerHandler.Complete();
+//     TEST(iTestPipe->Expect(Brn("MTPH::TrySchedule T")));
+//     TEST(iThreadPool->RunScheduledTask("FrameworkTab"));
 
-    TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy 2")));
-    iFrameworkTab->Clear();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
-    TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
-    TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
+//     TEST(iTestPipe->Expect(Brn("TestHelperDestroyHandler::Destroy 2")));
+//     iFrameworkTab->Clear();
+//     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTimer::Cancel")));
+//     TEST(iTestPipe->Expect(Brn("TabHandler::Disable")));
+//     TEST(iTestPipe->Expect(Brn("Tab::Destroy")));
 }
 
 void SuiteFrameworkTab::TestDeleteWhileTabAllocated()
 {
     // Set a tab, then don't bother calling RemoveRef() or Destroy().
     // i.e., let TearDown() call delete on the FrameworkTab while a tab is still allocated.
-    iFrameworkTab->CreateTab(1, *iTabCreator, *iDestroyHandler, iLanguages);
+    iFrameworkTab->Initialise(1, *iTabCreator, *iDestroyHandler, iLanguages);
     TEST_THROWS(delete iFrameworkTab, AssertionFailed);
 }
 
@@ -1717,14 +1708,20 @@ TestHelperFrameworkTab::TestHelperFrameworkTab(ITestPipeWritable& aTestPipe, TUi
     , iId(aId)
     , iSessionId(IFrameworkTab::kInvalidTabId)
     , iDestroyHandler(nullptr)
+    , iRefCount(0)
 {
+}
+
+TestHelperFrameworkTab::~TestHelperFrameworkTab()
+{
+    ASSERT(iRefCount == 0);
 }
 
 void TestHelperFrameworkTab::CallDestroyHandler()
 {
     // Used to simulate a polling timeout.
     ASSERT(iDestroyHandler != nullptr);
-    iDestroyHandler->Destroy(iSessionId);
+    iDestroyHandler->Destroy(this);
 }
 
 TUint TestHelperFrameworkTab::SessionId() const
@@ -1737,33 +1734,34 @@ TUint TestHelperFrameworkTab::SessionId() const
     return iSessionId;
 }
 
-void TestHelperFrameworkTab::CreateTab(TUint aSessionId, ITabCreator& /*aTabCreator*/, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& /*aLanguages*/)
+void TestHelperFrameworkTab::Initialise(TUint aSessionId, ITabCreator& /*aTabCreator*/, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& /*aLanguages*/)
 {
-    Bws<50> buf("TestHelperFrameworkTab::CreateTab ");
+    Bws<50> buf("TestHelperFrameworkTab::Initialise ");
     Ascii::AppendDec(buf, iId);
     buf.Append(" ");
     Ascii::AppendDec(buf, aSessionId);
     iTestPipe.Write(buf);
     iSessionId = aSessionId;
     iDestroyHandler = &aDestroyHandler;
+    iRefCount = 1;
 }
 
-void TestHelperFrameworkTab::Clear()
+void TestHelperFrameworkTab::AddRef()
 {
-    Bws<50> buf("TestHelperFrameworkTab::Clear ");
+    Bws<50> buf("TestHelperFrameworkTab::AddRef ");
     Ascii::AppendDec(buf, iId);
     iTestPipe.Write(buf);
-    iSessionId = IFrameworkTab::kInvalidTabId;
-    iDestroyHandler = nullptr;
+    iRefCount++;
 }
 
-void TestHelperFrameworkTab::ClearAndCancelTimeout()
+void TestHelperFrameworkTab::RemoveRef()
 {
-    Bws<50> buf("TestHelperFrameworkTab::ClearAndCancelTimeout ");
+    Bws<50> buf("TestHelperFrameworkTab::RemoveRef ");
     Ascii::AppendDec(buf, iId);
     iTestPipe.Write(buf);
-    iSessionId = IFrameworkTab::kInvalidTabId;
-    iDestroyHandler = nullptr;
+    if (--iRefCount == 0) {
+        CallDestroyHandler();
+    }
 }
 
 void TestHelperFrameworkTab::Receive(const Brx& aMessage)
@@ -1782,6 +1780,13 @@ void TestHelperFrameworkTab::LongPoll(IWriter& /*aWriter*/)
     iTestPipe.Write(buf);
 }
 
+void TestHelperFrameworkTab::Interrupt()
+{
+    Bws<50> buf("TestHelperFrameworkTab::Interrupt ");
+    Ascii::AppendDec(buf, iId);
+    iTestPipe.Write(buf);
+}
+
 
 // TestHelperFrameworkTabFull
 
@@ -1790,17 +1795,19 @@ TUint TestHelperFrameworkTabFull::SessionId() const
     return IFrameworkTab::kInvalidTabId;
 }
 
-void TestHelperFrameworkTabFull::CreateTab(TUint /*aSessionId*/, ITabCreator& /*aTabCreator*/, ITabDestroyHandler& /*aDestroyHandler*/, const std::vector<char*>& /*aLanguages*/)
+void TestHelperFrameworkTabFull::Initialise(TUint /*aSessionId*/, ITabCreator& /*aTabCreator*/, ITabDestroyHandler& /*aDestroyHandler*/, const std::vector<char*>& /*aLanguages*/)
 {
     THROW(TabAllocatorFull);
 }
 
-void TestHelperFrameworkTabFull::Clear()
+void TestHelperFrameworkTabFull::AddRef()
 {
+    ASSERTS();
 }
 
-void TestHelperFrameworkTabFull::ClearAndCancelTimeout()
+void TestHelperFrameworkTabFull::RemoveRef()
 {
+    ASSERTS();
 }
 
 void TestHelperFrameworkTabFull::Receive(const Brx& /*aMessage*/)
@@ -1809,6 +1816,11 @@ void TestHelperFrameworkTabFull::Receive(const Brx& /*aMessage*/)
 }
 
 void TestHelperFrameworkTabFull::LongPoll(IWriter& /*aWriter*/)
+{
+    ASSERTS();
+}
+
+void TestHelperFrameworkTabFull::Interrupt()
 {
     ASSERTS();
 }
@@ -1859,23 +1871,27 @@ void SuiteTabManager::TestCreateTab()
     std::vector<char*> languages;
     const TUint id = iTabManager->CreateTab(*iWebApp, languages);
     TEST(id == 1);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 0 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 0 1")));
 
     // Now, perform available actions on the tab.
     Bws<1> buf;
     WriterBuffer writerBuffer(buf);
     iTabManager->LongPoll(id, writerBuffer);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::AddRef 0")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::LongPoll 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 0")));
 
     iTabManager->Receive(id, Brn("TestCreateTab"));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::AddRef 0")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Receive 0 TestCreateTab")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 0")));
 
-    iTabManager->Destroy(id);
+    iTabManager->DestroyTab(id);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 0")));
 
     TEST(iTestPipe->ExpectEmpty());
     iTabManager->Disable();
@@ -1884,10 +1900,6 @@ void SuiteTabManager::TestCreateTab()
 void SuiteTabManager::TestDisableNoTabsAllocated()
 {
     iTabManager->Disable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
     TEST(iTestPipe->ExpectEmpty());
 }
 
@@ -1896,41 +1908,37 @@ void SuiteTabManager::TestDisable()
     // Allocate a tab, then call disable while active.
     std::vector<char*> languages;
     (void)iTabManager->CreateTab(*iWebApp, languages);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 0 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 0 1")));
     iTabManager->Disable();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::ClearAndCancelTimeout 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 0")));
     TEST(iTestPipe->ExpectEmpty());
 }
 
 void SuiteTabManager::TestTabTimeout()
 {
-    std::vector<char*> languages;
-    const TUint id1 = iTabManager->CreateTab(*iWebApp, languages);
-    TEST(id1 == 1);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 0 1")));
+    // std::vector<char*> languages;
+    // const TUint id1 = iTabManager->CreateTab(*iWebApp, languages);
+    // TEST(id1 == 1);
+    // TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
+    // TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 0 1")));
 
-    TEST(iTestPipe->ExpectEmpty());
-    // Simulate tab timeout (normally triggered via timer).
-    // Should notify TabManager.
-    iTabs[0]->CallDestroyHandler();
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 0")));
+    // TEST(iTestPipe->ExpectEmpty());
+    // // Simulate tab timeout (normally triggered via timer).
+    // // Should notify TabManager.
+    // iTabs[0]->CallDestroyHandler();
+    // TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
+    // TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 0")));
 
-    // Now, try allocate next tab. Firstc tab should be re-allocated.
-    const TUint id2 = iTabManager->CreateTab(*iWebApp, languages);
-    TEST(id2 == 2);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 0 2")));
-    TEST(iTabs[0]->SessionId() == id2);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 2")));
+    // // Now, try allocate next tab. Firstc tab should be re-allocated.
+    // const TUint id2 = iTabManager->CreateTab(*iWebApp, languages);
+    // TEST(id2 == 2);
+    // TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
+    // TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 0 2")));
+    // TEST(iTabs[0]->SessionId() == id2);
+    // TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 2")));
 
-    TEST(iTestPipe->ExpectEmpty());
+    // TEST(iTestPipe->ExpectEmpty());
 
     iTabManager->Disable();
 }
@@ -1941,71 +1949,57 @@ void SuiteTabManager::TestTabIdsIncrement()
     std::vector<char*> languages;
     const TUint id1 = iTabManager->CreateTab(*iWebApp, languages);
     TEST(id1 == 1);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 0 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 0 1")));
     TUint id2 = iTabManager->CreateTab(*iWebApp, languages);
     TEST(id2 == 2);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 1 2")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 1 2")));
     TUint id3 = iTabManager->CreateTab(*iWebApp, languages);
     TEST(id3 == 3);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 2 3")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 2 3")));
 
     // Destroy last tab and check numbering resumes from that point.
-    iTabManager->Destroy(id3);
+    iTabManager->DestroyTab(id3);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 3")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 2")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 2")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 2")));
     id3 = iTabManager->CreateTab(*iWebApp, languages);
     TEST(id3 == 4);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 2 4")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 3 4")));
 
     // Destroy tab from middle and check numbering resumes from that point, and skips over next allocated tab.
-    iTabManager->Destroy(id2);
+    iTabManager->DestroyTab(id2);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 1")));
     id2 = iTabManager->CreateTab(*iWebApp, languages);
     TEST(id2 == 5);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 1 5")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 2 5")));
 
     const TUint id4 = iTabManager->CreateTab(*iWebApp, languages);
     TEST(id4 == 6);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 5")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 4")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 3 6")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 1 6")));
 
     // Destroy all tabs to clean up.
-    iTabManager->Destroy(id1);
+    iTabManager->DestroyTab(id1);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 0")));
-    iTabManager->Destroy(id2);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 5")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 1")));
-    iTabManager->Destroy(id3);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 4")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 2")));
-    iTabManager->Destroy(id4);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 6")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 3")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 0")));
+    iTabManager->DestroyTab(id2);
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 4")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 5")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 2")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 2")));
+    iTabManager->DestroyTab(id3);
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 4")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 3")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 3")));
+    iTabManager->DestroyTab(id4);
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 6")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 1")));
 
     TEST(iTestPipe->ExpectEmpty());
 
@@ -2017,50 +2011,34 @@ void SuiteTabManager::TestCreateTabManagerFull()
     // Allocate all tabs.
     std::vector<char*> languages;
     const TUint id1 = iTabManager->CreateTab(*iWebApp, languages);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 0 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 0 1")));
     const TUint id2 = iTabManager->CreateTab(*iWebApp, languages);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 1 2")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 1 2")));
     const TUint id3 = iTabManager->CreateTab(*iWebApp, languages);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 2 3")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 2 3")));
     const TUint id4 = iTabManager->CreateTab(*iWebApp, languages);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 3")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 3 4")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 3 4")));
 
     // Then try allocate another.
     TEST_THROWS(iTabManager->CreateTab(*iWebApp, languages), TabManagerFull);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 3")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 4")));
 
     // Destroy all tabs.
-    iTabManager->Destroy(id1);
+    iTabManager->DestroyTab(id1);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 0")));
-    iTabManager->Destroy(id2);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 0")));
+    iTabManager->DestroyTab(id2);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 1")));
-    iTabManager->Destroy(id3);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 1")));
+    iTabManager->DestroyTab(id3);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 3")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 2")));
-    iTabManager->Destroy(id4);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 2")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 2")));
+    iTabManager->DestroyTab(id4);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 4")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 3")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 3")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 3")));
 
     TEST(iTestPipe->ExpectEmpty());
 
@@ -2090,66 +2068,43 @@ void SuiteTabManager::TestInvalidTabId()
     Bws<1> buf;
     WriterBuffer writerBuffer(buf);
     TEST_THROWS(iTabManager->LongPoll(1, writerBuffer), InvalidTabId);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
     TEST_THROWS(iTabManager->Receive(1, Brn("TestInvalidTabId")), InvalidTabId);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
-    TEST_THROWS(iTabManager->Destroy(1), InvalidTabId);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
+    TEST_THROWS(iTabManager->DestroyTab(1), InvalidTabId);
 
     // Allocate a couple of tabs, then try access an unallocated session ID.
-    (void)iTabManager->CreateTab(*iWebApp, languages);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 0 1")));
+    const TUint id1 = iTabManager->CreateTab(*iWebApp, languages);
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 0 1")));
     const TUint id2 = iTabManager->CreateTab(*iWebApp, languages);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 1 2")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 1 2")));
     TEST_THROWS(iTabManager->LongPoll(3, writerBuffer), InvalidTabId);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
     TEST_THROWS(iTabManager->Receive(3, Brn("TestInvalidTabId")), InvalidTabId);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
-    TEST_THROWS(iTabManager->Destroy(3), InvalidTabId);
+    TEST_THROWS(iTabManager->DestroyTab(3), InvalidTabId);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
 
     // Destroy a tab, and then try reusing that session ID (mimicking a web browser that was slow to respond to a long poll).
-    iTabManager->Destroy(id2);
+    iTabManager->DestroyTab(id2);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 2")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Clear 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 1")));
     TEST_THROWS(iTabManager->LongPoll(id2, writerBuffer), InvalidTabId);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
     TEST_THROWS(iTabManager->Receive(id2, Brn("TestInvalidTabId")), InvalidTabId);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
-    TEST_THROWS(iTabManager->Destroy(id2), InvalidTabId);
+    TEST_THROWS(iTabManager->DestroyTab(id2), InvalidTabId);
     TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 1 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 2 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 3 0")));
     TEST(iTestPipe->ExpectEmpty());
+
+    iTabManager->DestroyTab(id1);
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Interrupt 0")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::RemoveRef 0")));
+
     iTabManager->Disable();
 }
 
@@ -2159,9 +2114,10 @@ void SuiteTabManager::TestDeleteWhileTabsAllocated()
     // Allocate tab and don't do any cleanup here; allow TearDown() to delete TabManager and it should quietly cleanup allocated tabs.
     std::vector<char*> languages;
     (void)iTabManager->CreateTab(*iWebApp, languages);
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::SessionId 0 0")));
-    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::CreateTab 0 1")));
+    TEST(iTestPipe->Expect(Brn("TestHelperFrameworkTab::Initialise 0 1")));
     TEST(iTestPipe->ExpectEmpty());
+
+    // Not explicitly calling DestroyTab(). Disable() call should destroy all active tabs.
     iTabManager->Disable();
 }
 

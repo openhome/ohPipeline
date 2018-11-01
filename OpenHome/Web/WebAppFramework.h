@@ -10,6 +10,7 @@
 #include <OpenHome/Net/Private/DviServerUpnp.h>
 #include <OpenHome/Web/ResourceHandler.h>
 
+#include <atomic>
 #include <functional>
 
 EXCEPTION(TabAllocatorFull);    // Thrown by an IWebApp when its allocator is full.
@@ -18,6 +19,7 @@ EXCEPTION(InvalidTabId);
 EXCEPTION(TabAllocated);
 EXCEPTION(InvalidAppPrefix);
 EXCEPTION(WebAppServiceUnavailable);
+EXCEPTION(WebAppLongPollInProgress);
 
 
 namespace OpenHome {
@@ -123,6 +125,7 @@ class IFrameworkTabHandler : public ITabHandler
 public: // from ITabHandler
     virtual void Send(ITabMessage& aMessage) = 0;
 public:
+    // FIXME - need an Interrupt() method to interrupt any in-progress LongPoll()s?
     virtual void LongPoll(IWriter& aWriter) = 0;    // THROWS WriterError.
     virtual void Enable() = 0;
     virtual void Disable() = 0; // Disallow LongPoll()/Send() calls.
@@ -175,10 +178,38 @@ private:
     Mutex iLock;
 };
 
+class ITabDestroyHandler;
+
+class IFrameworkTab
+{
+public:
+    static const TUint kInvalidTabId = 0;
+public:
+    virtual ~IFrameworkTab() {}
+
+    virtual TUint SessionId() const = 0;
+
+    /*
+     * Adds ref.
+     */
+    virtual void Initialise(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) = 0;
+    virtual void AddRef() = 0;
+    virtual void RemoveRef() = 0;
+
+    virtual void Receive(const Brx& aMessage) = 0;
+    virtual void LongPoll(IWriter& aWriter) = 0;    // Terminates poll timer on entry; restarts poll timer on exit. THROWS WriterError.
+
+    /*
+     * Can't be uninterrupted without remaining refs being removed and tab being reinitialised.
+     * Concrete implementation must clear any interrupted state on Initialise() call.
+     */
+    virtual void Interrupt() = 0;
+};
+
 class ITabDestroyHandler
 {
 public:
-    virtual void Destroy(TUint aId) = 0;
+    virtual void Destroy(IFrameworkTab* aTab) = 0;
     virtual ~ITabDestroyHandler() {}
 };
 
@@ -194,76 +225,87 @@ private:
     Semaphore iSem;
 };
 
-class IFrameworkTab
+class ITabManager;
+
+class ITabTimeoutObserver
 {
 public:
-    static const TUint kInvalidTabId = 0;
+    virtual ~ITabTimeoutObserver() {}
+    virtual void TabTimedOut(TUint aId) = 0;    // Handle tab timeout. Must not throw exception (e.g., if tab no longer exists).
+};
+
+class TaskTimedCallback
+{
 public:
-    virtual ~IFrameworkTab() {}
-
-    virtual TUint SessionId() const = 0;
-
-    virtual void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) = 0;
-
-    virtual void Clear() = 0;   // Terminates any blocking sends or outstanding timers.
-    virtual void ClearAndCancelTimeout() = 0;
-
-    virtual void Receive(const Brx& aMessage) = 0;
-    virtual void LongPoll(IWriter& aWriter) = 0;    // Terminates poll timer on entry; restarts poll timer on exit. THROWS WriterError.
+    TaskTimedCallback(TUint aTimeoutMs, ITimerFactory& aTimerFactory, IThreadPool& aThreadPool, ITabTimeoutObserver& aTabTimeoutObserver);
+    ~TaskTimedCallback();
+    void Start(TUint aId);
+    void Cancel();
+private:
+    void TimerCallback();
+    void TaskCallback();
+private:
+    const TUint iTimeoutMs;
+    const TUint iIdInvalid;
+    std::atomic<TUint> iId;
+    ITabTimeoutObserver& iTabTimeoutObserver;
+    IThreadPoolHandle* iThreadPoolHandle;
+    ITimer* iTimer;
 };
 
 /**
  * Internal tab for framework.
  */
-class FrameworkTab : public IFrameworkTab, public ITabHandler, public IFrameworkTimerHandler
+class FrameworkTab : public IFrameworkTab, public ITabHandler/*, public IFrameworkTimerHandler*/
 {
-
 public:
     FrameworkTab(TUint aTabId, IFrameworkTimer& aTimer, IFrameworkTabHandler& aTabHandler, TUint aPollTimeoutMs, IThreadPool& aThreadPool);
     ~FrameworkTab();
 public: // from IFrameworkTab
     TUint SessionId() const override;
-    void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
-    void Clear() override;   // Terminates any blocking sends or outstanding timers.
-    void ClearAndCancelTimeout() override;
+    void Initialise(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
+    void AddRef() override;
+    void RemoveRef() override;
     void Receive(const Brx& aMessage) override;
-    void LongPoll(IWriter& aWriter) override;    // Terminates poll timer on entry; restarts poll timer on exit. THROWS WriterError.
+    void LongPoll(IWriter& aWriter) override;   // THROWS WriterError.
+    void Interrupt() override;
 private: // from ITabHandler
     void Send(ITabMessage& aMessage) override;
-private: // from IFrameworkTimerHandler
-    void Complete() override;
+// private: // from IFrameworkTimerHandler
+//     void Complete() override;
 private:
-    void TaskDestroy();
+    void Clear();
 private:
     const TUint iTabId;
     const TUint iPollTimeoutMs;
     IFrameworkTabHandler& iHandler;
-    IFrameworkTimer& iTimer;
     TUint iSessionId;
     ITabDestroyHandler* iDestroyHandler;
     ITab* iTab;
     std::vector<Bws<10>> iLanguages; // Takes ownership of pointers.
-    TBool iPollActive;
+    TBool iPollActive;  // FIXME - can this be an atomic?
     mutable Mutex iLock;
-
-    IThreadPoolHandle* iThreadPoolHandle;
+    std::atomic<TUint> iRefCount;
 };
 
 /**
  * Class that brings together a FrameworkTab with a FrameworkTabHandler and the
  * associated Semaphores and Timers that are required.
  */
-class FrameworkTabFull : public IFrameworkTab
+class FrameworkTabFull : public IFrameworkTab, public ITabDestroyHandler
 {
 public:
     FrameworkTabFull(Environment& aEnv, TUint aTabId, TUint aSendQueueSize, TUint aSendTimeoutMs, TUint aPollTimeoutMs, IThreadPool& aThreadPool);
 public: // from IFrameworkTab
     TUint SessionId() const override;
-    void CreateTab(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
-    void Clear() override;
-    void ClearAndCancelTimeout() override;
+    void Initialise(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
+    void AddRef() override;
+    void RemoveRef() override;
     void Receive(const Brx& aMessage) override;
     void LongPoll(IWriter& aWriter) override;   // THROWS WriterError.
+    void Interrupt() override;
+private: // from ITabDestroyHandler
+    void Destroy(IFrameworkTab* aTab) override;
 private:
     FrameworkSemaphore iSemRead;
     FrameworkSemaphore iSemWrite;
@@ -271,6 +313,7 @@ private:
     FrameworkTabHandler iTabHandler;
     FrameworkTimer iTabTimer;
     FrameworkTab iTab;
+    ITabDestroyHandler* iDestroyHandler;
 };
 
 /**
@@ -297,15 +340,50 @@ public: // from ITabManager
     TUint CreateTab(ITabCreator& aTabCreator, const std::vector<char*>& aLanguageList) override;
     void LongPoll(TUint aId, IWriter& aWriter) override;    // THROWS WriterError.
     void Receive(TUint aId, const Brx& aMessage) override;
-    void DestroyTab(TUint aId) override;
+    void DestroyTab(TUint aId) override;    // Must be called to tell this to remove its reference to a tab.
 public: // from ITabDestroyHandler
-    void Destroy(TUint aId) override;
+    void Destroy(IFrameworkTab* aTab) override;
 private:
-    void Destroy(TUint aId, TBool aCancelTimeout);
-private:
-    const std::vector<IFrameworkTab*> iTabs;
+    std::vector<IFrameworkTab*> iTabsActive;
+    FifoLiteDynamic<IFrameworkTab*> iTabsInactive;
     TUint iNextSessionId;
     TBool iEnabled;
+    Mutex iLock;
+};
+
+class TabManagerTimed : public ITabManager, public ITabTimeoutObserver, private INonCopyable
+{
+private:
+    class Timeout
+    {
+    public:
+        static const TUint kIdInvalid = 0;
+    public:
+        Timeout(TUint aPollTimeoutMs, ITimerFactory& aTimerFactory, IThreadPool& aThreadPool, ITabTimeoutObserver& aTabTimeoutObserver);
+        TUint Id() const;
+        TaskTimedCallback& Timer();
+        void SetId(TUint aId);
+    private:
+        TUint iId;
+        TaskTimedCallback iTimer;
+    };
+public:
+    TabManagerTimed(const std::vector<IFrameworkTab*>& aTabs, TUint aPollTimeoutMs, ITimerFactory& aTimerFactory, IThreadPool& aThreadPool);
+    ~TabManagerTimed();
+    void Disable(); // Terminate any blocking LongPoll calls and prevent any new tabs from being created.
+public: // from ITabManager
+    TUint CreateTab(ITabCreator& aTabCreator, const std::vector<char*>& aLanguageList) override;
+    void LongPoll(TUint aId, IWriter& aWriter) override;    // THROWS WriterError.
+    void Receive(TUint aId, const Brx& aMessage) override;
+    void DestroyTab(TUint aId) override;    // Must be called to tell this to remove its reference to a tab.
+private: // from ITabTimeoutObserver
+    void TabTimedOut(TUint aId) override;
+private:
+    void DestroyTab(TUint aId, TBool aCancelTimeout);
+private:
+    TabManager iTabManager;
+    std::vector<Timeout*> iTimeoutsActive;
+    FifoLiteDynamic<Timeout*> iTimeoutsInactive;
     Mutex iLock;
 };
 
@@ -427,7 +505,6 @@ private:
     typedef std::pair<const Brx*, WebAppInternal*> WebAppPair;
     typedef std::map<const Brx*, WebAppInternal*, BrxPtrCmp> WebAppMap;
 public:
-    // FIXME - replace this with an init params object, similar to what ohNet and the pipeline take.
     WebAppFramework(Environment& aEnv, WebAppFrameworkInitParams* aInitParms, IThreadPool& aThreadPool);
     ~WebAppFramework();
     void Start();
@@ -454,7 +531,7 @@ private:
     IThreadPool& iThreadPool;
     TUint iAdapterListenerId;
     SocketTcpServer* iServer;
-    TabManager* iTabManager;    // Should there be one tab manager for ALL apps, or one TabManager per app? (And, similarly, one set of server sessions for all apps, or a set of server sessions per app? Also, need at least one extra session for receiving (and declining) additional long polling requests.)
+    TabManagerTimed* iTabManager; // One tab manager for all tabs. All tabs must have same poll interval timeout.
     WebAppMap iWebApps;
     std::vector<std::reference_wrapper<HttpSession>> iSessions;
     IWebApp* iDefaultApp;
