@@ -25,10 +25,13 @@ private:
 class MockFriendlyNameObserver
 {
 public:
+    MockFriendlyNameObserver();
     const Brx& FriendlyName() const;
     void FriendlyNameChanged(const Brx& aFriendlyName);
+    void WaitForCallback();
 private:
     Bws<IFriendlyNameObservable::kMaxFriendlyNameBytes> iFriendlyName;
+    Semaphore iSem;
 };
 
 class SuiteFriendlyNameManager : public OpenHome::TestFramework::SuiteUnitTest, private INonCopyable
@@ -90,6 +93,11 @@ void MockProductNameObservable::AddNameObserver(IProductNameObserver& aObserver)
 
 // MockFriendlyNameObserver
 
+MockFriendlyNameObserver::MockFriendlyNameObserver()
+    : iSem("MFNO", 0)
+{
+}
+
 const Brx& MockFriendlyNameObserver::FriendlyName() const
 {
     return iFriendlyName;
@@ -98,6 +106,12 @@ const Brx& MockFriendlyNameObserver::FriendlyName() const
 void MockFriendlyNameObserver::FriendlyNameChanged(const Brx& aFriendlyName)
 {
     iFriendlyName.Replace(aFriendlyName);
+    iSem.Signal();
+}
+
+void MockFriendlyNameObserver::WaitForCallback()
+{
+    iSem.Wait();
 }
 
 
@@ -116,7 +130,7 @@ SuiteFriendlyNameManager::SuiteFriendlyNameManager(CpStack& /* aCpStack */, DvSt
 void SuiteFriendlyNameManager::Setup()
 {
     iObservable = new MockProductNameObservable();
-    iFriendlyNameManager = new FriendlyNameManager(*iObservable);
+    iFriendlyNameManager = new FriendlyNameManager(*iObservable, iThreadPool);
 }
 
 void SuiteFriendlyNameManager::TearDown()
@@ -136,9 +150,11 @@ void SuiteFriendlyNameManager::TestRegisterDeregister()
     MockFriendlyNameObserver observer2;
 
     const TUint id1 = observable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(observer1, &MockFriendlyNameObserver::FriendlyNameChanged));
+    observer1.WaitForCallback();    // Synchronous callback, but need to consume sem signal.
     TEST(observer1.FriendlyName() == kFriendlyName);
 
     const TUint id2 = observable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(observer2, &MockFriendlyNameObserver::FriendlyNameChanged));
+    observer2.WaitForCallback();    // Synchronous callback, but need to consume sem signal.
     TEST(observer2.FriendlyName() == kFriendlyName);
 
     observable.DeregisterFriendlyNameObserver(id2);
@@ -155,16 +171,21 @@ void SuiteFriendlyNameManager::TestUpdate()
     MockFriendlyNameObserver observer2;
 
     const TUint id1 = observable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(observer1, &MockFriendlyNameObserver::FriendlyNameChanged));
+    observer1.WaitForCallback();    // Synchronous callback, but need to consume sem signal.
     const TUint id2 = observable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(observer2, &MockFriendlyNameObserver::FriendlyNameChanged));
+    observer2.WaitForCallback();    // Synchronous callback, but need to consume sem signal.
 
     iObservable->SetRoomName(Brn("NewRoom"));
 
+    observer1.WaitForCallback();
     TEST(observer1.FriendlyName() == Brn("NewRoom:Product"));
+    observer2.WaitForCallback();
     TEST(observer2.FriendlyName() == Brn("NewRoom:Product"));
 
     // Now, deregister the first observer, then issue an update.
     observable.DeregisterFriendlyNameObserver(id1);
     iObservable->SetProductName(Brn("NewProduct"));
+    observer2.WaitForCallback();
     TEST(observer1.FriendlyName() == Brn("NewRoom:Product"));       // Observer 1 shouldn't be updated.
     TEST(observer2.FriendlyName() == Brn("NewRoom:NewProduct"));    // Observer 2 should be updated.
 
@@ -176,7 +197,9 @@ void SuiteFriendlyNameManager::TestUpdate()
     TEST(observer2.FriendlyName() == Brn("NewRoom:NewProduct"));
 }
 
+
 // SuiteFriendlyNameManager
+
 class DeviceBasic
 {
 public:

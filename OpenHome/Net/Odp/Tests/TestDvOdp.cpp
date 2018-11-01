@@ -17,6 +17,7 @@
 #include <OpenHome/Net/Private/MdnsProvider.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/FriendlyNameAdapter.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <vector>
 
@@ -358,7 +359,8 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     Debug::SetSeverity(Debug::kSeverityError);
    
     auto observableProd = new MockProductNameObservable();
-    auto friendlyNameManager = new Av::FriendlyNameManager(*observableProd);
+    auto threadPool = new ThreadPool(1, 1, 1);
+    auto friendlyNameManager = new Av::FriendlyNameManager(*observableProd, *threadPool);
     Av::IFriendlyNameObservable& observablefn = *friendlyNameManager;
     observableProd->SetRoomName(Brn("TestDvOdp"));
     observableProd->SetProductName(Brn("Product"));
@@ -381,6 +383,7 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     delete odp;
     delete server;
     delete friendlyNameManager;
+    delete threadPool;
     delete observableProd;
 
     Print("TestDvOdp - completed\n");

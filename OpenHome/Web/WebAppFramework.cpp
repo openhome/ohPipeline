@@ -383,6 +383,8 @@ void FrameworkTab::ClearAndCancelTimeout()
 
 void FrameworkTab::LongPoll(IWriter& aWriter)
 {
+    iTimer.Cancel();
+    iThreadPoolHandle->Cancel();
     {
         AutoMutex a(iLock);
         ASSERT(iTab != nullptr);
@@ -390,9 +392,6 @@ void FrameworkTab::LongPoll(IWriter& aWriter)
         if (iPollActive) {
             return;
         }
-
-        iTimer.Cancel();
-        iThreadPoolHandle->Cancel();
         iPollActive = true;
     }
     iHandler.LongPoll(aWriter);
