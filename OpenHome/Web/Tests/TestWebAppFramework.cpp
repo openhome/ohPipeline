@@ -1529,7 +1529,7 @@ void SuiteFrameworkTab::Setup()
     iTabHandler = new TestHelperTabHandler(*iTestPipe);
     iTabCreator = new TestHelperTabCreator(*iTestPipe);
 
-    iFrameworkTab = new FrameworkTab(0, *iFrameworkTimer, *iTabHandler, 5000, *iThreadPool);
+    iFrameworkTab = new FrameworkTab(0, *iTabHandler);
 }
 
 void SuiteFrameworkTab::TearDown()

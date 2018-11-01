@@ -259,7 +259,7 @@ private:
 class FrameworkTab : public IFrameworkTab, public ITabHandler/*, public IFrameworkTimerHandler*/
 {
 public:
-    FrameworkTab(TUint aTabId, IFrameworkTimer& aTimer, IFrameworkTabHandler& aTabHandler, TUint aPollTimeoutMs, IThreadPool& aThreadPool);
+    FrameworkTab(TUint aTabId, IFrameworkTabHandler& aTabHandler);
     ~FrameworkTab();
 public: // from IFrameworkTab
     TUint SessionId() const override;
@@ -277,7 +277,6 @@ private:
     void Clear();
 private:
     const TUint iTabId;
-    const TUint iPollTimeoutMs;
     IFrameworkTabHandler& iHandler;
     TUint iSessionId;
     ITabDestroyHandler* iDestroyHandler;
@@ -295,7 +294,7 @@ private:
 class FrameworkTabFull : public IFrameworkTab, public ITabDestroyHandler
 {
 public:
-    FrameworkTabFull(Environment& aEnv, TUint aTabId, TUint aSendQueueSize, TUint aSendTimeoutMs, TUint aPollTimeoutMs, IThreadPool& aThreadPool);
+    FrameworkTabFull(Environment& aEnv, TUint aTabId, TUint aSendQueueSize, TUint aSendTimeoutMs);
 public: // from IFrameworkTab
     TUint SessionId() const override;
     void Initialise(TUint aSessionId, ITabCreator& aTabCreator, ITabDestroyHandler& aDestroyHandler, const std::vector<char*>& aLanguages) override;
@@ -311,7 +310,6 @@ private:
     FrameworkSemaphore iSemWrite;
     FrameworkTimer iTabHandlerTimer;
     FrameworkTabHandler iTabHandler;
-    FrameworkTimer iTabTimer;
     FrameworkTab iTab;
     ITabDestroyHandler* iDestroyHandler;
 };

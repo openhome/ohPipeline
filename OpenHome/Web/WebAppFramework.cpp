@@ -316,9 +316,8 @@ void TaskTimedCallback::TaskCallback()
 
 // FrameworkTab
 
-FrameworkTab::FrameworkTab(TUint aTabId, IFrameworkTimer& aTimer, IFrameworkTabHandler& aTabHandler, TUint aPollTimeoutMs, IThreadPool& aThreadPool)
+FrameworkTab::FrameworkTab(TUint aTabId, IFrameworkTabHandler& aTabHandler)
     : iTabId(aTabId)
-    , iPollTimeoutMs(aPollTimeoutMs)
     , iHandler(aTabHandler)
     , iSessionId(kInvalidTabId)
     , iDestroyHandler(nullptr)
@@ -446,13 +445,12 @@ void FrameworkTab::Clear()
 
 // FrameworkTabFull
 
-FrameworkTabFull::FrameworkTabFull(Environment& aEnv, TUint aTabId, TUint aSendQueueSize, TUint aSendTimeoutMs, TUint aPollTimeoutMs, IThreadPool& aThreadPool)
+FrameworkTabFull::FrameworkTabFull(Environment& aEnv, TUint aTabId, TUint aSendQueueSize, TUint aSendTimeoutMs)
     : iSemRead("FTSR", 0)
     , iSemWrite("FTSW", aSendQueueSize)
     , iTabHandlerTimer(aEnv, "TabHandlerTimer", aTabId)
     , iTabHandler(iSemRead, iSemWrite, iTabHandlerTimer, aSendQueueSize, aSendTimeoutMs)
-    , iTabTimer(aEnv, "TabTimer", aTabId)
-    , iTab(aTabId, iTabTimer, iTabHandler, aPollTimeoutMs, aThreadPool)
+    , iTab(aTabId, iTabHandler)
     , iDestroyHandler(nullptr)
 {
 }
@@ -495,6 +493,7 @@ void FrameworkTabFull::Interrupt()
 
 void FrameworkTabFull::Destroy(IFrameworkTab* aTab)
 {
+    ASSERT(aTab == &iTab);
     // This owns aTab. Do nothing more with it here.
     ASSERT(iDestroyHandler != nullptr);
     iDestroyHandler->Destroy(this);
@@ -590,7 +589,7 @@ void TabManager::LongPoll(TUint aId, IWriter& aWriter)
     try {
         tab->LongPoll(aWriter);
     }
-    catch (Exception& aExc) {
+    catch (const Exception&) {
         tab->RemoveRef();
         throw;
     }
@@ -945,7 +944,7 @@ WebAppFramework::WebAppFramework(Environment& aEnv, WebAppFrameworkInitParams* a
     std::vector<IFrameworkTab*> tabs;
 
     for (TUint i=0; i<iInitParams->MaxServerThreadsLongPoll(); i++) {
-        tabs.push_back(new FrameworkTabFull(aEnv, i, iInitParams->SendQueueSize(), iInitParams->SendTimeoutMs(), iInitParams->LongPollTimeoutMs(), iThreadPool));
+        tabs.push_back(new FrameworkTabFull(aEnv, i, iInitParams->SendQueueSize(), iInitParams->SendTimeoutMs()));
     }
     //iTabManager = new TabManager(tabs); // Takes ownership.
     TimerFactory timerFactory(aEnv);
