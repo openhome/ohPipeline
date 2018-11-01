@@ -923,7 +923,6 @@ const Brn WebAppFramework::kSessionPrefix("WebUiSession");
 WebAppFramework::WebAppFramework(Environment& aEnv, WebAppFrameworkInitParams* aInitParams, IThreadPool& aThreadPool)
     : iEnv(aEnv)
     , iInitParams(aInitParams)
-    , iThreadPool(aThreadPool)
     , iServer(nullptr)
     , iDefaultApp(nullptr)
     , iStarted(false)

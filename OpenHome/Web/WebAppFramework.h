@@ -526,7 +526,6 @@ private:
 private:
     Environment& iEnv;
     WebAppFrameworkInitParams* iInitParams;
-    IThreadPool& iThreadPool;
     TUint iAdapterListenerId;
     SocketTcpServer* iServer;
     TabManagerTimed* iTabManager; // One tab manager for all tabs. All tabs must have same poll interval timeout.
