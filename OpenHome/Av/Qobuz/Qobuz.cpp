@@ -50,6 +50,7 @@ Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
     , iAppSecret(aAppSecret)
     , iUsername(kGranularityUsername)
     , iPassword(kGranularityPassword)
+    , iResponseBody(2048)
     , iUri(1024)
     , iConnected(false)
 {
@@ -141,22 +142,16 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
         }
 
         static const Brn kTagUrl("url");
-        Brn val;
-        do {
-            val.Set(ReadString());
-        } while (val != kTagUrl);
-        aStreamUrl.Replace(ReadString());
+        iResponseBody.Reset();
+        iReaderEntity.ReadAll(iResponseBody);
+        JsonParser parser;
+        parser.Parse(iResponseBody.Buffer());
+        aStreamUrl.Replace(parser.String(kTagUrl));
         Json::Unescape(aStreamUrl);
         success = true;
     }
-    catch (HttpError&) {
-        LOG_ERROR(kPipeline, "HttpError in Qobuz::TryGetStreamUrl\n");
-    }
-    catch (ReaderError&) {
-        LOG_ERROR(kPipeline, "ReaderError in Qobuz::TryGetStreamUrl\n");
-    }
-    catch (WriterError&) {
-        LOG_ERROR(kPipeline, "WriterError in Qobuz::TryGetStreamUrl\n");
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in Qobuz::TryGetStreamUrl\n", ex.Message());
     }
     return success;
 }
