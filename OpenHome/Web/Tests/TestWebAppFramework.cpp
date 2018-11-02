@@ -1339,8 +1339,9 @@ TestHelperDestroyHandler::TestHelperDestroyHandler(ITestPipeWritable& aTestPipe)
 {
 }
 
-void TestHelperDestroyHandler::Destroy(IFrameworkTab* aTab)
+void TestHelperDestroyHandler::Destroy(IFrameworkTab* /*aTab*/)
 {
+    // Doesn't actually destroy aTab.
     Bws<100> buf("TestHelperDestroyHandler::Destroy");
     iTestPipe.Write(buf);
 }
