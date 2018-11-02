@@ -935,7 +935,10 @@ TUint ProtocolRaop::TryStop(TUint aStreamId)
     if (!iStopped && iActive) {
         stop = (iStreamId == aStreamId && aStreamId != IPipelineIdProvider::kStreamIdInvalid);
         if (stop) {
-            iNextFlushId = iFlushIdProvider->NextFlushId();
+            // Don't increment flush ID if current MsgFlush hasn't been output.
+            if (iNextFlushId == MsgFlush::kIdInvalid) {
+                iNextFlushId = iFlushIdProvider->NextFlushId();
+            }
             iStopped = true;
             DoInterrupt(true);
             // Lock doesn't need to be held for this; code that opens server from other thread must check iStopped before opening it.
