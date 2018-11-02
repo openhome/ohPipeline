@@ -878,7 +878,15 @@ void CodecController::OutputStreamInterrupted()
 
 Msg* CodecController::ProcessMsg(MsgMode* aMsg)
 {
-    ASSERT(iExpectedFlushId == MsgFlush::kIdInvalid);
+    // There should be no pending flushes by the time a MsgMode is received.
+    // Accommodate any buggy protocol modules that failed to send their MsgFlush by sending a MsgFlush with the expected flush ID from here.
+    if (iExpectedFlushId != MsgFlush::kIdInvalid) {
+        LOG_WARNING(kMedia, "CodecController::ProcessMsg(MsgMode*) expected flush ID (%u) has not been received\n", iExpectedFlushId);
+        auto* flush = iMsgFactory.CreateMsgFlush(iExpectedFlushId);
+        iExpectedFlushId = MsgFlush::kIdInvalid;
+        iConsumeExpectedFlush = false;
+        Queue(flush);
+    }
     if (iRecognising) {
         iStreamEnded = true;
         aMsg->RemoveRef();
