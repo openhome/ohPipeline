@@ -1133,16 +1133,6 @@ def build(bld):
             target='TestNtpClient',
             install_path=None)
     bld.program(
-            source=['OpenHome/Web/Tests/TestWebAppFrameworkInteractive.cpp'],
-            use=['OHNET', 'PLATFORM', 'WebAppFramework', 'ohMediaPlayer', 'ConfigUi'],
-            target='TestWebAppFrameworkInteractive',
-            install_path=None)
-    bld.program(
-            source=['OpenHome/Web/ConfigUi/Tests/TestConfigUiInteractive.cpp'],
-            use=['OHNET', 'PLATFORM', 'ConfigUi', 'WebAppFramework', 'ohMediaPlayerTestUtils', 'ohMediaPlayer'],
-            target='TestConfigUiInteractive',
-            install_path=None)
-    bld.program(
             source=['OpenHome/Web/Tests/TestWebAppFrameworkMain.cpp'],
             use=['OHNET', 'PLATFORM', 'WebAppFrameworkTestUtils', 'WebAppFramework', 'ohMediaPlayer'],
             target='TestWebAppFramework',
