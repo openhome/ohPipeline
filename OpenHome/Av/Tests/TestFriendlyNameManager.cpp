@@ -34,6 +34,19 @@ private:
     Semaphore iSem;
 };
 
+class DeviceBasic
+{
+public:
+    static const Brn kDeviceNameDefault;
+public:
+    DeviceBasic(Net::DvStack& aDvStack);
+    ~DeviceBasic();
+    Net::DvDevice& Device();
+private:
+    Bwh iName;
+    Net::DvDeviceStandard* iDevice;
+};
+
 class SuiteFriendlyNameManager : public OpenHome::TestFramework::SuiteUnitTest, private INonCopyable
 {
 public:
@@ -112,6 +125,35 @@ void MockFriendlyNameObserver::FriendlyNameChanged(const Brx& aFriendlyName)
 void MockFriendlyNameObserver::WaitForCallback()
 {
     iSem.Wait();
+}
+
+
+// DeviceBasic
+
+const Brn DeviceBasic::kDeviceNameDefault("device");
+
+DeviceBasic::DeviceBasic(DvStack& aDvStack)
+    : iName(kDeviceNameDefault)
+{
+    TestFramework::RandomiseUdn(aDvStack.Env(), iName);
+    iDevice = new DvDeviceStandard(aDvStack, iName);
+    iDevice->SetAttribute("Upnp.Domain", "openhome.org");
+    iDevice->SetAttribute("Upnp.Type", "Test");
+    iDevice->SetAttribute("Upnp.Version", "1");
+    iDevice->SetAttribute("Upnp.FriendlyName", "ohNetTestDevice");
+    iDevice->SetAttribute("Upnp.Manufacturer", "None");
+    iDevice->SetAttribute("Upnp.ModelName", "ohNet test device");
+    iDevice->SetEnabled();
+}
+
+DeviceBasic::~DeviceBasic()
+{
+    delete iDevice;
+}
+
+DvDevice& DeviceBasic::Device()
+{
+    return *iDevice;
 }
 
 
@@ -197,48 +239,8 @@ void SuiteFriendlyNameManager::TestUpdate()
     TEST(observer2.FriendlyName() == Brn("NewRoom:NewProduct"));
 }
 
-
-// SuiteFriendlyNameManager
-
-class DeviceBasic
-{
-public:
-    DeviceBasic(DvStack& aDvStack);
-    ~DeviceBasic();
-    DvDevice& Device();
-private:
-    DvDeviceStandard* iDevice;
-};
-
-
-static Bwh gDeviceName("device");
-
-DeviceBasic::DeviceBasic(DvStack& aDvStack)
-{
-    TestFramework::RandomiseUdn(aDvStack.Env(), gDeviceName);
-    iDevice = new DvDeviceStandard(aDvStack, gDeviceName);
-    iDevice->SetAttribute("Upnp.Domain", "openhome.org");
-    iDevice->SetAttribute("Upnp.Type", "Test");
-    iDevice->SetAttribute("Upnp.Version", "1");
-    iDevice->SetAttribute("Upnp.FriendlyName", "ohNetTestDevice");
-    iDevice->SetAttribute("Upnp.Manufacturer", "None");
-    iDevice->SetAttribute("Upnp.ModelName", "ohNet test device");
-    iDevice->SetEnabled();
-}
-
-DeviceBasic::~DeviceBasic()
-{
-    delete iDevice;
-}
-
-DvDevice& DeviceBasic::Device()
-{
-    return *iDevice;
-}
-
 void SuiteFriendlyNameManager::TestDvUpdate()
 {
-
     DeviceBasic* deviceBasic1 = new DeviceBasic(iDvStack);
     DvDevice& dvDevice1 = deviceBasic1->Device();
 
@@ -266,17 +268,17 @@ TBool SuiteFriendlyNameManager::WaitForNameChange(DvDevice& aDevice, const Brx& 
     TUint retries;
     const TChar* updatedName;
 
-    for (retries = kMaxRetries; retries > 0; retries--)
-    {
+    for (retries = kMaxRetries; retries > 0; retries--) {
         aDevice.GetAttribute("Upnp.FriendlyName", &updatedName);
-        if(Brn(updatedName) == aNewName)
-        {
+        if (Brn(updatedName) == aNewName) {
             return true;
         }
         Thread::Sleep(20);              // wait for name to update
     }
     return false;
 }
+
+
 
 void TestFriendlyNameManager(CpStack& aCpStack, DvStack& aDvStack)
 {
