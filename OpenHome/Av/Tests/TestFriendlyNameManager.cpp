@@ -13,13 +13,16 @@ namespace Test {
 class MockProductNameObservable : public IProductNameObservable
 {
 public:
-    MockProductNameObservable();
+    MockProductNameObservable(const Brx& aDefaultRoom, const Brx& aDefaultProduct);
     void SetRoomName(const Brx& aRoom);
     void SetProductName(const Brx& aProduct);
 public: // from IProductNameObservable
     void AddNameObserver(IProductNameObserver& aObserver) override;
 private:
-    IProductNameObserver* iObserver;
+    std::vector<std::reference_wrapper<IProductNameObserver>> iObservers;
+    Bwh iRoom;
+    Bwh iProduct;
+    Mutex iLock;
 };
 
 class MockFriendlyNameObserver
@@ -80,27 +83,40 @@ using namespace OpenHome::Av::Test;
 
 // MockProductNameObservable
 
-MockProductNameObservable::MockProductNameObservable()
-    : iObserver(nullptr)
+MockProductNameObservable::MockProductNameObservable(const Brx& aDefaultRoom, const Brx& aDefaultProduct)
+    : iRoom(Product::kMaxRoomBytes)
+    , iProduct(Product::kMaxNameBytes)
+    , iLock("MPNO")
 {
+    iRoom.Replace(aDefaultRoom);
+    iProduct.Replace(aDefaultProduct);
 }
 
 void MockProductNameObservable::SetRoomName(const Brx& aRoom)
 {
-    ASSERT(iObserver != nullptr);
-    iObserver->RoomChanged(aRoom);
+    AutoMutex amx(iLock);
+    iRoom.Replace(aRoom);
+    for (auto& o : iObservers) {
+        o.get().RoomChanged(aRoom);
+    }
 }
 
 void MockProductNameObservable::SetProductName(const Brx& aProduct)
 {
-    ASSERT(iObserver != nullptr);
-    iObserver->NameChanged(aProduct);
+    AutoMutex amx(iLock);
+    iProduct.Replace(aProduct);
+    for (auto& o : iObservers) {
+        o.get().NameChanged(aProduct);
+    }
 }
 
 void MockProductNameObservable::AddNameObserver(IProductNameObserver& aObserver)
 {
-    ASSERT(iObserver == nullptr);
-    iObserver = &aObserver;
+    AutoMutex amx(iLock);
+    iObservers.push_back(aObserver);
+    // Initial callback (mimicking Product::AddNameObserver()).
+    aObserver.RoomChanged(iRoom);
+    aObserver.NameChanged(iProduct);
 }
 
 
@@ -171,7 +187,7 @@ SuiteFriendlyNameManager::SuiteFriendlyNameManager(CpStack& /* aCpStack */, DvSt
 
 void SuiteFriendlyNameManager::Setup()
 {
-    iObservable = new MockProductNameObservable();
+    iObservable = new MockProductNameObservable(Brn("Room"), Brn("Product"));
     iFriendlyNameManager = new FriendlyNameManager(*iObservable, iThreadPool);
 }
 
@@ -185,8 +201,6 @@ void SuiteFriendlyNameManager::TestRegisterDeregister()
 {
     const Brn kFriendlyName("Room:Product");
     IFriendlyNameObservable& observable = *iFriendlyNameManager;
-    iObservable->SetRoomName(Brn("Room"));
-    iObservable->SetProductName(Brn("Product"));
 
     MockFriendlyNameObserver observer1;
     MockFriendlyNameObserver observer2;
@@ -206,8 +220,6 @@ void SuiteFriendlyNameManager::TestRegisterDeregister()
 void SuiteFriendlyNameManager::TestUpdate()
 {
     IFriendlyNameObservable& observable = *iFriendlyNameManager;
-    iObservable->SetRoomName(Brn("Room"));
-    iObservable->SetProductName(Brn("Product"));
 
     MockFriendlyNameObserver observer1;
     MockFriendlyNameObserver observer2;
@@ -243,9 +255,6 @@ void SuiteFriendlyNameManager::TestDvUpdate()
 {
     DeviceBasic* deviceBasic1 = new DeviceBasic(iDvStack);
     DvDevice& dvDevice1 = deviceBasic1->Device();
-
-    iObservable->SetRoomName(Brn("Room"));
-    iObservable->SetProductName(Brn("Product"));
 
     // construct updaters for different device types
     auto updater1 = new FriendlyNameAttributeUpdater(*iFriendlyNameManager, iThreadPool, dvDevice1);
