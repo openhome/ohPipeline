@@ -572,12 +572,12 @@ void SuiteDecodedAudioAggregator::TestDsdAggregated()
     Queue(iMsgFactory->CreateMsgMode(Brn("dummyMode")));
     Queue(CreateTrack());
     Queue(iMsgFactory->CreateMsgEncodedStream(Brx::Empty(), Brx::Empty(), 1 << 21, 0, ++iNextStreamId, iSeekable, false, Multiroom::Allowed, this));
-    Queue(iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, 256, 1, 1411200, 2, Brn("DSD"),
+    Queue(iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, 256, 1, 2822400, 2, Brn("DSD"),
                                               0, 0, true, true, false, false,
                                               AudioFormat::Dsd, Multiroom::Forbidden, kProfile, this));
     TByte decodedAudioData = 0x7f; // 4 samples for 1-bit stereo
     Brn decodedAudioBuf(&decodedAudioData, 1);
-    const TUint kSampleRateDsd = 1411200;
+    const TUint kSampleRateDsd = 2822400;
     const TUint kSamples = 4;
     static const TUint kNumDsdMsg = 5;
     for (TUint i = 0; i < kNumDsdMsg; i++) {

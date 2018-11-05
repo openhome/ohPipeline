@@ -26,7 +26,7 @@ class SuiteStarvationRamper : public SuiteUnitTest
     static const TUint kRampUpDuration = Jiffies::kPerMs * 50;
     static const TUint kExpectedFlushId = 5;
     static const TUint kSampleRateDefault = 48000;
-    static const TUint kSampleRateDefaultDsd = 1411200;
+    static const TUint kSampleRateDefaultDsd = 2822400;
     static const TUint kBitDepthDefault = 16;
     static const TUint kNumChannels = 2;
     static const SpeakerProfile kProfile;

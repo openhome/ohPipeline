@@ -944,7 +944,7 @@ void SuiteMsgAudio::Test()
     playable->RemoveRef();
 
     // Silence msgs in DSD streams should align to client-specified boundaries
-    const TUint sr = 1411200;
+    const TUint sr = 2822400;
     const TUint jps = Jiffies::PerSample(sr);
     const TUint blockSizeBytes = 4;
     const TUint minSamples = 16; // assumes 2 channels
@@ -1761,7 +1761,7 @@ void SuiteMsgAudioDsd::Test()
 
     // Create a dsd msg using the same data at each supported sample rate.
     // Check that lower sample rates report higher numbers of jiffies.
-    const TUint sampleRates[] = { 1411200, 2822400, 5644800 };
+    const TUint sampleRates[] = { 2822400, 5644800, 11289600 };
     const TUint numRates = sizeof(sampleRates) / sizeof(sampleRates[0]);
     TUint prevJiffies = 0xffffffff;
     TUint jiffies;
@@ -1846,7 +1846,7 @@ void SuiteMsgAudioDsd::Test()
     // split at non-block boundary
     TByte data2[4] = { 0 };
     Brn data2Buf(&data2[0], sizeof data2);
-    const TUint sr = 1411200;
+    const TUint sr = 2822400;
     const TUint jps = Jiffies::PerSample(sr);
     msg = iMsgFactory->CreateMsgAudioDsd(data2Buf, 2, sr, 32, 0LL);
     auto split = msg->Split(jps);
@@ -2353,7 +2353,7 @@ void SuiteMsgProcessor::Test()
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgPlayable);
     playable->RemoveRef();
 
-    MsgAudioDsd* audioDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 2, 0);
+    MsgAudioDsd* audioDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 2822400, 2, 0);
     TEST(audioDsd == static_cast<Msg*>(audioDsd)->Process(processor));
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgAudioDsd);
     playable = audioDsd->CreatePlayable();
@@ -3081,7 +3081,7 @@ void SuiteMsgReservoir::Test()
     TEST(queue->LastIn() == TestMsgReservoir::EMsgAudioPcm);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
-    audio = iMsgFactory->CreateMsgAudioDsd(encodedAudioBuf, 2, 1411200, 2, 0);
+    audio = iMsgFactory->CreateMsgAudioDsd(encodedAudioBuf, 2, 2822400, 2, 0);
     const TUint audioDsdJiffies = audio->Jiffies();
     queue->Enqueue(audio);
     TEST(queue->Jiffies() == jiffies + audioDsdJiffies);
@@ -3505,7 +3505,7 @@ Msg* SuitePipelineElement::CreateMsg(ProcessorMsgType::EMsgType aType)
         TByte audioData[kDataBytes];
         (void)memset(audioData, 0xab, kDataBytes);
         Brn audioBuf(audioData, kDataBytes);
-        return iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 2, 0LL);
+        return iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 2822400, 2, 0LL);
     }
     case ProcessorMsgType::EMsgSilence:
     {
