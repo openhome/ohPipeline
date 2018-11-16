@@ -83,6 +83,17 @@ public:
     enum class ValType
     {
         Undefined,
+        Null,
+        Int,
+        Bool,
+        String,
+        Object,
+        Array,
+        NullEntry
+    };
+    enum class EntryValType
+    {
+        Undefined,
         NullEntry,
         Null,
         Int,
@@ -94,7 +105,13 @@ public:
     };
 public:
     static JsonParserArray Create(const Brx& aArray);
+    /*
+     * Deprecated.
+     *
+     * Identfies type of array based on first entry. Not suitable for heterogeneous arrays. Use EntryType() to check type of each entry instead.
+     */
     ValType Type() const;
+    EntryValType EntryType() const;
     TInt NextInt();
     TBool NextBool();
     Brn NextNull();
@@ -106,6 +123,7 @@ public:
 private:
     JsonParserArray(const Brx& aArray);
     void StartParse();
+    void StartParseEntry();
     void ReturnType();
     Brn ValueToDelimiter();
     Brn NextCollection(TChar aStart, TChar aEnd);
@@ -115,6 +133,7 @@ private:
     ValType iType;
     const TByte* iPtr;
     const TByte* iEnd;
+    EntryValType iEntryType;
 };
 
 class WriterJson
