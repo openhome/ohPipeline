@@ -620,9 +620,11 @@ void Product::StandbyDisabled(StandbyDisableReason aReason)
 FriendlyNameManager::FriendlyNameManager(IProductNameObservable& aProduct, IThreadPool& aThreadPool)
     : iNextObserverId(1)
     , iMutex("FNHM")
+    , iStarted(false)   // Prevent initial callbacks in this constructor from being scheduled on thread pool (which may run before or after first observers are registered).
 {
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &FriendlyNameManager::NotifyObservers), "FriendlyNameManager", ThreadPoolPriority::Medium);
     aProduct.AddNameObserver(*this);    // Observer methods called during registration.
+    iStarted = true;                    // Initial callbacks complete (and nothing scheduled in thread pool). Now allowed to schedule calls in thread pool to be passed onto observers. Mainly for predictability during unit testing.
 }
 
 FriendlyNameManager::~FriendlyNameManager()
@@ -665,7 +667,9 @@ void FriendlyNameManager::RoomChanged(const Brx& aRoom)
         iRoom.Replace(aRoom);
         ConstructFriendlyNameLocked();
     }
-    (void)iThreadPoolHandle->TrySchedule();
+    if (iStarted) {
+        (void)iThreadPoolHandle->TrySchedule();
+    }
 }
 
 void FriendlyNameManager::NameChanged(const Brx& aName)
@@ -675,7 +679,9 @@ void FriendlyNameManager::NameChanged(const Brx& aName)
         iName.Replace(aName);
         ConstructFriendlyNameLocked();
     }
-    (void)iThreadPoolHandle->TrySchedule();
+    if (iStarted) {
+        (void)iThreadPoolHandle->TrySchedule();
+    }
 }
 
 void FriendlyNameManager::ConstructFriendlyNameLocked()

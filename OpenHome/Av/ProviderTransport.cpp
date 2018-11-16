@@ -307,26 +307,26 @@ void ProviderTransport::SeekSecondAbsolute(IDvInvocation& aInvocation,
     {
         AutoMutex _(iLockTransportControls);
         auto f = iTransportControls.Seek();
-        if (f) {
-            f(aSecondAbsolute);
-        }
-        else {
-            try {
+        try {
+            if (f) {
+                f(aSecondAbsolute);
+            }
+            else {
                 iPipeline.Seek(aStreamId, aSecondAbsolute);
                 iPipeline.Play();
             }
-            catch (SeekStreamInvalid&) {
-                aInvocation.Error(kCodeBadStreamId, kMsgBadStreamId);
-            }
-            catch (SeekAlreadyInProgress&) {
-                aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
-            }
-            catch (SeekStreamNotSeekable&) {
-                aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
-            }
-            catch (SeekPosInvalid&) {
-                aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
-            }
+        }
+        catch (SeekStreamInvalid&) {
+            aInvocation.Error(kCodeBadStreamId, kMsgBadStreamId);
+        }
+        catch (SeekAlreadyInProgress&) {
+            aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
+        }
+        catch (SeekStreamNotSeekable&) {
+            aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
+        }
+        catch (SeekPosInvalid&) {
+            aInvocation.Error(kSeekFailureCode, kSeekFailureMsg);
         }
     }
     aInvocation.StartResponse();

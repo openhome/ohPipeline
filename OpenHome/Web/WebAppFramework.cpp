@@ -553,11 +553,21 @@ TUint TabManager::CreateTab(ITabCreator& aTabCreator, const std::vector<char*>& 
         THROW(TabManagerFull);
     }
     auto* t = iTabsInactive.Read();
-    const TUint sessionId = iNextSessionId++;
-    // Adds ref.
-    t->Initialise(sessionId, aTabCreator, *this, aLanguageList); // Takes ownership of (buffers in) language list.
-    iTabsActive.push_back(t);
-    return sessionId;
+    try {
+        const TUint sessionId = iNextSessionId;
+        // Adds ref.
+        t->Initialise(sessionId, aTabCreator, *this, aLanguageList); // Takes ownership of (buffers in) language list.
+        iTabsActive.push_back(t);
+
+        // Tab successfully initialised. Increment iNextSessionId.
+        iNextSessionId++;
+        return sessionId;
+    }
+    catch (const TabAllocatorFull&) {
+        // Problem while calling IFrameworkTab::Initialise().
+        iTabsInactive.Write(t);
+        throw;
+    }
 }
 
 void TabManager::LongPoll(TUint aId, IWriter& aWriter)

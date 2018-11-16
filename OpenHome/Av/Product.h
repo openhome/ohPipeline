@@ -14,6 +14,7 @@
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Av/TransportControl.h>
 
+#include <atomic>
 #include <limits>
 #include <map>
 #include <vector>
@@ -231,6 +232,7 @@ private:
     std::map<TUint, FunctorGeneric<const Brx&>> iObservers;
     Mutex iMutex;
     IThreadPoolHandle* iThreadPoolHandle;
+    std::atomic<TBool> iStarted;
 };
 
 } // namespace Av

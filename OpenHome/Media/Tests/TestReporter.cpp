@@ -265,7 +265,7 @@ void SuiteReporter::RunTests()
     // (Note that changing audio format without a new Track + DecodedStream is invalid in real use
     // ...but works for tests).
     iNextGeneratedMsg = EMsgAudioDsd;
-    while (iTrackOffset < 2 * Jiffies::kPerSecond) {
+    while (iTrackOffset <= 2 * Jiffies::kPerSecond) {   // PCM block above outputs just over 1s of audio, so need "<=" here to ensure at least 1s of DSD audio is pulled in this block.
         TEST(iModeUpdates == expectedModeUpdates);
         TEST(iTrackUpdates == expectedTrackUpdates);
         TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -419,7 +419,7 @@ MsgAudio* SuiteReporter::CreateAudioDsd()
     TByte audioData[128];
     (void)memset(audioData, 0x7f, sizeof audioData);
     Brn audioBuf(audioData, sizeof audioData);
-    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 1411200, 2, iTrackOffset);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 2822400, 2, iTrackOffset);
     iTrackOffset += audio->Jiffies();
     return audio;
 }

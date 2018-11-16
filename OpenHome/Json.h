@@ -88,28 +88,52 @@ public:
         Bool,
         String,
         Object,
-        Array
+        Array,
+        NullEntry
+    };
+    enum class EntryValType
+    {
+        Undefined,
+        NullEntry,
+        Null,
+        Int,
+        Bool,
+        String,
+        Object,
+        Array,
+        End
     };
 public:
     static JsonParserArray Create(const Brx& aArray);
+    /*
+     * Deprecated.
+     *
+     * Identfies type of array based on first entry. Not suitable for heterogeneous arrays. Use EntryType() to check type of each entry instead.
+     */
     ValType Type() const;
+    EntryValType EntryType() const;
     TInt NextInt();
     TBool NextBool();
+    Brn NextNull();
     Brn NextString();
     Brn NextStringEscaped(Json::Encoding aEncoding = Json::Encoding::Utf8); // array passed to Set must be writable in this case
     Brn NextArray();
     Brn NextObject();
+    Brn Next();
 private:
     JsonParserArray(const Brx& aArray);
     void StartParse();
-    Brn NextNumOrBool();
+    void StartParseEntry();
+    void ReturnType();
+    Brn ValueToDelimiter();
     Brn NextCollection(TChar aStart, TChar aEnd);
-    void EndEnumerationIfNullType();
+    void EndEnumerationIfNull();
 private:
     Brn iBuf;
     ValType iType;
     const TByte* iPtr;
     const TByte* iEnd;
+    EntryValType iEntryType;
 };
 
 class WriterJson

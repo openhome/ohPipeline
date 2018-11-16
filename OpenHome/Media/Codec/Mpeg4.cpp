@@ -2887,9 +2887,13 @@ TBool Mpeg4Container::TrySeek(TUint aStreamId, TUint64 aOffset)
 Msg* Mpeg4Container::Pull()
 {
     try {
-        return iBoxRoot.Process();
+        Msg* msg = nullptr;
+        while (msg == nullptr) {
+            msg = iBoxRoot.Process();
+        }
+        return msg;
     }
-    catch (MediaMpeg4FileInvalid&) {
+    catch (const MediaMpeg4FileInvalid&) {
         THROW(ContainerStreamCorrupt);
     }
 }

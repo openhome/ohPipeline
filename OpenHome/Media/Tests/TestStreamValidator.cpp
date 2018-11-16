@@ -23,7 +23,7 @@ class SuiteStreamValidator : public SuiteUnitTest
 {
     static const TUint kBitrate = 256;
     static const TUint kSampleRate = 44100;
-    static const TUint kSampleRateDsd = 1411200;
+    static const TUint kSampleRateDsd = 2822400;
     static const TUint kChannels = 2;
     static const SpeakerProfile kProfile;
     static const TUint kBitDepth = 16;

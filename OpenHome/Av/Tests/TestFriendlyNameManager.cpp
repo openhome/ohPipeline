@@ -13,13 +13,16 @@ namespace Test {
 class MockProductNameObservable : public IProductNameObservable
 {
 public:
-    MockProductNameObservable();
+    MockProductNameObservable(const Brx& aDefaultRoom, const Brx& aDefaultProduct);
     void SetRoomName(const Brx& aRoom);
     void SetProductName(const Brx& aProduct);
 public: // from IProductNameObservable
     void AddNameObserver(IProductNameObserver& aObserver) override;
 private:
-    IProductNameObserver* iObserver;
+    std::vector<std::reference_wrapper<IProductNameObserver>> iObservers;
+    Bwh iRoom;
+    Bwh iProduct;
+    Mutex iLock;
 };
 
 class MockFriendlyNameObserver
@@ -32,6 +35,19 @@ public:
 private:
     Bws<IFriendlyNameObservable::kMaxFriendlyNameBytes> iFriendlyName;
     Semaphore iSem;
+};
+
+class DeviceBasic
+{
+public:
+    static const Brn kDeviceNameDefault;
+public:
+    DeviceBasic(Net::DvStack& aDvStack);
+    ~DeviceBasic();
+    Net::DvDevice& Device();
+private:
+    Bwh iName;
+    Net::DvDeviceStandard* iDevice;
 };
 
 class SuiteFriendlyNameManager : public OpenHome::TestFramework::SuiteUnitTest, private INonCopyable
@@ -67,27 +83,40 @@ using namespace OpenHome::Av::Test;
 
 // MockProductNameObservable
 
-MockProductNameObservable::MockProductNameObservable()
-    : iObserver(nullptr)
+MockProductNameObservable::MockProductNameObservable(const Brx& aDefaultRoom, const Brx& aDefaultProduct)
+    : iRoom(Product::kMaxRoomBytes)
+    , iProduct(Product::kMaxNameBytes)
+    , iLock("MPNO")
 {
+    iRoom.Replace(aDefaultRoom);
+    iProduct.Replace(aDefaultProduct);
 }
 
 void MockProductNameObservable::SetRoomName(const Brx& aRoom)
 {
-    ASSERT(iObserver != nullptr);
-    iObserver->RoomChanged(aRoom);
+    AutoMutex amx(iLock);
+    iRoom.Replace(aRoom);
+    for (auto& o : iObservers) {
+        o.get().RoomChanged(aRoom);
+    }
 }
 
 void MockProductNameObservable::SetProductName(const Brx& aProduct)
 {
-    ASSERT(iObserver != nullptr);
-    iObserver->NameChanged(aProduct);
+    AutoMutex amx(iLock);
+    iProduct.Replace(aProduct);
+    for (auto& o : iObservers) {
+        o.get().NameChanged(aProduct);
+    }
 }
 
 void MockProductNameObservable::AddNameObserver(IProductNameObserver& aObserver)
 {
-    ASSERT(iObserver == nullptr);
-    iObserver = &aObserver;
+    AutoMutex amx(iLock);
+    iObservers.push_back(aObserver);
+    // Initial callback (mimicking Product::AddNameObserver()).
+    aObserver.RoomChanged(iRoom);
+    aObserver.NameChanged(iProduct);
 }
 
 
@@ -115,6 +144,35 @@ void MockFriendlyNameObserver::WaitForCallback()
 }
 
 
+// DeviceBasic
+
+const Brn DeviceBasic::kDeviceNameDefault("device");
+
+DeviceBasic::DeviceBasic(DvStack& aDvStack)
+    : iName(kDeviceNameDefault)
+{
+    TestFramework::RandomiseUdn(aDvStack.Env(), iName);
+    iDevice = new DvDeviceStandard(aDvStack, iName);
+    iDevice->SetAttribute("Upnp.Domain", "openhome.org");
+    iDevice->SetAttribute("Upnp.Type", "Test");
+    iDevice->SetAttribute("Upnp.Version", "1");
+    iDevice->SetAttribute("Upnp.FriendlyName", "ohNetTestDevice");
+    iDevice->SetAttribute("Upnp.Manufacturer", "None");
+    iDevice->SetAttribute("Upnp.ModelName", "ohNet test device");
+    iDevice->SetEnabled();
+}
+
+DeviceBasic::~DeviceBasic()
+{
+    delete iDevice;
+}
+
+DvDevice& DeviceBasic::Device()
+{
+    return *iDevice;
+}
+
+
 // SuiteFriendlyNameManager
 
 SuiteFriendlyNameManager::SuiteFriendlyNameManager(CpStack& /* aCpStack */, DvStack& aDvStack)
@@ -129,7 +187,7 @@ SuiteFriendlyNameManager::SuiteFriendlyNameManager(CpStack& /* aCpStack */, DvSt
 
 void SuiteFriendlyNameManager::Setup()
 {
-    iObservable = new MockProductNameObservable();
+    iObservable = new MockProductNameObservable(Brn("Room"), Brn("Product"));
     iFriendlyNameManager = new FriendlyNameManager(*iObservable, iThreadPool);
 }
 
@@ -143,8 +201,6 @@ void SuiteFriendlyNameManager::TestRegisterDeregister()
 {
     const Brn kFriendlyName("Room:Product");
     IFriendlyNameObservable& observable = *iFriendlyNameManager;
-    iObservable->SetRoomName(Brn("Room"));
-    iObservable->SetProductName(Brn("Product"));
 
     MockFriendlyNameObserver observer1;
     MockFriendlyNameObserver observer2;
@@ -164,8 +220,6 @@ void SuiteFriendlyNameManager::TestRegisterDeregister()
 void SuiteFriendlyNameManager::TestUpdate()
 {
     IFriendlyNameObservable& observable = *iFriendlyNameManager;
-    iObservable->SetRoomName(Brn("Room"));
-    iObservable->SetProductName(Brn("Product"));
 
     MockFriendlyNameObserver observer1;
     MockFriendlyNameObserver observer2;
@@ -197,53 +251,10 @@ void SuiteFriendlyNameManager::TestUpdate()
     TEST(observer2.FriendlyName() == Brn("NewRoom:NewProduct"));
 }
 
-
-// SuiteFriendlyNameManager
-
-class DeviceBasic
-{
-public:
-    DeviceBasic(DvStack& aDvStack);
-    ~DeviceBasic();
-    DvDevice& Device();
-private:
-    DvDeviceStandard* iDevice;
-};
-
-
-static Bwh gDeviceName("device");
-
-DeviceBasic::DeviceBasic(DvStack& aDvStack)
-{
-    TestFramework::RandomiseUdn(aDvStack.Env(), gDeviceName);
-    iDevice = new DvDeviceStandard(aDvStack, gDeviceName);
-    iDevice->SetAttribute("Upnp.Domain", "openhome.org");
-    iDevice->SetAttribute("Upnp.Type", "Test");
-    iDevice->SetAttribute("Upnp.Version", "1");
-    iDevice->SetAttribute("Upnp.FriendlyName", "ohNetTestDevice");
-    iDevice->SetAttribute("Upnp.Manufacturer", "None");
-    iDevice->SetAttribute("Upnp.ModelName", "ohNet test device");
-    iDevice->SetEnabled();
-}
-
-DeviceBasic::~DeviceBasic()
-{
-    delete iDevice;
-}
-
-DvDevice& DeviceBasic::Device()
-{
-    return *iDevice;
-}
-
 void SuiteFriendlyNameManager::TestDvUpdate()
 {
-
     DeviceBasic* deviceBasic1 = new DeviceBasic(iDvStack);
     DvDevice& dvDevice1 = deviceBasic1->Device();
-
-    iObservable->SetRoomName(Brn("Room"));
-    iObservable->SetProductName(Brn("Product"));
 
     // construct updaters for different device types
     auto updater1 = new FriendlyNameAttributeUpdater(*iFriendlyNameManager, iThreadPool, dvDevice1);
@@ -266,17 +277,17 @@ TBool SuiteFriendlyNameManager::WaitForNameChange(DvDevice& aDevice, const Brx& 
     TUint retries;
     const TChar* updatedName;
 
-    for (retries = kMaxRetries; retries > 0; retries--)
-    {
+    for (retries = kMaxRetries; retries > 0; retries--) {
         aDevice.GetAttribute("Upnp.FriendlyName", &updatedName);
-        if(Brn(updatedName) == aNewName)
-        {
+        if (Brn(updatedName) == aNewName) {
             return true;
         }
         Thread::Sleep(20);              // wait for name to update
     }
     return false;
 }
+
+
 
 void TestFriendlyNameManager(CpStack& aCpStack, DvStack& aDvStack)
 {
