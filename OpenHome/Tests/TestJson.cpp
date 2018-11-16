@@ -1305,6 +1305,13 @@ void SuiteParserJsonArray::TestArrayConclusion()
     TEST(parser.NextInt() == 2);
     TEST(parser.EntryType() == JsonParserArray::EntryValType::End);
     TEST_THROWS(parser.Next(), JsonArrayEnumerationComplete);
+    TEST_THROWS(parser.NextInt(), JsonArrayEnumerationComplete);
+    TEST_THROWS(parser.NextBool(), JsonArrayEnumerationComplete);
+    TEST_THROWS(parser.NextNull(), JsonArrayEnumerationComplete);
+    TEST_THROWS(parser.NextString(), JsonArrayEnumerationComplete);
+    TEST_THROWS(parser.NextStringEscaped(), JsonArrayEnumerationComplete);
+    TEST_THROWS(parser.NextArray(), JsonArrayEnumerationComplete);
+    TEST_THROWS(parser.NextObject(), JsonArrayEnumerationComplete);
 }
 
 void TestJson()

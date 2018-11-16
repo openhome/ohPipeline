@@ -828,7 +828,7 @@ Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
 
 void JsonParserArray::EndEnumerationIfNull()
 {
-    if (iEntryType == EntryValType::Null) {
+    if (iEntryType == EntryValType::Null || iEntryType == EntryValType::End) {
         THROW(JsonArrayEnumerationComplete);
     }
 }
