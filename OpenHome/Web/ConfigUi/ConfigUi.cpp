@@ -475,6 +475,7 @@ void ConfigTab::Destroy()
     iHandler = nullptr;
 
     for (auto val : iConfigUiVals) {
+        ASSERT(val.second != kInvalidSubscription); // Check value wasn't added after all other values were subscribed to (in SetHandler() call).
         val.first->RemoveObserver(val.second);
     }
 }
