@@ -125,6 +125,10 @@ void VolumeUser::StandbyEnabled()
     // no need to change volume when we enter standby
 }
 
+void VolumeUser::StandbyTransitioning()
+{
+}
+
 void VolumeUser::StandbyDisabled(StandbyDisableReason /*aReason*/)
 {
     ApplyStartupVolume();
@@ -747,6 +751,10 @@ void MuteUser::Unmute()
 void MuteUser::StandbyEnabled()
 {
     // no need to change mute when we enter standby
+}
+
+void MuteUser::StandbyTransitioning()
+{
 }
 
 void MuteUser::StandbyDisabled(StandbyDisableReason /*aReason*/)

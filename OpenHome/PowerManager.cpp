@@ -67,6 +67,7 @@ void PowerManager::StandbyEnable()
     if (iStandby == Standby::On) {
         return;
     }
+    StandbyTransitioning();
     iStandby = Standby::On;
     for (auto it = iStandbyObservers.rbegin(); it != iStandbyObservers.rend(); ++it) {
         LOG(kPowerManager, "PowerManager::StandbyEnable %s\n", (*it)->ClientId());
@@ -75,12 +76,20 @@ void PowerManager::StandbyEnable()
     LOG(kPowerManager, "PowerManager::StandbyEnable complete\n");
 }
 
+void PowerManager::StandbyTransitioning()
+{
+    for (auto it = iStandbyObservers.rbegin(); it != iStandbyObservers.rend(); ++it) {
+        (*it)->Handler().StandbyTransitioning();
+    }
+}
+
 void PowerManager::StandbyDisable(StandbyDisableReason aReason)
 {
     AutoMutex _(iLock);
     if (iStandby == Standby::Off) {
         return;
     }
+    StandbyTransitioning();
     iStandby = Standby::Off;
     iLastDisableReason = aReason;
     for (auto it = iStandbyObservers.begin(); it != iStandbyObservers.end(); ++it) {
@@ -360,6 +369,10 @@ void StoreVal::PowerDown()
 void StoreVal::StandbyEnabled()
 {
     Write();
+}
+
+void StoreVal::StandbyTransitioning()
+{
 }
 
 void StoreVal::StandbyDisabled(StandbyDisableReason /*aReason*/)

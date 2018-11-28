@@ -1,6 +1,6 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <Generated/DvAvOpenhomeOrgProduct2.h>
+#include <Generated/DvAvOpenhomeOrgProduct3.h>
 #include <OpenHome/Av/ProviderProduct.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
@@ -15,7 +15,7 @@ const TUint ProviderProduct::kSourceXmlGranularityBytes;
 const TUint ProviderProduct::kAttributeGranularityBytes;
 
 ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, IPowerManager& aPowerManager)
-    : DvProviderAvOpenhomeOrgProduct2(aDevice)
+    : DvProviderAvOpenhomeOrgProduct3(aDevice)
     , iProduct(aProduct)
     , iPowerManager(aPowerManager)
     , iLock("PrPr")
@@ -36,6 +36,7 @@ ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, 
     EnablePropertyProductUrl();
     EnablePropertyProductImageUri();
     EnablePropertyStandby();
+    EnablePropertyStandbyTransitioning();
     EnablePropertySourceIndex();
     EnablePropertySourceCount();
     EnablePropertySourceXml();
@@ -45,6 +46,7 @@ ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, 
     EnableActionModel();
     EnableActionProduct();
     EnableActionStandby();
+    EnableActionStandbyTransitioning();
     EnableActionSetStandby();
     EnableActionSourceCount();
     EnableActionSourceXml();
@@ -173,6 +175,15 @@ void ProviderProduct::Standby(IDvInvocation& aInvocation, IDvInvocationResponseB
     GetPropertyStandby(standby);
     aInvocation.StartResponse();
     aValue.Write(standby);
+    aInvocation.EndResponse();
+}
+
+void ProviderProduct::StandbyTransitioning(IDvInvocation& aInvocation, IDvInvocationResponseBool& aValue)
+{
+    TBool st;
+    GetPropertyStandbyTransitioning(st);
+    aInvocation.StartResponse();
+    aValue.Write(st);
     aInvocation.EndResponse();
 }
 
@@ -358,9 +369,16 @@ void ProviderProduct::AttributesChanged()
 void ProviderProduct::StandbyEnabled()
 {
     SetPropertyStandby(true);
+    SetPropertyStandbyTransitioning(false);
+}
+
+void ProviderProduct::StandbyTransitioning()
+{
+    SetPropertyStandbyTransitioning(true);
 }
 
 void ProviderProduct::StandbyDisabled(StandbyDisableReason /*aReason*/)
 {
     SetPropertyStandby(false);
+    SetPropertyStandbyTransitioning(false);
 }

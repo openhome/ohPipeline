@@ -585,6 +585,10 @@ void Product::StandbyEnabled()
     }
 }
 
+void Product::StandbyTransitioning()
+{
+}
+
 void Product::StandbyDisabled(StandbyDisableReason aReason)
 {
     iLock.Wait();

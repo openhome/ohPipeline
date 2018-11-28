@@ -153,6 +153,7 @@ public: // from IVolume
     void SetVolume(TUint aVolume) override;
 private: // from IStandbyHandler
     void StandbyEnabled() override;
+    void StandbyTransitioning() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;
 private:
     void StartupVolumeChanged(Configuration::ConfigNum::KvpNum& aKvp);
@@ -476,6 +477,7 @@ public: // from Media::IMute
     void Unmute() override;
 private: // from IStandbyHandler
     void StandbyEnabled() override;
+    void StandbyTransitioning() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;
 private:
     Media::IMute& iMute;

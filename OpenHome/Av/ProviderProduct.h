@@ -3,7 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Standard.h>
-#include <Generated/DvAvOpenhomeOrgProduct2.h>
+#include <Generated/DvAvOpenhomeOrgProduct3.h>
 #include <OpenHome/Net/Core/DvInvocationResponse.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Private/Stream.h>
@@ -15,7 +15,7 @@ namespace OpenHome {
 
 namespace Av {
 
-class ProviderProduct : public Net::DvProviderAvOpenhomeOrgProduct2
+class ProviderProduct : public Net::DvProviderAvOpenhomeOrgProduct3
                       , private IProductObserver
                       , private IProductNameObserver
                       , IProductAttributesObserver
@@ -32,6 +32,7 @@ private: // from DvProviderAvOpenhomeOrgProduct1
     void Model(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aName, Net::IDvInvocationResponseString& aInfo, Net::IDvInvocationResponseString& aUrl, Net::IDvInvocationResponseString& aImageUri) override;
     void Product(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aRoom, Net::IDvInvocationResponseString& aName, Net::IDvInvocationResponseString& aInfo, Net::IDvInvocationResponseString& aUrl, Net::IDvInvocationResponseString& aImageUri) override;
     void Standby(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseBool& aValue) override;
+    void StandbyTransitioning(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseBool& aValue) override;
     void SetStandby(Net::IDvInvocation& aInvocation, TBool aValue) override;
     void SourceCount(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseUint& aValue) override;
     void SourceXml(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aValue) override;
@@ -54,6 +55,7 @@ private: // from IProductAttributesObserver
     void AttributesChanged() override;
 private: // from IStandbyHandler
     void StandbyEnabled() override;
+    void StandbyTransitioning() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;
 private:
     Av::Product& iProduct;
