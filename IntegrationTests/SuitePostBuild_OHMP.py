@@ -25,16 +25,9 @@ try:
 except:
     print( '\n%s\n' % __doc__ )
     print( '\n\nInvalid arguments %s' % (str( sys.argv )) )
-    # noinspection PyProtectedMember
     os._exit( -1 )
 
-try:
-    config = Config.Config()
-except:
-    import time
-    time.sleep( 2 )
-    # noinspection PyProtectedMember
-    os._exit( -1 )
+config = Config.Config()
 tunein = config.Get( 'tunein.user.o4' )
 
 tests = [
