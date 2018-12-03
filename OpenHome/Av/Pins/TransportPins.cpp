@@ -26,7 +26,7 @@ TransportPins::TransportPins(DvDeviceStandard& aDevice, CpStack& aCpStack)
     , iCpStack(aCpStack)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
-    iCpProduct = new CpProxyAvOpenhomeOrgProduct2(*cpDevice);
+    iCpProduct = new CpProxyAvOpenhomeOrgProduct3(*cpDevice);
     iCpTransport = new CpProxyAvOpenhomeOrgTransport1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
 }

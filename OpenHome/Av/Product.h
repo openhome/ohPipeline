@@ -158,6 +158,7 @@ public: // from ITransportActivator
     TBool TryActivate(const Brx& aMode) override;
 private: // from IStandbyHandler
     void StandbyEnabled() override;
+    void StandbyTransitioning() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;
 private:
     Environment& iEnv;

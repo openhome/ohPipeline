@@ -26,13 +26,13 @@ RadioPins::RadioPins(DvDeviceStandard& aDevice, CpStack& aCpStack)
     , iCpStack(aCpStack)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
-    iCpTransport = new CpProxyAvOpenhomeOrgTransport1(*cpDevice);
+    iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
 }
 
 RadioPins::~RadioPins()
 {
-    delete iCpTransport;
+    delete iCpRadio;
 }
 
 void RadioPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
@@ -84,9 +84,8 @@ TBool RadioPins::LoadPreset(TUint aPreset)
     try {
         if (aPreset > 0) {
             // expect preset number from kazoo (1-100)
-            Bws<10> preset("index=");
-            Ascii::AppendDec(preset, (aPreset-1));
-            iCpTransport->SyncPlayAs(Brn("Radio"), preset);
+            iCpRadio->SyncSetId(aPreset, Brx::Empty());
+            iCpRadio->SyncPlay();
             return true;
         }
         else {

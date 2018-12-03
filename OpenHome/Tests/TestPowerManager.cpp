@@ -69,6 +69,7 @@ public:
     StandbyDisableReason DisableReason() const;
 private: // from IStandbyHandler
     void StandbyEnabled() override;
+    void StandbyTransitioning() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;
 private:
     TUint iId;
@@ -358,6 +359,10 @@ void HelperStandbyHandler::StandbyEnabled()
     iStandby = true;
     iEnableCount++;
     iObserver.StandbyHandlerRun(iId);
+}
+
+void HelperStandbyHandler::StandbyTransitioning()
+{
 }
 
 void HelperStandbyHandler::StandbyDisabled(StandbyDisableReason aReason)

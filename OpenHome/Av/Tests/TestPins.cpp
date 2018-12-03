@@ -1119,7 +1119,7 @@ void SuitePinsManager::TestWriteJson()
     TEST(parserArray.Type() == JsonParserArray::ValType::Object);
 
     Brn obj = parserArray.NextObject();
-    Bwn objW(obj.Ptr(), obj.Bytes(), obj.Bytes());
+    Bwh objW(obj);
     JsonParser parser;
     parser.ParseAndUnescape(objW);
     TEST(parser.Num("id") == (TInt)id);

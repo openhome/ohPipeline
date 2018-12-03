@@ -32,23 +32,14 @@ try:
 except:
     print( '\n%s\n' % __doc__ )
     print( '\nInvalid arguments %s' % (str( sys.argv )) )
-    # noinspection PyProtectedMember
     os._exit( -1 )
 
 if mode not in ['nobuild', 'clean']:
     print( '\n%s\n' % __doc__ )
     print( 'Invalid mode: %s' % mode )
-    # noinspection PyProtectedMember
     os._exit( -1 )
 
-
-try:
-    config = Config.Config()
-except:
-    import time
-    time.sleep( 2 )
-    # noinspection PyProtectedMember
-    os._exit( -1 )
+config = Config.Config()
 radio2      = config.Get( 'tunein.user.o2' )
 radio4      = config.Get( 'tunein.user.o4' )
 plEnc       = config.Get( 'playlist.enc-free-dsd' )

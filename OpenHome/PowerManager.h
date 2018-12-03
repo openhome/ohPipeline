@@ -72,6 +72,7 @@ class IStandbyHandler
 {
 public:
     virtual void StandbyEnabled() = 0;
+    virtual void StandbyTransitioning() = 0;
     virtual void StandbyDisabled(StandbyDisableReason aReason) = 0;
     virtual ~IStandbyHandler() {}
 };
@@ -114,6 +115,7 @@ public:
     virtual void NotifyPowerDown() = 0;
     virtual void StandbyEnable() = 0;
     virtual void StandbyDisable(StandbyDisableReason aReason) = 0;
+    virtual void StandbyTransitioning() = 0;
     virtual void FsFlush() = 0;
     virtual IPowerManagerObserver* RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority) = 0;
     virtual IStandbyObserver* RegisterStandbyHandler(IStandbyHandler& aHandler, TUint aPriority, const TChar* aClientId) = 0;
@@ -140,6 +142,7 @@ public:
 public: // from IPowerManager
     void NotifyPowerDown() override;
     void StandbyEnable() override;
+    void StandbyTransitioning() override;
     void StandbyDisable(StandbyDisableReason aReason) override;
     void FsFlush() override;
     IPowerManagerObserver* RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority) override;
@@ -247,6 +250,7 @@ protected: // from IPowerHandler
     void PowerDown() override;
 private: // from IStandbyHandler
     void StandbyEnabled() override;
+    void StandbyTransitioning() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;
 private: // from IFsFlushHandler
     void FsFlush() override;
