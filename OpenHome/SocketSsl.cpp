@@ -78,7 +78,7 @@ SSL_CTX* SslContext::Get(Environment& aEnv)
         SSL_load_error_strings();
         ERR_load_BIO_strings();
         OpenSSL_add_all_algorithms();
-        iCtx = SSL_CTX_new(SSLv23_client_method());
+        iCtx = SSL_CTX_new(TLSv1_2_client_method());
         SSL_CTX_set_verify(iCtx, SSL_VERIFY_NONE, nullptr);
     }
     return iCtx;
