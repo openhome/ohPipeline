@@ -5,6 +5,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
+#include <OpenHome/Private/Converter.h>
 
 #include <algorithm>
 
@@ -84,7 +85,12 @@ TBool RadioPins::LoadPreset(TUint aPreset)
     try {
         if (aPreset > 0) {
             // expect preset number from kazoo (1-100)
-            iCpRadio->SyncSetId(aPreset, Brx::Empty());
+            TUint index = aPreset-1;
+            Brh array;
+            TUint token;
+            iCpRadio->SyncIdArray(token, array);
+            TUint id = Converter::BeUint32At(array, index*4);
+            iCpRadio->SyncSetId(id, Brx::Empty());
             iCpRadio->SyncPlay();
             return true;
         }
