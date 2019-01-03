@@ -3,6 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Private/Thread.h>
+#include <OpenHome/Private/Stream.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 
@@ -304,6 +305,26 @@ public: // from StoreVal
 private:
     Bwh iVal;
     Bwh iLastWritten;
+    TBool iChanged;
+};
+
+/*
+ * Like StoreText but for values with dynamic storage requirements (i.e. no practical MaxLength)
+ */
+class StoreTextDynamic : public StoreVal
+{
+public:
+    StoreTextDynamic(Configuration::IStoreReadWrite& aStore, IPowerManager& aPowerManager, TUint aPriority, const Brx& aKey, const Brx& aDefault, TUint aGranularity);
+    ~StoreTextDynamic();
+    void Read(IWriter& aWriter) const;
+    void Set(const Brx& aValue);
+private: // from StoreVal
+    void PowerUp() override;
+public: // from StoreVal
+    void Write() override;
+private:
+    WriterBwh iVal;
+    WriterBwh iLastWritten;
     TBool iChanged;
 };
 

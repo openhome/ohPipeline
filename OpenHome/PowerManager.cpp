@@ -506,3 +506,61 @@ void StoreText::Write()
         iChanged = false;
     }
 }
+
+
+// StoreTextDynamic
+
+StoreTextDynamic::StoreTextDynamic(IStoreReadWrite& aStore, IPowerManager& aPowerManager, TUint aPriority, const Brx& aKey, const Brx& aDefault, TUint aGranularity)
+    : StoreVal(aStore, aKey)
+    , iVal(aGranularity)
+    , iLastWritten(aGranularity)
+    , iChanged(false)
+{
+    iVal.Write(aDefault);
+    iLastWritten.Write(aDefault);
+    RegisterPowerHandlers(aPowerManager, aPriority);
+}
+
+StoreTextDynamic::~StoreTextDynamic()
+{
+    delete iObserver;
+}
+
+void StoreTextDynamic::Read(IWriter& aWriter) const
+{
+    AutoMutex a(iLock);
+    aWriter.Write(iVal.Buffer());
+}
+
+void StoreTextDynamic::Set(const Brx& aValue)
+{
+    AutoMutex a(iLock);
+    if (iVal.Buffer() == aValue) {
+        return;
+    }
+    iVal.Reset();
+    iVal.Write(aValue);
+    iChanged = true;
+}
+
+void StoreTextDynamic::PowerUp()
+{
+    AutoMutex _(iLock);
+    try {
+        iStore.Read(iKey, iVal);
+        iLastWritten.Write(iVal.Buffer());
+    }
+    catch (StoreKeyNotFound&) {}
+}
+
+void StoreTextDynamic::Write()
+{
+    AutoMutex a(iLock);
+    if (iChanged) {
+        if (iVal.Buffer() != iLastWritten.Buffer()) {
+            iStore.Write(iKey, iVal.Buffer());
+            iLastWritten.Write(iVal.Buffer());
+        }
+        iChanged = false;
+    }
+}
