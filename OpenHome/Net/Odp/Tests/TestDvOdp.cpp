@@ -184,6 +184,17 @@ void TestOdp::TestActions()
         ASSERT(result == valBin);
     }
 
+    Print("    Throws...\n");
+    for (i=0; i<kTestIterations; i++) {
+        try {
+            proxy->SyncReportError(); // throws
+            ASSERTS();
+        }
+        catch (ProxyError&) {}
+        TBool ignore;
+        proxy->SyncToggle(true, ignore); // check that any action succeeds following the error immediately above
+    }
+
     delete proxy;
 }
 
