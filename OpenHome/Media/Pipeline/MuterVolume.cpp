@@ -48,7 +48,7 @@ void MuterVolume::Start(IVolumeMuterStepped& aVolumeMuter)
 
 void MuterVolume::Mute()
 {
-    LOG(kPipeline, "MuterVolume::Mute\n");
+    LOG(kPipeline, "> MuterVolume::Mute\n");
     TBool block = false;
     {
         AutoMutex _(iLock);
@@ -86,6 +86,7 @@ void MuterVolume::Mute()
     if (block) {
         iSemMuted.Wait();
     }
+    LOG(kPipeline, "< MuterVolume::Mute (block=%u)\n", block);
 }
 
 void MuterVolume::Unmute()
