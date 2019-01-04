@@ -22,6 +22,7 @@ class IReadStore
 public:
     // FIXME - why aren't all keys string literals?
     virtual TBool TryReadStoreStaticItem(const Brx& aKey, Brn& aValue) = 0; // read item whose value is fixed at compile time.  Returned values are nul-terminated.
+    virtual ~IReadStore() {}
 };
 
 class IStoreLoaderStatic

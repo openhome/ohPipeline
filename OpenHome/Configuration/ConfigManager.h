@@ -692,6 +692,7 @@ class ConfigManager : public IConfigManager
                     , public IConfigObservable
                     , private INonCopyable
 {
+    friend class SuiteVolumeConfig;
 private:
     typedef SerialisedMap<ConfigNum> ConfigNumMap;
     typedef SerialisedMap<ConfigChoice> ConfigChoiceMap;
