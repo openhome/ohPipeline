@@ -133,10 +133,10 @@ void DecodedAudioReservoir::ProcessMsgIn(MsgMode* aMsg)
         iClockPuller = aMsg->ClockPullers().PipelineBuffer();
 
         iStartOfMode = true;
-        iShouldGorge = false;
-        iPriorityMsgCount++;
     }
     iGorgeLock.Wait();
+    iShouldGorge = false;
+    iPriorityMsgCount++;
     SetGorging(false, "ModeIn");
     iGorgeLock.Signal();
 }
@@ -144,7 +144,9 @@ void DecodedAudioReservoir::ProcessMsgIn(MsgMode* aMsg)
 void DecodedAudioReservoir::ProcessMsgIn(MsgTrack* /*aMsg*/)
 {
     BlockIfFull();
+    iGorgeLock.Wait();
     iPriorityMsgCount++;
+    iGorgeLock.Signal();
 }
 
 void DecodedAudioReservoir::ProcessMsgIn(MsgDrain* /*aMsg*/)
@@ -162,18 +164,24 @@ void DecodedAudioReservoir::ProcessMsgIn(MsgDrain* /*aMsg*/)
 void DecodedAudioReservoir::ProcessMsgIn(MsgEncodedStream* /*aMsg*/)
 {
     BlockIfFull();
+    iGorgeLock.Wait();
     iPriorityMsgCount++;
+    iGorgeLock.Signal();
 }
 
 void DecodedAudioReservoir::ProcessMsgIn(MsgHalt* /*aMsg*/)
 {
+    iGorgeLock.Wait();
     iPriorityMsgCount++;
+    iGorgeLock.Signal();
 }
 
 void DecodedAudioReservoir::ProcessMsgIn(MsgDecodedStream* /*aMsg*/)
 {
     BlockIfFull();
+    iGorgeLock.Wait();
     iPriorityMsgCount++;
+    iGorgeLock.Signal();
 }
 
 void DecodedAudioReservoir::ProcessMsgIn(MsgAudioPcm* aMsg)
@@ -202,7 +210,9 @@ void DecodedAudioReservoir::ProcessMsgIn(MsgSilence* /*aMsg*/)
 
 void DecodedAudioReservoir::ProcessMsgIn(MsgQuit* /*aMsg*/)
 {
+    iGorgeLock.Wait();
     iPriorityMsgCount++; // last msg to be handled so we don't bother decrementing count on way out
+    iGorgeLock.Signal();
 }
 
 Msg* DecodedAudioReservoir::ProcessMsgOut(MsgMode* aMsg)
