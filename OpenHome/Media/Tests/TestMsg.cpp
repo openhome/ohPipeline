@@ -345,6 +345,8 @@ public:
     TUint Jiffies() const            { return MsgReservoir::Jiffies(); }
     TUint EncodedStreamCount() const { return MsgReservoir::EncodedStreamCount(); }
     TUint DecodedStreamCount() const { return MsgReservoir::DecodedStreamCount(); }
+    TUint DelayCount() const         { return MsgReservoir::DelayCount(); }
+    TUint MetaTextCount() const      { return MsgReservoir::MetaTextCount(); }
     EMsgType LastIn() const          { return iLastMsgIn; }
     EMsgType LastOut() const         { return iLastMsgOut; }
     void SplitNextAudio()            { iSplitNextAudio = true; }
@@ -3008,10 +3010,12 @@ void SuiteMsgReservoir::Test()
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
     msg = iMsgFactory->CreateMsgDelay(0);
+    TEST(queue->DelayCount() == 0);
     queue->Enqueue(msg);
     jiffies = queue->Jiffies();
     TEST(jiffies == 0);
     TEST(queue->LastIn() == TestMsgReservoir::EMsgDelay);
+    TEST(queue->DelayCount() == 1);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
     msg = iMsgFactory->CreateMsgEncodedStream(Brn("http://1.2.3.4:5"), Brn("metatext"), 0, 0, 0, false, false, Multiroom::Allowed, nullptr);
@@ -3046,9 +3050,11 @@ void SuiteMsgReservoir::Test()
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
     msg = iMsgFactory->CreateMsgMetaText(Brn("foo"));
+    TEST(queue->MetaTextCount() == 0);
     queue->Enqueue(msg);
     TEST(queue->Jiffies() == jiffies);
     TEST(queue->LastIn() == TestMsgReservoir::EMsgMetaText);
+    TEST(queue->MetaTextCount() == 1);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
     msg = iMsgFactory->CreateMsgFlush(5); // arbitrary flush id
@@ -3107,9 +3113,11 @@ void SuiteMsgReservoir::Test()
     TEST(queue->Jiffies() == jiffies);
     msg->RemoveRef();
 
+    TEST(queue->DelayCount() == 1);
     msg = queue->Dequeue();
     TEST(queue->LastIn() == TestMsgReservoir::EMsgHalt);
     TEST(queue->LastOut() == TestMsgReservoir::EMsgDelay);
+    TEST(queue->DelayCount() == 0);
     TEST(queue->Jiffies() == jiffies);
     msg->RemoveRef();
 
@@ -3141,9 +3149,11 @@ void SuiteMsgReservoir::Test()
     jiffies = queue->Jiffies();
     msg->RemoveRef();
 
+    TEST(queue->MetaTextCount() == 1);
     msg = queue->Dequeue();
     TEST(queue->LastIn() == TestMsgReservoir::EMsgHalt);
     TEST(queue->LastOut() == TestMsgReservoir::EMsgMetaText);
+    TEST(queue->MetaTextCount() == 0);
     TEST(queue->Jiffies() == jiffies);
     msg->RemoveRef();
 

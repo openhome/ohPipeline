@@ -1232,7 +1232,9 @@ protected:
     TUint EncodedBytes() const;
     TBool IsEmpty() const;
     TUint TrackCount() const;
+    TUint DelayCount() const;
     TUint EncodedStreamCount() const;
+    TUint MetaTextCount() const;
     TUint DecodedStreamCount() const;
     TUint EncodedAudioCount() const;
     TUint DecodedAudioCount() const;
@@ -1359,7 +1361,9 @@ private:
     TUint iEncodedBytes;
     std::atomic<TUint> iJiffies;
     std::atomic<TUint> iTrackCount;
+    std::atomic<TUint> iDelayCount;
     std::atomic<TUint> iEncodedStreamCount;
+    std::atomic<TUint> iMetaTextCount;
     std::atomic<TUint> iDecodedStreamCount;
     TUint iEncodedAudioCount;
     std::atomic<TUint> iDecodedAudioCount;

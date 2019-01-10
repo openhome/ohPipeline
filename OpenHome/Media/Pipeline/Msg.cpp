@@ -2925,14 +2925,18 @@ MsgReservoir::MsgReservoir()
     , iEncodedBytes(0)
     , iJiffies(0)
     , iTrackCount(0)
+    , iDelayCount(0)
     , iEncodedStreamCount(0)
+    , iMetaTextCount(0)
     , iDecodedStreamCount(0)
     , iEncodedAudioCount(0)
     , iDecodedAudioCount(0)
 {
     ASSERT(iJiffies.is_lock_free());
     ASSERT(iTrackCount.is_lock_free());
+    ASSERT(iDelayCount.is_lock_free());
     ASSERT(iEncodedStreamCount.is_lock_free());
+    ASSERT(iMetaTextCount.is_lock_free());
     ASSERT(iDecodedStreamCount.is_lock_free());
     ASSERT(iDecodedAudioCount.is_lock_free());
 }
@@ -2988,9 +2992,19 @@ TUint MsgReservoir::TrackCount() const
     return iTrackCount;
 }
 
+TUint MsgReservoir::DelayCount() const
+{
+    return iDelayCount;
+}
+
 TUint MsgReservoir::EncodedStreamCount() const
 {
     return iEncodedStreamCount;
+}
+
+TUint MsgReservoir::MetaTextCount() const
+{
+    return iMetaTextCount;
 }
 
 TUint MsgReservoir::DecodedStreamCount() const
@@ -3067,7 +3081,11 @@ Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgTrack* aMsg)
 }
 
 Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgDrain* aMsg)              { return aMsg; }
-Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgDelay* aMsg)              { return aMsg; }
+Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgDelay* aMsg)
+{
+    iQueue.iDelayCount++;
+    return aMsg;
+}
 
 Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgEncodedStream* aMsg)
 {
@@ -3083,7 +3101,12 @@ Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgAudioEncoded* aMsg)
     return aMsg;
 }
 
-Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgMetaText* aMsg)           { return aMsg; }
+Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgMetaText* aMsg)
+{
+    iQueue.iMetaTextCount++;
+    return aMsg;
+}
+
 Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgStreamInterrupted* aMsg)  { return aMsg; }
 Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgHalt* aMsg)               { return aMsg; }
 Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgFlush* aMsg)              { return aMsg; }
@@ -3159,6 +3182,7 @@ Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgDrain* aMsg)
 
 Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgDelay* aMsg)
 {
+    (void)ProcessorEnqueue::ProcessMsg(aMsg);
     iQueue.ProcessMsgIn(aMsg);
     return aMsg;
 }
@@ -3179,6 +3203,7 @@ Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgAudioEncoded* aMsg)
 
 Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgMetaText* aMsg)
 {
+    (void)ProcessorEnqueue::ProcessMsg(aMsg);
     iQueue.ProcessMsgIn(aMsg);
     return aMsg;
 }
@@ -3279,6 +3304,7 @@ Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgDrain* aMsg)
 
 Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgDelay* aMsg)
 {
+    iQueue.iDelayCount--;
     return iQueue.ProcessMsgOut(aMsg);
 }
 
@@ -3300,6 +3326,7 @@ Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgAudioEncoded* aMsg)
 
 Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgMetaText* aMsg)
 {
+    iQueue.iMetaTextCount--;
     return iQueue.ProcessMsgOut(aMsg);
 }
 

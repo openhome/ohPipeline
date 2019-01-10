@@ -99,8 +99,10 @@ void DecodedAudioReservoir::Push(Msg* aMsg)
 
 TBool DecodedAudioReservoir::IsFull() const
 {
-    return (Jiffies() > iMaxJiffies         ||
-            TrackCount() >= iMaxStreamCount ||
+    return (Jiffies() > iMaxJiffies            ||
+            TrackCount() >= iMaxStreamCount    ||
+            DelayCount() >= iMaxStreamCount    ||
+            MetaTextCount() >= iMaxStreamCount ||
             DecodedStreamCount() >= iMaxStreamCount);
 }
 
