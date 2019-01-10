@@ -609,9 +609,6 @@ void SuiteSkipper::TestRemoveStreamRampFewMsgsPassAfterRamp()
         PullNext(EMsgAudioPcm);
     }
     PullNext(EMsgHalt);
-    while (!iSkipper->iQueue.IsEmpty()) {
-        PullNext(EMsgAudioPcm);
-    }
     iPendingMsgs.push_back(iMsgFactory->CreateMsgMetaText(Brx::Empty()));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgMetaText(Brn("second")));
     iPendingMsgs.push_back(CreateAudio());
@@ -723,9 +720,6 @@ void SuiteSkipper::TestTryRemoveRampValidStream()
         PullNext(EMsgAudioPcm);
     }
     PullNext(EMsgHalt);
-    while (!iSkipper->iQueue.IsEmpty()) {
-        PullNext(EMsgAudioPcm);
-    }
     iPendingMsgs.push_back(CreateAudio());
     iPendingMsgs.push_back(CreateSilence(Jiffies::kPerMs * 3));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());

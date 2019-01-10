@@ -5,6 +5,8 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/Flusher.h>
 
+#include <atomic>
+
 namespace OpenHome {
 namespace Media {
 
@@ -82,11 +84,11 @@ private:
     TUint iRampJiffies;
     TUint iRemainingRampSize;
     TUint iCurrentRampValue;
-    MsgQueue iQueue; // empty unless we have to split a msg during a ramp
     TUint iTargetFlushId;
     TUint iTargetHaltId;
     TUint iStreamId;
     IStreamHandler* iStreamHandler;
+    std::atomic<TBool> iHaltPending;
     TBool iRunning;
 };
 

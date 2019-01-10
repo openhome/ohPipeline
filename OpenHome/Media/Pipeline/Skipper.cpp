@@ -6,6 +6,8 @@
 #include <OpenHome/Media/Pipeline/Flusher.h>
 #include <OpenHome/Media/Debug.h>
 
+#include <atomic>
+
 using namespace OpenHome;
 using namespace OpenHome::Media;
 
@@ -25,6 +27,7 @@ Skipper::Skipper(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamEle
     , iTargetHaltId(MsgHalt::kIdInvalid)
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
     , iStreamHandler(nullptr)
+    , iHaltPending(false)
     , iRunning(false)
 {
 }
@@ -75,7 +78,7 @@ Msg* Skipper::Pull()
 {
     Msg* msg;
     do {
-        msg = (iQueue.IsEmpty()? iFlusher.Pull() : iQueue.Dequeue());
+        msg = iHaltPending.exchange(false) ? iMsgFactory.CreateMsgHalt() : iFlusher.Pull();
         iBlocker.Wait();
         iBlocker.Signal();
         iLock.Wait();
@@ -227,13 +230,13 @@ Msg* Skipper::ProcessAudio(MsgAudioDecoded* aMsg)
         if (aMsg->Jiffies() > iRemainingRampSize) {
             split = aMsg->Split(iRemainingRampSize);
             if (split != nullptr) {
-                split->RemoveRef(); // we're going to flush the rest of the stream so no need to add split to iQueue
+                split->RemoveRef(); // we're going to flush the rest of the stream so no need to pass on split
             }
         }
         split = nullptr;
         iCurrentRampValue = aMsg->SetRamp(iCurrentRampValue, iRemainingRampSize, Ramp::EDown, split);
         if (split != nullptr) {
-            split->RemoveRef(); // we're going to flush the rest of the stream so no need to add split to iQueue
+            split->RemoveRef(); // we're going to flush the rest of the stream so no need to pass on split
         }
         if (iRemainingRampSize == 0) {
             StartFlushing();
@@ -329,8 +332,8 @@ TBool Skipper::TryRemoveCurrentStream(TBool aRampDown)
 void Skipper::StartFlushing(TBool aGenerateHalt)
 {
     if (aGenerateHalt) {
-        iQueue.Enqueue(iMsgFactory.CreateMsgHalt()); /* inform downstream parties (StarvationMonitor)
-                                                        that any subsequent break in audio is expected */
+        iHaltPending.store(true); /* inform downstream parties (StarvationRamper)
+                                     that any subsequent break in audio is expected */
     }
     iState = eFlushing;
     iTargetFlushId = (iStreamHandler==nullptr? MsgFlush::kIdInvalid : iStreamHandler->TryStop(iStreamId));
