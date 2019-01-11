@@ -398,14 +398,23 @@ void Filler::Run()
                 ASSERT(iTrack != nullptr);
                 LOG(kMedia, "> iUriStreamer->DoStream(%u)\n", iTrack->Id());
                 CheckForKill();
-                ProtocolStreamResult res = iUriStreamer->DoStream(*iTrack);
-                if (res == EProtocolErrorNotSupported) {
-                    LOG(kPipeline, "Filler::Run Track %u not supported. URI: %.*s\n",
-                                   iTrack->Id(), PBUF(iTrack->Uri()));
+                try {
+                    ProtocolStreamResult res = iUriStreamer->DoStream(*iTrack);
+                    if (res == EProtocolErrorNotSupported) {
+                        LOG(kPipeline, "Filler::Run Track %u not supported. URI: %.*s\n",
+                            iTrack->Id(), PBUF(iTrack->Uri()));
+                    }
+                    else if (res == EProtocolStreamErrorUnrecoverable) {
+                        LOG(kPipeline, "Filler::Run Track %u had unrecoverable error. URI: %.*s\n",
+                            iTrack->Id(), PBUF(iTrack->Uri()));
+                    }
                 }
-                else if (res == EProtocolStreamErrorUnrecoverable) {
-                    LOG(kPipeline, "Filler::Run Track %u had unrecoverable error. URI: %.*s\n",
-                                   iTrack->Id(), PBUF(iTrack->Uri()));
+                catch (AssertionFailed&) {
+                    throw;
+                }
+                catch (Exception& ex) {
+                    LOG(kPipeline, "Filler::Run exception - %s - from %s:%d Track:%u, URI: %.*s\n",
+                        ex.Message(), ex.File(), ex.Line(), iTrack->Id(), PBUF(iTrack->Uri()));
                 }
                 LOG(kMedia, "< iUriStreamer->DoStream(%u)\n", iTrack->Id());
             }
