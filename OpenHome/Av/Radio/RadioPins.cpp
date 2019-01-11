@@ -85,11 +85,16 @@ TBool RadioPins::LoadPreset(TUint aPreset)
     try {
         if (aPreset > 0) {
             // expect preset number from kazoo (1-100)
-            TUint index = aPreset-1;
-            Brh array;
+            const TUint pos = (aPreset - 1) * 4;
+            Brh idArray;
             TUint token;
-            iCpRadio->SyncIdArray(token, array);
-            TUint id = Converter::BeUint32At(array, index*4);
+            iCpRadio->SyncIdArray(token, idArray);
+            if (idArray.Bytes() < pos + 4) {
+                // buggy control point or a very early beta of Kazoo (which set id rather than index)
+                Log::Print("Invalid preset index - %u - in RadioPins::LoadPreset\n", aPreset);
+                THROW(PinInvokeError);
+            }
+            const TUint id = Converter::BeUint32At(idArray, pos);
             iCpRadio->SyncSetId(id, Brx::Empty());
             iCpRadio->SyncPlay();
             return true;
