@@ -635,7 +635,9 @@ void VolumeMuter::SetVolume(TUint aValue)
 {
     LOG(kVolume, "VolumeMuter::SetVolume(%u)\n", aValue);
     AutoMutex _(iLock);
-    iUpstreamVolume = aValue;
+    if (!iMuted) {
+        iUpstreamVolume = aValue;
+    }
     DoSetVolume();
 }
 

@@ -145,7 +145,7 @@ private: // from IVolumeProfile
 class VolumeUser : public IVolume, private IStandbyHandler, private INonCopyable
 {
     friend class SuiteVolumeUser;
-public: 
+public:
     static const Brn kStartupVolumeKey;
 public:
     VolumeUser(IVolume& aVolume, Configuration::IConfigManager& aConfigReader, IPowerManager& aPowerManager, TUint aMaxVolume, TUint aMilliDbPerStep);
@@ -291,8 +291,9 @@ private:
 
 class VolumeUnityGainBase : public IVolume, private INonCopyable
 {
+    friend class SuiteVolumeSourceUnityGain;
     friend class SuiteVolumeUnityGain;
-public:
+protected:
     VolumeUnityGainBase(IVolume& aVolume, TUint aUnityGainValue);
 public:  // from IVolume
     void SetVolume(TUint aValue) override;
@@ -310,6 +311,7 @@ private:
 // switch between pass-through and override with unity gain
 class VolumeUnityGain : public VolumeUnityGainBase
 {
+    friend class SuiteVolumeUnityGain;
 public:
     VolumeUnityGain(IVolume& aVolume, Configuration::IConfigManager& aConfigReader, TUint aUnityGainValue);
     ~VolumeUnityGain();
@@ -330,7 +332,7 @@ class IUnityGainReporter
 {
 public:
     virtual void AddUnityGainObserver(IUnityGainObserver& aObserver) = 0;
-    virtual ~IUnityGainReporter() {}    
+    virtual ~IUnityGainReporter() {}
 };
 
 class IVolumeSourceUnityGain : public IUnityGainReporter
@@ -346,6 +348,7 @@ public: //from IUnityGainReporter
 class VolumeSourceUnityGain : public VolumeUnityGainBase, public IVolumeSourceUnityGain
 {
     friend class SuiteVolumeManager;
+    friend class SuiteVolumeSourceUnityGain;
 public:
     VolumeSourceUnityGain(IVolume& aVolume, TUint aUnityGainValue);
 public: // from IVolumeSourceUnityGain
@@ -517,6 +520,7 @@ private:
 
 class VolumeConfig : public IVolumeProfile
 {
+    friend class SuiteVolumeConfig;
     friend class SuiteVolumeManager;
 public:
     static const Brn kKeyStartupValue;

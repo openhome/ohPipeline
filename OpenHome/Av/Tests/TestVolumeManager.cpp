@@ -13,6 +13,7 @@
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/Source.h>
+#include <OpenHome/Av/StringIds.h>
 
 #include <limits>
 
@@ -111,6 +112,17 @@ public:
 public: // from IMute
     void Mute() override;
     void Unmute() override;
+private:
+    TBool iMuted;
+};
+
+class MockMuteObserver : public Media::IMuteObserver
+{
+public:
+    MockMuteObserver();
+    TBool GetMuteStatus();
+public: // from IMuteObserver
+    void MuteChanged(TBool aValue) override;
 private:
     TBool iMuted;
 };
@@ -216,6 +228,7 @@ public: // from SuiteUnitTest
     void TearDown() override;
 private:
     void SetVolumeInLimits();
+    void SetVolumeAtLimits();
     void SetVolumeOutsideLimits();
     void TestApplyStartupVolume();
 private:
@@ -284,6 +297,7 @@ public: // from SuiteUnitTest
 private:
     void TestPositiveSourceOffset();
     void TestNegativeSourceOffset();
+    void TestNeutralSourceOffset();
     void TestSourceOffsetExceptionThrown();
 private:
     Test::MockVolume* iVolume;
@@ -300,6 +314,7 @@ public: // from SuiteUnitTest
 private:
     void TestAdditiveVolumeBoost();
     void TestSubtractiveVolumeBoost();
+    void TestNeutralVolumeBoost();
     void TestVolumeBoostExceptionThrown();
 private:
     Test::MockVolume* iVolume;
@@ -314,18 +329,35 @@ public: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
 private:
-    void TestSetVolume();
-    void TestSetVolumeControlDisabled();
-    void TestSetVolumeWhileDisabled();
+    void TestUnityGainEnabled();
+private:
+    Test::MockVolume* iVolume;
+    Configuration::ConfigRamStore* iStore;
+    Configuration::ConfigManager* iConfigManager;
+    VolumeUnityGain* iUnityGain;
+    Configuration::ConfigChoice* iConfigChoice;
+    // VolumeUnityGainBase* iUnityGainBase;
+
+};
+
+class SuiteVolumeSourceUnityGain : public TestFramework::SuiteUnitTest
+{
+public:
+    SuiteVolumeSourceUnityGain();
+public: // from SuiteUnitTest
+    void Setup() override;
+    void TearDown() override;
+private:
     void TestSetUnityGain();
-    void TestEnabledChanged();
     void TestAddUnityGainObserver();
 private:
     Test::MockVolume* iVolume;
+    Configuration::ConfigRamStore* iStore;
+    Configuration::ConfigManager* iConfigManager;
+    VolumeSourceUnityGain* iSourceUnityGain;
+    VolumeUnityGainBase* iUnityGainBase;
     Test::MockUnityGainObserver* iObserver;
     Test::MockUnityGainObserver* iObserver2;
-    VolumeUnityGainBase* iUnityGainBase;
-    VolumeSourceUnityGain* iSourceUnityGain;
 };
 
 class SuiteVolumeRamperPipeline : public TestFramework::SuiteUnitTest
@@ -336,6 +368,9 @@ public: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
 private:
+    void TestVolumeRamperSetVolumeWithinLimits();
+    void TestVolumeRamperSetVolumeAtLimits();
+    void TestVolumeRamperZeroMultiplier();
     void TestVolumeMultiplierEqual();
     void TestVolumeMultiplierInLimits();
 private:
@@ -388,7 +423,7 @@ private:
     void TestVolumeUnmuted();
     void TestVolumeMuted();
     void TestVolumeFalseMute();
-    void TestVolumeOutOfRange();
+    void TestSetVolumeWhileMuted();
 private:
     Test::MockVolume* iVolume;
     VolumeMuter* iMuter;
@@ -404,6 +439,9 @@ public: // from SuiteUnitTest
 private:
     void TestValidBalance();
     void TestInvalidBalance();
+    void TestBalanceSetFromConfigManagerWithinLimits();
+    void TestBalanceSetFromConfigManagerOnLimits();
+    void TestBalanceSetFromConfigManagerOutOfRange();
 private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
@@ -422,6 +460,9 @@ public: // from SuiteUnitTest
 private:
     void TestValidFade();
     void TestInvalidFade();
+    void TestFadeSetFromConfigManagerWithinLimits();
+    void TestFadeSetFromConfigManagerOnLimits();
+    void TestFadeSetFromConfigManagerOutOfRange();
 private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
@@ -437,7 +478,7 @@ public:
 public: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
-private: 
+private:
     void TestMuteUnmute();
 private:
     Configuration::ConfigRamStore* iStore;
@@ -456,8 +497,13 @@ public: // from SuiteUnitTest
     void TearDown() override;
 public:
     void TestMuteUnmute();
+    void TestMuteObserversUpdated();
 private:
     Test::MockMute* iMute;
+    Test::MockMuteObserver* iObserver;
+    Test::MockMuteObserver* iObserver2;
+    Test::MockMuteObserver* iObserver3;
+    Test::MockMuteObserver* iObserver4;
     MuteReporter* iMuteReporter;
 };
 
@@ -481,6 +527,22 @@ private:
     Test::MockVolumeOffset* iOffset;
 };
 
+class SuiteVolumeConfig : public TestFramework::SuiteUnitTest
+{
+public:
+    SuiteVolumeConfig();
+public: // from SuiteUnitTest
+    void Setup() override;
+    void TearDown() override;
+public:
+    void TestVolumeControlEnabled();
+    void TestVolumeControlNotEnabled();
+    void TestNoBalanceNoFade();
+private:
+    Configuration::ConfigRamStore* iStore;
+    Configuration::ConfigManager* iConfig;
+};
+
 class SuiteVolumeManager : public TestFramework::SuiteUnitTest
 {
     static const Brn kSystemName;
@@ -492,9 +554,12 @@ public: // from SuiteUnitTest
     void TearDown() override;
 public:
     void TestAllComponentsInitialize();
-    void TestAllComponentsNullptr();
-    void TestMuteBalanceFadeInitialize();
-    void TestMuteComponentsNullptr();
+    void TestNoVolumeControlNoMute();
+    void TestNoVolumeComponent();
+    void TestNoVolumeControl();
+    void TestNoMuteComponents();
+    void TestNoBalanceNoFadeComponents();
+    void TestNoVolumeNoBalanceNoFadeComponents();
 private:
     Net::DvStack& iDvStack;
     Net::DvDeviceStandard* iDvDevice;
@@ -693,6 +758,24 @@ void MockMute::Unmute()
     iMuted = false;
 }
 
+// MockMuteObserver
+
+MockMuteObserver::MockMuteObserver()
+    : iMuted(false)
+{
+}
+
+TBool MockMuteObserver::GetMuteStatus()
+{
+    return iMuted;
+}
+
+void MockMuteObserver::MuteChanged(TBool aValue)
+{
+    iMuted = aValue;
+}
+
+
 // MockVolumeOffsetter
 
 MockVolumeOffsetter::MockVolumeOffsetter()
@@ -874,29 +957,17 @@ void SuiteVolumeConsumer::TearDown()
 
 void SuiteVolumeConsumer::ConsumeReturnVolumeComponents()
 {
-    auto volumeDuplicate = iVolume;
-    auto balanceDuplicate = iBalance;
-    auto fadeDuplicate = iFade;
-    auto offsetDuplicate = iOffset;
-    auto trimDuplicate = iTrim;
-
     iConsumer->SetVolume(*iVolume);
     iConsumer->SetBalance(*iBalance);
     iConsumer->SetFade(*iFade);
     iConsumer->SetVolumeOffsetter(*iOffset);
     iConsumer->SetTrim(*iTrim);
 
-    TEST(iConsumer->Volume() != nullptr);
-    TEST(iConsumer->Balance() != nullptr);
-    TEST(iConsumer->Fade() != nullptr);
-    TEST(iConsumer->VolumeOffsetter() != nullptr);
-    TEST(iConsumer->Trim() != nullptr);
-
-    TEST(iConsumer->Volume() == volumeDuplicate);
-    TEST(iConsumer->Balance() == balanceDuplicate);
-    TEST(iConsumer->Fade() == fadeDuplicate);
-    TEST(iConsumer->VolumeOffsetter() == offsetDuplicate);
-    TEST(iConsumer->Trim() == trimDuplicate);
+    TEST(iConsumer->Volume() == iVolume);
+    TEST(iConsumer->Balance() == iBalance);
+    TEST(iConsumer->Fade() == iFade);
+    TEST(iConsumer->VolumeOffsetter() == iOffset);
+    TEST(iConsumer->Trim() == iTrim);
 }
 
 // SuiteVolumeUser
@@ -905,6 +976,7 @@ SuiteVolumeUser::SuiteVolumeUser()
     : SuiteUnitTest("SuiteVolumeUser")
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeUser::SetVolumeInLimits), "TestVolumeUserInLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeUser::SetVolumeAtLimits), "SetVolumeAtLimits");
     AddTest(MakeFunctor(*this, &SuiteVolumeUser::SetVolumeOutsideLimits), "TestVolumeUserOutsideLimits");
 }
 
@@ -929,11 +1001,20 @@ void SuiteVolumeUser::TearDown()
 
 void SuiteVolumeUser::SetVolumeInLimits()
 {
+    iUser->SetVolume(25);
+    TEST(iVolume->GetVolume() == 25);
+
+    iUser->SetVolume(50);
+    TEST(iVolume->GetVolume() == 50);
+
+    iUser->SetVolume(75);
+    TEST(iVolume->GetVolume() == 75);
+}
+
+void SuiteVolumeUser::SetVolumeAtLimits()
+{
     iUser->SetVolume(0);
     TEST(iVolume->GetVolume() == 0);
-
-    iUser->SetVolume(80);
-    TEST(iVolume->GetVolume() == 80);
 
     iUser->SetVolume(100);
     TEST(iVolume->GetVolume() == 100);
@@ -1004,10 +1085,13 @@ void SuiteVolumeLimiter::TestVolumeOutsideLimits()
     Configuration::ConfigNum::KvpNum kvp(Brn("Volume.Limit"), 100);
     iLimiter->LimitChanged(kvp);
 
+    // This class will cap any volume that exceeds iLimit. Once this happens 
+    // iCurrentVolume is set equal to iLimit. Any attempts after this point to 
+    // exceed iLimit will throw VolumeOutOfRange.
     iLimiter->SetVolume(102401);
     TEST(iVolume->GetVolume() == 102400);
 
-    TEST_THROWS(iLimiter->SetVolume(204800), VolumeOutOfRange);
+    TEST_THROWS(iLimiter->SetVolume(102401), VolumeOutOfRange);
 
     Configuration::ConfigNum::KvpNum kvp2(Brn("Volume.Limit"), 80);
     iLimiter->LimitChanged(kvp2);
@@ -1074,7 +1158,7 @@ void SuiteVolumeReporter::TestAddVolumeObserver()
     iReporter->SetVolume(102400);
     TEST(iObserver->GetVolumeUser() == 100);
     TEST(iObserver->GetVolumeBinaryMilliDb() == 102400);
-    
+
     iReporter->AddVolumeObserver(*iObserver2);
     TEST(iObserver2->GetVolumeUser() == 100);
     TEST(iObserver2->GetVolumeBinaryMilliDb() == 102400);
@@ -1093,6 +1177,7 @@ SuiteVolumeSourceOffset::SuiteVolumeSourceOffset()
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeSourceOffset::TestPositiveSourceOffset), "TestPositiveSourceOffset");
     AddTest(MakeFunctor(*this, &SuiteVolumeSourceOffset::TestNegativeSourceOffset), "TestNegativeSourceOffset");
+    AddTest(MakeFunctor(*this, &SuiteVolumeSourceOffset::TestNeutralSourceOffset), "TestNeutralSourceOffset");
     AddTest(MakeFunctor(*this, &SuiteVolumeSourceOffset::TestSourceOffsetExceptionThrown), "TestSourceOffsetExceptionThrown");
 }
 
@@ -1134,6 +1219,17 @@ void SuiteVolumeSourceOffset::TestNegativeSourceOffset()
     TEST(iVolume->GetVolume() == 1);
 }
 
+void SuiteVolumeSourceOffset::TestNeutralSourceOffset()
+{
+    iOffset->SetVolume(0);
+    iOffset->SetVolumeOffset(0);
+    TEST(iVolume->GetVolume() == 0);
+
+    iOffset->SetVolume(50);
+    iOffset->SetVolumeOffset(0);
+    TEST(iVolume->GetVolume() == 50);
+}
+
 void SuiteVolumeSourceOffset::TestSourceOffsetExceptionThrown()
 {
     iOffset->SetVolume(50);
@@ -1151,6 +1247,7 @@ SuiteVolumeSurroundBoost::SuiteVolumeSurroundBoost()
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeSurroundBoost::TestAdditiveVolumeBoost), "TestAdditiveVolumeBoost");
     AddTest(MakeFunctor(*this, &SuiteVolumeSurroundBoost::TestSubtractiveVolumeBoost), "TestSubtractiveVolumeBoost");
+    AddTest(MakeFunctor(*this, &SuiteVolumeSurroundBoost::TestNeutralVolumeBoost), "TestNeutralVolumeBoost");
     AddTest(MakeFunctor(*this, &SuiteVolumeSurroundBoost::TestVolumeBoostExceptionThrown), "TestVolumeBoostExceptionThrown");
 }
 
@@ -1196,6 +1293,17 @@ void SuiteVolumeSurroundBoost::TestSubtractiveVolumeBoost()
     TEST(iVolume->GetVolume() == 1);
 }
 
+void SuiteVolumeSurroundBoost::TestNeutralVolumeBoost()
+{
+    iBooster->SetVolume(0);
+    iBooster->SetVolumeBoost(0);
+    TEST(iVolume->GetVolume() == 0);
+
+    iBooster->SetVolume(50);
+    iBooster->SetVolumeBoost(0);
+    TEST(iVolume->GetVolume() == 50);
+}
+
 void SuiteVolumeSurroundBoost::TestVolumeBoostExceptionThrown()
 {
     iBooster->SetVolume(50);
@@ -1206,76 +1314,86 @@ void SuiteVolumeSurroundBoost::TestVolumeBoostExceptionThrown()
 }
 
 
-// SuiteVolumeUnityGain (inc VolumeSourceUnityGain and VolumeUnityGainBase)
+// SuiteVolumeUnityGain
 
 SuiteVolumeUnityGain::SuiteVolumeUnityGain()
     :SuiteUnitTest("SuiteVolumeUnityGain")
 {
-    AddTest(MakeFunctor(*this, &SuiteVolumeUnityGain::TestSetVolume), "TestSetVolume");
-    AddTest(MakeFunctor(*this, &SuiteVolumeUnityGain::TestSetVolumeControlDisabled), "TestSetVolumeControlDisabled");
-    AddTest(MakeFunctor(*this, &SuiteVolumeUnityGain::TestSetVolumeWhileDisabled), "TestSetVolumeWhileDisabled");
-    AddTest(MakeFunctor(*this, &SuiteVolumeUnityGain::TestAddUnityGainObserver), "TestAddUnityGainObserver");
-    AddTest(MakeFunctor(*this, &SuiteVolumeUnityGain::TestSetUnityGain), "TestSetUnityGain");
+    AddTest(MakeFunctor(*this, &SuiteVolumeUnityGain::TestUnityGainEnabled), "TestUnityGainEnabled");
 }
 
 void SuiteVolumeUnityGain::Setup()
 {
     iVolume = new MockVolume();
-    iObserver = new MockUnityGainObserver();
-    iObserver2 = new MockUnityGainObserver();
-    iUnityGainBase = new VolumeUnityGainBase(*iVolume, 256);
-    iSourceUnityGain = new VolumeSourceUnityGain(*iVolume, 256);
+    iStore = new Configuration::ConfigRamStore();
+    iConfigManager = new Configuration::ConfigManager(*iStore);
+    std::vector<TUint> choices;
+    choices.push_back(eStringIdYes);
+    choices.push_back(eStringIdNo);
+    iConfigChoice = new Configuration::ConfigChoice(*iConfigManager, Brn("Volume.Enabled"), choices, eStringIdYes);
+
 }
 
 void SuiteVolumeUnityGain::TearDown()
 {
-    delete iSourceUnityGain;
-    delete iUnityGainBase;
-    delete iObserver;
+    delete iUnityGain;
+    delete iConfigManager;
+    delete iStore;
     delete iVolume;
 }
 
-void SuiteVolumeUnityGain::TestSetVolume()
+void SuiteVolumeUnityGain::TestUnityGainEnabled()
 {
-    iUnityGainBase->SetVolume(0);
-    TEST(iVolume->GetVolume() == 0);
+    VolumeUnityGain unityGain(*iVolume, *iConfigManager, 256);
+    TEST(unityGain.VolumeControlEnabled() == true);
 
-    iUnityGainBase->SetVolume(50);
-    TEST(iVolume->GetVolume() == 50);
+    iConfigChoice->Set(eStringIdNo);
 
-    iUnityGainBase->SetVolume(100);
-    TEST(iVolume->GetVolume() == 100);
+    VolumeUnityGain unityGain2(*iVolume, *iConfigManager, 256);
+    TEST(unityGain2.VolumeControlEnabled() == false);
 }
 
-void SuiteVolumeUnityGain::TestSetVolumeControlDisabled()
-{
-    iUnityGainBase->SetVolume(200);
-    TEST(iVolume->GetVolume() == 200);
-    iUnityGainBase->SetVolumeControlEnabled(true);
-    TEST(iUnityGainBase->VolumeControlEnabled() == true);
-    TEST(iVolume->GetVolume() == 200);
 
-    iUnityGainBase->SetVolume(200);
-    TEST(iVolume->GetVolume() == 200);
-    iUnityGainBase->SetVolumeControlEnabled(false);
-    TEST(iUnityGainBase->VolumeControlEnabled() == false);
-    TEST(iVolume->GetVolume() == 256);
+// SuiteVolumeSourceUnityUnityGain
+
+SuiteVolumeSourceUnityGain::SuiteVolumeSourceUnityGain()
+    :SuiteUnitTest("SuiteVolumeSourceUnityGain")
+{
+    AddTest(MakeFunctor(*this, &SuiteVolumeSourceUnityGain::TestSetUnityGain), "TestSetUnityGain");
+    AddTest(MakeFunctor(*this, &SuiteVolumeSourceUnityGain::TestAddUnityGainObserver), "TestAddUnityGainObserver");
 }
 
-void SuiteVolumeUnityGain::TestSetVolumeWhileDisabled()
+void SuiteVolumeSourceUnityGain::Setup()
 {
-    iUnityGainBase->SetVolumeControlEnabled(true);
-    iUnityGainBase->SetVolume(99);
-    TEST(iVolume->GetVolume() == 99);
-    iUnityGainBase->SetVolumeControlEnabled(false);
-    TEST_THROWS(iUnityGainBase->SetVolume(100), VolumeNotSupported);
-    TEST_THROWS(iUnityGainBase->SetVolume(0), VolumeNotSupported);
-    TEST_THROWS(iUnityGainBase->SetVolume(-50), VolumeNotSupported);
+    iVolume = new MockVolume();
+    iStore = new Configuration::ConfigRamStore();
+    iConfigManager = new Configuration::ConfigManager(*iStore);
+    iSourceUnityGain = new VolumeSourceUnityGain(*iVolume, 256);
+    iObserver = new MockUnityGainObserver();
+    iObserver2 = new MockUnityGainObserver();
 }
 
-void SuiteVolumeUnityGain::TestAddUnityGainObserver()
+void SuiteVolumeSourceUnityGain::TearDown()
 {
-    iUnityGainBase->SetVolumeControlEnabled(true);
+    delete iObserver2;
+    delete iObserver;
+    delete iSourceUnityGain;
+    delete iConfigManager;
+    delete iStore;
+    delete iVolume;
+}
+
+void SuiteVolumeSourceUnityGain::TestSetUnityGain()
+{
+    iSourceUnityGain->SetUnityGain(true);
+    TEST(iSourceUnityGain->VolumeControlEnabled() == false);
+    iSourceUnityGain->SetUnityGain(false);
+    TEST(iSourceUnityGain->VolumeControlEnabled() == true);
+}
+
+void SuiteVolumeSourceUnityGain::TestAddUnityGainObserver()
+{
+    iSourceUnityGain->SetVolumeControlEnabled(true);
     iSourceUnityGain->AddUnityGainObserver(*iObserver);
     TEST(iObserver->GetUnityGainStatus() == false);
 
@@ -1287,13 +1405,6 @@ void SuiteVolumeUnityGain::TestAddUnityGainObserver()
     TEST(iObserver2->GetUnityGainStatus() == true);
 }
 
-void SuiteVolumeUnityGain::TestSetUnityGain()
-{
-    iSourceUnityGain->SetUnityGain(true);
-    TEST(iUnityGainBase->VolumeControlEnabled() == true);
-    iSourceUnityGain->SetUnityGain(false);
-    TEST(iUnityGainBase->VolumeControlEnabled() == true);
-}
 
 
 // SuiteVolumeRamperPipeline
@@ -1301,6 +1412,9 @@ void SuiteVolumeUnityGain::TestSetUnityGain()
 SuiteVolumeRamperPipeline::SuiteVolumeRamperPipeline()
     : SuiteUnitTest("SuiteVolumeRamperPipeline")
 {
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamperPipeline::TestVolumeRamperSetVolumeWithinLimits), "TestVolumeRamperSetVolumeWithinLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamperPipeline::TestVolumeRamperSetVolumeAtLimits), "TestVolumeRamperSetVolumeAtLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamperPipeline::TestVolumeRamperZeroMultiplier), "TestVolumeRamperZeroMultiplier");
     AddTest(MakeFunctor(*this, &SuiteVolumeRamperPipeline::TestVolumeMultiplierEqual), "TestVolumeMultiplierEqual");
     AddTest(MakeFunctor(*this, &SuiteVolumeRamperPipeline::TestVolumeMultiplierInLimits), "TestVolumeMultiplierInLimits");
 }
@@ -1315,6 +1429,39 @@ void SuiteVolumeRamperPipeline::TearDown()
 {
     delete iRamper;
     delete iVolume;
+}
+
+void SuiteVolumeRamperPipeline::TestVolumeRamperSetVolumeWithinLimits()
+{
+    iRamper->SetVolume(25);
+    TEST(iVolume->GetVolume() == 25);
+    iRamper->SetVolume(50);
+    TEST(iVolume->GetVolume() == 50);
+    iRamper->SetVolume(75);
+    TEST(iVolume->GetVolume() == 75);
+}
+
+void SuiteVolumeRamperPipeline::TestVolumeRamperSetVolumeAtLimits()
+{
+    iRamper->SetVolume(0);
+    TEST(iVolume->GetVolume() == 0);
+    iRamper->SetVolume(100);
+    TEST(iVolume->GetVolume() == 100);
+}
+
+void SuiteVolumeRamperPipeline::TestVolumeRamperZeroMultiplier()
+{
+    iRamper->ApplyVolumeMultiplier(0);
+    iRamper->SetVolume(0);
+    TEST(iVolume->GetVolume() == 0);
+    iRamper->SetVolume(25);
+    TEST(iVolume->GetVolume() == 0);
+    iRamper->SetVolume(50);
+    TEST(iVolume->GetVolume() == 0);
+    iRamper->SetVolume(75);
+    TEST(iVolume->GetVolume() == 0);
+    iRamper->SetVolume(100);
+    TEST(iVolume->GetVolume() == 0);
 }
 
 void SuiteVolumeRamperPipeline::TestVolumeMultiplierEqual()
@@ -1562,7 +1709,7 @@ SuiteVolumeMuter::SuiteVolumeMuter()
     AddTest(MakeFunctor(*this, &SuiteVolumeMuter::TestVolumeUnmuted), "TestVolumeUnmuted");
     AddTest(MakeFunctor(*this, &SuiteVolumeMuter::TestVolumeMuted), "TestVolumeMuted");
     AddTest(MakeFunctor(*this, &SuiteVolumeMuter::TestVolumeFalseMute), "TestVolumeFalseMute");
-    AddTest(MakeFunctor(*this, &SuiteVolumeMuter::TestVolumeOutOfRange), "TestVolumeOutOfRange");
+    AddTest(MakeFunctor(*this, &SuiteVolumeMuter::TestSetVolumeWhileMuted), "TestSetVolumeWhileMuted");
 }
 
 void SuiteVolumeMuter::Setup()
@@ -1585,6 +1732,7 @@ void SuiteVolumeMuter::TestVolumeUnmuted()
 
 void SuiteVolumeMuter::TestVolumeMuted()
 {
+    iMuter->SetVolume(80);
     iMuter->SetVolumeMuted(true);
     TEST(iVolume->GetVolume() == 0);
 }
@@ -1596,10 +1744,15 @@ void SuiteVolumeMuter::TestVolumeFalseMute()
     TEST(iVolume->GetVolume() == 80);
 }
 
-void SuiteVolumeMuter::TestVolumeOutOfRange()
+void SuiteVolumeMuter::TestSetVolumeWhileMuted()
 {
-    iMuter->SetVolume(120);
-    TEST(iVolume->GetVolume() == 120);
+    iMuter->SetVolume(80);
+    iMuter->SetVolumeMuted(true);
+    TEST(iVolume->GetVolume() == 0);
+    iMuter->SetVolume(60);
+    TEST(iVolume->GetVolume() == 0);
+    iMuter->SetVolumeMuted(false);
+    TEST(iVolume->GetVolume() == 80);
 }
 
 
@@ -1610,6 +1763,9 @@ SuiteVolumeBalanceUser::SuiteVolumeBalanceUser()
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeBalanceUser::TestValidBalance), "TestValidBalance");
     AddTest(MakeFunctor(*this, &SuiteVolumeBalanceUser::TestInvalidBalance), "TestInvalidBalance");
+    AddTest(MakeFunctor(*this, &SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerWithinLimits), "TestBalanceSetFromConfigManagerWithinLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerOnLimits), "TestBalanceSetFromConfigManagerOnLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerOutOfRange), "TestBalanceSetFromConfigManagerOutOfRange");
 }
 
 void SuiteVolumeBalanceUser::Setup()
@@ -1654,6 +1810,30 @@ void SuiteVolumeBalanceUser::TestInvalidBalance()
     TEST_THROWS(iBalanceUser->SetBalance(50), BalanceOutOfRange);
 }
 
+void SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerWithinLimits()
+{
+    iConfigNum->Set(-5);
+    TEST(iBalance->GetBalance() ==-5);
+    iConfigNum->Set(0);
+    TEST(iBalance->GetBalance() == 0);
+    iConfigNum->Set(5);
+    TEST(iBalance->GetBalance() == 5);
+}
+
+void SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerOnLimits()
+{
+    iConfigNum->Set(-10);
+    TEST(iBalance->GetBalance() == -10);
+    iConfigNum->Set(10);
+    TEST(iBalance->GetBalance() == 10);
+}
+
+void SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerOutOfRange()
+{
+    TEST_THROWS(iConfigNum->Set(-11), ConfigValueOutOfRange);
+    TEST_THROWS(iConfigNum->Set(11), ConfigValueOutOfRange);
+}
+
 // SuiteFadeUser
 
 SuiteVolumeFadeUser::SuiteVolumeFadeUser()
@@ -1661,6 +1841,9 @@ SuiteVolumeFadeUser::SuiteVolumeFadeUser()
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeFadeUser::TestValidFade), "TestValidFade");
     AddTest(MakeFunctor(*this, &SuiteVolumeFadeUser::TestInvalidFade), "TestInvalidFade");
+    AddTest(MakeFunctor(*this, &SuiteVolumeFadeUser::TestFadeSetFromConfigManagerWithinLimits), "TestFadeSetFromConfigManagerWithinLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeFadeUser::TestFadeSetFromConfigManagerOnLimits), "TestFadeSetFromConfigManagerOnLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeFadeUser::TestFadeSetFromConfigManagerOutOfRange), "TestFadeSetFromConfigManagerOutOfRange");
 }
 
 void SuiteVolumeFadeUser::Setup()
@@ -1703,6 +1886,30 @@ void SuiteVolumeFadeUser::TestInvalidFade()
 
     TEST_THROWS(iFadeUser->SetFade(-99), FadeOutOfRange);
     TEST_THROWS(iFadeUser->SetFade(50), FadeOutOfRange);
+}
+
+void SuiteVolumeFadeUser::TestFadeSetFromConfigManagerWithinLimits()
+{
+    iConfigNum->Set(-5);
+    TEST(iFade->GetFade() ==-5);
+    iConfigNum->Set(0);
+    TEST(iFade->GetFade() == 0);
+    iConfigNum->Set(5);
+    TEST(iFade->GetFade() == 5);
+}
+
+void SuiteVolumeFadeUser::TestFadeSetFromConfigManagerOnLimits()
+{
+    iConfigNum->Set(-10);
+    TEST(iFade->GetFade() == -10);
+    iConfigNum->Set(10);
+    TEST(iFade->GetFade() == 10);
+}
+
+void SuiteVolumeFadeUser::TestFadeSetFromConfigManagerOutOfRange()
+{
+    TEST_THROWS(iConfigNum->Set(-11), ConfigValueOutOfRange);
+    TEST_THROWS(iConfigNum->Set(11), ConfigValueOutOfRange);
 }
 
 
@@ -1766,17 +1973,26 @@ SuiteVolumeMuteReporter::SuiteVolumeMuteReporter()
     : SuiteUnitTest("SuiteVolumeMuteReporter")
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeMuteReporter::TestMuteUnmute), "TestMuteUnmute");
+    AddTest(MakeFunctor(*this, &SuiteVolumeMuteReporter::TestMuteObserversUpdated), "TestMuteObserversUpdated");
 }
 
 void SuiteVolumeMuteReporter::Setup()
 {
     iMute = new MockMute();
+    iObserver = new MockMuteObserver();
+    iObserver2 = new MockMuteObserver();
+    iObserver3 = new MockMuteObserver();
+    iObserver4 = new MockMuteObserver();
     iMuteReporter = new MuteReporter(*iMute);
 }
 
 void SuiteVolumeMuteReporter::TearDown()
 {
     delete iMuteReporter;
+    delete iObserver4;
+    delete iObserver3;
+    delete iObserver2;
+    delete iObserver;
     delete iMute;
 }
 
@@ -1785,17 +2001,36 @@ void SuiteVolumeMuteReporter::TestMuteUnmute()
     iMuteReporter->Mute();
     TEST(iMute->GetState() == true);
 
-    iMuteReporter->Mute();
-    TEST(iMute->GetState() == true);
-
     iMuteReporter->Unmute();
     TEST(iMute->GetState() == false);
+}
 
-    iMuteReporter->Unmute();
+void SuiteVolumeMuteReporter::TestMuteObserversUpdated()
+{
     TEST(iMute->GetState() == false);
+    iMuteReporter->AddMuteObserver(*iObserver);
+    iMuteReporter->AddMuteObserver(*iObserver2);
+    iMuteReporter->AddMuteObserver(*iObserver3);
+    iMuteReporter->AddMuteObserver(*iObserver4);
+
+    TEST(iObserver->GetMuteStatus() == false);
+    TEST(iObserver2->GetMuteStatus() == false);
+    TEST(iObserver3->GetMuteStatus() == false);
+    TEST(iObserver4->GetMuteStatus() == false);
+
+    TEST(iMute->GetState() == false);
+    // expect nothing to happen
+    TEST(iObserver->GetMuteStatus() == false);
+    TEST(iObserver2->GetMuteStatus() == false);
+    TEST(iObserver3->GetMuteStatus() == false);
+    TEST(iObserver4->GetMuteStatus() == false);
 
     iMuteReporter->Mute();
     TEST(iMute->GetState() == true);
+    TEST(iObserver->GetMuteStatus() == true);
+    TEST(iObserver2->GetMuteStatus() == true);
+    TEST(iObserver3->GetMuteStatus() == true);
+    TEST(iObserver4->GetMuteStatus() == true);
 }
 
 
@@ -2034,6 +2269,72 @@ void SuiteVolumeScaler::TestExternalVolumeChanges()
     TEST(iOffset->Offset() == 0);
 }
 
+// SuiteVolumeConfig
+
+SuiteVolumeConfig::SuiteVolumeConfig()
+    : SuiteUnitTest("SuiteVolumeConfig")
+{
+    AddTest(MakeFunctor(*this, &SuiteVolumeConfig::TestVolumeControlNotEnabled), "TestVolumeControlNotEnabled");
+    AddTest(MakeFunctor(*this, &SuiteVolumeConfig::TestVolumeControlEnabled), "TestVolumeControlEnabled");
+    AddTest(MakeFunctor(*this, &SuiteVolumeConfig::TestNoBalanceNoFade), "TestNoBalanceNoFade");
+}
+
+void SuiteVolumeConfig::Setup()
+{
+    iStore = new Configuration::ConfigRamStore();
+    iConfig = new Configuration::ConfigManager(*iStore);
+}
+
+void SuiteVolumeConfig::TearDown()
+{
+    delete iConfig;
+    delete iStore;
+}
+
+void SuiteVolumeConfig::TestVolumeControlNotEnabled()
+{
+    Bws<4> volControlEnabledBuf;
+    WriterBuffer writerBuffer(volControlEnabledBuf);
+    WriterBinary writerBinary(writerBuffer);
+    writerBinary.WriteUint32Be(eStringIdNo);
+    iStore->Write(VolumeConfig::kKeyEnabled, volControlEnabledBuf);
+
+    MockVolumeProfile volumeProfile(100, 80, 100, 10, 10, false);
+    VolumeConfig volumeConfig(*iConfig, volumeProfile);
+    TEST(iConfig->HasChoice(VolumeConfig::kKeyEnabled) == true);
+
+    TEST(iConfig->HasNum(VolumeConfig::kKeyStartupValue) == false);
+    TEST(iConfig->HasNum(VolumeConfig::kKeyLimit) == false);
+    TEST(iConfig->HasNum(VolumeConfig::kKeyBalance) == false);
+    TEST(iConfig->HasNum(VolumeConfig::kKeyFade) == false);
+}
+
+void SuiteVolumeConfig::TestVolumeControlEnabled()
+{
+    MockVolumeProfile volumeProfile(100, 80, 100, 10, 10, true);
+    VolumeConfig volumeConfig(*iConfig, volumeProfile);
+    TEST(iConfig->HasChoice(VolumeConfig::kKeyEnabled) == false);
+
+    TEST(iConfig->HasNum(VolumeConfig::kKeyStartupValue) == true);
+    TEST(iConfig->HasNum(VolumeConfig::kKeyLimit) == true);
+    TEST(iConfig->HasNum(VolumeConfig::kKeyBalance) == true);
+    TEST(iConfig->HasNum(VolumeConfig::kKeyFade) == true);
+}
+
+void SuiteVolumeConfig::TestNoBalanceNoFade()
+{
+    MockVolumeProfile volumeProfile(100, 80, 100, 0, 0, true);
+    VolumeConfig volumeConfig(*iConfig, volumeProfile);
+    TEST(iConfig->HasChoice(VolumeConfig::kKeyEnabled) == false);
+
+    TEST(iConfig->HasNum(VolumeConfig::kKeyStartupValue) == true);
+    TEST(iConfig->HasNum(VolumeConfig::kKeyLimit) == true);
+    TEST(volumeConfig.iBalance == nullptr);
+    TEST(volumeConfig.iFade == nullptr);
+
+    TEST(iConfig->HasNum(VolumeConfig::kKeyBalance) == false);
+    TEST(iConfig->HasNum(VolumeConfig::kKeyFade) == false);
+}
 
 // SuiteVolumeManager
 
@@ -2045,9 +2346,12 @@ SuiteVolumeManager::SuiteVolumeManager(DvStack& aDvStack)
     , iDvStack(aDvStack)
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestAllComponentsInitialize), "TestAllComponentsInitialize");
-    AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestAllComponentsNullptr), "TestAllComponentsNullptr");
-    AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestMuteBalanceFadeInitialize), "TestMuteBalanceFadeInitialize");
-    AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestMuteComponentsNullptr), "TestMuteComponentsNullptr");
+    AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestNoVolumeControlNoMute), "TestNoVolumeControlNoMute");
+    AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestNoVolumeComponent), "TestNoVolumeComponent");
+    AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestNoVolumeControl), "TestNoVolumeControl");
+    AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestNoMuteComponents), "TestNoMuteComponents");
+    AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestNoBalanceNoFadeComponents), "TestNoBalanceNoFadeComponents");
+    AddTest(MakeFunctor(*this, &SuiteVolumeManager::TestNoVolumeNoBalanceNoFadeComponents), "TestNoVolumeNoBalanceNoFadeComponents");
 }
 
 void SuiteVolumeManager::Setup()
@@ -2117,7 +2421,7 @@ void SuiteVolumeManager::TestAllComponentsInitialize()
     TEST(volumeManager.iProviderVolume != nullptr);
 }
 
-void SuiteVolumeManager::TestAllComponentsNullptr()
+void SuiteVolumeManager::TestNoVolumeControlNoMute()
 {
     iVolumeConfig->iVolumeControlEnabled = false;
     iVolumeConsumer->SetBalance(*iBalance);
@@ -2139,7 +2443,7 @@ void SuiteVolumeManager::TestAllComponentsNullptr()
     TEST(volumeManager.iProviderVolume == nullptr);
 }
 
-void SuiteVolumeManager::TestMuteBalanceFadeInitialize()
+void SuiteVolumeManager::TestNoVolumeComponent()
 {
     iVolumeConfig->iVolumeControlEnabled = true;
     iVolumeConsumer->SetBalance(*iBalance);
@@ -2161,7 +2465,39 @@ void SuiteVolumeManager::TestMuteBalanceFadeInitialize()
     TEST(volumeManager.iProviderVolume == nullptr);
 }
 
-void SuiteVolumeManager::TestMuteComponentsNullptr()
+void SuiteVolumeManager::TestNoVolumeControl()
+{
+    Bws<4> volControlEnabledBuf;
+    WriterBuffer writerBuffer(volControlEnabledBuf);
+    WriterBinary writerBinary(writerBuffer);
+    writerBinary.WriteUint32Be(eStringIdNo);
+    iStore->Write(VolumeConfig::kKeyEnabled, volControlEnabledBuf);
+
+    Configuration::ConfigManager configManager(*iStore);
+    MockVolumeProfile volumeProfile(100, 80, 100, 10, 10, false);
+    VolumeConfig volumeConfig(configManager, volumeProfile);
+
+    iVolumeConsumer->SetBalance(*iBalance);
+    iVolumeConsumer->SetFade(*iFade);
+    iVolumeConsumer->SetVolume(*iVolume);
+    VolumeManager volumeManager(*iVolumeConsumer, iMute, volumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    iProduct->Start();
+
+    TEST(volumeManager.iBalanceUser == nullptr);
+    TEST(volumeManager.iFadeUser == nullptr);
+    TEST(volumeManager.iMuteReporter != nullptr);
+    TEST(volumeManager.iMuteUser != nullptr);
+
+    TEST(volumeManager.iVolumeSourceUnityGain == nullptr);
+    TEST(volumeManager.iVolumeUnityGain == nullptr);
+    TEST(volumeManager.iVolumeSourceOffset == nullptr);
+    TEST(volumeManager.iVolumeReporter == nullptr);
+    TEST(volumeManager.iVolumeLimiter == nullptr);
+    TEST(volumeManager.iVolumeUser == nullptr);
+    TEST(volumeManager.iProviderVolume == nullptr);
+}
+
+void SuiteVolumeManager::TestNoMuteComponents()
 {
     iVolumeConfig->iVolumeControlEnabled = true;
     iVolumeConsumer->SetBalance(*iBalance);
@@ -2184,6 +2520,49 @@ void SuiteVolumeManager::TestMuteComponentsNullptr()
     TEST(volumeManager.iProviderVolume != nullptr);
 }
 
+void SuiteVolumeManager::TestNoBalanceNoFadeComponents()
+{
+    iVolumeConfig->iVolumeControlEnabled = true;
+    iVolumeConsumer->SetVolume(*iVolume);
+    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    iProduct->Start();
+
+    TEST(volumeManager.iBalanceUser == nullptr);
+    TEST(volumeManager.iFadeUser == nullptr);
+
+    TEST(volumeManager.iMuteReporter != nullptr);
+    TEST(volumeManager.iMuteUser != nullptr);
+
+    TEST(volumeManager.iVolumeSourceUnityGain != nullptr);
+    TEST(volumeManager.iVolumeUnityGain != nullptr);
+    TEST(volumeManager.iVolumeSourceOffset != nullptr);
+    TEST(volumeManager.iVolumeReporter != nullptr);
+    TEST(volumeManager.iVolumeLimiter != nullptr);
+    TEST(volumeManager.iVolumeUser != nullptr);
+    TEST(volumeManager.iProviderVolume != nullptr);
+}
+
+void SuiteVolumeManager::TestNoVolumeNoBalanceNoFadeComponents()
+{
+    iVolumeConfig->iVolumeControlEnabled = true;
+    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    iProduct->Start();
+
+    TEST(volumeManager.iBalanceUser == nullptr);
+    TEST(volumeManager.iFadeUser == nullptr);
+
+    TEST(volumeManager.iMuteReporter != nullptr);
+    TEST(volumeManager.iMuteUser != nullptr);
+
+    TEST(volumeManager.iVolumeSourceUnityGain == nullptr);
+    TEST(volumeManager.iVolumeUnityGain == nullptr);
+    TEST(volumeManager.iVolumeSourceOffset == nullptr);
+    TEST(volumeManager.iVolumeReporter == nullptr);
+    TEST(volumeManager.iVolumeLimiter == nullptr);
+    TEST(volumeManager.iVolumeUser == nullptr);
+    TEST(volumeManager.iProviderVolume == nullptr);
+}
+
 void TestVolumeManager(CpStack& aCpStack, DvStack& aDvStack)
 {
     Runner runner("VolumeManager tests\n");
@@ -2195,6 +2574,7 @@ void TestVolumeManager(CpStack& aCpStack, DvStack& aDvStack)
     runner.Add(new SuiteVolumeSourceOffset());
     runner.Add(new SuiteVolumeSurroundBoost());
     runner.Add(new SuiteVolumeUnityGain());
+    runner.Add(new SuiteVolumeSourceUnityGain());
     runner.Add(new SuiteVolumeRamperPipeline());
     runner.Add(new SuiteVolumeMuterStepped());
     runner.Add(new SuiteVolumeMuter());
@@ -2203,6 +2583,7 @@ void TestVolumeManager(CpStack& aCpStack, DvStack& aDvStack)
     runner.Add(new SuiteVolumeMuteUser());
     runner.Add(new SuiteVolumeMuteReporter());
     runner.Add(new SuiteVolumeScaler());
+    runner.Add(new SuiteVolumeConfig());
     runner.Add(new SuiteVolumeManager(aDvStack));
     runner.Run();
 }
