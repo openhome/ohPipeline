@@ -61,6 +61,9 @@ namespace Av {
 class IVolume
 {
 public:
+    /*
+     * May throw VolumeNotSupported or VolumeOutOfRange.
+     */
     virtual void SetVolume(TUint aVolume) = 0; // volume is in binary-milli-db (1/1024 db)
     virtual ~IVolume() {}
 };

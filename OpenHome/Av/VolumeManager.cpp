@@ -184,6 +184,7 @@ void VolumeLimiter::LimitChanged(ConfigNum::KvpNum& aKvp)
         DoSetVolume();
     }
     catch (VolumeNotSupported&) {}
+    catch (VolumeOutOfRange&) {}
 }
 
 void VolumeLimiter::DoSetVolume()
@@ -635,9 +636,7 @@ void VolumeMuter::SetVolume(TUint aValue)
 {
     LOG(kVolume, "VolumeMuter::SetVolume(%u)\n", aValue);
     AutoMutex _(iLock);
-    if (!iMuted) {
-        iUpstreamVolume = aValue;
-    }
+    iUpstreamVolume = aValue;
     DoSetVolume();
 }
 

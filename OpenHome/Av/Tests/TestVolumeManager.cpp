@@ -73,13 +73,15 @@ class MockVolume : public IVolume
 public:
     MockVolume();
     TUint GetVolume() const;
-    void TestExceptionThrowActive(TBool aActive);
-    void TestExceptionThrow();
+    void ExceptionThrowActive(TBool aActive);
+    void NotSupportedOrOutOfRange(TBool aNotSupported);
+    void ThrowExceptionIfActive();
 public: // from IVolume
     void SetVolume(TUint aVolume) override;
 private:
     TUint iVolume;
     TBool iActive;
+    TBool iNotSupported;
 };
 
 class MockBalance : public IBalance
@@ -231,6 +233,7 @@ private:
     void SetVolumeAtLimits();
     void SetVolumeOutsideLimits();
     void TestApplyStartupVolume();
+    void TestExceptionThrow();
 private:
     Test::MockVolume* iVolume;
     VolumeUser* iUser;
@@ -250,6 +253,7 @@ public: // from SuiteUnitTest
 private:
     void TestVolumeInsideLimits();
     void TestVolumeOutsideLimits();
+    void TestExceptionThrow();
 private:
     Test::MockVolume* iVolume;
     VolumeLimiter* iLimiter;
@@ -280,6 +284,7 @@ public: // from SuiteUnitTest
     void TearDown() override;
 private:
     void TestAddVolumeObserver();
+    void TestExceptionThrow();
 private:
     Test::MockVolumeObserver* iObserver;
     Test::MockVolumeObserver* iObserver2;
@@ -298,7 +303,7 @@ private:
     void TestPositiveSourceOffset();
     void TestNegativeSourceOffset();
     void TestNeutralSourceOffset();
-    void TestSourceOffsetExceptionThrown();
+    void TestExceptionThrow();
 private:
     Test::MockVolume* iVolume;
     VolumeSourceOffset* iOffset;
@@ -315,7 +320,7 @@ private:
     void TestAdditiveVolumeBoost();
     void TestSubtractiveVolumeBoost();
     void TestNeutralVolumeBoost();
-    void TestVolumeBoostExceptionThrown();
+    void TestExceptionThrow();
 private:
     Test::MockVolume* iVolume;
     VolumeSurroundBoost* iBooster;
@@ -373,6 +378,7 @@ private:
     void TestVolumeRamperZeroMultiplier();
     void TestVolumeMultiplierEqual();
     void TestVolumeMultiplierInLimits();
+    void TestExceptionThrow();
 private:
     Test::MockVolume* iVolume;
     VolumeRamperPipeline* iRamper;
@@ -424,6 +430,7 @@ private:
     void TestVolumeMuted();
     void TestVolumeFalseMute();
     void TestSetVolumeWhileMuted();
+    void TestExceptionThrow();
 private:
     Test::MockVolume* iVolume;
     VolumeMuter* iMuter;
@@ -676,6 +683,7 @@ void MockVolumeOffset::SetVolumeOffset(TInt aOffset)
 MockVolume::MockVolume()
     : iVolume(0)
     , iActive(false)
+    , iNotSupported(true)
 {
 }
 
@@ -684,21 +692,31 @@ TUint MockVolume::GetVolume() const
     return iVolume;
 }
 
-void MockVolume::TestExceptionThrowActive(TBool aActive)
+void MockVolume::ExceptionThrowActive(TBool aActive)
 {
     iActive = aActive;
 }
 
-void MockVolume::TestExceptionThrow()
+void MockVolume::NotSupportedOrOutOfRange(TBool aNotSupported)
+{
+    iNotSupported = aNotSupported;
+}
+
+void MockVolume::ThrowExceptionIfActive()
 {
     if (iActive) {
-        THROW(VolumeNotSupported);
+        if (iNotSupported) {
+            THROW(VolumeNotSupported);
+        }
+        else {
+            THROW(VolumeOutOfRange);
+        }
     }
 }
 
 void MockVolume::SetVolume(TUint aVolume)
 {
-    TestExceptionThrow();
+    ThrowExceptionIfActive();
     iVolume = aVolume;
 }
 
@@ -978,6 +996,7 @@ SuiteVolumeUser::SuiteVolumeUser()
     AddTest(MakeFunctor(*this, &SuiteVolumeUser::SetVolumeInLimits), "TestVolumeUserInLimits");
     AddTest(MakeFunctor(*this, &SuiteVolumeUser::SetVolumeAtLimits), "SetVolumeAtLimits");
     AddTest(MakeFunctor(*this, &SuiteVolumeUser::SetVolumeOutsideLimits), "TestVolumeUserOutsideLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeUser::TestExceptionThrow), "TestExceptionThrow");
 }
 
 void SuiteVolumeUser::Setup()
@@ -1037,6 +1056,16 @@ void SuiteVolumeUser::TestApplyStartupVolume()
     TEST(iVolume->GetVolume() == 60);
 }
 
+void SuiteVolumeUser::TestExceptionThrow()
+{
+    iVolume->ExceptionThrowActive(true);
+    iVolume->NotSupportedOrOutOfRange(true);
+    TEST_THROWS(iUser->SetVolume(0), VolumeNotSupported);
+
+    iVolume->NotSupportedOrOutOfRange(false);
+    TEST_THROWS(iUser->SetVolume(0), VolumeOutOfRange);
+}
+
 
 // SuiteVolumeLimiter
 
@@ -1045,6 +1074,7 @@ SuiteVolumeLimiter::SuiteVolumeLimiter()
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeLimiter::TestVolumeInsideLimits), "TestVolumeInsideLimits");
     AddTest(MakeFunctor(*this, &SuiteVolumeLimiter::TestVolumeOutsideLimits), "TestVolumeOutsideLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeLimiter::TestExceptionThrow), "TestExceptionThrow");
 }
 
 void SuiteVolumeLimiter::Setup()
@@ -1100,6 +1130,24 @@ void SuiteVolumeLimiter::TestVolumeOutsideLimits()
     TEST_THROWS(iLimiter->SetVolume(102400), VolumeOutOfRange);
 }
 
+void SuiteVolumeLimiter::TestExceptionThrow()
+{
+    iVolume->ExceptionThrowActive(true);
+    iVolume->NotSupportedOrOutOfRange(true);
+    TEST_THROWS(iLimiter->SetVolume(0), VolumeNotSupported);
+
+    iVolume->NotSupportedOrOutOfRange(false);
+    TEST_THROWS(iLimiter->SetVolume(0), VolumeOutOfRange);
+
+    // VolumeLimiter::LimitChanged() is expected to catch VolumeNotSupported and VolumeOutOfRange
+    Configuration::ConfigNum::KvpNum exceptionKvp(Brn("Volume.Limit"), 80);
+    iVolume->NotSupportedOrOutOfRange(true);
+    iLimiter->LimitChanged(exceptionKvp);
+
+    iVolume->NotSupportedOrOutOfRange(false);
+    iLimiter->LimitChanged(exceptionKvp);
+}
+
 
 // SuiteVolumeValue
 
@@ -1132,6 +1180,7 @@ SuiteVolumeReporter::SuiteVolumeReporter()
     : SuiteUnitTest("SuiteVolumeReporter")
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeReporter::TestAddVolumeObserver), "TestAddVolumeReporter");
+    AddTest(MakeFunctor(*this, &SuiteVolumeReporter::TestExceptionThrow), "TestExceptionThrow");
 }
 
 void SuiteVolumeReporter::Setup()
@@ -1170,6 +1219,16 @@ void SuiteVolumeReporter::TestAddVolumeObserver()
     TEST(iObserver2->GetVolumeBinaryMilliDb() == 65536);
 }
 
+void SuiteVolumeReporter::TestExceptionThrow()
+{
+    iVolume->ExceptionThrowActive(true);
+    iVolume->NotSupportedOrOutOfRange(true);
+    TEST_THROWS(iReporter->SetVolume(0), VolumeNotSupported);
+
+    iVolume->NotSupportedOrOutOfRange(false);
+    TEST_THROWS(iReporter->SetVolume(0), VolumeOutOfRange);
+}
+
 // SuiteVolumeSourceOffset
 
 SuiteVolumeSourceOffset::SuiteVolumeSourceOffset()
@@ -1178,7 +1237,7 @@ SuiteVolumeSourceOffset::SuiteVolumeSourceOffset()
     AddTest(MakeFunctor(*this, &SuiteVolumeSourceOffset::TestPositiveSourceOffset), "TestPositiveSourceOffset");
     AddTest(MakeFunctor(*this, &SuiteVolumeSourceOffset::TestNegativeSourceOffset), "TestNegativeSourceOffset");
     AddTest(MakeFunctor(*this, &SuiteVolumeSourceOffset::TestNeutralSourceOffset), "TestNeutralSourceOffset");
-    AddTest(MakeFunctor(*this, &SuiteVolumeSourceOffset::TestSourceOffsetExceptionThrown), "TestSourceOffsetExceptionThrown");
+    AddTest(MakeFunctor(*this, &SuiteVolumeSourceOffset::TestExceptionThrow), "TestExceptionThrow");
 }
 
 void SuiteVolumeSourceOffset::Setup()
@@ -1230,15 +1289,22 @@ void SuiteVolumeSourceOffset::TestNeutralSourceOffset()
     TEST(iVolume->GetVolume() == 50);
 }
 
-void SuiteVolumeSourceOffset::TestSourceOffsetExceptionThrown()
+void SuiteVolumeSourceOffset::TestExceptionThrow()
 {
-    iOffset->SetVolume(50);
-    iVolume->TestExceptionThrowActive(true);
+    iVolume->ExceptionThrowActive(true);
+    iVolume->NotSupportedOrOutOfRange(true);
+    TEST_THROWS(iOffset->SetVolume(0), VolumeNotSupported);
 
-    // This method is not expected to throw an exception.
-    iOffset->SetVolumeOffset(-30);
+    iVolume->NotSupportedOrOutOfRange(false);
+    TEST_THROWS(iOffset->SetVolume(0), VolumeOutOfRange);
+
+    // VolumeSourceOffset::SetVolumeOffset() is expected to catch VolumeNotSupported
+    iVolume->NotSupportedOrOutOfRange(true);
+    iOffset->SetVolumeOffset(0);
+
+    iVolume->NotSupportedOrOutOfRange(false);
+    TEST_THROWS(iOffset->SetVolumeOffset(0), VolumeOutOfRange);
 }
-
 
 // SuiteVolumeSurroundBoost
 
@@ -1248,7 +1314,7 @@ SuiteVolumeSurroundBoost::SuiteVolumeSurroundBoost()
     AddTest(MakeFunctor(*this, &SuiteVolumeSurroundBoost::TestAdditiveVolumeBoost), "TestAdditiveVolumeBoost");
     AddTest(MakeFunctor(*this, &SuiteVolumeSurroundBoost::TestSubtractiveVolumeBoost), "TestSubtractiveVolumeBoost");
     AddTest(MakeFunctor(*this, &SuiteVolumeSurroundBoost::TestNeutralVolumeBoost), "TestNeutralVolumeBoost");
-    AddTest(MakeFunctor(*this, &SuiteVolumeSurroundBoost::TestVolumeBoostExceptionThrown), "TestVolumeBoostExceptionThrown");
+    AddTest(MakeFunctor(*this, &SuiteVolumeSurroundBoost::TestExceptionThrow), "TestExceptionThrow");
 }
 
 void SuiteVolumeSurroundBoost::Setup()
@@ -1304,13 +1370,21 @@ void SuiteVolumeSurroundBoost::TestNeutralVolumeBoost()
     TEST(iVolume->GetVolume() == 50);
 }
 
-void SuiteVolumeSurroundBoost::TestVolumeBoostExceptionThrown()
+void SuiteVolumeSurroundBoost::TestExceptionThrow()
 {
-    iBooster->SetVolume(50);
-    iVolume->TestExceptionThrowActive(true);
+    iVolume->ExceptionThrowActive(true);
+    iVolume->NotSupportedOrOutOfRange(true);
+    TEST_THROWS(iBooster->SetVolume(0), VolumeNotSupported);
 
-    // This method is not expected to throw an exception.
-    iBooster->SetVolumeBoost(-30);
+    iVolume->NotSupportedOrOutOfRange(false);
+    TEST_THROWS(iBooster->SetVolume(0), VolumeOutOfRange);
+
+    // VolumeSurroundBoost::SetVolumeBoost() is expected to catch VolumeNotSupported
+    iVolume->NotSupportedOrOutOfRange(true);
+    iBooster->SetVolumeBoost(0);
+
+    iVolume->NotSupportedOrOutOfRange(false);
+    TEST_THROWS(iBooster->SetVolumeBoost(0), VolumeOutOfRange);
 }
 
 
@@ -1417,6 +1491,7 @@ SuiteVolumeRamperPipeline::SuiteVolumeRamperPipeline()
     AddTest(MakeFunctor(*this, &SuiteVolumeRamperPipeline::TestVolumeRamperZeroMultiplier), "TestVolumeRamperZeroMultiplier");
     AddTest(MakeFunctor(*this, &SuiteVolumeRamperPipeline::TestVolumeMultiplierEqual), "TestVolumeMultiplierEqual");
     AddTest(MakeFunctor(*this, &SuiteVolumeRamperPipeline::TestVolumeMultiplierInLimits), "TestVolumeMultiplierInLimits");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamperPipeline::TestExceptionThrow), "TestExceptionThrow");
 }
 
 void SuiteVolumeRamperPipeline::Setup()
@@ -1484,6 +1559,16 @@ void SuiteVolumeRamperPipeline::TestVolumeMultiplierInLimits()
     iRamper->SetVolume(50);
     iRamper->ApplyVolumeMultiplier(49152);
     TEST(iVolume->GetVolume() == 75);
+}
+
+void SuiteVolumeRamperPipeline::TestExceptionThrow()
+{
+    iVolume->ExceptionThrowActive(true);
+    iVolume->NotSupportedOrOutOfRange(true);
+    TEST_THROWS(iRamper->SetVolume(0), VolumeNotSupported);
+
+    iVolume->NotSupportedOrOutOfRange(false);
+    TEST_THROWS(iRamper->SetVolume(0), VolumeOutOfRange);
 }
 
 
@@ -1710,6 +1795,7 @@ SuiteVolumeMuter::SuiteVolumeMuter()
     AddTest(MakeFunctor(*this, &SuiteVolumeMuter::TestVolumeMuted), "TestVolumeMuted");
     AddTest(MakeFunctor(*this, &SuiteVolumeMuter::TestVolumeFalseMute), "TestVolumeFalseMute");
     AddTest(MakeFunctor(*this, &SuiteVolumeMuter::TestSetVolumeWhileMuted), "TestSetVolumeWhileMuted");
+    AddTest(MakeFunctor(*this, &SuiteVolumeMuter::TestExceptionThrow), "TestExceptionThrow");
 }
 
 void SuiteVolumeMuter::Setup()
@@ -1752,7 +1838,17 @@ void SuiteVolumeMuter::TestSetVolumeWhileMuted()
     iMuter->SetVolume(60);
     TEST(iVolume->GetVolume() == 0);
     iMuter->SetVolumeMuted(false);
-    TEST(iVolume->GetVolume() == 80);
+    TEST(iVolume->GetVolume() == 60);
+}
+
+void SuiteVolumeMuter::TestExceptionThrow()
+{
+    iVolume->ExceptionThrowActive(true);
+    iVolume->NotSupportedOrOutOfRange(true);
+    TEST_THROWS(iMuter->SetVolume(0), VolumeNotSupported);
+
+    iVolume->NotSupportedOrOutOfRange(false);
+    TEST_THROWS(iMuter->SetVolume(0), VolumeOutOfRange);
 }
 
 
