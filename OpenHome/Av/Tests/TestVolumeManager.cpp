@@ -448,7 +448,6 @@ private:
     void TestInvalidBalance();
     void TestBalanceSetFromConfigManagerWithinLimits();
     void TestBalanceSetFromConfigManagerOnLimits();
-    void TestBalanceSetFromConfigManagerOutOfRange();
 private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
@@ -469,7 +468,6 @@ private:
     void TestInvalidFade();
     void TestFadeSetFromConfigManagerWithinLimits();
     void TestFadeSetFromConfigManagerOnLimits();
-    void TestFadeSetFromConfigManagerOutOfRange();
 private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
@@ -1861,7 +1859,6 @@ SuiteVolumeBalanceUser::SuiteVolumeBalanceUser()
     AddTest(MakeFunctor(*this, &SuiteVolumeBalanceUser::TestInvalidBalance), "TestInvalidBalance");
     AddTest(MakeFunctor(*this, &SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerWithinLimits), "TestBalanceSetFromConfigManagerWithinLimits");
     AddTest(MakeFunctor(*this, &SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerOnLimits), "TestBalanceSetFromConfigManagerOnLimits");
-    AddTest(MakeFunctor(*this, &SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerOutOfRange), "TestBalanceSetFromConfigManagerOutOfRange");
 }
 
 void SuiteVolumeBalanceUser::Setup()
@@ -1924,11 +1921,6 @@ void SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerOnLimits()
     TEST(iBalance->GetBalance() == 10);
 }
 
-void SuiteVolumeBalanceUser::TestBalanceSetFromConfigManagerOutOfRange()
-{
-    TEST_THROWS(iConfigNum->Set(-11), ConfigValueOutOfRange);
-    TEST_THROWS(iConfigNum->Set(11), ConfigValueOutOfRange);
-}
 
 // SuiteFadeUser
 
@@ -1939,7 +1931,6 @@ SuiteVolumeFadeUser::SuiteVolumeFadeUser()
     AddTest(MakeFunctor(*this, &SuiteVolumeFadeUser::TestInvalidFade), "TestInvalidFade");
     AddTest(MakeFunctor(*this, &SuiteVolumeFadeUser::TestFadeSetFromConfigManagerWithinLimits), "TestFadeSetFromConfigManagerWithinLimits");
     AddTest(MakeFunctor(*this, &SuiteVolumeFadeUser::TestFadeSetFromConfigManagerOnLimits), "TestFadeSetFromConfigManagerOnLimits");
-    AddTest(MakeFunctor(*this, &SuiteVolumeFadeUser::TestFadeSetFromConfigManagerOutOfRange), "TestFadeSetFromConfigManagerOutOfRange");
 }
 
 void SuiteVolumeFadeUser::Setup()
@@ -2000,12 +1991,6 @@ void SuiteVolumeFadeUser::TestFadeSetFromConfigManagerOnLimits()
     TEST(iFade->GetFade() == -10);
     iConfigNum->Set(10);
     TEST(iFade->GetFade() == 10);
-}
-
-void SuiteVolumeFadeUser::TestFadeSetFromConfigManagerOutOfRange()
-{
-    TEST_THROWS(iConfigNum->Set(-11), ConfigValueOutOfRange);
-    TEST_THROWS(iConfigNum->Set(11), ConfigValueOutOfRange);
 }
 
 
