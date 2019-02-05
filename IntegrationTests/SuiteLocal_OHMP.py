@@ -90,7 +90,7 @@ tests = [
     [ 'TestQobuzDropout',             'local', 'none',  'none',  1800,    'unicast',   20,          qobuzId,     qobuzUser, qobuzPwd ],
 
     # Calm Radio
-    ['TestCalmRadioPlayChannels',     'local', 'none',  8,       20,      crUser,      crPwd                                         ],
+    ['TestCalmRadioPlayChannels',     'local', 'none',  12,      20,      crUser,      crPwd                                         ],
     ['TestCalmRadioDropout',          'local', 'none', 'none',   1800,    'none',      5,           crUser,      crPwd               ],
 
     # UPnP AV
