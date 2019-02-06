@@ -205,6 +205,7 @@ TBool SourceRadio::TryFetch(TUint aPresetId, const Brx& aUri)
     }
     iCurrentMode.Set(iUriProviderPresets->Mode());
     iStorePresetNumber->Set(iPresetDatabase->GetPresetNumber(aPresetId));
+    iStorePresetNumber->Write();
     iProviderRadio->NotifyPresetInfo(aPresetId, iPresetUri, iPresetMetadata);
     FetchLocked(iPresetUri, iPresetMetadata);
     return true;
@@ -328,6 +329,7 @@ void SourceRadio::NextPrev(TBool aNext)
     iUriProviderPresets->SetTrack(iTrack);
     iProviderRadio->NotifyPresetInfo(id, iTrack->Uri(), iTrack->MetaData());
     iStorePresetNumber->Set(iPresetDatabase->GetPresetNumber(id));
+    iStorePresetNumber->Write();
 
     iPipeline.RemoveAll();
     iPipeline.Begin(iCurrentMode, iTrack->Id());
