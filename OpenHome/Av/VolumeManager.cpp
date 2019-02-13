@@ -837,6 +837,11 @@ VolumeConfig::VolumeConfig(IConfigInitialiser& aConfigInit, const IVolumeProfile
     if (iAlwaysOn) {
         iVolumeControlEnabled = true;
     }
+    else if (iVolumeMax == 0) {
+        // If maximum volume is 0 no sensible volume control can exist.
+        // Flag volume control as disabled, and do not create ConfigVals to allow toggling or configuring volume control.
+        iVolumeControlEnabled = false;
+    }
     else {
         iVolumeEnabled = new ConfigChoice(aConfigInit, kKeyEnabled, choices, eStringIdYes, true);
 
