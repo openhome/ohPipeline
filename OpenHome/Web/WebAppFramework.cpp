@@ -1039,7 +1039,7 @@ void WebAppFramework::Add(IWebApp* aWebApp, FunctorPresentationUrl aFunctor)
         ASSERTS(); // app with given resource prefix already exists
     }
 
-    // Dynamic allocation here is acceptible as Start() hasn't been called and
+    // Dynamic allocation here is acceptable as Start() hasn't been called and
     // class will persist for lifetime of WebAppFramework.
     WebAppInternal* webAppInternal = new WebAppInternal(aWebApp, aFunctor);
     iWebApps.insert(WebAppPair(&webAppInternal->ResourcePrefix(), webAppInternal));
