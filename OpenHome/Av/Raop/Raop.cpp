@@ -716,7 +716,7 @@ TUint RaopDiscoverySession::AesSid()
 
 const Brx &RaopDiscoverySession::Aeskey()
 {
-    if(!iAeskeyPresent) {
+    if (!iAeskeyPresent) {
         THROW(RaopError);
     }
     return iAeskey;
@@ -724,7 +724,7 @@ const Brx &RaopDiscoverySession::Aeskey()
 
 const Brx &RaopDiscoverySession::Aesiv()
 {
-    if(!iAeskeyPresent) {
+    if (!iAeskeyPresent) {
         THROW(RaopError);
     }
     return iSdpInfo.Aesiv();
@@ -732,7 +732,7 @@ const Brx &RaopDiscoverySession::Aesiv()
 
 const Brx &RaopDiscoverySession::Fmtp()
 {
-    if(!iAeskeyPresent) {
+    if (!iAeskeyPresent) {
         THROW(RaopError);
     }
     return iSdpInfo.Fmtp();

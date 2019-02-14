@@ -226,7 +226,8 @@ VolumeReporter::VolumeReporter(IVolume& aVolume, TUint aMilliDbPerStep)
 
 void VolumeReporter::AddVolumeObserver(IVolumeObserver& aObserver)
 {
-    const VolumeValue vol(iUpstreamVolume / iMilliDbPerStep, iUpstreamVolume);
+    const TUint volUser = (iMilliDbPerStep > 0 ? iUpstreamVolume / iMilliDbPerStep : 0);
+    const VolumeValue vol(volUser, iUpstreamVolume);
     aObserver.VolumeChanged(vol);
     iObservers.push_back(&aObserver);
 }
@@ -236,7 +237,8 @@ void VolumeReporter::SetVolume(TUint aVolume)
     LOG(kVolume, "VolumeReporter::SetVolume aVolume: %u\n", aVolume);
     iVolume.SetVolume(aVolume);
     iUpstreamVolume = aVolume;
-    const VolumeValue vol(iUpstreamVolume / iMilliDbPerStep, iUpstreamVolume);
+    const TUint volUser = (iMilliDbPerStep > 0 ? iUpstreamVolume / iMilliDbPerStep : 0);
+    const VolumeValue vol(volUser, iUpstreamVolume);
     for (auto it=iObservers.begin(); it!=iObservers.end(); ++it) {
         (*it)->VolumeChanged(vol);
     }
@@ -834,6 +836,11 @@ VolumeConfig::VolumeConfig(IConfigInitialiser& aConfigInit, const IVolumeProfile
 
     if (iAlwaysOn) {
         iVolumeControlEnabled = true;
+    }
+    else if (iVolumeMax == 0) {
+        // If maximum volume is 0 no sensible volume control can exist.
+        // Flag volume control as disabled, and do not create ConfigVals to allow toggling or configuring volume control.
+        iVolumeControlEnabled = false;
     }
     else {
         iVolumeEnabled = new ConfigChoice(aConfigInit, kKeyEnabled, choices, eStringIdYes, true);

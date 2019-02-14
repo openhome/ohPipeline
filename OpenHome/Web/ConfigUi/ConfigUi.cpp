@@ -1314,13 +1314,13 @@ void ConfigUiValStartupSource::WriteMetaOptions(IWriter& aWriter)
         aWriter.Write(Brn(","));
     }
 
-    for (TUint i = 0; i<iObservers.size() - 1; i++) {
+    for (TUint i = 0; i < iObservers.size(); i++) {
         SourceNameObserver* obs = iObservers[i];
         WriteMetaOption(aWriter, *obs);
-        aWriter.Write(Brn(","));
+        if (i < iObservers.size() - 1) {
+            aWriter.Write(Brn(","));
+        }
     }
-    SourceNameObserver* obs = iObservers[iObservers.size() - 1];
-    WriteMetaOption(aWriter, *obs);
 
     aWriter.Write(Brn("]"));
 }

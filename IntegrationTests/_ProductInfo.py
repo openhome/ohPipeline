@@ -36,3 +36,7 @@ class ProductInfo:
     @property
     def dsdPlayback( self ):
         return True
+
+    @property
+    def core4( self ):
+        return False
