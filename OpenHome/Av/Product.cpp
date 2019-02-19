@@ -211,6 +211,9 @@ void Product::SetConfigAppUrl(const Brx& aUrl)
     iConfigAppUrlTail.Replace(aUrl);
     iLock.Signal();
     AutoMutex amx(iObserverLock);
+    for (auto observer : iObservers) {
+        observer->ProductUrisChanged();
+    }
     for (auto attributeObserver : iAttributeObservers) {
         attributeObserver->AttributesChanged();
     }

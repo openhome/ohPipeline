@@ -6,6 +6,7 @@
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Av/Utils/FaultCode.h>
 #include <OpenHome/PowerManager.h>
+#include <OpenHome/Net/Private/DviStack.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Net;
@@ -16,6 +17,7 @@ const TUint ProviderProduct::kAttributeGranularityBytes;
 
 ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, IPowerManager& aPowerManager)
     : DvProviderAvOpenhomeOrgProduct3(aDevice)
+    , iDevice(aDevice)
     , iProduct(aProduct)
     , iPowerManager(aPowerManager)
     , iLock("PrPr")
@@ -87,12 +89,8 @@ ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, 
         SetPropertyProductInfo(info);
         SetPropertyProductImageUri(imageUri);
     }
-    const TChar* presentationUrl;
-    aDevice.GetAttribute("Upnp.PresentationUrl", &presentationUrl);
-    if (presentationUrl == nullptr) {
-        presentationUrl = "";
-    }
-    SetPropertyProductUrl(Brn(presentationUrl));
+    UpdatePresentationUrlLocked(); // no need for lock yet - observers aren't registered so no other functions will run in other threads
+    SetPropertyProductUrl(iPresentationUrl);
 
     iStandbyObserver = aPowerManager.RegisterStandbyHandler(*this, kStandbyHandlerPriorityLowest, "ProviderProduct");
     iProduct.AddObserver(*this);
@@ -152,8 +150,6 @@ void ProviderProduct::Product(IDvInvocation& aInvocation, IDvInvocationResponseS
     Brn info;
     Bws<Product::kMaxUriBytes> imageUri;
     iProduct.GetProductDetails(room, name, info, imageUri);
-    const TChar* p = aInvocation.ResourceUriPrefix();
-    const Brx& presentationUrl = (p != nullptr) ? Brn(p) : Brx::Empty();
 
     aInvocation.StartResponse();
     aRoom.Write(room);
@@ -162,7 +158,11 @@ void ProviderProduct::Product(IDvInvocation& aInvocation, IDvInvocationResponseS
     aName.WriteFlush();
     aInfo.Write(info);
     aInfo.WriteFlush();
-    aUrl.Write(presentationUrl);
+    {
+        AutoMutex _(iLock);
+        UpdatePresentationUrlLocked();
+        aUrl.Write(iPresentationUrl);
+    }
     aUrl.WriteFlush();
     aImageUri.Write(imageUri);
     aImageUri.WriteFlush();
@@ -333,6 +333,12 @@ void ProviderProduct::ProductUrisChanged()
         iProduct.GetProductDetails(room, name, info, imageUri);
         SetPropertyProductImageUri(imageUri);
     }
+
+    {
+        AutoMutex _(iLock);
+        UpdatePresentationUrlLocked();
+        SetPropertyProductUrl(iPresentationUrl);
+    }
 }
 
 void ProviderProduct::SourceIndexChanged()
@@ -381,4 +387,25 @@ void ProviderProduct::StandbyDisabled(StandbyDisableReason /*aReason*/)
 {
     SetPropertyStandby(false);
     SetPropertyStandbyTransitioning(false);
+}
+
+void ProviderProduct::UpdatePresentationUrlLocked()
+{
+    const TChar* presentationUrl;
+    iDevice.GetAttribute("Upnp.PresentationUrl", &presentationUrl);
+    if (presentationUrl == nullptr) {
+        presentationUrl = "";
+    }
+    if (presentationUrl[0] != ':' && presentationUrl[0] != '/') {
+        iPresentationUrl.Replace(presentationUrl);
+        return;
+    }
+    iPresentationUrl.Replace("http://");
+
+    AutoNetworkAdapterRef ar(iDvStack.Env(), "Av::Product");
+    auto current = ar.Adapter();
+    auto addr = current == nullptr ? 0 : current->Address();
+    Endpoint::AppendAddress(iPresentationUrl, addr);
+
+    iPresentationUrl.Append(presentationUrl);
 }

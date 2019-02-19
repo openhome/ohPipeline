@@ -584,8 +584,8 @@ void TestMediaPlayer::MacAddrFromUdn(Environment& aEnv, Bwx& aMacAddr)
 void TestMediaPlayer::PresentationUrlChanged(const Brx& aUrl)
 {
     iPresentationUrl.Replace(aUrl);
-    iMediaPlayer->Product().SetConfigAppUrl(iPresentationUrl);
     iDevice->SetAttribute("Upnp.PresentationUrl", iPresentationUrl.PtrZ());
+    iMediaPlayer->Product().SetConfigAppUrl(iPresentationUrl);
 }
 
 void TestMediaPlayer::PowerDownDisable(DvDevice& aDevice)

@@ -58,12 +58,16 @@ private: // from IStandbyHandler
     void StandbyTransitioning() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;
 private:
+    void UpdatePresentationUrlLocked();
+private:
+    Net::DvDevice& iDevice;
     Av::Product& iProduct;
     IPowerManager& iPowerManager;
     Mutex iLock;
     WriterBwh iSourceXml;
     IStandbyObserver* iStandbyObserver;
     WriterBwh iAttributes;
+    Bws<512> iPresentationUrl;
 };
 
 } // namespace Av
