@@ -92,38 +92,10 @@
     {
         "name": "FunctionalTest",
         "type": "openhome",
-        "version": "0.0.1180",
+        "version": "0.0.1183",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "FunctionalTest-${version}.zip",
         "dest": "dependencies/AnyPlatform/FunctionalTest"
-    },
-    {
-        "name": "FTDataPublic",
-        "type": "openhome",
-        "version": "0.0.16",
-        "cross-check": false,
-        "platform-specific": false,
-        "archive-filename": "FTDataPublic-${version}.zip",
-        "dest": "dependencies/AnyPlatform/FunctionalTestData",
-        "platform-ignore": {
-            "Windows-x86": false,
-            "Linux-x86": false,
-            "*": true },
-        "ignore":           "${platform-ignore[$platform]}"
-    },
-    {
-        "name": "FTDataPrivate",
-        "type": "internal",
-        "version": "0.0.64",
-        "cross-check": false,
-        "platform-specific": false,
-        "archive-filename": "FTDataPrivate-${version}.zip",
-        "dest": "dependencies/AnyPlatform/FunctionalTestData",
-        "platform-ignore": {
-            "Windows-x86": false,
-            "Linux-x86": false,
-            "*": true },
-        "ignore":           "${platform-ignore[$platform]}"
     }
 ]

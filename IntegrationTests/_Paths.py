@@ -51,4 +51,5 @@ sys.path.insert( 0, os.path.normpath( os.path.join( test, 'Framework' )))
 sys.path.insert( 0, os.path.normpath( os.path.join( test, 'CommonTests' )))
 
 # paths to data files
-audioDir = os.path.join( deps, 'AnyPlatform/FunctionalTestData/Audio' )
+ftdata = os.path.normpath( os.path.join( root, '..', 'FunctionalTestData' ))
+audioDir = os.path.join( ftdata, 'Audio' )
