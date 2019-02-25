@@ -818,6 +818,10 @@ const Brn VolumeConfig::kKeyBalance("Volume.Balance");
 const Brn VolumeConfig::kKeyFade("Volume.Fade");
 
 VolumeConfig::VolumeConfig(IConfigInitialiser& aConfigInit, const IVolumeProfile& aProfile)
+    : iVolumeStartup(nullptr)
+    , iVolumeLimit(nullptr)
+    , iBalance(nullptr)
+    , iFade(nullptr)
 {
     iVolumeMax            = aProfile.VolumeMax();
     iVolumeDefault        = aProfile.VolumeDefault();

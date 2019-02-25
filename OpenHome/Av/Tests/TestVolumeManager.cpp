@@ -1004,6 +1004,7 @@ void SuiteVolumeUser::TearDown()
 {
     delete iUser;
     delete iPowerManager;
+    delete iConfigNum;
     delete iConfigManager;
     delete iStore;
     delete iVolume;
@@ -1186,6 +1187,7 @@ void SuiteVolumeReporter::TearDown()
 {
     delete iReporter;
     delete iVolume;
+    delete iObserver2;
     delete iObserver;
 }
 
@@ -1401,6 +1403,7 @@ void SuiteVolumeUnityGain::Setup()
 
 void SuiteVolumeUnityGain::TearDown()
 {
+    delete iConfigChoice;
     delete iUnityGain;
     delete iConfigManager;
     delete iStore;
@@ -2497,7 +2500,14 @@ void SuiteVolumeManager::TestAllComponentsInitialize()
 
 void SuiteVolumeManager::TestNoVolumeControlNoMute()
 {
-    iVolumeConfig->iVolumeControlEnabled = false;
+    delete iVolumeConfig;
+    Bws<4> volControlEnabledBuf;
+    WriterBuffer writerBuffer(volControlEnabledBuf);
+    WriterBinary writerBinary(writerBuffer);
+    writerBinary.WriteUint32Be(eStringIdNo);
+    iStore->Write(VolumeConfig::kKeyEnabled, volControlEnabledBuf);
+    iVolumeConfig = new VolumeConfig(*iConfig, *iVolumeProfile);
+
     iVolumeConsumer->SetBalance(*iBalance);
     iVolumeConsumer->SetFade(*iFade);
     iVolumeConsumer->SetVolume(*iVolume);
@@ -2637,7 +2647,7 @@ void SuiteVolumeManager::TestNoVolumeNoBalanceNoFadeComponents()
     TEST(volumeManager.iProviderVolume == nullptr);
 }
 
-void TestVolumeManager(CpStack& aCpStack, DvStack& aDvStack)
+void TestVolumeManager(CpStack& /* aCpStack */, DvStack& aDvStack)
 {
     Runner runner("VolumeManager tests\n");
     runner.Add(new SuiteVolumeConsumer());

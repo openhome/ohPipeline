@@ -12,7 +12,6 @@ extern void TestVolumeManager(CpStack& aCpStack, DvStack& aDvStack);
 void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], Net::InitialisationParams* aInitParams)
 {
     aInitParams->SetDvUpnpServerPort(0);
-    aInitParams->SetUseLoopbackNetworkAdapter();
     Library* lib = new Library(aInitParams);
     std::vector<NetworkAdapter*>* subnetList = lib->CreateSubnetList();
     TIpAddress subnet = (*subnetList)[0]->Subnet();
