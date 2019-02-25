@@ -310,13 +310,13 @@ inline void CodecDsdDff::WriteBlock(TByte*& aDest, const TByte*& aPtr, TUint aNu
     {
         TUint paddingByte = iPadBytesPerChunk / 2;
 
-        for (TUint i = 0; i < paddingByte; i++) {
+        for (TUint j = 0; j < paddingByte; j++) {
             *aDest++ = 0x00; // padding
         }
         *aDest++ = aPtr[0];
         *aDest++ = aPtr[2];
 
-        for (TUint i = 0; i < paddingByte; i++) {
+        for (TUint j = 0; j < paddingByte; j++) {
             *aDest++ = 0x00; // padding
         }
         *aDest++ = aPtr[1];
