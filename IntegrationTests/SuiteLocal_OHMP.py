@@ -113,7 +113,7 @@ tests = [
     [ 'TestSongcastConnect',          'local', 'local', 'local', 'local', 'all',       'standby',   'multicast'                      ],
 
     # Pins
-    [ 'TestPins',                     'local', crUser, crPwd, qobuzUser, qobuzPwd, tidalUser, tidalPwd, tuneinId, tuneinWw, '', '', ''],
+    [ 'TestPins',                     'local', crUser, crPwd, qobuzUser, qobuzPwd, tidalUser, tidalPwd, tuneinId, tuneinWw           ],
 
     # Airplay
     ['TestAirplayFunctions', 'local'],
