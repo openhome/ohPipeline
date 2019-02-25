@@ -170,14 +170,9 @@ public: // from IVolumeProfile
 private:
     TUint iVolumeMax;
     TUint iVolumeDefault;
-    TUint iVolumeUnity;
     TUint iVolumeDefaultLimit;
-    TUint iVolumeStep;
-    TUint iVolumeMilliDbPerStep;
-    TUint iThreadPriority;
     TUint iBalanceMax;
     TUint iFadeMax;
-    TUint iOffsetMax;
     TBool iAlwaysOn;
 };
 
@@ -341,7 +336,6 @@ private:
     Configuration::ConfigManager* iConfigManager;
     VolumeUnityGain* iUnityGain;
     Configuration::ConfigChoice* iConfigChoice;
-    // VolumeUnityGainBase* iUnityGainBase;
 
 };
 
@@ -360,7 +354,6 @@ private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
     VolumeSourceUnityGain* iSourceUnityGain;
-    VolumeUnityGainBase* iUnityGainBase;
     Test::MockUnityGainObserver* iObserver;
     Test::MockUnityGainObserver* iObserver2;
 };
