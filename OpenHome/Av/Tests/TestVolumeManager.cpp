@@ -334,7 +334,6 @@ private:
     Test::MockVolume* iVolume;
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
-    VolumeUnityGain* iUnityGain;
     Configuration::ConfigChoice* iConfigChoice;
 
 };
@@ -1404,7 +1403,6 @@ void SuiteVolumeUnityGain::Setup()
 void SuiteVolumeUnityGain::TearDown()
 {
     delete iConfigChoice;
-    delete iUnityGain;
     delete iConfigManager;
     delete iStore;
     delete iVolume;
