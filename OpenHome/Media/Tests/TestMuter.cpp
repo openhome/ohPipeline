@@ -55,7 +55,7 @@ private: // from IMsgProcessor
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override;
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
-    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
+    TUint PipelineAnimatorDsdBlockSizeWords() const override;
 private:
     enum EMsgType
     {
@@ -368,7 +368,7 @@ TUint SuiteMuter::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*
     return 0;
 }
 
-TUint SuiteMuter::PipelineAnimatorDsdBlockSizeBytes() const
+TUint SuiteMuter::PipelineAnimatorDsdBlockSizeWords() const
 {
     return 1;
 }
@@ -453,7 +453,7 @@ Msg* SuiteMuter::CreateAudioDsd()
     TByte audioData[128];
     (void)memset(audioData, 0x7f, sizeof audioData);
     Brn audioBuf(audioData, sizeof audioData);
-    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 2822400, 2, iTrackOffset);
+    MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 2822400, 2, iTrackOffset, 0);
     iTrackOffset += audio->Jiffies();
     return audio;
 }

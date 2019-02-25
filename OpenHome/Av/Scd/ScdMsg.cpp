@@ -642,9 +642,8 @@ void ScdMsgFormatDsd::DoInitialise(TUint aSampleRate, TUint aNumChannels, TUint 
     ScdMsg::Initialise();
     switch (aSampleRate)
     {
-    case 1411200:
     case 2822400:
-    //case 5644800:
+    case 5644800:
         break;
     default:
         THROW(SampleRateNotSupported);

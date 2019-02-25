@@ -536,11 +536,11 @@ class DsdStreamInfo
 {
 public:
     DsdStreamInfo();
-    void Set(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint64 aStartSample = 0);
+    void Set(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockWords, TUint64 aStartSample = 0);
     void SetCodec(const Brx& aCodecName);
     void Clear();
     TUint SampleRate() const;
-    TUint SampleBlockBits() const;
+    TUint SampleBlockWords() const;
     TUint NumChannels() const;
     TUint64 StartSample() const;
     const Brx& CodecName() const;
@@ -549,7 +549,7 @@ public:
 private:
     TUint iSampleRate;
     TUint iNumChannels;
-    TUint iSampleBlockBits;
+    TUint iSampleBlockWords;
     TUint64 iStartSample;
     BwsCodecName iCodecName;
 };
@@ -808,13 +808,14 @@ class MsgPlayable;
 class MsgPlayablePcm;
 class MsgPlayableDsd;
 class MsgPlayableSilence;
+class MsgPlayableSilenceDsd;
 
 class MsgAudio : public Msg
 {
     friend class MsgFactory;
 public:
     void SetObserver(IPipelineBufferObserver& aPipelineBufferObserver);
-    MsgAudio* Split(TUint aJiffies); // returns block after aAt
+    MsgAudio* Split(TUint aJiffies); // returns block after aJiffies
     virtual MsgAudio* Clone(); // create new MsgAudio, copy size/offset
     virtual MsgPlayable* CreatePlayable() = 0;
     TUint Jiffies() const;
@@ -834,6 +835,8 @@ private:
 protected:
     TUint iSize; // Jiffies
     TUint iOffset; // Jiffies
+    TUint iBlockWordsNoPad;
+    TUint iSizePadded;
     Media::Ramp iRamp;
     TUint iSampleRate;
     TUint iBitDepth;
@@ -857,14 +860,23 @@ protected:
     void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aBitDepth, TUint aChannels,
                     TUint64 aTrackOffset, TUint aNumSubsamples,
                     Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
+    void InitialiseDsd(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels,
+                    TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aNumSubsamples,
+                    Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayableSilenceDsd);
+
+                
 protected: // from MsgAudio
     void SplitCompleted(MsgAudio& aRemaining) override;
 protected: // from Msg
     void Clear() override;
+private:
+    virtual void AggregateComplete();
 protected:
     DecodedAudio* iAudioData;
     Allocator<MsgPlayableSilence>* iAllocatorPlayableSilence;
+    Allocator<MsgPlayableSilenceDsd>* iAllocatorPlayableSilenceDsd;
     TUint64 iTrackOffset;
+    TUint iSampleBlockWords;
 };
 
 class MsgAudioPcm : public MsgAudioDecoded
@@ -897,29 +909,44 @@ private:
 class MsgAudioDsd : public MsgAudioDecoded
 {
     friend class MsgFactory;
+    friend class SuiteMsgAudioDsd;
     static const TUint kBitDepth = 1;
 public:
     MsgAudioDsd(AllocatorBase& aAllocator);
+    TUint JiffiesNonPlayable();
+    TUint SizeTotalJiffies();
 public: // from MsgAudio
     MsgAudio* Clone() override; // create new MsgAudio, take ref to DecodedAudio, copy size/offset
     MsgPlayable* CreatePlayable() override; // removes ref, transfer ownership of DecodedAudio
 private:
     void Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels,
-                    TUint aSampleBlockBits, TUint64 aTrackOffset,
+                    TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk,
                     Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
-                    Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence);
+                    Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayableSilenceDsd);
 private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
 private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
+private: // from MsgAudioDecoded
+    void AggregateComplete() override;
+private:
+    TUint ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aJiffiesPerSampleBlock) const;
+    TUint JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesPerSampleBlockPlayable) const;
+    TUint JiffiesPerSampleBlockPlayable() const;
+    TUint JiffiesPerSampleBlockTotal() const;
+    TUint SizeJiffiesTotal() const;
 private:
     Allocator<MsgPlayableDsd>* iAllocatorPlayableDsd;
-    TUint iSampleBlockBits;
+    TUint iSampleBlockWords;
+    TUint iBlockWordsNoPad;
+    TUint iSizeTotalJiffies;
+    TUint iJiffiesNonPlayable;
 };
 
 class MsgPlayableSilence;
+class MsgPlayableSilenceDsd;
 
 class MsgSilence : public MsgAudio
 {
@@ -931,14 +958,16 @@ public: // from MsgAudio
     MsgPlayable* CreatePlayable() override; // removes ref
 private:
     void Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels, Allocator<MsgPlayableSilence>& aAllocatorPlayable);
-    void InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes, Allocator<MsgPlayableSilence>& aAllocatorPlayable);
+    void InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords, Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayable);
 private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
 private: // from Msg
     Msg* Process(IMsgProcessor& aProcessor) override;
 private:
-    Allocator<MsgPlayableSilence>* iAllocatorPlayable;
+    Allocator<MsgPlayableSilence>* iAllocatorPlayablePcm;
+    Allocator<MsgPlayableSilenceDsd>* iAllocatorPlayableDsd;
+    TUint iSampleBlockWords;
 };
 
 class IPcmProcessor;
@@ -991,8 +1020,10 @@ protected:
     TUint iBitDepth;
     TUint iNumChannels;
     TUint iOffset; // Bytes
+    TUint iSizeTotalJiffies;
     Media::Ramp iRamp;
     IPipelineBufferObserver* iPipelineBufferObserver;
+    // TUint iSampleBlockWords;
 };
 
 class MsgPlayablePcm : public MsgPlayable
@@ -1035,14 +1066,13 @@ private: // from Msg
     void Clear() override;
 private:
     DecodedAudio* iAudioData;
-    TUint iSampleBlockBits;
+    TUint iSampleBlockWords;
 };
 
 class MsgPlayableSilence : public MsgPlayable
 {
     friend class MsgSilence;
     friend class MsgAudioPcm;
-    friend class MsgAudioDsd;
 public:
     MsgPlayableSilence(AllocatorBase& aAllocator);
 private:
@@ -1053,7 +1083,24 @@ private: // from MsgPlayable
     MsgPlayable* Allocate() override;
     void SplitCompleted(MsgPlayable& aRemaining) override;
     void ReadBlock(IPcmProcessor& aProcessor) override;
+};
+
+class MsgPlayableSilenceDsd : public MsgPlayable
+{
+    friend class MsgSilence;
+    friend class MsgAudioDsd;
+public:
+    MsgPlayableSilenceDsd(AllocatorBase& aAllocator);
+private:
+    void Initialise(TUint aSizeBytes, TUint aSampleRate, TUint aBitDepth,
+                    TUint aNumChannels, TUint aSampleBlockWords, const Media::Ramp& aRamp,
+                    Optional<IPipelineBufferObserver> aPipelineBufferObserver);
+private: // from MsgPlayable
+    MsgPlayable* Allocate() override;
+    void SplitCompleted(MsgPlayable& aRemaining) override;
     void ReadBlock(IDsdProcessor& aProcessor) override;
+private:
+    TUint iSampleBlockWords;
 };
 
 /**
@@ -1161,7 +1208,7 @@ public:
     *                          channels are interleaved, 16 for stereo with one byte of left
     *                          subsamples followed by one byte of right subsamples, etc.
     */
-    virtual void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSampleBlockBits) = 0;
+    virtual void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSampleBlockWords) = 0;
     /**
     * Called once per call to MsgPlayable::Read.
     *
@@ -1766,7 +1813,7 @@ public:
      * @return     Granularity of DSD data.  (Effectively, the points that audio can be split at.)
      *             Throws FormatUnsupported if DSD is not supported.
      */
-    virtual TUint PipelineAnimatorDsdBlockSizeBytes() const = 0;
+    virtual TUint PipelineAnimatorDsdBlockSizeWords() const = 0;
 };
 
 class IPipeline : public IPipelineElementUpstream
@@ -1870,16 +1917,16 @@ public:
     MsgBitRate* CreateMsgBitRate(TUint aBitRate);
     MsgAudioPcm* CreateMsgAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset);
     MsgAudioPcm* CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset); // aAudio must contain big endian pcm data
-    MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset);
-    MsgAudioDsd* CreateMsgAudioDsd(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset);
+    MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset, TUint aPadBytesPerChunk);
+    MsgAudioDsd* CreateMsgAudioDsd(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset, TUint aPadBytesPerChunk);
     MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels);
-    MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes);
+    MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords);
     MsgQuit* CreateMsgQuit();
 private:
     EncodedAudio* CreateEncodedAudio(const Brx& aData);
     DecodedAudio* CreateDecodedAudio(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
     MsgAudioPcm* CreateMsgAudioPcm(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset);
-    MsgAudioDsd* CreateMsgAudioDsd(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset);
+    MsgAudioDsd* CreateMsgAudioDsd(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset, TUint aPadBytesPerChunk);
 private:
     Allocator<MsgMode> iAllocatorMsgMode;
     Allocator<MsgTrack> iAllocatorMsgTrack;
@@ -1902,6 +1949,7 @@ private:
     Allocator<MsgPlayablePcm> iAllocatorMsgPlayablePcm;
     Allocator<MsgPlayableDsd> iAllocatorMsgPlayableDsd;
     Allocator<MsgPlayableSilence> iAllocatorMsgPlayableSilence;
+    Allocator<MsgPlayableSilenceDsd> iAllocatorMsgPlayableSilenceDsd;
     Allocator<MsgQuit> iAllocatorMsgQuit;
 };
 

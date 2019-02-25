@@ -129,7 +129,7 @@ private: // from IUrlBlockWriter
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override;
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
-    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
+    TUint PipelineAnimatorDsdBlockSizeWords() const override;
 private: // from IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
@@ -898,7 +898,7 @@ TUint SuitePipeline::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint
     return 0;
 }
 
-TUint SuitePipeline::PipelineAnimatorDsdBlockSizeBytes() const
+TUint SuitePipeline::PipelineAnimatorDsdBlockSizeWords() const
 {
     return 1;
 }

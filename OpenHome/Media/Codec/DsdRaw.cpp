@@ -24,7 +24,7 @@ private: // from CodecBase
 private:
     TUint iSampleRate;
     TUint iNumChannels;
-    TUint iSampleBlockBits;
+    TUint iSampleBlockWords;
     TUint64 iStartSample;
     TUint64 iTrackOffset;
     TUint64 iTrackLengthJiffies;
@@ -61,11 +61,11 @@ TBool CodecDsdRaw::Recognise(const EncodedStreamInfo& aStreamInfo)
     }
     iSampleRate = aStreamInfo.SampleRate();
     iNumChannels = aStreamInfo.NumChannels();
-    iSampleBlockBits = aStreamInfo.DsdSampleBlockBits();
+    iSampleBlockWords = aStreamInfo.SampleBlockWords();
     iStartSample = aStreamInfo.StartSample();
     iCodecName.Replace(aStreamInfo.CodecName());
-    //Log::Print("CodecDsdRaw::Recognise iSampleRate %u, iNumChannels %u, iSampleBlockBits=%u, iStartSample %llu\n",
-    //           iSampleRate, iNumChannels, iSampleBlockBits, iStartSample);
+    //Log::Print("CodecDsdRaw::Recognise iSampleRate %u, iNumChannels %u, iSampleBlockWords=%u, iStartSample %llu\n",
+    //           iSampleRate, iNumChannels, iSampleBlockWords, iStartSample);
     return true;
 }
 
@@ -87,7 +87,7 @@ void CodecDsdRaw::StreamInitialise()
 void CodecDsdRaw::Process()
 {
     auto msg = iController->ReadNextMsg();
-    iTrackOffset += iController->OutputAudioDsd(msg, iNumChannels, iSampleRate, iSampleBlockBits, iTrackOffset);
+    iTrackOffset += iController->OutputAudioDsd(msg, iNumChannels, iSampleRate, iSampleBlockWords, iTrackOffset, 0);
 }
 
 TBool CodecDsdRaw::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)

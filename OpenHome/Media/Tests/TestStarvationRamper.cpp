@@ -485,7 +485,7 @@ Msg* SuiteStarvationRamper::CreateAudioDsd()
     TByte audioData[1024];
     (void)memset(audioData, 0x69, sizeof audioData);
     Brn audioBuf(audioData, sizeof audioData);
-    auto audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, kNumChannels, kSampleRateDefaultDsd, 2, iTrackOffset);
+    auto audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, kNumChannels, kSampleRateDefaultDsd, 2, iTrackOffset, 0);
     iTrackOffset += audio->Jiffies();
     return audio;
 }

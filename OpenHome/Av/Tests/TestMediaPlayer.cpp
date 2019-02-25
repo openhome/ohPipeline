@@ -390,6 +390,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::ContainerFactory::NewMpegTs(iMediaPlayer->MimeTypes()));
 
     // Add codecs
+    static const TUint kDsdSampleBlockWords = 6; // Specifies if the test player outputs DSD as 16xL, 16xR [32 bits = 1 word] or 4 x (24xL, 24xR) [192 bits = 6]
+    static const TUint kDsdPaddingBytes = 2;
     iMediaPlayer->Add(Codec::CodecFactory::NewFlac(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewWav(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAiff(iMediaPlayer->MimeTypes()));
@@ -397,8 +399,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewAacFdkMp4(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAacFdkAdts(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAlacApple(iMediaPlayer->MimeTypes()));
-    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDsf(iMediaPlayer->MimeTypes()));
-    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDff(iMediaPlayer->MimeTypes()));
+    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDsf(iMediaPlayer->MimeTypes(), kDsdSampleBlockWords, kDsdPaddingBytes));
+    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDff(iMediaPlayer->MimeTypes(), kDsdSampleBlockWords, kDsdPaddingBytes));
     iMediaPlayer->Add(Codec::CodecFactory::NewPcm());
     iMediaPlayer->Add(Codec::CodecFactory::NewDsdRaw());
     iMediaPlayer->Add(Codec::CodecFactory::NewVorbis(iMediaPlayer->MimeTypes()));
@@ -407,6 +409,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewRaop());
     // Add MP3 codec last, as it can cause false-positives (with RAOP in particular).
     iMediaPlayer->Add(Codec::CodecFactory::NewMp3(iMediaPlayer->MimeTypes()));
+    // iMediaPlayer->Add(Codec::CodecFactory::NewDsdDff(iMediaPlayer->MimeTypes())); This line was included when modification began, but is defined above.
 
     // Add protocol modules (Radio source can require several stacked Http instances)
     static const TUint kNumHttpProtocols = 5;

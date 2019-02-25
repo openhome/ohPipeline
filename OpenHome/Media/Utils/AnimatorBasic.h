@@ -48,7 +48,7 @@ private: // from IPullableClock
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override;
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
-    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
+    TUint PipelineAnimatorDsdBlockSizeWords() const override;
 private:
     IPipeline& iPipeline;
     Semaphore iSem;

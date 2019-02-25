@@ -184,14 +184,16 @@ public:
     * @param[in] aData             DSD audio data.  Must contain an exact number of samples.
     * @param[in] aChannels         Number of channels.
     * @param[in] aSampleRate       Sample rate.
-    * @param[in] aSampleBlockBits  Block size (in bits) of DSD data.  2 for stereo where left/right
-    *                              channels are interleaved, 16 for stereo with one byte of left
-    *                              subsamples followed by one byte of right subsamples, etc.
+    * @param[in] aSampleBlockWords Block size (in words) of DSD data.  The minimum required output
+    *                              of DSD data is 16bits x left, 16bits x right, so any valid 
+    *                              output must be a multiple of this convention.
+    * @param[in] aPadBytesPerChunk  The number of bytes padding present for every word of playable data.
+    *                              If aPadBytesPerChunk = 2, the total chunk size will be 6 bytes, (4 bytes playable + padding)
     * @param[in] aTrackOffset      Offset (in jiffies) into the stream at the start of aData.
     *
     * @return     Number of jiffies of audio contained in aData.
     */
-    virtual TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) = 0;
+    virtual TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk) = 0;
     /**
     * Add a block of decoded (DSD) audio to the pipeline.
     *
@@ -200,14 +202,17 @@ public:
     * @param[in] aMsg              Returned from ReadNextMsg().
     * @param[in] aChannels         Number of channels.  Must be in the range [1..2].
     * @param[in] aSampleRate       Sample rate.
-    * @param[in] aSampleBlockBits  Block size (in bits) of DSD data.  2 for stereo where left/right
-    *                              channels are interleaved, 16 for stereo with one byte of left
-    *                              subsamples followed by one byte of right subsamples, etc.
+    * @param[in] aSampleBlockWords Block size (in words) of DSD data including any padding applied by the codecs. 
+    *                              There is a 1 word (4 byte) minimum for any DSD data. Where 32 bits are 
+    *                              assigned for a stereo sample pair (16 bits x R, 16 bits x R). 
+    *                              BlockSize will increase depending on padding applied and the output method.
+    * @param[in] aPadBytesPerChunk  The number of bytes padding present for every word of playable data.
+    *                              If aPadBytesPerChunk = 2, the total chunk size will be 6 bytes, (4 bytes playable + padding)
     * @param[in] aTrackOffset      Offset (in jiffies) into the stream at the start of aData.
     *
     * @return     Number of jiffies of audio contained in aMsg.
     */
-    virtual TUint64 OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) = 0;
+    virtual TUint64 OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk) = 0;
     /**
      * Notify the pipeline of a change in bit rate.
      *
@@ -270,12 +275,12 @@ public:
     TBool AnalogBypass() const;
     const Brx& CodecName() const;
     TBool Lossless() const;
-    TUint DsdSampleBlockBits() const;
+    TUint SampleBlockWords() const;
 private:
     EncodedStreamInfo();
     void SetPcm(TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, AudioDataEndian aEndian, SpeakerProfile aProfile,
                 TUint64 aStartSample, TBool aAnalogBypass, const Brx& aCodecName, TBool aLossless);
-    void SetDsd(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint64 aStartSample, const Brx& aCodecName);
+    void SetDsd(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockWords, TUint64 aStartSample, const Brx& aCodecName);
 private:
     Format iFormat;
     TBool iAnalogBypass;
@@ -283,7 +288,7 @@ private:
     TUint iBitDepth;
     TUint iSampleRate;
     TUint iNumChannels;
-    TUint iDsdSampleBlockBits;
+    TUint iDsdSampleBlockWords;
     AudioDataEndian iEndian;
     SpeakerProfile iProfile;
     TUint64 iStartSample;
@@ -410,8 +415,8 @@ private: // ICodecController
     void OutputDelay(TUint aJiffies) override;
     TUint64 OutputAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset) override;
     TUint64 OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset) override;
-    TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) override;
-    TUint64 OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset) override;
+    TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk) override;
+    TUint64 OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk) override;
     void OutputBitRate(TUint aBitRate) override;
     void OutputWait() override;
     void OutputHalt() override;

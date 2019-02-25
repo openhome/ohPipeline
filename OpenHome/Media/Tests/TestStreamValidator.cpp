@@ -90,7 +90,7 @@ private: // from IMsgProcessor
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override;
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
-    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
+    TUint PipelineAnimatorDsdBlockSizeWords() const override;
 private: // from IStreamHandler
     EStreamPlay OkToPlay(TUint aStreamId) override;
     TUint TrySeek(TUint aStreamId, TUint64 aOffset) override;
@@ -216,7 +216,7 @@ void SuiteStreamValidator::PushMsg(EMsgType aType)
     case EMsgAudioDsd:
     {
         Brn audioBuf(iAudioData, sizeof(iAudioData));
-        auto msgDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, kChannels, kSampleRateDsd, 2, iTrackOffsetTx);
+        auto msgDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, kChannels, kSampleRateDsd, 2, iTrackOffsetTx, 0);
         iTrackOffsetTx += msgDsd->Jiffies();
         msg = msgDsd;
     }
@@ -494,7 +494,7 @@ TUint SuiteStreamValidator::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/
     return Jiffies::kPerMs * 5;
 }
 
-TUint SuiteStreamValidator::PipelineAnimatorDsdBlockSizeBytes() const
+TUint SuiteStreamValidator::PipelineAnimatorDsdBlockSizeWords() const
 {
     return 1;
 }

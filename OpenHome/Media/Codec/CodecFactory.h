@@ -1,4 +1,5 @@
 #pragma once
+#include <OpenHome/OhNetTypes.h> 
 
 namespace OpenHome {
 namespace Av {
@@ -20,8 +21,8 @@ public:
     static CodecBase* NewAlacApple(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewFlac(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewMp3(IMimeTypeList& aMimeTypeList);
-    static CodecBase* NewDsdDsf(IMimeTypeList& aMimeTypeList);
-    static CodecBase* NewDsdDff(IMimeTypeList& aMimeTypeList);
+    static CodecBase* NewDsdDsf(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, TUint aPaddingBytes);
+    static CodecBase* NewDsdDff(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, TUint aPaddingBytes);
     static CodecBase* NewPcm();
     static CodecBase* NewDsdRaw();
     static CodecBase* NewRaop();

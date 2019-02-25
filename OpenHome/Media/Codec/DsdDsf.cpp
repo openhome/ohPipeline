@@ -21,19 +21,19 @@ class CodecDsdDsf : public CodecBase
 private:
     static const TUint kDataBlockBytes = 4096;
     static const TUint kInputBufMaxBytes = 2*kDataBlockBytes; // 2 channels
-    static const TUint kOutputBufMaxBytes = kInputBufMaxBytes; 
-
     static const TUint kSubSamplesPerByte = 8;
     static const TUint kSamplesPerByte = kSubSamplesPerByte/2;
-    static const TUint64 kSampleBlockRoundingMask = ~((kInputBufMaxBytes*kSamplesPerByte)-1);  
+    static const TUint64 kSampleBlockRoundingMask = ~((kInputBufMaxBytes*kSamplesPerByte)-1);
+    static const TUint kPlayableBytesPerChunk = 4;
 
     static const TUint64 kChunkHeaderBytes = 12;
     static const TUint64 kChunkDsdBytes = 28;
-
-    static const TUint kSampleBlockBits = 32; // audio is written out as 16x left, then 16x right
+    static const TUint kChunkDataSize = 4;
+    static const TUint kDsdChunkDataSize = 24;
+    static const TUint kHeaderChunkDataSize = 8;
 
 public:
-    CodecDsdDsf(IMimeTypeList& aMimeTypeList);
+    CodecDsdDsf(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, TUint aPadBytesPerChunk);
 private: // from CodecBase
     TBool Recognise(const EncodedStreamInfo& aStreamInfo) override;
     void StreamInitialise() override;
@@ -49,6 +49,7 @@ private:
     TBool ReadChunkId(const OpenHome::Brx& aBuf);
     void SendMsgDecodedStream(TUint64 aStartSample);
     TBool StreamIsValid() const;
+    inline void WriteBlock(TByte*& aDest, const TByte*& aLeftPtr, const TByte*& aRightPtr, TUint aNumChunks);
     void TransferToOutputBuffer();
     void CheckReinterleave();
     void ShowBufLeader() const;
@@ -60,7 +61,7 @@ private:
 
 private:
     Bws<kInputBufMaxBytes> iInputBuffer;
-    Bws<kOutputBufMaxBytes> iOutputBuffer; 
+    Bwh iOutputBuffer;
     TUint iChannelCount;
     TUint iSampleRate;
     TUint iBitDepth;
@@ -79,6 +80,9 @@ private:
     TUint64 iAudioBytesTotalPlayable;
     TBool iInitialAudio;
     TUint64 iChunkFmtBytes;
+    const TUint iSampleBlockWords;
+    const TUint iPadBytesPerChunk;
+    const TUint iTotalBytesPerChunk;
 };
 
 } // namespace Codec
@@ -89,14 +93,19 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 using namespace OpenHome::Media::Codec;
 
-CodecBase* CodecFactory::NewDsdDsf(IMimeTypeList& aMimeTypeList)
+CodecBase* CodecFactory::NewDsdDsf(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, TUint aPadBytesPerChunk)
 { // static
-    return new CodecDsdDsf(aMimeTypeList);
+    return new CodecDsdDsf(aMimeTypeList, aSampleBlockWords, aPadBytesPerChunk);
 }
 
-CodecDsdDsf::CodecDsdDsf(IMimeTypeList& aMimeTypeList)
-    :CodecBase("DSD-DSF", kCostLow)
+CodecDsdDsf::CodecDsdDsf(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, TUint aPadBytesPerChunk)
+    : CodecBase("DSD-DSF", kCostLow)
+    , iOutputBuffer(AudioData::kMaxBytes)
+    , iSampleBlockWords(aSampleBlockWords)
+    , iPadBytesPerChunk(aPadBytesPerChunk)
+    , iTotalBytesPerChunk(kPlayableBytesPerChunk + aPadBytesPerChunk)
 {
+    ASSERT((iSampleBlockWords * 4) % iTotalBytesPerChunk == 0);
     aMimeTypeList.Add("audio/dsf");
     aMimeTypeList.Add("audio/x-dsf");
 }
@@ -152,51 +161,83 @@ void CodecDsdDsf::StreamInitialise()
     iTrackStart = 0;
     iTrackOffsetJiffies = 0;
     iInputBuffer.SetBytes(0);
-    iOutputBuffer.SetBytes(iOutputBuffer.MaxBytes());
+    iOutputBuffer.SetBytes(0);
 
     iInitialAudio = true;
+}
+
+inline void CodecDsdDsf::WriteBlock(TByte*& aDest, const TByte*& aLeftPtr, const TByte*& aRightPtr, TUint aNumChunks)
+{
+    // padding is MSB and PCM silence in case stream is passed to an Exakt device that tries to play it as PCM
+
+    TUint paddingByte = iPadBytesPerChunk / 2;
+    for (TUint i = 0; i < aNumChunks; i++)
+    {
+        for (TUint i = 0; i < paddingByte; i++) {
+            *aDest++ = 0x00; // padding
+        }
+        *aDest++ = ReverseBits8(*aLeftPtr++);
+        *aDest++ = ReverseBits8(*aLeftPtr++);
+
+        for (TUint i = 0; i < paddingByte; i++) {
+            *aDest++ = 0x00; // padding
+        }
+        *aDest++ = ReverseBits8(*aRightPtr++);
+        *aDest++ = ReverseBits8(*aRightPtr++);
+    }
 }
 
 void CodecDsdDsf::TransferToOutputBuffer()
 {
     const TByte* lPtr = iInputBuffer.Ptr();
     const TByte* rPtr = lPtr + kDataBlockBytes;
-    TByte* oPtr = const_cast<TByte*>(iOutputBuffer.Ptr());
+    TByte* dest = const_cast<TByte*>(iOutputBuffer.Ptr() + iOutputBuffer.Bytes());
+    // numChunks represents how many stereo pairs of samples make up a sampleBlock (how many groups of 16xR, 16xR)
+    const TUint numChunks = iSampleBlockWords - iPadBytesPerChunk;
+    TUint inputChunks = iInputBuffer.Bytes() / kPlayableBytesPerChunk;
 
-    TUint loopCount = kDataBlockBytes/2;
+    do {
+        TUint outputChunks = iOutputBuffer.BytesRemaining() / iTotalBytesPerChunk;
+        TUint remainingChunks = std::min(inputChunks, outputChunks);
+        TUint numBlocks = remainingChunks / numChunks;
 
-    for (TUint i = 0 ; i < loopCount ; ++i) {
-        // pack left channel
-        *oPtr++ = ReverseBits8(*lPtr++);
-        *oPtr++ = ReverseBits8(*lPtr++);
-        // pack right channel
-        *oPtr++ = ReverseBits8(*rPtr++);
-        *oPtr++ = ReverseBits8(*rPtr++);
-    }
-
-    if (iAudioBytesRemaining==0) // end of stream, truncate if padding present
-    {
-        const TUint audioBytesPadding = (TUint)(iAudioBytesTotal-iAudioBytesTotalPlayable);
-        
-        TUint outputBufferBytes = iOutputBuffer.MaxBytes()-audioBytesPadding; 
-        
-        //Log::Print("CodecDsdDsf::TransferToOutputBuffer()  iAudioBytesTotal=%llx    iAudioBytesTotalPlayable=%llx     outputBufferBytes=%x  ######################################\n", iAudioBytesTotal, iAudioBytesTotalPlayable, outputBufferBytes);
-
-        ASSERT ( (outputBufferBytes%2) == 0); // this shouldn't happen 
-        
-        if ( (outputBufferBytes%4) != 0) // stream ends with only a half a word
+        for (TUint i = 0; i < numBlocks; i++)
         {
-            //Log::Print("CodecDsdDsf::TransferToOutputBuffer()   padding partial word at end of stream  ########################## \n");
-            // Pad partial end word, (DSD) with silence, to make a full word
-            const TByte kDsdSilence = 0x69;
-            outputBufferBytes += 2; // increase output byte count to accommodate padding
-            iOutputBuffer[outputBufferBytes-1] = kDsdSilence; // left channel
-            iOutputBuffer[outputBufferBytes-3] = kDsdSilence; // right channel
+            WriteBlock(dest, lPtr, rPtr, numChunks);
+        }
+        iOutputBuffer.SetBytes(iOutputBuffer.Bytes() + (remainingChunks * iTotalBytesPerChunk));
+        outputChunks -= remainingChunks;
+        inputChunks -= remainingChunks;
+
+        if (iAudioBytesRemaining == 0 && inputChunks == 0) // All audio has been transferred to output buffer.
+        {
+            TUint sampleBlockBytes = iSampleBlockWords * 4;
+            TUint outputBufferBytes = iOutputBuffer.Bytes();
+            TUint remainingBytes = iOutputBuffer.Bytes() % sampleBlockBytes;
+
+            if (remainingBytes != 0)
+            {
+                // Pad partial end block with DSD silence to make a full block
+                const TByte kDsdSilence = 0x69;
+                TUint paddingBytes = sampleBlockBytes - remainingBytes;
+                iOutputBuffer.SetBytes(outputBufferBytes + paddingBytes);
+                for (TUint i = 0; i < paddingBytes; i++)
+                {
+                    iOutputBuffer[outputBufferBytes++] = kDsdSilence;
+                }
+            }
+            iOutputBuffer.SetBytes(outputBufferBytes);
+            outputChunks = 0;
         }
 
-        iOutputBuffer.SetBytes(outputBufferBytes); // discard audio padding bytes
-        //LogBuf(iOutputBuffer);
-    }
+        if (outputChunks == 0)
+        {
+            iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, iSampleBlockWords, iTrackOffsetJiffies, iPadBytesPerChunk);
+            iOutputBuffer.SetBytes(0);
+            dest = const_cast<TByte*>(iOutputBuffer.Ptr());
+        }
+
+    } while (inputChunks > 0);
 }
 
 void CodecDsdDsf::LogBuf(const Brx& aBuf)
@@ -244,8 +285,15 @@ void CodecDsdDsf::Process()
         }
 
         iInputBuffer.SetBytes(0);
-        iController->Read(iInputBuffer, std::min(iInputBuffer.MaxBytes(), (TUint32)iAudioBytesRemaining) );
-        iAudioBytesRemaining -= kInputBufMaxBytes;
+        iController->Read(iInputBuffer, std::min(iInputBuffer.MaxBytes(), (TUint32)iAudioBytesRemaining));
+        if (iAudioBytesRemaining >= kInputBufMaxBytes)
+        {
+            iAudioBytesRemaining -= kInputBufMaxBytes;
+        }
+        else
+        {
+            iAudioBytesRemaining = 0;
+        }
 
         TransferToOutputBuffer();
 
@@ -253,9 +301,6 @@ void CodecDsdDsf::Process()
             //ShowBufLeader();
             iInitialAudio = false;
         }
-
-        iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iChannelCount, iSampleRate, kSampleBlockBits, iTrackOffsetJiffies);
-
     }
 }
 
@@ -267,17 +312,17 @@ TBool CodecDsdDsf::TrySeek(TUint aStreamId, TUint64 aSample)
     ASSERT(bytePos%kInputBufMaxBytes==0);
 
 
-    TUint64 headerBytes = kChunkDsdBytes+iChunkFmtBytes+kChunkHeaderBytes; 
+    TUint64 headerBytes = kChunkDsdBytes+iChunkFmtBytes+kChunkHeaderBytes;
 
     if (!iController->TrySeekTo(aStreamId, bytePos+headerBytes))
     {
         return false;
     }
-    
+
     iTrackOffsetJiffies = (TUint64)aSample * Jiffies::PerSample(iSampleRate);
 
     iAudioBytesRemaining = iAudioBytesTotal-bytePos;
-    
+
     iInputBuffer.SetBytes(0);
     SendMsgDecodedStream(aSample);
 
@@ -319,9 +364,9 @@ void CodecDsdDsf::ProcessDsdChunk()
     //This isn't a track corrupt issue as it was previously checked by Recognise
     ASSERT(ReadChunkId(Brn("DSD "))); // sets iInputBuffer bytes to 0
 
-    iController->Read(iInputBuffer, 24);
+    iController->Read(iInputBuffer, kDsdChunkDataSize);
 
-    if(LeUint64At(iInputBuffer, 4) != kChunkDsdBytes) //DSD chunk size must be 28
+    if(LeUint64At(iInputBuffer, kChunkDataSize) != kChunkDsdBytes) //DSD chunk size must be 28
     {
         THROW(CodecStreamCorrupt);
     }
@@ -336,9 +381,9 @@ void CodecDsdDsf::ProcessFmtChunk()
         THROW(CodecStreamCorrupt);
     }
 
-    iController->Read(iInputBuffer, 8);
+    iController->Read(iInputBuffer, kHeaderChunkDataSize);
 
-    iChunkFmtBytes = LeUint64At(iInputBuffer, 4);
+    iChunkFmtBytes = LeUint64At(iInputBuffer, kChunkDataSize);
     TUint64 chunkFmtDataBytes = iChunkFmtBytes-kChunkHeaderBytes;
 
     // Read in remainder of "fmt " chunk.
@@ -358,8 +403,8 @@ void CodecDsdDsf::ProcessFmtChunk()
     {
         iSampleCount &= ~(0x7);
         Log::Print("CodecDsdDsf::ProcessFmtChunk  stream contains a partial 8 bit sample block - truncating, may cause glitch \n");
-    }   
-    
+    }
+
     iAudioBytesTotalPlayable = 2*(iSampleCount/8);  // *2/8  (2 channels, 8 samples per byte)
 
     if (!StreamIsValid())
@@ -376,9 +421,9 @@ void CodecDsdDsf::ProcessDataChunk()
         THROW(CodecStreamCorrupt);
     }
 
-    iController->Read(iInputBuffer, 8);
+    iController->Read(iInputBuffer, kHeaderChunkDataSize);
 
-    iAudioBytesTotal = LeUint64At(iInputBuffer, 4)-kChunkHeaderBytes;
+    iAudioBytesTotal = LeUint64At(iInputBuffer, kChunkDataSize)-kChunkHeaderBytes;
     if ((iAudioBytesTotal%2) !=0)
     {
         THROW(CodecStreamCorrupt);
@@ -417,7 +462,7 @@ TUint8 CodecDsdDsf::ReverseBits8(TUint8 aData)
 TBool CodecDsdDsf::ReadChunkId(const Brx& aId)
 {
     iInputBuffer.SetBytes(0);
-    iController->Read(iInputBuffer, 4);
+    iController->Read(iInputBuffer, kChunkDataSize);
 
     return (iInputBuffer == aId);
 }

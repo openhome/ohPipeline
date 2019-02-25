@@ -1295,11 +1295,11 @@ DsdStreamInfo::DsdStreamInfo()
     Clear();
 }
 
-void DsdStreamInfo::Set(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint64 aStartSample)
+void DsdStreamInfo::Set(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockWords, TUint64 aStartSample)
 {
     iSampleRate = aSampleRate;
     iNumChannels = aNumChannels;
-    iSampleBlockBits = aSampleBlockBits;
+    iSampleBlockWords = aSampleBlockWords;
     iStartSample = aStartSample;
 }
 
@@ -1312,7 +1312,7 @@ void DsdStreamInfo::Clear()
 {
     iSampleRate = 0;
     iNumChannels = 0;
-    iSampleBlockBits = 0;
+    iSampleBlockWords = 0;
     iStartSample = 0LL;
     iCodecName.Replace(Brx::Empty());
 }
@@ -1322,9 +1322,9 @@ TUint DsdStreamInfo::SampleRate() const
     return iSampleRate;
 }
 
-TUint DsdStreamInfo::SampleBlockBits() const
+TUint DsdStreamInfo::SampleBlockWords() const
 {
-    return iSampleBlockBits;
+    return iSampleBlockWords;
 }
 
 TUint DsdStreamInfo::NumChannels() const
@@ -1346,7 +1346,7 @@ void DsdStreamInfo::operator=(const DsdStreamInfo &aInfo)
 {
     iSampleRate      = aInfo.SampleRate();
     iNumChannels     = aInfo.NumChannels();
-    iSampleBlockBits = aInfo.SampleBlockBits();
+    iSampleBlockWords = aInfo.SampleBlockWords();
     iStartSample     = aInfo.StartSample();
     iCodecName.Replace(aInfo.CodecName());
 }
@@ -2030,6 +2030,8 @@ void MsgAudioDecoded::Aggregate(MsgAudioDecoded* aMsg)
     iAudioData->Aggregate(*(aMsg->iAudioData));
     iSize += aMsg->Jiffies();
     aMsg->RemoveRef();
+
+    AggregateComplete();
 }
 
 TUint64 MsgAudioDecoded::TrackOffset() const
@@ -2046,7 +2048,12 @@ MsgAudio* MsgAudioDecoded::Clone()
 {
     MsgAudioDecoded* clone = static_cast<MsgAudioDecoded*>(MsgAudio::Clone());
     clone->iAudioData = iAudioData;
-    clone->iAllocatorPlayableSilence = iAllocatorPlayableSilence;
+    if (iAllocatorPlayableSilence != nullptr) {
+        clone->iAllocatorPlayableSilence = iAllocatorPlayableSilence;
+    }
+    else {
+        clone->iAllocatorPlayableSilenceDsd = iAllocatorPlayableSilenceDsd;
+    }
     clone->iTrackOffset = iTrackOffset;
     iAudioData->AddRef();
     return clone;
@@ -2058,8 +2065,24 @@ void MsgAudioDecoded::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate,
 {
     MsgAudio::Initialise(aSampleRate, aBitDepth, aChannels);
     iAllocatorPlayableSilence = &aAllocatorPlayableSilence;
+    iAllocatorPlayableSilenceDsd = nullptr;
     iAudioData = aDecodedAudio;
     iTrackOffset = aTrackOffset;
+    ASSERT(aNumSubsamples % iNumChannels == 0);
+    iSize = (aNumSubsamples / iNumChannels) * Jiffies::PerSample(iSampleRate);
+    ASSERT(iSize > 0);
+    iOffset = 0;
+}
+
+void MsgAudioDecoded::InitialiseDsd(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords, 
+                                    TUint64 aTrackOffset, TUint aNumSubsamples, Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayableSilenceDsd)
+{
+    MsgAudio::Initialise(aSampleRate, 1, aChannels);
+    iAllocatorPlayableSilenceDsd = &aAllocatorPlayableSilenceDsd;
+    iAllocatorPlayableSilence = nullptr;
+    iAudioData = aDecodedAudio;
+    iTrackOffset = aTrackOffset;
+    iSampleBlockWords = aSampleBlockWords;
     ASSERT(aNumSubsamples % iNumChannels == 0);
     iSize = (aNumSubsamples / iNumChannels) * Jiffies::PerSample(iSampleRate);
     ASSERT(iSize > 0);
@@ -2072,7 +2095,12 @@ void MsgAudioDecoded::SplitCompleted(MsgAudio& aRemaining)
     MsgAudioDecoded& remaining = static_cast<MsgAudioDecoded&>(aRemaining);
     remaining.iAudioData = iAudioData;
     remaining.iTrackOffset = iTrackOffset + iSize;
-    remaining.iAllocatorPlayableSilence = iAllocatorPlayableSilence;
+    if (iAllocatorPlayableSilence != nullptr) {
+        remaining.iAllocatorPlayableSilence = iAllocatorPlayableSilence;
+    }
+    else {
+        remaining.iAllocatorPlayableSilenceDsd = iAllocatorPlayableSilenceDsd;
+    }
 }
 
 void MsgAudioDecoded::Clear()
@@ -2080,6 +2108,11 @@ void MsgAudioDecoded::Clear()
     MsgAudio::Clear();
     iAudioData->RemoveRef();
     iTrackOffset = kTrackOffsetInvalid;
+}
+
+void MsgAudioDecoded::AggregateComplete()
+{
+    // Nothing to do by default.
 }
 
 
@@ -2178,43 +2211,66 @@ void MsgAudioPcm::SetAttenuation(TUint aAttenuation)
 
 MsgAudioDsd::MsgAudioDsd(AllocatorBase& aAllocator)
     : MsgAudioDecoded(aAllocator)
+    , iSampleBlockWords(0)
+    , iBlockWordsNoPad(0)
+    , iSizeTotalJiffies(0)
+    , iJiffiesNonPlayable(0)
 {
+}
+
+TUint MsgAudioDsd::JiffiesNonPlayable()
+{
+    return iJiffiesNonPlayable;
+}
+
+TUint MsgAudioDsd::SizeTotalJiffies()
+{
+    return iSizeTotalJiffies;
 }
 
 MsgAudio* MsgAudioDsd::Clone()
 {
     auto clone = static_cast<MsgAudioDsd*>(MsgAudioDecoded::Clone());
     clone->iAllocatorPlayableDsd = iAllocatorPlayableDsd;
-    clone->iSampleBlockBits = iSampleBlockBits;
+    clone->iSampleBlockWords = iSampleBlockWords;
+    clone->iBlockWordsNoPad = iBlockWordsNoPad;
+    clone->iSizeTotalJiffies = iSizeTotalJiffies;
+    clone->iJiffiesNonPlayable = iJiffiesNonPlayable;
     return clone;
 }
 
 MsgPlayable* MsgAudioDsd::CreatePlayable()
 {
-    TUint offsetJiffies = iOffset;
+    // (Mostly) taken from MsgAudioPcm::CreatePlayable(). Round down size and offset if they don't fall on a sample block boundary.
     const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-    TUint offsetBytes = Jiffies::ToBytes(offsetJiffies, jiffiesPerSample, iNumChannels, 1);
-    const TUint sampleBlockBytes = (iSampleBlockBits + 7) / 8;
-    offsetBytes -= offsetBytes % sampleBlockBytes;
-    TUint sizeJiffies = iSize + (iOffset - offsetJiffies);
-    TUint sizeBytes = Jiffies::ToBytes(sizeJiffies, jiffiesPerSample, iNumChannels, 1);
-    sizeBytes -= sizeBytes % sampleBlockBytes;
-    // both size & offset will be rounded down if they don't fall on a block boundary
-    // we don't risk losing any data doing this as the start and end of each DecodedAudio's data fall on block boundaries
+    const TUint jiffiesPerSampleBlockPlayable = JiffiesPerSampleBlockPlayable();
+    const TUint jiffiesPerSampleBlockTotal = JiffiesPerSampleBlockTotal();
+
+    // Calculate offset jiffies.
+    TUint offsetJiffiesTotal = JiffiesPlayableToJiffiesTotal(iOffset, jiffiesPerSampleBlockPlayable);
+    // Calculate offset bytes.
+    const TUint offsetBytes = ToBytes(offsetJiffiesTotal, jiffiesPerSample, jiffiesPerSampleBlockTotal);
+
+    // Calculate size jiffies.
+    TUint sizeJiffiesTotal = iSizeTotalJiffies;
+    // Calculate size bytes.
+    const TUint sizeBytes = ToBytes(sizeJiffiesTotal, jiffiesPerSample, jiffiesPerSampleBlockTotal);
+
+    // Log::Print("MsgAudioDsd::CreatePlayable(), iOffset: %u, sizeBytes %u, offsetBytes %u, sizeJiffiesTotal: %u, iSize: %u, iSampleRate: %u, iAudioData->Bytes(): %u\n", iOffset, sizeBytes, offsetBytes, sizeJiffiesTotal, iSize, iSampleRate, iAudioData->Bytes());
 
     MsgPlayable* playable;
     if (iRamp.Direction() != Ramp::EMute) {
         auto playableDsd = iAllocatorPlayableDsd->Allocate();
         Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
         playableDsd->Initialise(iAudioData, sizeBytes, iSampleRate, iNumChannels,
-                                iSampleBlockBits, offsetBytes, iRamp, bufferObserver);
+                                iSampleBlockWords, offsetBytes, iRamp, bufferObserver);
         playable = playableDsd;
     }
     else {
-        MsgPlayableSilence* silence = iAllocatorPlayableSilence->Allocate();
+        MsgPlayableSilenceDsd* silence = iAllocatorPlayableSilenceDsd->Allocate();
         Media::Ramp noRamp;
         Optional<IPipelineBufferObserver> bufferObserver(iPipelineBufferObserver);
-        silence->Initialise(sizeBytes, iSampleRate, iBitDepth, iNumChannels, noRamp, bufferObserver);
+        silence->Initialise(sizeBytes, iSampleRate, iBitDepth, iNumChannels, iSampleBlockWords, noRamp, bufferObserver);
         playable = silence;
     }
     iPipelineBufferObserver = nullptr;
@@ -2223,15 +2279,19 @@ MsgPlayable* MsgAudioDsd::CreatePlayable()
 }
 
 void MsgAudioDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels,
-                             TUint aSampleBlockBits, TUint64 aTrackOffset,
+                             TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk,
                              Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
-                             Allocator<MsgPlayableSilence>& aAllocatorPlayableSilence)
+                             Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayableSilenceDsd)
 {
-    const TUint numSubsamples = 8 * aDecodedAudio->Bytes();
-    MsgAudioDecoded::Initialise(aDecodedAudio, aSampleRate, kBitDepth, aChannels,
-                                aTrackOffset, numSubsamples, aAllocatorPlayableSilence);
+    const TUint msgSubSamples = aDecodedAudio->Bytes() * 8;
+    iBlockWordsNoPad = aSampleBlockWords - aPadBytesPerChunk;
+    const TUint numSubSamples = (msgSubSamples * iBlockWordsNoPad) / aSampleBlockWords; // 1 Subsample per bit for DSD
+    MsgAudioDecoded::InitialiseDsd(aDecodedAudio, aSampleRate, aChannels, aSampleBlockWords,
+                                aTrackOffset, numSubSamples, aAllocatorPlayableSilenceDsd);
     iAllocatorPlayableDsd = &aAllocatorPlayableDsd;
-    iSampleBlockBits = aSampleBlockBits;
+    iSampleBlockWords = aSampleBlockWords;
+    iSizeTotalJiffies = SizeJiffiesTotal();
+    iJiffiesNonPlayable = iSizeTotalJiffies - iSize;
 }
 
 MsgAudio* MsgAudioDsd::Allocate()
@@ -2242,20 +2302,90 @@ MsgAudio* MsgAudioDsd::Allocate()
 void MsgAudioDsd::SplitCompleted(MsgAudio& aRemaining)
 {
     MsgAudioDecoded::SplitCompleted(aRemaining);
+
     MsgAudioDsd& remaining = static_cast<MsgAudioDsd&>(aRemaining);
+
+    iSizeTotalJiffies = SizeJiffiesTotal();
+    iJiffiesNonPlayable = iSizeTotalJiffies - iSize;
     remaining.iAllocatorPlayableDsd = iAllocatorPlayableDsd;
-    remaining.iSampleBlockBits = iSampleBlockBits;
+    remaining.iSampleBlockWords = iSampleBlockWords;
+    remaining.iBlockWordsNoPad = iBlockWordsNoPad;
+    // iSamplesBlockWords, iBlockWordsNoPad and iSize (among other member variables) must be set before SizeJiffiesTotal() can be called.
+    remaining.iSizeTotalJiffies = remaining.SizeJiffiesTotal();
+    remaining.iJiffiesNonPlayable = remaining.iSizeTotalJiffies - remaining.iSize;
 }
 
 void MsgAudioDsd::Clear()
 {
-    iSampleBlockBits = 0;
+    iSampleBlockWords = 0;
+    iBlockWordsNoPad = 0;
+    iSizeTotalJiffies = 0;
+    iJiffiesNonPlayable = 0;
     MsgAudioDecoded::Clear();
 }
 
 Msg* MsgAudioDsd::Process(IMsgProcessor& aProcessor)
 {
     return aProcessor.ProcessMsg(this);
+}
+
+void MsgAudioDsd::AggregateComplete()
+{
+    iSizeTotalJiffies = SizeJiffiesTotal();
+    iJiffiesNonPlayable = iSizeTotalJiffies - iSize;
+}
+
+TUint MsgAudioDsd::ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aJiffiesPerSampleBlock) const
+{
+    aJiffies -= aJiffies % aJiffiesPerSampleBlock;
+    ASSERT(aJiffies % aJiffiesPerSample == 0);
+    const TUint numSamples = aJiffies / aJiffiesPerSample;
+    const TUint numSubsamples = numSamples * iNumChannels;
+    const TUint bits = (numSubsamples * iBitDepth);
+    ASSERT(bits % 8 == 0);
+    const TUint bytes = (bits + 7) / 8;
+    return bytes;
+}
+
+TUint MsgAudioDsd::JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesPerSampleBlockPlayable) const
+{
+    TUint jiffiesTotal = aJiffies - (aJiffies % aJiffiesPerSampleBlockPlayable);
+    ASSERT(jiffiesTotal % iBlockWordsNoPad == 0);
+    jiffiesTotal /= iBlockWordsNoPad;
+    jiffiesTotal *= iSampleBlockWords;
+    return jiffiesTotal;
+}
+
+TUint MsgAudioDsd::JiffiesPerSampleBlockPlayable() const
+{
+    const TUint jiffies = (iBlockWordsNoPad * 4) * 8 * Jiffies::PerSample(iSampleRate);
+    return jiffies;
+}
+
+TUint MsgAudioDsd::JiffiesPerSampleBlockTotal() const
+{
+    const TUint jiffies = (iSampleBlockWords * 4) * 8 * Jiffies::PerSample(iSampleRate);
+    return jiffies;
+}
+
+TUint MsgAudioDsd::SizeJiffiesTotal() const
+{
+    const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
+    const TUint jiffiesPerSampleBlockPlayable = JiffiesPerSampleBlockPlayable();
+    const TUint jiffiesPerSampleBlockTotal = JiffiesPerSampleBlockTotal();
+    // Calculate offset jiffies playable.
+    const TUint offsetJiffiesPlayable = iOffset - (iOffset % jiffiesPerSampleBlockPlayable);
+    // Calculate size jiffies.
+    const TUint sizeJiffiesPlayable = iSize + (iOffset - offsetJiffiesPlayable);
+    // Log::Print("MsgAudioDsd::SizeJiffiesTotal offsetJiffiesPlayable: %u, sizeJiffiesPlayable: %u, iSize: %u, iOffset: %u\n", offsetJiffiesPlayable, sizeJiffiesPlayable, iSize, iOffset);
+    TUint sizeJiffiesTotal = JiffiesPlayableToJiffiesTotal(sizeJiffiesPlayable, jiffiesPerSampleBlockPlayable);
+    // Log::Print("MsgAudioDsd::SizeJiffiesTotal sizeJiffiesTotal: %u\n", sizeJiffiesTotal);
+    (void)ToBytes(sizeJiffiesTotal, jiffiesPerSample, jiffiesPerSampleBlockTotal);
+    if (iSize > sizeJiffiesTotal)
+    {
+        sizeJiffiesTotal = 0;
+    }
+    return sizeJiffiesTotal;
 }
 
 
@@ -2276,17 +2406,33 @@ MsgPlayable* MsgSilence::CreatePlayable()
     // both size & offset will be rounded down if they don't fall on a sample boundary
     // we don't risk losing any data doing this as each original MsgSilence had an integer number of samples
 
-    MsgPlayableSilence* playable = iAllocatorPlayable->Allocate();
-    Optional<IPipelineBufferObserver> bufferObserver(nullptr);
-    playable->Initialise(sizeBytes, iSampleRate, iBitDepth, iNumChannels, iRamp, bufferObserver);
-    RemoveRef();
-    return playable;
+    if (iAllocatorPlayablePcm != nullptr)
+    {
+        MsgPlayableSilence* playable = iAllocatorPlayablePcm->Allocate();
+        Optional<IPipelineBufferObserver> bufferObserver(nullptr);
+        playable->Initialise(sizeBytes, iSampleRate, iBitDepth, iNumChannels, iRamp, bufferObserver);
+        RemoveRef();
+        return playable;
+    }
+    else
+    {
+        MsgPlayableSilenceDsd* playable = iAllocatorPlayableDsd->Allocate();
+        Optional<IPipelineBufferObserver> bufferObserver(nullptr);
+        playable->Initialise(sizeBytes, iSampleRate, iBitDepth, iNumChannels, iSampleBlockWords, iRamp, bufferObserver);
+        RemoveRef();
+        return playable;
+    }
 }
 
 MsgAudio* MsgSilence::Clone()
 {
     MsgSilence* clone = static_cast<MsgSilence*>(MsgAudio::Clone());
-    clone->iAllocatorPlayable = iAllocatorPlayable;
+    if (iAllocatorPlayablePcm != nullptr) {
+        clone->iAllocatorPlayablePcm = iAllocatorPlayablePcm;
+    }
+    else {
+        clone->iAllocatorPlayableDsd = iAllocatorPlayableDsd;
+    }
     return clone;
 }
 
@@ -2303,13 +2449,19 @@ Msg* MsgSilence::Process(IMsgProcessor& aProcessor)
 void MsgSilence::SplitCompleted(MsgAudio& aRemaining)
 {
     MsgSilence& remaining = static_cast<MsgSilence&>(aRemaining);
-    remaining.iAllocatorPlayable = iAllocatorPlayable;
+    if (iAllocatorPlayablePcm != nullptr) {
+        remaining.iAllocatorPlayablePcm = iAllocatorPlayablePcm;
+    }
+    else {
+        remaining.iAllocatorPlayableDsd = iAllocatorPlayableDsd;
+    }
 }
 
 void MsgSilence::Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels, Allocator<MsgPlayableSilence>& aAllocatorPlayable)
 {
     MsgAudio::Initialise(aSampleRate, aBitDepth, aChannels);
-    iAllocatorPlayable = &aAllocatorPlayable;
+    iAllocatorPlayablePcm = &aAllocatorPlayable;
+    iAllocatorPlayableDsd = nullptr;
     TUint jiffies = aJiffies;
     Jiffies::RoundDown(jiffies, aSampleRate);
     if (jiffies == 0) {
@@ -2322,11 +2474,13 @@ void MsgSilence::Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth,
     iOffset = 0;
 }
 
-void MsgSilence::InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes, Allocator<MsgPlayableSilence>& aAllocatorPlayable)
+void MsgSilence::InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords, Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayable)
 {
-    ASSERT(aBlockSizeBytes != 0);
+    iSampleBlockWords = aSampleBlockWords;
+    ASSERT(aSampleBlockWords != 0);
     MsgAudio::Initialise(aSampleRate, 1, aChannels);
-    iAllocatorPlayable = &aAllocatorPlayable;
+    iAllocatorPlayableDsd = &aAllocatorPlayable;
+    iAllocatorPlayablePcm = nullptr;
     TUint jiffies = aJiffies;
     Jiffies::RoundDown(jiffies, aSampleRate);
     if (jiffies == 0) {
@@ -2334,10 +2488,10 @@ void MsgSilence::InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChanne
     }
     const TUint jiffiesPerSample = Jiffies::PerSample(aSampleRate);
     TUint bytes = Jiffies::ToBytes(jiffies, jiffiesPerSample, aChannels, 1);
-    TUint rounded = bytes - bytes % aBlockSizeBytes;
+    TUint rounded = bytes - bytes % (aSampleBlockWords * 4);
     if (rounded == 0) {
-        rounded = bytes + aBlockSizeBytes - 1;
-        rounded -= rounded % aBlockSizeBytes;
+        rounded = bytes + (aSampleBlockWords * 4) - 1;
+        rounded -= rounded % (aSampleBlockWords * 4);
     }
     const TUint numSamples = (rounded * 8) / aChannels;
     aJiffies = numSamples * jiffiesPerSample;
@@ -2645,21 +2799,21 @@ MsgPlayableDsd::MsgPlayableDsd(AllocatorBase& aAllocator)
 }
 
 void MsgPlayableDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, TUint aSampleRate,
-                                TUint aNumChannels, TUint aSampleBlockBits, TUint aOffsetBytes,
+                                TUint aNumChannels, TUint aSampleBlockWords, TUint aOffsetBytes,
                                 const Media::Ramp& aRamp, Optional<IPipelineBufferObserver> aPipelineBufferObserver)
 {
     MsgPlayable::Initialise(aSizeBytes, aSampleRate, 1, aNumChannels,
                             aOffsetBytes, aRamp, aPipelineBufferObserver);
     iAudioData = aDecodedAudio;
     iAudioData->AddRef();
-    iSampleBlockBits = aSampleBlockBits;
+    iSampleBlockWords = aSampleBlockWords;
 }
 
 void MsgPlayableDsd::ReadBlock(IDsdProcessor& aProcessor)
 {
     Brn audioBuf(iAudioData->Ptr(iOffset), iSize);
     ASSERT(!iRamp.IsEnabled());
-    aProcessor.ProcessFragment(audioBuf, iNumChannels, iSampleBlockBits);
+    aProcessor.ProcessFragment(audioBuf, iNumChannels, iSampleBlockWords);
 }
 
 MsgPlayable* MsgPlayableDsd::Allocate()
@@ -2733,19 +2887,6 @@ void MsgPlayableSilence::ReadBlock(IPcmProcessor& aProcessor)
     } while (remainingBytes > 0);
 }
 
-void MsgPlayableSilence::ReadBlock(IDsdProcessor& aProcessor)
-{
-    static TByte silence[DecodedAudio::kMaxBytes];
-    (void)memset(silence, 0x69, sizeof silence);
-    TUint remainingBytes = iSize;
-    do {
-        TUint bytes = (remainingBytes > DecodedAudio::kMaxBytes ? DecodedAudio::kMaxBytes : remainingBytes);
-        Brn audioBuf(silence, bytes);
-        aProcessor.ProcessFragment(audioBuf, iNumChannels, 2);
-        remainingBytes -= bytes;
-    } while (remainingBytes > 0);
-}
-
 MsgPlayable* MsgPlayableSilence::Allocate()
 {
     return static_cast<Allocator<MsgPlayableSilence>&>(iAllocator).Allocate();
@@ -2754,6 +2895,50 @@ MsgPlayable* MsgPlayableSilence::Allocate()
 void MsgPlayableSilence::SplitCompleted(MsgPlayable& aRemaining)
 {
     MsgPlayableSilence& remaining = static_cast<MsgPlayableSilence&>(aRemaining);
+    remaining.iBitDepth = iBitDepth;
+    remaining.iNumChannels = iNumChannels;
+}
+
+// MsgPlayableSilenceDsd
+
+MsgPlayableSilenceDsd::MsgPlayableSilenceDsd(AllocatorBase& aAllocator)
+    : MsgPlayable(aAllocator)
+{
+}
+
+void MsgPlayableSilenceDsd::Initialise(TUint aSizeBytes, TUint aSampleRate, TUint aBitDepth,
+                                    TUint aNumChannels, TUint aSampleBlockWords, const Media::Ramp& aRamp,
+                                    Optional<IPipelineBufferObserver> aPipelineBufferObserver)
+{
+    MsgPlayable::Initialise(aSizeBytes, aSampleRate, aBitDepth,
+                            aNumChannels, 0, aRamp, aPipelineBufferObserver);
+    iBitDepth = aBitDepth;
+    iNumChannels = aNumChannels;
+    iSampleBlockWords = aSampleBlockWords;
+}
+
+void MsgPlayableSilenceDsd::ReadBlock(IDsdProcessor& aProcessor)
+{
+    static TByte silence[DecodedAudio::kMaxBytes];
+    (void)memset(silence, 0x69, sizeof silence);
+    TUint remainingBytes = iSize;
+    do {
+        TUint bytes = (remainingBytes > DecodedAudio::kMaxBytes ? DecodedAudio::kMaxBytes : remainingBytes);
+        bytes -= (bytes % (iSampleBlockWords * 4));
+        Brn audioBuf(silence, bytes);
+        aProcessor.ProcessFragment(audioBuf, iNumChannels, iSampleBlockWords);
+        remainingBytes -= bytes;
+    } while (remainingBytes > 0);
+}
+
+MsgPlayable* MsgPlayableSilenceDsd::Allocate()
+{
+    return static_cast<Allocator<MsgPlayableSilenceDsd>&>(iAllocator).Allocate();
+}
+
+void MsgPlayableSilenceDsd::SplitCompleted(MsgPlayable& aRemaining)
+{
+    MsgPlayableSilenceDsd& remaining = static_cast<MsgPlayableSilenceDsd&>(aRemaining);
     remaining.iBitDepth = iBitDepth;
     remaining.iNumChannels = iNumChannels;
 }
@@ -3587,6 +3772,7 @@ MsgFactory::MsgFactory(IInfoAggregator& aInfoAggregator, const MsgFactoryInitPar
     , iAllocatorMsgPlayablePcm("MsgPlayablePcm", aInitParams.iMsgPlayablePcmCount, aInfoAggregator)
     , iAllocatorMsgPlayableDsd("MsgPlayableDsd", aInitParams.iMsgPlayableDsdCount, aInfoAggregator)
     , iAllocatorMsgPlayableSilence("MsgPlayableSilence", aInitParams.iMsgPlayableSilenceCount, aInfoAggregator)
+    , iAllocatorMsgPlayableSilenceDsd("MsgPlayableSilenceDsd", aInitParams.iMsgPlayableSilenceCount, aInfoAggregator)
     , iAllocatorMsgQuit("MsgQuit", aInitParams.iMsgQuitCount, aInfoAggregator)
 {
 }
@@ -3757,18 +3943,18 @@ MsgAudioPcm* MsgFactory::CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChann
                              aChannels, aSampleRate, aBitDepth, aTrackOffset);
 }
 
-MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset)
+MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk)
 {
     auto decodedAudio = static_cast<DecodedAudio*>(iAllocatorAudioData.Allocate());
     decodedAudio->ConstructDsd(aData);
-    return CreateMsgAudioDsd(decodedAudio, aChannels, aSampleRate, aSampleBlockBits, aTrackOffset);
+    return CreateMsgAudioDsd(decodedAudio, aChannels, aSampleRate, aSampleBlockWords, aTrackOffset, aPadBytesPerChunk);
 }
 
-MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset)
+MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk)
 {
     AudioData* audioData = aAudio->iAudioData;
     audioData->AddRef();
-    return CreateMsgAudioDsd(static_cast<DecodedAudio*>(audioData), aChannels, aSampleRate, aSampleBlockBits, aTrackOffset);
+    return CreateMsgAudioDsd(static_cast<DecodedAudio*>(audioData), aChannels, aSampleRate, aSampleBlockWords, aTrackOffset, aPadBytesPerChunk);
 }
 
 MsgSilence* MsgFactory::CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels)
@@ -3778,10 +3964,10 @@ MsgSilence* MsgFactory::CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate,
     return msg;
 }
 
-MsgSilence* MsgFactory::CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aBlockSizeBytes)
+MsgSilence* MsgFactory::CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords)
 {
     MsgSilence* msg = iAllocatorMsgSilence.Allocate();
-    msg->InitialiseDsd(aSizeJiffies, aSampleRate, aChannels, aBlockSizeBytes, iAllocatorMsgPlayableSilence);
+    msg->InitialiseDsd(aSizeJiffies, aSampleRate, aChannels, aSampleBlockWords, iAllocatorMsgPlayableSilenceDsd);
     return msg;
 }
 
@@ -3818,12 +4004,12 @@ MsgAudioPcm* MsgFactory::CreateMsgAudioPcm(DecodedAudio* aAudioData, TUint aChan
     return msg;
 }
 
-MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset)
+MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk)
 {
     auto audioDsd = iAllocatorMsgAudioDsd.Allocate();
     try {
-        audioDsd->Initialise(aAudioData, aSampleRate, aChannels, aSampleBlockBits, aTrackOffset,
-                             iAllocatorMsgPlayableDsd, iAllocatorMsgPlayableSilence);
+        audioDsd->Initialise(aAudioData, aSampleRate, aChannels, aSampleBlockWords, aTrackOffset, aPadBytesPerChunk,
+                             iAllocatorMsgPlayableDsd, iAllocatorMsgPlayableSilenceDsd);
     }
     catch (AssertionFailed&) { // test code helper
         audioDsd->RemoveRef();

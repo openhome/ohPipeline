@@ -35,6 +35,7 @@ DecodedAudioAggregator::DecodedAudioAggregator(IPipelineElementDownstream& aDown
     , iBitDepth(0)
     , iSupportsLatency(false)
     , iAggregationDisabled(false)
+    , iAggregatedJiffies(0)
 {
 }
 
@@ -115,12 +116,12 @@ Msg* DecodedAudioAggregator::ProcessMsg(MsgDecodedStream* aMsg)
 
 Msg* DecodedAudioAggregator::ProcessMsg(MsgAudioPcm* aMsg)
 {
-    return TryAggregate(aMsg);
+    return TryAggregate(aMsg, kPcmPaddingBytes);
 }
 
 Msg* DecodedAudioAggregator::ProcessMsg(MsgAudioDsd* aMsg)
 {
-    return TryAggregate(aMsg);
+    return TryAggregate(aMsg, aMsg->JiffiesNonPlayable());
 }
 
 Msg* DecodedAudioAggregator::ProcessMsg(MsgQuit* aMsg)
@@ -134,38 +135,41 @@ TBool DecodedAudioAggregator::AggregatorFull(TUint aBytes, TUint aJiffies)
     return (aBytes == DecodedAudio::kMaxBytes || aJiffies >= kMaxJiffies);
 }
 
-MsgAudioDecoded* DecodedAudioAggregator::TryAggregate(MsgAudioDecoded* aMsg)
+MsgAudioDecoded* DecodedAudioAggregator::TryAggregate(MsgAudioDecoded* aMsg, TUint aJiffiesNonPlayable)
 {
     if (iAggregationDisabled) {
         return aMsg;
     }
 
-    TUint jiffies = aMsg->Jiffies();
+    TUint msgJiffies = aMsg->Jiffies() + aJiffiesNonPlayable; // addition of non playable jiffies prevents TryAggregate() from trying to write to buffer without enough free memory
     const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-    const TUint msgBytes = Jiffies::ToBytes(jiffies, jiffiesPerSample, iChannels, iBitDepth);
-    ASSERT(jiffies == aMsg->Jiffies()); // refuse to handle msgs not terminating on sample boundaries
+    const TUint msgBytes = Jiffies::ToBytes(msgJiffies, jiffiesPerSample, iChannels, iBitDepth); // jiffies might be modified here
+    ASSERT(msgJiffies == (aMsg->Jiffies() + aJiffiesNonPlayable)); // refuse to handle msgs not terminating on sample boundaries
 
     if (iDecodedAudio == nullptr) {
-        if (AggregatorFull(msgBytes, aMsg->Jiffies())) {
+        if (AggregatorFull(msgBytes, msgJiffies)) {
             return aMsg;
         }
         else {
             iDecodedAudio = aMsg;
+            iAggregatedJiffies = msgJiffies;
             return nullptr;
         }
     }
 
-    TUint aggregatedJiffies = iDecodedAudio->Jiffies();
-    TUint aggregatedBytes = Jiffies::ToBytes(aggregatedJiffies, jiffiesPerSample, iChannels, iBitDepth);
+    TUint aggregatedBytes = Jiffies::ToBytes(iAggregatedJiffies, jiffiesPerSample, iChannels, iBitDepth);
+
     if (aggregatedBytes + msgBytes <= kMaxBytes) {
         // Have byte capacity to add new data.
         iDecodedAudio->Aggregate(aMsg);
 
-        aggregatedJiffies = iDecodedAudio->Jiffies();
-        aggregatedBytes = Jiffies::ToBytes(aggregatedJiffies, jiffiesPerSample, iChannels, iBitDepth);
-        if (AggregatorFull(aggregatedBytes, iDecodedAudio->Jiffies())) {
+        iAggregatedJiffies += msgJiffies;
+        aggregatedBytes = Jiffies::ToBytes(iAggregatedJiffies, jiffiesPerSample, iChannels, iBitDepth);
+
+        if (AggregatorFull(aggregatedBytes, iAggregatedJiffies)) {
             auto msg = iDecodedAudio;
             iDecodedAudio = nullptr;
+            iAggregatedJiffies = 0;
             return msg;
         }
     }
@@ -176,6 +180,7 @@ MsgAudioDecoded* DecodedAudioAggregator::TryAggregate(MsgAudioDecoded* aMsg)
         // to make even more efficient use of decoded audio msgs.
         auto msg = iDecodedAudio;
         iDecodedAudio = aMsg;
+        iAggregatedJiffies = msgJiffies;
         return msg;
     }
 

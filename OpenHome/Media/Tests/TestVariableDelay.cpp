@@ -166,7 +166,7 @@ private: // from SuiteVariableDelay
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override;
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
-    TUint PipelineAnimatorDsdBlockSizeBytes() const override;
+    TUint PipelineAnimatorDsdBlockSizeWords() const override;
 private:
     void TestDelayShorterThanMinimum();
     void TestAnimatorCalledOnStreamChange();
@@ -250,7 +250,7 @@ Msg* SuiteVariableDelay::Pull()
         TByte audioData[128];
         (void)memset(audioData, 0x7f, sizeof audioData);
         Brn audioBuf(audioData, sizeof audioData);
-        MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 2822400, 2, iTrackOffset);
+        MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 2822400, 2, iTrackOffset, 0);
         iAudioMsgSizeJiffies = audio->Jiffies();
         iTrackOffset += iAudioMsgSizeJiffies;
         return audio;
@@ -947,7 +947,7 @@ TUint SuiteVariableDelayRight::PipelineAnimatorDelayJiffies(AudioFormat /*aForma
     return iAnimatorDelayJiffies;
 }
 
-TUint SuiteVariableDelayRight::PipelineAnimatorDsdBlockSizeBytes() const
+TUint SuiteVariableDelayRight::PipelineAnimatorDsdBlockSizeWords() const
 {
     return 1;
 }

@@ -262,7 +262,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     encodedAudioCount += kRewinderMaxMsgs; // this may only be required on platforms that don't guarantee priority based thread scheduling
     const TUint msgEncodedAudioCount = encodedAudioCount + 100; // +100 allows for Split()ing by Container and CodecController
     const TUint decodedReservoirSize = aInitParams->DecodedReservoirJiffies() + aInitParams->StarvationRamperMinJiffies();
-    const TUint decodedAudioCount = ((decodedReservoirSize + iInitParams->SenderMinLatency()) / DecodedAudioAggregator::kMaxJiffies) + 200; // +200 allows for songcast sender, some smaller msgs and some buffering in non-reservoir elements
+    const TUint decodedAudioCount = ((decodedReservoirSize + iInitParams->SenderMinLatency()) / DecodedAudioAggregator::kMaxJiffies) + 200; // +200 allows for DSD support (not 256), songcast sender, some smaller msgs and some buffering in non-reservoir elements
     const TUint msgAudioPcmCount = decodedAudioCount + 100; // +100 allows for Split()ing in various elements
     const TUint msgHaltCount = perStreamMsgCount * 2; // worst case is tiny Vorbis track with embedded metatext in a single-track playlist with repeat
     MsgFactoryInitParams msgInit;

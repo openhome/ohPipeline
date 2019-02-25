@@ -178,7 +178,7 @@ void VariableDelayBase::SetAnimator(IPipelineAnimator& aAnimator)
 {
     iAnimator = &aAnimator;
     try {
-        iDsdBlockSize = aAnimator.PipelineAnimatorDsdBlockSizeBytes();
+        iDsdBlockSize = aAnimator.PipelineAnimatorDsdBlockSizeWords();
     }
     catch (FormatUnsupported&) {}
 }

@@ -42,10 +42,10 @@ TUint EncodedStreamInfo::NumChannels() const
     return iNumChannels;
 }
 
-TUint EncodedStreamInfo::DsdSampleBlockBits() const
+TUint EncodedStreamInfo::SampleBlockWords() const
 {
     ASSERT(iFormat == Format::Dsd);
-    return iDsdSampleBlockBits;
+    return iDsdSampleBlockWords;
 }
 
 AudioDataEndian EncodedStreamInfo::Endian() const
@@ -88,7 +88,7 @@ EncodedStreamInfo::EncodedStreamInfo()
     , iBitDepth(UINT_MAX)
     , iSampleRate(UINT_MAX)
     , iNumChannels(UINT_MAX)
-    , iDsdSampleBlockBits(UINT_MAX)
+    , iDsdSampleBlockWords(UINT_MAX)
     , iEndian(AudioDataEndian::Invalid)
     , iStartSample(0)
 {
@@ -109,13 +109,13 @@ void EncodedStreamInfo::SetPcm(TUint aBitDepth, TUint aSampleRate, TUint aNumCha
     iLossless = aLossless;
 }
 
-void EncodedStreamInfo::SetDsd(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint64 aStartSample, const Brx& aCodecName)
+void EncodedStreamInfo::SetDsd(TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockWords, TUint64 aStartSample, const Brx& aCodecName)
 {
     iFormat = Format::Dsd;
     iBitDepth = 1;
     iSampleRate = aSampleRate;
     iNumChannels = aNumChannels;
-    iDsdSampleBlockBits = aSampleBlockBits;
+    iDsdSampleBlockWords = aSampleBlockWords;
     iStartSample = aStartSample;
     iCodecName.Replace(aCodecName);
     iLossless = true;
@@ -319,7 +319,7 @@ void CodecController::CodecThread()
             }
             else if (iStreamFormat == MsgEncodedStream::Format::Dsd) {
                 streamInfo.SetDsd(iDsdStream.SampleRate(), iDsdStream.NumChannels(),
-                                  iDsdStream.SampleBlockBits(), iDsdStream.StartSample(),
+                                  iDsdStream.SampleBlockWords(), iDsdStream.StartSample(),
                                   iDsdStream.CodecName());
             }
 
@@ -806,10 +806,11 @@ TUint64 CodecController::DoOutputAudio(MsgAudio* aAudioMsg)
 }
 
 TUint64 CodecController::OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate,
-                                        TUint aSampleBlockBits, TUint64 aTrackOffset)
+                                        TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk)
 {
     ASSERT(aChannels == iChannels);
     ASSERT(aSampleRate == iSampleRate);
+    ASSERT((aData.Bytes() % aSampleBlockWords) == 0);
 
     if (aData.Bytes() == 0) {
         // allow for codecs which had a tiny bit of data which was later rounded down to 0 samples
@@ -824,9 +825,10 @@ TUint64 CodecController::OutputAudioDsd(const Brx& aData, TUint aChannels, TUint
         // We don't songcast DSD so have no need to split audio into 5ms chunks
         // Instead, pack as much audio as we can into as few msgs as possible
         const TUint bytes = std::min(AudioData::kMaxBytes, data.Bytes());
+        // ASSERT((bytes % aSampleBlockWords) == 0);
         Brn buf(p, bytes);
         auto audio = iMsgFactory.CreateMsgAudioDsd(buf, aChannels, aSampleRate,
-                                                   aSampleBlockBits, aTrackOffset);
+                                                   aSampleBlockWords, aTrackOffset, aPadBytesPerChunk);
         const TUint64 jiffies = DoOutputAudio(audio);
         aTrackOffset += jiffies;
         p += bytes;
@@ -837,11 +839,11 @@ TUint64 CodecController::OutputAudioDsd(const Brx& aData, TUint aChannels, TUint
     return aTrackOffset - offsetBefore;
 }
 
-TUint64 CodecController::OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset)
+TUint64 CodecController::OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk)
 {
     ASSERT(aChannels == iChannels);
     ASSERT(aSampleRate == iSampleRate);
-    auto audio = iMsgFactory.CreateMsgAudioDsd(aMsg, aChannels, aSampleRate, aSampleBlockBits, aTrackOffset);
+    auto audio = iMsgFactory.CreateMsgAudioDsd(aMsg, aChannels, aSampleRate, aSampleBlockWords, aTrackOffset, aPadBytesPerChunk);
     aMsg->RemoveRef();
     return DoOutputAudio(audio);
 }

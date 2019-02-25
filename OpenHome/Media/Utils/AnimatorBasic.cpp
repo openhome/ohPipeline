@@ -232,7 +232,7 @@ TUint AnimatorBasic::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint
     return 0;
 }
 
-TUint AnimatorBasic::PipelineAnimatorDsdBlockSizeBytes() const
+TUint AnimatorBasic::PipelineAnimatorDsdBlockSizeWords() const
 {
     return 1;
 }

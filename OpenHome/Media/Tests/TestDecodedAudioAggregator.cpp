@@ -581,7 +581,7 @@ void SuiteDecodedAudioAggregator::TestDsdAggregated()
     const TUint kSamples = 4;
     static const TUint kNumDsdMsg = 5;
     for (TUint i = 0; i < kNumDsdMsg; i++) {
-        auto audio = iMsgFactory->CreateMsgAudioDsd(decodedAudioBuf, 2, kSampleRateDsd, 2, iTrackOffset);
+        auto audio = iMsgFactory->CreateMsgAudioDsd(decodedAudioBuf, 2, kSampleRateDsd, 2, iTrackOffset, 0);
         Queue(audio);
         iTrackOffset += kSamples * Jiffies::PerSample(kSampleRateDsd);
         iTrackOffsetBytes += 1;

@@ -18,6 +18,7 @@ public:
                                     // violating kMaxBytes).
     static const TUint kMaxJiffies = (Jiffies::kPerMs * kMaxMs) - Jiffies::kMaxJiffiesPerSample;
     static const TUint kSupportedMsgTypes;
+    static const TUint kPcmPaddingBytes = 0;
 public:
     DecodedAudioAggregator(IPipelineElementDownstream& aDownstreamElement);
 public: // from IPipelineElementDownstream
@@ -37,7 +38,7 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private:
     static TBool AggregatorFull(TUint aBytes, TUint aJiffies);
-    MsgAudioDecoded* TryAggregate(MsgAudioDecoded* aMsg);
+    MsgAudioDecoded* TryAggregate(MsgAudioDecoded* aMsg, TUint aJiffiesNonPlayable);
     void OutputAggregatedAudio();
 private:
     IPipelineElementDownstream& iDownstreamElement;
@@ -47,6 +48,7 @@ private:
     TUint iBitDepth;
     TBool iSupportsLatency;
     TBool iAggregationDisabled;
+    TUint iAggregatedJiffies;
 };
 
 }
