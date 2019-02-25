@@ -61,6 +61,9 @@ namespace Av {
 class IVolume
 {
 public:
+    /*
+     * May throw VolumeNotSupported or VolumeOutOfRange.
+     */
     virtual void SetVolume(TUint aVolume) = 0; // volume is in binary-milli-db (1/1024 db)
     virtual ~IVolume() {}
 };
@@ -144,6 +147,7 @@ private: // from IVolumeProfile
 
 class VolumeUser : public IVolume, private IStandbyHandler, private INonCopyable
 {
+    friend class SuiteVolumeUser;
 public:
     static const Brn kStartupVolumeKey;
 public:
@@ -151,7 +155,7 @@ public:
     ~VolumeUser();
 public: // from IVolume
     void SetVolume(TUint aVolume) override;
-private: // from IStandbyHandler
+public: // from IStandbyHandler
     void StandbyEnabled() override;
     void StandbyTransitioning() override;
     void StandbyDisabled(StandbyDisableReason aReason) override;
@@ -171,6 +175,7 @@ private:
 
 class VolumeLimiter : public IVolume, private INonCopyable
 {
+    friend class SuiteVolumeLimiter;
 public:
     VolumeLimiter(IVolume& aVolume, TUint aMilliDbPerStep, Configuration::IConfigManager& aConfigReader);
     ~VolumeLimiter();
@@ -194,6 +199,7 @@ class IVolumeValue
 public:
     virtual TUint VolumeUser() const = 0;
     virtual TUint VolumeBinaryMilliDb() const = 0;
+    virtual ~IVolumeValue() {}
 };
 
 class IVolumeObserver
@@ -224,6 +230,8 @@ private:
 
 class VolumeReporter : public IVolumeReporter, public IVolume, private INonCopyable
 {
+    friend class SuiteVolumeReporter;
+    friend class SuiteVolumeManager;
 public:
     VolumeReporter(IVolume& aVolume, TUint aMilliDbPerStep);
 public: // from IVolumeReporter
@@ -287,7 +295,9 @@ private:
 
 class VolumeUnityGainBase : public IVolume, private INonCopyable
 {
-public:
+    friend class SuiteVolumeSourceUnityGain;
+    friend class SuiteVolumeUnityGain;
+protected:
     VolumeUnityGainBase(IVolume& aVolume, TUint aUnityGainValue);
 public:  // from IVolume
     void SetVolume(TUint aValue) override;
@@ -305,6 +315,7 @@ private:
 // switch between pass-through and override with unity gain
 class VolumeUnityGain : public VolumeUnityGainBase
 {
+    friend class SuiteVolumeUnityGain;
 public:
     VolumeUnityGain(IVolume& aVolume, Configuration::IConfigManager& aConfigReader, TUint aUnityGainValue);
     ~VolumeUnityGain();
@@ -325,7 +336,7 @@ class IUnityGainReporter
 {
 public:
     virtual void AddUnityGainObserver(IUnityGainObserver& aObserver) = 0;
-    virtual ~IUnityGainReporter() {}    
+    virtual ~IUnityGainReporter() {}
 };
 
 class IVolumeSourceUnityGain : public IUnityGainReporter
@@ -340,6 +351,8 @@ public: //from IUnityGainReporter
 // per-source switch between pass-through and override with unity gain
 class VolumeSourceUnityGain : public VolumeUnityGainBase, public IVolumeSourceUnityGain
 {
+    friend class SuiteVolumeManager;
+    friend class SuiteVolumeSourceUnityGain;
 public:
     VolumeSourceUnityGain(IVolume& aVolume, TUint aUnityGainValue);
 public: // from IVolumeSourceUnityGain
@@ -355,9 +368,9 @@ class VolumeRamperPipeline : public IVolume
 {
 public:
     VolumeRamperPipeline(IVolume& aVolume);
-private: // from IVolume
+public: // from IVolume
     void SetVolume(TUint aValue) override;
-private: // from Media::IVolumeRamper
+public: // from Media::IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
     void SetVolume();
@@ -424,9 +437,9 @@ class VolumeMuter : public IVolume
 {
 public:
     VolumeMuter(IVolume* aVolume);
-private: // from IVolume
+public: // from IVolume
     void SetVolume(TUint aValue) override;
-private: // from IVolumeMuter
+public: // from IVolumeMuter
     void SetVolumeMuted(TBool aMuted) override;
 private:
     void DoSetVolume();
@@ -469,6 +482,7 @@ private:
 
 class MuteUser : public Media::IMute, private IStandbyHandler, private INonCopyable
 {
+    friend class SuiteVolumeMuteUser;
 public:
     MuteUser(Media::IMute& aMute, IPowerManager& aPowerManager);
     ~MuteUser();
@@ -493,6 +507,7 @@ public:
 
 class MuteReporter : public IMuteReporter, public Media::IMute, private INonCopyable
 {
+    friend class SuiteVolumeMuteReporter;
 public:
     MuteReporter(Media::IMute& aMute);
 public: // from IMuteReporter
@@ -510,6 +525,8 @@ private:
 
 class VolumeConfig : public IVolumeProfile
 {
+    friend class SuiteVolumeConfig;
+    friend class SuiteVolumeManager;
 public:
     static const Brn kKeyStartupValue;
     static const Brn kKeyLimit;
@@ -577,6 +594,7 @@ class VolumeManager : public IVolumeManager
                     , private IFade
                     , private INonCopyable
 {
+    friend class SuiteVolumeManager;
 public:
     VolumeManager(VolumeConsumer& aVolumeConsumer, Media::IMute* aMute, VolumeConfig& aVolumeConfig,
                   Net::DvDevice& aDevice, Product& aProduct, Configuration::IConfigManager& aConfigReader,

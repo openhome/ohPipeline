@@ -10,6 +10,7 @@
 #include <OpenHome/Media/MuteManager.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Av/Debug.h>
+#include <OpenHome/Av/VolumeOffsets.h>
 
 #include <vector>
 #include <algorithm>
@@ -187,6 +188,7 @@ void VolumeLimiter::LimitChanged(ConfigNum::KvpNum& aKvp)
         DoSetVolume();
     }
     catch (VolumeNotSupported&) {}
+    catch (VolumeOutOfRange&) {}
 }
 
 void VolumeLimiter::DoSetVolume()
