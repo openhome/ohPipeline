@@ -10,6 +10,9 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Net/Private/MdnsProvider.h>
 
+#include <atomic>
+#include <map>
+
 namespace OpenHome {
     class JsonParser;
 namespace Net {
@@ -45,9 +48,10 @@ private: // from ICpiProtocol
 public: // from ICpiDeviceObserver
     void Release() override;
 private: // from ICpiOdpDevice
-    IWriter& WriteLock(ICpiOdpResponse& aResponseHandler) override;
+    IWriter& WriteLock() override;
     void WriteUnlock() override;
     void WriteEnd(IWriter& aWriter) override;
+    TUint RegisterResponseHandler(ICpiOdpResponse& aResponseHandler) override;
     const Brx& Alias() const override;
 private:
     static const TUint kMaxReadBufferBytes = 100 * 1024;
@@ -64,7 +68,6 @@ private:
     CpiDevice* iDevice;
     ThreadFunctor* iThread;
     IInvocable* iInvocable;
-    ICpiOdpResponse* iResponseHandler;
     TBool iConnected;
     TBool iExiting;
     Semaphore iDeviceConnected;
@@ -73,6 +76,9 @@ private:
     Bws<64> iIpAddress;
     Bws<64> iMdnsType;
     TUint iPort;
+    Mutex iLockResponses;
+    std::atomic<TUint> iNextCorrelationId;
+    std::map<TUint, ICpiOdpResponse*> iPendingResponses;
 };
 
 class CpiDeviceListOdp : public CpiDeviceList, private IResumeObserver, private IMdnsDeviceListener

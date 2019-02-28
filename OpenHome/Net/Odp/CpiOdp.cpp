@@ -13,63 +13,95 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
 
+#include <atomic>
 #include <vector>
 
 using namespace OpenHome;
 using namespace OpenHome::Net;
 
+// CpiOdpResponseHandler
+
+CpiOdpResponseHandler::CpiOdpResponseHandler(ICpiOdpDevice& aDevice)
+    : iDevice(aDevice)
+    , iSem("OdpA", 0)
+{
+}
+
+void CpiOdpResponseHandler::WriteCorrelationId(WriterJsonObject& aWriterRequest)
+{
+    const TUint id = iDevice.RegisterResponseHandler(*this);
+    Bws<Ascii::kMaxUintStringBytes> idBuf;
+    Ascii::AppendDec(idBuf, id);
+    aWriterRequest.WriteString(Odp::kKeyCorrelationId, idBuf);
+}
+
+void CpiOdpResponseHandler::WaitForResponse()
+{
+    iSem.Wait();
+}
+
+void CpiOdpResponseHandler::HandleOdpResponse(const JsonParser& aJsonParser)
+{
+    AutoSemaphoreSignal _(iSem);
+    DoHandleResponse(aJsonParser);
+}
+
+void CpiOdpResponseHandler::HandleError()
+{
+    iSem.Signal();
+}
+
+
 // CpiOdpInvocable
 
 CpiOdpInvocable::CpiOdpInvocable(ICpiOdpDevice& aDevice)
-    : iDevice(aDevice)
-    , iSem("OdpA", 0)
+    : CpiOdpResponseHandler(aDevice)
     , iInvocation(nullptr)
 {
 }
 
 void CpiOdpInvocable::InvokeAction(Invocation& aInvocation)
 {
-    iWriter = &iDevice.WriteLock(*this);
-    AutoOdpDevice _(iDevice);
-    iInvocation = &aInvocation;
-    WriterJsonObject writerAction(*iWriter);
-    writerAction.WriteString(Odp::kKeyType, Odp::kTypeAction);
-    writerAction.WriteString(Odp::kKeyDevice, iDevice.Alias());
-    auto writerService = writerAction.CreateObject(Odp::kKeyService);
-    auto& serviceType = aInvocation.ServiceType();
-    writerService.WriteString(Odp::kKeyName, serviceType.Name());
-    writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
-    writerService.WriteEnd();
-    writerAction.WriteString(Odp::kKeyAction, aInvocation.Action().Name());
-    auto args = aInvocation.InputArguments();
-    if (args.size() > 0) {
-        auto writerArgs = writerAction.CreateArray(Odp::kKeyArguments);
-        CpiOdpWriterArgs writerArgValues(writerArgs);
-        for (auto it=args.begin(); it!=args.end(); ++it) {
-            writerArgValues.Process(**it);
+    iWriter = &iDevice.WriteLock();
+    {
+        AutoOdpDevice _(iDevice);
+        iInvocation = &aInvocation;
+        WriterJsonObject writerAction(*iWriter);
+        writerAction.WriteString(Odp::kKeyType, Odp::kTypeAction);
+        writerAction.WriteString(Odp::kKeyDevice, iDevice.Alias());
+        auto writerService = writerAction.CreateObject(Odp::kKeyService);
+        auto& serviceType = aInvocation.ServiceType();
+        writerService.WriteString(Odp::kKeyName, serviceType.Name());
+        writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
+        writerService.WriteEnd();
+        writerAction.WriteString(Odp::kKeyAction, aInvocation.Action().Name());
+        auto args = aInvocation.InputArguments();
+        if (args.size() > 0) {
+            auto writerArgs = writerAction.CreateArray(Odp::kKeyArguments);
+            CpiOdpWriterArgs writerArgValues(writerArgs);
+            for (auto it = args.begin(); it != args.end(); ++it) {
+                writerArgValues.Process(**it);
+            }
+            writerArgs.WriteEnd();
         }
-        writerArgs.WriteEnd();
+        WriteCorrelationId(writerAction);
+        writerAction.WriteEnd();
+        iDevice.WriteEnd(*iWriter);
     }
-    writerAction.WriteEnd();
-    iDevice.WriteEnd(*iWriter);
 
-    iSem.Wait();
+    WaitForResponse();
     iInvocation = nullptr;
 }
 
-TBool CpiOdpInvocable::HandleOdpResponse(const JsonParser& aParser)
+void CpiOdpInvocable::DoHandleResponse(const JsonParser& aParser)
 {
-    if (aParser.String(Odp::kKeyType) != Odp::kTypeActionResponse) {
-        return false;
-    }
-    AutoSemaphoreSignal _(iSem);
     if (!aParser.IsNull(Odp::kKeyError)) {
         JsonParser error;
         error.Parse(aParser.String(Odp::kKeyError));
         const TUint code = (TUint)error.Num(Odp::kKeyCode);
         Brn desc = error.String(Odp::kKeyDescription);
         iInvocation->SetError(Error::eUpnp, code, desc); // FIXME - Error::ELevel doesn't have a level for non-UPnP protocol
-        return true;
+        return;
     }
     const auto& outArgs = iInvocation->OutputArguments();
     if (aParser.IsNull(Odp::kKeyArguments)) {
@@ -97,7 +129,6 @@ TBool CpiOdpInvocable::HandleOdpResponse(const JsonParser& aParser)
         }
         catch (JsonArrayEnumerationComplete&) {}
     }
-    return true;
 }
 
 
@@ -200,8 +231,7 @@ void CpiOdpOutputProcessor::ProcessBinary(const Brx& aBuffer, Brh& aVal)
 // CpiOdpSubscriber
 
 CpiOdpSubscriber::CpiOdpSubscriber(ICpiOdpDevice& aDevice)
-    : iDevice(aDevice)
-    , iSem("OdpS", 0)
+    : CpiOdpResponseHandler(aDevice)
     , iSubscription(nullptr)
 {
 }
@@ -209,66 +239,61 @@ CpiOdpSubscriber::CpiOdpSubscriber(ICpiOdpDevice& aDevice)
 void CpiOdpSubscriber::Subscribe(CpiSubscription& aSubscription)
 {
     iSubscription = &aSubscription;
-    auto& writer = iDevice.WriteLock(*this);
-    AutoOdpDevice _(iDevice);
-    WriterJsonObject writerSubs(writer);
-    writerSubs.WriteString(Odp::kKeyType, Odp::kTypeSubscribe);
-    writerSubs.WriteString(Odp::kKeyDevice, iDevice.Alias());
-    auto writerService = writerSubs.CreateObject(Odp::kKeyService);
-    auto& serviceType = aSubscription.ServiceType();
-    writerService.WriteString(Odp::kKeyName, serviceType.Name());
-    writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
-    writerService.WriteEnd();
-    writerSubs.WriteEnd();
-    iDevice.WriteEnd(writer);
+    auto& writer = iDevice.WriteLock();
+    {
+        AutoOdpDevice _(iDevice);
+        WriterJsonObject writerSubs(writer);
+        writerSubs.WriteString(Odp::kKeyType, Odp::kTypeSubscribe);
+        writerSubs.WriteString(Odp::kKeyDevice, iDevice.Alias());
+        auto writerService = writerSubs.CreateObject(Odp::kKeyService);
+        auto& serviceType = aSubscription.ServiceType();
+        writerService.WriteString(Odp::kKeyName, serviceType.Name());
+        writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
+        writerService.WriteEnd();
+        WriteCorrelationId(writerSubs);
+        writerSubs.WriteEnd();
+        iDevice.WriteEnd(writer);
+    }
 
-    iSem.Wait();
+    WaitForResponse();
     iSubscription = nullptr;
 }
 
-TBool CpiOdpSubscriber::HandleOdpResponse(const JsonParser& aParser)
+void CpiOdpSubscriber::DoHandleResponse(const JsonParser& aParser)
 {
-    if (aParser.String(Odp::kKeyType) != Odp::kTypeSubscribeResponse) {
-        return false;
-    }
-    AutoSemaphoreSignal _(iSem);
     if (!aParser.IsNull(Odp::kKeyError)) {
         THROW(OdpError);
     }
     Brh sid(aParser.String(Odp::kKeySid));
     iSubscription->SetSid(sid);
-    return true;
 }
 
 
 // CpiOdpUnsubscriber
 
 CpiOdpUnsubscriber::CpiOdpUnsubscriber(ICpiOdpDevice& aDevice)
-    : iDevice(aDevice)
-    , iSem("OdpU", 0)
+    : CpiOdpResponseHandler(aDevice)
 {
 }
 
 void CpiOdpUnsubscriber::Unsubscribe(const Brx& aSid)
 {
-    auto& writer = iDevice.WriteLock(*this);
-    AutoOdpDevice _(iDevice);
-    WriterJsonObject writerUnsubs(writer);
-    writerUnsubs.WriteString(Odp::kKeyType, Odp::kTypeUnsubscribe);
-    writerUnsubs.WriteString(Odp::kKeySid, aSid);
-    writerUnsubs.WriteEnd();
-    iDevice.WriteEnd(writer);
+    auto& writer = iDevice.WriteLock();
+    {
+        AutoOdpDevice _(iDevice);
+        WriterJsonObject writerUnsubs(writer);
+        writerUnsubs.WriteString(Odp::kKeyType, Odp::kTypeUnsubscribe);
+        writerUnsubs.WriteString(Odp::kKeySid, aSid);
+        WriteCorrelationId(writerUnsubs);
+        writerUnsubs.WriteEnd();
+        iDevice.WriteEnd(writer);
+    }
 
-    iSem.Wait();
+    WaitForResponse();
 }
 
-TBool CpiOdpUnsubscriber::HandleOdpResponse(const JsonParser& aParser)
+void CpiOdpUnsubscriber::DoHandleResponse(const JsonParser& /*aParser*/)
 {
-    if (aParser.String(Odp::kKeyType) != Odp::kTypeUnsubscribeResponse) {
-        return false;
-    }
-    iSem.Signal();
-    return true;
 }
 
 

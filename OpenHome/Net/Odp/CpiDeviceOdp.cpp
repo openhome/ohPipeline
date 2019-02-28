@@ -15,6 +15,8 @@
 #include <OpenHome/Debug-ohMediaPlayer.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
 
+#include <atomic>
+#include <map>
 #include <vector>
 
 using namespace OpenHome;
@@ -24,11 +26,10 @@ using namespace OpenHome::Net;
 
 CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, MdnsDevice& aDev, const Brx& aAlias, Functor aStateChanged)
     : iCpStack(aCpStack)
-    , iLock("CLP1")
+    , iLock("CDO1")
     , iAlias(aAlias)
     , iStateChanged(aStateChanged)
     , iDevice(nullptr)
-    , iResponseHandler(nullptr)
     , iConnected(false)
     , iExiting(false)
     , iDeviceConnected("SODP", 0)
@@ -37,6 +38,8 @@ CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, MdnsDevice& aDev, const Brx& aAlia
     , iIpAddress(aDev.IpAddress())
     , iMdnsType(aDev.Type())
     , iPort(aDev.Port())
+    , iLockResponses("CDO2")
+    , iNextCorrelationId(0)
 {
     iReadBuffer = new Srs<1024>(iSocket);
     iReaderUntil = new ReaderUntilS<kMaxReadBufferBytes>(*iReadBuffer);
@@ -138,8 +141,24 @@ void CpiDeviceOdp::OdpReaderThread()
             else if (type == Odp::kTypeNotify) {
                 HandleEventedUpdate(parser);
             }
-            else if (iResponseHandler == nullptr || !iResponseHandler->HandleOdpResponse(parser)) {
-                LOG_ERROR(kOdp, "Unexpected Odp message: %.*s\n", PBUF(line));
+            else {
+                try {
+                    Brn idBuf = parser.String(Odp::kKeyCorrelationId);
+                    const TUint correlationId = Ascii::Uint(idBuf);
+                    AutoMutex _(iLockResponses);
+                    auto it = iPendingResponses.find(correlationId);
+                    if (it == iPendingResponses.end()) {
+                        LOG_ERROR(kOdp, "Unexpected Odp message: %.*s\n", PBUF(line));
+                    }
+                    else {
+                        auto handler = it->second;
+                        iPendingResponses.erase(it);
+                        handler->HandleOdpResponse(parser);
+                    }
+                }
+                catch (Exception& ex) {
+                    LOG_ERROR(kOdp, "Exception - %s - handling Odp message: %.*s\n", ex.Message(), PBUF(line));
+                }
             }
         }
     }
@@ -153,6 +172,13 @@ void CpiDeviceOdp::OdpReaderThread()
     }
     catch (Exception& ex) {
         LogError(ex.Message());
+    }
+    {
+        AutoMutex _(iLockResponses);
+        for (auto kvp : iPendingResponses) {
+            kvp.second->HandleError();
+        }
+        iPendingResponses.clear();
     }
     iConnected = false;
     iDeviceConnected.Signal();
@@ -277,16 +303,14 @@ void CpiDeviceOdp::Release()
     delete this;
 }
 
-IWriter& CpiDeviceOdp::WriteLock(ICpiOdpResponse& aResponseHandler)
+IWriter& CpiDeviceOdp::WriteLock()
 {
     iLock.Wait();
-    iResponseHandler = &aResponseHandler;
     return *iWriteBuffer;
 }
 
 void CpiDeviceOdp::WriteUnlock()
 {
-    iResponseHandler = nullptr;
     iLock.Signal();
 }
 
@@ -294,6 +318,14 @@ void CpiDeviceOdp::WriteEnd(IWriter& aWriter)
 {
     aWriter.Write(Ascii::kLf);
     aWriter.WriteFlush();
+}
+
+TUint CpiDeviceOdp::RegisterResponseHandler(ICpiOdpResponse& aResponseHandler)
+{
+    AutoMutex _(iLockResponses);
+    const TUint correlationId = iNextCorrelationId++;
+    iPendingResponses.insert(std::pair<TUint, ICpiOdpResponse*>(correlationId, &aResponseHandler));
+    return correlationId;
 }
 
 const Brx& CpiDeviceOdp::Alias() const

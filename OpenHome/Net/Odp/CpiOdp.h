@@ -7,8 +7,11 @@
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Thread.h>
 
+#include <atomic>
+
 namespace OpenHome {
     class IWriter;
+    class WriterJsonObject;
     class WriterJsonArray;
     class JsonParser;
 namespace Net {
@@ -17,33 +20,50 @@ namespace Net {
 class ICpiOdpResponse
 {
 public:
-    virtual TBool HandleOdpResponse(const JsonParser& aJsonParser) = 0;
+    virtual void HandleOdpResponse(const JsonParser& aJsonParser) = 0;
+    virtual void HandleError() = 0;
     virtual ~ICpiOdpResponse() {}
 };
 
 class ICpiOdpDevice
 {
 public:
-    virtual IWriter& WriteLock(ICpiOdpResponse& aResponseHandler) = 0;
+    virtual IWriter& WriteLock() = 0;
     virtual void WriteUnlock() = 0;
     virtual void WriteEnd(IWriter& aWriter) = 0;
+    virtual TUint RegisterResponseHandler(ICpiOdpResponse& aResponseHandler) = 0; // returns corralation id
     virtual const Brx& Alias() const = 0;
     virtual ~ICpiOdpDevice() {}
 };
 
-class CpiOdpInvocable : public IInvocable
-                      , private ICpiOdpResponse
+class CpiOdpResponseHandler : public ICpiOdpResponse
+{
+protected:
+    CpiOdpResponseHandler(ICpiOdpDevice& aDevice);
+    void WriteCorrelationId(WriterJsonObject& aWriterRequest);
+    void WaitForResponse();
+private: // from ICpiOdpResponse
+    void HandleOdpResponse(const JsonParser& aJsonParser) override;
+    void HandleError() override;
+private:
+    virtual void DoHandleResponse(const JsonParser& aJsonParser) = 0;
+protected:
+    ICpiOdpDevice & iDevice;
+private:
+    Semaphore iSem;
+};
+
+class CpiOdpInvocable : public CpiOdpResponseHandler
+                      , public IInvocable
                       , private INonCopyable
 {
 public:
     CpiOdpInvocable(ICpiOdpDevice& aDevice);
 private: // from IInvocable
     void InvokeAction(Invocation& aInvocation) override;
-private: // from ICpiOdpResponse
-    TBool HandleOdpResponse(const JsonParser& aJsonParser) override;
+private: // from CpiOdpResponseHandler
+    void DoHandleResponse(const JsonParser& aJsonParser) override;
 private:
-    ICpiOdpDevice& iDevice;
-    Semaphore iSem;
     Invocation* iInvocation;
     IWriter* iWriter;
 };
@@ -77,31 +97,26 @@ private: // from IOutputProcessor
     void ProcessBinary(const Brx& aBuffer, Brh& aVal) override;
 };
 
-class CpiOdpSubscriber : private ICpiOdpResponse
+class CpiOdpSubscriber : public CpiOdpResponseHandler
                        , private INonCopyable
 {
 public:
     CpiOdpSubscriber(ICpiOdpDevice& aDevice);
     void Subscribe(CpiSubscription& aSubscription);
-private: // from ICpiOdpResponse
-    TBool HandleOdpResponse(const JsonParser& aJsonParser) override;
+private: // from CpiOdpResponseHandler
+    void DoHandleResponse(const JsonParser& aJsonParser) override;
 private:
-    ICpiOdpDevice& iDevice;
-    Semaphore iSem;
     CpiSubscription* iSubscription;
 };
 
-class CpiOdpUnsubscriber : private ICpiOdpResponse
+class CpiOdpUnsubscriber : public CpiOdpResponseHandler
                          , private INonCopyable
 {
 public:
     CpiOdpUnsubscriber(ICpiOdpDevice& aDevice);
     void Unsubscribe(const Brx& aSid);
-private: // from ICpiOdpResponse
-    TBool HandleOdpResponse(const JsonParser& aJsonParser) override;
-private:
-    ICpiOdpDevice& iDevice;
-    Semaphore iSem;
+private: // from CpiOdpResponseHandler
+    void DoHandleResponse(const JsonParser& aJsonParser) override;
 };
 
 // takes write locked session, unlocks on destruction
