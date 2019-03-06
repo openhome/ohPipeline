@@ -22,6 +22,8 @@ const TUint ProtocolScd::kVersionMinor = 0;
 
 ProtocolScd::ProtocolScd(Environment& aEnv,
                          Media::TrackFactory& aTrackFactory,
+                         TUint aDsdSampleBlockWords, 
+                         TUint aDsdPadBytesPerChunk,
                          IScdObserver& aObserver)
     : ProtocolNetwork(aEnv)
     , iLock("PSCD")
@@ -40,6 +42,8 @@ ProtocolScd::ProtocolScd(Environment& aEnv,
                   0  // Skip - currently unsupported
                   )
     , iTrackFactory(aTrackFactory)
+    , iDsdSampleBlockWords(aDsdSampleBlockWords)
+    , iDsdPadBytesPerChunk(aDsdPadBytesPerChunk)
     , iObserver(aObserver)
 {
     Debug::AddLevel(Debug::kScd);
@@ -48,7 +52,7 @@ ProtocolScd::ProtocolScd(Environment& aEnv,
 
 void ProtocolScd::Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream)
 {
-    iSupply.reset(new SupplyScd(aMsgFactory, aDownstream));
+    iSupply.reset(new SupplyScd(aMsgFactory, aDownstream, iDsdSampleBlockWords, iDsdPadBytesPerChunk));
 }
 
 void ProtocolScd::Interrupt(TBool aInterrupt)
@@ -211,7 +215,7 @@ void ProtocolScd::Process(ScdMsgFormatDsd& aMsg)
     LOG_INFO(kScd, "ScdMsgFormatDsd: %u, %uch, sampleStart=%llu, samplesTotal=%llu, seekable=%u\n",
                    aMsg.SampleRate(), aMsg.NumChannels(), aMsg.SampleStart(),
                    aMsg.SamplesTotal(), aMsg.Seekable());
-    if (aMsg.SampleBlockBits() != 32) {
+    if (aMsg.SampleBlockBits() != 32) { // Where does this come from??
         LOG_ERROR(kScd, "ScdMsgFormatDsd: unsupported sampleBlockBits - %u - closing connection\n",
                         aMsg.SampleBlockBits());
         iUnrecoverableError = true;
@@ -240,7 +244,12 @@ void ProtocolScd::Process(ScdMsgAudioIn& aMsg)
         iHalted = false;
         LOG_INFO(kScd, "ScdMsgAudioIn - resuming after halt\n");
     }
-    iSupply->OutputData(aMsg.NumSamples(), iReaderBuf);
+    if (iFormatPcm) {
+        iSupply->OutputData(aMsg.NumSamples(), iReaderBuf);
+    }
+    else { // is DSD
+        iSupply->OutputDataDsd(aMsg.NumSamples(), iReaderBuf);
+    }
 }
 
 void ProtocolScd::Process(ScdMsgMetatextDidl& aMsg)

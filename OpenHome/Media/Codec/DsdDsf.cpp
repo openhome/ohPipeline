@@ -192,7 +192,7 @@ void CodecDsdDsf::TransferToOutputBuffer()
     const TByte* lPtr = iInputBuffer.Ptr();
     const TByte* rPtr = lPtr + kDataBlockBytes;
     TByte* dest = const_cast<TByte*>(iOutputBuffer.Ptr() + iOutputBuffer.Bytes());
-    // numChunks represents how many stereo pairs of samples make up a sampleBlock (how many groups of 16xR, 16xR)
+    // numChunks represents how many stereo pairs of samples make up a sampleBlock (how many groups of 16xL, 16xR)
     const TUint numChunks = iSampleBlockWords - iPadBytesPerChunk;
     TUint inputChunks = iInputBuffer.Bytes() / kPlayableBytesPerChunk;
 

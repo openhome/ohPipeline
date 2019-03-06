@@ -12,11 +12,15 @@ namespace Scd {
 class SupplyScd : public Media::ISupply, private INonCopyable
 {
     static const TUint kAggregateAudioJiffies = 5 * Media::Jiffies::kPerMs;
+    static const TUint kPlayableBytesPerChunk = 4; // DSD Specific
 public:
     SupplyScd(Media::MsgFactory& aMsgFactory,
-              Media::IPipelineElementDownstream& aDownStreamElement);
+              Media::IPipelineElementDownstream& aDownStreamElement,
+              TUint aDsdSampleBlockWords,
+              TUint aDsdPadBytesPerChunk);
     virtual ~SupplyScd();
     void OutputData(TUint aNumSamples, IReader& aReader);
+    void OutputDataDsd(TUint aNumSamples, IReader& aReader);
     void Flush();
     void Discard();
 public: // from Media::ISupply
@@ -31,6 +35,8 @@ public: // from Media::ISupply
     void OutputHalt(TUint aHaltId = Media::MsgHalt::kIdNone) override;
     void OutputFlush(TUint aFlushId) override;
     void OutputWait() override;
+private:
+    inline void WriteBlockDsd(TByte*& aDest, const TByte*& aPtr);
 protected:
     void Output(Media::Msg* aMsg);
     inline void OutputEncodedAudio();
@@ -41,6 +47,8 @@ private:
     TUint iBitsPerSample;
     TUint iSamplesCapacity;
     TUint iBytesPerAudioMsg;
+    TUint iDsdSampleBlockWords;    // DSD specific
+    TUint iDsdPadBytesPerChunk;   // DSD specific
     Bws<Media::AudioData::kMaxBytes> iAudioBuf;
 };
 

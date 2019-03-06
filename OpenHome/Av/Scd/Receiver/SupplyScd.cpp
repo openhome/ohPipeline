@@ -2,6 +2,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Stream.h>
+#include <OpenHome/Private/Debug.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
 #include <algorithm>
@@ -12,13 +13,18 @@ using namespace OpenHome::Media;
 
 // SupplyScd
 
-SupplyScd::SupplyScd(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownStreamElement)
+SupplyScd::SupplyScd(MsgFactory& aMsgFactory, 
+                     IPipelineElementDownstream& aDownStreamElement,
+                     TUint aDsdSampleBlockWords,
+                     TUint aDsdPadBytesPerChunk)
     : iMsgFactory(aMsgFactory)
     , iDownStreamElement(aDownStreamElement)
     , iAudioEncoded(nullptr)
     , iBitsPerSample(0)
     , iSamplesCapacity(0)
     , iBytesPerAudioMsg(0)
+    , iDsdSampleBlockWords(aDsdSampleBlockWords)
+    , iDsdPadBytesPerChunk(aDsdPadBytesPerChunk)
 {
 }
 
@@ -57,6 +63,60 @@ void SupplyScd::OutputData(TUint aNumSamples, IReader& aReader)
             }
         }
     }
+}
+
+void SupplyScd::OutputDataDsd(TUint aNumSamples, IReader& aReader)
+{
+    ReaderProtocolN reader(aReader, iAudioBuf);
+    while (aNumSamples > 0) {
+        const TUint samples = std::min(iSamplesCapacity, aNumSamples);
+        iAudioBuf.SetBytes(0);
+        Brn data = reader.Read((samples * iBitsPerSample) / 8);
+        aNumSamples -= samples;
+        while (data.Bytes() > 0) {
+            if (iAudioEncoded == nullptr) {
+                iAudioEncoded = iMsgFactory.CreateMsgAudioEncoded(Brx::Empty());
+            }
+            TUint totalBytesPerChunk = kPlayableBytesPerChunk + iDsdPadBytesPerChunk;
+            TUint inputChunks = data.Bytes() / kPlayableBytesPerChunk;
+            TUint outputChunks = (iBytesPerAudioMsg - iAudioEncoded->Bytes()) / totalBytesPerChunk;
+            const TUint remainingChunks = std::min(inputChunks, outputChunks);
+
+            const TByte* inPtr = data.Ptr();
+            Bwh output(remainingChunks * totalBytesPerChunk);
+            TByte* outPtr = const_cast<TByte*>(output.Ptr() + output.Bytes());
+            Brn split = data.Split(remainingChunks * kPlayableBytesPerChunk);
+            for (TUint i = 0; i < remainingChunks; i++) {
+                WriteBlockDsd(outPtr, inPtr);
+            }
+            output.SetBytes(output.Bytes() + (remainingChunks * totalBytesPerChunk));
+            iAudioEncoded->Append(output);
+            output.SetBytes(0);
+            data.Set(split);
+
+            if (iAudioEncoded->Bytes() == iBytesPerAudioMsg) {
+                OutputEncodedAudio();
+            }
+        }
+    }
+}
+
+inline void SupplyScd::WriteBlockDsd(TByte*& aDest, const TByte*& aPtr)
+{
+    TUint paddingByte = iDsdPadBytesPerChunk / 2;
+    for (TUint k = 0; k < paddingByte; k++) {
+        *aDest++ = 0x00;
+    }
+    *aDest++ = aPtr[0];
+    *aDest++ = aPtr[1];
+
+    for (TUint k = 0; k < paddingByte; k++) {
+        *aDest++ = 0x00;
+    }
+    *aDest++ = aPtr[2];
+    *aDest++ = aPtr[3];
+
+    aPtr += 4;
 }
 
 void SupplyScd::Flush()
