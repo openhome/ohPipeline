@@ -24,8 +24,8 @@ private: // from CodecBase
 private:
     TUint iSampleRate;
     TUint iNumChannels;
-    TUint iSampleBlockWords;
-    TUint iPaddingBytes;
+    const TUint iSampleBlockWords;
+    const TUint iPaddingBytes;
     TUint64 iStartSample;
     TUint64 iTrackOffset;
     TUint64 iTrackLengthJiffies;
@@ -64,7 +64,6 @@ TBool CodecDsdRaw::Recognise(const EncodedStreamInfo& aStreamInfo)
     }
     iSampleRate = aStreamInfo.SampleRate();
     iNumChannels = aStreamInfo.NumChannels();
-    // iSampleBlockWords = aStreamInfo.SampleBlockWords();
     iStartSample = aStreamInfo.StartSample();
     iCodecName.Replace(aStreamInfo.CodecName());
     //Log::Print("CodecDsdRaw::Recognise iSampleRate %u, iNumChannels %u, iSampleBlockWords=%u, iStartSample %llu\n",

@@ -215,7 +215,7 @@ void ProtocolScd::Process(ScdMsgFormatDsd& aMsg)
     LOG_INFO(kScd, "ScdMsgFormatDsd: %u, %uch, sampleStart=%llu, samplesTotal=%llu, seekable=%u\n",
                    aMsg.SampleRate(), aMsg.NumChannels(), aMsg.SampleStart(),
                    aMsg.SamplesTotal(), aMsg.Seekable());
-    if (aMsg.SampleBlockBits() != 32) { // Where does this come from??
+    if (aMsg.SampleBlockBits() != 32) { // Expect to recieve DSD as 16xL, 16xR. We repack as necessary in SupplyScd depending on the output platform.
         LOG_ERROR(kScd, "ScdMsgFormatDsd: unsupported sampleBlockBits - %u - closing connection\n",
                         aMsg.SampleBlockBits());
         iUnrecoverableError = true;

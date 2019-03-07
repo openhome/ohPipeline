@@ -55,8 +55,8 @@ private:
     Mutex iLock;
     ScdMsgFactory iScdFactory;
     Media::TrackFactory& iTrackFactory;
-    TUint iDsdSampleBlockWords;
-    TUint iDsdPadBytesPerChunk;
+    const TUint iDsdSampleBlockWords;
+    const TUint iDsdPadBytesPerChunk;
     IScdObserver& iObserver;
     std::unique_ptr<SupplyScd> iSupply;
     Uri iUri;

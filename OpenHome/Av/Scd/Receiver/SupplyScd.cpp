@@ -83,16 +83,10 @@ void SupplyScd::OutputDataDsd(TUint aNumSamples, IReader& aReader)
             const TUint remainingChunks = std::min(inputChunks, outputChunks);
 
             const TByte* inPtr = data.Ptr();
-            Bwh output(remainingChunks * totalBytesPerChunk);
-            TByte* outPtr = const_cast<TByte*>(output.Ptr() + output.Bytes());
-            Brn split = data.Split(remainingChunks * kPlayableBytesPerChunk);
             for (TUint i = 0; i < remainingChunks; i++) {
-                WriteBlockDsd(outPtr, inPtr);
+                WriteBlockDsd(inPtr);
             }
-            output.SetBytes(output.Bytes() + (remainingChunks * totalBytesPerChunk));
-            iAudioEncoded->Append(output);
-            output.SetBytes(0);
-            data.Set(split);
+            data.Set(data.Split(remainingChunks * kPlayableBytesPerChunk));
 
             if (iAudioEncoded->Bytes() == iBytesPerAudioMsg) {
                 OutputEncodedAudio();
@@ -101,22 +95,25 @@ void SupplyScd::OutputDataDsd(TUint aNumSamples, IReader& aReader)
     }
 }
 
-inline void SupplyScd::WriteBlockDsd(TByte*& aDest, const TByte*& aPtr)
+inline void SupplyScd::WriteBlockDsd(const TByte*& aPtr)
 {
-    TUint paddingByte = iDsdPadBytesPerChunk / 2;
-    for (TUint k = 0; k < paddingByte; k++) {
-        *aDest++ = 0x00;
-    }
-    *aDest++ = aPtr[0];
-    *aDest++ = aPtr[1];
+    const TByte padding = 0;
+    const Brn paddingBuf(&padding, 1);
+    const TUint paddingBytes = iDsdPadBytesPerChunk / 2;
 
-    for (TUint k = 0; k < paddingByte; k++) {
-        *aDest++ = 0x00;
+    for (TUint i = 0; i < paddingBytes; i++) {
+        iAudioEncoded->Append(paddingBuf);
     }
-    *aDest++ = aPtr[2];
-    *aDest++ = aPtr[3];
+    const Brn bufLeft(aPtr, 2);
+    iAudioEncoded->Append(bufLeft);
+    aPtr += 2;
 
-    aPtr += 4;
+    for (TUint i = 0; i < paddingBytes; i++) {
+        iAudioEncoded->Append(paddingBuf);
+    }
+    const Brn bufRight(aPtr, 2);
+    iAudioEncoded->Append(bufRight);
+    aPtr += 2;
 }
 
 void SupplyScd::Flush()

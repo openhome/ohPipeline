@@ -36,7 +36,7 @@ public: // from Media::ISupply
     void OutputFlush(TUint aFlushId) override;
     void OutputWait() override;
 private:
-    inline void WriteBlockDsd(TByte*& aDest, const TByte*& aPtr);
+    inline void WriteBlockDsd(const TByte*& aPtr);
 protected:
     void Output(Media::Msg* aMsg);
     inline void OutputEncodedAudio();
@@ -47,8 +47,8 @@ private:
     TUint iBitsPerSample;
     TUint iSamplesCapacity;
     TUint iBytesPerAudioMsg;
-    TUint iDsdSampleBlockWords;    // DSD specific
-    TUint iDsdPadBytesPerChunk;   // DSD specific
+    const TUint iDsdSampleBlockWords;    // DSD specific
+    const TUint iDsdPadBytesPerChunk;   // DSD specific
     Bws<Media::AudioData::kMaxBytes> iAudioBuf;
 };
 
