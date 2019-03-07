@@ -12,7 +12,8 @@ namespace Scd {
 class SupplyScd : public Media::ISupply, private INonCopyable
 {
     static const TUint kAggregateAudioJiffies = 5 * Media::Jiffies::kPerMs;
-    static const TUint kPlayableBytesPerChunk = 4; // DSD Specific
+    static const TUint kDsdPlayableBytesPerChunk = 4; // DSD Specific
+    static const TByte kDsdPadding = 0;
 public:
     SupplyScd(Media::MsgFactory& aMsgFactory,
               Media::IPipelineElementDownstream& aDownStreamElement,
@@ -49,6 +50,8 @@ private:
     TUint iBytesPerAudioMsg;
     const TUint iDsdSampleBlockWords;    // DSD specific
     const TUint iDsdPadBytesPerChunk;   // DSD specific
+    Bwh iPaddingBuffer; // DSD specific 
+    TBool iIsDsd;   // DSD specific 
     Bws<Media::AudioData::kMaxBytes> iAudioBuf;
 };
 
