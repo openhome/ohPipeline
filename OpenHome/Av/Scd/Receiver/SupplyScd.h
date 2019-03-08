@@ -14,6 +14,7 @@ class SupplyScd : public Media::ISupply, private INonCopyable
     static const TUint kAggregateAudioJiffies = 5 * Media::Jiffies::kPerMs;
     static const TUint kDsdPlayableBytesPerChunk = 4; // DSD Specific
     static const TByte kDsdPadding = 0;
+    static const TUint kDsdChannelCount = 2;
 public:
     SupplyScd(Media::MsgFactory& aMsgFactory,
               Media::IPipelineElementDownstream& aDownStreamElement,

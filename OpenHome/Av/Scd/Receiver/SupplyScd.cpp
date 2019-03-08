@@ -44,7 +44,6 @@ inline void SupplyScd::OutputEncodedAudio()
             const TUint remainingBytes = sampleBlockBytes - (iAudioEncoded->Bytes() % sampleBlockBytes);
             const Brn padBuf(iPaddingBuffer.Ptr(), remainingBytes);
             iAudioEncoded->Append(padBuf);
-            Log::Print("INCOMPLETE BLOCK -> remainingBytes: %u, padBuf.Bytes(): %u, iAudioEncoded->Bytes(): %u\n", remainingBytes, padBuf.Bytes(), iAudioEncoded->Bytes());
         }
         iDownStreamElement.Push(iAudioEncoded);
         iAudioEncoded = nullptr;
@@ -91,13 +90,11 @@ void SupplyScd::OutputDataDsd(TUint aNumSamples, IReader& aReader)
             TUint inputChunks = data.Bytes() / kDsdPlayableBytesPerChunk;
             TUint outputChunks = (iBytesPerAudioMsg - iAudioEncoded->Bytes()) / totalBytesPerChunk;
             const TUint remainingChunks = std::min(inputChunks, outputChunks);
-
             const TByte* inPtr = data.Ptr();
             for (TUint i = 0; i < remainingChunks; i++) {
                 WriteBlockDsd(inPtr);
             }
             data.Set(data.Split(remainingChunks * kDsdPlayableBytesPerChunk));
-
             if (iAudioEncoded->Bytes() == iBytesPerAudioMsg) {
                 OutputEncodedAudio();
             }
@@ -107,23 +104,14 @@ void SupplyScd::OutputDataDsd(TUint aNumSamples, IReader& aReader)
 
 inline void SupplyScd::WriteBlockDsd(const TByte*& aPtr)
 {
-    const TByte padding = 0;
-    const Brn paddingBuf(&padding, 1);
     const TUint paddingBytes = iDsdPadBytesPerChunk / 2;
-
-    for (TUint i = 0; i < paddingBytes; i++) {
-        iAudioEncoded->Append(paddingBuf);
+    const Brn padBuf(iPaddingBuffer.Ptr(), paddingBytes);
+    for (TUint i = 0; i < kDsdChannelCount; i++) {
+        iAudioEncoded->Append(padBuf);
+        const Brn audioBuf(aPtr, 2);
+        iAudioEncoded->Append(audioBuf);
+        aPtr += 2;
     }
-    const Brn bufLeft(aPtr, 2);
-    iAudioEncoded->Append(bufLeft);
-    aPtr += 2;
-
-    for (TUint i = 0; i < paddingBytes; i++) {
-        iAudioEncoded->Append(paddingBuf);
-    }
-    const Brn bufRight(aPtr, 2);
-    iAudioEncoded->Append(bufRight);
-    aPtr += 2;
 }
 
 void SupplyScd::Flush()
