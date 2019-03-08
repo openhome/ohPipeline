@@ -2,6 +2,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Stream.h>
+#include <OpenHome/Private/Debug.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
 #include <algorithm>
@@ -12,14 +13,22 @@ using namespace OpenHome::Media;
 
 // SupplyScd
 
-SupplyScd::SupplyScd(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownStreamElement)
+SupplyScd::SupplyScd(MsgFactory& aMsgFactory, 
+                     IPipelineElementDownstream& aDownStreamElement,
+                     TUint aDsdSampleBlockWords,
+                     TUint aDsdPadBytesPerChunk)
     : iMsgFactory(aMsgFactory)
     , iDownStreamElement(aDownStreamElement)
     , iAudioEncoded(nullptr)
     , iBitsPerSample(0)
     , iSamplesCapacity(0)
     , iBytesPerAudioMsg(0)
+    , iDsdSampleBlockWords(aDsdSampleBlockWords)
+    , iDsdPadBytesPerChunk(aDsdPadBytesPerChunk)
+    , iPaddingBuffer(aDsdSampleBlockWords*4)
+    , iIsDsd(true)
 {
+    iPaddingBuffer.Fill(kDsdPadding);
 }
 
 SupplyScd::~SupplyScd()
@@ -30,6 +39,12 @@ SupplyScd::~SupplyScd()
 inline void SupplyScd::OutputEncodedAudio()
 {
     if (iAudioEncoded != nullptr) {
+        if (iIsDsd && iAudioEncoded->Bytes() != iBytesPerAudioMsg) {
+            const TUint sampleBlockBytes = iDsdSampleBlockWords * 4;
+            const TUint remainingBytes = sampleBlockBytes - (iAudioEncoded->Bytes() % sampleBlockBytes);
+            const Brn padBuf(iPaddingBuffer.Ptr(), remainingBytes);
+            iAudioEncoded->Append(padBuf);
+        }
         iDownStreamElement.Push(iAudioEncoded);
         iAudioEncoded = nullptr;
     }
@@ -56,6 +71,46 @@ void SupplyScd::OutputData(TUint aNumSamples, IReader& aReader)
                 OutputEncodedAudio();
             }
         }
+    }
+}
+
+void SupplyScd::OutputDataDsd(TUint aNumSamples, IReader& aReader)
+{
+    ReaderProtocolN reader(aReader, iAudioBuf);
+    while (aNumSamples > 0) {
+        const TUint samples = std::min(iSamplesCapacity, aNumSamples);
+        iAudioBuf.SetBytes(0);
+        Brn data = reader.Read((samples * iBitsPerSample) / 8);
+        aNumSamples -= samples;
+        while (data.Bytes() > 0) {
+            if (iAudioEncoded == nullptr) {
+                iAudioEncoded = iMsgFactory.CreateMsgAudioEncoded(Brx::Empty());
+            }
+            TUint totalBytesPerChunk = kDsdPlayableBytesPerChunk + iDsdPadBytesPerChunk;
+            TUint inputChunks = data.Bytes() / kDsdPlayableBytesPerChunk;
+            TUint outputChunks = (iBytesPerAudioMsg - iAudioEncoded->Bytes()) / totalBytesPerChunk;
+            const TUint remainingChunks = std::min(inputChunks, outputChunks);
+            const TByte* inPtr = data.Ptr();
+            for (TUint i = 0; i < remainingChunks; i++) {
+                WriteBlockDsd(inPtr);
+            }
+            data.Set(data.Split(remainingChunks * kDsdPlayableBytesPerChunk));
+            if (iAudioEncoded->Bytes() == iBytesPerAudioMsg) {
+                OutputEncodedAudio();
+            }
+        }
+    }
+}
+
+inline void SupplyScd::WriteBlockDsd(const TByte*& aPtr)
+{
+    const TUint paddingBytes = iDsdPadBytesPerChunk / 2;
+    const Brn padBuf(iPaddingBuffer.Ptr(), paddingBytes);
+    for (TUint i = 0; i < kDsdChannelCount; i++) {
+        iAudioEncoded->Append(padBuf);
+        const Brn audioBuf(aPtr, 2);
+        iAudioEncoded->Append(audioBuf);
+        aPtr += 2;
     }
 }
 
@@ -106,6 +161,7 @@ void SupplyScd::OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes,
                                                   0LL, // FIXME - seek support will require that Protocol can set this
                                                   aStreamId, aSeekable, aLive, aMultiroom,
                                                   &aStreamHandler, aPcmStream);
+    iIsDsd = false;
     iBitsPerSample = aPcmStream.BitDepth() * aPcmStream.NumChannels();
     const auto bytesPerSample = iBitsPerSample / 8;
     iSamplesCapacity = iAudioBuf.MaxBytes() / bytesPerSample;
@@ -120,6 +176,7 @@ void SupplyScd::OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes,
     auto msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes,
                                                   0LL, aStreamId, aSeekable,
                                                   &aStreamHandler, aDsdStream);
+    iIsDsd = true;
     iBitsPerSample = aDsdStream.NumChannels();
     iSamplesCapacity = (iAudioBuf.MaxBytes() * 8) / iBitsPerSample;
     iBytesPerAudioMsg = (iSamplesCapacity * iBitsPerSample) / 8;
