@@ -168,8 +168,11 @@ public:
     ~SuiteHalt();
     void Test() override;
 private:
+    void Halted();
+private:
     MsgFactory* iMsgFactory;
     AllocatorInfoLogger iInfoAggregator;
+    TUint iHaltedCount;
 };
 
 class SuiteMode : public Suite
@@ -2179,6 +2182,7 @@ void SuiteFlush::Test()
 
 SuiteHalt::SuiteHalt()
     : Suite("MsgHalt tests")
+    , iHaltedCount(0)
 {
     MsgFactoryInitParams init;
     init.SetMsgHaltCount(kMsgHaltCount);
@@ -2211,6 +2215,23 @@ void SuiteHalt::Test()
     TEST(msg->Id() == id);
     msg->RemoveRef();
     TEST(msg->Id() != id);
+
+    TEST(iHaltedCount == 0);
+    msg = iMsgFactory->CreateMsgHalt(id, MakeFunctor(*this, &SuiteHalt::Halted));
+    msg->ReportHalted();
+    TEST(iHaltedCount == 1);
+    msg->ReportHalted(); // subsequent report attempts should be ignored
+    TEST(iHaltedCount == 1);
+    msg->RemoveRef();
+
+    // following test disabled - there is no way to recover from Msg::Clear throwing
+    //msg = iMsgFactory->CreateMsgHalt(id, MakeFunctor(*this, &SuiteHalt::Halted));
+    //TEST_THROWS(msg->RemoveRef(), AssertionFailed); // asserts if we don't run the Halted callback
+}
+
+void SuiteHalt::Halted()
+{
+    ++iHaltedCount;
 }
 
 

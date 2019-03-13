@@ -104,20 +104,6 @@ TByte* SocketHttp::ReaderUntilDynamic::Ptr()
 }
 
 
-// SocketHttp::Swd
-
-SocketHttp::Swd::Swd(TUint aMaxBytes, IWriter& aWriter)
-    : Swx(aMaxBytes, aWriter)
-    , iBuf(aMaxBytes)
-{
-}
-
-TByte* SocketHttp::Swd::Ptr()
-{
-    return const_cast<TByte*>(iBuf.Ptr());
-}
-
-
 // SocketHttp
 
 const TUint SocketHttp::kDefaultHttpPort;
@@ -139,9 +125,8 @@ SocketHttp::SocketHttp(Environment& aEnv, const Brx& aUserAgent, TUint aReadBuff
     , iReadBuffer(aReadBufferBytes, iSocket)
     , iReaderUntil(aReadBufferBytes, iReadBuffer)
     , iReaderResponse(aEnv, iReaderUntil)
-    , iWriteBuffer(aWriteBufferBytes, iSocket)
-    , iWriterRequest(iWriteBuffer)
-    , iWriterChunked(iWriteBuffer)
+    , iWriterChunked(iSocket, aWriteBufferBytes)
+    , iWriterRequest(iWriterChunked)
     , iDechunker(iReaderUntil)
     , iConnected(false)
     , iRequestHeadersSent(false)
@@ -270,7 +255,6 @@ void SocketHttp::SetRequestChunked()
     iRequestChunked = true;
     iRequestContentLengthSet = false;
     iRequestContentLength = 0;
-    iWriterChunked.SetChunked(true);
 }
 
 void SocketHttp::SetRequestContentLength(TUint64 aContentLength)
@@ -282,7 +266,6 @@ void SocketHttp::SetRequestContentLength(TUint64 aContentLength)
     iRequestChunked = false;
     iRequestContentLengthSet = true;
     iRequestContentLength = aContentLength;
-    iWriterChunked.SetChunked(false);
 }
 
 void SocketHttp::SetRequestHeader(const Brx& aField, const Brx& aValue)
@@ -456,6 +439,7 @@ void SocketHttp::WriteRequest()
 {
     LOG(kHttp, ">SocketHttp::WriteRequest iUri: %.*s, iEndpoint.Port(): %u, iMethod: %.*s\n", PBUF(iUri.AbsoluteUri()), iEndpoint.Port(), PBUF(iMethod));
     try {
+        iWriterChunked.SetChunked(false);
         iWriterRequest.WriteMethod(iMethod, iUri.PathAndQuery(), Http::eHttp11);
         Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), iEndpoint.Port());
 
@@ -476,6 +460,10 @@ void SocketHttp::WriteRequest()
         }
 
         iWriterRequest.WriteFlush();
+        
+        if (iRequestChunked) {
+            iWriterChunked.SetChunked(true);
+        }
     }
     catch(const WriterError&) {
         LOG(kHttp, "<SocketHttp::WriteRequest caught WriterError\n");
@@ -517,7 +505,7 @@ void SocketHttp::SendRequestHeaders()
     }
 
     // If this is a GET request, the request is now complete.
-    // If this is a POST request, caller should call GetOutputStream() and write request body.
+    // If this is a POST request, caller should call and write request body.
     // Following either of the above, GetInputStream(), GetResponseCode(), etc., can be called to handle responses to the request.
 }
 
@@ -608,8 +596,7 @@ void SocketHttp::ResetResponseState()
         iDechunker.ReadFlush();
 
         try {
-            iWriterRequest.WriteFlush();
-            iWriteBuffer.WriteFlush();
+            iWriterChunked.WriteFlush();
         }
         catch (const WriterError&) {
             // Nothing to do.

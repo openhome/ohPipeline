@@ -33,8 +33,16 @@ MuterVolume::MuterVolume(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUps
     , iLock("MPMT")
     , iSemMuted("MPMT", 0)
     , iState(State::eRunning)
+    , iMsgHalt(nullptr)
     , iHalted(true)
 {
+}
+
+MuterVolume::~MuterVolume()
+{
+    if (iMsgHalt != nullptr) {
+        iMsgHalt->RemoveRef();
+    }
 }
 
 void MuterVolume::Start(IVolumeMuterStepped& aVolumeMuter)
@@ -84,7 +92,15 @@ void MuterVolume::Mute()
         }
     }
     if (block) {
-        iSemMuted.Wait();
+        try {
+            static const TUint kMuteTimeoutMs = 5000; // arbitrary value longer than any sensible ramp down + drain
+            iSemMuted.Wait(kMuteTimeoutMs);
+        }
+        catch (Timeout&) {
+            LOG_ERROR(kPipeline, "MuterVolume timeout muting: iState=%s, iJiffiesUntilMute=%u (%ums), iHalted=%u\n",
+                                 StateAsString(), iJiffiesUntilMute, Jiffies::ToMs(iJiffiesUntilMute), iHalted);
+            ASSERTS();
+        }
     }
     LOG(kPipeline, "< MuterVolume::Mute (block=%u)\n", block);
 }
@@ -133,9 +149,9 @@ Msg* MuterVolume::Pull()
 
 Msg* MuterVolume::ProcessMsg(MsgHalt* aMsg)
 {
-    auto msg = iMsgFactory.CreateMsgHalt(aMsg->Id(), MakeFunctor(*this, &MuterVolume::PipelineHalted));
-    aMsg->RemoveRef();
-    return msg;
+    ASSERT(iMsgHalt == nullptr);
+    iMsgHalt = aMsg;
+    return iMsgFactory.CreateMsgHalt(aMsg->Id(), MakeFunctor(*this, &MuterVolume::PipelineHalted));
 }
 
 Msg* MuterVolume::ProcessMsg(MsgAudioPcm* aMsg)
@@ -210,5 +226,30 @@ void MuterVolume::PipelineHalted()
         break;
     case State::eMuted:
         break;
+    }
+
+    ASSERT(iMsgHalt != nullptr);
+    iMsgHalt->ReportHalted();
+    iMsgHalt->RemoveRef();
+    iMsgHalt = nullptr;
+}
+
+const TChar* MuterVolume::StateAsString() const
+{
+    switch (iState)
+    {
+    case State::eRunning:
+        return "Running";
+    case State::eMutingRamp:
+        return "MutingRamp";
+    case State::eMutingWait:
+        return "MutingWait";
+    case State::eUnmutingRamp:
+        return "UnmutingRamp";
+    case State::eMuted:
+        return "Muted";
+    default:
+        ASSERTS();
+        return "";
     }
 }

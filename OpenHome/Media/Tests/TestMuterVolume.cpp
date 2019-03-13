@@ -89,6 +89,7 @@ private:
     Msg* CreateAudioDsd();
     void PullAudioMsg();
     void AcknowledgeDeferredHalt();
+    void Halted();
 private:
     void TestMsgsPassWhenRunning();
     void TestMuteImmediateWhenHalted();
@@ -101,6 +102,7 @@ private:
     void TestUnmuteWhileHalting();
     void TestHaltWhileMuting();
     void TestHaltWhileUnmuting();
+    void TestHaltNotifiedUpstream();
 private:
     AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
@@ -112,6 +114,7 @@ private:
     TBool iCompleteRamp;
     TBool iNotifiedMuted;
     TBool iNotifiedUnmuted;
+    TBool iNotifiedHalted;
     TUint iStreamId;
     TUint64 iTrackOffset;
     TUint64 iJiffies;
@@ -143,6 +146,7 @@ SuiteMuterVolume::SuiteMuterVolume()
     AddTest(MakeFunctor(*this, &SuiteMuterVolume::TestUnmuteWhileHalting), "TestUnmuteWhileHalting");
     AddTest(MakeFunctor(*this, &SuiteMuterVolume::TestHaltWhileMuting), "TestHaltWhileMuting");
     AddTest(MakeFunctor(*this, &SuiteMuterVolume::TestHaltWhileUnmuting), "TestHaltWhileMuting");
+    AddTest(MakeFunctor(*this, &SuiteMuterVolume::TestHaltNotifiedUpstream), "TestHaltNotifiedUpstream");
 }
 
 SuiteMuterVolume::~SuiteMuterVolume()
@@ -173,7 +177,7 @@ void SuiteMuterVolume::Setup()
     iTrackOffset = 0;
     iJiffies = iRampDownJiffies = iRampUpJiffies = 0;
     iDeferHaltAcknowledgement = false;
-    iCompleteRamp = iNotifiedMuted = iNotifiedUnmuted = false;
+    iCompleteRamp = iNotifiedMuted = iNotifiedUnmuted = iNotifiedHalted = false;
     iNextStreamId = 1;
     iLastHaltId = MsgHalt::kIdInvalid;
     iLastHaltMsg = nullptr;
@@ -452,6 +456,11 @@ void SuiteMuterVolume::AcknowledgeDeferredHalt()
     iLastHaltMsg = nullptr;
 }
 
+void SuiteMuterVolume::Halted()
+{
+    iNotifiedHalted = true;
+}
+
 void SuiteMuterVolume::TestMsgsPassWhenRunning()
 {
     iPendingMsgs.push_back(iMsgFactory->CreateMsgMode(Brx::Empty()));
@@ -644,6 +653,18 @@ void SuiteMuterVolume::TestHaltWhileUnmuting()
     TEST(iMuter->iState == MuterVolume::State::eRunning);
     TEST(!iNotifiedMuted);
     TEST(iNotifiedUnmuted);
+}
+
+void SuiteMuterVolume::TestHaltNotifiedUpstream()
+{
+    PullAudioMsg();
+    DoBeginMute();
+    TEST(iMuter->iState == MuterVolume::State::eMutingRamp);
+    PullAudioMsg();
+    iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt(42, MakeFunctor(*this, &SuiteMuterVolume::Halted)));
+    TEST(!iNotifiedHalted);
+    PullNext(EMsgHalt);
+    TEST(iNotifiedHalted);
 }
 
 
