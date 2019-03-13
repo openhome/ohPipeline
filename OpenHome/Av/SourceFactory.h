@@ -32,7 +32,7 @@ public:
                                 Optional<IOhmTimestamper> aTxTimestamper,
                                 Optional<IOhmTimestamper> aRxTimestamper,
                                 Optional<IOhmMsgProcessor> aOhmMsgObserver);
-    static ISource* NewScd(IMediaPlayer& aMediaPlayer);
+    static ISource* NewScd(IMediaPlayer& aMediaPlayer, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerChunk);
 
     static const TChar* kSourceTypePlaylist;
     static const TChar* kSourceTypeRadio;

@@ -12,11 +12,17 @@ namespace Scd {
 class SupplyScd : public Media::ISupply, private INonCopyable
 {
     static const TUint kAggregateAudioJiffies = 5 * Media::Jiffies::kPerMs;
+    static const TUint kDsdPlayableBytesPerChunk = 4; // DSD Specific
+    static const TByte kDsdPadding = 0;
+    static const TUint kDsdChannelCount = 2;
 public:
     SupplyScd(Media::MsgFactory& aMsgFactory,
-              Media::IPipelineElementDownstream& aDownStreamElement);
+              Media::IPipelineElementDownstream& aDownStreamElement,
+              TUint aDsdSampleBlockWords,
+              TUint aDsdPadBytesPerChunk);
     virtual ~SupplyScd();
     void OutputData(TUint aNumSamples, IReader& aReader);
+    void OutputDataDsd(TUint aNumSamples, IReader& aReader);
     void Flush();
     void Discard();
 public: // from Media::ISupply
@@ -31,6 +37,8 @@ public: // from Media::ISupply
     void OutputHalt(TUint aHaltId = Media::MsgHalt::kIdNone) override;
     void OutputFlush(TUint aFlushId) override;
     void OutputWait() override;
+private:
+    inline void WriteBlockDsd(const TByte*& aPtr);
 protected:
     void Output(Media::Msg* aMsg);
     inline void OutputEncodedAudio();
@@ -41,6 +49,10 @@ private:
     TUint iBitsPerSample;
     TUint iSamplesCapacity;
     TUint iBytesPerAudioMsg;
+    const TUint iDsdSampleBlockWords;    // DSD specific
+    const TUint iDsdPadBytesPerChunk;   // DSD specific
+    Bwh iPaddingBuffer; // DSD specific 
+    TBool iIsDsd;   // DSD specific 
     Bws<Media::AudioData::kMaxBytes> iAudioBuf;
 };
 

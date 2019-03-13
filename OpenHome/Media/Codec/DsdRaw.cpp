@@ -14,7 +14,7 @@ namespace Codec {
 class CodecDsdRaw : public CodecBase
 {
 public:
-    CodecDsdRaw();
+    CodecDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes);
     ~CodecDsdRaw();
 private: // from CodecBase
     TBool Recognise(const EncodedStreamInfo& aStreamInfo) override;
@@ -24,7 +24,8 @@ private: // from CodecBase
 private:
     TUint iSampleRate;
     TUint iNumChannels;
-    TUint iSampleBlockWords;
+    const TUint iSampleBlockWords;
+    const TUint iPaddingBytes;
     TUint64 iStartSample;
     TUint64 iTrackOffset;
     TUint64 iTrackLengthJiffies;
@@ -39,14 +40,16 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 using namespace OpenHome::Media::Codec;
 
-CodecBase* CodecFactory::NewDsdRaw()
+CodecBase* CodecFactory::NewDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes)
 { // static
-    return new CodecDsdRaw();
+    return new CodecDsdRaw(aSampleBlockWords, aPaddingBytes);
 }
 
 
-CodecDsdRaw::CodecDsdRaw()
+CodecDsdRaw::CodecDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes)
     : CodecBase("DSD", kCostVeryLow)
+    , iSampleBlockWords(aSampleBlockWords)
+    , iPaddingBytes(aPaddingBytes)
 {
 }
 
@@ -61,7 +64,6 @@ TBool CodecDsdRaw::Recognise(const EncodedStreamInfo& aStreamInfo)
     }
     iSampleRate = aStreamInfo.SampleRate();
     iNumChannels = aStreamInfo.NumChannels();
-    iSampleBlockWords = aStreamInfo.SampleBlockWords();
     iStartSample = aStreamInfo.StartSample();
     iCodecName.Replace(aStreamInfo.CodecName());
     //Log::Print("CodecDsdRaw::Recognise iSampleRate %u, iNumChannels %u, iSampleBlockWords=%u, iStartSample %llu\n",
@@ -87,7 +89,7 @@ void CodecDsdRaw::StreamInitialise()
 void CodecDsdRaw::Process()
 {
     auto msg = iController->ReadNextMsg();
-    iTrackOffset += iController->OutputAudioDsd(msg, iNumChannels, iSampleRate, iSampleBlockWords, iTrackOffset, 0);
+    iTrackOffset += iController->OutputAudioDsd(msg, iNumChannels, iSampleRate, iSampleBlockWords, iTrackOffset, iPaddingBytes);
 }
 
 TBool CodecDsdRaw::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)

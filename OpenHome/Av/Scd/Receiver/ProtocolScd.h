@@ -26,7 +26,7 @@ class ProtocolScd : public Media::ProtocolNetwork
     static const TUint kVersionMajor;
     static const TUint kVersionMinor;
 public:
-    ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory, IScdObserver& aObserver);
+    ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerChunk, IScdObserver& aObserver);
 private: // from Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
     void Interrupt(TBool aInterrupt) override;
@@ -55,6 +55,8 @@ private:
     Mutex iLock;
     ScdMsgFactory iScdFactory;
     Media::TrackFactory& iTrackFactory;
+    const TUint iDsdSampleBlockWords;
+    const TUint iDsdPadBytesPerChunk;
     IScdObserver& iObserver;
     std::unique_ptr<SupplyScd> iSupply;
     Uri iUri;

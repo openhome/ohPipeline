@@ -391,7 +391,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 
     // Add codecs
     static const TUint kDsdSampleBlockWords = 6; // Specifies if the test player outputs DSD as 16xL, 16xR [32 bits = 1 word] or 4 x (24xL, 24xR) [192 bits = 6]
-    static const TUint kDsdPaddingBytes = 2;
+    static const TUint kDsdPadBytesPerChunk = 2;
     iMediaPlayer->Add(Codec::CodecFactory::NewFlac(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewWav(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAiff(iMediaPlayer->MimeTypes()));
@@ -399,10 +399,10 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewAacFdkMp4(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAacFdkAdts(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAlacApple(iMediaPlayer->MimeTypes()));
-    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDsf(iMediaPlayer->MimeTypes(), kDsdSampleBlockWords, kDsdPaddingBytes));
-    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDff(iMediaPlayer->MimeTypes(), kDsdSampleBlockWords, kDsdPaddingBytes));
+    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDsf(iMediaPlayer->MimeTypes(), kDsdSampleBlockWords, kDsdPadBytesPerChunk));
+    iMediaPlayer->Add(Codec::CodecFactory::NewDsdDff(iMediaPlayer->MimeTypes(), kDsdSampleBlockWords, kDsdPadBytesPerChunk));
     iMediaPlayer->Add(Codec::CodecFactory::NewPcm());
-    iMediaPlayer->Add(Codec::CodecFactory::NewDsdRaw());
+    iMediaPlayer->Add(Codec::CodecFactory::NewDsdRaw(kDsdSampleBlockWords, kDsdPadBytesPerChunk));
     iMediaPlayer->Add(Codec::CodecFactory::NewVorbis(iMediaPlayer->MimeTypes()));
     // RAOP source must be added towards end of source list.
     // However, must add RAOP codec before MP3 codec to avoid false-positives.
@@ -467,7 +467,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
                                                  Optional<IOhmTimestamper>(iRxTimestamper),
                                                  Optional<IOhmMsgProcessor>()));
 
-    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer));
+    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
 }
 
 void TestMediaPlayer::InitialiseSubsystems()
