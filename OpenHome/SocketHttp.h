@@ -83,15 +83,6 @@ private:
     private:
         Bwh iBuf;
     };
-    class Swd : public Swx
-    {
-    public:
-        Swd(TUint aMaxBytes, IWriter& aWriter);
-    private: // from Swx
-        TByte* Ptr() override;
-    private:
-        Bwh iBuf;
-    };
 public:
     SocketHttp( Environment& aEnv,
                 const Brx& aUserAgent,
@@ -197,9 +188,8 @@ private:
     Srd iReadBuffer;
     ReaderUntilDynamic iReaderUntil;
     ReaderHttpResponse iReaderResponse;
-    Swd iWriteBuffer;
-    WriterHttpRequest iWriterRequest;
     WriterHttpChunked iWriterChunked;
+    WriterHttpRequest iWriterRequest;
     ReaderHttpChunked iDechunker;
     TBool iConnected;
     TBool iRequestHeadersSent;
