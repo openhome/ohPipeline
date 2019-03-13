@@ -54,6 +54,7 @@ private: // IMsgProcessor
 private:
     void ProcessAudio(MsgAudio* aMsg);
     void PipelineHalted();
+    const TChar* StateAsString() const;
 private:
     enum class State
     {

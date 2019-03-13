@@ -92,7 +92,15 @@ void MuterVolume::Mute()
         }
     }
     if (block) {
-        iSemMuted.Wait();
+        try {
+            static const TUint kMuteTimeoutMs = 5000; // arbitrary value longer than any sensible ramp down + drain
+            iSemMuted.Wait(kMuteTimeoutMs);
+        }
+        catch (Timeout&) {
+            LOG_ERROR(kPipeline, "MuterVolume timeout muting: iState=%s, iJiffiesUntilMute=%u (%ums), iHalted=%u\n",
+                                 StateAsString(), iJiffiesUntilMute, Jiffies::ToMs(iJiffiesUntilMute), iHalted);
+            ASSERTS();
+        }
     }
     LOG(kPipeline, "< MuterVolume::Mute (block=%u)\n", block);
 }
@@ -224,4 +232,24 @@ void MuterVolume::PipelineHalted()
     iMsgHalt->ReportHalted();
     iMsgHalt->RemoveRef();
     iMsgHalt = nullptr;
+}
+
+const TChar* MuterVolume::StateAsString() const
+{
+    switch (iState)
+    {
+    case State::eRunning:
+        return "Running";
+    case State::eMutingRamp:
+        return "MutingRamp";
+    case State::eMutingWait:
+        return "MutingWait";
+    case State::eUnmutingRamp:
+        return "UnmutingRamp";
+    case State::eMuted:
+        return "Muted";
+    default:
+        ASSERTS();
+        return "";
+    }
 }
