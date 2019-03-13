@@ -86,15 +86,27 @@ void SupplyScd::OutputDataDsd(TUint aNumSamples, IReader& aReader)
             if (iAudioEncoded == nullptr) {
                 iAudioEncoded = iMsgFactory.CreateMsgAudioEncoded(Brx::Empty());
             }
-            TUint totalBytesPerChunk = kDsdPlayableBytesPerChunk + iDsdPadBytesPerChunk;
-            TUint inputChunks = data.Bytes() / kDsdPlayableBytesPerChunk;
-            TUint outputChunks = (iBytesPerAudioMsg - iAudioEncoded->Bytes()) / totalBytesPerChunk;
-            const TUint remainingChunks = std::min(inputChunks, outputChunks);
-            const TByte* inPtr = data.Ptr();
-            for (TUint i = 0; i < remainingChunks; i++) {
-                WriteBlockDsd(inPtr);
+            /*
+             * Optimisation for pass-through case, where incoming data does not need to be repacked, saving on mem copies.
+             */
+            if (iDsdPadBytesPerChunk == 0) {
+                const TUint bytes = std::min(data.Bytes(), iBytesPerAudioMsg - iAudioEncoded->Bytes());
+                Brn split = data.Split(bytes);
+                data.Set(data.Ptr(), bytes);
+                iAudioEncoded->Append(data);
+                data.Set(split);
             }
-            data.Set(data.Split(remainingChunks * kDsdPlayableBytesPerChunk));
+            else {
+                TUint totalBytesPerChunk = kDsdPlayableBytesPerChunk + iDsdPadBytesPerChunk;
+                TUint inputChunks = data.Bytes() / kDsdPlayableBytesPerChunk;
+                TUint outputChunks = (iBytesPerAudioMsg - iAudioEncoded->Bytes()) / totalBytesPerChunk;
+                const TUint remainingChunks = std::min(inputChunks, outputChunks);
+                const TByte* inPtr = data.Ptr();
+                for (TUint i = 0; i < remainingChunks; i++) {
+                    WriteBlockDsd(inPtr);
+                }
+                data.Set(data.Split(remainingChunks * kDsdPlayableBytesPerChunk));
+            }
             if (iAudioEncoded->Bytes() == iBytesPerAudioMsg) {
                 OutputEncodedAudio();
             }
