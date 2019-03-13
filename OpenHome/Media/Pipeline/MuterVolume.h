@@ -39,6 +39,7 @@ class MuterVolume : public PipelineElement, public IPipelineElementUpstream, pub
     static const TUint kJiffiesUntilMute;
 public:
     MuterVolume(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
+    ~MuterVolume();
     void Start(IVolumeMuterStepped& aVolumeMuter);
 public: // from IMute
     void Mute() override;
@@ -70,6 +71,7 @@ private:
     Semaphore iSemMuted;
     State iState;
     TUint iJiffiesUntilMute;
+    MsgHalt* iMsgHalt;
     TBool iHalted;
 };
 

@@ -33,8 +33,16 @@ MuterVolume::MuterVolume(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUps
     , iLock("MPMT")
     , iSemMuted("MPMT", 0)
     , iState(State::eRunning)
+    , iMsgHalt(nullptr)
     , iHalted(true)
 {
+}
+
+MuterVolume::~MuterVolume()
+{
+    if (iMsgHalt != nullptr) {
+        iMsgHalt->RemoveRef();
+    }
 }
 
 void MuterVolume::Start(IVolumeMuterStepped& aVolumeMuter)
@@ -133,9 +141,9 @@ Msg* MuterVolume::Pull()
 
 Msg* MuterVolume::ProcessMsg(MsgHalt* aMsg)
 {
-    auto msg = iMsgFactory.CreateMsgHalt(aMsg->Id(), MakeFunctor(*this, &MuterVolume::PipelineHalted));
-    aMsg->RemoveRef();
-    return msg;
+    ASSERT(iMsgHalt == nullptr);
+    iMsgHalt = aMsg;
+    return iMsgFactory.CreateMsgHalt(aMsg->Id(), MakeFunctor(*this, &MuterVolume::PipelineHalted));
 }
 
 Msg* MuterVolume::ProcessMsg(MsgAudioPcm* aMsg)
@@ -211,4 +219,9 @@ void MuterVolume::PipelineHalted()
     case State::eMuted:
         break;
     }
+
+    ASSERT(iMsgHalt != nullptr);
+    iMsgHalt->ReportHalted();
+    iMsgHalt->RemoveRef();
+    iMsgHalt = nullptr;
 }
