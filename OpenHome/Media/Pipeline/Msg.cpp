@@ -1689,6 +1689,7 @@ void MsgHalt::Initialise(TUint aId, Functor aCallback)
 
 void MsgHalt::Clear()
 {
+    ASSERT(!iCallback);
     iId = UINT_MAX;
     iCallback = Functor();
 }

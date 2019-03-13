@@ -638,6 +638,9 @@ void SuiteMuter::TestUnmuteWhileHalting()
         Thread::Sleep(10);
     }
     TEST(iMuteCompleted);
+    iLastHaltMsg->ReportHalted();
+    iLastHaltMsg->RemoveRef();
+    iLastHaltMsg = nullptr;
 }
 
 
