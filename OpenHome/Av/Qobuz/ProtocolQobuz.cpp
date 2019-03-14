@@ -13,6 +13,7 @@
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Av/Qobuz/Qobuz.h>
 #include <OpenHome/Media/SupplyAggregator.h>
+#include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Av/Qobuz/QobuzPins.h>
 
 namespace OpenHome {
@@ -27,7 +28,7 @@ public:
                   Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser,
                   IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
                   Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, 
-                  IThreadPool& aThreadPool);
+                  IThreadPool& aThreadPool, Media::IPipelineObservable& aPipelineObservable);
     ~ProtocolQobuz();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -56,7 +57,7 @@ private:
     Media::SupplyAggregator* iSupply;
     Uri iUri;
     Bws<12> iTrackId;
-    Bws<1024> iStreamUrl;
+    QobuzTrack* iQobuzTrack;
     Bws<64> iSessionId;
     WriterHttpRequest iWriterRequest;
     ReaderUntilS<2048> iReaderUntil;
@@ -77,6 +78,16 @@ private:
     TUint iNextFlushId;
 };
 
+class AutoQobuzTrack
+{
+public:
+    AutoQobuzTrack(QobuzTrack& aTrack, TBool& aStopped);
+    ~AutoQobuzTrack();
+private:
+    QobuzTrack& iTrack;
+    TBool& iStopped;
+};
+
 };  // namespace Av
 };  // namespace OpenHome
 
@@ -92,7 +103,7 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
                              aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(),
                              aMediaPlayer.UnixTimestamp(), aMediaPlayer.Device(), 
                              aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable(), 
-                             aMediaPlayer.ThreadPool());
+                             aMediaPlayer.ThreadPool(), aMediaPlayer.Pipeline());
 }
 
 
@@ -102,9 +113,10 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
                              Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser,
                              IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
                              Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, 
-                             IThreadPool& aThreadPool)
+                             IThreadPool& aThreadPool, Media::IPipelineObservable& aPipelineObservable)
     : ProtocolNetwork(aEnv)
     , iSupply(nullptr)
+    , iQobuzTrack(nullptr)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
     , iReaderResponse(aEnv, iReaderUntil)
@@ -116,7 +128,8 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
 
-    iQobuz = new Qobuz(aEnv, aAppId, aAppSecret, aCredentialsManager, aConfigInitialiser, aUnixTimestamp);
+    iQobuz = new Qobuz(aEnv, aAppId, aAppSecret, aDevice.Udn(), aCredentialsManager,
+                       aConfigInitialiser, aUnixTimestamp, aThreadPool, aPipelineObservable);
     aCredentialsManager.Add(iQobuz);
 
     if (aPinsInvocable.Ok()) {
@@ -168,14 +181,19 @@ ProtocolStreamResult ProtocolQobuz::Stream(const Brx& aUri)
     }
 
     ProtocolStreamResult res = EProtocolStreamErrorUnrecoverable;
-    if (!iQobuz->TryGetStreamUrl(iTrackId, iStreamUrl)) {
+    iQobuzTrack = iQobuz->StreamableTrack(iTrackId);
+    if (iQobuzTrack == nullptr) {
         // any error might be due to our session having expired
         // attempt login, getStreamUrl to see if that fixes things
-        if (!iQobuz->TryLogin() || !iQobuz->TryGetStreamUrl(iTrackId, iStreamUrl)) {
+        if (iQobuz->TryLogin()) {
+            iQobuzTrack = iQobuz->StreamableTrack(iTrackId);
+        }
+        if (iQobuzTrack == nullptr) {
             return EProtocolStreamErrorUnrecoverable;
         }
     }
-    iUri.Replace(iStreamUrl);
+    AutoQobuzTrack _(*iQobuzTrack, iStopped);
+    iUri.Replace(iQobuzTrack->Url());
 
     res = DoStream();
     if (res == EProtocolStreamErrorUnrecoverable) {
@@ -423,14 +441,15 @@ ProtocolStreamResult ProtocolQobuz::ProcessContent()
 {
     if (!iStarted) {
         iStreamId = iIdProvider->NextStreamId();
+        iQobuzTrack->ProtocolStarted(iStreamId);
         iSupply->OutputStream(iUri.AbsoluteUri(), iTotalBytes, iOffset, iSeekable, false, Multiroom::Allowed, *this, iStreamId);
         iStarted = true;
     }
     iContentProcessor = iProtocolManager->GetAudioProcessor();
     auto res = iContentProcessor->Stream(*this, iTotalBytes);
     if (res == EProtocolStreamErrorRecoverable && !(iSeek || iStopped)) {
-        if (iQobuz->TryGetStreamUrl(iTrackId, iStreamUrl)) {
-            iUri.Replace(iStreamUrl);
+        if (iQobuz->TryUpdateStreamUrl(*iQobuzTrack)) {
+            iUri.Replace(iQobuzTrack->Url());
         }
     }
     return res;
@@ -449,4 +468,18 @@ ProtocolStreamResult ProtocolQobuz::DoSeek(TUint64 aOffset)
     }
 
     return ProcessContent();
+}
+
+
+// AutoQobuzTrack
+
+AutoQobuzTrack::AutoQobuzTrack(QobuzTrack& aTrack, TBool& aStopped)
+    : iTrack(aTrack)
+    , iStopped(aStopped)
+{
+}
+
+AutoQobuzTrack::~AutoQobuzTrack()
+{
+    iTrack.ProtocolCompleted(iStopped);
 }

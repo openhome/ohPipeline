@@ -15,6 +15,9 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/md5.h>
 #include <OpenHome/Json.h>
+#include <OpenHome/ThreadPool.h>
+#include <OpenHome/Media/PipelineObserver.h>
+#include <OpenHome/Media/Pipeline/Msg.h>
 
 #include <algorithm>
 #include <vector>
@@ -24,37 +27,192 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Configuration;
 
 
+// QobuzTrack
+
+QobuzTrack::QobuzTrack(IUnixTimestamp& aUnixTimestamp, Media::IPipelineObservable& aPipelineObservable,
+                       IQobuzTrackObserver& aObserver, TUint aTrackId, const Brx& aUrl, TUint aFormatId)
+    : iLock("QTrk")
+    , iUnixTimestamp(aUnixTimestamp)
+    , iPipelineObservable(aPipelineObservable)
+    , iObserver(aObserver)
+    , iTrackId(aTrackId)
+    , iStartTime(0)
+    , iPlayedSeconds(0)
+    , iStreamId(Media::IPipelineIdProvider::kStreamIdInvalid)
+    , iFormatId(aFormatId)
+    , iCurrentStream(false)
+    , iStarted(false)
+{
+    Log::Print("++ QobuzTrack: iTrackId=%u\n", iTrackId);
+    UpdateUrl(aUrl);
+    iPipelineObservable.AddObserver(*this);
+}
+
+QobuzTrack::~QobuzTrack()
+{
+    Log::Print("++ ~QobuzTrack: iTrackId=%u, iStreamId=%u\n", iTrackId, iStreamId);
+    iPipelineObservable.RemoveObserver(*this);
+}
+
+void QobuzTrack::ProtocolStarted(TUint aStreamId)
+{
+    AutoMutex _(iLock);
+    iStreamId = aStreamId;
+    Log::Print("++ QobuzTrack::ProtocolStarted: iTrackId=%u, iStreamId=%u\n", iTrackId, iStreamId);
+}
+
+void QobuzTrack::ProtocolCompleted(TBool aStopped)
+{
+    TBool reportStopped = false;
+    {
+        AutoMutex _(iLock);
+        if (!iStarted) {
+            // prevent NotifyStreamInfo setting iCurrentStream
+            // Note that this would falsely report a track as complete if the pipeline
+            // buffered the entire track before starting to play it.
+            iStreamId = Media::IPipelineIdProvider::kStreamIdInvalid;
+            reportStopped = !aStopped; // no point reporting anything if we hadn't started playing then the pipeline is cleared
+        }
+    }
+    if (reportStopped) {
+        iObserver.TrackStopped(*this);
+    }
+    else if (!iStarted) {
+        delete this;
+    }
+}
+
+void QobuzTrack::UpdateUrl(const Brx& aUrlEncoded)
+{
+    AutoMutex _(iLock);
+    if (iUrl.MaxBytes() < aUrlEncoded.Bytes()) {
+        iUrl.Grow(aUrlEncoded.Bytes());
+    }
+    iUrl.Replace(aUrlEncoded);
+    Json::Unescape(iUrl);
+}
+
+TUint QobuzTrack::Id() const
+{
+    return iTrackId;
+}
+
+const Brx& QobuzTrack::Url() const
+{
+    AutoMutex _(iLock);
+    return iUrl;
+}
+
+TUint QobuzTrack::FormatId() const
+{
+    return iFormatId;
+}
+
+TUint QobuzTrack::StartTime() const
+{
+    return iStartTime;
+}
+
+TUint QobuzTrack::PlayedSeconds() const
+{
+    return iPlayedSeconds;
+}
+
+void QobuzTrack::NotifyPipelineState(Media::EPipelineState /*aState*/)
+{
+}
+
+void QobuzTrack::NotifyMode(const Brx& /*aMode*/, const Media::ModeInfo& /*aInfo*/,
+                            const Media::ModeTransportControls& /*aTransportControls*/)
+{
+}
+
+void QobuzTrack::NotifyTrack(Media::Track& /*aTrack*/, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
+{
+}
+
+void QobuzTrack::NotifyMetaText(const Brx& /*aText*/)
+{
+}
+
+void QobuzTrack::NotifyTime(TUint aSeconds, TUint /*aTrackDurationSeconds*/)
+{
+    {
+        AutoMutex _(iLock);
+        if (iCurrentStream) {
+            iPlayedSeconds = aSeconds;
+        }
+    }
+    if (aSeconds == 1) {
+        iStarted = true;
+        try {
+            iStartTime = iUnixTimestamp.Now();
+        }
+        catch (UnixTimestampUnavailable&) {}
+        iObserver.TrackStarted(*this);
+    }
+}
+
+void QobuzTrack::NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo)
+{
+    TBool stopped = false;
+    {
+        AutoMutex _(iLock);
+        Log::Print("++ QobuzTrack::NotifyStreamInfo: iTrackId=%u, iStreamId=%u, stream=%u\n", iTrackId, iStreamId, aStreamInfo.StreamId());
+        if (aStreamInfo.StreamId() == iStreamId) {
+            iCurrentStream = true;
+        }
+        else if (iCurrentStream) {
+            iCurrentStream = false;
+            stopped = true;
+        }
+    }
+    if (stopped) {
+        iObserver.TrackStopped(*this);
+    }
+}
+
+
+// Qobuz
+
 const Brn Qobuz::kHost("www.qobuz.com");
 const Brn Qobuz::kId("qobuz.com");
 const Brn Qobuz::kVersionAndFormat("/api.json/0.2/");
 const Brn Qobuz::kConfigKeySoundQuality("qobuz.com.SoundQuality");
+const Brn Qobuz::kTagFileUrl("url");
 
 static const TUint kQualityValues[] ={ 5, 6, 7, 27 };
 
-Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
+Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret, const Brx& aDeviceId,
              ICredentialsState& aCredentialsState, IConfigInitialiser& aConfigInitialiser,
-             IUnixTimestamp& aUnixTimestamp)
+             IUnixTimestamp& aUnixTimestamp, IThreadPool& aThreadPool,
+             Media::IPipelineObservable& aPipelineObservable)
     : iEnv(aEnv)
     , iLock("QBZ1")
     , iLockConfig("QBZ2")
     , iCredentialsState(aCredentialsState)
     , iUnixTimestamp(aUnixTimestamp)
+    , iPipelineObservable(aPipelineObservable)
     , iReaderBuf(iSocket)
-    , iReaderUntil1(iReaderBuf)
-    , iWriterBuf(iSocket)
-    , iWriterRequest(iWriterBuf)
-    , iReaderResponse(aEnv, iReaderUntil1)
-    , iReaderEntity(iReaderUntil1)
-    , iReaderUntil2(iReaderEntity)
+    , iReaderUntil(iReaderBuf)
+    , iWriteBuffer(iSocket)
+    , iWriterRequest(iWriteBuffer)
+    , iReaderResponse(aEnv, iReaderUntil)
+    , iReaderEntity(iReaderUntil)
     , iAppId(aAppId)
     , iAppSecret(aAppSecret)
+    , iDeviceId(aDeviceId)
     , iUsername(kGranularityUsername)
     , iPassword(kGranularityPassword)
     , iResponseBody(2048)
     , iUri(1024)
     , iConnected(false)
+    , iLockStreamEvents("QBZ3")
+    , iStreamEventBuf(2048)
+    , iLockPurchasedTracks("QBZ4")
 {
-    iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Qobuz::SocketInactive), "Qobuz");
+    iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Qobuz::SocketInactive), "Qobuz-Socket");
+    iTimerPurchasedTracks = new Timer(aEnv, MakeFunctor(*this, &Qobuz::ScheduleUpdatePurchasedTracks), "Qobuz-Purchased");
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
 
@@ -68,10 +226,15 @@ Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
     std::vector<TUint> qualities(arr, arr + sizeof(arr)/sizeof(arr[0]));
     iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 3);
     iSubscriberIdQuality = iConfigQuality->Subscribe(MakeFunctorConfigChoice(*this, &Qobuz::QualityChanged));
+    iSchedulerStreamEvents = aThreadPool.CreateHandle(MakeFunctor(*this, &Qobuz::ReportStreamEvents), "QobuzStreamEvents", ThreadPoolPriority::Low);
+    iSchedulerPurchasedTracks = aThreadPool.CreateHandle(MakeFunctor(*this, &Qobuz::UpdatePurchasedTracks), "QobuzPurchased", ThreadPoolPriority::Low);
 }
 
 Qobuz::~Qobuz()
 {
+    delete iTimerPurchasedTracks;
+    iSchedulerStreamEvents->Destroy();
+    iSchedulerPurchasedTracks->Destroy();
     delete iTimerSocketActivity;
     iConfigQuality->Unsubscribe(iSubscriberIdQuality);
     delete iConfigQuality;
@@ -84,16 +247,43 @@ TBool Qobuz::TryLogin()
     return TryLoginLocked();
 }
 
-TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
+QobuzTrack* Qobuz::StreamableTrack(const Brx& aTrackId)
+{
+    AutoMutex _(iLock);
+    if (!TryGetFileUrlLocked(aTrackId)) {
+        return false;
+    }
+    JsonParser parser;
+    parser.Parse(iResponseBody.Buffer());
+    const TUint trackId = (TUint)parser.Num("track_id");
+    const Brn url = parser.String(kTagFileUrl);
+    const TUint formatId = (TUint)(TUint)parser.Num("format_id");
+    return new QobuzTrack(iUnixTimestamp, iPipelineObservable, *this, trackId, url, formatId);
+}
+
+TBool Qobuz::TryUpdateStreamUrl(QobuzTrack& aTrack)
+{
+    AutoMutex _(iLock);
+    Bws<Ascii::kMaxUintStringBytes> trackId;
+    Ascii::AppendDec(trackId, aTrack.Id());
+    if (!TryGetFileUrlLocked(trackId)) {
+        return false;
+    }
+    JsonParser parser;
+    parser.Parse(iResponseBody.Buffer());
+    aTrack.UpdateUrl(parser.String(kTagFileUrl));
+    return true;
+}
+
+TBool Qobuz::TryGetFileUrlLocked(const Brx& aTrackId)
 {
     iTimerSocketActivity->Cancel(); // socket automatically closed by call below
-    AutoMutex _(iLock);
     TBool success = false;
     if (!TryConnect()) {
         LOG_ERROR(kPipeline, "Qobuz::TryGetStreamUrl - connection failure\n");
         return false;
     }
-    AutoConnectionQobuz __(*this, iReaderUntil2);
+    AutoConnectionQobuz __(*this, iReaderEntity);
 
     // see https://github.com/Qobuz/api-documentation#request-signature for rules on creating request_sig value
     TUint timestamp;
@@ -101,7 +291,7 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
         timestamp = iUnixTimestamp.Now();
     }
     catch (UnixTimestampUnavailable&) {
-        LOG_ERROR(kPipeline, "Qobuz::TryGetStreamUrl - failure to determine network time\n");
+        LOG_ERROR(kPipeline, "Qobuz::TryGetFileUrlLocked - failure to determine network time\n");
         return false;
     }
     Bws<Ascii::kMaxUintStringBytes> audioFormatBuf;
@@ -141,17 +331,12 @@ TBool Qobuz::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
             THROW(ReaderError);
         }
 
-        static const Brn kTagUrl("url");
         iResponseBody.Reset();
         iReaderEntity.ReadAll(iResponseBody);
-        JsonParser parser;
-        parser.Parse(iResponseBody.Buffer());
-        aStreamUrl.Replace(parser.String(kTagUrl));
-        Json::Unescape(aStreamUrl);
         success = true;
     }
     catch (Exception& ex) {
-        LOG_ERROR(kPipeline, "%s in Qobuz::TryGetStreamUrl\n", ex.Message());
+        LOG_ERROR(kPipeline, "%s in Qobuz::TryGetFileUrlLocked\n", ex.Message());
     }
     return success;
 }
@@ -270,7 +455,6 @@ TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TU
         iPathAndQuery.Append(iAuthToken);
     }
     try {
-        Log::Print("Write Qobuz request: http://%.*s%.*s\n", PBUF(aHost), PBUF(iPathAndQuery));
         const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery, aConnection);
         if (code != 200) {
             LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetResponse.\n", code);
@@ -332,6 +516,7 @@ void Qobuz::UpdateStatus()
     else {
         (void)TryLoginLocked();
     }
+    (void)iSchedulerPurchasedTracks->TrySchedule();
 }
 
 void Qobuz::Login(Bwx& aToken)
@@ -354,6 +539,22 @@ void Qobuz::ReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
     aNewToken.Replace(iAuthToken);
 }
 
+void Qobuz::TrackStarted(QobuzTrack& aTrack)
+{
+    iLockStreamEvents.Wait();
+    iPendingStarts.push_back(&aTrack);
+    iLockStreamEvents.Signal();
+    (void)iSchedulerStreamEvents->TrySchedule();
+}
+
+void Qobuz::TrackStopped(QobuzTrack& aTrack)
+{
+    iLockStreamEvents.Wait();
+    iPendingStops.push_back(&aTrack);
+    iLockStreamEvents.Signal();
+    (void)iSchedulerStreamEvents->TrySchedule();
+}
+
 TBool Qobuz::TryConnect()
 {
     if (iConnected) {
@@ -365,6 +566,7 @@ TBool Qobuz::TryConnect()
         ep.SetAddress(kHost);
         ep.SetPort(kPort);
         iSocket.Connect(ep, kConnectTimeoutMs);
+        //iSocket.LogVerbose(true);
         iConnected = true;
     }
     catch (NetworkTimeout&) {
@@ -389,7 +591,7 @@ TBool Qobuz::TryLoginLocked()
         iCredentialsState.SetState(kId, Brn("Login Error (Connection Failed): Please Try Again."), Brx::Empty());
         return false;
     }
-    AutoConnectionQobuz _(*this, iReaderUntil2);
+    AutoConnectionQobuz _(*this, iReaderEntity);
 
     iPathAndQuery.Replace(kVersionAndFormat);
     iPathAndQuery.Append("user/login?app_id=");
@@ -424,11 +626,18 @@ TBool Qobuz::TryLoginLocked()
         }
 
         static const Brn kUserAuthToken("user_auth_token");
-        Brn val;
-        do {
-            val.Set(ReadString());
-        } while (val != kUserAuthToken);
-        iAuthToken.Replace(ReadString());
+        iResponseBody.Reset();
+        iReaderEntity.ReadAll(iResponseBody);
+        JsonParser parser;
+        parser.Parse(iResponseBody.Buffer());
+        iAuthToken.Replace(parser.String(kUserAuthToken));
+        JsonParser parserUser;
+        parserUser.Parse(parser.String("user"));
+        iUserId = parserUser.Num("id");
+        JsonParser parserCred;
+        parserCred.Parse(parserUser.String("credential"));
+        iCredentialId = parserCred.Num("id");
+
         iCredentialsState.SetState(kId, Brx::Empty(), iAppId);
         updatedStatus = true;
         success = true;
@@ -452,6 +661,112 @@ TBool Qobuz::TryLoginLocked()
     return success;
 }
 
+void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
+{
+    AutoMutex _(iLock);
+
+    if (!TryConnect()) {
+        LOG_ERROR(kMedia, "Qobuz::NotifyStreamStarted - connection failure\n");
+        return;
+    }
+    AutoConnectionQobuz __(*this, iReaderEntity);
+
+    iStreamEventBuf.Reset();
+    iStreamEventBuf.Write(Brn("events="));
+    WriterJsonArray writerArray(iStreamEventBuf);
+    auto writerObject = writerArray.CreateObject();
+    writerObject.WriteBool("online", true);
+    writerObject.WriteBool("sample", false);
+    writerObject.WriteString("intent", "stream");
+    writerObject.WriteString("device_id", iDeviceId);
+    const auto trackId = aTrack.Id();
+    Bws<Ascii::kMaxUintStringBytes> idBuf;
+    Ascii::AppendDec(idBuf, trackId);
+    writerObject.WriteString("track_id", idBuf);
+    writerObject.WriteBool("purchase", IsTrackPurchased(trackId));
+    writerObject.WriteUint("date", aTrack.StartTime());
+    idBuf.SetBytes(0);
+    Ascii::AppendDec(idBuf, iCredentialId);
+    writerObject.WriteString("credential_id", idBuf);
+    idBuf.SetBytes(0);
+    Ascii::AppendDec(idBuf, iUserId);
+    writerObject.WriteString("user_id", idBuf);
+    writerObject.WriteBool("local", false);
+    writerObject.WriteInt("format_id", aTrack.FormatId());
+    writerObject.WriteEnd();
+    writerArray.WriteEnd();
+
+    iPathAndQuery.Replace(kVersionAndFormat);
+    iPathAndQuery.Append("track/reportStreamingStart?app_id=");
+    iPathAndQuery.Append(iAppId);
+    iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
+    Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
+    Http::WriteHeaderContentLength(iWriterRequest, iStreamEventBuf.Buffer().Bytes());
+    Http::WriteHeaderConnectionClose(iWriterRequest);
+    iWriterRequest.WriteFlush();
+    iWriteBuffer.Write(iStreamEventBuf.Buffer());
+    iWriteBuffer.WriteFlush();
+
+    iReaderResponse.Read();
+    const TUint code = iReaderResponse.Status().Code();
+    iReaderEntity.Set(iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
+    iResponseBody.Reset();
+    iReaderEntity.ReadAll(iResponseBody);
+    if (code != 200) {
+        LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz track/reportStreamingStart.\n%.*s\n", code, PBUF(iResponseBody.Buffer()));
+    }
+}
+
+void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack)
+{
+    AutoMutex _(iLock);
+
+    if (!TryConnect()) {
+        LOG_ERROR(kMedia, "Qobuz::NotifyStreamStarted - connection failure\n");
+        return;
+    }
+    AutoConnectionQobuz __(*this, iReaderEntity);
+
+    iStreamEventBuf.Reset();
+    iStreamEventBuf.Write(Brn("events="));
+    WriterJsonArray writerArray(iStreamEventBuf);
+    auto writerObject = writerArray.CreateObject();
+    writerObject.WriteInt("user_id", iUserId);
+    writerObject.WriteUint("date", aTrack.StartTime());
+    writerObject.WriteInt("duration", aTrack.PlayedSeconds());
+    writerObject.WriteBool("online", true);
+    writerObject.WriteBool("sample", false);
+    writerObject.WriteString("device_id", iDeviceId);
+    const auto trackId = aTrack.Id();
+    writerObject.WriteInt("track_id", trackId);
+    writerObject.WriteBool("purchase", IsTrackPurchased(trackId));
+    writerObject.WriteBool("local", false);
+    writerObject.WriteInt("credential_id", iCredentialId);
+    writerObject.WriteInt("format_id", aTrack.FormatId());
+    writerObject.WriteEnd();
+    writerArray.WriteEnd();
+
+    iPathAndQuery.Replace(kVersionAndFormat);
+    iPathAndQuery.Append("track/reportStreamingEnd?app_id=");
+    iPathAndQuery.Append(iAppId);
+    iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
+    Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
+    Http::WriteHeaderContentLength(iWriterRequest, iStreamEventBuf.Buffer().Bytes());
+    Http::WriteHeaderConnectionClose(iWriterRequest);
+    iWriterRequest.WriteFlush();
+    iWriteBuffer.Write(iStreamEventBuf.Buffer());
+    iWriteBuffer.WriteFlush();
+
+    iReaderResponse.Read();
+    const TUint code = iReaderResponse.Status().Code();
+    iReaderEntity.Set(iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
+    iResponseBody.Reset();
+    iReaderEntity.ReadAll(iResponseBody);
+    if (code != 200) {
+        LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz track/reportStreamingEnd.\n%.*s\n", code, PBUF(iResponseBody.Buffer()));
+    }
+}
+
 TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, Connection aConnection)
 {
     iWriterRequest.WriteMethod(aMethod, aPathAndQuery, Http::eHttp11);
@@ -464,12 +779,6 @@ TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, cons
     const TUint code = iReaderResponse.Status().Code();
     iReaderEntity.Set(iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
     return code;
-}
-
-Brn Qobuz::ReadString()
-{
-    (void)iReaderUntil2.ReadUntil('\"');
-    return iReaderUntil2.ReadUntil('\"');
 }
 
 void Qobuz::QualityChanged(Configuration::KeyValuePair<TUint>& aKvp)
@@ -495,6 +804,91 @@ void Qobuz::SocketInactive()
 {
     AutoMutex _(iLock);
     CloseConnection();
+}
+
+void Qobuz::ReportStreamEvents()
+{
+    iLockStreamEvents.Wait();
+    while (iPendingStarts.size() > 0) {
+        auto track = iPendingStarts.front();
+        iLockStreamEvents.Signal();
+        NotifyStreamStarted(*track);
+        iLockStreamEvents.Wait();
+        iPendingStarts.pop_front();
+    }
+    while (iPendingStops.size() > 0) {
+        auto track = iPendingStops.front();
+        iLockStreamEvents.Signal();
+        NotifyStreamStopped(*track);
+        iLockStreamEvents.Wait();
+        iPendingStops.pop_front();
+        delete track;
+    }
+    iLockStreamEvents.Signal();
+}
+
+void Qobuz::UpdatePurchasedTracks()
+{
+    // update this list roughly every couple of hours
+    static const TUint kMinUpdateMs = 1000 * 60 * 60; // 1 hour
+    static const TUint kUpdateVarianceMs= 1000 * 60 * 60 * 2; // 2 hours
+    const TUint nextUpdateMs = kMinUpdateMs + iEnv.Random(kUpdateVarianceMs);
+    iTimerPurchasedTracks->FireIn(nextUpdateMs);
+
+    AutoMutex _(iLock);
+
+    if (!TryConnect()) {
+        LOG_ERROR(kMedia, "Qobuz::NotifyStreamStarted - connection failure\n");
+        return;
+    }
+    AutoConnectionQobuz __(*this, iReaderEntity);
+
+    iPathAndQuery.Replace(kVersionAndFormat);
+    iPathAndQuery.Append("purchase/getUserPurchasesIds?app_id=");
+    iPathAndQuery.Append(iAppId);
+    iPathAndQuery.Append("&user_auth_token=");
+    iPathAndQuery.Append(iAuthToken);
+
+    const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery);
+    if (code != 200) {
+        LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz track/reportStreamingStart.\n", code);
+        THROW(ReaderError);
+    }
+    static const TUint kMaxResponseBytes = 1024 * 1024; // 1Mb
+    if (iHeaderContentLength.Received() && iHeaderContentLength.ContentLength() > kMaxResponseBytes) {
+        LOG_ERROR(kPipeline, "Warning: Qobuz purchases too large to process - %u\n", iHeaderContentLength.ContentLength());
+        THROW(ReaderError);
+    }
+    iResponseBody.Reset();
+    iReaderEntity.ReadAll(iResponseBody);
+    JsonParser parserBody;
+    parserBody.Parse(iResponseBody.Buffer());
+    JsonParser parserTracks;
+    parserTracks.Parse(parserBody.String("tracks"));
+    auto parserArray = JsonParserArray::Create(parserTracks.String("items"));
+    AutoMutex ___(iLockPurchasedTracks);
+    iPurchasedTracks.clear();
+    try {
+        for (;;) {
+            JsonParser parserId;
+            parserId.Parse(parserArray.NextObject());
+            iPurchasedTracks.push_back((TUint)parserId.Num(("id")));
+        }
+    }
+    catch (JsonArrayEnumerationComplete&) {}
+    std::sort(iPurchasedTracks.begin(), iPurchasedTracks.end());
+}
+
+void Qobuz::ScheduleUpdatePurchasedTracks()
+{
+    (void)iSchedulerPurchasedTracks->TrySchedule();
+}
+
+TBool Qobuz::IsTrackPurchased(TUint aId) const
+{
+    AutoMutex ___(iLockPurchasedTracks);
+    auto it = std::lower_bound(iPurchasedTracks.begin(), iPurchasedTracks.end(), aId);
+    return it != iPurchasedTracks.end();
 }
 
 

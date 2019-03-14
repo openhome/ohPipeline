@@ -6,6 +6,8 @@
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Configuration/Tests/ConfigRamStore.h>
 #include <OpenHome/UnixTimestamp.h>
+#include <OpenHome/ThreadPool.h>
+#include <OpenHome/Media/PipelineObserver.h>
 
 namespace OpenHome {
 namespace Av {
@@ -13,7 +15,7 @@ namespace Av {
 class TestQobuz : private ICredentialsState
 {
 public:
-    TestQobuz(Environment& aEnv, const Brx& aId, const Brx& aSecret);
+    TestQobuz(Environment& aEnv, const Brx& aId, const Brx& aSecret, const Brx& aDeviceId);
     virtual ~TestQobuz();
     void Start(const Brx& aUsername, const Brx& aPassword);
     void Test();
@@ -23,7 +25,9 @@ private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
     UnixTimestamp* iUnixTimestamp;
+    ThreadPool* iThreadPool;
     Qobuz* iQobuz;
+    Media::NullPipelineObservable iPipelineObservable;
 };
 
 } // namespace Av
@@ -33,17 +37,20 @@ using namespace OpenHome;
 using namespace OpenHome::TestFramework;
 using namespace OpenHome::Av;
 
-TestQobuz::TestQobuz(Environment& aEnv, const Brx& aId, const Brx& aSecret)
+TestQobuz::TestQobuz(Environment& aEnv, const Brx& aId, const Brx& aSecret, const Brx& aDeviceId)
 {
     iStore = new Configuration::ConfigRamStore();
     iConfigManager = new Configuration::ConfigManager(*iStore);
     iUnixTimestamp = new UnixTimestamp(aEnv);
-    iQobuz = new Qobuz(aEnv, aId, aSecret, *this, *iConfigManager, *iUnixTimestamp);
+    iThreadPool = new ThreadPool(1, 1, 1);
+    iQobuz = new Qobuz(aEnv, aId, aSecret, aDeviceId, *this, *iConfigManager,
+                       *iUnixTimestamp, *iThreadPool, iPipelineObservable);
 }
 
 TestQobuz::~TestQobuz()
 {
     delete iQobuz;
+    delete iThreadPool;
     delete iUnixTimestamp;
     delete iConfigManager;
     delete iStore;
@@ -65,8 +72,9 @@ void TestQobuz::Test()
     Bws<1024> streamUrl;
     for (TUint i=0; i<numElems; i++) {
         Brn trackId(kTracks[i]);
-        iQobuz->TryGetStreamUrl(trackId, streamUrl);
-        Log::Print("trackId %s returned url %s\n", kTracks[i], streamUrl.PtrZ());
+        auto track = iQobuz->StreamableTrack(trackId);
+        Log::Print("trackId %s returned url %.*s\n", kTracks[i], PBUF(track->Url()));
+        delete track;
     }
 }
 
@@ -101,7 +109,7 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
 
     Debug::SetLevel(Debug::kApplication6);
     Debug::SetSeverity(Debug::kSeverityError);
-    TestQobuz* qobuz = new TestQobuz(*env, optionId.Value(), optionSecret.Value());
+    TestQobuz* qobuz = new TestQobuz(*env, optionId.Value(), optionSecret.Value(), Brn("12345"));
     qobuz->Start(optionUsername.Value(), optionPassword.Value());
     qobuz->Test();
     delete qobuz;

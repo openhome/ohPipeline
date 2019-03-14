@@ -146,6 +146,7 @@ public:
     static const Brn kNull;
 public:
     static void WriteValueInt(IWriter& aWriter, TInt aValue);
+    static void WriteValueUint(IWriter& aWriter, TUint aValue);
     static void WriteValueString(IWriter& aWriter, const Brx& aValue);
     static void WriteValueBinary(IWriter& aWriter, const Brx& aValue);
     static void WriteValueBool(IWriter& aWriter, TBool aValue);
@@ -174,6 +175,7 @@ public:
     WriterJsonArray(IWriter& aWriter, WriteOnEmpty aWriteOnEmpty = WriteOnEmpty::eNull);
     WriterJsonArray(const WriterJsonArray& aWriter);
     void WriteInt(TInt aValue);
+    void WriteUint(TUint aValue);
     void WriteString(const TChar* aValue);
     void WriteString(const Brx& aValue);
     void WriteBool(TBool aValue);
@@ -203,6 +205,8 @@ public:
     void WriteKey(const Brx& aKey);
     void WriteInt(const TChar* aKey, TInt aValue);
     void WriteInt(const Brx& aKey, TInt aValue);
+    void WriteUint(const TChar* aKey, TUint aValue);
+    void WriteUint(const Brx& aKey, TUint aValue);
     void WriteString(const TChar* aKey, const TChar* aValue);
     void WriteString(const TChar* aKey, const Brx& aValue);
     void WriteString(const Brx& aKey, const TChar* aValue);

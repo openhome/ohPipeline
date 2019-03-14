@@ -86,6 +86,14 @@ public:
     virtual void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) = 0;
 };
 
+class IPipelineObservable
+{
+public:
+    virtual void AddObserver(IPipelineObserver& aObserver) = 0;
+    virtual void RemoveObserver(IPipelineObserver& aObserver) = 0;
+    virtual ~IPipelineObservable() {}
+};
+
 class TransportState
 {
 public:
@@ -120,7 +128,14 @@ private: // from IPipelineObserver
 private:
     TBool iEnable;
 };
-    
+
+class NullPipelineObservable : public IPipelineObservable
+{
+private: // from IPipelineObservable
+    void AddObserver(IPipelineObserver& aObserver) override;
+    void RemoveObserver(IPipelineObserver& aObserver) override;
+};
+
 } // namespace Media
 } // namespace OpenHome
 

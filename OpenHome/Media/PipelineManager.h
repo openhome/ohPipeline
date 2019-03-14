@@ -57,6 +57,7 @@ public:
 class PipelineManager : public IPipeline
                       , public IPipelineIdManager
                       , public IMute
+                      , public IPipelineObservable
                       , public IPostPipelineLatencyObserver
                       , public IAttenuator
                       , private IPipelineObserver
@@ -127,24 +128,6 @@ public:
      * Begin() can only be called after Start() returns.
      */
     void Start(IVolumeRamper& aVolumeRamper, IVolumeMuterStepped& aVolumeMuter);
-    /**
-     * Add an observer of changes in pipeline state.
-     *
-     * Should be called before Start().
-     *
-     * @param[in] aObserver        Observer.  Ownership remains with caller.
-     */
-    void AddObserver(IPipelineObserver& aObserver);
-    /**
-     * Remove an observer.
-     *
-     * Can be called at any time.  Can be called even if AddObserver() was not called.
-     * Callbacks may be run while this call is in progress.  No more callbacks will be
-     * received after this completes.
-     *
-     * @param[in] aObserver        Previously added observer.
-     */
-    void RemoveObserver(IPipelineObserver& aObserver);
     void AddObserver(ITrackObserver& aObserver);
     void AddObserver(IModeObserver& aObserver);
     /**
@@ -266,6 +249,9 @@ public:
     TUint SenderMinLatencyMs() const;
     void GetThreadPriorityRange(TUint& aMin, TUint& aMax) const;
     void GetThreadPriorities(TUint& aFiller, TUint& aFlywheelRamper, TUint& aStarvationRamper, TUint& aCodec, TUint& aEvent);
+public: // from IPipelineObservable
+    void AddObserver(IPipelineObserver& aObserver) override;
+    void RemoveObserver(IPipelineObserver& aObserver) override;
 private:
     void RemoveAllLocked();
 private: // from IPipeline
@@ -322,6 +308,7 @@ private:
     Filler* iFiller;
     IdManager* iIdManager;
     std::vector<UriProvider*> iUriProviders;
+    Mutex iLockObservers;
     std::vector<IPipelineObserver*> iObservers;
     IModeObserver* iModeObserver;
     EPipelineState iPipelineState;

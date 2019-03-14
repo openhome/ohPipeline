@@ -45,6 +45,7 @@ TUint PriorityArbitratorPipeline::HostRange() const
 PipelineManager::PipelineManager(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory)
     : iLock("PLM1")
     , iPublicLock("PLM2")
+    , iLockObservers("PLM3")
     , iModeObserver(nullptr)
     , iPipelineState(EPipelineStopped)
     , iPipelineStoppedSem("PLM3", 1)
@@ -126,11 +127,13 @@ void PipelineManager::Start(IVolumeRamper& aVolumeRamper, IVolumeMuterStepped& a
 
 void PipelineManager::AddObserver(IPipelineObserver& aObserver)
 {
+    AutoMutex _(iLockObservers);
     iObservers.push_back(&aObserver);
 }
 
 void PipelineManager::RemoveObserver(IPipelineObserver& aObserver)
 {
+    AutoMutex _(iLockObservers);
     for (TUint i=0; i<iObservers.size(); i++) {
         if (iObservers[i] == &aObserver) {
             iObservers.erase(iObservers.begin()+i);
@@ -378,6 +381,7 @@ void PipelineManager::SetAttenuation(TUint aAttenuation)
 void PipelineManager::NotifyPipelineState(EPipelineState aState)
 {
     {
+        AutoMutex _(iLockObservers);
         for (TUint i = 0; i < iObservers.size(); i++) {
             iObservers[i]->NotifyPipelineState(aState);
         }
@@ -400,6 +404,7 @@ void PipelineManager::NotifyMode(const Brx& aMode,
     iLock.Wait();
     iMode.Replace(aMode);
     iLock.Signal();
+    AutoMutex _(iLockObservers);
     for (auto it=iObservers.begin(); it!=iObservers.end(); ++it) {
         (*it)->NotifyMode(aMode, aInfo, aTransportControls);
     }
@@ -411,6 +416,7 @@ void PipelineManager::NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartO
     iMode.Replace(aMode);
     iTrackId = aTrack.Id();
     iLock.Signal();
+    AutoMutex _(iLockObservers);
     for (TUint i=0; i<iObservers.size(); i++) {
         iObservers[i]->NotifyTrack(aTrack, aMode, aStartOfStream);
     }
@@ -418,6 +424,7 @@ void PipelineManager::NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartO
 
 void PipelineManager::NotifyMetaText(const Brx& aText)
 {
+    AutoMutex _(iLockObservers);
     for (TUint i=0; i<iObservers.size(); i++) {
         iObservers[i]->NotifyMetaText(aText);
     }
@@ -425,6 +432,7 @@ void PipelineManager::NotifyMetaText(const Brx& aText)
 
 void PipelineManager::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
 {
+    AutoMutex _(iLockObservers);
     for (TUint i=0; i<iObservers.size(); i++) {
         iObservers[i]->NotifyTime(aSeconds, aTrackDurationSeconds);
     }
@@ -432,6 +440,7 @@ void PipelineManager::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
 
 void PipelineManager::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
 {
+    AutoMutex _(iLockObservers);
     for (TUint i=0; i<iObservers.size(); i++) {
         iObservers[i]->NotifyStreamInfo(aStreamInfo);
     }

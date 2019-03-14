@@ -848,6 +848,13 @@ void WriterJson::WriteValueInt(IWriter& aWriter, TInt aValue)
     aWriter.Write(valBuf);
 }
 
+void WriterJson::WriteValueUint(IWriter& aWriter, TUint aValue)
+{ // static
+    Bws<Ascii::kMaxUintStringBytes> valBuf;
+    (void)Ascii::AppendDec(valBuf, aValue);
+    aWriter.Write(valBuf);
+}
+
 void WriterJson::WriteValueString(IWriter& aWriter, const Brx& aValue)
 { // static
     aWriter.Write(kQuote);
@@ -901,6 +908,12 @@ void WriterJsonArray::WriteInt(TInt aValue)
 {
     WriteStartOrSeparator();
     WriterJson::WriteValueInt(*iWriter, aValue);
+}
+
+void WriterJsonArray::WriteUint(TUint aValue)
+{
+    WriteStartOrSeparator();
+    WriterJson::WriteValueUint(*iWriter, aValue);
 }
 
 void WriterJsonArray::WriteString(const TChar* aValue)
@@ -1023,6 +1036,18 @@ void WriterJsonObject::WriteInt(const Brx& aKey, TInt aValue)
     CheckStarted();
     WriteKey(aKey);
     WriterJson::WriteValueInt(*iWriter, aValue);
+}
+
+void WriterJsonObject::WriteUint(const TChar* aKey, TUint aValue)
+{
+    WriteUint(Brn(aKey), aValue);
+}
+
+void WriterJsonObject::WriteUint(const Brx& aKey, TUint aValue)
+{
+    CheckStarted();
+    WriteKey(aKey);
+    WriterJson::WriteValueUint(*iWriter, aValue);
 }
 
 void WriterJsonObject::WriteString(const TChar* aKey, const TChar* aValue)

@@ -155,3 +155,14 @@ void LoggingPipelineObserver::NotifyStreamInfo(const DecodedStreamInfo& aStreamI
                aStreamInfo.BitRate(), aStreamInfo.BitDepth(), aStreamInfo.SampleRate(), aStreamInfo.NumChannels(),
                PBUF(aStreamInfo.CodecName()), aStreamInfo.TrackLength(), aStreamInfo.Lossless(), aStreamInfo.Profile().ToString());
 }
+
+
+// NullPipelineObservable
+
+void NullPipelineObservable::AddObserver(IPipelineObserver& /*aObserver*/)
+{
+}
+
+void NullPipelineObservable::RemoveObserver(IPipelineObserver& /*aObserver*/)
+{
+}
