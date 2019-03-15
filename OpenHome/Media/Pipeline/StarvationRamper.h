@@ -99,6 +99,7 @@ public:
                      TUint aThreadPriority, TUint aRampUpSize, TUint aMaxStreamCount);
     ~StarvationRamper();
     void Flush(TUint aId); // ramps down quickly then discards everything up to a flush with the given id
+    void DiscardAllAudio(); // discards any buffered audio, forcing a starvation ramp.  Flushes all audio until the next MsgDrain.
     TUint SizeInJiffies() const;
     TUint ThreadPriorityFlywheelRamper() const;
     TUint ThreadPriorityStarvationRamper() const;
@@ -164,6 +165,8 @@ private:
     TBool iRunning;
     TBool iStarving;
     TBool iExit;
+    std::atomic<TBool> iStartDrain;
+    std::atomic<TBool> iDraining;
     BwsMode iMode;
     TUint iStreamId;
     TUint iSampleRate;

@@ -416,6 +416,8 @@ StarvationRamper::StarvationRamper(MsgFactory& aMsgFactory, IPipelineElementUpst
     , iState(State::Halted)
     , iStarving(false)
     , iExit(false)
+    , iStartDrain(false)
+    , iDraining(false)
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
     , iSampleRate(0)
     , iBitDepth(0)
@@ -454,6 +456,11 @@ void StarvationRamper::Flush(TUint aId)
     iCurrentRampValue = Ramp::kMax;
     iRemainingRampSize = kRampDownJiffies;
     iState = State::RampingDown;
+}
+
+void StarvationRamper::DiscardAllAudio()
+{
+    iStartDrain.store(true);
 }
 
 TUint StarvationRamper::SizeInJiffies() const
@@ -626,8 +633,12 @@ void StarvationRamper::EventCallback()
 
 Msg* StarvationRamper::Pull()
 {
-    if (IsEmpty()) {
+    if (IsEmpty() || iStartDrain.load()) {
         SetBuffering(true);
+        if (iStartDrain.load()) {
+            iStartDrain.store(false);
+            iDraining.store(true);
+        }
         if ((iState == State::Running ||
             (iState == State::RampingUp && iCurrentRampValue != Ramp::kMin))
             && !iExit) {
@@ -704,6 +715,7 @@ Msg* StarvationRamper::ProcessMsgOut(MsgTrack* aMsg)
 
 Msg* StarvationRamper::ProcessMsgOut(MsgDrain* aMsg)
 {
+    iDraining.store(false);
     if (iState == State::Running ||
         (iState == State::RampingUp && iCurrentRampValue != Ramp::kMin)) {
         EnqueueAtHead(aMsg);
@@ -783,6 +795,10 @@ Msg* StarvationRamper::ProcessMsgOut(MsgBitRate* aMsg)
 
 Msg* StarvationRamper::ProcessMsgOut(MsgAudioPcm* aMsg)
 {
+    if (iDraining.load()) {
+        aMsg->RemoveRef();
+        return nullptr;
+    }
     if (iState == State::Starting || iState == State::Halted) {
         iState = State::Running;
     }
@@ -821,6 +837,10 @@ Msg* StarvationRamper::ProcessMsgOut(MsgAudioPcm* aMsg)
 
 Msg* StarvationRamper::ProcessMsgOut(MsgAudioDsd* aMsg)
 {
+    if (iDraining.load()) {
+        aMsg->RemoveRef();
+        return nullptr;
+    }
     if (iState == State::Starting || iState == State::Halted) {
         iState = State::Running;
     }
@@ -875,6 +895,10 @@ Msg* StarvationRamper::ProcessMsgOut(MsgAudioDsd* aMsg)
 
 Msg* StarvationRamper::ProcessMsgOut(MsgSilence* aMsg)
 {
+    if (iDraining.load()) {
+        aMsg->RemoveRef();
+        return nullptr;
+    }
     if (iState == State::Halted) {
         iState = State::Starting;
     }

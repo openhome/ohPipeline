@@ -107,6 +107,7 @@ private:
     void TestNotifyStarvingAroundStarvation();
     void TestReportsBuffering();
     void TestFlush();
+    void TestDiscardAllAudio();
     void TestAllSampleRates();
     void TestPruneMsgsNotReqdDownstream();
     void TestDsdNoRampWhenFull();
@@ -160,6 +161,7 @@ SuiteStarvationRamper::SuiteStarvationRamper()
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestNotifyStarvingAroundStarvation), "TestNotifyStarvingAroundStarvation");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestReportsBuffering), "TestReportsBuffering");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestFlush), "TestFlush");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDiscardAllAudio), "TestDiscardAllAudio");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestAllSampleRates), "TestAllSampleRates");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestPruneMsgsNotReqdDownstream), "TestPruneMsgsNotReqdDownstream");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDsdNoRampWhenFull), "TestDsdNoRampWhenFull");
@@ -800,6 +802,56 @@ void SuiteStarvationRamper::TestFlush()
     PullNext(EMsgHalt);
     TEST(iStarvationRamper->IsEmpty());
     TEST(iStarvationRamper->iState == StarvationRamper::State::Halted);
+
+    Quit();
+}
+
+void SuiteStarvationRamper::TestDiscardAllAudio()
+{
+    AddPending(iMsgFactory->CreateMsgMode(kMode));
+    AddPending(CreateDecodedStream());
+    do {
+        AddPending(CreateAudio());
+    } while (iTrackOffset < StarvationRamper::kTrainingJiffies);
+
+    PullNext(EMsgMode);
+    PullNext(EMsgDecodedStream);
+    do {
+        PullNext(EMsgAudioPcm);
+    } while (iJiffies < iTrackOffset);
+
+    AddPending(CreateAudioDsd());
+    AddPending(CreateAudio());
+    AddPending(CreateDecodedStream());
+    TUint size = Jiffies::kPerMs * 5;
+    AddPending(iMsgFactory->CreateMsgSilence(size, 44100, 8, 2));
+    AddPending(iMsgFactory->CreateMsgHalt());
+    AddPending(iMsgFactory->CreateMsgDrain(Functor()));
+
+    TEST(!iStarvationRamper->iDraining.load());
+    iJiffies = 0;
+    iStarvationRamper->DiscardAllAudio();
+    TEST(!iStarvationRamper->iDraining.load());
+    TEST(iStarvationRamper->iStartDrain.load());
+    iRampingDown = true;
+    do {
+        PullNext(EMsgAudioPcm);
+        TEST(!iStarvationRamper->iStartDrain.load());
+        TEST(iStarvationRamper->iDraining.load());
+    } while (iJiffies < StarvationRamper::kRampDownJiffies);
+    TEST(iJiffies == StarvationRamper::kRampDownJiffies);
+    iRampingDown = false;
+    TEST(iStarvationRamper->iDraining.load());
+    PullNext(EMsgHalt);
+    TEST(iStarvationRamper->iDraining.load());
+    PullNext(EMsgDecodedStream);
+    TEST(iStarvationRamper->iDraining.load());
+    PullNext(EMsgHalt);
+    TEST(!iStarvationRamper->iStartDrain.load());
+    TEST(iStarvationRamper->iDraining.load());
+    PullNext(EMsgDrain);
+    TEST(!iStarvationRamper->iStartDrain.load());
+    TEST(!iStarvationRamper->iDraining.load());
 
     Quit();
 }
