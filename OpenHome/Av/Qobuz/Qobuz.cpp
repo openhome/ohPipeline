@@ -251,7 +251,7 @@ QobuzTrack* Qobuz::StreamableTrack(const Brx& aTrackId)
 {
     AutoMutex _(iLock);
     if (!TryGetFileUrlLocked(aTrackId)) {
-        return false;
+        return nullptr;
     }
     JsonParser parser;
     parser.Parse(iResponseBody.Buffer());
