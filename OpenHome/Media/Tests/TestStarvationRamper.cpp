@@ -107,7 +107,7 @@ private:
     void TestNotifyStarvingAroundStarvation();
     void TestReportsBuffering();
     void TestFlush();
-    void TestDiscardAllAudio();
+    void TestDrainAllAudio();
     void TestAllSampleRates();
     void TestPruneMsgsNotReqdDownstream();
     void TestDsdNoRampWhenFull();
@@ -161,7 +161,7 @@ SuiteStarvationRamper::SuiteStarvationRamper()
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestNotifyStarvingAroundStarvation), "TestNotifyStarvingAroundStarvation");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestReportsBuffering), "TestReportsBuffering");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestFlush), "TestFlush");
-    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDiscardAllAudio), "TestDiscardAllAudio");
+    AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDrainAllAudio), "TestDrainAllAudio");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestAllSampleRates), "TestAllSampleRates");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestPruneMsgsNotReqdDownstream), "TestPruneMsgsNotReqdDownstream");
     AddTest(MakeFunctor(*this, &SuiteStarvationRamper::TestDsdNoRampWhenFull), "TestDsdNoRampWhenFull");
@@ -806,7 +806,7 @@ void SuiteStarvationRamper::TestFlush()
     Quit();
 }
 
-void SuiteStarvationRamper::TestDiscardAllAudio()
+void SuiteStarvationRamper::TestDrainAllAudio()
 {
     AddPending(iMsgFactory->CreateMsgMode(kMode));
     AddPending(CreateDecodedStream());
@@ -830,7 +830,7 @@ void SuiteStarvationRamper::TestDiscardAllAudio()
 
     TEST(!iStarvationRamper->iDraining.load());
     iJiffies = 0;
-    iStarvationRamper->DiscardAllAudio();
+    iStarvationRamper->DrainAllAudio();
     TEST(!iStarvationRamper->iDraining.load());
     TEST(iStarvationRamper->iStartDrain.load());
     iRampingDown = true;

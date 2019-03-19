@@ -16,6 +16,13 @@ public:
     virtual void NotifyStarvationRamperBuffering(TBool aBuffering) = 0;
 };
 
+class IPipelineDrainer
+{
+public:
+    virtual void DrainAllAudio() = 0;
+    virtual ~IPipelineDrainer() {}
+};
+
 class FlywheelInput : public IPcmProcessor
 {
     static const TUint kMaxSampleRate = 192000;
@@ -86,7 +93,9 @@ private:
 class IStarvationMonitorObserver;
 class IPipelineElementObserverThread;
 
-class StarvationRamper : public MsgReservoir, public IPipelineElementUpstream
+class StarvationRamper : public MsgReservoir
+                       , public IPipelineElementUpstream
+                       , public IPipelineDrainer
 {
     friend class SuiteStarvationRamper;
     static const TUint kTrainingJiffies;
@@ -103,6 +112,8 @@ public:
     TUint SizeInJiffies() const;
     TUint ThreadPriorityFlywheelRamper() const;
     TUint ThreadPriorityStarvationRamper() const;
+public: // from IPipelineDrainer
+    void DrainAllAudio() override;
 private:
     inline TBool IsFull() const;
     void PullerThread();

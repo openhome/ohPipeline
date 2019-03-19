@@ -458,7 +458,7 @@ void StarvationRamper::Flush(TUint aId)
     iState = State::RampingDown;
 }
 
-void StarvationRamper::DiscardAllAudio()
+void StarvationRamper::DrainAllAudio()
 {
     iStartDrain.store(true);
 }

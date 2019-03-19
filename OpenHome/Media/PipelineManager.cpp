@@ -378,6 +378,11 @@ void PipelineManager::SetAttenuation(TUint aAttenuation)
     iPipeline->SetAttenuation(aAttenuation);
 }
 
+void PipelineManager::DrainAllAudio()
+{
+    iPipeline->DrainAllAudio();
+}
+
 void PipelineManager::NotifyPipelineState(EPipelineState aState)
 {
     {

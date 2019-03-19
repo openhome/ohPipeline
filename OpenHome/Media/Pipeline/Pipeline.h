@@ -154,6 +154,7 @@ class Pipeline : public IPipelineElementDownstream
                , public IMute
                , public IPostPipelineLatencyObserver
                , public IAttenuator
+               , public IPipelineDrainer
                , private IStopperObserver
                , private IPipelinePropertyObserver
                , private IStarvationRamperObserver
@@ -218,6 +219,8 @@ public: // from IPostPipelineLatencyObserver
     void PostPipelineLatencyChanged() override;
 public: // from IAttenuator
     void SetAttenuation(TUint aAttenuation) override;
+public: // from IPipelineDrainer
+    void DrainAllAudio() override;
 private:
     void DoPlay(TBool aQuit);
     void NotifyStatus();

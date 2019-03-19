@@ -919,6 +919,11 @@ void Pipeline::SetAttenuation(TUint aAttenuation)
     iAttenuator->SetAttenuation(aAttenuation);
 }
 
+void Pipeline::DrainAllAudio()
+{
+    iStarvationRamper->DrainAllAudio();
+}
+
 void Pipeline::NotifyMode(const Brx& aMode,
                           const ModeInfo& aInfo,
                           const ModeTransportControls& aTransportControls)

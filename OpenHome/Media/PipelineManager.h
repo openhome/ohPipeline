@@ -3,6 +3,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
+#include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/MuteManager.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
@@ -60,6 +61,7 @@ class PipelineManager : public IPipeline
                       , public IPipelineObservable
                       , public IPostPipelineLatencyObserver
                       , public IAttenuator
+                      , public IPipelineDrainer
                       , private IPipelineObserver
                       , private ISeekRestreamer
                       , private IUrlBlockWriter
@@ -269,6 +271,8 @@ private: // from IPostPipelineLatencyObserver
     void PostPipelineLatencyChanged() override;
 private: // from IAttenuator
     void SetAttenuation(TUint aAttenuation) override;
+private: // from IPipelineDrainer
+    void DrainAllAudio() override;
 private: // from IPipelineObserver
     void NotifyPipelineState(EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,
