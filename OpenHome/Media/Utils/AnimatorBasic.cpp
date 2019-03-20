@@ -43,12 +43,14 @@ const TUint AnimatorBasic::kSupportedMsgTypes =   eMode
                                                 | ePlayable
                                                 | eQuit;
 
-AnimatorBasic::AnimatorBasic(Environment& aEnv, IPipeline& aPipeline, TBool aPullable)
+AnimatorBasic::AnimatorBasic(Environment& aEnv, IPipeline& aPipeline, TBool aPullable, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerWord)
     : PipelineElement(kSupportedMsgTypes)
     , iPipeline(aPipeline)
     , iSem("DRVB", 0)
     , iOsCtx(aEnv.OsCtx())
     , iPullable(aPullable)
+    , iDsdSampleBlockWords(aDsdSampleBlockWords)
+    , iDsdBlockWordsNoPad((aDsdSampleBlockWords * 4) / (kDsdPlayableBytesPerChunk + aDsdPadBytesPerWord))
     , iSampleRate(0)
     , iPlayable(nullptr)
     , iPullValue(IPullableClock::kNominalFreq)
@@ -131,14 +133,46 @@ void AnimatorBasic::DriverThread()
     }
 }
 
+TUint AnimatorBasic::JiffiesTotalToJiffiesPlayableDsd(TUint aTotalJiffies)
+{
+    const TUint totalSampleBlockJiffies = (iDsdSampleBlockWords * 4) * 8 * iJiffiesPerSample;
+    const TUint playableSampleBlockJiffies = (iDsdBlockWordsNoPad * 4) * 8 * iJiffiesPerSample;
+    TUint playableJiffies = aTotalJiffies - (aTotalJiffies % totalSampleBlockJiffies);
+    ASSERT(playableJiffies % totalSampleBlockJiffies == 0);
+    playableJiffies /= totalSampleBlockJiffies;
+    playableJiffies *= playableSampleBlockJiffies;
+    return playableJiffies;
+}
+
+TUint AnimatorBasic::JiffiesPlayableToJiffiesTotalDsd(TUint aPlayableJiffies)
+{
+    const TUint totalSampleBlockJiffies = (iDsdSampleBlockWords * 4) * 8 * iJiffiesPerSample;
+    const TUint playableSampleBlockJiffies = (iDsdBlockWordsNoPad * 4) * 8 * iJiffiesPerSample;
+    TUint totalJiffies = aPlayableJiffies - (aPlayableJiffies % playableSampleBlockJiffies);
+    ASSERT(totalJiffies % playableSampleBlockJiffies == 0);
+    totalJiffies /= playableSampleBlockJiffies;
+    totalJiffies *= totalSampleBlockJiffies;
+    return totalJiffies;
+}
+
 void AnimatorBasic::ProcessAudio(MsgPlayable* aMsg)
 {
     iPlayable = nullptr;
     const TUint numSamples = (aMsg->Bytes() * 8) / (iBitDepth * iNumChannels);
     TUint jiffies = numSamples * iJiffiesPerSample;
+    if (iFormat == AudioFormat::Dsd) {
+        jiffies = JiffiesTotalToJiffiesPlayableDsd(jiffies);
+    }
     if (jiffies > iPendingJiffies) {
         jiffies = iPendingJiffies;
-        const TUint bytes = Jiffies::ToBytes(jiffies, iJiffiesPerSample, iNumChannels, iBitDepth);
+        TUint bytes = 0;
+        if (iFormat == AudioFormat::Pcm) {
+            bytes = Jiffies::ToBytes(jiffies, iJiffiesPerSample, iNumChannels, iBitDepth);
+        }
+        else if (iFormat == AudioFormat::Dsd) {
+            TUint msgJiffies = JiffiesPlayableToJiffiesTotalDsd(jiffies);
+            bytes = Jiffies::ToBytes(msgJiffies, iJiffiesPerSample, iNumChannels, iBitDepth);
+        }
         if (bytes == 0) {
             iPendingJiffies = 0;
             iPlayable = aMsg;
@@ -183,6 +217,7 @@ Msg* AnimatorBasic::ProcessMsg(MsgHalt* aMsg)
 Msg* AnimatorBasic::ProcessMsg(MsgDecodedStream* aMsg)
 {
     const DecodedStreamInfo& stream = aMsg->StreamInfo();
+    iFormat = stream.Format();
     iSampleRate = stream.SampleRate();
     iNumChannels = stream.NumChannels();
     iBitDepth = stream.BitDepth();

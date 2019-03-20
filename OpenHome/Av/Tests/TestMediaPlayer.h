@@ -112,6 +112,8 @@ private:
     static const TUint kUiSendQueueSize = 100;
     static const TUint kMaxPinsDevice = 6;
     static const TUint kFsFlushFreqMs = 60 * 1000; // 1 minute
+    static const TUint kDsdSampleBlockWords = 6; // Specifies if the test player outputs DSD as 16xL, 16xR [32 bits = 1 word] or 4 x (24xL, 24xR) [192 bits = 6]
+    static const TUint kDsdPadBytesPerChunk = 2;
 public:
     TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                     const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
@@ -126,6 +128,8 @@ public:
     virtual void RunWithSemaphore();
     Media::PipelineManager& Pipeline();
     Net::DvDeviceStandard* Device();
+    TUint DsdSampleBlockWords();
+    TUint DsdPadBytesPerChunk();
 protected:
     virtual void RegisterPlugins(Environment& aEnv);
     virtual void InitialiseSubsystems();

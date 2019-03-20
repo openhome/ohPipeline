@@ -29,12 +29,15 @@ class AnimatorBasic : public PipelineElement, public IPullableClock, public IPip
 {
     static const TUint kTimerFrequencyMs = 5;
     static const TUint kSupportedMsgTypes;
+    static const TUint kDsdPlayableBytesPerChunk = 4;
 public:
-    AnimatorBasic(Environment& aEnv, IPipeline& aPipeline, TBool aPullable);
+    AnimatorBasic(Environment& aEnv, IPipeline& aPipeline, TBool aPullable, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerWord);
     ~AnimatorBasic();
 private:
     void DriverThread();
     void ProcessAudio(MsgPlayable* aMsg);
+    TUint JiffiesTotalToJiffiesPlayableDsd(TUint aTotalJiffies);
+    TUint JiffiesPlayableToJiffiesTotalDsd(TUint aPlayableJiffies);
 private: // from IMsgProcessor
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgDrain* aMsg) override;
@@ -55,6 +58,9 @@ private:
     OsContext* iOsCtx;
     ThreadFunctor *iThread;
     const TBool iPullable;
+    const TUint iDsdSampleBlockWords;
+    const TUint iDsdBlockWordsNoPad;
+    AudioFormat iFormat;
     TUint iSampleRate;
     TUint iJiffiesPerSample;
     TUint iNumChannels;

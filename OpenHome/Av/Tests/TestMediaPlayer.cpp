@@ -382,6 +382,16 @@ DvDeviceStandard* TestMediaPlayer::Device()
     return iDevice;
 }
 
+TUint TestMediaPlayer::DsdSampleBlockWords()
+{
+    return kDsdSampleBlockWords;
+}
+
+TUint TestMediaPlayer::DsdPadBytesPerChunk()
+{
+    return kDsdPadBytesPerChunk;
+}
+
 void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 {
     // Add containers
@@ -390,8 +400,6 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::ContainerFactory::NewMpegTs(iMediaPlayer->MimeTypes()));
 
     // Add codecs
-    static const TUint kDsdSampleBlockWords = 6; // Specifies if the test player outputs DSD as 16xL, 16xR [32 bits = 1 word] or 4 x (24xL, 24xR) [192 bits = 6]
-    static const TUint kDsdPadBytesPerChunk = 2;
     iMediaPlayer->Add(Codec::CodecFactory::NewFlac(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewWav(iMediaPlayer->MimeTypes()));
     iMediaPlayer->Add(Codec::CodecFactory::NewAiff(iMediaPlayer->MimeTypes()));

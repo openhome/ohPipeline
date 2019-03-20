@@ -75,7 +75,7 @@ void TestMediaPlayerThread::RunInThread()
     TestMediaPlayer* tmp = new TestMediaPlayer(*dvStack, *cpStack, udn, iOptions.Room().CString(), iOptions.Name().CString(),
         iOptions.TuneIn().Value(), iOptions.Tidal().Value(), iOptions.Qobuz().Value(),
         iOptions.UserAgent().Value(), iOptions.StoreFile().CString(), iOptions.OptionOdp().Value(), iOptions.OptionWebUi().Value());
-    Media::AnimatorBasic* animator = new Media::AnimatorBasic(dvStack->Env(), tmp->Pipeline(), iOptions.ClockPull().Value());
+    Media::AnimatorBasic* animator = new Media::AnimatorBasic(dvStack->Env(), tmp->Pipeline(), iOptions.ClockPull().Value(), tmp->DsdSampleBlockWords(), tmp->DsdPadBytesPerChunk());
     tmp->SetPullableClock(*animator);
     tmp->Run();
     tmp->StopPipeline();
