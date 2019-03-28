@@ -458,6 +458,17 @@ TUint Jiffies::ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChann
     return bytes;
 }
 
+TUint Jiffies::ToBytesDsd(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aJiffiesPerSampleBlock)
+{
+    aJiffies -= aJiffies % aJiffiesPerSampleBlock;
+    ASSERT(aJiffies % aJiffiesPerSample == 0);
+    const TUint numSamples = aJiffies / aJiffiesPerSample;
+    const TUint bits = numSamples * aNumChannels;
+    ASSERT(bits % 8 == 0);
+    const TUint bytes = (bits + 7) / 8;
+    return bytes;
+}
+
 void Jiffies::RoundDown(TUint& aJiffies, TUint aSampleRate)
 {
     const TUint jiffiesPerSample = PerSample(aSampleRate);
@@ -2250,12 +2261,12 @@ MsgPlayable* MsgAudioDsd::CreatePlayable()
     // Calculate offset jiffies.
     TUint offsetJiffiesTotal = JiffiesPlayableToJiffiesTotal(iOffset, jiffiesPerSampleBlockPlayable);
     // Calculate offset bytes.
-    const TUint offsetBytes = ToBytes(offsetJiffiesTotal, jiffiesPerSample, jiffiesPerSampleBlockTotal);
+    const TUint offsetBytes = Jiffies::ToBytesDsd(offsetJiffiesTotal, jiffiesPerSample, iNumChannels, jiffiesPerSampleBlockTotal);
 
     // Calculate size jiffies.
     TUint sizeJiffiesTotal = iSizeTotalJiffies;
     // Calculate size bytes.
-    const TUint sizeBytes = ToBytes(sizeJiffiesTotal, jiffiesPerSample, jiffiesPerSampleBlockTotal);
+    const TUint sizeBytes = Jiffies::ToBytesDsd(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, jiffiesPerSampleBlockTotal);
 
     // Log::Print("MsgAudioDsd::CreatePlayable(), iOffset: %u, sizeBytes %u, offsetBytes %u, sizeJiffiesTotal: %u, iSize: %u, iSampleRate: %u, iAudioData->Bytes(): %u\n", iOffset, sizeBytes, offsetBytes, sizeJiffiesTotal, iSize, iSampleRate, iAudioData->Bytes());
 
@@ -2336,18 +2347,6 @@ void MsgAudioDsd::AggregateComplete()
     iJiffiesNonPlayable = iSizeTotalJiffies - iSize;
 }
 
-TUint MsgAudioDsd::ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aJiffiesPerSampleBlock) const
-{
-    aJiffies -= aJiffies % aJiffiesPerSampleBlock;
-    ASSERT(aJiffies % aJiffiesPerSample == 0);
-    const TUint numSamples = aJiffies / aJiffiesPerSample;
-    const TUint numSubsamples = numSamples * iNumChannels;
-    const TUint bits = (numSubsamples * iBitDepth);
-    ASSERT(bits % 8 == 0);
-    const TUint bytes = (bits + 7) / 8;
-    return bytes;
-}
-
 TUint MsgAudioDsd::JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesPerSampleBlockPlayable) const
 {
     TUint jiffiesTotal = aJiffies - (aJiffies % aJiffiesPerSampleBlockPlayable);
@@ -2381,7 +2380,7 @@ TUint MsgAudioDsd::SizeJiffiesTotal() const
     // Log::Print("MsgAudioDsd::SizeJiffiesTotal offsetJiffiesPlayable: %u, sizeJiffiesPlayable: %u, iSize: %u, iOffset: %u\n", offsetJiffiesPlayable, sizeJiffiesPlayable, iSize, iOffset);
     TUint sizeJiffiesTotal = JiffiesPlayableToJiffiesTotal(sizeJiffiesPlayable, jiffiesPerSampleBlockPlayable);
     // Log::Print("MsgAudioDsd::SizeJiffiesTotal sizeJiffiesTotal: %u\n", sizeJiffiesTotal);
-    (void)ToBytes(sizeJiffiesTotal, jiffiesPerSample, jiffiesPerSampleBlockTotal);
+    (void)Jiffies::ToBytesDsd(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, jiffiesPerSampleBlockTotal);
     if (iSize > sizeJiffiesTotal)
     {
         sizeJiffiesTotal = 0;

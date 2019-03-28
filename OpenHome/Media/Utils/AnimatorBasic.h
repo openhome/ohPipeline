@@ -37,7 +37,7 @@ private:
     void DriverThread();
     void ProcessAudio(MsgPlayable* aMsg);
     TUint JiffiesTotalToJiffiesPlayableDsd(TUint aTotalJiffies);
-    TUint JiffiesPlayableToJiffiesTotalDsd(TUint aPlayableJiffies);
+    TUint JiffiesPlayableToJiffiesTotalDsd(TUint& aPlayableJiffies);
 private: // from IMsgProcessor
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgDrain* aMsg) override;
@@ -71,6 +71,7 @@ private:
     MsgPlayable* iPlayable;
     TUint64 iPullValue;
     TBool iQuit;
+    TUint iRemainderJiffies;
 };
 
 } // namespace Media
