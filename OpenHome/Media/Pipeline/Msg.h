@@ -191,7 +191,7 @@ public:
     static TBool IsValidSampleRate(TUint aSampleRate);
     static TUint PerSample(TUint aSampleRate);
     static TUint ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample);
-    static TUint ToBytesDsd(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aJiffiesPerSampleBlock);
+    static TUint ToBytesSampleBlock(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample, TUint aJiffiesPerSampleBlock);
     static void RoundDown(TUint& aJiffies, TUint aSampleRate);
     static void RoundUp(TUint& aJiffies, TUint aSampleRate);
     static TUint ToSongcastTime(TUint aJiffies, TUint aSampleRate);

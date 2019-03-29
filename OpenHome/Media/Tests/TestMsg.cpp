@@ -1926,13 +1926,13 @@ void SuiteMsgAudioDsd::Test()
     // test the conversion from jiffies to bytes
     TUint testJiffies = 192000;
     audioDsd = iMsgFactory->CreateMsgAudioDsd(data3, 2, sr, 1, 0, 0);
-    TUint bytesFromJiffies = Jiffies::ToBytesDsd(testJiffies, jps, numChannels, sampleBlockJiffies);
+    TUint bytesFromJiffies = Jiffies::ToBytesSampleBlock(testJiffies, jps, numChannels, 1, sampleBlockJiffies);
     TUint targetBytes = ((testJiffies / jps) * 2) / 8;
     TEST(bytesFromJiffies == targetBytes);
 
     // test the conversion from jiffies to bytes, jiffies does not fall on a sample bloock boundary;
     testJiffies = 192000 + jps;
-    bytesFromJiffies = Jiffies::ToBytesDsd(testJiffies, jps, numChannels, sampleBlockJiffies);
+    bytesFromJiffies = Jiffies::ToBytesSampleBlock(testJiffies, jps, numChannels, 1, sampleBlockJiffies);
     TEST(bytesFromJiffies == targetBytes);
     audioDsd->RemoveRef();
 
