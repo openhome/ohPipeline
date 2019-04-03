@@ -940,8 +940,6 @@ private:
     Allocator<MsgPlayableDsd>* iAllocatorPlayableDsd;
     TUint iSampleBlockWords;
     TUint iBlockWordsNoPad;
-    TUint iTotalSubSamples;
-    TUint iPlayableSubSamples;
     TUint iSizeTotalJiffies;
     TUint iJiffiesNonPlayable;
 };
