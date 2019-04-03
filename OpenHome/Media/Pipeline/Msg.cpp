@@ -451,11 +451,7 @@ TUint Jiffies::PerSample(TUint aSampleRate)
 
 TUint Jiffies::ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample)
 { // static
-    aJiffies -= aJiffies % aJiffiesPerSample; // round down requested aJiffies to the nearest integer number of samples
-    const TUint numSamples = aJiffies / aJiffiesPerSample;
-    const TUint numSubsamples = numSamples * aNumChannels;
-    const TUint bytes = ((numSubsamples * aBitsPerSubsample) + 7) / 8;
-    return bytes;
+    return ToBytesSampleBlock(aJiffies, aJiffiesPerSample, aNumChannels, aBitsPerSample, aJiffiesPerSample);
 }
 
 TUint Jiffies::ToBytesSampleBlock(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample, TUint aJiffiesPerSampleBlock)
