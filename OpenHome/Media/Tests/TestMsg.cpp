@@ -1856,7 +1856,8 @@ void SuiteMsgAudioDsd::Test()
     const TUint sr = 2822400;
     const TUint jps = Jiffies::PerSample(sr);
     msg = iMsgFactory->CreateMsgAudioDsd(data2Buf, 2, sr, 1, 0LL, 0);
-    TUint sampleBlockJiffies = ((sampleBlockWords * 4) * 8) * jps; // Taken from MsgAudioDsd::JiffiesPerSampleBlockTotal()
+    TUint samplesPerBlock = (sampleBlockWords * 4) * 8;
+    TUint sampleBlockJiffies = samplesPerBlock * jps; // Taken from MsgAudioDsd::JiffiesPerSampleBlockTotal()
     auto split = msg->Split(sampleBlockJiffies - 1);
     playable = msg->CreatePlayable();
     TEST(playable->Bytes() == 0);
@@ -1926,13 +1927,13 @@ void SuiteMsgAudioDsd::Test()
     // test the conversion from jiffies to bytes
     TUint testJiffies = 192000;
     audioDsd = iMsgFactory->CreateMsgAudioDsd(data3, 2, sr, 1, 0, 0);
-    TUint bytesFromJiffies = Jiffies::ToBytesSampleBlock(testJiffies, jps, numChannels, 1, sampleBlockJiffies);
+    TUint bytesFromJiffies = Jiffies::ToBytesSampleBlock(testJiffies, jps, numChannels, 1, samplesPerBlock);
     TUint targetBytes = ((testJiffies / jps) * 2) / 8;
     TEST(bytesFromJiffies == targetBytes);
 
     // test the conversion from jiffies to bytes, jiffies does not fall on a sample bloock boundary;
     testJiffies = 192000 + jps;
-    bytesFromJiffies = Jiffies::ToBytesSampleBlock(testJiffies, jps, numChannels, 1, sampleBlockJiffies);
+    bytesFromJiffies = Jiffies::ToBytesSampleBlock(testJiffies, jps, numChannels, 1, samplesPerBlock);
     TEST(bytesFromJiffies == targetBytes);
     audioDsd->RemoveRef();
 

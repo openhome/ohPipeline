@@ -451,13 +451,12 @@ TUint Jiffies::PerSample(TUint aSampleRate)
 
 TUint Jiffies::ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample)
 { // static
-    return ToBytesSampleBlock(aJiffies, aJiffiesPerSample, aNumChannels, aBitsPerSample, aJiffiesPerSample);
+    return ToBytesSampleBlock(aJiffies, aJiffiesPerSample, aNumChannels, aBitsPerSubsample, 1);
 }
 
-TUint Jiffies::ToBytesSampleBlock(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample, TUint aJiffiesPerSampleBlock)
+TUint Jiffies::ToBytesSampleBlock(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample, TUint aSamplesPerBlock)
 {
-    ASSERT(aJiffiesPerSampleBlock % aJiffiesPerSample == 0);
-    aJiffies -= aJiffies % aJiffiesPerSampleBlock;
+    aJiffies -= aJiffies % (aJiffiesPerSample * aSamplesPerBlock);
     const TUint numSamples = aJiffies / aJiffiesPerSample;
     const TUint numSubsamples = numSamples * aNumChannels;
     const TUint bytes = ((numSubsamples * aBitsPerSubsample) + 7) / 8;
@@ -2250,18 +2249,18 @@ MsgPlayable* MsgAudioDsd::CreatePlayable()
 {
     // (Mostly) taken from MsgAudioPcm::CreatePlayable(). Round down size and offset if they don't fall on a sample block boundary.
     const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-    const TUint jiffiesPerSampleBlockPlayable = JiffiesPerSampleBlockPlayable();
-    const TUint jiffiesPerSampleBlockTotal = JiffiesPerSampleBlockTotal();
+    const TUint jiffiesPerSampleBlockPlayable = SamplesPerBlock(iBlockWordsNoPad) * jiffiesPerSample;
+    const TUint samplesPerBlockTotal = SamplesPerBlock(iSampleBlockWords);
 
     // Calculate offset jiffies.
     TUint offsetJiffiesTotal = JiffiesPlayableToJiffiesTotal(iOffset, jiffiesPerSampleBlockPlayable);
     // Calculate offset bytes.
-    const TUint offsetBytes = Jiffies::ToBytesSampleBlock(offsetJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, jiffiesPerSampleBlockTotal);
+    const TUint offsetBytes = Jiffies::ToBytesSampleBlock(offsetJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, samplesPerBlockTotal);
 
     // Calculate size jiffies.
     TUint sizeJiffiesTotal = iSizeTotalJiffies;
     // Calculate size bytes.
-    const TUint sizeBytes = Jiffies::ToBytesSampleBlock(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, jiffiesPerSampleBlockTotal);
+    const TUint sizeBytes = Jiffies::ToBytesSampleBlock(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, samplesPerBlockTotal);
 
     // Log::Print("MsgAudioDsd::CreatePlayable(), iOffset: %u, sizeBytes %u, offsetBytes %u, sizeJiffiesTotal: %u, iSize: %u, iSampleRate: %u, iAudioData->Bytes(): %u\n", iOffset, sizeBytes, offsetBytes, sizeJiffiesTotal, iSize, iSampleRate, iAudioData->Bytes());
 
@@ -2351,23 +2350,16 @@ TUint MsgAudioDsd::JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesP
     return jiffiesTotal;
 }
 
-TUint MsgAudioDsd::JiffiesPerSampleBlockPlayable() const
+TUint MsgAudioDsd::SamplesPerBlock(TUint aBlockWords) const
 {
-    const TUint jiffies = (iBlockWordsNoPad * 4) * 8 * Jiffies::PerSample(iSampleRate);
-    return jiffies;
-}
-
-TUint MsgAudioDsd::JiffiesPerSampleBlockTotal() const
-{
-    const TUint jiffies = (iSampleBlockWords * 4) * 8 * Jiffies::PerSample(iSampleRate);
-    return jiffies;
+    return (aBlockWords * 4) * 8;
 }
 
 TUint MsgAudioDsd::SizeJiffiesTotal() const
 {
     const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-    const TUint jiffiesPerSampleBlockPlayable = JiffiesPerSampleBlockPlayable();
-    const TUint jiffiesPerSampleBlockTotal = JiffiesPerSampleBlockTotal();
+    const TUint jiffiesPerSampleBlockPlayable = SamplesPerBlock(iBlockWordsNoPad) * jiffiesPerSample;
+    const TUint samplesPerBlockTotal = SamplesPerBlock(iSampleBlockWords);
     // Calculate offset jiffies playable.
     const TUint offsetJiffiesPlayable = iOffset - (iOffset % jiffiesPerSampleBlockPlayable);
     // Calculate size jiffies.
@@ -2375,7 +2367,7 @@ TUint MsgAudioDsd::SizeJiffiesTotal() const
     // Log::Print("MsgAudioDsd::SizeJiffiesTotal offsetJiffiesPlayable: %u, sizeJiffiesPlayable: %u, iSize: %u, iOffset: %u\n", offsetJiffiesPlayable, sizeJiffiesPlayable, iSize, iOffset);
     TUint sizeJiffiesTotal = JiffiesPlayableToJiffiesTotal(sizeJiffiesPlayable, jiffiesPerSampleBlockPlayable);
     // Log::Print("MsgAudioDsd::SizeJiffiesTotal sizeJiffiesTotal: %u\n", sizeJiffiesTotal);
-    (void)Jiffies::ToBytesSampleBlock(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, jiffiesPerSampleBlockTotal);
+    (void)Jiffies::ToBytesSampleBlock(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, samplesPerBlockTotal);
     if (iSize > sizeJiffiesTotal)
     {
         sizeJiffiesTotal = 0;

@@ -191,7 +191,7 @@ public:
     static TBool IsValidSampleRate(TUint aSampleRate);
     static TUint PerSample(TUint aSampleRate);
     static TUint ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample);
-    static TUint ToBytesSampleBlock(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample, TUint aJiffiesPerSampleBlock);
+    static TUint ToBytesSampleBlock(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample, TUint aSamplesPerBlock);
     static void RoundDown(TUint& aJiffies, TUint aSampleRate);
     static void RoundUp(TUint& aJiffies, TUint aSampleRate);
     static TUint ToSongcastTime(TUint aJiffies, TUint aSampleRate);
@@ -934,13 +934,14 @@ private: // from MsgAudioDecoded
     void AggregateComplete() override;
 private:
     TUint JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesPerSampleBlockPlayable) const;
-    TUint JiffiesPerSampleBlockPlayable() const;
-    TUint JiffiesPerSampleBlockTotal() const;
+    TUint SamplesPerBlock(TUint aBlockWords) const;
     TUint SizeJiffiesTotal() const;
 private:
     Allocator<MsgPlayableDsd>* iAllocatorPlayableDsd;
     TUint iSampleBlockWords;
     TUint iBlockWordsNoPad;
+    TUint iTotalSubSamples;
+    TUint iPlayableSubSamples;
     TUint iSizeTotalJiffies;
     TUint iJiffiesNonPlayable;
 };

@@ -166,9 +166,9 @@ void AnimatorBasic::ProcessAudio(MsgPlayable* aMsg)
             bytes = Jiffies::ToBytes(jiffies, iJiffiesPerSample, iNumChannels, iBitDepth);
         }
         else if (iFormat == AudioFormat::Dsd) {
-            const TUint totalSampleBlockJiffies = (iDsdSampleBlockWords * 4) * 8 * iJiffiesPerSample;
+            const TUint totalSamplesPerBlock = (iDsdSampleBlockWords * 4) * 8;
             TUint msgJiffies = JiffiesPlayableToJiffiesTotalDsd(jiffies);
-            bytes = Jiffies::ToBytesSampleBlock(msgJiffies, iJiffiesPerSample, iNumChannels, iBitDepth, totalSampleBlockJiffies);
+            bytes = Jiffies::ToBytesSampleBlock(msgJiffies, iJiffiesPerSample, iNumChannels, iBitDepth, totalSamplesPerBlock);
         }
         if (bytes == 0) {
             iPendingJiffies = 0;
