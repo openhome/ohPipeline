@@ -456,6 +456,7 @@ TUint Jiffies::ToBytes(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChann
 
 TUint Jiffies::ToBytesSampleBlock(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample, TUint aSamplesPerBlock)
 {
+    ASSERT(aSamplesPerBlock != 0);
     aJiffies -= aJiffies % (aJiffiesPerSample * aSamplesPerBlock);
     const TUint numSamples = aJiffies / aJiffiesPerSample;
     const TUint numSubsamples = numSamples * aNumChannels;
@@ -2350,7 +2351,7 @@ TUint MsgAudioDsd::JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesP
     return jiffiesTotal;
 }
 
-TUint MsgAudioDsd::SamplesPerBlock(TUint aBlockWords) const
+TUint MsgAudioDsd::SamplesPerBlock(TUint aBlockWords)
 {
     return (aBlockWords * 4) * 8;
 }
