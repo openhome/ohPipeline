@@ -934,7 +934,7 @@ private: // from MsgAudioDecoded
     void AggregateComplete() override;
 private:
     TUint JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesPerSampleBlockPlayable) const;
-    static TUint SamplesPerBlock(TUint aBlockWords);
+    TUint SamplesPerBlock(TUint aBlockWords) const;
     TUint SizeJiffiesTotal() const;
 private:
     Allocator<MsgPlayableDsd>* iAllocatorPlayableDsd;

@@ -2290,6 +2290,7 @@ void MsgAudioDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUi
                              Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
                              Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayableSilenceDsd)
 {
+    ASSERT(aDecodedAudio->Bytes() % (aSampleBlockWords * 4) == 0);
     const TUint msgSubSamples = aDecodedAudio->Bytes() * 8;
     iBlockWordsNoPad = aSampleBlockWords - aPadBytesPerChunk;
     const TUint numSubSamples = (msgSubSamples * iBlockWordsNoPad) / aSampleBlockWords; // 1 Subsample per bit for DSD
@@ -2351,9 +2352,9 @@ TUint MsgAudioDsd::JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesP
     return jiffiesTotal;
 }
 
-TUint MsgAudioDsd::SamplesPerBlock(TUint aBlockWords)
+TUint MsgAudioDsd::SamplesPerBlock(TUint aBlockWords) const
 {
-    return (aBlockWords * 4) * 8;
+    return ((aBlockWords * 4) * 8) / iNumChannels; // Dsd is 1 Subsample per bit
 }
 
 TUint MsgAudioDsd::SizeJiffiesTotal() const
@@ -2369,9 +2370,7 @@ TUint MsgAudioDsd::SizeJiffiesTotal() const
     TUint sizeJiffiesTotal = JiffiesPlayableToJiffiesTotal(sizeJiffiesPlayable, jiffiesPerSampleBlockPlayable);
     // Log::Print("MsgAudioDsd::SizeJiffiesTotal sizeJiffiesTotal: %u\n", sizeJiffiesTotal);
     (void)Jiffies::ToBytesSampleBlock(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, samplesPerBlockTotal);
-    if (iSize > sizeJiffiesTotal) {
-        sizeJiffiesTotal = iSize;
-    }
+    ASSERT(sizeJiffiesTotal >= iSize);
     return sizeJiffiesTotal;
 }
 
@@ -3995,6 +3994,7 @@ MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(DecodedAudio* aAudioData, TUint aChan
 {
     auto audioDsd = iAllocatorMsgAudioDsd.Allocate();
     try {
+        ASSERT(aAudioData->Bytes() % (aSampleBlockWords * 4) == 0);
         audioDsd->Initialise(aAudioData, aSampleRate, aChannels, aSampleBlockWords, aTrackOffset, aPadBytesPerChunk,
                              iAllocatorMsgPlayableDsd, iAllocatorMsgPlayableSilenceDsd);
     }

@@ -1850,13 +1850,14 @@ void SuiteMsgAudioDsd::Test()
     playable->RemoveRef();
 
     // split at non-block boundary
+    TUint numChannels = 2;
     TByte data2[24] = { 0 };
     Brn data2Buf(&data2[0], sizeof data2);
     TUint sampleBlockWords = 1;
     const TUint sr = 2822400;
     const TUint jps = Jiffies::PerSample(sr);
     msg = iMsgFactory->CreateMsgAudioDsd(data2Buf, 2, sr, 1, 0LL, 0);
-    TUint samplesPerBlock = (sampleBlockWords * 4) * 8;
+    TUint samplesPerBlock = ((sampleBlockWords * 4) * 8) / numChannels;
     TUint sampleBlockJiffies = samplesPerBlock * jps; // Taken from MsgAudioDsd::JiffiesPerSampleBlockTotal()
     auto split = msg->Split(sampleBlockJiffies - 1);
     playable = msg->CreatePlayable();
@@ -1892,7 +1893,6 @@ void SuiteMsgAudioDsd::Test()
     padBytesPerChunk = 2;
     sampleBlockWords = 6;
     TUint blockWordsNoPad = 4;
-    TUint numChannels = 2;
 
     msg = iMsgFactory->CreateMsgAudioDsd(data3, 2, sr, sampleBlockWords, Jiffies::kPerSecond, padBytesPerChunk);
     TUint jiffiesBeforeSplit = msg->Jiffies();
