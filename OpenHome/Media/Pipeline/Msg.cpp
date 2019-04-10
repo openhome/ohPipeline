@@ -2290,7 +2290,6 @@ void MsgAudioDsd::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUi
                              Allocator<MsgPlayableDsd>& aAllocatorPlayableDsd,
                              Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayableSilenceDsd)
 {
-    ASSERT(aDecodedAudio->Bytes() % (aSampleBlockWords * 4) == 0);
     const TUint msgSubSamples = aDecodedAudio->Bytes() * 8;
     iBlockWordsNoPad = aSampleBlockWords - aPadBytesPerChunk;
     const TUint numSubSamples = (msgSubSamples * iBlockWordsNoPad) / aSampleBlockWords; // 1 Subsample per bit for DSD
@@ -3994,7 +3993,6 @@ MsgAudioDsd* MsgFactory::CreateMsgAudioDsd(DecodedAudio* aAudioData, TUint aChan
 {
     auto audioDsd = iAllocatorMsgAudioDsd.Allocate();
     try {
-        ASSERT(aAudioData->Bytes() % (aSampleBlockWords * 4) == 0);
         audioDsd->Initialise(aAudioData, aSampleRate, aChannels, aSampleBlockWords, aTrackOffset, aPadBytesPerChunk,
                              iAllocatorMsgPlayableDsd, iAllocatorMsgPlayableSilenceDsd);
     }
