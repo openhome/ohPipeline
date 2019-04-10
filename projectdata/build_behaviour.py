@@ -58,9 +58,9 @@
 import os
 import shutil
 from ci import (
-        build_step, require_version, add_option, specify_optional_steps,
-        build_condition, default_platform, get_dependency_args,
-        get_vsvars_environment, fetch_dependencies, python, scp)
+    build_step, require_version, add_option, specify_optional_steps,
+    build_condition, default_platform, get_dependency_args,
+    get_vsvars_environment, fetch_dependencies, python, scp)
 import platform
 
 require_version(51)
@@ -75,6 +75,7 @@ add_option("--steps", default="default", help="Steps to run, comma separated. (a
 add_option("--publish-version", action="store", help="Specify version string.")
 add_option("--fetch-only", action="store_const", const="fetch", dest="steps", help="Fetch dependencies only.")
 
+
 @build_step()
 def choose_optional_steps(context):
     specify_optional_steps(context.options.steps)
@@ -87,21 +88,21 @@ def choose_platform(context):
         context.env["OH_PLATFORM"] = context.options.target
     elif "PLATFORM" in context.env:
         context.env["OH_PLATFORM"] = {
-                "Windows-x86" : "Windows-x86",
-                "Windows-x64" : "Windows-x64",
-                "Linux-x86" : "Linux-x86",
-                "Linux-x64" : "Linux-x64",
-                "Linux-ARM" : "Linux-ARM",
-                "Linux-armhf" : "Linux-armhf",
-                "Linux-rpi" : "Linux-rpi",
-                "Linux-ppc32" : "Linux-ppc32",
-                "Linux-mipsel" : "Linux-mipsel",
-                "Mac-x86" : "Mac-x86",
-                "Mac-x64" : "Mac-x64",
-                "Core-ppc32" : "Core-ppc32",
-                "Core-armv5" : "Core-armv5",
-                "Core-armv6" : "Core-armv6",
-            }[context.env["PLATFORM"]]
+            "Windows-x86": "Windows-x86",
+            "Windows-x64": "Windows-x64",
+            "Linux-x86": "Linux-x86",
+            "Linux-x64": "Linux-x64",
+            "Linux-ARM": "Linux-ARM",
+            "Linux-armhf": "Linux-armhf",
+            "Linux-rpi": "Linux-rpi",
+            "Linux-ppc32": "Linux-ppc32",
+            "Linux-mipsel": "Linux-mipsel",
+            "Mac-x86": "Mac-x86",
+            "Mac-x64": "Mac-x64",
+            "Core-ppc32": "Core-ppc32",
+            "Core-armv5": "Core-armv5",
+            "Core-armv6": "Core-armv6",
+        }[context.env["PLATFORM"]]
     else:
         context.env["OH_PLATFORM"] = default_platform()
 
@@ -116,7 +117,7 @@ def setup_universal(context):
         BUILDDIR='buildhudson',
         WAFLOCK='.lock-wafbuildhudson',
         OH_VERSION=context.options.publish_version or context.env.get('RELEASE_VERSION', 'UNKNOWN'))
-    context.configure_args = get_dependency_args(env={'debugmode':env['OH_DEBUG']})
+    context.configure_args = get_dependency_args(env={'debugmode': env['OH_DEBUG']})
     context.configure_args += ["--dest-platform", env["OH_PLATFORM"]]
     context.configure_args += ["--" + context.options.debugmode.lower()]
     context.integration_test_media_server = context.env.get('MEDIA_SERVER', 'N/A')
@@ -133,8 +134,8 @@ def setup_windows(context):
         OPENHOME_NO_ERROR_DIALOGS="1",
         OHNET_NO_ERROR_DIALOGS="1")
     env.update(get_vsvars_environment())
-    if os.environ.has_key( 'HOMEDRIVE' ):
-        context.integration_test_log_dir = os.path.join(os.environ['HOMEDRIVE']+'\\', context.integration_test_log_dir)
+    if 'HOMEDRIVE' in os.environ:
+        context.integration_test_log_dir = os.path.join(os.environ['HOMEDRIVE'] + '\\', context.integration_test_log_dir)
     else:
         context.integration_test_log_dir = os.path.join('C:\\', context.integration_test_log_dir)
 
@@ -148,13 +149,13 @@ def setup_windows(context):
 @build_condition(OH_PLATFORM="Linux-ppc32")
 @build_condition(OH_PLATFORM="Linux-mipsel")
 def setup_linux(context):
-    env = context.env
     context.integration_test_log_dir = os.path.join(os.environ['HOME'], context.integration_test_log_dir)
 
 # Principal build steps.
 @build_step("fetch", optional=True)
 def fetch(context):
-    fetch_dependencies(env={'debugmode':context.env['OH_DEBUG']})
+    fetch_dependencies(env={'debugmode': context.env['OH_DEBUG']})
+
 
 @build_step("configure", optional=True)
 def configure(context):
@@ -163,38 +164,45 @@ def configure(context):
         context.env['CXX'] = 'clang++'
     python("waf", "configure", context.configure_args)
 
+
 @build_step("clean", optional=True)
 def clean(context):
     shutil.rmtree( 'install', True )
     python("waf", "clean")
 
+
 @build_step("build", optional=True)
 def build(context):
     python("waf", "build")
+
 
 @build_step("bundle", optional=True)
 def bundle(context):
     python("waf", "bundle")
 
+
 @build_step("test", optional=True)
 def test(context):
     if context.env["OH_PLATFORM"] not in ['Linux-mipsel', 'Linux-rpi']:
-        if context.env["OH_PLATFORM"]=='Windows-x86':
+        if context.env["OH_PLATFORM"] == 'Windows-x86':
             python("dependencies/AnyPlatform/testharness/Test", "-p", context.env["OH_PLATFORM"], "-b", context.env["BUILDDIR"], "-m", "oncommit.test")
         else:
             python('waf', 'test')
 
+
 @build_step("test_full", optional=True, default=False)
 def test_full(context):
     if context.env["OH_PLATFORM"] not in ['Linux-mipsel', 'Linux-rpi']:
-        if context.env["OH_PLATFORM"]=='Windows-x86':
+        if context.env["OH_PLATFORM"] == 'Windows-x86':
             python("dependencies/AnyPlatform/testharness/Test", "-p", context.env["OH_PLATFORM"], "-b", context.env["BUILDDIR"], "-m", "nightly.test")
         else:
             python('waf', 'test')
 
+
 @build_step("install", optional=True, default=True)
 def install(context):
     python("waf", "install")
+
 
 @build_step("integration_test", optional=True, default=False)
 @build_condition(OH_PLATFORM="Windows-x86")
@@ -202,11 +210,13 @@ def install(context):
 def integration_test(context):
     python("IntegrationTests/SuitePostBuild_OHMP.py")
 
+
 @build_step("integration_test_full", optional=True, default=False)
 @build_condition(OH_PLATFORM="Windows-x86")
 @build_condition(OH_PLATFORM="Linux-x86")
 def integration_test_full(context):
     python("IntegrationTests/SuiteLocal_OHMP.py", context.integration_test_media_server, context.integration_test_dacp_server, context.integration_test_log_dir )
+
 
 @build_step("publish", optional=True, default=False)
 def publish(context):
