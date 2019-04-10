@@ -1189,7 +1189,7 @@ def build(bld):
 
 # Bundles
 def bundle(ctx):
-    print 'bundle binaries'
+    print('bundle binaries')
     header_files = gather_files(ctx, '{top}', ['OpenHome/**/*.h', 'OpenHome/**/*.inl'])
     lib_names = ['ohPipeline',
                  'ohMediaPlayer',
@@ -1244,7 +1244,7 @@ def test(tst):
         tst.executable_dep = 'TestShell.exe'
     else:
         tst.executable_dep = 'TestShell'
-    print 'Testing using manifest:', tst.test_manifest
+    print('Testing using manifest:', tst.test_manifest)
     rule = 'python {test} -m {manifest} -p {platform} -b {build_dir} -t {tool_dir}'.format(
         test        = os.path.join(tst.env.testharness_dir, 'Test'),
         manifest    = '${SRC}',
