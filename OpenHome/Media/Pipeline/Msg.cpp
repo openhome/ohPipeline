@@ -2369,7 +2369,6 @@ TUint MsgAudioDsd::SizeJiffiesTotal() const
     TUint sizeJiffiesTotal = JiffiesPlayableToJiffiesTotal(sizeJiffiesPlayable, jiffiesPerSampleBlockPlayable);
     // Log::Print("MsgAudioDsd::SizeJiffiesTotal sizeJiffiesTotal: %u\n", sizeJiffiesTotal);
     (void)Jiffies::ToBytesSampleBlock(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, samplesPerBlockTotal);
-    ASSERT(sizeJiffiesTotal >= iSize);
     return sizeJiffiesTotal;
 }
 

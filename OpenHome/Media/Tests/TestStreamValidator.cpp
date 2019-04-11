@@ -216,7 +216,7 @@ void SuiteStreamValidator::PushMsg(EMsgType aType)
     case EMsgAudioDsd:
     {
         Brn audioBuf(iAudioData, sizeof(iAudioData));
-        auto msgDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, kChannels, kSampleRateDsd, 2, iTrackOffsetTx, 0);
+        auto msgDsd = iMsgFactory->CreateMsgAudioDsd(audioBuf, kChannels, kSampleRateDsd, 1, iTrackOffsetTx, 0);
         iTrackOffsetTx += msgDsd->Jiffies();
         msg = msgDsd;
     }

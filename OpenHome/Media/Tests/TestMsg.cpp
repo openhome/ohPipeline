@@ -1893,6 +1893,9 @@ void SuiteMsgAudioDsd::Test()
     padBytesPerChunk = 2;
     sampleBlockWords = 6;
     TUint blockWordsNoPad = 4;
+    samplesPerBlock = ((sampleBlockWords * 4) * 8) / numChannels;
+    TUint playableSamplesPerBlock = ((blockWordsNoPad * 4) * 8) / numChannels;
+    sampleBlockJiffies = samplesPerBlock * jps;
 
     msg = iMsgFactory->CreateMsgAudioDsd(data3, 2, sr, sampleBlockWords, Jiffies::kPerSecond, padBytesPerChunk);
     TUint jiffiesBeforeSplit = msg->Jiffies();
@@ -1904,7 +1907,7 @@ void SuiteMsgAudioDsd::Test()
     TEST(remainingDsd->iSampleBlockWords == sampleBlockWords);
     TEST(remainingDsd->iBlockWordsNoPad == sampleBlockWords - padBytesPerChunk);
 
-    TUint playableSampleBlockJiffies = (((blockWordsNoPad * 4) * 8) * jps);
+    TUint playableSampleBlockJiffies = playableSamplesPerBlock * jps;
     TUint blockCorrectPlayableJiffies = audioDsd->iSize - (audioDsd->iSize % playableSampleBlockJiffies);
     TUint totalJiffies = (blockCorrectPlayableJiffies * sampleBlockWords) / blockWordsNoPad;
     TUint jiffiesNonPlayable = totalJiffies - audioDsd->iSize;
@@ -1918,8 +1921,8 @@ void SuiteMsgAudioDsd::Test()
     jiffiesNonPlayable = totalJiffies - remainingDsd->iSize;
 
     TEST(remainingDsd->iSize == (jiffiesBeforeSplit - sampleBlockJiffies));
-    TEST(remainingDsd->iSizeTotalJiffies == totalJiffies);
-    TEST(remainingDsd->iJiffiesNonPlayable == jiffiesNonPlayable);
+    TEST(remainingDsd->iSizeTotalJiffies == totalJiffies + sampleBlockJiffies);
+    TEST(remainingDsd->iJiffiesNonPlayable == jiffiesNonPlayable + sampleBlockJiffies);
 
     remainingDsd->RemoveRef();
     audioDsd->RemoveRef();
