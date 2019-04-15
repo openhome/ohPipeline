@@ -156,7 +156,6 @@ class Pipeline : public IPipelineElementDownstream
                , public IAttenuator
                , public IPipelineDrainer
                , private IStopperObserver
-               , private IPipelinePropertyObserver
                , private IStarvationRamperObserver
 {
     friend class SuitePipeline; // test code
@@ -228,13 +227,6 @@ private: // from IStopperObserver
     void PipelinePaused() override;
     void PipelineStopped() override;
     void PipelinePlaying() override;
-private: // from IPipelinePropertyObserver
-    void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,
-                    const ModeTransportControls& aTransportControls) override;
-    void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
-    void NotifyMetaText(const Brx& aText) override;
-    void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
-    void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) override;
 private: // from IStarvationRamperObserver
     void NotifyStarvationRamperBuffering(TBool aBuffering) override;
 private:
@@ -247,7 +239,6 @@ private:
     };
 private:
     PipelineInitParams* iInitParams;
-    IPipelineObserver& iObserver;
     Mutex iLock;
     MsgFactory* iMsgFactory;
     PipelineElementObserverThread* iEventThread;

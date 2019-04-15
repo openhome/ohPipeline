@@ -4,21 +4,11 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Thread.h>
+#include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
 namespace OpenHome {
 namespace Media {
-
-class IPipelinePropertyObserver
-{
-public:
-    virtual void NotifyMode(const Brx& aMode, const ModeInfo& aInfo, const ModeTransportControls& aTransportControls) = 0;
-    virtual void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) = 0;
-    virtual void NotifyMetaText(const Brx& aText) = 0;
-    virtual void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) = 0;
-    virtual void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) = 0;
-    virtual ~IPipelinePropertyObserver() {}
-};
 
 /*
 Element which reports state changes in pipeline.
@@ -33,8 +23,9 @@ class Reporter : public PipelineElement, public IPipelineElementUpstream, privat
     static const Brn kNullMetaText;
     static const TUint kTrackNotifyDelayMs = 10;
 public:
-    Reporter(IPipelineElementUpstream& aUpstreamElement, IPipelinePropertyObserver& aObserver, IPipelineElementObserverThread& aObserverThread);
+    Reporter(IPipelineElementUpstream& aUpstreamElement, IPipelineObserver& aObserver, IPipelineElementObserverThread& aObserverThread);
     virtual ~Reporter();
+    void SetPipelineState(EPipelineState aState);
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // IMsgProcessor
@@ -51,7 +42,7 @@ private:
 private:
     Mutex iLock;
     IPipelineElementUpstream& iUpstreamElement;
-    IPipelinePropertyObserver& iObserver;
+    IPipelineObserver& iObserver;
     IPipelineElementObserverThread& iObserverThread;
     TUint iEventId;
     MsgMode* iMsgMode;
@@ -64,6 +55,8 @@ private:
     BwsMode iMode;
     BwsMode iModeTrack;
     TBool iNotifyTime;
+    EPipelineState iPipelineState;
+    TBool iNotifyPipelineState;
 };
 
 } // namespace Media

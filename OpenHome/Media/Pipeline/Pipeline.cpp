@@ -245,7 +245,6 @@ static Pipeline* gPipeline = nullptr;
 Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory, IPipelineObserver& aObserver,
                    IStreamPlayObserver& aStreamPlayObserver, ISeekRestreamer& aSeekRestreamer, IUrlBlockWriter& aUrlBlockWriter)
     : iInitParams(aInitParams)
-    , iObserver(aObserver)
     , iLock("PLMG")
     , iState(EStopped)
     , iLastReportedState(EPipelineStateCount)
@@ -410,7 +409,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerSpotifyReporter, new Logger(*iSpotifyReporter, "SpotifyReporter"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iReporter, new Reporter(*upstream, *this, *iEventThread),
+    ATTACH_ELEMENT(iReporter, new Reporter(*upstream, aObserver, *iEventThread),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerReporter, new Logger(*iReporter, "Reporter"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
@@ -684,7 +683,7 @@ void Pipeline::NotifyStatus()
         }
         iLastReportedState = state;
     }
-    iObserver.NotifyPipelineState(state);
+    iReporter->SetPipelineState(state); // Use Reporter's event callback mechanism to notify observers asynchronously.
 }
 
 MsgFactory& Pipeline::Factory()
@@ -922,38 +921,6 @@ void Pipeline::SetAttenuation(TUint aAttenuation)
 void Pipeline::DrainAllAudio()
 {
     iStarvationRamper->DrainAllAudio();
-}
-
-void Pipeline::NotifyMode(const Brx& aMode,
-                          const ModeInfo& aInfo,
-                          const ModeTransportControls& aTransportControls)
-{
-    iObserver.NotifyMode(aMode, aInfo, aTransportControls);
-}
-
-void Pipeline::NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream)
-{
-    iObserver.NotifyTrack(aTrack, aMode, aStartOfStream);
-}
-
-void Pipeline::NotifyMetaText(const Brx& aText)
-{
-    iObserver.NotifyMetaText(aText);
-}
-
-void Pipeline::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
-{
-    iObserver.NotifyTime(aSeconds, aTrackDurationSeconds);
-#if 0
-    if (aSeconds % 8 == 0) {
-        LogBuffers();
-    }
-#endif
-}
-
-void Pipeline::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
-{
-    iObserver.NotifyStreamInfo(aStreamInfo);
 }
 
 void Pipeline::NotifyStarvationRamperBuffering(TBool aBuffering)

@@ -3,6 +3,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
+#include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/ElementObserver.h>
 
 #include <string.h>
@@ -15,7 +16,7 @@ using namespace OpenHome::Media;
 namespace OpenHome {
 namespace Media {
 
-class SuiteReporter : public Suite, public IPipelineElementUpstream, private IPipelinePropertyObserver
+class SuiteReporter : public Suite, public IPipelineElementUpstream, private IPipelineObserver
 {
 #define kMode "DummyMode"
 #define kTrackUri "http://host:port/path/file.ext"
@@ -36,7 +37,8 @@ public:
     void Test() override;
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
-private: // from IPipelinePropertyObserver
+private: // from IPipelineObserver
+    void NotifyPipelineState(EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const ModeInfo& aInfo, const ModeTransportControls& aTransportControls) override;
     void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
@@ -72,16 +74,19 @@ private:
     Reporter* iReporter;
     EMsgType iNextGeneratedMsg;
     TUint64 iTrackOffset;
+    TUint iPipelineStateUpdates;
     TUint iModeUpdates;
     TUint iTrackUpdates;
     TUint iMetaTextUpdates;
     TUint iTimeUpdates;
     TUint iAudioFormatUpdates;
+    EPipelineState iPipelineState;
     BwsMode iMode;
     Bws<1024> iTrackUri;
     Bws<1024> iMetaText;
     TUint iSeconds;
     TUint iTrackDurationSeconds;
+    Semaphore iSemPipelineState;
     Semaphore iSemMode;
     Semaphore iSemTrack;
     Semaphore iSemStream;
@@ -101,18 +106,21 @@ SuiteReporter::SuiteReporter()
     : Suite("Reporter tests")
     , iNextGeneratedMsg(ENone)
     , iTrackOffset(0)
+    , iPipelineStateUpdates(0)
     , iModeUpdates(0)
     , iTrackUpdates(0)
     , iMetaTextUpdates(0)
     , iTimeUpdates(0)
     , iAudioFormatUpdates(0)
+    , iPipelineState(EPipelineStopped)
     , iSeconds(0)
     , iTrackDurationSeconds(0)
-    , iSemMode("SRS1", 0)
-    , iSemTrack("SRS2", 0)
-    , iSemStream("SRS3", 0)
-    , iSemMetatext("SRS4", 0)
-    , iSemTime("SRS5", 0)
+    , iSemPipelineState("SRS1", 0)
+    , iSemMode("SRS2", 0)
+    , iSemTrack("SRS3", 0)
+    , iSemStream("SRS4", 0)
+    , iSemMetatext("SRS5", 0)
+    , iSemTime("SRS6", 0)
 {
     MsgFactoryInitParams init;
     init.SetMsgDecodedStreamCount(3);
@@ -142,6 +150,7 @@ void SuiteReporter::Test()
 
 void SuiteReporter::RunTests()
 {
+    TUint expectedPipelineStateUpdates = 0;
     TUint expectedModeUpdates = 0;
     TUint expectedTrackUpdates = 0;
     TUint expectedMetaTextUpdates = 0;
@@ -149,12 +158,25 @@ void SuiteReporter::RunTests()
     TUint expectedAudioFormatUpdates = 0;
     TUint expectedTimeSeconds = 0;
 
+    // Set pipeline playing. Check observer is notified.
+    iReporter->SetPipelineState(EPipelinePlaying);
+    iSemPipelineState.Wait(kTimeoutMs);
+    expectedPipelineStateUpdates++;
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
+    TEST(iPipelineState == EPipelinePlaying);
+    TEST(iModeUpdates == expectedModeUpdates);
+    TEST(iTrackUpdates == expectedTrackUpdates);
+    TEST(iMetaTextUpdates == expectedMetaTextUpdates);
+    TEST(iTimeUpdates == expectedTimeUpdates);
+    TEST(iAudioFormatUpdates == expectedAudioFormatUpdates);
+
     // deliver MsgMode.  Check it is notified
     iNextGeneratedMsg = EMsgMode;
     Msg* msg = iReporter->Pull();
     msg->RemoveRef();
     iSemMode.Wait(kTimeoutMs);
     expectedModeUpdates++;
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
     TEST(iModeUpdates == expectedModeUpdates);
     TEST(iTrackUpdates == expectedTrackUpdates);
     TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -167,6 +189,7 @@ void SuiteReporter::RunTests()
     msg->RemoveRef();
     iSemTrack.Wait(kTimeoutMs);
     expectedTrackUpdates++;
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
     TEST(iModeUpdates == expectedModeUpdates);
     TEST(iTrackUpdates == expectedTrackUpdates);
     TEST(iTrackUri == Brn(kTrackUri));
@@ -180,6 +203,7 @@ void SuiteReporter::RunTests()
     expectedTimeUpdates++;
     iSemStream.Wait(kTimeoutMs);
     iSemTime.Wait(kTimeoutMs);
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
     TEST(iModeUpdates == expectedModeUpdates);
     TEST(iTrackUpdates == expectedTrackUpdates);
     TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -192,6 +216,7 @@ void SuiteReporter::RunTests()
         iNextGeneratedMsg = types[i];
         msg = iReporter->Pull();
         msg->RemoveRef();
+        TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
         TEST(iModeUpdates == expectedModeUpdates);
         TEST(iTrackUpdates == expectedTrackUpdates);
         TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -210,6 +235,7 @@ void SuiteReporter::RunTests()
     msg->RemoveRef();
     expectedMetaTextUpdates++;
     iSemMetatext.Wait(kTimeoutMs);
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
     TEST(iModeUpdates == expectedModeUpdates);
     TEST(iTrackUpdates == expectedTrackUpdates);
     TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -222,6 +248,7 @@ void SuiteReporter::RunTests()
     msg = iReporter->Pull();
     msg->RemoveRef();
     Thread::Sleep(1); // tiny delay, leaving room for Reporter's observer thread to be scheduled
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
     TEST(iModeUpdates == expectedModeUpdates);
     TEST(iTrackUpdates == expectedTrackUpdates);
     TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -236,6 +263,7 @@ void SuiteReporter::RunTests()
     // deliver 1s of audio.  Check NotifyTime is called again.
     iNextGeneratedMsg = EMsgAudioPcm;
     while (iTrackOffset < Jiffies::kPerSecond) {
+        TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
         TEST(iModeUpdates == expectedModeUpdates);
         TEST(iTrackUpdates == expectedTrackUpdates);
         TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -254,6 +282,7 @@ void SuiteReporter::RunTests()
     TEST(!iSemTime.Clear());
     expectedTimeUpdates++;
     expectedTimeSeconds = 1;
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
     TEST(iModeUpdates == expectedModeUpdates);
     TEST(iTrackUpdates == expectedTrackUpdates);
     TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -266,6 +295,7 @@ void SuiteReporter::RunTests()
     // ...but works for tests).
     iNextGeneratedMsg = EMsgAudioDsd;
     while (iTrackOffset <= 2 * Jiffies::kPerSecond) {   // PCM block above outputs just over 1s of audio, so need "<=" here to ensure at least 1s of DSD audio is pulled in this block.
+        TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
         TEST(iModeUpdates == expectedModeUpdates);
         TEST(iTrackUpdates == expectedTrackUpdates);
         TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -284,6 +314,7 @@ void SuiteReporter::RunTests()
     TEST(!iSemTime.Clear());
     expectedTimeUpdates++;
     expectedTimeSeconds += 1;
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
     TEST(iModeUpdates == expectedModeUpdates);
     TEST(iTrackUpdates == expectedTrackUpdates);
     TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -301,6 +332,7 @@ void SuiteReporter::RunTests()
     expectedTimeSeconds = 3;
     iSemStream.Wait(kTimeoutMs);
     iSemTime.Wait(kTimeoutMs);
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
     TEST(iModeUpdates == expectedModeUpdates);
     TEST(iTrackUpdates == expectedTrackUpdates);
     TEST(iMetaTextUpdates == expectedMetaTextUpdates);
@@ -328,12 +360,20 @@ void SuiteReporter::RunTests()
     TEST(!iSemStream.Clear());
     TEST(!iSemMetatext.Clear());
     TEST(!iSemTime.Clear());
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
     TEST(iModeUpdates == expectedModeUpdates);
     TEST(iTrackUpdates == expectedTrackUpdates);
     TEST(iMetaTextUpdates == expectedMetaTextUpdates);
     TEST(iTimeUpdates == expectedTimeUpdates);
     TEST(iAudioFormatUpdates == expectedAudioFormatUpdates);
     TEST(iSeconds == expectedTimeSeconds);
+
+    // Change pipeline state to buffering.
+    iReporter->SetPipelineState(EPipelineBuffering);
+    iSemPipelineState.Wait(kTimeoutMs);
+    expectedPipelineStateUpdates++;
+    TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);
+    TEST(iPipelineState == EPipelineBuffering);
 
     // Check for races - deliver large numbers of track/stream/metatext msgs close together
     EMsgType msgs[] = { EMsgTrack, EMsgDecodedStream, EMsgMetaText };
@@ -422,6 +462,13 @@ MsgAudio* SuiteReporter::CreateAudioDsd()
     MsgAudioDsd* audio = iMsgFactory->CreateMsgAudioDsd(audioBuf, 2, 2822400, 2, iTrackOffset, 0);
     iTrackOffset += audio->Jiffies();
     return audio;
+}
+
+void SuiteReporter::NotifyPipelineState(EPipelineState aState)
+{
+    iPipelineStateUpdates++;
+    iPipelineState = aState;
+    iSemPipelineState.Signal();
 }
 
 void SuiteReporter::NotifyMode(const Brx& aMode,
