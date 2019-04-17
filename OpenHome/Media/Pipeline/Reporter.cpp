@@ -29,7 +29,7 @@ const TUint Reporter::kSupportedMsgTypes =   eMode
 
 const Brn Reporter::kNullMetaText("");
 
-Reporter::Reporter(IPipelineElementUpstream& aUpstreamElement, IPipelinePropertyObserver& aObserver, IPipelineElementObserverThread& aObserverThread)
+Reporter::Reporter(IPipelineElementUpstream& aUpstreamElement, IPipelineObserver& aObserver, IPipelineElementObserverThread& aObserverThread)
     : PipelineElement(kSupportedMsgTypes)
     , iLock("RPTR")
     , iUpstreamElement(aUpstreamElement)
@@ -43,6 +43,8 @@ Reporter::Reporter(IPipelineElementUpstream& aUpstreamElement, IPipelineProperty
     , iJiffies(0)
     , iTrackDurationSeconds(0)
     , iNotifyTime(false)
+    , iPipelineState(EPipelineStopped)
+    , iNotifyPipelineState(false)
 {
     iEventId = iObserverThread.Register(MakeFunctor(*this, &Reporter::EventCallback));
 }
@@ -63,6 +65,14 @@ Reporter::~Reporter()
     }
 }
 
+void Reporter::SetPipelineState(EPipelineState aState)
+{
+    AutoMutex amx(iLock);
+    iPipelineState = aState;
+    iNotifyPipelineState = true;
+    iObserverThread.Schedule(iEventId);
+}
+
 Msg* Reporter::Pull()
 {
     Msg* msg = iUpstreamElement.Pull();
@@ -72,7 +82,7 @@ Msg* Reporter::Pull()
 
 Msg* Reporter::ProcessMsg(MsgMode* aMsg)
 {
-    AutoMutex _(iLock);
+    AutoMutex amx(iLock);
     iMode.Replace(aMsg->Mode());
     if (iMsgMode != nullptr) {
         iMsgMode->RemoveRef();
@@ -98,7 +108,7 @@ Msg* Reporter::ProcessMsg(MsgMode* aMsg)
 
 Msg* Reporter::ProcessMsg(MsgTrack* aMsg)
 {
-    AutoMutex _(iLock);
+    AutoMutex amx(iLock);
     if (iMsgTrack != nullptr) {
         iMsgTrack->RemoveRef();
     }
@@ -122,7 +132,7 @@ Msg* Reporter::ProcessMsg(MsgTrack* aMsg)
 
 Msg* Reporter::ProcessMsg(MsgMetaText* aMsg)
 {
-    AutoMutex _(iLock);
+    AutoMutex amx(iLock);
     if (iMsgMetaText != nullptr) {
         iMsgMetaText->RemoveRef();
     }
@@ -134,7 +144,7 @@ Msg* Reporter::ProcessMsg(MsgMetaText* aMsg)
 
 Msg* Reporter::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    AutoMutex _(iLock);
+    AutoMutex amx(iLock);
     const DecodedStreamInfo& streamInfo = aMsg->StreamInfo();
     iTrackDurationSeconds = (TUint)(streamInfo.TrackLength() / Jiffies::kPerSecond);
     TUint64 jiffies = (streamInfo.SampleStart() * Jiffies::kPerSecond) / streamInfo.SampleRate();
@@ -170,7 +180,7 @@ Msg* Reporter::ProcessMsg(MsgAudioDsd* aMsg)
 
 void Reporter::ProcessAudio(MsgAudioDecoded* aMsg)
 {
-    AutoMutex _(iLock);
+    AutoMutex amx(iLock);
     TBool reportChange = false;
     iJiffies += aMsg->Jiffies();
     while (iJiffies > Jiffies::kPerSecond) {
@@ -187,19 +197,27 @@ void Reporter::ProcessAudio(MsgAudioDecoded* aMsg)
 void Reporter::EventCallback()
 {
     iLock.Wait();
+    // Mode.
     MsgMode* msgMode = iMsgMode;
     iMsgMode = nullptr;
+    // Track.
     MsgTrack* msgTrack = iMsgTrack;
     BwsMode modeTrack(iModeTrack);
     iMsgTrack = nullptr;
+    // Stream info.
     MsgDecodedStream* msgStream = iMsgDecodedStreamInfo;
     iMsgDecodedStreamInfo = nullptr;
     MsgMetaText* msgMetatext = iMsgMetaText;
     iMsgMetaText = nullptr;
+    // Time.
     const TUint seconds = iSeconds;
     const TUint trackDurationSeconds = iTrackDurationSeconds;
     const TBool notifyTime = iNotifyTime;
     iNotifyTime = false;
+    // Pipeline state.
+    const EPipelineState pipelineState = iPipelineState;
+    const TBool notifyPipelineState = iNotifyPipelineState;
+    iNotifyPipelineState = false;
     iLock.Signal();
 
     if (msgMode != nullptr) {
@@ -220,5 +238,8 @@ void Reporter::EventCallback()
     }
     if (notifyTime) {
         iObserver.NotifyTime(seconds, trackDurationSeconds);
+    }
+    if (notifyPipelineState) {
+        iObserver.NotifyPipelineState(pipelineState);
     }
 }
