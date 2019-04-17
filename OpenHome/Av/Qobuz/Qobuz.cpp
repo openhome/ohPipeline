@@ -629,14 +629,22 @@ TBool Qobuz::TryLoginLocked()
         iResponseBody.Reset();
         iReaderEntity.ReadAll(iResponseBody);
         JsonParser parser;
-        parser.Parse(iResponseBody.Buffer());
+        const Brx& resp = iResponseBody.Buffer();
+        parser.Parse(resp);
         iAuthToken.Replace(parser.String(kUserAuthToken));
-        JsonParser parserUser;
-        parserUser.Parse(parser.String("user"));
-        iUserId = parserUser.Num("id");
-        JsonParser parserCred;
-        parserCred.Parse(parserUser.String("credential"));
-        iCredentialId = parserCred.Num("id");
+        iUserId = 0;
+        iCredentialId = 0;
+        try {
+            JsonParser parserUser;
+            parserUser.Parse(parser.String("user"));
+            iUserId = parserUser.Num("id");
+            JsonParser parserCred;
+            parserCred.Parse(parserUser.String("credential"));
+            iCredentialId = parserCred.Num("id");
+        }
+        catch (Exception& ex) {
+            LOG_ERROR(kPipeline, "Exception - %s - parsing credentialId during Qobuz login.  Login response is:\n%.*s\n", ex.Message(), PBUF(resp));
+        }
 
         iCredentialsState.SetState(kId, Brx::Empty(), iAppId);
         updatedStatus = true;
