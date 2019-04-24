@@ -2075,7 +2075,7 @@ void MsgAudioDecoded::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate,
     iAllocatorPlayableSilenceDsd = nullptr;
     iAudioData = aDecodedAudio;
     iTrackOffset = aTrackOffset;
-    ASSERT(aNumSubsamples % iNumChannels == 0);
+    ASSERT_VA(aNumSubsamples % iNumChannels == 0, "Invalid number of subsamples. aNumSubsamples: %u, aSampleRate: %u, aBitDepth: %u, aChannels: %u, aTrackOffset: %llu, aDecodedAudio->Bytes(): %u\n", aNumSubsamples, aSampleRate, aBitDepth, aChannels, aTrackOffset, aDecodedAudio->Bytes());
     iSize = (aNumSubsamples / iNumChannels) * Jiffies::PerSample(iSampleRate);
     ASSERT(iSize > 0);
     iOffset = 0;
