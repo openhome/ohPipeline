@@ -628,13 +628,13 @@ TBool Qobuz::TryLoginLocked()
         static const Brn kUserAuthToken("user_auth_token");
         iResponseBody.Reset();
         iReaderEntity.ReadAll(iResponseBody);
-        JsonParser parser;
-        const Brx& resp = iResponseBody.Buffer();
-        parser.Parse(resp);
-        iAuthToken.Replace(parser.String(kUserAuthToken));
-        iUserId = 0;
-        iCredentialId = 0;
+		const Brx& resp = iResponseBody.Buffer();
         try {
+			JsonParser parser;
+			parser.Parse(resp);
+			iAuthToken.Replace(parser.String(kUserAuthToken));
+			iUserId = 0;
+			iCredentialId = 0;
             JsonParser parserUser;
             parserUser.Parse(parser.String("user"));
             iUserId = parserUser.Num("id");

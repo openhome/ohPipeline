@@ -194,7 +194,13 @@ void CodecDsdDsf::TransferToOutputBuffer()
     TByte* dest = const_cast<TByte*>(iOutputBuffer.Ptr() + iOutputBuffer.Bytes());
     // numChunks represents how many stereo pairs of samples make up a sampleBlock (how many groups of 16xL, 16xR)
     const TUint numChunks = iSampleBlockWords - iPadBytesPerChunk;
-    TUint inputChunks = iInputBuffer.Bytes() / kPlayableBytesPerChunk;
+    TUint inputChunks = iInputBuffer.Bytes();
+    if (iAudioBytesRemaining == 0) {
+        const TUint audioBytesPadding = (TUint)(iAudioBytesTotal - iAudioBytesTotalPlayable);
+        ASSERT(audioBytesPadding <= inputChunks);
+        inputChunks -= audioBytesPadding;
+    }
+    inputChunks /= kPlayableBytesPerChunk;
 
     do {
         TUint outputChunks = iOutputBuffer.BytesRemaining() / iTotalBytesPerChunk;
@@ -213,7 +219,7 @@ void CodecDsdDsf::TransferToOutputBuffer()
         {
             TUint sampleBlockBytes = iSampleBlockWords * 4;
             TUint outputBufferBytes = iOutputBuffer.Bytes();
-            TUint remainingBytes = iOutputBuffer.Bytes() % sampleBlockBytes;
+            TUint remainingBytes = outputBufferBytes % sampleBlockBytes;
 
             if (remainingBytes != 0)
             {
