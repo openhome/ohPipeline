@@ -481,7 +481,7 @@ TBool ProtocolHttp::Connect(const Uri& aUri)
     iSocket.SetSecure(isSecure);
 
     try {
-        iSocket.Connect(endpoint, kConnectTimeoutMs);
+        iSocket.Connect(endpoint, aUri.Host(), kConnectTimeoutMs);
     }
     catch (NetworkTimeout&) {
         Close();
