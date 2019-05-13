@@ -29,11 +29,13 @@ private:
 class SocketSslImpl : public IWriter, public IReaderSource
 {
     static const TUint kMinReadBytes = 8 * 1024;
+    static const TUint kDefaultHostNameBytes = 128;
 public:
     SocketSslImpl(Environment& aEnv, TUint aReadBytes);
     ~SocketSslImpl();
     void SetSecure(TBool aSecure);
     void Connect(const Endpoint& aEndpoint, TUint aTimeoutMs);
+    void Connect(const Endpoint& aEndpoint, const Brx& aHostname, TUint aTimeoutMs);
     void Close();
     void Interrupt(TBool aInterrupt);
     void LogVerbose(TBool aVerbose);
@@ -57,6 +59,7 @@ private:
     TBool iSecure;
     TBool iConnected;
     TBool iVerbose;
+    Bwh iHostname;
 };
 
 } // namespace OpenHome
@@ -120,6 +123,11 @@ void SocketSsl::SetSecure(TBool aSecure)
 void SocketSsl::Connect(const Endpoint& aEndpoint, TUint aTimeoutMs)
 {
     iImpl->Connect(aEndpoint, aTimeoutMs);
+}
+
+void SocketSsl::Connect(const Endpoint& aEndpoint, const Brx& aHostname, TUint aTimeoutMs)
+{
+    iImpl->Connect(aEndpoint, aHostname, aTimeoutMs);
 }
 
 void SocketSsl::Close()
@@ -198,6 +206,7 @@ SocketSslImpl::SocketSslImpl(Environment& aEnv, TUint aReadBytes)
     , iSecure(true)
     , iConnected(false)
     , iVerbose(false)
+    , iHostname(kDefaultHostNameBytes)
 {
     iMemBufSize = (kMinReadBytes<aReadBytes? aReadBytes : kMinReadBytes);
     iBioReadBuf = (TByte*)malloc((int)iMemBufSize);
@@ -219,6 +228,11 @@ void SocketSslImpl::SetSecure(TBool aSecure)
 }
 
 void SocketSslImpl::Connect(const Endpoint& aEndpoint, TUint aTimeoutMs)
+{
+    Connect(aEndpoint, Brx::Empty(), aTimeoutMs);
+}
+
+void SocketSslImpl::Connect(const Endpoint& aEndpoint, const Brx& aHostname, TUint aTimeoutMs)
 {
     iSocketTcp.Open(iEnv);
     try {
@@ -247,6 +261,16 @@ void SocketSslImpl::Connect(const Endpoint& aEndpoint, TUint aTimeoutMs)
         SSL_set_connect_state(iSsl);
         SSL_set_mode(iSsl, SSL_MODE_AUTO_RETRY);
 
+        // Use "Server Name Indication" if hostname is specified.
+        if (aHostname.Bytes() > 0) {
+            const TUint cStringBytes = aHostname.Bytes() + 1; // +1 for '\0'.
+            if (cStringBytes > iHostname.MaxBytes()) {
+                iHostname.Grow(cStringBytes);
+            }
+            iHostname.Replace(aHostname);
+            SSL_set_tlsext_host_name(iSsl, iHostname.PtrZ());
+        }
+
         if (1 != SSL_connect(iSsl)) {
             SSL_free(iSsl);
             iSsl = nullptr;
@@ -271,6 +295,7 @@ void SocketSslImpl::Close()
             SslContext::RemoveRef(iEnv);
         }
         iConnected = false;
+        iHostname.SetBytes(0);
         try {
             iSocketTcp.Close();
         }

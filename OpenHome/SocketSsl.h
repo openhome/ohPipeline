@@ -18,6 +18,10 @@ public:
     ~SocketSsl();
     void SetSecure(TBool aSecure);
     void Connect(const Endpoint& aEndpoint, TUint aTimeoutMs);
+    /*
+     * Allows use of Server Name Indication if hostname is specified.
+     */
+    void Connect(const Endpoint& aEndpoint, const Brx& aHostname, TUint aTimeoutMs);
     void Close();
     void Interrupt(TBool aInterrupt);
     void LogVerbose(TBool aVerbose);
