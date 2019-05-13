@@ -230,117 +230,125 @@ void RadioPresetsTuneIn::DoRefresh()
             }
             // Read presets for the current container only
             for (;;) {
-                iReaderUntil.ReadUntil('<');
-                buf.Set(iReaderUntil.ReadUntil('>'));
-                if (buf == Brn("/outline")) {
-                    break;
-                }
-                const TBool isAudio = buf.BeginsWith(Brn("outline type=\"audio\""));
-                const TBool isLink = buf.BeginsWith(Brn("outline type=\"link\""));
-                if (!(isAudio || isLink)) {
-                    continue;
-                }
-                Parser parser(buf);
-                (void)parser.Next('='); // outline type="audio" - ignore
-                (void)parser.Next('\"');
-                (void)parser.Next('\"');
-
-                if (!ReadElement(parser, "text", iPresetTitle) ||
-                    !ReadElement(parser, "URL", iPresetUrl)) {
-                    continue;
-                }
-                Converter::FromXmlEscaped(iPresetUrl);
-                if (isAudio) {
-                    iPresetUri.Replace(iPresetUrl);
-                    if (iPresetUri.Query().Bytes() > 0) {
-                        iPresetUrl.Append(Brn("&c=ebrowse")); // ensure best quality stream is selected
+                try {
+                    iReaderUntil.ReadUntil('<');
+                    buf.Set(iReaderUntil.ReadUntil('>'));
+                    if (buf == Brn("/outline")) {
+                        break;
                     }
-                }
-                Bws<Ascii::kMaxUintStringBytes> byteRateBuf;
-                if (ValidateKey(parser, "bitrate", false)) {
+                    const TBool isAudio = buf.BeginsWith(Brn("outline type=\"audio\""));
+                    const TBool isLink = buf.BeginsWith(Brn("outline type=\"link\""));
+                    if (!(isAudio || isLink)) {
+                        continue;
+                    }
+                    Parser parser(buf);
+                    (void)parser.Next('='); // outline type="audio" - ignore
                     (void)parser.Next('\"');
-                    Brn value = parser.Next('\"');
-                    TUint byteRate = Ascii::Uint(value);
-                    byteRate *= 125; // convert from kbits/sec to bytes/sec
-                    Ascii::AppendDec(byteRateBuf, byteRate);
-                }
-                const TChar* imageKey = "image";
-                Brn imageKeyBuf(imageKey);
-                const TChar* presetNumberKey = "preset_number";
-                Brn presetNumberBuf(presetNumberKey);
-                Brn key = parser.Next('=');
-                TBool foundImage = false, foundPresetNumber= false;
-                TUint presetNumber = UINT_MAX;
-                while (key.Bytes() > 0 && !(foundImage && foundPresetNumber)) {
-                    if (key == imageKeyBuf) {
-                        foundImage = ReadValue(parser, imageKey, iPresetArtUrl);
+                    (void)parser.Next('\"');
+
+                    if (!ReadElement(parser, "text", iPresetTitle) ||
+                        !ReadElement(parser, "URL", iPresetUrl)) {
+                        continue;
                     }
-                    else if (key == presetNumberBuf) {
-                        Bws<Ascii::kMaxUintStringBytes> presetBuf;
-                        if (ReadValue(parser, presetNumberKey, presetBuf)) {
-                            try {
-                                presetNumber = Ascii::Uint(presetBuf);
-                                foundPresetNumber = true;
-                            }
-                            catch (AsciiError&) {}
+                    Converter::FromXmlEscaped(iPresetUrl);
+                    if (isAudio) {
+                        iPresetUri.Replace(iPresetUrl);
+                        if (iPresetUri.Query().Bytes() > 0) {
+                            iPresetUrl.Append(Brn("&c=ebrowse")); // ensure best quality stream is selected
                         }
                     }
-                    else {
+                    Bws<Ascii::kMaxUintStringBytes> byteRateBuf;
+                    if (ValidateKey(parser, "bitrate", false)) {
                         (void)parser.Next('\"');
-                        (void)parser.Next('\"');
+                        Brn value = parser.Next('\"');
+                        TUint byteRate = Ascii::Uint(value);
+                        byteRate *= 125; // convert from kbits/sec to bytes/sec
+                        Ascii::AppendDec(byteRateBuf, byteRate);
                     }
-                    key.Set(parser.Next('='));
-                }
-                if (!foundPresetNumber) {
-                    LOG_ERROR(kSources, "No preset_id for TuneIn preset %.*s\n", PBUF(iPresetTitle));
-                    continue;
-                }
-                if (presetNumber > maxPresets) {
-                    LOG_ERROR(kSources, "Ignoring preset number %u (index too high)\n", presetNumber);
-                    continue;
-                }
-                const TUint presetIndex = presetNumber-1;
-                iAllocatedPresets[presetIndex] = 1;
+                    const TChar* imageKey = "image";
+                    Brn imageKeyBuf(imageKey);
+                    const TChar* presetNumberKey = "preset_number";
+                    Brn presetNumberBuf(presetNumberKey);
+                    Brn key = parser.Next('=');
+                    TBool foundImage = false, foundPresetNumber = false;
+                    TUint presetNumber = UINT_MAX;
+                    while (key.Bytes() > 0 && !(foundImage && foundPresetNumber)) {
+                        if (key == imageKeyBuf) {
+                            foundImage = ReadValue(parser, imageKey, iPresetArtUrl);
+                        }
+                        else if (key == presetNumberBuf) {
+                            Bws<Ascii::kMaxUintStringBytes> presetBuf;
+                            if (ReadValue(parser, presetNumberKey, presetBuf)) {
+                                try {
+                                    presetNumber = Ascii::Uint(presetBuf);
+                                    foundPresetNumber = true;
+                                }
+                                catch (AsciiError&) {}
+                            }
+                        }
+                        else {
+                            (void)parser.Next('\"');
+                            (void)parser.Next('\"');
+                        }
+                        key.Set(parser.Next('='));
+                    }
+                    if (!foundPresetNumber) {
+                        LOG_ERROR(kSources, "No preset_id for TuneIn preset %.*s\n", PBUF(iPresetTitle));
+                        continue;
+                    }
+                    if (presetNumber > maxPresets) {
+                        LOG_ERROR(kSources, "Ignoring preset number %u (index too high)\n", presetNumber);
+                        continue;
+                    }
+                    const TUint presetIndex = presetNumber - 1;
+                    iAllocatedPresets[presetIndex] = 1;
 
-                /* Only report changes if url has changed.
-                   Changes in metadata only - e.g. . 'Station ABC (Genre 1)' -> 'Station ABC (Genre 2)' - are
-                   deliberately suppressed.  These result in the preset id changing, likely causing control
-                   points (certainly Kinsky/Kazoo) to reset their view.  The small benefit in having preset
-                   titles updated is therefore outweighed by the cost of control points not coping well when
-                   a station changes its preset id. */
-                iDbWriter.ReadPreset(presetIndex, iDbUri, iDbMetaData);
-                if (iDbUri == iPresetUrl) {
-                    continue;
-                }
+                    /* Only report changes if url has changed.
+                       Changes in metadata only - e.g. . 'Station ABC (Genre 1)' -> 'Station ABC (Genre 2)' - are
+                       deliberately suppressed.  These result in the preset id changing, likely causing control
+                       points (certainly Kinsky/Kazoo) to reset their view.  The small benefit in having preset
+                       titles updated is therefore outweighed by the cost of control points not coping well when
+                       a station changes its preset id. */
+                    iDbWriter.ReadPreset(presetIndex, iDbUri, iDbMetaData);
+                    if (iDbUri == iPresetUrl) {
+                        continue;
+                    }
 
-                iDidlLite.SetBytes(0);
-                //iDidlLite.Append("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-                iDidlLite.Append("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-                iDidlLite.Append("<item id=\"\" parentID=\"\" restricted=\"True\">");
-                iDidlLite.Append("<dc:title>");
-                iDidlLite.Append(iPresetTitle);
-                iDidlLite.Append("</dc:title>");
-                iDidlLite.Append("<res protocolInfo=\"*:*:*:*\"");
-                if (byteRateBuf.Bytes() > 0) {
-                    iDidlLite.Append(" bitrate=\"");
-                    iDidlLite.Append(byteRateBuf);
-                    iDidlLite.Append('\"');
-                }
-                iDidlLite.Append('>');
-                WriterBuffer writer(iDidlLite);
-                Converter::ToXmlEscaped(writer, iPresetUrl);
-                iDidlLite.Append("</res>");
-                //iDidlLite.Append("<upnp:albumArtURI xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\">");
-                iDidlLite.Append("<upnp:albumArtURI>");
-                iDidlLite.Append(iPresetArtUrl);
-                iDidlLite.Append("</upnp:albumArtURI>");
-                //iDidlLite.Append("<upnp:class xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\">object.item.audioItem</upnp:class>");
-                iDidlLite.Append("<upnp:class>object.item.audioItem</upnp:class>");
-                iDidlLite.Append("</item>");
-                iDidlLite.Append("</DIDL-Lite>");
+                    iDidlLite.SetBytes(0);
+                    //iDidlLite.Append("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
+                    iDidlLite.Append("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
+                    iDidlLite.Append("<item id=\"\" parentID=\"\" restricted=\"True\">");
+                    iDidlLite.Append("<dc:title>");
+                    iDidlLite.Append(iPresetTitle);
+                    iDidlLite.Append("</dc:title>");
+                    iDidlLite.Append("<res protocolInfo=\"*:*:*:*\"");
+                    if (byteRateBuf.Bytes() > 0) {
+                        iDidlLite.Append(" bitrate=\"");
+                        iDidlLite.Append(byteRateBuf);
+                        iDidlLite.Append('\"');
+                    }
+                    iDidlLite.Append('>');
+                    WriterBuffer writer(iDidlLite);
+                    Converter::ToXmlEscaped(writer, iPresetUrl);
+                    iDidlLite.Append("</res>");
+                    //iDidlLite.Append("<upnp:albumArtURI xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\">");
+                    iDidlLite.Append("<upnp:albumArtURI>");
+                    iDidlLite.Append(iPresetArtUrl);
+                    iDidlLite.Append("</upnp:albumArtURI>");
+                    //iDidlLite.Append("<upnp:class xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\">object.item.audioItem</upnp:class>");
+                    iDidlLite.Append("<upnp:class>object.item.audioItem</upnp:class>");
+                    iDidlLite.Append("</item>");
+                    iDidlLite.Append("</DIDL-Lite>");
 
-                //Log::Print("++ Add preset #%u: %.*s\n", presetIndex, PBUF(iPresetUrl));
-                iDbWriter.SetPreset(presetIndex, iPresetUrl, iDidlLite);
+                    //Log::Print("++ Add preset #%u: %.*s\n", presetIndex, PBUF(iPresetUrl));
+                    iDbWriter.SetPreset(presetIndex, iPresetUrl, iDidlLite);
+                }
+                catch (AssertionFailed&) {
+                    throw;
+                }
+                catch (Exception& ex) {
+                    Log::Print("Exception - %s - parsing fragment from TuneIn favourites - %.*s\n", ex.Message(), PBUF(buf));
+                }
             }
         }
         catch (ReaderError&) {
