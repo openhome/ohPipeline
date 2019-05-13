@@ -213,6 +213,10 @@ void Credential::Clear()
         iUsername.Replace(Brx::Empty());
         iPassword.Replace(Brx::Empty());
         iPasswordEncrypted.Replace(Brx::Empty());
+        iStoreUsername->Set(iUsername);
+        iStoreUsername->Write();
+        iStorePasswordEncrypted->Set(iPasswordEncrypted);
+        iStorePasswordEncrypted->Write();
     }
     if (changed) {
         iObserver.CredentialChanged();
