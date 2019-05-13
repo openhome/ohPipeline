@@ -56,6 +56,10 @@ void MuteCounted::Mute()
 void MuteCounted::Unmute()
 {
     AutoMutex _(iLock);
+    if (iCount == 0) {
+        // no guarantees that clients won't call this when already muted
+        return;
+    }
     ASSERT(iCount > 0);
     --iCount;
     if (0 == iCount) {

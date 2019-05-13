@@ -75,7 +75,8 @@ SuiteMuteCounted::SuiteMuteCounted()
 void SuiteMuteCounted::Test()
 {
     TEST(!iMute.Muted());
-    TEST_THROWS(iMuteCounted->Unmute(), AssertionFailed);
+    iMuteCounted->Unmute(); // re-iterating the current mute state will be ignored
+    TEST(!iMute.Muted());
     iMuteCounted->Mute();
     TEST(iMute.Muted());
     iMuteCounted->Mute();
@@ -84,7 +85,8 @@ void SuiteMuteCounted::Test()
     TEST(iMute.Muted());
     iMuteCounted->Unmute();
     TEST(!iMute.Muted());
-    TEST_THROWS(iMuteCounted->Unmute(), AssertionFailed);
+    iMuteCounted->Unmute();
+    TEST(!iMute.Muted());
 }
 
 

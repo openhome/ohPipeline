@@ -518,6 +518,7 @@ private: // from Media::IMute
 private:
     TBool Report(TBool aMuted);
 private:
+    Mutex iLock;
     Media::IMute& iMute;
     std::vector<Media::IMuteObserver*> iObservers;
     TBool iMuted;

@@ -771,7 +771,8 @@ void MuteUser::StandbyDisabled(StandbyDisableReason /*aReason*/)
 // MuteReporter
 
 MuteReporter::MuteReporter(Media::IMute& aMute)
-    : iMute(aMute)
+    : iLock("MRep")
+    , iMute(aMute)
     , iMuted(false)
 {
 }
@@ -798,6 +799,7 @@ void MuteReporter::Unmute()
 
 TBool MuteReporter::Report(TBool aMuted)
 {
+    AutoMutex _(iLock);
     if (aMuted == iMuted) {
         return false;
     }
