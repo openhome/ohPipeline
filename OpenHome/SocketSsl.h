@@ -5,7 +5,6 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Standard.h>
-#include <OpenHome/Private/Uri.h>
 
 namespace OpenHome {
 
