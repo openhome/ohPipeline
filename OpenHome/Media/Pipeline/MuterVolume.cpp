@@ -93,13 +93,15 @@ void MuterVolume::Mute()
     }
     if (block) {
         try {
-            static const TUint kMuteTimeoutMs = 5000; // arbitrary value longer than any sensible ramp down + drain
+            static const TUint kMuteTimeoutMs = 2000; // arbitrary value longer than any sensible ramp down + drain
             iSemMuted.Wait(kMuteTimeoutMs);
         }
         catch (Timeout&) {
-            LOG_ERROR(kPipeline, "MuterVolume timeout muting: iState=%s, iJiffiesUntilMute=%u (%ums), iHalted=%u\n",
+            LOG_ERROR(kPipeline, "WARNING: MuterVolume timeout muting: iState=%s, iJiffiesUntilMute=%u (%ums), iHalted=%u\n",
                                  StateAsString(), iJiffiesUntilMute, Jiffies::ToMs(iJiffiesUntilMute), iHalted);
-            ASSERTS();
+            iVolumeMuter->SetMuted();
+            iJiffiesUntilMute = 0;
+            iState = State::eMuted;
         }
     }
     LOG(kPipeline, "< MuterVolume::Mute (block=%u)\n", block);
