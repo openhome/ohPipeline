@@ -662,7 +662,7 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceId, Brn& aDeviceAlias,
         for (TUint i=0; i<count; i++) {
             DviService& service = iDevice->Service(i);
             if (service.ServiceType().Name() == aServiceName) {
-                if (aServiceDomain.Bytes() > 0 &&
+                if (aServiceDomain.Bytes() == 0 ||
                     service.ServiceType().Domain() == aServiceDomain) { // use of domain added in v3
                     iService = &service;
                     break;
