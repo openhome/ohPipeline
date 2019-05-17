@@ -28,6 +28,7 @@ const Brn Odp::kKeyCorrelationId("correlationId");
 const Brn Odp::kKeyError("error");
 const Brn Odp::kKeySid("sid");
 const Brn Odp::kKeyProperties("properties");
+const Brn Odp::kKeyDomain("domain");
 const Brn Odp::kKeyName("name");
 const Brn Odp::kKeyValue("value");
 const Brn Odp::kKeyVersion("version");

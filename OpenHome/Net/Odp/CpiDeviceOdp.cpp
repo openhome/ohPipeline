@@ -333,6 +333,11 @@ const Brx& CpiDeviceOdp::Alias() const
     return iAlias;
 }
 
+const Brx& CpiDeviceOdp::Udn() const
+{
+    return iDevice->Udn();
+}
+
 // CpiDeviceListOdp
 CpiDeviceListOdp::CpiDeviceListOdp(CpStack& aCpStack, FunctorCpiDevice aAdded, FunctorCpiDevice aRemoved)
     : CpiDeviceList(aCpStack, aAdded, aRemoved)

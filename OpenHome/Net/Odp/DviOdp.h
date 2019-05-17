@@ -96,7 +96,9 @@ private:
     void Subscribe();
     void Unsubscribe();
     void ParseDeviceAndService();
-    void ParseDeviceAndService(Brn& aDeviceAlias,
+    void ParseDeviceAndService(Brn& aDeviceId,
+                               Brn& aDeviceAlias,
+                               Brn& aServiceDomain,
                                Brn& aServiceName,
                                TUint& aServiceVersion);
     Brn Arg(const TChar* aName);

@@ -289,7 +289,7 @@ void DviOdp::Announce()
     try {
         WriterJsonObject writer(*iWriter);
         writer.WriteString(Odp::kKeyType, Odp::kTypeAnnouncement);
-        writer.WriteInt(Odp::kKeyProtocolVersion, 2);
+        writer.WriteInt(Odp::kKeyProtocolVersion, 3);
         auto writerDevices = writer.CreateArray(Odp::kKeyDevices);
         for (auto it=deviceMap.begin(); it!=deviceMap.end(); ++it) {
             auto device = it->second;
@@ -309,6 +309,7 @@ void DviOdp::Announce()
             for (TUint i=0; i<count; i++) {
                 const auto serviceType = device->Service(i).ServiceType();
                 auto writerService = writerServices.CreateObject();
+                writerService.WriteString(Odp::kKeyDomain, serviceType.Domain());
                 writerService.WriteString(Odp::kKeyName, serviceType.Name());
                 writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
                 writerService.WriteEnd();
@@ -447,11 +448,13 @@ void DviOdp::Action()
 
 void DviOdp::Subscribe()
 {
+    Brn deviceId;
     Brn deviceAlias;
+    Brn serviceDomain;
     Brn serviceName;
     TUint serviceVersion = kServiceVersionInvalid;
     try {
-        ParseDeviceAndService(deviceAlias, serviceName, serviceVersion);
+        ParseDeviceAndService(deviceId, deviceAlias, serviceDomain, serviceName, serviceVersion);
     }
     catch (OdpError&) {
         iWriter = &iSession.WriteLock();
@@ -459,8 +462,12 @@ void DviOdp::Subscribe()
         iResponseStarted = true;
         WriterJsonObject writer(*iWriter);
         writer.WriteString(Odp::kKeyType, Odp::kTypeSubscribeResponse);
+        if (iDevice != nullptr) {
+            writer.WriteString(Odp::kKeyId, iDevice->Udn());
+        }
         writer.WriteString(Odp::kKeyDevice, deviceAlias);
         auto writerService = writer.CreateObject(Odp::kKeyService);
+        writerService.WriteString(Odp::kKeyDomain, serviceDomain);
         writerService.WriteString(Odp::kKeyName, serviceName);
         writerService.WriteInt(Odp::kKeyVersion, serviceVersion);
         writerService.WriteEnd();
@@ -507,8 +514,10 @@ void DviOdp::Subscribe()
     iResponseStarted = true;
     WriterJsonObject writer(*iWriter);
     writer.WriteString(Odp::kKeyType, Odp::kTypeSubscribeResponse);
+    writer.WriteString(Odp::kKeyId, iDevice->Udn());
     writer.WriteString(Odp::kKeyDevice, deviceAlias);
     auto writerService = writer.CreateObject(Odp::kKeyService);
+    writerService.WriteString(Odp::kKeyDomain, serviceDomain);
     writerService.WriteString(Odp::kKeyName, serviceName);
     writerService.WriteInt(Odp::kKeyVersion, serviceVersion);
     writerService.WriteEnd();
@@ -556,44 +565,74 @@ void DviOdp::Unsubscribe()
 
 void DviOdp::ParseDeviceAndService()
 {
+    Brn deviceId;
     Brn deviceAlias;
+    Brn serviceDomain;
     Brn serviceName;
     TUint serviceVersion;
-    ParseDeviceAndService(deviceAlias, serviceName, serviceVersion);
+    ParseDeviceAndService(deviceId, deviceAlias, serviceDomain, serviceName, serviceVersion);
 }
 
-void DviOdp::ParseDeviceAndService(Brn& aDeviceAlias, Brn& aServiceName, TUint& aServiceVersion)
+void DviOdp::ParseDeviceAndService(Brn& aDeviceId, Brn& aDeviceAlias,
+                                   Brn& aServiceDomain, Brn& aServiceName, TUint& aServiceVersion)
 {
     iDevice = nullptr;
     iService = nullptr;
     iServiceVersion = kServiceVersionInvalid;
 
     try {
-        Brn alias = iParserReq.String(Odp::kKeyDevice);
+        aDeviceId.Set(iParserReq.String(Odp::kKeyId));
         auto deviceMap = iDvStack.DeviceMap().CopyMap();
-        for (auto it=deviceMap.begin(); it!=deviceMap.end(); ++it) {
+        for (auto it = deviceMap.begin(); it != deviceMap.end(); ++it) {
             auto device = it->second;
-            const TChar* deviceAlias = nullptr;
-            device->GetAttribute("Odp.Name", &deviceAlias);
-            if (deviceAlias != nullptr) {
-                Brn deviceAliasBuf(deviceAlias);
-                if (deviceAliasBuf == alias) {
-                    iDevice = device;
-                    aDeviceAlias.Set(deviceAliasBuf);
-                    break;
-                }
+            if (device->Udn() == aDeviceId) {
+                iDevice = device;
+                break;
             }
         }
         iDvStack.DeviceMap().ClearMap(deviceMap);
         if (iDevice == nullptr) {
-            LOG_ERROR(kOdp, "Odp: device %.*s not present\n", PBUF(alias));
+            LOG_ERROR(kOdp, "Odp: device %.*s not present\n", PBUF(aDeviceId));
             THROW(OdpError);
         }
     }
     catch (JsonKeyNotFound&) {
-        LOG_ERROR(kOdp, "Odp: No device specified for action\n");
-        THROW(OdpError);
+        // ignore - udn was added in v3 of protocol so may be omitted by older control points
     }
+
+    if (iDevice != nullptr) {
+        // no real benefit in checking that any supplied alias is consistent with the udn (id)
+        aDeviceAlias.Set(iParserReq.StringOptional(Odp::kKeyDevice));
+    }
+    else {
+        try {
+            Brn alias = iParserReq.String(Odp::kKeyDevice);
+            auto deviceMap = iDvStack.DeviceMap().CopyMap();
+            for (auto it = deviceMap.begin(); it != deviceMap.end(); ++it) {
+                auto device = it->second;
+                const TChar* deviceAlias = nullptr;
+                device->GetAttribute("Odp.Name", &deviceAlias);
+                if (deviceAlias != nullptr) {
+                    Brn deviceAliasBuf(deviceAlias);
+                    if (deviceAliasBuf == alias) {
+                        iDevice = device;
+                        aDeviceAlias.Set(deviceAliasBuf);
+                        break;
+                    }
+                }
+            }
+            iDvStack.DeviceMap().ClearMap(deviceMap);
+            if (iDevice == nullptr) {
+                LOG_ERROR(kOdp, "Odp: device %.*s not present\n", PBUF(alias));
+                THROW(OdpError);
+            }
+        }
+        catch (JsonKeyNotFound&) {
+            LOG_ERROR(kOdp, "Odp: No device specified for action\n");
+            THROW(OdpError);
+        }
+    }
+
     try {
         Brn serviceBuf = iParserReq.String(Odp::kKeyService);
         JsonParser parserService;
@@ -610,6 +649,7 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceAlias, Brn& aServiceName, TUint& 
             LogParseErrorThrow("JsonCorrupt", serviceBuf);
         }
         try {
+            aServiceDomain.Set(parserService.StringOptional(Odp::kKeyDomain)); // optional as added in v3
             aServiceName.Set(parserService.String(Odp::kKeyName));
             iServiceVersion = parserService.Num(Odp::kKeyVersion);
             aServiceVersion = iServiceVersion;
@@ -622,8 +662,11 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceAlias, Brn& aServiceName, TUint& 
         for (TUint i=0; i<count; i++) {
             DviService& service = iDevice->Service(i);
             if (service.ServiceType().Name() == aServiceName) {
-                iService = &service;
-                break;
+                if (aServiceDomain.Bytes() > 0 &&
+                    service.ServiceType().Domain() == aServiceDomain) { // use of domain added in v3
+                    iService = &service;
+                    break;
+                }
             }
         }
         if (iService == nullptr) {

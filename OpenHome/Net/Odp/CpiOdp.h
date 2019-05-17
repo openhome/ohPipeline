@@ -32,6 +32,7 @@ public:
     virtual void WriteUnlock() = 0;
     virtual void WriteEnd(IWriter& aWriter) = 0;
     virtual TUint RegisterResponseHandler(ICpiOdpResponse& aResponseHandler) = 0; // returns corralation id
+    virtual const Brx& Udn() const = 0;
     virtual const Brx& Alias() const = 0;
     virtual ~ICpiOdpDevice() {}
 };
@@ -117,6 +118,12 @@ public:
     void Unsubscribe(const Brx& aSid);
 private: // from CpiOdpResponseHandler
     void DoHandleResponse(const JsonParser& aJsonParser) override;
+};
+
+class CpiOdpWriterService
+{
+public:
+    static void Write(WriterJsonObject& aWriter, const ServiceType& aServiceType);
 };
 
 // takes write locked session, unlocks on destruction

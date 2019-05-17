@@ -53,6 +53,7 @@ private: // from ICpiOdpDevice
     void WriteEnd(IWriter& aWriter) override;
     TUint RegisterResponseHandler(ICpiOdpResponse& aResponseHandler) override;
     const Brx& Alias() const override;
+    const Brx& Udn() const override;
 private:
     static const TUint kMaxReadBufferBytes = 100 * 1024;
     static const TUint kMaxWriteBufferBytes = 12 * 1024;

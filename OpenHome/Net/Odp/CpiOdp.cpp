@@ -68,12 +68,9 @@ void CpiOdpInvocable::InvokeAction(Invocation& aInvocation)
         iInvocation = &aInvocation;
         WriterJsonObject writerAction(*iWriter);
         writerAction.WriteString(Odp::kKeyType, Odp::kTypeAction);
+        writerAction.WriteString(Odp::kKeyId, iDevice.Udn());
         writerAction.WriteString(Odp::kKeyDevice, iDevice.Alias());
-        auto writerService = writerAction.CreateObject(Odp::kKeyService);
-        auto& serviceType = aInvocation.ServiceType();
-        writerService.WriteString(Odp::kKeyName, serviceType.Name());
-        writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
-        writerService.WriteEnd();
+        CpiOdpWriterService::Write(writerAction, aInvocation.ServiceType());
         writerAction.WriteString(Odp::kKeyAction, aInvocation.Action().Name());
         auto args = aInvocation.InputArguments();
         if (args.size() > 0) {
@@ -244,12 +241,9 @@ void CpiOdpSubscriber::Subscribe(CpiSubscription& aSubscription)
         AutoOdpDevice _(iDevice);
         WriterJsonObject writerSubs(writer);
         writerSubs.WriteString(Odp::kKeyType, Odp::kTypeSubscribe);
+        writerSubs.WriteString(Odp::kKeyId, iDevice.Udn());
         writerSubs.WriteString(Odp::kKeyDevice, iDevice.Alias());
-        auto writerService = writerSubs.CreateObject(Odp::kKeyService);
-        auto& serviceType = aSubscription.ServiceType();
-        writerService.WriteString(Odp::kKeyName, serviceType.Name());
-        writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
-        writerService.WriteEnd();
+        CpiOdpWriterService::Write(writerSubs, aSubscription.ServiceType());
         WriteCorrelationId(writerSubs);
         writerSubs.WriteEnd();
         iDevice.WriteEnd(writer);
@@ -294,6 +288,20 @@ void CpiOdpUnsubscriber::Unsubscribe(const Brx& aSid)
 
 void CpiOdpUnsubscriber::DoHandleResponse(const JsonParser& /*aParser*/)
 {
+}
+
+
+// CpiOdpWriterService
+
+void CpiOdpWriterService::Write(WriterJsonObject& aWriter, const ServiceType& aServiceType)
+{
+    auto writerService = aWriter.CreateObject(Odp::kKeyService);
+    Bwh domain(aServiceType.Domain());
+    Ssdp::UpnpDomainToCanonical(domain, domain);
+    writerService.WriteString(Odp::kKeyDomain, domain);
+    writerService.WriteString(Odp::kKeyName, aServiceType.Name());
+    writerService.WriteInt(Odp::kKeyVersion, aServiceType.Version());
+    writerService.WriteEnd();
 }
 
 
