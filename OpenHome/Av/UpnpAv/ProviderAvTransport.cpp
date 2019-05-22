@@ -436,7 +436,15 @@ void ProviderAvTransport::Seek(IDvInvocation& aInvocation, TUint aInstanceID, co
     }
     else if (aUnit == kSeekModeAbsTime || aUnit == kSeekModeRelTime) {
         try {
-            secs = TimeStringToSeconds(aTarget);
+            auto val = TimeStringToSeconds(aTarget);
+            if (aUnit == kSeekModeAbsTime) {
+                secs = (TUint)val;
+            }
+            else {
+                iLock.Wait();
+                secs = iRelativeTimeSeconds + val;
+                iLock.Signal();
+            }
         }
         catch (AsciiError&) {
             aInvocation.Error(kIllegalSeekTargetCode, kIllegalSeekTargetMsg);
@@ -693,9 +701,15 @@ void ProviderAvTransport::SecondsToTimeString(TUint aSeconds, Bwx& aTime)
     Ascii::AppendDec(aTime, seconds);
 }
 
-TUint ProviderAvTransport::TimeStringToSeconds(const Brx& aTime)
+TInt ProviderAvTransport::TimeStringToSeconds(const Brx& aTime)
 { // static
-    Parser parser(aTime);
+    Brn time(aTime);
+    TBool neg = false;
+    if (time[0] == '-') {
+        neg = true;
+        time.Set(time.Split(1));
+    }
+    Parser parser(time);
     const TUint hours = Ascii::Uint(parser.Next(':'));
     const TUint minutes = Ascii::Uint(parser.Next(':'));
     parser.Set(parser.Remaining());
@@ -708,5 +722,9 @@ TUint ProviderAvTransport::TimeStringToSeconds(const Brx& aTime)
     if (minutes > 59 || seconds > 59) {
         THROW(AsciiError);
     }
-    return (hours * 60 * 60) + (minutes * 60) + seconds;
+    TInt secs = (hours * 60 * 60) + (minutes * 60) + seconds;
+    if (neg) {
+        secs *= -1;
+    }
+    return secs;
 }

@@ -77,7 +77,7 @@ private:
     void AddStateVariable(const Brx& aName, TUint aValue);
     void AddStateVariableEscaped(const Brx& aName, const Brx& aValue);
     static void SecondsToTimeString(TUint aSeconds, Bwx& aTime);
-    static TUint TimeStringToSeconds(const Brx& aTime);
+    static TInt TimeStringToSeconds(const Brx& aTime);
 private:
     ISourceUpnpAv& iSourceUpnpAv;
     Mutex iLock;
