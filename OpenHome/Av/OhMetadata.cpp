@@ -245,13 +245,13 @@ void OhMetadata::TryAppendTag(const Brx& aDidlTag, const Brx& aNs,
 {
     TryAppend("<");
     TryAppend(aDidlTag);
-    TryAppend(" xmlns:");
-    TryAppend(aNs);
     if (aRole.Bytes() > 0) {
         TryAppend(" role=\"");
         TryAppend(aRole);
         TryAppend("\"");
     }
+    TryAppend(" xmlns:");
+    TryAppend(aNs);
     TryAppend(">");
     WriterBuffer writer(iMetaDataDidl);
     Converter::ToXmlEscaped(writer, aValue);
