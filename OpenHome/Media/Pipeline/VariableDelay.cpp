@@ -419,9 +419,10 @@ Msg* VariableDelayBase::ProcessMsg(MsgDrain* aMsg)
 
 Msg* VariableDelayBase::ProcessMsg(MsgFlush* aMsg)
 {
-    if (iTargetFlushId != MsgFlush::kIdInvalid && aMsg->Id() == iTargetFlushId) {
+    if (iTargetFlushId != MsgFlush::kIdInvalid
+     && aMsg->Id() == iTargetFlushId
+     && iStatus == ERampedDown) { // stream or further delay changes since we requested a flush may cause change in status
         LocalDelayApplied();
-        ASSERT(iStatus == ERampedDown);
         iStatus = ERampingUp;
         iRampDirection = Ramp::EUp;
         iCurrentRampValue = Ramp::kMin;
