@@ -145,6 +145,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     , iRxTimestamper(nullptr)
     , iStoreFileWriter(nullptr)
     , iOdpPort(aOdpPort)
+    , iOdpZeroConf(nullptr)
     , iServerOdp(nullptr)
     , iMinWebUiResourceThreads(aMinWebUiResourceThreads)
     , iMaxWebUiTabs(aMaxWebUiTabs)
@@ -309,11 +310,6 @@ void TestMediaPlayer::Run()
     RegisterPlugins(iMediaPlayer->Env());
     AddConfigApp();
 
-    iServerOdp = new DviServerOdp(iMediaPlayer->DvStack(), kNumOdpSessions, iOdpPort);
-    Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
-    iOdpZeroConf = new OdpZeroConf(iMediaPlayer->Env(), *iServerOdp, iMediaPlayer->FriendlyNameObservable());
-    iOdpZeroConf->SetZeroConfEnabled(true);
-
     InitialiseLogger();
     iMediaPlayer->Start(iRebootHandler);
     InitialiseSubsystems();
@@ -323,8 +319,13 @@ void TestMediaPlayer::Run()
     configManager.Print();
     configManager.DumpToStore();
 
-
     iAppFramework->Start();
+
+    iServerOdp = new DviServerOdp(iMediaPlayer->DvStack(), kNumOdpSessions, iOdpPort);
+    Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
+    iOdpZeroConf = new OdpZeroConf(iMediaPlayer->Env(), *iServerOdp, iMediaPlayer->FriendlyNameObservable());
+    iOdpZeroConf->SetZeroConfEnabled(true);
+
     iMediaPlayer->PowerManager().StandbyDisable(StandbyDisableReason::Boot);
     iDevice->SetEnabled();
     iDeviceUpnpAv->SetEnabled();
