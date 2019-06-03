@@ -515,14 +515,16 @@ Msg* VariableDelayBase::ProcessAudioDecoded(MsgAudioDecoded* aMsg)
         break;
     case ERampedDown:
     {
-        ASSERT_VA(iDelayAdjustment < 0, "iDelayAdjustment=%d\n", iDelayAdjustment);
-        TUint jiffies = msg->Jiffies();
-        if (jiffies >(TUint)(-iDelayAdjustment)) {
-            MsgAudio* remaining = msg->Split((TUint)(-iDelayAdjustment));
-            jiffies = msg->Jiffies();
-            iQueue.EnqueueAtHead(remaining);
+        ASSERT_VA(iDelayAdjustment <= 0, "iDelayAdjustment=%d\n", iDelayAdjustment);
+        if (iDelayAdjustment < 0) {
+            TUint jiffies = msg->Jiffies();
+            if (jiffies > (TUint)(-iDelayAdjustment)) {
+                MsgAudio* remaining = msg->Split((TUint)(-iDelayAdjustment));
+                jiffies = msg->Jiffies();
+                iQueue.EnqueueAtHead(remaining);
+            }
+            iDelayAdjustment += jiffies;
         }
-        iDelayAdjustment += jiffies;
         iDelayAdjustment = std::min(iDelayAdjustment, (TInt)0); // Split() may round up positions that are less than one sample
         if (iDelayAdjustment == 0) {
             LocalDelayApplied();
