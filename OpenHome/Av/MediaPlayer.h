@@ -92,6 +92,10 @@ public:
     virtual Media::IMute& SystemMute() = 0;
     virtual Credentials& CredentialsManager() = 0;
     virtual Media::MimeTypeList& MimeTypes() = 0;
+    virtual void Add(Media::Codec::ContainerBase* aContainer) = 0;
+    virtual void Add(Media::Codec::CodecBase* aCodec) = 0;
+    virtual void Add(Media::Protocol* aProtocol) = 0;
+    virtual void Add(ISource* aSource) = 0;
     virtual void Add(Media::UriProvider* aUriProvider) = 0;
     virtual void AddAttribute(const TChar* aAttribute) = 0;
     virtual ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) = 0; // must be called before Start()
@@ -145,10 +149,6 @@ public:
                 MediaPlayerInitParams* aInitParams);
     ~MediaPlayer();
     void Quit();
-    void Add(Media::Codec::ContainerBase* aContainer);
-    void Add(Media::Codec::CodecBase* aCodec);
-    void Add(Media::Protocol* aProtocol);
-    void Add(ISource* aSource);
     RingBufferLogger* LogBuffer(); // an optional component. returns nullptr if not available. no transfer of ownership.
     void Start(IRebootHandler& aRebootHandler);
 public: // from IMediaPlayer
@@ -170,6 +170,10 @@ public: // from IMediaPlayer
     Media::IMute& SystemMute() override;
     Credentials& CredentialsManager() override;
     Media::MimeTypeList& MimeTypes() override;
+    void Add(Media::Codec::ContainerBase* aContainer);
+    void Add(Media::Codec::CodecBase* aCodec);
+    void Add(Media::Protocol* aProtocol);
+    void Add(ISource* aSource);
     void Add(Media::UriProvider* aUriProvider) override;
     void AddAttribute(const TChar* aAttribute) override;
     ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) override; // must be called before Start()
