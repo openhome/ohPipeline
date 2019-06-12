@@ -346,6 +346,9 @@ void RadioPresetsTuneIn::DoRefresh()
                 catch (AssertionFailed&) {
                     throw;
                 }
+                catch (ReaderError&) {
+                    throw;
+                }
                 catch (Exception& ex) {
                     Log::Print("Exception - %s - parsing fragment from TuneIn favourites - %.*s\n", ex.Message(), PBUF(buf));
                 }
