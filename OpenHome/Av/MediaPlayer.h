@@ -170,10 +170,10 @@ public: // from IMediaPlayer
     Media::IMute& SystemMute() override;
     Credentials& CredentialsManager() override;
     Media::MimeTypeList& MimeTypes() override;
-    void Add(Media::Codec::ContainerBase* aContainer);
-    void Add(Media::Codec::CodecBase* aCodec);
-    void Add(Media::Protocol* aProtocol);
-    void Add(ISource* aSource);
+    void Add(Media::Codec::ContainerBase* aContainer) override;
+    void Add(Media::Codec::CodecBase* aCodec) override;
+    void Add(Media::Protocol* aProtocol) override;
+    void Add(ISource* aSource) override;
     void Add(Media::UriProvider* aUriProvider) override;
     void AddAttribute(const TChar* aAttribute) override;
     ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) override; // must be called before Start()
