@@ -58,9 +58,9 @@ private: // from Media::IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
                     const Media::ModeTransportControls& aTransportControls) override;
-    void NotifyTrack(Media::Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
+    void NotifyTrack(Media::Track& aTrack, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
-    void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
+    void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private: // from Media::ITrackObserver
     void NotifyTrackPlay(Media::Track& aTrack) override;
@@ -94,6 +94,7 @@ private:
     TUint iFirstFailedTrackId; // first id from a string of failures; reset by any track generating audio
     TBool iActive;
     TBool iLoaderWait;
+    TBool iPlaylistMode;
     Mutex iLockLoader;
     Semaphore iSemLoader;
     TUint iLoaderIdBefore;

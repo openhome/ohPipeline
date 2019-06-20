@@ -41,7 +41,6 @@ Reporter::Reporter(IPipelineElementUpstream& aUpstreamElement, IPipelineObserver
     , iMsgMetaText(nullptr)
     , iSeconds(0)
     , iJiffies(0)
-    , iTrackDurationSeconds(0)
     , iNotifyTime(false)
     , iPipelineState(EPipelineStopped)
     , iNotifyPipelineState(false)
@@ -114,7 +113,6 @@ Msg* Reporter::ProcessMsg(MsgTrack* aMsg)
     }
     iMsgTrack = aMsg;
     iMsgTrack->AddRef();
-    iModeTrack.Replace(iMode);
     if (aMsg->StartOfStream()) {
         if (iMsgDecodedStreamInfo != nullptr) {
             iMsgDecodedStreamInfo->RemoveRef();
@@ -146,7 +144,6 @@ Msg* Reporter::ProcessMsg(MsgDecodedStream* aMsg)
 {
     AutoMutex amx(iLock);
     const DecodedStreamInfo& streamInfo = aMsg->StreamInfo();
-    iTrackDurationSeconds = (TUint)(streamInfo.TrackLength() / Jiffies::kPerSecond);
     TUint64 jiffies = (streamInfo.SampleStart() * Jiffies::kPerSecond) / streamInfo.SampleRate();
     iSeconds = (TUint)(jiffies / Jiffies::kPerSecond);
     iJiffies = jiffies % Jiffies::kPerSecond;
@@ -202,7 +199,6 @@ void Reporter::EventCallback()
     iMsgMode = nullptr;
     // Track.
     MsgTrack* msgTrack = iMsgTrack;
-    BwsMode modeTrack(iModeTrack);
     iMsgTrack = nullptr;
     // Stream info.
     MsgDecodedStream* msgStream = iMsgDecodedStreamInfo;
@@ -211,7 +207,6 @@ void Reporter::EventCallback()
     iMsgMetaText = nullptr;
     // Time.
     const TUint seconds = iSeconds;
-    const TUint trackDurationSeconds = iTrackDurationSeconds;
     const TBool notifyTime = iNotifyTime;
     iNotifyTime = false;
     // Pipeline state.
@@ -225,7 +220,7 @@ void Reporter::EventCallback()
         msgMode->RemoveRef();
     }
     if (msgTrack != nullptr) {
-        iObserver.NotifyTrack(msgTrack->Track(), modeTrack, msgTrack->StartOfStream());
+        iObserver.NotifyTrack(msgTrack->Track(), msgTrack->StartOfStream());
         msgTrack->RemoveRef();
     }
     if (msgStream != nullptr) {
@@ -237,7 +232,7 @@ void Reporter::EventCallback()
         msgMetatext->RemoveRef();
     }
     if (notifyTime) {
-        iObserver.NotifyTime(seconds, trackDurationSeconds);
+        iObserver.NotifyTime(seconds);
     }
     if (notifyPipelineState) {
         iObserver.NotifyPipelineState(pipelineState);

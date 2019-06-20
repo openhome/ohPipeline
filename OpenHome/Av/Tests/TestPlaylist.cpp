@@ -108,9 +108,9 @@ private: // from IPipelineObserver
     void NotifyPipelineState(EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
                     const Media::ModeTransportControls& aTransportControls) override;
-    void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
+    void NotifyTrack(Track& aTrack, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
-    void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
+    void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) override;
 private:
     void TransportStateRemainsPlayingAcrossTracks();
@@ -510,7 +510,7 @@ void SuitePlaylist::NotifyMode(const Brx& /*aMode*/,
 {
 }
 
-void SuitePlaylist::NotifyTrack(Track& aTrack, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
+void SuitePlaylist::NotifyTrack(Track& aTrack, TBool /*aStartOfStream*/)
 {
     //Log::Print("NotifyTrack: id=%u\n", aTrack.Id());
     iCurrentTrackId = aTrack.Id();
@@ -521,7 +521,7 @@ void SuitePlaylist::NotifyMetaText(const Brx& /*aText*/)
 {
 }
 
-void SuitePlaylist::NotifyTime(TUint /*aSeconds*/, TUint /*aTrackDurationSeconds*/)
+void SuitePlaylist::NotifyTime(TUint /*aSeconds*/)
 {
     //Log::Print("NotifyTime: secs= %u\n", aSeconds);
     iTimeSem.Signal();

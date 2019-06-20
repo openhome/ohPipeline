@@ -148,7 +148,7 @@ void ProviderTransport::NotifyMode(const Brx& /*aMode*/,
     PropertiesUnlock();
 }
 
-void ProviderTransport::NotifyTrack(Track& /*aTrack*/, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
+void ProviderTransport::NotifyTrack(Track& /*aTrack*/, TBool /*aStartOfStream*/)
 {
     AutoMutex _(iLock);
     iStreamId = IPipelineIdProvider::kStreamIdInvalid;
@@ -158,7 +158,7 @@ void ProviderTransport::NotifyMetaText(const Brx& /*aText*/)
 {
 }
 
-void ProviderTransport::NotifyTime(TUint aSeconds, TUint /*aTrackDurationSeconds*/)
+void ProviderTransport::NotifyTime(TUint aSeconds)
 {
     AutoMutex _(iLock);
     iTrackPosSeconds = aSeconds;

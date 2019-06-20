@@ -401,15 +401,16 @@ void UriProviderPlaylist::NotifyPipelineState(EPipelineState /*aState*/)
 {
 }
 
-void UriProviderPlaylist::NotifyMode(const Brx& /*aMode*/,
+void UriProviderPlaylist::NotifyMode(const Brx& aMode,
                                      const Media::ModeInfo& /*aInfo*/,
                                      const Media::ModeTransportControls& /*aTransportControls*/)
 {
+    iPlaylistMode = aMode == Mode();
 }
 
-void UriProviderPlaylist::NotifyTrack(Track& aTrack, const Brx& aMode, TBool /*aStartOfStream*/)
+void UriProviderPlaylist::NotifyTrack(Track& aTrack, TBool /*aStartOfStream*/)
 {
-    if (aMode == Mode()) {
+    if (iPlaylistMode) {
         iLock.Wait();
         iPlayingTrackId = aTrack.Id();
         iLock.Signal();
@@ -420,7 +421,7 @@ void UriProviderPlaylist::NotifyMetaText(const Brx& /*aText*/)
 {
 }
 
-void UriProviderPlaylist::NotifyTime(TUint /*aSeconds*/, TUint /*aTrackDurationSeconds*/)
+void UriProviderPlaylist::NotifyTime(TUint /*aSeconds*/)
 {
 }
 

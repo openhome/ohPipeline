@@ -67,9 +67,9 @@ private: // from Media::IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
                     const Media::ModeTransportControls& aTransportControls) override;
-    void NotifyTrack(Media::Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
+    void NotifyTrack(Media::Track& aTrack, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
-    void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
+    void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private:
     Mutex iLock;
@@ -83,6 +83,7 @@ private:
     Media::EPipelineState iTransportState; // FIXME - this appears to be set but never used
     TUint iTrackId;
     TBool iNewPlaylist;
+    TBool iPlaylistMode;
 };
     
 } // namespace Av
@@ -117,6 +118,7 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     , iTransportState(EPipelineStopped)
     , iTrackId(ITrackDatabase::kTrackIdNone)
     , iNewPlaylist(true)
+    , iPlaylistMode(false)
 {
     auto& env = aMediaPlayer.Env();
     iDatabase = new TrackDatabase(aMediaPlayer.TrackFactory());
@@ -453,15 +455,16 @@ void SourcePlaylist::NotifyPipelineState(EPipelineState aState)
     }
 }
 
-void SourcePlaylist::NotifyMode(const Brx& /*aMode*/,
+void SourcePlaylist::NotifyMode(const Brx& aMode,
                                 const ModeInfo& /*aInfo*/,
                                 const ModeTransportControls& /*aTransportControls*/)
 {
+    iPlaylistMode = aMode == iUriProvider->Mode();
 }
 
-void SourcePlaylist::NotifyTrack(Track& aTrack, const Brx& aMode, TBool /*aStartOfStream*/)
+void SourcePlaylist::NotifyTrack(Track& aTrack, TBool /*aStartOfStream*/)
 {
-    if (aMode == iUriProvider->Mode()) {
+    if (iPlaylistMode) {
         iProviderPlaylist->NotifyTrack(aTrack.Id());
         iLock.Wait();
         iTrackId = aTrack.Id();
@@ -474,7 +477,7 @@ void SourcePlaylist::NotifyMetaText(const Brx& /*aText*/)
 {
 }
 
-void SourcePlaylist::NotifyTime(TUint aSeconds, TUint /*aTrackDurationSeconds*/)
+void SourcePlaylist::NotifyTime(TUint aSeconds)
 {
     iLock.Wait();
     iTrackPosSeconds = aSeconds;

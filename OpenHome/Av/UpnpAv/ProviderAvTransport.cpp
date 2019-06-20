@@ -552,7 +552,7 @@ void ProviderAvTransport::NotifyMode(const Brx& /*aMode*/,
 {
 }
 
-void ProviderAvTransport::NotifyTrack(Media::Track& aTrack, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
+void ProviderAvTransport::NotifyTrack(Media::Track& aTrack, TBool /*aStartOfStream*/)
 {
     iLock.Wait();
     iCurrentTrackUri.Replace(aTrack.Uri());
@@ -576,7 +576,7 @@ void ProviderAvTransport::NotifyMetaText(const Brx& /*aText*/)
 {
 }
 
-void ProviderAvTransport::NotifyTime(TUint aSeconds, TUint /*aTrackDurationSeconds*/)
+void ProviderAvTransport::NotifyTime(TUint aSeconds)
 {
     iLock.Wait();
     iRelativeTimeSeconds = aSeconds;

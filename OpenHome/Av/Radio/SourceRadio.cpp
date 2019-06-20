@@ -398,7 +398,7 @@ void SourceRadio::NotifyMode(const Brx& /*aMode*/,
 {
 }
 
-void SourceRadio::NotifyTrack(Track& /*aTrack*/, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
+void SourceRadio::NotifyTrack(Track& /*aTrack*/, TBool /*aStartOfStream*/)
 {
     if (!IsActive()) {
         return;
@@ -409,7 +409,7 @@ void SourceRadio::NotifyMetaText(const Brx& /*aText*/)
 {
 }
 
-void SourceRadio::NotifyTime(TUint aSeconds, TUint /*aTrackDurationSeconds*/)
+void SourceRadio::NotifyTime(TUint aSeconds)
 {
     iLock.Wait();
     iTrackPosSeconds = aSeconds;

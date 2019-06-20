@@ -234,11 +234,11 @@ void SourceUpnpAv::NotifyMode(const Brx& /*aMode*/,
 {
 }
 
-void SourceUpnpAv::NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream)
+void SourceUpnpAv::NotifyTrack(Track& aTrack, TBool aStartOfStream)
 {
     iStreamId.store(IPipelineIdProvider::kStreamIdInvalid);
     if (IsActive()) {
-        iDownstreamObserver->NotifyTrack(aTrack, aMode, aStartOfStream);
+        iDownstreamObserver->NotifyTrack(aTrack, aStartOfStream);
         NotifyState(iPipelineTransportState);
     }
     else {
@@ -253,10 +253,10 @@ void SourceUpnpAv::NotifyMetaText(const Brx& aText)
     }
 }
 
-void SourceUpnpAv::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
+void SourceUpnpAv::NotifyTime(TUint aSeconds)
 {
     if (IsActive()) {
-        iDownstreamObserver->NotifyTime(aSeconds, aTrackDurationSeconds);
+        iDownstreamObserver->NotifyTime(aSeconds);
     }
 }
 

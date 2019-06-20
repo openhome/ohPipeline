@@ -51,9 +51,7 @@ private:
     MsgMetaText* iMsgMetaText;
     TUint iSeconds;
     TUint iJiffies; // Fraction of a second
-    TUint iTrackDurationSeconds;
     BwsMode iMode;
-    BwsMode iModeTrack;
     TBool iNotifyTime;
     EPipelineState iPipelineState;
     TBool iNotifyPipelineState;

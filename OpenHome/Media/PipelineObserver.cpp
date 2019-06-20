@@ -51,7 +51,7 @@ void NullPipelineObserver::NotifyMode(const Brx& /*aMode*/,
 {
 }
 
-void NullPipelineObserver::NotifyTrack(Track& /*aTrack*/, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
+void NullPipelineObserver::NotifyTrack(Track& /*aTrack*/, TBool /*aStartOfStream*/)
 {
 }
 
@@ -59,7 +59,7 @@ void NullPipelineObserver::NotifyMetaText(const Brx& /*aText*/)
 {
 }
 
-void NullPipelineObserver::NotifyTime(TUint /*aSeconds*/, TUint /*aTrackDurationSeconds*/)
+void NullPipelineObserver::NotifyTime(TUint /*aSeconds*/)
 {
 }
 
@@ -121,13 +121,13 @@ void LoggingPipelineObserver::NotifyMode(const Brx& aMode,
                PBUF(aMode), aInfo.SupportsLatency(), aInfo.SupportsNext(), aInfo.SupportsPrev());
 }
 
-void LoggingPipelineObserver::NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream)
+void LoggingPipelineObserver::NotifyTrack(Track& aTrack, TBool aStartOfStream)
 {
     if (!iEnable) {
         return;
     }
-    Log::Print("Pipeline report property: TRACK {uri=%.*s; mode=%.*s; trackId=%u; startOfStream=%u}\n",
-               PBUF(aTrack.Uri()), PBUF(aMode), aTrack.Id(), aStartOfStream);
+    Log::Print("Pipeline report property: TRACK {uri=%.*s; trackId=%u; startOfStream=%u}\n",
+               PBUF(aTrack.Uri()), aTrack.Id(), aStartOfStream);
 }
 
 void LoggingPipelineObserver::NotifyMetaText(const Brx& aText)
@@ -138,12 +138,12 @@ void LoggingPipelineObserver::NotifyMetaText(const Brx& aText)
     Log::Print("Pipeline report property: METATEXT {%.*s}\n", PBUF(aText));
 }
 
-void LoggingPipelineObserver::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
+void LoggingPipelineObserver::NotifyTime(TUint aSeconds)
 {
     if (!iEnable) {
         return;
     }
-    Log::Print("Pipeline report property: TIME {secs=%u; duration=%u}\n", aSeconds, aTrackDurationSeconds);
+    Log::Print("Pipeline report property: TIME {secs=%u; duration=%u}\n", aSeconds, iDurationSeconds);
 }
 
 void LoggingPipelineObserver::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
@@ -151,6 +151,7 @@ void LoggingPipelineObserver::NotifyStreamInfo(const DecodedStreamInfo& aStreamI
     if (!iEnable) {
         return;
     }
+    iDurationSeconds = (TUint)(aStreamInfo.TrackLength() / Jiffies::kPerSecond);
     Log::Print("Pipeline report property: FORMAT {bitRate=%u; bitDepth=%u, sampleRate=%u, numChannels=%u, codec=%.*s; trackLength=%llx, lossless=%u, channelConfig=%s}\n",
                aStreamInfo.BitRate(), aStreamInfo.BitDepth(), aStreamInfo.SampleRate(), aStreamInfo.NumChannels(),
                PBUF(aStreamInfo.CodecName()), aStreamInfo.TrackLength(), aStreamInfo.Lossless(), aStreamInfo.Profile().ToString());

@@ -40,9 +40,9 @@ public: // from IPipelineElementUpstream
 private: // from IPipelineObserver
     void NotifyPipelineState(EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const ModeInfo& aInfo, const ModeTransportControls& aTransportControls) override;
-    void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
+    void NotifyTrack(Track& aTrack, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
-    void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
+    void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) override;
 private:
     enum EMsgType
@@ -85,7 +85,6 @@ private:
     Bws<1024> iTrackUri;
     Bws<1024> iMetaText;
     TUint iSeconds;
-    TUint iTrackDurationSeconds;
     Semaphore iSemPipelineState;
     Semaphore iSemMode;
     Semaphore iSemTrack;
@@ -114,7 +113,6 @@ SuiteReporter::SuiteReporter()
     , iAudioFormatUpdates(0)
     , iPipelineState(EPipelineStopped)
     , iSeconds(0)
-    , iTrackDurationSeconds(0)
     , iSemPipelineState("SRS1", 0)
     , iSemMode("SRS2", 0)
     , iSemTrack("SRS3", 0)
@@ -481,7 +479,7 @@ void SuiteReporter::NotifyMode(const Brx& aMode,
     iSemMode.Signal();
 }
 
-void SuiteReporter::NotifyTrack(Track& aTrack, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
+void SuiteReporter::NotifyTrack(Track& aTrack, TBool /*aStartOfStream*/)
 {
     iTrackUpdates++;
     iTrackUri.Replace(aTrack.Uri());
@@ -495,18 +493,16 @@ void SuiteReporter::NotifyMetaText(const Brx& aText)
     iSemMetatext.Signal();
 }
 
-void SuiteReporter::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
+void SuiteReporter::NotifyTime(TUint aSeconds)
 {
     iTimeUpdates++;
     iSeconds = aSeconds;
-    TEST(iTrackDurationSeconds == aTrackDurationSeconds);
     iSemTime.Signal();
 }
 
-void SuiteReporter::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
+void SuiteReporter::NotifyStreamInfo(const DecodedStreamInfo& /*aStreamInfo*/)
 {
     iAudioFormatUpdates++;
-    iTrackDurationSeconds = (TUint)(aStreamInfo.TrackLength() / Jiffies::kPerSecond);
     iSemStream.Signal();
 }
 

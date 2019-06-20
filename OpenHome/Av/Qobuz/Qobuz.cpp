@@ -127,7 +127,7 @@ void QobuzTrack::NotifyMode(const Brx& /*aMode*/, const Media::ModeInfo& /*aInfo
 {
 }
 
-void QobuzTrack::NotifyTrack(Media::Track& /*aTrack*/, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
+void QobuzTrack::NotifyTrack(Media::Track& /*aTrack*/, TBool /*aStartOfStream*/)
 {
 }
 
@@ -135,7 +135,7 @@ void QobuzTrack::NotifyMetaText(const Brx& /*aText*/)
 {
 }
 
-void QobuzTrack::NotifyTime(TUint aSeconds, TUint /*aTrackDurationSeconds*/)
+void QobuzTrack::NotifyTime(TUint aSeconds)
 {
     {
         AutoMutex _(iLock);

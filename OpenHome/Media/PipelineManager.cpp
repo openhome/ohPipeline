@@ -415,15 +415,14 @@ void PipelineManager::NotifyMode(const Brx& aMode,
     }
 }
 
-void PipelineManager::NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream)
+void PipelineManager::NotifyTrack(Track& aTrack, TBool aStartOfStream)
 {
     iLock.Wait();
-    iMode.Replace(aMode);
     iTrackId = aTrack.Id();
     iLock.Signal();
     AutoMutex _(iLockObservers);
     for (TUint i=0; i<iObservers.size(); i++) {
-        iObservers[i]->NotifyTrack(aTrack, aMode, aStartOfStream);
+        iObservers[i]->NotifyTrack(aTrack, aStartOfStream);
     }
 }
 
@@ -435,11 +434,11 @@ void PipelineManager::NotifyMetaText(const Brx& aText)
     }
 }
 
-void PipelineManager::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
+void PipelineManager::NotifyTime(TUint aSeconds)
 {
     AutoMutex _(iLockObservers);
     for (TUint i=0; i<iObservers.size(); i++) {
-        iObservers[i]->NotifyTime(aSeconds, aTrackDurationSeconds);
+        iObservers[i]->NotifyTime(aSeconds);
     }
 }
 

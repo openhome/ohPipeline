@@ -53,9 +53,9 @@ private: // from IPipelineObserver
     void NotifyPipelineState(EPipelineState aState);
     void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,
                     const ModeTransportControls& aTransportControls) override;
-    void NotifyTrack(const Brx& aUri, const Brx& aMode, TBool aStartOfStream);
+    void NotifyTrack(const Brx& aUri, TBool aStartOfStream);
     void NotifyMetaText(const Brx& aText);
-    void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds);
+    void NotifyTime(TUint aSeconds);
     void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo);
 private:
     DummyFiller* iFiller;

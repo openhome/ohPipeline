@@ -149,7 +149,7 @@ void ProviderInfo::NotifyMode(const Brx& /*aMode*/,
 {
 }
 
-void ProviderInfo::NotifyTrack(Media::Track& aTrack, const Brx& /*aMode*/, TBool aStartOfStream)
+void ProviderInfo::NotifyTrack(Media::Track& aTrack, TBool aStartOfStream)
 {
     TUint n = 0;
     AutoMutex mutex(iLock);
@@ -180,18 +180,8 @@ void ProviderInfo::NotifyMetaText(const Brx& aText)
     PropertiesUnlock();
 }
 
-void ProviderInfo::NotifyTime(TUint /*aSeconds*/, TUint aTrackDurationSeconds)
+void ProviderInfo::NotifyTime(TUint /*aSeconds*/)
 {
-    AutoMutex mutex(iLock);
-
-    PropertiesLock();
-    if (SetPropertyDuration(aTrackDurationSeconds)) {
-        // actual change in track duration, not just 1Hz tick
-        TUint n = 0;
-        GetPropertyDetailsCount(n);
-        SetPropertyDetailsCount(n + 1);
-    }
-    PropertiesUnlock();
 }
 
 void ProviderInfo::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
@@ -210,5 +200,7 @@ void ProviderInfo::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
     SetPropertyLossless(aStreamInfo.Lossless());
     iCodecName.Replace(aStreamInfo.CodecName());
     SetPropertyCodecName(iCodecName);
+    const auto trackDurationSeconds = (TUint)(aStreamInfo.TrackLength() / Jiffies::kPerSecond);
+    SetPropertyDuration(trackDurationSeconds);
     PropertiesUnlock();
 }

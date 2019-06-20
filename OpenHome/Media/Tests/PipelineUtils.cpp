@@ -214,13 +214,11 @@ void TestProtocol::NotifyMode(const Brx& aMode,
 #endif
 }
 
-void TestProtocol::NotifyTrack(const Brx& aUri, const Brx& aMode, TBool /*aStartOfStream*/)
+void TestProtocol::NotifyTrack(const Brx& aUri, TBool /*aStartOfStream*/)
 {
 #ifdef LOG_PIPELINE_OBSERVER
     Log::Print("Pipeline report property: TRACK {uri=");
     Log::Print(aUri);
-    Log::Print("; mode=");
-    Log::Print(aMode);
     Log::Print("\n");
 #endif
 }
@@ -234,10 +232,9 @@ void TestProtocol::NotifyMetaText(const Brx& aText)
 #endif
 }
 
-void TestProtocol::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
+void TestProtocol::NotifyTime(TUint aSeconds)
 {
     iSeconds = aSeconds;
-    iTrackDurationSeconds = aTrackDurationSeconds;
 #ifdef LOG_PIPELINE_OBSERVER
     Log::Print("Pipeline report property: TIME {secs=%u; duration=%u}\n", aSeconds, aTrackDurationSeconds);
 #endif
@@ -246,6 +243,7 @@ void TestProtocol::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
 void TestProtocol::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
 {
     iStreamId = aStreamInfo.StreamId();
+    iTrackDurationSeconds = (TUint)(aStreamInfo.TrackLength() / Jiffies::kPerSecond);
 #ifdef LOG_PIPELINE_OBSERVER
     Log::Print("Pipeline report property: FORMAT {bitRate=%u; bitDepth=%u, sampleRate=%u, numChannels=%u, codec=",
            aStreamInfo.BitRate(), aStreamInfo.BitDepth(), aStreamInfo.SampleRate(), aStreamInfo.NumChannels());

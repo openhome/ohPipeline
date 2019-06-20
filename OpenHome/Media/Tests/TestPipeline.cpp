@@ -96,9 +96,9 @@ private: // from IPipelineObserver
     void NotifyPipelineState(EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,
                     const ModeTransportControls& aTransportControls) override;
-    void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
+    void NotifyTrack(Track& aTrack, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
-    void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
+    void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) override;
 private: // from IMsgProcessor
     Msg* ProcessMsg(MsgMode* aMsg) override;
@@ -710,7 +710,7 @@ void SuitePipeline::NotifyMode(const Brx& aMode,
 #endif
 }
 
-void SuitePipeline::NotifyTrack(Track& aTrack, const Brx& aMode, TBool /*aStartOfStream*/)
+void SuitePipeline::NotifyTrack(Track& aTrack, TBool /*aStartOfStream*/)
 {
 #ifdef LOG_PIPELINE_OBSERVER
     Print("Pipeline report property: TRACK {uri=%.*s; metadata=%.*s; mode=%.*s}\n",
@@ -727,10 +727,10 @@ void SuitePipeline::NotifyMetaText(const Brx& aText)
 #endif
 }
 
-void SuitePipeline::NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds)
+void SuitePipeline::NotifyTime(TUint aSeconds)
 {
 #ifdef LOG_PIPELINE_OBSERVER
-    Print("Pipeline report property: TIME {secs=%u; duration=%u}\n", aSeconds, aTrackDurationSeconds);
+    Print("Pipeline report property: TIME {secs=%u}\n", aSeconds);
 #endif
 }
 

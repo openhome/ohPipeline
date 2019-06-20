@@ -54,9 +54,8 @@ public:
      * A new track is starting to play.
      *
      * @param[in] aTrack           Uri and metadata for the track.
-     * @param[in] aMode            Identifier for the UriProvider which owns aTrack.
      */
-    virtual void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) = 0;
+    virtual void NotifyTrack(Track& aTrack, TBool aStartOfStream) = 0;
     /**
      * Metatext associated with the current track has changed.
      *
@@ -70,9 +69,8 @@ public:
      * Called once per second of playback for any track.
      *
      * @param[in] aSeconds         Number of seconds that have been played.
-     * @param[in] aTrackDurationSeconds  Duration of the track in seconds.
      */
-    virtual void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) = 0;
+    virtual void NotifyTime(TUint aSeconds) = 0;
     /**
      * Describes an audio stream.
      *
@@ -106,9 +104,9 @@ private: // from IPipelineObserver
     void NotifyPipelineState(EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,
                     const ModeTransportControls& aTransportControls) override;
-    void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
+    void NotifyTrack(Track& aTrack, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
-    void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
+    void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) override;
 };
 
@@ -121,12 +119,13 @@ private: // from IPipelineObserver
     void NotifyPipelineState(EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,
                     const ModeTransportControls& aTransportControls) override;
-    void NotifyTrack(Track& aTrack, const Brx& aMode, TBool aStartOfStream) override;
+    void NotifyTrack(Track& aTrack, TBool aStartOfStream) override;
     void NotifyMetaText(const Brx& aText) override;
-    void NotifyTime(TUint aSeconds, TUint aTrackDurationSeconds) override;
+    void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) override;
 private:
     TBool iEnable;
+    TUint iDurationSeconds;
 };
 
 class NullPipelineObservable : public IPipelineObservable

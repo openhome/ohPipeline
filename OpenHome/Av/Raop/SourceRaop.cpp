@@ -327,7 +327,7 @@ void SourceRaop::NotifyMode(const Brx& /*aMode*/,
 {
 }
 
-void SourceRaop::NotifyTrack(Media::Track& aTrack, const Brx& /*aMode*/, TBool /*aStartOfStream*/)
+void SourceRaop::NotifyTrack(Media::Track& aTrack, TBool /*aStartOfStream*/)
 {
     iLock.Wait();
     if (iTrack != nullptr) {
@@ -342,7 +342,7 @@ void SourceRaop::NotifyMetaText(const Brx& /*aText*/)
 {
 }
 
-void SourceRaop::NotifyTime(TUint aSeconds, TUint /*aTrackDurationSeconds*/)
+void SourceRaop::NotifyTime(TUint aSeconds)
 {
     iLock.Wait();
     iTrackPosSeconds = aSeconds;
