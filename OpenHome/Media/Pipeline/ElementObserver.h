@@ -38,6 +38,7 @@ class PipelineElementObserverThread : public IPipelineElementObserverThread, pri
 public:
     PipelineElementObserverThread(TUint aPriority);
     ~PipelineElementObserverThread();
+    void Start();
     void Stop();
 private:
     void PipelineEventThread();
@@ -61,7 +62,8 @@ private:
     ThreadFunctor* iThread;
     Mutex iLock;
     std::vector<Callback*> iCallbacks;
-    TUint iNextId;
+    std::atomic<TUint> iNextId;
+    std::atomic<TBool> iStarted;
 };
 
 // Test helper - supports a single callback and runs it synchronously, inside calls to Schedule()

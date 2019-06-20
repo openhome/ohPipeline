@@ -643,6 +643,7 @@ void Pipeline::Start(IVolumeRamper& aVolumeRamper, IVolumeMuterStepped& aVolumeM
         iMuterVolume->Start(aVolumeMuter);
     }
     iCodecController->Start();
+    iEventThread->Start();
 }
 
 void Pipeline::Quit()

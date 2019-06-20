@@ -12,9 +12,9 @@ using namespace OpenHome::Media;
 PipelineElementObserverThread::PipelineElementObserverThread(TUint aPriority)
     : iLock("PEOT")
     , iNextId(0)
+    , iStarted(false)
 {
     iThread = new ThreadFunctor("PipelineEvents", MakeFunctor(*this, &PipelineElementObserverThread::PipelineEventThread), aPriority);
-    iThread->Start();
 }
 
 PipelineElementObserverThread::~PipelineElementObserverThread()
@@ -25,11 +25,16 @@ PipelineElementObserverThread::~PipelineElementObserverThread()
     }
 }
 
+void PipelineElementObserverThread::Start()
+{
+    ASSERT(!iStarted.load());
+    iStarted.store(true);
+    iThread->Start();
+}
+
 void PipelineElementObserverThread::Stop()
 {
-    AutoMutex _(iLock);
-    delete iThread;
-    iThread = nullptr;
+    iThread->Kill();
 }
 
 void PipelineElementObserverThread::PipelineEventThread()
@@ -37,8 +42,8 @@ void PipelineElementObserverThread::PipelineEventThread()
     try {
         for (;;) {
             iThread->Wait();
-            for (auto it=iCallbacks.begin(); it!=iCallbacks.end(); ++it) {
-                (*it)->RunIfPending();
+            for (auto cb : iCallbacks) {
+                cb->RunIfPending();
             }
         }
     }
@@ -47,23 +52,21 @@ void PipelineElementObserverThread::PipelineEventThread()
 
 TUint PipelineElementObserverThread::Register(Functor aCallback)
 {
-    iLock.Wait();
+    ASSERT(!iStarted.load());
     const TUint id = iNextId++;
-    iLock.Signal();
-    Callback* cb = new Callback(id, aCallback);
+    auto cb = new Callback(id, aCallback);
+    iLock.Wait();
     iCallbacks.push_back(cb);
+    iLock.Signal();
     return cb->Id();
 }
 
 void PipelineElementObserverThread::Schedule(TUint aId)
 {
-    for (auto it=iCallbacks.begin(); it!=iCallbacks.end(); ++it) {
-        if ((*it)->Id() == aId) {
-            AutoMutex _(iLock);
-            if (iThread != nullptr) {
-                (*it)->SetPending();
-                iThread->Signal();
-            }
+    for (auto cb : iCallbacks) {
+        if (cb->Id() == aId) {
+            cb->SetPending();
+            iThread->Signal();
             return;
         }
     }

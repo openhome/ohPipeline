@@ -130,6 +130,7 @@ SuiteReporter::SuiteReporter()
     iTrackFactory = new TrackFactory(iInfoAggregator, 3);
     iEventThread = new PipelineElementObserverThread(kThreadPriorityReporter-1);
     iReporter = new Reporter(*this, *this, *iEventThread); // aim for a priority just below thread that runs Reporter
+    iEventThread->Start();
 }
 
 SuiteReporter::~SuiteReporter()
