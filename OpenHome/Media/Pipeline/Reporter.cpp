@@ -46,10 +46,12 @@ Reporter::Reporter(IPipelineElementUpstream& aUpstreamElement, IPipelineObserver
     , iPipelineState(EPipelineStopped)
     , iPrevPipelineState(EPipelineStateCount)
 {
+    /* Older versions of gcc have partial support for atomics, not including is_lock_free for pointer types
     ASSERT(iMsgMode.is_lock_free());
     ASSERT(iMsgTrack.is_lock_free());
     ASSERT(iMsgDecodedStreamInfo.is_lock_free());
     ASSERT(iMsgMetaText.is_lock_free());
+    */
     ASSERT(iSeconds.is_lock_free());
     ASSERT(iPipelineState.is_lock_free());
     iEventId = iObserverThread.Register(MakeFunctor(*this, &Reporter::EventCallback));
