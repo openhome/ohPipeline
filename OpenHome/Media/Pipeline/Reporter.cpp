@@ -6,6 +6,8 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/ElementObserver.h>
 
+#include <atomic>
+
 using namespace OpenHome;
 using namespace OpenHome::Media;
 
@@ -31,7 +33,6 @@ const Brn Reporter::kNullMetaText("");
 
 Reporter::Reporter(IPipelineElementUpstream& aUpstreamElement, IPipelineObserver& aObserver, IPipelineElementObserverThread& aObserverThread)
     : PipelineElement(kSupportedMsgTypes)
-    , iLock("RPTR")
     , iUpstreamElement(aUpstreamElement)
     , iObserver(aObserver)
     , iObserverThread(aObserverThread)
@@ -40,35 +41,39 @@ Reporter::Reporter(IPipelineElementUpstream& aUpstreamElement, IPipelineObserver
     , iMsgDecodedStreamInfo(nullptr)
     , iMsgMetaText(nullptr)
     , iSeconds(0)
+    , iPrevSeconds(UINT_MAX)
     , iJiffies(0)
-    , iNotifyTime(false)
     , iPipelineState(EPipelineStopped)
-    , iNotifyPipelineState(false)
+    , iPrevPipelineState(EPipelineStateCount)
 {
+    ASSERT(iMsgMode.is_lock_free());
+    ASSERT(iMsgTrack.is_lock_free());
+    ASSERT(iMsgDecodedStreamInfo.is_lock_free());
+    ASSERT(iMsgMetaText.is_lock_free());
+    ASSERT(iSeconds.is_lock_free());
+    ASSERT(iPipelineState.is_lock_free());
     iEventId = iObserverThread.Register(MakeFunctor(*this, &Reporter::EventCallback));
 }
 
 Reporter::~Reporter()
 {
-    if (iMsgMode != nullptr) {
-        iMsgMode->RemoveRef();
+    if (iMsgMode.load() != nullptr) {
+        iMsgMode.load()->RemoveRef();
     }
-    if (iMsgTrack != nullptr) {
-        iMsgTrack->RemoveRef();
+    if (iMsgTrack.load() != nullptr) {
+        iMsgTrack.load()->RemoveRef();
     }
-    if (iMsgDecodedStreamInfo != nullptr) {
-        iMsgDecodedStreamInfo->RemoveRef();
+    if (iMsgDecodedStreamInfo.load() != nullptr) {
+        iMsgDecodedStreamInfo.load()->RemoveRef();
     }
-    if (iMsgMetaText != nullptr) {
-        iMsgMetaText->RemoveRef();
+    if (iMsgMetaText.load() != nullptr) {
+        iMsgMetaText.load()->RemoveRef();
     }
 }
 
 void Reporter::SetPipelineState(EPipelineState aState)
 {
-    AutoMutex amx(iLock);
-    iPipelineState = aState;
-    iNotifyPipelineState = true;
+    iPipelineState.store(aState);
     iObserverThread.Schedule(iEventId);
 }
 
@@ -81,48 +86,45 @@ Msg* Reporter::Pull()
 
 Msg* Reporter::ProcessMsg(MsgMode* aMsg)
 {
-    AutoMutex amx(iLock);
-    iMode.Replace(aMsg->Mode());
-    if (iMsgMode != nullptr) {
-        iMsgMode->RemoveRef();
+    auto prevMetatext = iMsgMetaText.exchange(nullptr);
+    if (prevMetatext != nullptr) {
+        prevMetatext->RemoveRef();
     }
-    iMsgMode = aMsg;
-    iMsgMode->AddRef();
-    if (iMsgTrack != nullptr) {
-        iMsgTrack->RemoveRef();
-        iMsgTrack = nullptr;
+    auto prevStream = iMsgDecodedStreamInfo.exchange(nullptr);
+    if (prevStream != nullptr) {
+        prevStream->RemoveRef();
     }
-    if (iMsgDecodedStreamInfo != nullptr) {
-        iMsgDecodedStreamInfo->RemoveRef();
-        iMsgDecodedStreamInfo = nullptr;
+    iSeconds.store(0);
+    auto prevTrack = iMsgTrack.exchange(nullptr);
+    if (prevTrack != nullptr) {
+        prevTrack->RemoveRef();
     }
-    if (iMsgMetaText != nullptr) {
-        iMsgMetaText->RemoveRef();
-        iMsgMetaText = nullptr;
+    aMsg->AddRef();
+    auto prevMode = iMsgMode.exchange(aMsg);
+    if (prevMode != nullptr) {
+        prevMode->RemoveRef();
     }
-    iNotifyTime = false;
     iObserverThread.Schedule(iEventId);
     return aMsg;
 }
 
 Msg* Reporter::ProcessMsg(MsgTrack* aMsg)
 {
-    AutoMutex amx(iLock);
-    if (iMsgTrack != nullptr) {
-        iMsgTrack->RemoveRef();
-    }
-    iMsgTrack = aMsg;
-    iMsgTrack->AddRef();
     if (aMsg->StartOfStream()) {
-        if (iMsgDecodedStreamInfo != nullptr) {
-            iMsgDecodedStreamInfo->RemoveRef();
-            iMsgDecodedStreamInfo = nullptr;
+        auto prevMetatext = iMsgMetaText.exchange(nullptr);
+        if (prevMetatext != nullptr) {
+            prevMetatext->RemoveRef();
         }
-        if (iMsgMetaText != nullptr) {
-            iMsgMetaText->RemoveRef();
-            iMsgMetaText = nullptr;
+        auto prevStream = iMsgDecodedStreamInfo.exchange(nullptr);
+        if (prevStream != nullptr) {
+            prevStream->RemoveRef();
         }
-        iNotifyTime = false;
+        iSeconds.store(0);
+    }
+    aMsg->AddRef();
+    auto prevTrack = iMsgTrack.exchange(aMsg);
+    if (prevTrack != nullptr) {
+        prevTrack->RemoveRef();
     }
     iObserverThread.Schedule(iEventId);
     return aMsg;
@@ -130,29 +132,26 @@ Msg* Reporter::ProcessMsg(MsgTrack* aMsg)
 
 Msg* Reporter::ProcessMsg(MsgMetaText* aMsg)
 {
-    AutoMutex amx(iLock);
-    if (iMsgMetaText != nullptr) {
-        iMsgMetaText->RemoveRef();
+    aMsg->AddRef();
+    auto prevMetatext = iMsgMetaText.exchange(aMsg);
+    if (prevMetatext != nullptr) {
+        prevMetatext->RemoveRef();
     }
-    iMsgMetaText = aMsg;
-    iMsgMetaText->AddRef();
     iObserverThread.Schedule(iEventId);
     return aMsg;
 }
 
 Msg* Reporter::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    AutoMutex amx(iLock);
     const DecodedStreamInfo& streamInfo = aMsg->StreamInfo();
     TUint64 jiffies = (streamInfo.SampleStart() * Jiffies::kPerSecond) / streamInfo.SampleRate();
-    iSeconds = (TUint)(jiffies / Jiffies::kPerSecond);
+    iSeconds.store((TUint)(jiffies / Jiffies::kPerSecond));
     iJiffies = jiffies % Jiffies::kPerSecond;
-    if (iMsgDecodedStreamInfo != nullptr) {
-        iMsgDecodedStreamInfo->RemoveRef();
+    aMsg->AddRef();
+    auto prevStream = iMsgDecodedStreamInfo.exchange(aMsg);
+    if (prevStream != nullptr) {
+        prevStream->RemoveRef();
     }
-    iMsgDecodedStreamInfo = aMsg;
-    iMsgDecodedStreamInfo->AddRef();
-    iNotifyTime = true;
     iObserverThread.Schedule(iEventId);
     return aMsg;
 }
@@ -177,7 +176,6 @@ Msg* Reporter::ProcessMsg(MsgAudioDsd* aMsg)
 
 void Reporter::ProcessAudio(MsgAudioDecoded* aMsg)
 {
-    AutoMutex amx(iLock);
     TBool reportChange = false;
     iJiffies += aMsg->Jiffies();
     while (iJiffies > Jiffies::kPerSecond) {
@@ -186,34 +184,18 @@ void Reporter::ProcessAudio(MsgAudioDecoded* aMsg)
         iJiffies -= Jiffies::kPerSecond;
     }
     if (reportChange) {
-        iNotifyTime= true;
         iObserverThread.Schedule(iEventId);
     }
 }
 
 void Reporter::EventCallback()
 {
-    iLock.Wait();
-    // Mode.
-    MsgMode* msgMode = iMsgMode;
-    iMsgMode = nullptr;
-    // Track.
-    MsgTrack* msgTrack = iMsgTrack;
-    iMsgTrack = nullptr;
-    // Stream info.
-    MsgDecodedStream* msgStream = iMsgDecodedStreamInfo;
-    iMsgDecodedStreamInfo = nullptr;
-    MsgMetaText* msgMetatext = iMsgMetaText;
-    iMsgMetaText = nullptr;
-    // Time.
-    const TUint seconds = iSeconds;
-    const TBool notifyTime = iNotifyTime;
-    iNotifyTime = false;
-    // Pipeline state.
-    const EPipelineState pipelineState = iPipelineState;
-    const TBool notifyPipelineState = iNotifyPipelineState;
-    iNotifyPipelineState = false;
-    iLock.Signal();
+    auto msgMode = iMsgMode.exchange(nullptr);
+    auto msgTrack = iMsgTrack.exchange(nullptr);
+    auto msgStream = iMsgDecodedStreamInfo.exchange(nullptr);;
+    auto msgMetatext = iMsgMetaText.exchange(nullptr);;
+    const TUint seconds = iSeconds.load();
+    const EPipelineState pipelineState = iPipelineState.load();
 
     if (msgMode != nullptr) {
         iObserver.NotifyMode(msgMode->Mode(), msgMode->Info(), msgMode->TransportControls());
@@ -231,10 +213,12 @@ void Reporter::EventCallback()
         iObserver.NotifyMetaText(msgMetatext->MetaText());
         msgMetatext->RemoveRef();
     }
-    if (notifyTime) {
+    if (iPrevSeconds != seconds) {
+        iPrevSeconds = seconds;
         iObserver.NotifyTime(seconds);
     }
-    if (notifyPipelineState) {
+    if (iPrevPipelineState != pipelineState) {
+        iPrevPipelineState = pipelineState;
         iObserver.NotifyPipelineState(pipelineState);
     }
 }

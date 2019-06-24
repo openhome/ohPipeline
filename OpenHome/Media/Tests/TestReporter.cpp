@@ -153,7 +153,7 @@ void SuiteReporter::RunTests()
     TUint expectedModeUpdates = 0;
     TUint expectedTrackUpdates = 0;
     TUint expectedMetaTextUpdates = 0;
-    TUint expectedTimeUpdates = 0;
+    TUint expectedTimeUpdates = 1; // time is immediately notified as 0 on startup
     TUint expectedAudioFormatUpdates = 0;
     TUint expectedTimeSeconds = 0;
 
@@ -199,7 +199,6 @@ void SuiteReporter::RunTests()
     msg = iReporter->Pull();
     msg->RemoveRef();
     expectedAudioFormatUpdates++;
-    expectedTimeUpdates++;
     iSemStream.Wait(kTimeoutMs);
     iSemTime.Wait(kTimeoutMs);
     TEST(iPipelineStateUpdates == expectedPipelineStateUpdates);

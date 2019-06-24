@@ -7,6 +7,8 @@
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
+#include <atomic>
+
 namespace OpenHome {
 namespace Media {
 
@@ -40,21 +42,21 @@ private:
     void ProcessAudio(MsgAudioDecoded* aMsg);
     void EventCallback();
 private:
-    Mutex iLock;
     IPipelineElementUpstream& iUpstreamElement;
     IPipelineObserver& iObserver;
     IPipelineElementObserverThread& iObserverThread;
     TUint iEventId;
-    MsgMode* iMsgMode;
-    MsgTrack* iMsgTrack;
-    MsgDecodedStream* iMsgDecodedStreamInfo;
-    MsgMetaText* iMsgMetaText;
-    TUint iSeconds;
+    std::atomic<MsgMode*> iMsgMode;
+    std::atomic<MsgTrack*> iMsgTrack;
+    std::atomic<MsgDecodedStream*> iMsgDecodedStreamInfo;
+    std::atomic<MsgMetaText*> iMsgMetaText;
+    std::atomic<TUint> iSeconds;
+    TUint iPrevSeconds;
     TUint iJiffies; // Fraction of a second
-    BwsMode iMode;
-    TBool iNotifyTime;
-    EPipelineState iPipelineState;
-    TBool iNotifyPipelineState;
+    //TBool iNotifyTime;
+    std::atomic<EPipelineState> iPipelineState;
+    EPipelineState iPrevPipelineState;
+    //TBool iNotifyPipelineState;
 };
 
 } // namespace Media
