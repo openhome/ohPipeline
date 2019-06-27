@@ -21,6 +21,7 @@ public:
     static CodecBase* NewAlacApple(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewFlac(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewMp3(IMimeTypeList& aMimeTypeList);
+    static CodecBase* NewSbc(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewDsdDsf(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, TUint aPaddingBytes);
     static CodecBase* NewDsdDff(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, TUint aPaddingBytes);
     static CodecBase* NewPcm();

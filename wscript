@@ -700,6 +700,17 @@ def build(bld):
             use=['MAD', 'OHMEDIAPLAYER', 'OHNET'],
             target='CodecMp3')
 
+    # SBC
+    bld.stlib(
+            source=[
+                'OpenHome/Media/Codec/Sbc.cpp',
+                'thirdparty/sbc/sbc_primitives_armv6.c',
+                'thirdparty/sbc/sbc_primitives.c',
+                'thirdparty/sbc/sbc.c',
+            ],
+            use=['OHMEDIAPLAYER', 'OHNET', 'BLUEZ'],
+            target='CodecSbc')
+
     # Vorbis
     vorbis = bld.stlib(
             source=[
