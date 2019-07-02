@@ -840,7 +840,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestPins.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecSbc', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
@@ -1225,6 +1225,7 @@ def bundle(ctx):
                  'CodecDsdRaw',
                  'CodecFlac',
                  'CodecMp3',
+                 'CodecSbc',
                  'CodecVorbis',
                  'CodecWav',
                  'CodecPcm',
