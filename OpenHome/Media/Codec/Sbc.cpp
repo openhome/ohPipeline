@@ -5,8 +5,7 @@
 #include <OpenHome/Media/Codec/CodecFactory.h>
 #include <OpenHome/Media/MimeTypeList.h>
 #include <thirdparty/sbc/sbc.h>
-// #include <thirdparty/sbc/sbc_tables.h>
-#include <thirdparty/sbc/a2dp/a2dp-codecs.h>  //Replace this with the one from Buildroot Bluez5(not currently in the staging area)
+#include <thirdparty/sbc/a2dp/a2dp-codecs.h> //Replace this with the one from Buildroot Bluez5(not currently in the staging area)
 #include <thirdparty/sbc/a2dp/ipc.h>
 #include <thirdparty/sbc/a2dp/rtp.h>
 #include <OpenHome/Media/Debug.h>
@@ -59,7 +58,8 @@ private: // from CodecBase
     void StreamCompleted();
 private:
     Bws<kEncAudioBufferSize> iInputBuffer;
-    Bwh iOutputBuffer;
+    Bws<AudioData::kMaxBytes> iOutputBuffer;
+    Bwh iHeader;
     Brn iName;
     SbcStruct iSbcStruct;
     TUint iChannels;
@@ -75,6 +75,7 @@ private:
     SbcAllocationMethod iAllocationMethod;
     TUint64 iOffset;
     TUint iFrameStartOffset;
+    TBool iStreamStart;
 };
 
 } // Codec
@@ -105,6 +106,7 @@ CodecSbc::CodecSbc(IMimeTypeList& aMimeTypeList)
     , iBitDepth(0)
     , iOutputBufferBytes(0)
     , iOffset(0)
+    , iStreamStart(true)
 {
     aMimeTypeList.Add("audio/x-sbc");
 }
@@ -121,19 +123,16 @@ TBool CodecSbc::Recognise(const EncodedStreamInfo& aStreamInfo)
     }
 
     // Read the RTP header and SBC header
-    TUint totalHeaderBytes = kRtpHeaderBytes + kSbcHeaderBytes;
-    Bwh header(totalHeaderBytes);
-    iController->Read(header, totalHeaderBytes);
+    Bwh header(kTotalHeaderBytes);
+    iController->Read(header, kTotalHeaderBytes);
 
     for (TUint i = 0; i < kRtpSyncSize; i++) {
         if (header[i] != kRtpHeader[i]) {
-            Log::Print("Failed to find RTP header, i: %u, val: %02x\n", i, header[i]);
             return false;
         }
     }
 
     if (header[kRtpHeaderBytes] != kSyncword) {
-        Log::Print("Failed to find Syncword\n");
         return false;
     }
 
@@ -143,14 +142,14 @@ TBool CodecSbc::Recognise(const EncodedStreamInfo& aStreamInfo)
 void CodecSbc::StreamInitialise()
 {
     iOffset = 0;
+    iOutputBufferBytes = 0;
 
     ASSERT(sbc_init(&iSbcStruct, 0) == 0);
 
-    // Read the max possible frame into local memory
-    Bwh header(kTotalHeaderBytes);
-    iController->Read(header, kTotalHeaderBytes);
+    iHeader.Grow(kTotalHeaderBytes);
+    iController->Read(iHeader, kTotalHeaderBytes);
 
-    Brn sbcHeader(header.Ptr() + kRtpHeaderBytes, kSbcHeaderBytes);
+    Brn sbcHeader(iHeader.Ptr() + kRtpHeaderBytes, kSbcHeaderBytes);
     ASSERT_VA(sbcHeader[0] == kSyncword, "sbcHeader[0]: %02x\n", sbcHeader[0]);
 
     // Fs
@@ -245,14 +244,10 @@ void CodecSbc::StreamInitialise()
     iSbcStruct.bitpool = (TUint8)sbcHeader[2];
     iEndianess = (iSbcStruct.endian == SBC_LE) ? AudioDataEndian::Little : AudioDataEndian::Big;
     iChannels = (iChannelMode == SbcChannelMode::eMono) ? 1 : 2;
-    iBitRate = round(8 * FrameLength() * (iSampleRate / 1000) / iSubBands / iBlocks); // store in kbps
+    iBitRate = 8 * FrameLength() * iSampleRate / iSubBands / iBlocks;
     iBitDepth = 16;
 
-    iOutputBufferBytes = (kEncAudioBufferSize / kMinFrameLength + 1) * sbc_get_codesize(&iSbcStruct);
-    iOutputBuffer.Grow(iOutputBufferBytes);
-
-    Log::Print("CodecSbc::Initialise(), iSampleRate: %u, iChannels: %u, BitRate: %u, BitDepth: %u, iBlocks: %u, iSubbands: %u, iSbcStruct.bitpool: %u, iSbcStruct.allocation: %u, iSbcStruct.mode: %u\n",
-    iSampleRate, iChannels, iBitRate, iBitDepth, iBlocks, iSubBands, iSbcStruct.bitpool, iSbcStruct.allocation, iSbcStruct.mode);
+    iStreamStart = true;
 
     iController->OutputDecodedStream(iBitRate, iBitDepth, iSampleRate, iChannels, iName, 0, 0, kLossless, DeriveProfile(iChannels));
 }
@@ -261,15 +256,25 @@ void CodecSbc::Process()
 {
     iController->ReadNextMsg(iInputBuffer);
 
-    const void *p = iInputBuffer.Ptr() + sizeof(struct rtp_header) + sizeof(struct rtp_payload);
+    TUint frameOffset = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
+
+    if (iStreamStart) {
+        iHeader.Grow(iHeader.Bytes() + iInputBuffer.Bytes());
+        iHeader.Append(iInputBuffer);
+        iInputBuffer.Replace(iHeader);
+        iHeader.SetBytes(0);
+        iStreamStart = false;
+    }
+
+    const void *p = iInputBuffer.Ptr() + frameOffset;
     void *d = (void*)(iOutputBuffer.Ptr());
-    size_t to_decode = iInputBuffer.Bytes() - sizeof(struct rtp_header) - sizeof(struct rtp_payload);
-    size_t to_write = iOutputBufferBytes;
+    size_t to_decode = iInputBuffer.Bytes() - frameOffset;
+    size_t to_write = (iInputBuffer.Bytes() / kMinFrameLength + 1) * sbc_get_codesize(&iSbcStruct);
 
     // Do SBC decoding
     while (to_decode > 0) {
-        size_t written;
-        ssize_t decoded;
+        size_t written = 0;
+        ssize_t decoded = 0;
 
         decoded = sbc_decode(&iSbcStruct,
                              p, to_decode,
@@ -289,7 +294,6 @@ void CodecSbc::Process()
     }
 
     iOffset += iController->OutputAudioPcm(iOutputBuffer, iChannels, iSampleRate, iBitDepth, iEndianess, iOffset);
-    Log::Print("CodecSbc::Process() iOutputBuffer.Bytes(): %u, iOffset: %u\n", iOutputBuffer.Bytes(), iOffset);
     iInputBuffer.SetBytes(0);
     iOutputBuffer.SetBytes(0);
 }
