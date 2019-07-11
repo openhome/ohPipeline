@@ -704,6 +704,9 @@ def build(bld):
     bld.stlib(
             source=[
                 'OpenHome/Media/Codec/Sbc.cpp',
+                'thirdparty/sbc/sbc_primitives_iwmmxt.c',
+                'thirdparty/sbc/sbc_primitives_mmx.c',
+                'thirdparty/sbc/sbc_primitives_neon.c',
                 'thirdparty/sbc/sbc_primitives_armv6.c',
                 'thirdparty/sbc/sbc_primitives.c',
                 'thirdparty/sbc/sbc.c',
