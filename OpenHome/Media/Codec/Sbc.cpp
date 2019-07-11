@@ -1,6 +1,5 @@
 #include <OpenHome/OhNetTypes.h>
 #include <OpenHome/Buffer.h>
-// #include <OpenHome/Debug.h>
 #include <OpenHome/Media/Codec/CodecController.h>
 #include <OpenHome/Media/Codec/CodecFactory.h>
 #include <OpenHome/Media/MimeTypeList.h>
@@ -69,12 +68,10 @@ private:
     TUint iBitRate;
     TUint iFrameLengthBytes;
     TUint iBitDepth;
-    TUint iOutputBufferBytes;
     AudioDataEndian iEndianess;
     SbcChannelMode iChannelMode;
     SbcAllocationMethod iAllocationMethod;
     TUint64 iOffset;
-    TUint iFrameStartOffset;
     TBool iStreamStart;
 };
 
@@ -104,7 +101,6 @@ CodecSbc::CodecSbc(IMimeTypeList& aMimeTypeList)
     , iBitRate(0)
     , iFrameLengthBytes(0)
     , iBitDepth(0)
-    , iOutputBufferBytes(0)
     , iOffset(0)
     , iStreamStart(true)
 {
@@ -117,7 +113,6 @@ CodecSbc::~CodecSbc()
 
 TBool CodecSbc::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
-    Log::Print("CodecSbc::Recognise\n");
     if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
@@ -142,7 +137,6 @@ TBool CodecSbc::Recognise(const EncodedStreamInfo& aStreamInfo)
 void CodecSbc::StreamInitialise()
 {
     iOffset = 0;
-    iOutputBufferBytes = 0;
 
     ASSERT(sbc_init(&iSbcStruct, 0) == 0);
 
