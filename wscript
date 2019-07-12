@@ -151,6 +151,10 @@ def configure(conf):
         'thirdparty/Tremor',
         ]
 
+    # Setup BlueZ on armhf
+    if conf.options.dest_platform in ['Linux-armhf']:
+        conf.env.append_value('DEFINES', ['BLUEZ_ENABLE'])
+
 class GeneratedFile(object):
     def __init__(self, xml, domain, type, version, target):
         self.xml = xml
@@ -701,18 +705,19 @@ def build(bld):
             target='CodecMp3')
 
     # SBC
-    bld.stlib(
-            source=[
-                'OpenHome/Media/Codec/Sbc.cpp',
-                'thirdparty/sbc/sbc_primitives_iwmmxt.c',
-                'thirdparty/sbc/sbc_primitives_mmx.c',
-                'thirdparty/sbc/sbc_primitives_neon.c',
-                'thirdparty/sbc/sbc_primitives_armv6.c',
-                'thirdparty/sbc/sbc_primitives.c',
-                'thirdparty/sbc/sbc.c',
-            ],
-            use=['OHMEDIAPLAYER', 'OHNET', 'BLUEZ'],
-            target='CodecSbc')
+    if 'BLUEZ_ENABLE' in bld.env.DEFINES:
+        bld.stlib(
+                source=[
+                        'OpenHome/Media/Codec/Sbc.cpp',
+                        'thirdparty/sbc/sbc_primitives_iwmmxt.c',
+                        'thirdparty/sbc/sbc_primitives_mmx.c',
+                        'thirdparty/sbc/sbc_primitives_neon.c',
+                        'thirdparty/sbc/sbc_primitives_armv6.c',
+                        'thirdparty/sbc/sbc_primitives.c',
+                        'thirdparty/sbc/sbc.c',
+                ],
+                use=['OHMEDIAPLAYER', 'OHNET', 'BLUEZ'],
+                target='CodecSbc')
 
     # Vorbis
     vorbis = bld.stlib(
@@ -843,7 +848,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestPins.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecSbc', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
@@ -1228,7 +1233,6 @@ def bundle(ctx):
                  'CodecDsdRaw',
                  'CodecFlac',
                  'CodecMp3',
-                 'CodecSbc',
                  'CodecVorbis',
                  'CodecWav',
                  'CodecPcm',
@@ -1239,6 +1243,10 @@ def bundle(ctx):
                  'Odp',
                  'Podcast'
                 ]
+    # If Bluez enabled, bundle CodecSbc.
+    if 'BLUEZ_ENABLE' in ctx.env.DEFINES:
+        lib_names.append('CodecSbc')
+
     lib_files = gather_files(ctx, '{bld}', (ctx.env.cxxstlib_PATTERN % x for x in lib_names))
     res_files = gather_files(ctx, '{top}/OpenHome/Web/ConfigUi/res', ['**/*'])
     dep_file = gather_files(ctx, '{top}/projectdata', ['dependencies.json'])

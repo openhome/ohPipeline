@@ -413,7 +413,6 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewPcm());
     iMediaPlayer->Add(Codec::CodecFactory::NewDsdRaw(kDsdSampleBlockWords, kDsdPadBytesPerChunk));
     iMediaPlayer->Add(Codec::CodecFactory::NewVorbis(iMediaPlayer->MimeTypes()));
-    iMediaPlayer->Add(Codec::CodecFactory::NewSbc(iMediaPlayer->MimeTypes()));
     // RAOP source must be added towards end of source list.
     // However, must add RAOP codec before MP3 codec to avoid false-positives.
     iMediaPlayer->Add(Codec::CodecFactory::NewRaop());
