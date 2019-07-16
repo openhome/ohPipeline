@@ -151,10 +151,6 @@ def configure(conf):
         'thirdparty/Tremor',
         ]
 
-    # Setup BlueZ on armhf
-    if conf.options.dest_platform in ['Linux-armhf']:
-        conf.env.append_value('DEFINES', ['BLUEZ_ENABLE'])
-
 class GeneratedFile(object):
     def __init__(self, xml, domain, type, version, target):
         self.xml = xml
@@ -704,21 +700,6 @@ def build(bld):
             use=['MAD', 'OHMEDIAPLAYER', 'OHNET'],
             target='CodecMp3')
 
-    # SBC
-    if 'BLUEZ_ENABLE' in bld.env.DEFINES:
-        bld.stlib(
-                source=[
-                        'OpenHome/Media/Codec/Sbc.cpp',
-                        'thirdparty/sbc/sbc_primitives_iwmmxt.c',
-                        'thirdparty/sbc/sbc_primitives_mmx.c',
-                        'thirdparty/sbc/sbc_primitives_neon.c',
-                        'thirdparty/sbc/sbc_primitives_armv6.c',
-                        'thirdparty/sbc/sbc_primitives.c',
-                        'thirdparty/sbc/sbc.c',
-                ],
-                use=['OHMEDIAPLAYER', 'OHNET', 'BLUEZ'],
-                target='CodecSbc')
-
     # Vorbis
     vorbis = bld.stlib(
             source=[
@@ -1243,9 +1224,6 @@ def bundle(ctx):
                  'Odp',
                  'Podcast'
                 ]
-    # If Bluez enabled, bundle CodecSbc.
-    if 'BLUEZ_ENABLE' in ctx.env.DEFINES:
-        lib_names.append('CodecSbc')
 
     lib_files = gather_files(ctx, '{bld}', (ctx.env.cxxstlib_PATTERN % x for x in lib_names))
     res_files = gather_files(ctx, '{top}/OpenHome/Web/ConfigUi/res', ['**/*'])
