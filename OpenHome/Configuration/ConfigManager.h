@@ -126,16 +126,23 @@ public:
     virtual ~IConfigManager() {}
 };
 
+enum class ConfigValAccess
+{
+    Public, // associated value is user-settable
+    Private // associated value is an internal implementation detail and is not user-settable
+};
+
 template <class T>
 class ConfigVal : public IObservable<T>, public ISerialisable
 {
     using typename IObservable<T>::FunctorObserver;
 protected:
-    ConfigVal(IConfigInitialiser& aManager, const Brx& aKey, TBool aRebootRequired);
+    ConfigVal(IConfigInitialiser& aManager, const Brx& aKey, TBool aRebootRequired, ConfigValAccess aAccess);
 public:
     virtual ~ConfigVal();
     const Brx& Key() const;
     TBool RebootRequired() const;
+    ConfigValAccess Access() const;
     virtual T Default() const = 0;
 public: // from IObservable
     virtual TUint Subscribe(FunctorObserver aFunctor) override = 0;
@@ -160,16 +167,19 @@ private:
     TUint iWriteObserverId; // ID for own Write() observer
     TUint iNextObserverId;
     TBool iRebootRequired;
+    ConfigValAccess iAccess;
 };
 
 // ConfigVal
-template <class T> ConfigVal<T>::ConfigVal(IConfigInitialiser& aManager, const Brx& aKey, TBool aRebootRequired)
+template <class T> ConfigVal<T>::ConfigVal(IConfigInitialiser& aManager, const Brx& aKey,
+                                           TBool aRebootRequired, ConfigValAccess aAccess)
     : iConfigManager(aManager)
     , iKey(aKey)
     , iObserverLock("CVOL")
     , iWriteObserverId(0)
     , iNextObserverId(IConfigManager::kSubscriptionIdInvalid+1)
     , iRebootRequired(aRebootRequired)
+    , iAccess(aAccess)
 {
 }
 
@@ -192,6 +202,11 @@ template <class T> const Brx& ConfigVal<T>::Key() const
 template <class T> TBool ConfigVal<T>::RebootRequired() const
 {
     return iRebootRequired;
+}
+
+template <class T> ConfigValAccess ConfigVal<T>::Access() const
+{
+    return iAccess;
 }
 
 template <class T> void ConfigVal<T>::Unsubscribe(TUint aId)
@@ -244,7 +259,6 @@ template <class T> void ConfigVal<T>::AddInitialSubscribers()
     iWriteObserverId = SubscribeNoCallback(MakeFunctorObserver<T>(*this, &ConfigVal::Write));
 }
 
-
 /*
  * Class representing a numerical value, which can be positive or negative,
  * with upper and lower limits.
@@ -258,7 +272,8 @@ public:
 public:
     ConfigNum(IConfigInitialiser& aManager, const Brx& aKey,
               TInt aMin, TInt aMax, TInt aDefault,
-              TBool aRebootRequired = false);
+              TBool aRebootRequired = false,
+              ConfigValAccess aAccess = ConfigValAccess::Public);
     ~ConfigNum();
     TInt Min() const;
     TInt Max() const;
@@ -336,11 +351,13 @@ public:
 public:
     ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
                  const std::vector<TUint>& aChoices, TUint aDefault,
-                 TBool aRebootRequired = false);
+                 TBool aRebootRequired = false,
+                 ConfigValAccess aAccess = ConfigValAccess::Public);
     ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
                  const std::vector<TUint>& aChoices, TUint aDefault,
                  IConfigChoiceMapper& aMapper,
-                 TBool aRebootRequired = false);
+                 TBool aRebootRequired = false,
+                 ConfigValAccess aAccess = ConfigValAccess::Public);
     ~ConfigChoice();
     const std::vector<TUint>& Choices() const;
     void Set(TUint aVal);   // THROWS ConfigInvalidSelection
@@ -404,7 +421,8 @@ public:
     typedef KeyValuePair<const Brx&> KvpText;
 protected:
     ConfigTextBase(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength,
-               TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired = false);
+                   TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired,
+                   ConfigValAccess aAccess);
     ~ConfigTextBase();
     TUint MinLengthInternal() const;
     TUint MaxLengthInternal() const;
@@ -453,7 +471,8 @@ class ConfigText : public ConfigTextBase
     friend class SuiteConfigManager;
 public:
     ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength,
-               TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired = false);
+               TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired = false,
+               ConfigValAccess aAccess = ConfigValAccess::Public);
     ~ConfigText();
     TUint MinLength() const;
     TUint MaxLength() const;
@@ -503,7 +522,8 @@ public:
     ConfigTextChoice(IConfigInitialiser& aManager, const Brx& aKey,
                      IConfigTextChoices& aChoices, TUint aMinLength,
                      TUint aMaxLength, const Brx& aDefault,
-                     TBool aRebootRequired = false);
+                     TBool aRebootRequired = false,
+                     ConfigValAccess aAccess = ConfigValAccess::Public);
     ~ConfigTextChoice();
     void AcceptChoicesVisitor(IConfigTextChoicesVisitor& aVisitor);
     void Set(const Brx& aText); // THROWS ConfigInvalidSelection (and NOT ConfigValueTooShort, ConfigValueTooLong as ConfigText does, as this class does not accept free-form text; only values from the list of current values (which may change dynamically)).

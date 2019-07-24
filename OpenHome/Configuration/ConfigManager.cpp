@@ -14,8 +14,9 @@ using namespace OpenHome::Configuration;
 // ConfigNum
 
 ConfigNum::ConfigNum(IConfigInitialiser& aManager, const Brx& aKey,
-                     TInt aMin, TInt aMax, TInt aDefault, TBool aRebootRequired)
-    : ConfigVal(aManager, aKey, aRebootRequired)
+                     TInt aMin, TInt aMax, TInt aDefault, TBool aRebootRequired,
+                     ConfigValAccess aAccess)
+    : ConfigVal(aManager, aKey, aRebootRequired, aAccess)
     , iMin(aMin)
     , iMax(aMax)
     , iDefault(aDefault)
@@ -130,8 +131,8 @@ void ConfigNum::Write(KeyValuePair<TInt>& aKvp)
 
 ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
                            const std::vector<TUint>& aChoices, TUint aDefault,
-                           TBool aRebootRequired)
-    : ConfigVal(aManager, aKey, aRebootRequired)
+                           TBool aRebootRequired, ConfigValAccess aAccess)
+    : ConfigVal(aManager, aKey, aRebootRequired, aAccess)
     , iChoices(aChoices)
     , iDefault(aDefault)
     , iMapper(nullptr)
@@ -142,8 +143,9 @@ ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
 
 ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
                            const std::vector<TUint>& aChoices, TUint aDefault,
-                           IConfigChoiceMapper& aMapper, TBool aRebootRequired)
-    : ConfigVal(aManager, aKey, aRebootRequired)
+                           IConfigChoiceMapper& aMapper, TBool aRebootRequired,
+                           ConfigValAccess aAccess)
+    : ConfigVal(aManager, aKey, aRebootRequired, aAccess)
     , iChoices(aChoices)
     , iDefault(aDefault)
     , iMapper(&aMapper)
@@ -271,8 +273,9 @@ void ConfigChoice::Write(KeyValuePair<TUint>& aKvp)
 
 // ConfigTextBase
 
-ConfigTextBase::ConfigTextBase(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
-    : ConfigVal(aManager, aKey, aRebootRequired)
+ConfigTextBase::ConfigTextBase(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength, TUint aMaxLength,
+                               const Brx& aDefault, TBool aRebootRequired, ConfigValAccess aAccess)
+    : ConfigVal(aManager, aKey, aRebootRequired, aAccess)
     , iMinLength(aMinLength)
     , iDefault(aDefault)
     , iText(aMaxLength)
@@ -360,8 +363,9 @@ void ConfigTextBase::Write(KeyValuePair<const Brx&>& aKvp)
 
 // ConfigText
 
-ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
-    : ConfigTextBase(aManager, aKey, aMinLength, aMaxLength, aDefault, aRebootRequired)
+ConfigText::ConfigText(IConfigInitialiser& aManager, const Brx& aKey, TUint aMinLength, TUint aMaxLength,
+                       const Brx& aDefault, TBool aRebootRequired, ConfigValAccess aAccess)
+    : ConfigTextBase(aManager, aKey, aMinLength, aMaxLength, aDefault, aRebootRequired, aAccess)
 {
     iConfigManager.Add(*this);
     AddInitialSubscribers();
@@ -395,8 +399,10 @@ void ConfigText::Deserialise(const Brx& aString)
 
 // ConfigTextChoice
 
-ConfigTextChoice::ConfigTextChoice(IConfigInitialiser& aManager, const Brx& aKey, IConfigTextChoices& aChoices, TUint aMinLength, TUint aMaxLength, const Brx& aDefault, TBool aRebootRequired)
-    : ConfigTextBase(aManager, aKey, aMinLength, aMaxLength, aDefault, aRebootRequired)
+ConfigTextChoice::ConfigTextChoice(IConfigInitialiser& aManager, const Brx& aKey, IConfigTextChoices& aChoices,
+                                   TUint aMinLength, TUint aMaxLength, const Brx& aDefault,
+                                   TBool aRebootRequired, ConfigValAccess aAccess)
+    : ConfigTextBase(aManager, aKey, aMinLength, aMaxLength, aDefault, aRebootRequired, aAccess)
     , iChoices(aChoices)
 {
     iConfigManager.Add(*this);
@@ -585,7 +591,7 @@ void ConfigManager::Add(ConfigNum& aNum)
     iKeyListOrdered.push_back(&aNum.Key());
 
     AutoMutex _(iLock);
-    if (iObserver != nullptr) {
+    if (iObserver != nullptr && aNum.Access() == ConfigValAccess::Public) {
         iObserver->Added(aNum);
     }
 }
@@ -596,7 +602,7 @@ void ConfigManager::Add(ConfigChoice& aChoice)
     iKeyListOrdered.push_back(&aChoice.Key());
 
     AutoMutex _(iLock);
-    if (iObserver != nullptr) {
+    if (iObserver != nullptr && aChoice.Access() == ConfigValAccess::Public) {
         iObserver->Added(aChoice);
     }
 }
@@ -607,7 +613,7 @@ void ConfigManager::Add(ConfigText& aText)
     iKeyListOrdered.push_back(&aText.Key());
 
     AutoMutex _(iLock);
-    if (iObserver != nullptr) {
+    if (iObserver != nullptr && aText.Access() == ConfigValAccess::Public) {
         iObserver->Added(aText);
     }
 }
@@ -618,7 +624,7 @@ void ConfigManager::Add(ConfigTextChoice& aTextChoice)
     iKeyListOrdered.push_back(&aTextChoice.Key());
 
     AutoMutex _(iLock);
-    if (iObserver != nullptr) {
+    if (iObserver != nullptr && aTextChoice.Access() == ConfigValAccess::Public) {
         iObserver->Added(aTextChoice);
     }
 }
