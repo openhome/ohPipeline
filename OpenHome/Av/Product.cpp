@@ -109,6 +109,11 @@ Product::~Product()
         iConfigAutoPlay->Unsubscribe(iListenerIdAutoPlay);
     }
     delete iLastSelectedSource;
+
+    for (auto& it : iAttributesMap) {
+        delete it.first;
+    }
+    iAttributesMap.clear();
 }
 
 void Product::AddObserver(IProductObserver& aObserver)
@@ -210,6 +215,36 @@ void Product::SetConfigAppUrl(const Brx& aUrl)
     iLock.Wait();
     iConfigAppUrlTail.Replace(aUrl);
     iLock.Signal();
+    AutoMutex amx(iObserverLock);
+    for (auto observer : iObservers) {
+        observer->ProductUrisChanged();
+    }
+    for (auto attributeObserver : iAttributeObservers) {
+        attributeObserver->AttributesChanged();
+    }
+}
+
+void Product::SetAttribute(const Brx& aKey, const Brx& aValue)
+{
+    {
+        AutoMutex amx(iLock);
+        const auto it = iAttributesMap.find(&aKey);
+        if (it == iAttributesMap.end()) {
+            // New key.
+            // All keys and single-value attributes must be registered before Product is started. Assert otherwise.
+            ASSERT(!iStarted);
+            iAttributesMap.emplace(new Brh(aKey), std::unique_ptr<Bwh>(new Bwh(aValue)));
+        }
+        else {
+            // Existing key. Update value.
+            auto& buf = *it->second;
+            if (buf.MaxBytes() < aValue.Bytes()) {
+                buf.Grow(aValue.Bytes());
+            }
+            buf.Replace(aValue);
+        }
+    }
+
     AutoMutex amx(iObserverLock);
     for (auto observer : iObservers) {
         observer->ProductUrisChanged();
@@ -485,12 +520,29 @@ void Product::GetAttributes(IWriter& aWriter) const
 {
     AutoMutex _(iLock);
     aWriter.Write(iAttributes.Buffer());
+    TBool started = iAttributes.Buffer().Bytes() > 0 ? true : false;
+
     if (iConfigAppAddress.Bytes() > 0) {
-        aWriter.Write(Brn(" App:Config="));
+        if (started) {
+            aWriter.Write(' ');
+        }
+        aWriter.Write(Brn("App:Config="));
         aWriter.Write(Brn("http://"));
         aWriter.Write(iConfigAppAddress);
         aWriter.Write(iConfigAppUrlTail);
+        started = true;
     }
+
+    for (const auto& it : iAttributesMap) {
+        if (started) {
+            aWriter.Write(' ');
+        }
+        aWriter.Write(*it.first);
+        aWriter.Write('=');
+        aWriter.Write(*it.second);
+        started = true;
+    }
+
     aWriter.WriteFlush();
 }
 

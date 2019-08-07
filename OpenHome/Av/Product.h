@@ -9,6 +9,7 @@
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Net/Core/DvDevice.h>
+#include <OpenHome/Configuration/BufferPtrCmp.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Av/Source.h>
@@ -123,6 +124,14 @@ public:
     void AddAttribute(const TChar* aAttribute);
     void AddAttribute(const Brx& aAttribute);
     void SetConfigAppUrl(const Brx& aUrl);
+    /*
+     * Set attributes that are reported in the form "aKey=aValue".
+     *
+     * If aKey has not previously been set, it will be created.
+     *
+     * If aKey has previously been set, it will be updated.
+     */
+    void SetAttribute(const Brx& aKey, const Brx& aValue);
     void GetManufacturerDetails(Brn& aName, Brn& aInfo, Bwx& aUrl, Bwx& aImageUri);
     void GetModelDetails(Brn& aName, Brn& aInfo, Bwx& aUrl, Bwx& aImageUri);
     void GetProductDetails(Bwx& aRoom, Bwx& aName, Brn& aInfo, Bwx& aImageUri);
@@ -178,7 +187,7 @@ private:
     WriterBwh iAttributes;
     Endpoint::AddressBuf iConfigAppAddress;
     Bws<256> iConfigAppUrlTail;
-    TBool iStarted;
+    std::atomic<TBool> iStarted;
     TBool iStandby;
     TBool iAutoPlay;
     StoreText* iLastSelectedSource;
@@ -198,6 +207,7 @@ private:
     TUint iAdapterChangeListenerId;
     Brh iUriPrefix;
     mutable Mutex iObserverLock;
+    std::map<const Brx*, std::unique_ptr<Bwh>, Configuration::BufferPtrCmp> iAttributesMap;
 };
 
 class IFriendlyNameObservable
