@@ -1164,14 +1164,27 @@ void WebAppFramework::CurrentAdapterChanged()
     // If current != nullptr (because iCurrentAdapter has been set to current), recreate server and sessions.
     // Ref for current is held by iCurrentAdapter at this point (and should not be removed here).
     if (current != nullptr) {
-        delete iServer;
-        iSessions.clear();
-        iServer = new SocketTcpServer(iEnv, kName, iInitParams->Port(), current->Address());
-        AddSessions();
-        if (iStarted) {
-            for (HttpSession& s : iSessions) {
-                s.StartSession();
+        try {
+            delete iServer;
+            iServer = nullptr;
+            iSessions.clear();
+            const TUint port = iInitParams->Port();
+            Endpoint::EndpointBuf epBuf;
+            const Endpoint ep(port, current->Address());
+            ep.AppendEndpoint(epBuf);
+            Log::Print("WebAppFramework::CurrentAdapterChanged %.*s\n", PBUF(epBuf));
+        
+            iServer = new SocketTcpServer(iEnv, kName, port, current->Address());
+            AddSessions();
+            if (iStarted) {
+                for (HttpSession& s : iSessions) {
+                    s.StartSession();
+                }
             }
+        }
+        catch (Exception& aExc) {
+            Log::Print("WebAppFramework::CurrentAdapterChanged caught exception %s:%u %s\n", aExc.File(), aExc.Line(), aExc.Message());
+            // Don't rethrow. Capture this exception and do nothing further, allowing any subsequent adapter change callbacks to successfully run.
         }
     }
 }
