@@ -1145,6 +1145,33 @@ void WebAppFramework::CurrentAdapterChanged()
     // If "current" is not the same as "iCurrentAdapter" update iCurrentAdapter.
     AutoMutex amx(iMutex);
     if (iCurrentAdapter != current) {
+        // Shouldn't need to clear any active tabs here.
+        // Could potentially resume session. In the worst case, they will time out
+        // and be recreated, which is what would otherwise be done here anyway.
+        if (current != nullptr) {
+            try {
+                delete iServer;
+                iServer = nullptr;
+                iSessions.clear();
+                const TUint port = iInitParams->Port();
+                Endpoint::EndpointBuf epBuf;
+                const Endpoint ep(port, current->Address());
+                ep.AppendEndpoint(epBuf);
+                Log::Print("WebAppFramework::CurrentAdapterChanged %.*s\n", PBUF(epBuf));
+        
+                iServer = new SocketTcpServer(iEnv, kName, port, current->Address());
+                AddSessions();
+                if (iStarted) {
+                    for (HttpSession& s : iSessions) {
+                        s.StartSession();
+                    }
+                }
+            }
+            catch (Exception& aExc) {
+                Log::Print("WebAppFramework::CurrentAdapterChanged caught exception %s:%u %s\n", aExc.File(), aExc.Line(), aExc.Message());
+                // Don't rethrow. Capture this exception and do nothing further, allowing any subsequent adapter change callbacks to successfully run.
+            }
+        }
         if (iCurrentAdapter != nullptr) {
             iCurrentAdapter->RemoveRef(kAdapterCookie);
         }
@@ -1154,37 +1181,6 @@ void WebAppFramework::CurrentAdapterChanged()
         if (current != nullptr) {
             current->RemoveRef(kAdapterCookie); // current is not different from iCurrentAdapter. Remove reference from current.
             current = nullptr;
-        }
-    }
-
-    // Shouldn't need to clear any active tabs here.
-    // Could potentially resume session. In the worst case, they will time out
-    // and be recreated, which is what would otherwise be done here anyway.
-
-    // If current != nullptr (because iCurrentAdapter has been set to current), recreate server and sessions.
-    // Ref for current is held by iCurrentAdapter at this point (and should not be removed here).
-    if (current != nullptr) {
-        try {
-            delete iServer;
-            iServer = nullptr;
-            iSessions.clear();
-            const TUint port = iInitParams->Port();
-            Endpoint::EndpointBuf epBuf;
-            const Endpoint ep(port, current->Address());
-            ep.AppendEndpoint(epBuf);
-            Log::Print("WebAppFramework::CurrentAdapterChanged %.*s\n", PBUF(epBuf));
-        
-            iServer = new SocketTcpServer(iEnv, kName, port, current->Address());
-            AddSessions();
-            if (iStarted) {
-                for (HttpSession& s : iSessions) {
-                    s.StartSession();
-                }
-            }
-        }
-        catch (Exception& aExc) {
-            Log::Print("WebAppFramework::CurrentAdapterChanged caught exception %s:%u %s\n", aExc.File(), aExc.Line(), aExc.Message());
-            // Don't rethrow. Capture this exception and do nothing further, allowing any subsequent adapter change callbacks to successfully run.
         }
     }
 }
