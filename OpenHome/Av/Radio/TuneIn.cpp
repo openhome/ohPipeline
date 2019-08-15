@@ -93,6 +93,7 @@ RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv,
 
     // Get username from store.
     iConfigUsername = new ConfigText(aConfigInit, kConfigKeyUsername, kMinUserNameBytes, kMaxUserNameBytes, kConfigUsernameDefault);
+    // Results in initial UsernameChanged() callback, which triggers Refresh().
     iListenerId = iConfigUsername->Subscribe(MakeFunctorConfigText(*this, &RadioPresetsTuneIn::UsernameChanged));
 
     iNacnId = iEnv.NetworkAdapterList().AddCurrentChangeListener(MakeFunctor(*this, &RadioPresetsTuneIn::CurrentAdapterChanged), "TuneIn", false);
