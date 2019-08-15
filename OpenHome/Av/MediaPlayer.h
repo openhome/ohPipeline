@@ -66,6 +66,7 @@ class IRebootHandler;
 class IPinsAccountStore;
 class IPinsInvocable;
 class IPinSetObservable;
+class IPinsManager;
 class PinsManager;
 class ProviderPins;
 class TransportPins;
@@ -104,6 +105,7 @@ public:
     virtual Optional<IPinsAccountStore> PinsAccountStore() = 0;
     virtual Optional<IPinsInvocable> PinsInvocable() = 0;
     virtual Optional<IPinSetObservable> PinSetObservable() = 0;
+    virtual Optional<IPinsManager> PinManager() = 0;
 };
 
 
@@ -182,6 +184,7 @@ public: // from IMediaPlayer
     Optional<IPinsAccountStore> PinsAccountStore() override;
     Optional<IPinsInvocable> PinsInvocable() override;
     Optional<IPinSetObservable> PinSetObservable() override;
+    Optional<IPinsManager> PinManager() override;
 private:
     Net::DvStack& iDvStack;
     Net::CpStack& iCpStack;

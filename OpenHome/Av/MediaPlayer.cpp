@@ -402,3 +402,8 @@ Optional<IPinSetObservable> MediaPlayer::PinSetObservable()
 {
     return Optional<IPinSetObservable>(iPinsManager);
 }
+
+Optional<IPinsManager> MediaPlayer::PinManager()
+{
+    return Optional<IPinsManager>(iPinsManager);
+}
