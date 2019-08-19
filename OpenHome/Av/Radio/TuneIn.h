@@ -12,6 +12,7 @@
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Av/Credentials.h>
 
+#include <memory>
 #include <vector>
 #include <algorithm>
 
@@ -40,6 +41,44 @@ public:
     static const Brn kTuneInStationRequest;
     static const Brn kTuneInPodcastBrowse;
     static const Brn kTuneInItemId;
+};
+
+class RefreshTimer
+{
+private:
+    static const TUint kRefreshRateMs;// = 5 * 60 * 1000; // 5 minutes
+    static const std::vector<TUint> kRetryDelaysMs;
+public:
+    RefreshTimer(OpenHome::ITimer& aTimer);
+    /*
+     * Move to next retry back-off. If all retries have been exhausted, default to normal refresh rate.
+     */
+    void BackOffRetry();
+    /*
+     * Trigger refresh at standard rate.
+     */
+    void StandardRefresh();
+    void Reset();
+private:
+    OpenHome::ITimer& iTimer;
+    std::atomic<TUint> iNextDelayIdx;
+};
+
+/*
+ * Helper class to use as a local variable to ensure timer is always triggered.
+ *
+ * If a call to BackOffRetry()/StandardRefresh() is not made, the destructor of this class performs a call to StandardRefresh().
+ */
+class AutoRefreshTimer
+{
+public:
+    AutoRefreshTimer(RefreshTimer& aTimer);
+    ~AutoRefreshTimer();
+    void BackOffRetry();
+    void StandardRefresh();
+private:
+    RefreshTimer& iTimer;
+    std::atomic<TBool> iTriggered;
 };
 
 class RadioPresetsTuneIn
@@ -84,6 +123,7 @@ private:
     ReaderHttpResponse iReaderResponse;
     HttpHeaderContentLength iHeaderContentLength;
     Timer* iRefreshTimer;
+    std::unique_ptr<RefreshTimer> iRefreshTimerWrapper;
     IThreadPoolHandle* iThreadPoolHandle;
     Bws<40> iSupportedFormats;
     // Following members provide temp storage used while converting OPML elements to Didl-Lite

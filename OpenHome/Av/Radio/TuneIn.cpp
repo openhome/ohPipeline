@@ -34,6 +34,75 @@ const Brn TuneInApi::kTuneInPodcastBrowse("&c=pbrowse");
 const Brn TuneInApi::kFormats("&formats=mp3,wma,aac,wmvideo,ogg,hls");
 const Brn TuneInApi::kTuneInItemId("&id=");
 
+
+// RefreshTimer
+
+const TUint RefreshTimer::kRefreshRateMs = 5 * 60 * 1000; // 5 minutes
+const std::vector<TUint> RefreshTimer::kRetryDelaysMs = { 100, 200, 400, 800, 1600, 3200, 5000, 10000, 20000, 20000, 30000 }; // roughly 90s worth of retries
+
+RefreshTimer::RefreshTimer(ITimer& aTimer)
+    : iTimer(aTimer)
+    , iNextDelayIdx(0)
+{
+}
+
+void RefreshTimer::BackOffRetry()
+{
+    TUint delayMs = kRefreshRateMs;
+    if (iNextDelayIdx < kRetryDelaysMs.size()) {
+        delayMs = kRetryDelaysMs[iNextDelayIdx];
+        iNextDelayIdx++;
+    }
+    else {
+        // Exhausted retry steps. Revert to standard refresh rate.
+        iNextDelayIdx = 0;
+    }
+    iTimer.FireIn(delayMs);
+}
+
+void RefreshTimer::StandardRefresh()
+{
+    iNextDelayIdx = 0;
+    iTimer.FireIn(kRefreshRateMs);
+}
+
+void RefreshTimer::Reset()
+{
+    // Reset retry idx. Don't cancel any pending timer.
+    iNextDelayIdx = 0;
+}
+
+
+// AutoRefreshTimer
+
+AutoRefreshTimer::AutoRefreshTimer(RefreshTimer& aTimer)
+    : iTimer(aTimer)
+    , iTriggered(false)
+{
+}
+
+AutoRefreshTimer::~AutoRefreshTimer()
+{
+    if (!iTriggered) {
+        iTimer.StandardRefresh();
+    }
+}
+
+void AutoRefreshTimer::BackOffRetry()
+{
+    iTriggered = true;
+    iTimer.BackOffRetry();
+}
+
+void AutoRefreshTimer::StandardRefresh()
+{
+    iTriggered = true;
+    iTimer.StandardRefresh();
+}
+
+
+// RadioPresetsTuneIn
+
 const Brn RadioPresetsTuneIn::kConfigKeyUsername("Radio.TuneInUserName");
 const Brn RadioPresetsTuneIn::kConfigUsernameDefault("linnproducts");
 
@@ -90,6 +159,7 @@ RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv,
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &RadioPresetsTuneIn::DoRefresh),
                                                  "TuneInRefresh", ThreadPoolPriority::Low);
     iRefreshTimer = new Timer(aEnv, MakeFunctor(*this, &RadioPresetsTuneIn::TimerCallback), "RadioPresetsTuneIn");
+    iRefreshTimerWrapper.reset(new RefreshTimer(*iRefreshTimer));
 
     // Get username from store.
     iConfigUsername = new ConfigText(aConfigInit, kConfigKeyUsername, kMinUserNameBytes, kMaxUserNameBytes, kConfigUsernameDefault);
@@ -104,6 +174,7 @@ RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv,
 RadioPresetsTuneIn::~RadioPresetsTuneIn()
 {
     // FIXME - not remotely threadsafe atm
+    iRefreshTimerWrapper.reset();
     iSocket.Interrupt(true);
     iRefreshTimer->Cancel();
     iThreadPoolHandle->Destroy();
@@ -128,6 +199,7 @@ void RadioPresetsTuneIn::UpdateUsername(const Brx& aUsername)
 void RadioPresetsTuneIn::UsernameChanged(KeyValuePair<const Brx&>& aKvp)
 {
     UpdateUsername(aKvp.Value());
+    iRefreshTimerWrapper->Reset();
     Refresh();
 }
 
@@ -138,6 +210,7 @@ void RadioPresetsTuneIn::Refresh()
 
 void RadioPresetsTuneIn::CurrentAdapterChanged()
 {
+    iRefreshTimerWrapper->Reset();
     Refresh();
 }
 
@@ -148,7 +221,8 @@ void RadioPresetsTuneIn::TimerCallback()
 
 void RadioPresetsTuneIn::DoRefresh()
 {
-    iRefreshTimer->FireIn(kRefreshRateMs);
+    // Auto class to set timer to fire at normal refresh rate if this method returns without having set timer.
+    AutoRefreshTimer refreshTimer(*iRefreshTimerWrapper);
 
     TBool socketOpened = false;
     TBool startedUpdates = false;
@@ -356,6 +430,7 @@ void RadioPresetsTuneIn::DoRefresh()
             }
         }
         catch (ReaderError&) {
+            refreshTimer.BackOffRetry();
         }
         for (TUint i=0; i<maxPresets; i++) {
             if (iAllocatedPresets[i] == 0) {
@@ -374,6 +449,7 @@ void RadioPresetsTuneIn::DoRefresh()
             }
             catch (Exception&) {}
         }
+        refreshTimer.BackOffRetry();
     }
     if (startedUpdates) {
         iDbWriter.EndSetPresets();
