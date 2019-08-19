@@ -229,11 +229,11 @@ void RadioPresetsTuneIn::DoRefresh()
     try {
         iSocket.Open(iEnv);
         socketOpened = true;
-        AutoSocket _(iSocket);  // Ensure socket is closed before any path out of this block.
+        AutoSocket autoSocket(iSocket); // Ensure socket is closed before any path out of this block.
         Endpoint ep(80, iRequestUri.Host());
         iSocket.Connect(ep, 20 * 1000); // hard-coded timeout.  Ignores .InitParams().TcpConnectTimeoutMs() on the assumption that is set for lan connections
 
-        // FIXME - try sending If-Modified-Since header with request. See rfr2616 14.25
+        // FIXME - try sending If-Modified-Since header with request. See rfc2616 14.25
         // ... this may require that we use http 1.1 in the request, so cope with a chunked response
         iWriterRequest.WriteMethod(Http::kMethodGet, iRequestUri.PathAndQuery(), Http::eHttp10);
         const TUint port = (iRequestUri.Port() == -1? 80 : (TUint)iRequestUri.Port());
