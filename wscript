@@ -835,7 +835,7 @@ def build(bld):
 
     bld.program(
             source='OpenHome/Media/Tests/TestShellMain.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'WebAppFrameworkTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceRaop', 'SourceUpnpAv', 'Odp'],
+            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'WebAppFrameworkTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceRaop', 'SourceSongcast', 'SourceUpnpAv', 'Odp'],
             target='TestShell',
             install_path=None)
     bld.program(

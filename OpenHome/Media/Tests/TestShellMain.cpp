@@ -49,6 +49,7 @@ SIMPLE_TEST_DECLARATION(TestWaiter);
 SIMPLE_TEST_DECLARATION(TestJson);
 SIMPLE_TEST_DECLARATION(TestThreadPool);
 SIMPLE_TEST_DECLARATION(TestPins);
+SIMPLE_TEST_DECLARATION(TestSenderQueue);
 SIMPLE_TEST_DECLARATION(TestSpotifyReporter);
 CP_DV_TEST_DECLARATION(TestFriendlyNameManager);
 CP_DV_TEST_DECLARATION(TestVolumeManager);
@@ -124,6 +125,7 @@ void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], N
     shellTests.push_back(ShellTest("TestJson", ShellTestJson));
     shellTests.push_back(ShellTest("TestThreadPool", ShellTestThreadPool));
     shellTests.push_back(ShellTest("TestPins", ShellTestPins));
+    shellTests.push_back(ShellTest("TestSenderQueue", ShellTestSenderQueue));
     shellTests.push_back(ShellTest("TestSpotifyReporter", ShellTestSpotifyReporter));
     shellTests.push_back(ShellTest("TestCredentials", ShellTestCredentials));
     shellTests.push_back(ShellTest("TestFriendlyNameManager", ShellTestFriendlyNameManager));
