@@ -233,7 +233,7 @@ void Product::SetAttribute(const Brx& aKey, const Brx& aValue)
             // New key.
             // All keys and single-value attributes must be registered before Product is started. Assert otherwise.
             ASSERT(!iStarted);
-            iAttributesMap.emplace(new Brh(aKey), std::unique_ptr<Bwh>(new Bwh(aValue)));
+            iAttributesMap.insert(std::pair<const Brx*, std::unique_ptr<Bwh>>(new Brh(aKey), std::unique_ptr<Bwh>(new Bwh(aValue))));
         }
         else {
             // Existing key. Update value.

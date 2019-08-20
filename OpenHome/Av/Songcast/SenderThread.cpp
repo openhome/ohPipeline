@@ -134,8 +134,8 @@ private:
 class ProcessorTrack : public ISongcastMsgPruner
 {
 public:
-    ProcessorTrack(TUint& aCountTrack, TUint& aCountDelay,
-                   TUint& aCountMetaText, TUint& aCountHalt, TUint& aCountStream);
+    ProcessorTrack(TUint& aCountTrack, TUint& aCountMetaText,
+                   TUint& aCountHalt, TUint& aCountStream);
 public: // from ISongcastMsgPruner
     TBool IsComplete() const override;
 private:
@@ -162,7 +162,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private:
     TUint& iCountTrack;
-    TUint& iCountDelay;
     TUint& iCountMetaText;
     TUint& iCountHalt;
     TUint& iCountStream;
@@ -171,7 +170,7 @@ private:
 class ProcessorStream: public ISongcastMsgPruner
 {
 public:
-    ProcessorStream(TUint& aCountDelay, TUint& aCountMetaText, TUint& aCountHalt, TUint& aCountStream);
+    ProcessorStream( TUint& aCountMetaText, TUint& aCountHalt, TUint& aCountStream);
 public: // from ISongcastMsgPruner
     TBool IsComplete() const override;
 private:
@@ -197,7 +196,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private:
-    TUint& iCountDelay;
     TUint& iCountMetaText;
     TUint& iCountHalt;
     TUint& iCountStream;
@@ -338,10 +336,9 @@ Msg* ProcessorMode::ProcessMsg(MsgQuit* aMsg)               { return aMsg; }
 
 // ProcessorTrack
 
-ProcessorTrack::ProcessorTrack(TUint& aCountTrack, TUint& aCountDelay,
-                               TUint& aCountMetaText, TUint& aCountHalt, TUint& aCountStream)
+ProcessorTrack::ProcessorTrack(TUint& aCountTrack, TUint& aCountMetaText,
+                               TUint& aCountHalt, TUint& aCountStream)
     : iCountTrack(aCountTrack)
-    , iCountDelay(aCountDelay)
     , iCountMetaText(aCountMetaText)
     , iCountHalt(aCountHalt)
     , iCountStream(aCountStream)
@@ -397,9 +394,8 @@ Msg* ProcessorTrack::ProcessMsg(MsgQuit* aMsg)              { return aMsg; }
 
 // ProcessorStream
 
-ProcessorStream::ProcessorStream(TUint& aCountDelay, TUint& aCountMetaText, TUint& aCountHalt, TUint& aCountStream)
-    : iCountDelay(aCountDelay)
-    , iCountMetaText(aCountMetaText)
+ProcessorStream::ProcessorStream(TUint& aCountMetaText, TUint& aCountHalt, TUint& aCountStream)
+    : iCountMetaText(aCountMetaText)
     , iCountHalt(aCountHalt)
     , iCountStream(aCountStream)
 {
@@ -643,10 +639,10 @@ void SenderMsgQueue::Prune()
     next = elem == nullptr? nullptr : elem->iNext;
     Process(procMode, prev, elem, next);
     // continue from where procMode left off
-    ProcessorTrack procTrack(trackCount, delayCount, metatextCount, haltCount, streamCount);
+    ProcessorTrack procTrack(trackCount, metatextCount, haltCount, streamCount);
     Process(procTrack, prev, elem, next);
     // continue from where procTrack left off
-    ProcessorStream procStream(delayCount, metatextCount, haltCount, streamCount);
+    ProcessorStream procStream(metatextCount, haltCount, streamCount);
     Process(procStream, prev, elem, next);
 
     // prune duplicates for a few remaining msgs from entire queue
