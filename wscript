@@ -1160,7 +1160,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestSenderQueueMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'SourceSongcast', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourceSongcast'],
             target='TestSenderQueue',
             install_path=None)
     bld.program(
