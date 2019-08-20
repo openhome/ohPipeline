@@ -412,6 +412,9 @@ void PinSet::GetStoreKey(TUint aIndex, Bwx& aKey)
 
 // PinsManager
 
+static const TChar* kPinSetNameDevice = "Dv";
+static const TChar* kPinSetNameAccount = "Ac";
+
 inline IPinsAccount& PinsManager::AccountSetter()
 {
     AutoMutex _(iLock);
@@ -422,12 +425,13 @@ inline IPinsAccount& PinsManager::AccountSetter()
 }
 
 PinsManager::PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevice)
-    : iLock("Pin1")
+    : iStore(aStore)
+    , iLock("Pin1")
     , iLockInvoke("Pin2")
     , iLockInvoker("Pin3")
     , iSemInvokerComplete("Pin4", 1)
-    , iPinsDevice(aMaxDevice, iIdProvider, aStore, "Dv")
-    , iPinsAccount(0, iIdProvider, aStore, "Ac")
+    , iPinsDevice(aMaxDevice, iIdProvider, aStore, kPinSetNameDevice)
+    , iPinsAccount(0, iIdProvider, aStore, kPinSetNameAccount)
     , iObserver(nullptr)
     , iAccountSetter(nullptr)
     , iPinSetObserver(nullptr)
@@ -487,6 +491,29 @@ void PinsManager::SetObserver(IPinsObserver& aObserver)
     iObserver->NotifyUpdatesAccount(iPinsAccount.IdArray());
     for (auto kvp : iInvokers) {
         iObserver->NotifyModeAdded(kvp.first);
+    }
+}
+
+void PinsManager::SetDeviceDefault(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
+                     const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
+                     TBool aShuffle)
+{
+    ASSERT(!IsAccountIndex(aIndex));
+    TBool pinDefaultSet = false;
+    Bws<32> key("Pin.");
+    key.Append(kPinSetNameDevice);
+    key.Append(".");
+    Ascii::AppendDec(key, aIndex);
+    key.Append(".FacDefSetup");
+    try {
+        Bws<6> buf;
+        iStore.Read(key, buf);
+        pinDefaultSet = (buf == Brn("true"));
+    }
+    catch (StoreKeyNotFound&) {}
+    if (!pinDefaultSet) {
+        Set(aIndex, aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle);
+        iStore.Write(key, Brn("true"));
     }
 }
 

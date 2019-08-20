@@ -40,3 +40,7 @@ class ProductInfo:
     @property
     def core4( self ):
         return False
+
+    @property
+    def mono( self ):
+        return False

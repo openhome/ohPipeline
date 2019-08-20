@@ -183,6 +183,9 @@ public:
     virtual void Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
                      const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
                      TBool aShuffle) = 0;
+    virtual void SetDeviceDefault(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
+                     const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
+                     TBool aShuffle) = 0;
     virtual void Clear(TUint aId) = 0;
     virtual void Swap(TUint aIndex1, TUint aIndex2) = 0;
     virtual void WriteJson(IWriter& aWriter, const std::vector<TUint>& aIds) = 0;
@@ -248,6 +251,9 @@ private: // from IPinsManager
     void Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
              const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
              TBool aShuffle) override;
+    void SetDeviceDefault(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
+             const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
+             TBool aShuffle) override;
     void Clear(TUint aId) override;
     void Swap(TUint aId1, TUint aId2) override;
     void WriteJson(IWriter& aWriter, const std::vector<TUint>& aIds) override;
@@ -271,6 +277,7 @@ private:
     void BeginInvoke();
     void NotifyInvocationCompleted();
 private:
+    Configuration::IStoreReadWrite& iStore;
     Mutex iLock;
     Mutex iLockInvoke;
     Mutex iLockInvoker;
