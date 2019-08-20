@@ -1656,6 +1656,21 @@ MsgStreamInterrupted::MsgStreamInterrupted(AllocatorBase& aAllocator)
 {
 }
 
+TUint MsgStreamInterrupted::Jiffies() const
+{
+    return iJiffies;
+}
+
+void MsgStreamInterrupted::Initialise(TUint aJiffies)
+{
+    iJiffies = aJiffies;
+}
+
+void MsgStreamInterrupted::Clear()
+{
+    iJiffies = 0;
+}
+
 Msg* MsgStreamInterrupted::Process(IMsgProcessor& aProcessor)
 {
     return aProcessor.ProcessMsg(this);
@@ -3851,9 +3866,11 @@ MsgMetaText* MsgFactory::CreateMsgMetaText(const Brx& aMetaText)
     return msg;
 }
 
-MsgStreamInterrupted* MsgFactory::CreateMsgStreamInterrupted()
+MsgStreamInterrupted* MsgFactory::CreateMsgStreamInterrupted(TUint aJiffies)
 {
-    return iAllocatorMsgStreamInterrupted.Allocate();
+    auto msg = iAllocatorMsgStreamInterrupted.Allocate();
+    msg->Initialise(aJiffies);
+    return msg;
 }
 
 MsgHalt* MsgFactory::CreateMsgHalt(TUint aId)

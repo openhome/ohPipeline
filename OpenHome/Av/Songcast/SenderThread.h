@@ -4,12 +4,50 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Fifo.h>
 #include <OpenHome/Private/Standard.h>
+#include <OpenHome/Private/Thread.h>
 
 #include <atomic>
 
 namespace OpenHome {
     class ThreadFunctor;
 namespace Av {
+
+class ISongcastMsgPruner : public Media::IMsgProcessor
+{
+public:
+    virtual TBool IsComplete() const = 0;
+};
+
+class SenderMsgQueue
+{
+    friend class SuiteSenderQueue;
+public:
+    SenderMsgQueue(Media::MsgFactory& aFactory, TUint aMaxCount);
+    ~SenderMsgQueue();
+    void Enqueue(Media::Msg* aMsg);
+    Media::Msg* Dequeue();
+private:
+    class Element
+    {
+    public:
+        Element();
+        void Reset();
+    public:
+        Media::Msg* iMsg;
+        Element* iNext;
+    };
+private:
+    TUint Count() const;
+    void Prune();
+    void Process(ISongcastMsgPruner& aProcessor, Element*& aPrev, Element*& aElem, Element*& aNext);
+    void HandleMsgRemoved(Element* aPrev, Element* aElem, Element* aNext);
+private:
+    Media::MsgFactory& iFactory;
+    FifoLiteDynamic<Element*> iFree;
+    Element* iHead;
+    Element* iTail;
+    TUint iCount;
+};
 
 class SenderThread : public Media::IPipelineElementDownstream
                    , private Media::IMsgProcessor
@@ -18,6 +56,7 @@ class SenderThread : public Media::IPipelineElementDownstream
     static const TUint kMaxMsgBacklog; // asserts if ever exceeded
 public:
     SenderThread(Media::IPipelineElementDownstream& aDownstream,
+                 Media::MsgFactory& aFactory,
                  TUint aThreadPriority);
     ~SenderThread();
 private: // from Media::IPipelineElementDownstream
@@ -47,8 +86,7 @@ private:
     Media::IPipelineElementDownstream& iDownstream;
     ThreadFunctor* iThread;
     Mutex iLock;
-    FifoLiteDynamic<Media::Msg*> iFifo;
-    std::atomic<TUint> iFifoSlotsUsed;
+    SenderMsgQueue iQueue;
     Semaphore iShutdownSem;
     TBool iQuit;
 };

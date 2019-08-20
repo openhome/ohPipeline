@@ -652,10 +652,17 @@ private:
 
 class MsgStreamInterrupted : public Msg
 {
+    friend class MsgFactory;
 public:
     MsgStreamInterrupted(AllocatorBase& aAllocator);
+    TUint Jiffies() const;
+private:
+    void Initialise(TUint aJiffies);
 private: // from Msg
+    void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
+private:
+    TUint iJiffies;
 };
 
 /**
@@ -1906,7 +1913,7 @@ public:
     MsgEncodedStream* CreateMsgEncodedStream(MsgEncodedStream* aMsg, IStreamHandler* aStreamHandler);
     MsgAudioEncoded* CreateMsgAudioEncoded(const Brx& aData);
     MsgMetaText* CreateMsgMetaText(const Brx& aMetaText);
-    MsgStreamInterrupted* CreateMsgStreamInterrupted();
+    MsgStreamInterrupted* CreateMsgStreamInterrupted(TUint aJiffies = 0);
     MsgHalt* CreateMsgHalt(TUint aId = MsgHalt::kIdNone);
     MsgHalt* CreateMsgHalt(TUint aId, Functor aCallback);
     MsgFlush* CreateMsgFlush(TUint aId);

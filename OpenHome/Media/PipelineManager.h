@@ -149,6 +149,12 @@ public:
      */
     ISpotifyTrackObserver& SpotifyTrackObserver() const;
     /**
+     * Retrieve singleton msg factory.
+     *
+     * @return  MsgFactory that can be used to create pipeline messages.
+     */
+    MsgFactory& Factory();
+    /**
      * Instruct the pipeline what should be streamed next.
      *
      * Several other tracks may already exist in the pipeline.  Call Stop() or

@@ -163,6 +163,11 @@ ISpotifyTrackObserver& PipelineManager::SpotifyTrackObserver() const
     return iPipeline->SpotifyTrackObserver();
 }
 
+MsgFactory& PipelineManager::Factory()
+{
+    return iPipeline->Factory();
+}
+
 void PipelineManager::Begin(const Brx& aMode, TUint aTrackId)
 {
     AutoMutex _(iPublicLock);

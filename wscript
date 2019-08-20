@@ -827,6 +827,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
                 'OpenHome/Av/Tests/TestPins.cpp',
+                'OpenHome/Av/Tests/TestSenderQueue.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
             use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
@@ -1156,6 +1157,11 @@ def build(bld):
             source='OpenHome/Av/Tests/TestPinsMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestPins',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Av/Tests/TestSenderQueueMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'SourceSongcast', 'ohMediaPlayerTestUtils'],
+            target='TestSenderQueue',
             install_path=None)
     bld.program(
             source='OpenHome/Net/Odp/Tests/TestDvOdpMain.cpp',

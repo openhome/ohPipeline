@@ -180,8 +180,8 @@ Msg* Sender::ProcessMsg(MsgMetaText* aMsg)
 
 Msg* Sender::ProcessMsg(MsgStreamInterrupted* aMsg)
 {
-    // FIXME - no way to tell a songcast receiver about a discontinuity that requires a ramp down
     SendPendingAudio(true);
+    iOhmSender->StreamInterrupted();
     aMsg->RemoveRef();
     return nullptr;
 }

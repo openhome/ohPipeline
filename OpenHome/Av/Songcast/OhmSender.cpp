@@ -478,6 +478,14 @@ void OhmSenderDriver::SendAudio(OhmMsgAudio* aMsg, TBool aHalt)
     iFrame++;
 }
 
+void OhmSenderDriver::StreamInterrupted()
+{
+    AutoMutex mutex(iMutex);
+    iFrame += 250; /* Any gap in audio frame numbers will cause receivers to retry.
+                      A gap larger than their history (retry) buffer should force them to
+                      skip retries and move straight to re-syncing instead. */
+}
+
 void OhmSenderDriver::SetEnabled(TBool aValue)
 {
     AutoMutex mutex(iMutex);
@@ -911,6 +919,11 @@ void OhmSender::SetMetatext(const Brx& aValue)
     if (iActive) {
         SendMetatext();
     }
+}
+
+void OhmSender::StreamInterrupted()
+{
+    iDriver.StreamInterrupted();
 }
 
 void OhmSender::SetPreset(TUint aValue)

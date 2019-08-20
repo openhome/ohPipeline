@@ -41,6 +41,7 @@ private: // from IOhmSenderDriver
     void SetLatency(TUint aValue) override;
     void SetTrackPosition(TUint64 aSampleStart, TUint64 aSamplesTotal) override;
     void Resend(const Brx& aFrames) override;
+    void StreamInterrupted() override;
 private:
     inline void UpdateLatencyOhm();
     void ResetLocked();
@@ -99,6 +100,7 @@ public:
     void SetTrack(const Brx& aUri, const Brx& aMetadata);
     void SetTrackPosition(TUint64 aSamplesTotal, TUint64 aSampleStart);
     void SetMetatext(const Brx& aValue);
+    void StreamInterrupted();
     void SetPreset(TUint aValue);
     void NotifyAudioPlaying(TBool aPlaying);
     void NotifyBroadcastAllowed(TBool aAllowed);

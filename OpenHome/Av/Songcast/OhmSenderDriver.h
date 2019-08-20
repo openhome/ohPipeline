@@ -17,6 +17,7 @@ public:
     virtual void SetLatency(TUint aValue) = 0;
     virtual void SetTrackPosition(TUint64 aSampleStart, TUint64 aSamplesTotal) = 0;
     virtual void Resend(const Brx& aFrames) = 0;
+    virtual void StreamInterrupted() = 0;
     virtual ~IOhmSenderDriver() {}
 };
 
