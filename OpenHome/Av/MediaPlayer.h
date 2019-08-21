@@ -112,10 +112,11 @@ public:
 class MediaPlayerInitParams
 {
 public:
-    static MediaPlayerInitParams* New(const Brx& aDefaultRoom, const Brx& aDefaultName);
+    static MediaPlayerInitParams* New(const Brx& aDefaultRoom, const Brx& aDefaultName, const Brx& aFriendlyNamePrefix);
     void EnableConfigApp();
     void EnablePins(TUint aMaxDevice);
     void SetThreadPoolSize(TUint aCountHigh, TUint aCountMedium, TUint aCountLow);
+    const Brx& FriendlyNamePrefix() const;
     const Brx& DefaultRoom() const;
     const Brx& DefaultName() const;
     TBool ConfigAppEnabled() const;
@@ -124,8 +125,9 @@ public:
     TUint ThreadPoolCountMedium() const;
     TUint ThreadPoolCountLow() const;
 private:
-    MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName);
+    MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName, const Brx& aFriendlyNamePrefix);
 private:
+    Brh iFriendlyNamePrefix;
     Bws<Product::kMaxRoomBytes> iDefaultRoom;
     Bws<Product::kMaxNameBytes> iDefaultName;
     TUint iThreadPoolHigh;

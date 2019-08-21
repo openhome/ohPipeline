@@ -16,7 +16,7 @@ class FriendlyNameManagerUpnpAv : public IFriendlyNameObservable
                                 , private IProductObserver
 {
 public:
-    FriendlyNameManagerUpnpAv(Product& aProduct);
+    FriendlyNameManagerUpnpAv(const Brx& aPrefix, Product& aProduct);
     ~FriendlyNameManagerUpnpAv();
 private: // from IFriendlyNameObservable
     TUint RegisterFriendlyNameObserver(FunctorGeneric<const Brx&> aObserver) override;
@@ -34,6 +34,7 @@ private:
     void ConstructFriendlyNameLocked();
     void NotifyObserversLocked();
 private:
+    Brh iPrefix;
     Product& iProduct;
     Bws<Product::kMaxRoomBytes> iRoom;
     Bws<ISource::kMaxSourceNameBytes> iSourceName;

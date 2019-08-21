@@ -676,8 +676,9 @@ void Product::StandbyDisabled(StandbyDisableReason aReason)
 
 // FriendlyNameManager
 
-FriendlyNameManager::FriendlyNameManager(IProductNameObservable& aProduct, IThreadPool& aThreadPool)
-    : iNextObserverId(1)
+FriendlyNameManager::FriendlyNameManager(const Brx& aPrefix, IProductNameObservable& aProduct, IThreadPool& aThreadPool)
+    : iPrefix(aPrefix)
+    , iNextObserverId(1)
     , iMutex("FNHM")
     , iStarted(false)   // Prevent initial callbacks in this constructor from being scheduled on thread pool (which may run before or after first observers are registered).
 {
@@ -731,23 +732,14 @@ void FriendlyNameManager::RoomChanged(const Brx& aRoom)
     }
 }
 
-void FriendlyNameManager::NameChanged(const Brx& aName)
+void FriendlyNameManager::NameChanged(const Brx& /*aName*/)
 {
-    {
-        AutoMutex a(iMutex);
-        iName.Replace(aName);
-        ConstructFriendlyNameLocked();
-    }
-    if (iStarted) {
-        (void)iThreadPoolHandle->TrySchedule();
-    }
 }
 
 void FriendlyNameManager::ConstructFriendlyNameLocked()
 {
-    iFriendlyName.Replace(iRoom);
-    iFriendlyName.Append(':');
-    iFriendlyName.Append(iName);
+    iFriendlyName.Replace(iPrefix);
+    iFriendlyName.Append(iRoom);
 }
 
 void FriendlyNameManager::NotifyObservers()

@@ -217,7 +217,8 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
                                                                      // platforms with slightly unpredictable thread scheduling
     pipelineInit->SetGorgerDuration(pipelineInit->DecodedReservoirJiffies());
     pipelineInit->SetDsdSupported(true);
-    auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName));
+    const Brn kFriendlyNamePrefix("OpenHome ");
+    auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName), kFriendlyNamePrefix);
     mpInit->EnableConfigApp();
     mpInit->EnablePins(kMaxPinsDevice);
     iMediaPlayer = new MediaPlayer(aDvStack, aCpStack, *iDevice, *iRamStore,
@@ -230,7 +231,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     iMediaPlayer->Pipeline().AddObserver(*iPipelineObserver);
 
     iFnUpdaterStandard = new FriendlyNameAttributeUpdater(iMediaPlayer->FriendlyNameObservable(), iMediaPlayer->ThreadPool(), *iDevice);
-    iFnManagerUpnpAv = new FriendlyNameManagerUpnpAv(iMediaPlayer->Product());
+    iFnManagerUpnpAv = new FriendlyNameManagerUpnpAv(kFriendlyNamePrefix, iMediaPlayer->Product());
     iFnUpdaterUpnpAv = new FriendlyNameAttributeUpdater(*iFnManagerUpnpAv, iMediaPlayer->ThreadPool(), *iDeviceUpnpAv);
     iFsFlushPeriodic = new FsFlushPeriodic(iMediaPlayer->Env(), iMediaPlayer->PowerManager(), iMediaPlayer->ThreadPool(), kFsFlushFreqMs);
 

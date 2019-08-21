@@ -147,6 +147,7 @@ void MockFriendlyNameObserver::WaitForCallback()
 // DeviceBasic
 
 const Brn DeviceBasic::kDeviceNameDefault("device");
+const Brn kFriendlyNamePrefix("test:");
 
 DeviceBasic::DeviceBasic(DvStack& aDvStack)
     : iName(kDeviceNameDefault)
@@ -188,7 +189,7 @@ SuiteFriendlyNameManager::SuiteFriendlyNameManager(CpStack& /* aCpStack */, DvSt
 void SuiteFriendlyNameManager::Setup()
 {
     iObservable = new MockProductNameObservable(Brn("Room"), Brn("Product"));
-    iFriendlyNameManager = new FriendlyNameManager(*iObservable, iThreadPool);
+    iFriendlyNameManager = new FriendlyNameManager(kFriendlyNamePrefix, *iObservable, iThreadPool);
 }
 
 void SuiteFriendlyNameManager::TearDown()
@@ -199,7 +200,8 @@ void SuiteFriendlyNameManager::TearDown()
 
 void SuiteFriendlyNameManager::TestRegisterDeregister()
 {
-    const Brn kFriendlyName("Room:Product");
+    Bws<64> expected(kFriendlyNamePrefix);
+    expected.Append(Brn("Room"));
     IFriendlyNameObservable& observable = *iFriendlyNameManager;
 
     MockFriendlyNameObserver observer1;
@@ -207,11 +209,11 @@ void SuiteFriendlyNameManager::TestRegisterDeregister()
 
     const TUint id1 = observable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(observer1, &MockFriendlyNameObserver::FriendlyNameChanged));
     observer1.WaitForCallback();    // Synchronous callback, but need to consume sem signal.
-    TEST(observer1.FriendlyName() == kFriendlyName);
+    TEST(observer1.FriendlyName() == expected);
 
     const TUint id2 = observable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(observer2, &MockFriendlyNameObserver::FriendlyNameChanged));
     observer2.WaitForCallback();    // Synchronous callback, but need to consume sem signal.
-    TEST(observer2.FriendlyName() == kFriendlyName);
+    TEST(observer2.FriendlyName() == expected);
 
     observable.DeregisterFriendlyNameObserver(id2);
     observable.DeregisterFriendlyNameObserver(id1);
@@ -232,23 +234,23 @@ void SuiteFriendlyNameManager::TestUpdate()
     iObservable->SetRoomName(Brn("NewRoom"));
 
     observer1.WaitForCallback();
-    TEST(observer1.FriendlyName() == Brn("NewRoom:Product"));
+    TEST(observer1.FriendlyName() == Brn("test:NewRoom"));
     observer2.WaitForCallback();
-    TEST(observer2.FriendlyName() == Brn("NewRoom:Product"));
+    TEST(observer2.FriendlyName() == Brn("test:NewRoom"));
 
     // Now, deregister the first observer, then issue an update.
     observable.DeregisterFriendlyNameObserver(id1);
-    iObservable->SetProductName(Brn("NewProduct"));
+    iObservable->SetRoomName(Brn("NewerRoom"));
     observer2.WaitForCallback();
-    TEST(observer1.FriendlyName() == Brn("NewRoom:Product"));       // Observer 1 shouldn't be updated.
-    TEST(observer2.FriendlyName() == Brn("NewRoom:NewProduct"));    // Observer 2 should be updated.
+    TEST(observer1.FriendlyName() == Brn("test:NewRoom"));   // Observer 1 shouldn't be updated.
+    TEST(observer2.FriendlyName() == Brn("test:NewerRoom")); // Observer 2 should be updated.
 
     observable.DeregisterFriendlyNameObserver(id2);
 
     iObservable->SetRoomName(Brn("RoomName2"));
     // Observers shouldn't have been updated.
-    TEST(observer1.FriendlyName() == Brn("NewRoom:Product"));
-    TEST(observer2.FriendlyName() == Brn("NewRoom:NewProduct"));
+    TEST(observer1.FriendlyName() == Brn("test:NewRoom"));
+    TEST(observer2.FriendlyName() == Brn("test:NewerRoom"));
 }
 
 void SuiteFriendlyNameManager::TestDvUpdate()
@@ -260,12 +262,12 @@ void SuiteFriendlyNameManager::TestDvUpdate()
     auto updater1 = new FriendlyNameAttributeUpdater(*iFriendlyNameManager, iThreadPool, dvDevice1);
 
     // check initial updates
-    TEST(WaitForNameChange(dvDevice1, Brn("Room:Product")) == true);
+    TEST(WaitForNameChange(dvDevice1, Brn("test:Room")) == true);
 
     iObservable->SetRoomName(Brn("NewRoom"));
 
     // check updates after room name modified
-    TEST(WaitForNameChange(dvDevice1, Brn("NewRoom:Product")) == true);
+    TEST(WaitForNameChange(dvDevice1, Brn("test:NewRoom")) == true);
 
     delete updater1;
     delete deviceBasic1;

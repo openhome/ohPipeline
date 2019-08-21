@@ -106,7 +106,6 @@ private:
 
 class SongcastSender : private Media::IPipelineObserver
                      , private IProductObserver
-                     , private IProductNameObserver
 {
 public:
     SongcastSender(IMediaPlayer& aMediaPlayer, ZoneHandler& aZoneHandler,
@@ -126,21 +125,18 @@ private: // from IProductObserver
     void SourceIndexChanged() override;
     void SourceXmlChanged() override;
     void ProductUrisChanged() override;
-private: // from IProductNameObserver
-    void RoomChanged(const Brx& aRoom) override;
-    void NameChanged(const Brx& aName) override;
 private:
-    void UpdateSenderName();
+    void FriendlyNameChanged(const Brx& aName);
 private:
     Mutex iLock;
     SenderThread* iSenderThread;
     Sender* iSender;
     Product& iProduct;
+    IFriendlyNameObservable& iFriendlyNameObservable;
     Media::Logger* iLoggerSender;
     Splitter* iSplitter;
     Media::Logger* iLoggerSplitter;
-    Bws<Product::kMaxRoomBytes> iRoom;
-    Bws<Product::kMaxNameBytes> iName;
+    TUint iFriendlyNameId;
 };
 
 } // namespace Av
@@ -487,6 +483,7 @@ SongcastSender::SongcastSender(IMediaPlayer& aMediaPlayer, ZoneHandler& aZoneHan
                                IUnicastOverrideObserver& aUnicastOverrideObserver)
     : iLock("STX1")
     , iProduct(aMediaPlayer.Product())
+    , iFriendlyNameObservable(aMediaPlayer.FriendlyNameObservable())
 {
     Media::PipelineManager& pipeline = aMediaPlayer.Pipeline();
     TUint priorityFiller = 0;
@@ -512,11 +509,12 @@ SongcastSender::SongcastSender(IMediaPlayer& aMediaPlayer, ZoneHandler& aZoneHan
     aMediaPlayer.AddAttribute("Sender");
     pipeline.AddObserver(*this);
     iProduct.AddObserver(*this);
-    iProduct.AddNameObserver(*this);
+    iFriendlyNameId = iFriendlyNameObservable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(*this, &SongcastSender::FriendlyNameChanged));
 }
 
 SongcastSender::~SongcastSender()
 {
+    iFriendlyNameObservable.DeregisterFriendlyNameObserver(iFriendlyNameId);
     delete iLoggerSplitter;
     delete iSplitter;
     delete iSenderThread;
@@ -573,25 +571,7 @@ void SongcastSender::ProductUrisChanged()
     iSender->SetImageUri(imageUri);
 }
 
-void SongcastSender::RoomChanged(const Brx& aRoom)
+void SongcastSender::FriendlyNameChanged(const Brx& aName)
 {
-    AutoMutex _(iLock);
-    iRoom.Replace(aRoom);
-    UpdateSenderName();
-}
-
-void SongcastSender::NameChanged(const Brx& aName)
-{
-    AutoMutex _(iLock);
-    iName.Replace(aName);
-    UpdateSenderName();
-}
-
-void SongcastSender::UpdateSenderName()
-{
-    Bws<Product::kMaxRoomBytes + Product::kMaxNameBytes + 1> name;
-    name.Append(iRoom);
-    name.Append(':');
-    name.Append(iName);
-    iSender->SetName(name);
+    iSender->SetName(aName);
 }

@@ -371,7 +371,7 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
    
     auto observableProd = new MockProductNameObservable();
     auto threadPool = new ThreadPool(1, 1, 1);
-    auto friendlyNameManager = new Av::FriendlyNameManager(*observableProd, *threadPool);
+    auto friendlyNameManager = new Av::FriendlyNameManager(Brn("TestOdp-"), *observableProd, *threadPool);
     Av::IFriendlyNameObservable& observablefn = *friendlyNameManager;
     observableProd->SetRoomName(Brn("TestDvOdp"));
     observableProd->SetProductName(Brn("Product"));

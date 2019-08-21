@@ -12,8 +12,9 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 
 
-FriendlyNameManagerUpnpAv::FriendlyNameManagerUpnpAv(Product& aProduct)
-    : iProduct(aProduct)
+FriendlyNameManagerUpnpAv::FriendlyNameManagerUpnpAv(const Brx& aPrefix, Product& aProduct)
+    : iPrefix(aPrefix)
+    , iProduct(aProduct)
     , iNextObserverId(1)
     , iMutex("FNHM")
 {
@@ -93,7 +94,8 @@ void FriendlyNameManagerUpnpAv::ProductUrisChanged()
 
 void FriendlyNameManagerUpnpAv::ConstructFriendlyNameLocked()
 {
-    iFriendlyName.Replace(iRoom);
+    iFriendlyName.Replace(iPrefix);
+    iFriendlyName.Append(iRoom);
     iFriendlyName.Append(':');
     iFriendlyName.Append(iSourceName);
 }

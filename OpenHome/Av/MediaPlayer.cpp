@@ -38,13 +38,14 @@ using namespace OpenHome::Net;
 
 // MediaPlayerInitParams
 
-MediaPlayerInitParams* MediaPlayerInitParams::New(const Brx& aDefaultRoom, const Brx& aDefaultName)
+MediaPlayerInitParams* MediaPlayerInitParams::New(const Brx& aDefaultRoom, const Brx& aDefaultName, const Brx& aFriendlyNamePrefix)
 { // static
-    return new MediaPlayerInitParams(aDefaultRoom, aDefaultName);
+    return new MediaPlayerInitParams(aDefaultRoom, aDefaultName, aFriendlyNamePrefix);
 }
 
-MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName)
-    : iDefaultRoom(aDefaultRoom)
+MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName, const Brx& aFriendlyNamePrefix)
+    : iFriendlyNamePrefix(aFriendlyNamePrefix)
+    , iDefaultRoom(aDefaultRoom)
     , iDefaultName(aDefaultName)
     , iThreadPoolHigh(1)
     , iThreadPoolMedium(1)
@@ -71,6 +72,11 @@ void MediaPlayerInitParams::SetThreadPoolSize(TUint aCountHigh, TUint aCountMedi
     iThreadPoolHigh = aCountHigh;
     iThreadPoolMedium = aCountMedium;
     iThreadPoolLow = aCountLow;
+}
+
+const Brx& MediaPlayerInitParams::FriendlyNamePrefix() const
+{
+    return iFriendlyNamePrefix;
 }
 
 const Brx& MediaPlayerInitParams::DefaultRoom() const
@@ -155,7 +161,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     choices.push_back(Product::kAutoPlayEnable);
     iConfigAutoPlay = new ConfigChoice(*iConfigManager, Product::kConfigIdAutoPlay, choices, Product::kAutoPlayDisable);
     iProduct = new Av::Product(aDvStack.Env(), aDevice, *iKvpStore, iReadWriteStore, *iConfigManager, *iConfigManager, *iPowerManager);
-    iFriendlyNameManager = new Av::FriendlyNameManager(*iProduct, *iThreadPool);
+    iFriendlyNameManager = new Av::FriendlyNameManager(aInitParams->FriendlyNamePrefix(), *iProduct, *iThreadPool);
     iPipeline = new PipelineManager(aPipelineInitParams, aInfoAggregator, *iTrackFactory);
     iVolumeConfig = new VolumeConfig(*iConfigManager, aVolumeProfile);
     iVolumeManager = new Av::VolumeManager(aVolumeConsumer, iPipeline, *iVolumeConfig, aDevice, *iProduct, *iConfigManager, *iPowerManager);
