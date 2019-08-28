@@ -7,6 +7,7 @@
 namespace OpenHome {
     class Uri;
     class Environment;
+    class SslContext;
 
 namespace Media {
     class EncodedAudioReservoir;
@@ -110,6 +111,7 @@ private: // from IPipelineIdProvider
     TUint NextStreamId() override;
     EStreamPlay OkToPlay(TUint aStreamId) override;
 private:
+    SslContext* iSsl;
     ProtocolManager* iProtocolManager;
     TrackFactory* iTrackFactory;
     IPipelineElementDownstream& iPipeline;

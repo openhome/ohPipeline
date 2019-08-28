@@ -25,7 +25,7 @@ namespace Media {
 class ProtocolHls : public Protocol
 {
 public:
-    ProtocolHls(Environment& aEnv, const Brx& aUserAgent);
+    ProtocolHls(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent);
     ~ProtocolHls();
 private: // from Protocol
     void Initialise(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownstream) override;
@@ -67,7 +67,7 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 
 
-Protocol* ProtocolFactory::NewHls(Environment& aEnv, const Brx& aUserAgent)
+Protocol* ProtocolFactory::NewHls(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent)
 { // static
     /**
      * It would be very desirable to pass references into ProtocolHls and to
@@ -77,7 +77,7 @@ Protocol* ProtocolFactory::NewHls(Environment& aEnv, const Brx& aUserAgent)
      * into an IProtocol interface, is to require ProtocolHls to take ownership
      * of objects passed in.
      */
-    return new ProtocolHls(aEnv, aUserAgent);
+    return new ProtocolHls(aEnv, aSsl, aUserAgent);
 }
 
 
@@ -236,8 +236,8 @@ void ReaderLogger::ReadInterrupt()
 
 // UriLoader
 
-UriLoader::UriLoader(Environment& aEnv, const Brx& aUserAgent, ITimerFactory& aTimerFactory, TUint aRetryInterval)
-    : iSocket(aEnv, aUserAgent)
+UriLoader::UriLoader(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, ITimerFactory& aTimerFactory, TUint aRetryInterval)
+    : iSocket(aEnv, aSsl, aUserAgent)
     , iRetryInterval(aRetryInterval)
     , iInterrupted(false)
     , iSemRetry("URIS", 0)
@@ -345,8 +345,8 @@ void UriLoader::Interrupt(TBool aInterrupt)
 
 // PlaylistProvider
 
-PlaylistProvider::PlaylistProvider(Environment& aEnv, const Brx& aUserAgent, ITimerFactory& aTimerFactory)
-    : iLoader(aEnv, aUserAgent, aTimerFactory, kConnectRetryIntervalMs)
+PlaylistProvider::PlaylistProvider(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, ITimerFactory& aTimerFactory)
+    : iLoader(aEnv, aSsl, aUserAgent, aTimerFactory, kConnectRetryIntervalMs)
 {
 }
 
@@ -393,8 +393,8 @@ void PlaylistProvider::InterruptPlaylistProvider(TBool aInterrupt)
 
 // SegmentProvider
 
-SegmentProvider::SegmentProvider(Environment& aEnv, const Brx& aUserAgent, ITimerFactory& aTimerFactory, ISegmentUriProvider& aProvider)
-    : iLoader(aEnv, aUserAgent, aTimerFactory, kConnectRetryIntervalMs)
+SegmentProvider::SegmentProvider(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, ITimerFactory& aTimerFactory, ISegmentUriProvider& aProvider)
+    : iLoader(aEnv, aSsl, aUserAgent, aTimerFactory, kConnectRetryIntervalMs)
     , iProvider(aProvider)
 {
 }
@@ -1068,15 +1068,15 @@ void SegmentStreamer::Reset()
 
 // ProtocolHls
 
-ProtocolHls::ProtocolHls(Environment& aEnv, const Brx& aUserAgent)
+ProtocolHls::ProtocolHls(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent)
     : Protocol(aEnv)
     , iTimerFactory(aEnv)
     , iSupply(nullptr)
     , iSemReaderM3u("SM3U", 0)
-    , iPlaylistProvider(aEnv, aUserAgent, iTimerFactory)
+    , iPlaylistProvider(aEnv, aSsl, aUserAgent, iTimerFactory)
     , iReloadTimer(aEnv, iTimerFactory)
     , iM3uReader(iPlaylistProvider, iReloadTimer)
-    , iSegmentProvider(aEnv, aUserAgent, iTimerFactory, iM3uReader)
+    , iSegmentProvider(aEnv, aSsl, aUserAgent, iTimerFactory, iM3uReader)
     , iSegmentStreamer(iSegmentProvider)
     , iSem("PRTH", 0)
     , iLock("PRHL")

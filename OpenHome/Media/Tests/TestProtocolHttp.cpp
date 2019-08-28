@@ -8,6 +8,7 @@
 #include <OpenHome/Private/Network.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/TestFramework.h>
+#include <OpenHome/SocketSsl.h>
 
 using namespace OpenHome;
 using namespace OpenHome::TestFramework;
@@ -354,6 +355,7 @@ private:
 protected:
     TestHttpServer* iServer;
     TestHttpSupplier* iSupply;
+    SslContext* iSsl;
     MsgFactory* iMsgFactory;
     ProtocolManager* iProtocolManager;
     AllocatorInfoLogger iInfoAggregator;
@@ -422,6 +424,7 @@ private:
     TestHttpSupplyChunked* iSupply;
     TestHttpPipelineProvider* iProvider;
     TestHttpFlushIdProvider* iFlushId;
+    SslContext* iSsl;
     MsgFactory* iMsgFactory;
     ProtocolManager* iProtocolManager;
     AllocatorInfoLogger iInfoAggregator;
@@ -1239,6 +1242,7 @@ SuiteHttpBase::SuiteHttpBase(const TChar* aSuiteName)
     iSupply = new TestHttpSupplier(dataSize);
     iProvider = new TestHttpPipelineProvider();
     iFlushId = new TestHttpFlushIdProvider();
+    iSsl = new SslContext();
 
     MsgFactoryInitParams init;
     init.SetMsgAudioEncodedCount(100, 100);
@@ -1249,7 +1253,7 @@ SuiteHttpBase::SuiteHttpBase(const TChar* aSuiteName)
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
 
     iProtocolManager = new ProtocolManager(*iSupply, *iMsgFactory, *iProvider, *iFlushId);
-    iProtocolManager->Add(ProtocolFactory::NewHttp(*gEnv, Brx::Empty()));
+    iProtocolManager->Add(ProtocolFactory::NewHttp(*gEnv, *iSsl, Brx::Empty()));
 
     iTrackFactory= new TrackFactory(iInfoAggregator, 1);
 }
@@ -1258,6 +1262,7 @@ SuiteHttpBase::~SuiteHttpBase()
 {
     delete iTrackFactory;
     delete iProtocolManager;
+    delete iSsl;
     delete iProvider;
     delete iSupply;
     delete iMsgFactory;
@@ -1447,6 +1452,7 @@ SuiteHttpChunked::SuiteHttpChunked()
     iSupply = new TestHttpSupplyChunked();
     iProvider = new TestHttpPipelineProvider();
     iFlushId = new TestHttpFlushIdProvider();
+    iSsl = new SslContext();
 
     MsgFactoryInitParams init;
     init.SetMsgAudioEncodedCount(100, 100);
@@ -1457,7 +1463,7 @@ SuiteHttpChunked::SuiteHttpChunked()
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
 
     iProtocolManager = new ProtocolManager(*iSupply, *iMsgFactory, *iProvider, *iFlushId);
-    iProtocolManager->Add(ProtocolFactory::NewHttp(*gEnv, Brx::Empty()));
+    iProtocolManager->Add(ProtocolFactory::NewHttp(*gEnv, *iSsl, Brx::Empty()));
 
     iTrackFactory= new TrackFactory(iInfoAggregator, 1);
 }
@@ -1466,6 +1472,7 @@ SuiteHttpChunked::~SuiteHttpChunked()
 {
     delete iTrackFactory;
     delete iProtocolManager;
+    delete iSsl;
     delete iProvider;
     delete iSupply;
     delete iMsgFactory;

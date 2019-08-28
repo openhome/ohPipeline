@@ -27,7 +27,8 @@ class ProtocolCalmRadio : public Media::ProtocolNetwork
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
     static const TUint kMaxUserAgentBytes = 64;
 public:
-    ProtocolCalmRadio(Environment& aEnv, 
+    ProtocolCalmRadio(Environment& aEnv,
+                      SslContext& aSsl,
                       const Brx& aUserAgent, 
                       Credentials& aCredentialsManager, 
                       Net::DvDeviceStandard& aDevice, 
@@ -103,9 +104,10 @@ using namespace OpenHome::Media;
 using namespace OpenHome::Configuration;
 
 
-Protocol* ProtocolFactory::NewCalmRadio(Environment& aEnv, const Brx& aUserAgent, Av::IMediaPlayer& aMediaPlayer)
+Protocol* ProtocolFactory::NewCalmRadio(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, Av::IMediaPlayer& aMediaPlayer)
 { // static
-    return new ProtocolCalmRadio(aEnv, 
+    return new ProtocolCalmRadio(aEnv,
+                                 aSsl,
                                  aUserAgent, 
                                  aMediaPlayer.CredentialsManager(), 
                                  aMediaPlayer.Device(), 
@@ -118,7 +120,8 @@ Protocol* ProtocolFactory::NewCalmRadio(Environment& aEnv, const Brx& aUserAgent
 // ProtocolCalmRadio
 
 ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv, 
-                                     const Brx& aUserAgent, 
+                                     SslContext& aSsl,
+                                     const Brx& aUserAgent,
                                      Credentials& aCredentialsManager, 
                                      Net::DvDeviceStandard& aDevice, 
                                      Net::CpStack& aCpStack, 
@@ -144,7 +147,7 @@ ProtocolCalmRadio::ProtocolCalmRadio(Environment& aEnv,
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
     iReaderResponse.AddHeader(iHeaderIcyMetadata);
 
-    iCalm = new CalmRadio(aEnv, aCredentialsManager, aUserAgent);
+    iCalm = new CalmRadio(aEnv, aSsl, aCredentialsManager, aUserAgent);
     aCredentialsManager.Add(iCalm);
 
     if (aPinsInvocable.Ok()) {

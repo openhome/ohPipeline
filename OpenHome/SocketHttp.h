@@ -85,6 +85,7 @@ private:
     };
 public:
     SocketHttp( Environment& aEnv,
+                SslContext& aSsl,
                 const Brx& aUserAgent,
                 TUint aReadBufferBytes = kDefaultReadBufferBytes,
                 TUint aWriteBufferBytes = kDefaultWriteBufferBytes,

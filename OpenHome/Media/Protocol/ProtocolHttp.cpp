@@ -46,8 +46,8 @@ class ProtocolHttp : public Protocol , private IReader , private IIcyObserver
     static const TUint kMaxUserAgentBytes = 64;
     static const TUint kMaxContentRecognitionBytes = 100;
 public:
-    ProtocolHttp(Environment& aEnv, const Brx& aUserAgent);
-    ProtocolHttp(Environment& aEnv, const Brx& aUserAgent, Optional<IServerObserver> aServerObserver);
+    ProtocolHttp(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent);
+    ProtocolHttp(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, Optional<IServerObserver> aServerObserver);
     ~ProtocolHttp();
 private: // from Protocol
     void Initialise(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownstream) override;
@@ -124,14 +124,14 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 
 
-Protocol* ProtocolFactory::NewHttp(Environment& aEnv, const Brx& aUserAgent)
+Protocol* ProtocolFactory::NewHttp(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent)
 { // static
-    return new ProtocolHttp(aEnv, aUserAgent);
+    return new ProtocolHttp(aEnv, aSsl, aUserAgent);
 }
 
-Protocol* ProtocolFactory::NewHttp(Environment& aEnv, const Brx& aUserAgent, IServerObserver& aServerObserver)
+Protocol* ProtocolFactory::NewHttp(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, IServerObserver& aServerObserver)
 { // static
-    return new ProtocolHttp(aEnv, aUserAgent, aServerObserver);
+    return new ProtocolHttp(aEnv, aSsl, aUserAgent, aServerObserver);
 }
 
 // HeaderServer
@@ -200,16 +200,16 @@ void HeaderServer::RemoveServerObserver(IServerObserver& aObserver)
 const Brn ProtocolHttp::kSchemeHttp("http");
 const Brn ProtocolHttp::kSchemeHttps("https");
 
-ProtocolHttp::ProtocolHttp(Environment& aEnv, const Brx& aUserAgent)
-    : ProtocolHttp(aEnv, aUserAgent, nullptr)
+ProtocolHttp::ProtocolHttp(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent)
+    : ProtocolHttp(aEnv, aSsl, aUserAgent, nullptr)
 {
 
 }
 
-ProtocolHttp::ProtocolHttp(Environment& aEnv, const Brx& aUserAgent, Optional<IServerObserver> aServerObserver)
+ProtocolHttp::ProtocolHttp(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, Optional<IServerObserver> aServerObserver)
     : Protocol(aEnv)
     , iLock("PHTP")
-    , iSocket(aEnv, kReadBufferBytes)
+    , iSocket(aEnv, aSsl, kReadBufferBytes)
     , iReaderBuf(iSocket)
     , iWriterBuf(iSocket)
     , iSupply(nullptr)

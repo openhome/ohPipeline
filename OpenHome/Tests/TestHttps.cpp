@@ -17,7 +17,8 @@ static void TestHttps(Environment& aEnv, const Brx& aHost, const Brx& aPath)
     // FIXME - Debug::SetLevel(kSsl)
     static const TUint kWriteBufBytes = 2 * 1024;
     static const TUint kReadBufBytes = 4 * 1024;
-    SocketSsl* socket = new SocketSsl(aEnv, kReadBufBytes);
+    SslContext* ssl = new SslContext();
+    SocketSsl* socket = new SocketSsl(aEnv, *ssl, kReadBufBytes);
     Srx* readBuffer = new Srs<1024>(*socket);
     ReaderUntil* readerUntil = new ReaderUntilS<kReadBufBytes>(*readBuffer);
     ReaderHttpResponse* readerResponse = new ReaderHttpResponse(aEnv, *readerUntil);
@@ -74,6 +75,7 @@ static void TestHttps(Environment& aEnv, const Brx& aHost, const Brx& aPath)
     delete readerUntil;
     delete readBuffer;
     delete socket;
+    delete ssl;
 }
 
 void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::InitialisationParams* aInitParams)

@@ -22,7 +22,7 @@ class ProtocolTidal : public Media::ProtocolNetwork, private IReader
 {
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
 public:
-    ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& aCredentialsManager,
+    ProtocolTidal(Environment& aEnv, SslContext& aSsl, const Brx& aToken, Credentials& aCredentialsManager,
                   Configuration::IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice,
                   Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack,
                   Optional<IPinsInvocable> aPinsInvocable, IThreadPool& aThreadPool);
@@ -82,9 +82,9 @@ using namespace OpenHome::Media;
 using namespace OpenHome::Configuration;
 
 
-Protocol* ProtocolFactory::NewTidal(Environment& aEnv, const Brx& aToken, Av::IMediaPlayer& aMediaPlayer)
+Protocol* ProtocolFactory::NewTidal(Environment& aEnv, SslContext& aSsl, const Brx& aToken, Av::IMediaPlayer& aMediaPlayer)
 { // static
-    return new ProtocolTidal(aEnv, aToken, aMediaPlayer.CredentialsManager(),
+    return new ProtocolTidal(aEnv, aSsl, aToken, aMediaPlayer.CredentialsManager(),
                              aMediaPlayer.ConfigInitialiser(), aMediaPlayer.Device(),
                              aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(),
                              aMediaPlayer.PinsInvocable(), aMediaPlayer.ThreadPool());
@@ -93,7 +93,7 @@ Protocol* ProtocolFactory::NewTidal(Environment& aEnv, const Brx& aToken, Av::IM
 
 // ProtocolTidal
 
-ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& aCredentialsManager,
+ProtocolTidal::ProtocolTidal(Environment& aEnv, SslContext& aSsl, const Brx& aToken, Credentials& aCredentialsManager,
                              IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice,
                              Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack,
                              Optional<IPinsInvocable> aPinsInvocable, IThreadPool& aThreadPool)
@@ -108,7 +108,7 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, const Brx& aToken, Credentials& 
     iReaderResponse.AddHeader(iHeaderContentType);
     iReaderResponse.AddHeader(iHeaderContentLength);
 
-    iTidal = new Tidal(aEnv, aToken, aCredentialsManager, aConfigInitialiser);
+    iTidal = new Tidal(aEnv, aSsl, aToken, aCredentialsManager, aConfigInitialiser);
     aCredentialsManager.Add(iTidal);
 
     if (aPinsInvocable.Ok()) {

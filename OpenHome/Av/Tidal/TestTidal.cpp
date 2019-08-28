@@ -2,6 +2,7 @@
 #include <OpenHome/Private/OptionParser.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/SocketSsl.h>
 #include <OpenHome/Av/Tidal/Tidal.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Configuration/Tests/ConfigRamStore.h>
@@ -21,6 +22,7 @@ private: // from ICredentialsState
 private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
+    SslContext* iSsl;
     Tidal* iTidal;
 };
 
@@ -35,12 +37,14 @@ TestTidal::TestTidal(Environment& aEnv, const Brx& aToken)
 {
     iStore = new Configuration::ConfigRamStore();
     iConfigManager = new Configuration::ConfigManager(*iStore);
-    iTidal = new Tidal(aEnv, aToken, *this, *iConfigManager);
+    iSsl = new SslContext();
+    iTidal = new Tidal(aEnv, *iSsl, aToken, *this, *iConfigManager);
 }
 
 TestTidal::~TestTidal()
 {
     delete iTidal;
+    delete iSsl;
     delete iConfigManager;
     delete iStore;
 }
