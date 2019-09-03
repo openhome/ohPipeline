@@ -44,7 +44,7 @@ public:
         Close
     };
 public:
-    Tidal(Environment& aEnv, const Brx& aToken, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser);
+    Tidal(Environment& aEnv, SslContext& aSsl, const Brx& aToken, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser);
     ~Tidal();
     TBool TryLogin(Bwx& aSessionId);
     TBool TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken);

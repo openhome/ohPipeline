@@ -10,11 +10,22 @@ namespace OpenHome {
 
 class Environment;
 class SocketSslImpl;
+class SslImpl;
+
+class SslContext
+{
+    friend class SocketSslImpl;
+public:
+    SslContext();
+    ~SslContext();
+private:
+    SslImpl* iImpl;
+};
 
 class SocketSsl : public IWriter, public IReaderSource
 {
 public:
-    SocketSsl(Environment& aEnv, TUint aReadBytes);
+    SocketSsl(Environment& aEnv, SslContext& aSsl, TUint aReadBytes);
     ~SocketSsl();
     void SetSecure(TBool aSecure);
     void Connect(const Endpoint& aEndpoint, TUint aTimeoutMs);

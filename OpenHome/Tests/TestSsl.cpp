@@ -28,6 +28,7 @@ private:
 private:
     static const TUint kWriteBufBytes = 2 * 1024;
     static const TUint kReadBufBytes = 4 * 1024;
+    SslContext* iSsl;
     SocketSsl* iSocket;
     Srx* iReadBuffer;
     ReaderUntil* iReaderUntil;
@@ -54,7 +55,8 @@ using namespace OpenHome::TestFramework;
 SuiteSsl::SuiteSsl(Environment& aEnv)
     : Suite("HTTPS tests")
 {
-    iSocket = new SocketSsl(aEnv, kReadBufBytes);
+    iSsl = new SslContext();
+    iSocket = new SocketSsl(aEnv, *iSsl, kReadBufBytes);
     iReadBuffer = new Srs<1024>(*iSocket);
     iReaderUntil = new ReaderUntilS<kReadBufBytes>(*iReadBuffer);
     iReaderResponse = new ReaderHttpResponse(aEnv, *iReaderUntil);
@@ -70,6 +72,7 @@ SuiteSsl::~SuiteSsl()
     delete iReaderUntil;
     delete iReadBuffer;
     delete iSocket;
+    delete iSsl;
 }
 
 void SuiteSsl::Test()

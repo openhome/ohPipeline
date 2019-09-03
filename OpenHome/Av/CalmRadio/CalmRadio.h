@@ -26,7 +26,7 @@ class CalmRadio : public ICredentialConsumer
     static const Brn kId;
     static const TUint kMaxStatusBytes = 512;
 public:
-    CalmRadio(Environment& aEnv, ICredentialsState& aCredentialsState, const Brx& aUserAgent);
+    CalmRadio(Environment& aEnv, SslContext& aSsl, ICredentialsState& aCredentialsState, const Brx& aUserAgent);
     ~CalmRadio();
     void Interrupt(TBool aInterrupt);
     void GetStreamUrl(Bwx& aUrlBase);

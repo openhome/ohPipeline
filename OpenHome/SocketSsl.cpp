@@ -16,14 +16,13 @@
 
 namespace OpenHome {
 
-class SslContext
+class SslImpl
 {
 public:
-    static SSL_CTX* Get(Environment& aEnv);
-    static void RemoveRef(Environment& aEnv);
-private:
-    static TUint iRefCount;
-    static SSL_CTX* iCtx;
+    SslImpl();
+    ~SslImpl();
+public:
+    SSL_CTX* iCtx;
 };
 
 class SocketSslImpl : public IWriter, public IReaderSource
@@ -31,7 +30,7 @@ class SocketSslImpl : public IWriter, public IReaderSource
     static const TUint kMinReadBytes = 8 * 1024;
     static const TUint kDefaultHostNameBytes = 128;
 public:
-    SocketSslImpl(Environment& aEnv, TUint aReadBytes);
+    SocketSslImpl(Environment& aEnv, SslContext& aSsl, TUint aReadBytes);
     ~SocketSslImpl();
     void SetSecure(TBool aSecure);
     void Connect(const Endpoint& aEndpoint, TUint aTimeoutMs);
@@ -53,6 +52,7 @@ private:
 private:
     Environment& iEnv;
     SocketTcpClient iSocketTcp;
+    SSL_CTX* iCtx;
     SSL* iSsl;
     TUint iMemBufSize;
     TByte* iBioReadBuf;
@@ -68,46 +68,54 @@ private:
 using namespace OpenHome;
 
 
+
 // SslContext
 
-TUint SslContext::iRefCount = 0;
-SSL_CTX* SslContext::iCtx = nullptr;
+static TBool sslInitialised = false; // Note - use of this is not thread-safe
+                                     // It is just a rough check for multiple instantiations of a singleton
 
-SSL_CTX* SslContext::Get(Environment& aEnv)
-{ // static
-    AutoMutex a(aEnv.Mutex());
-    if (iRefCount++ == 0) {
-        SSL_library_init();
-        SSL_load_error_strings();
-        ERR_load_BIO_strings();
-        OpenSSL_add_all_algorithms();
-        iCtx = SSL_CTX_new(TLSv1_2_client_method());
-        SSL_CTX_set_verify(iCtx, SSL_VERIFY_NONE, nullptr);
-    }
-    return iCtx;
+SslContext::SslContext()
+{
+    ASSERT(!sslInitialised);
+    iImpl = new SslImpl();
 }
 
-void SslContext::RemoveRef(Environment& aEnv)
-{ // static
-    AutoMutex a(aEnv.Mutex());
-    ASSERT(iRefCount != 0);
-    if (--iRefCount == 0) {
-        SSL_CTX_free(iCtx);
-        iCtx = nullptr;
-        CRYPTO_cleanup_all_ex_data();
-        ERR_free_strings();
-        ERR_remove_state(0);
-        ENGINE_cleanup();
-        EVP_cleanup();
-    }
+SslContext::~SslContext()
+{
+    delete iImpl;
+    sslInitialised = false;
+}
+
+
+// SslImpl
+
+SslImpl::SslImpl()
+{
+    SSL_library_init();
+    SSL_load_error_strings();
+    ERR_load_BIO_strings();
+    OpenSSL_add_all_algorithms();
+    iCtx = SSL_CTX_new(TLSv1_2_client_method());
+    SSL_CTX_set_verify(iCtx, SSL_VERIFY_NONE, nullptr);
+}
+
+SslImpl::~SslImpl()
+{
+    SSL_CTX_free(iCtx);
+    iCtx = nullptr;
+    CRYPTO_cleanup_all_ex_data();
+    ERR_free_strings();
+    ERR_remove_state(0);
+    ENGINE_cleanup();
+    EVP_cleanup();
 }
 
 
 // SocketSsl
 
-SocketSsl::SocketSsl(Environment& aEnv, TUint aReadBytes)
+SocketSsl::SocketSsl(Environment& aEnv, SslContext& aSsl, TUint aReadBytes)
 {
-    iImpl = new SocketSslImpl(aEnv, aReadBytes);
+    iImpl = new SocketSslImpl(aEnv, aSsl, aReadBytes);
 }
 
 SocketSsl::~SocketSsl()
@@ -200,8 +208,9 @@ static void SslInfoCallback(const SSL* ssl, int flag, int ret)
     SSL_WHERE_INFO(ssl, flag, SSL_CB_HANDSHAKE_DONE, "HANDSHAKE DONE");
 }
 
-SocketSslImpl::SocketSslImpl(Environment& aEnv, TUint aReadBytes)
+SocketSslImpl::SocketSslImpl(Environment& aEnv, SslContext& aSsl, TUint aReadBytes)
     : iEnv(aEnv)
+    , iCtx(aSsl.iImpl->iCtx)
     , iSsl(nullptr)
     , iSecure(true)
     , iConnected(false)
@@ -248,7 +257,7 @@ void SocketSslImpl::Connect(const Endpoint& aEndpoint, const Brx& aHostname, TUi
     }
     if (iSecure) {
         ASSERT(iSsl == nullptr);
-        iSsl = SSL_new(SslContext::Get(iEnv));
+        iSsl = SSL_new(iCtx);
         SSL_set_info_callback(iSsl, SslInfoCallback);
         BIO* rbio = BIO_new_mem_buf(iBioReadBuf, iMemBufSize);
         BIO_set_callback(rbio, BioCallback);
@@ -274,7 +283,6 @@ void SocketSslImpl::Connect(const Endpoint& aEndpoint, const Brx& aHostname, TUi
         if (1 != SSL_connect(iSsl)) {
             SSL_free(iSsl);
             iSsl = nullptr;
-            SslContext::RemoveRef(iEnv);
             iSocketTcp.Close();
             THROW(NetworkError);
         }
@@ -292,7 +300,6 @@ void SocketSslImpl::Close()
             (void)SSL_shutdown(iSsl);
             SSL_free(iSsl);
             iSsl = nullptr;
-            SslContext::RemoveRef(iEnv);
         }
         iConnected = false;
         iHostname.SetBytes(0);

@@ -27,6 +27,7 @@
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Av/Pins/ProviderPins.h>
 #include <OpenHome/Av/Pins/TransportPins.h>
+#include <OpenHome/SocketSsl.h>
 
 #include <memory>
 
@@ -53,6 +54,7 @@ MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx&
     , iConfigAppEnable(false)
     , iPinsEnable(false)
     , iMaxDevicePins(0)
+    , iSsl(nullptr)
 {
 }
 
@@ -72,6 +74,11 @@ void MediaPlayerInitParams::SetThreadPoolSize(TUint aCountHigh, TUint aCountMedi
     iThreadPoolHigh = aCountHigh;
     iThreadPoolMedium = aCountMedium;
     iThreadPoolLow = aCountLow;
+}
+
+void MediaPlayerInitParams::SetSsl(SslContext& aSsl)
+{
+    iSsl = &aSsl;
 }
 
 const Brx& MediaPlayerInitParams::FriendlyNamePrefix() const
@@ -115,6 +122,11 @@ TUint MediaPlayerInitParams::ThreadPoolCountLow() const
     return iThreadPoolLow;
 }
 
+SslContext* MediaPlayerInitParams::Ssl()
+{
+    return iSsl;
+}
+
 
 // MediaPlayer
 
@@ -154,6 +166,15 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     iThreadPool = new OpenHome::ThreadPool(aInitParams->ThreadPoolCountHigh(),
                                            aInitParams->ThreadPoolCountMedium(),
                                            aInitParams->ThreadPoolCountLow());
+    auto ssl = aInitParams->Ssl();
+    if (ssl == nullptr) {
+        iSsl = new SslContext();
+        iOwnsSsl = true;
+    }
+    else {
+        iSsl = ssl;
+        iOwnsSsl = false;
+    }
     iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase, Product::kMinRoomBytes, Product::kMaxRoomBytes, aInitParams->DefaultRoom());
     iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase, Product::kMinNameBytes, Product::kMaxNameBytes, aInitParams->DefaultName());
     std::vector<TUint> choices;
@@ -214,6 +235,9 @@ MediaPlayer::~MediaPlayer()
     delete iConfigProductName;
     delete iProviderPins;
     delete iPinsManager;
+    if (iOwnsSsl) {
+        delete iSsl;
+    }
     delete iThreadPool;
     delete iPowerManager;
     delete iProviderConfigApp;
@@ -372,6 +396,11 @@ Credentials& MediaPlayer::CredentialsManager()
 MimeTypeList& MediaPlayer::MimeTypes()
 {
     return iMimeTypes;
+}
+
+SslContext& MediaPlayer::Ssl()
+{
+    return *iSsl;
 }
 
 void MediaPlayer::Add(UriProvider* aUriProvider)

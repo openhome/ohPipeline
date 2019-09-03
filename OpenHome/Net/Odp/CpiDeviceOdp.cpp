@@ -413,12 +413,9 @@ void CpiDeviceListOdp::Refresh()
     if (StartRefresh()) {
         return;
     }
-    Mutex& lock = iCpStack.Env().Mutex();
-    lock.Wait();
     /* Always attempt multiple refreshes.
         Poor quality wifi (particularly on iOS) means that we risk MSEARCHes not being sent otherwise. */
     iRefreshRepeatCount = kRefreshRetries;
-    lock.Signal();
     DoRefresh();
 }
 

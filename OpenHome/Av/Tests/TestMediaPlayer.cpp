@@ -422,15 +422,16 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     // iMediaPlayer->Add(Codec::CodecFactory::NewDsdDff(iMediaPlayer->MimeTypes())); This line was included when modification began, but is defined above.
 
     // Add protocol modules (Radio source can require several stacked Http instances)
+    auto& ssl = iMediaPlayer->Ssl();
     static const TUint kNumHttpProtocols = 5;
     for (TUint i=0; i<kNumHttpProtocols; i++) {
-        iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, iUserAgent));
+        iMediaPlayer->Add(ProtocolFactory::NewHttp(aEnv, ssl, iUserAgent));
     }
-    iMediaPlayer->Add(ProtocolFactory::NewHls(aEnv, iUserAgent));
+    iMediaPlayer->Add(ProtocolFactory::NewHls(aEnv, ssl, iUserAgent));
 
     // only add Tidal if we have a token to use with login
     if (iTidalId.Bytes() > 0) {
-        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, iTidalId, *iMediaPlayer));
+        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, ssl, iTidalId, *iMediaPlayer));
     }
     // ...likewise, only add Qobuz if we have ids for login
     if (iQobuzIdSecret.Bytes() > 0) {
@@ -444,7 +445,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
         Log::Print("\n");
         iMediaPlayer->Add(ProtocolFactory::NewQobuz(appId, appSecret, *iMediaPlayer));
     }
-    iMediaPlayer->Add(ProtocolFactory::NewCalmRadio(aEnv, iUserAgent, *iMediaPlayer));
+    iMediaPlayer->Add(ProtocolFactory::NewCalmRadio(aEnv, ssl, iUserAgent, *iMediaPlayer));
 
     // Add sources
     iMediaPlayer->Add(SourceFactory::NewPlaylist(*iMediaPlayer, Optional<IPlaylistLoader>(iPlaylistLoader)));

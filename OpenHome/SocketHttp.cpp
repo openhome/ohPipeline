@@ -116,12 +116,19 @@ const TUint SocketHttp::kDefaultResponseTimeoutMs;
 const Brn SocketHttp::kSchemeHttp("http");
 const Brn SocketHttp::kSchemeHttps("https");
 
-SocketHttp::SocketHttp(Environment& aEnv, const Brx& aUserAgent, TUint aReadBufferBytes, TUint aWriteBufferBytes, TUint aConnectTimeoutMs, TUint aResponseTimeoutMs, TBool aFollowRedirects)
+SocketHttp::SocketHttp(Environment& aEnv,
+                       SslContext& aSsl,
+                       const Brx& aUserAgent,
+                       TUint aReadBufferBytes,
+                       TUint aWriteBufferBytes,
+                       TUint aConnectTimeoutMs,
+                       TUint aResponseTimeoutMs,
+                       TBool aFollowRedirects)
     : iUserAgent(aUserAgent)
     , iConnectTimeoutMs(aConnectTimeoutMs)
     , iResponseTimeoutMs(aResponseTimeoutMs)
     , iFollowRedirects(aFollowRedirects)
-    , iSocket(aEnv, aReadBufferBytes)
+    , iSocket(aEnv, aSsl, aReadBufferBytes)
     , iReadBuffer(aReadBufferBytes, iSocket)
     , iReaderUntil(aReadBufferBytes, iReadBuffer)
     , iReaderResponse(aEnv, iReaderUntil)

@@ -17,6 +17,7 @@
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/OsWrapper.h>
+#include <OpenHome/SocketSsl.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Private/SuiteUnitTest.h>
@@ -189,9 +190,10 @@ TestCodecFiller::TestCodecFiller(Environment& aEnv, IPipelineElementDownstream& 
     , iMsgFactory(aMsgFactory)
     , iNextStreamId(kInvalidPipelineId+1)
 {
+    iSsl = new SslContext();
     iProtocolManager = new ProtocolManager(aDownstream, aMsgFactory, *this, aFlushIdProvider);
-    iProtocolManager->Add(ProtocolFactory::NewHttp(aEnv, Brx::Empty()));
-    iProtocolManager->Add(ProtocolFactory::NewHttp(aEnv, Brx::Empty()));    // Second ProtocolHttp to allow out-of-band reads.
+    iProtocolManager->Add(ProtocolFactory::NewHttp(aEnv, *iSsl, Brx::Empty()));
+    iProtocolManager->Add(ProtocolFactory::NewHttp(aEnv, *iSsl, Brx::Empty()));    // Second ProtocolHttp to allow out-of-band reads.
     iTrackFactory = new TrackFactory(aInfoAggregator, 1);
 }
 
@@ -199,6 +201,7 @@ TestCodecFiller::~TestCodecFiller()
 {
     delete iTrackFactory;
     delete iProtocolManager;
+    delete iSsl;
 }
 
 void TestCodecFiller::Start(const Brx& aUrl)

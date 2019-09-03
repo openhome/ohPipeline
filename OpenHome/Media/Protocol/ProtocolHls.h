@@ -123,7 +123,7 @@ private:
 class UriLoader
 {
 public:
-    UriLoader(Environment& aEnv, const Brx& aUserAgent, ITimerFactory& aTimerFactory, TUint aRetryInterval);
+    UriLoader(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, ITimerFactory& aTimerFactory, TUint aRetryInterval);
     ~UriLoader();
     IReader& Load(const Uri& aUri); // THROWS UriLoaderError
     void Reset();
@@ -144,7 +144,7 @@ class PlaylistProvider : public IHlsPlaylistProvider
 private:
     static const TUint kConnectRetryIntervalMs = 1 * 1000;
 public:
-    PlaylistProvider(Environment& aEnv, const Brx& aUserAgent, ITimerFactory& aTimerFactory);
+    PlaylistProvider(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, ITimerFactory& aTimerFactory);
     void SetUri(const Uri& aUri);
     void Reset();
 public: // from IHlsPlaylistProvider
@@ -161,7 +161,7 @@ class SegmentProvider : public ISegmentProvider
 private:
     static const TUint kConnectRetryIntervalMs = 1 * 1000;
 public:
-    SegmentProvider(Environment& aEnv, const Brx& aUserAgent, ITimerFactory& aTimerFactory, ISegmentUriProvider& aProvider);
+    SegmentProvider(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, ITimerFactory& aTimerFactory, ISegmentUriProvider& aProvider);
     void Reset();
 public: // from ISegmentProvider
     IReader& NextSegment() override;

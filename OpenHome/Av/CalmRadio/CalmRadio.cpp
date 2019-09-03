@@ -75,12 +75,12 @@ void UriEscaper::WriteFlush()
 const Brn CalmRadio::kHost("api.calmradio.com");
 const Brn CalmRadio::kId("calmradio.com");
 
-CalmRadio::CalmRadio(Environment& aEnv, ICredentialsState& aCredentialsState, const Brx& aUserAgent)
+CalmRadio::CalmRadio(Environment& aEnv, SslContext& aSsl, ICredentialsState& aCredentialsState, const Brx& aUserAgent)
     : iLock("CRD1")
     , iLockConfig("CRD2")
     , iCredentialsState(aCredentialsState)
     , iUserAgent(aUserAgent)
-    , iSocket(aEnv, kReadBufferBytes)
+    , iSocket(aEnv, aSsl, kReadBufferBytes)
     , iReaderBuf(iSocket)
     , iReaderUntil(iReaderBuf)
     , iWriterBuf(iSocket)

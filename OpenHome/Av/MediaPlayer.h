@@ -17,6 +17,7 @@ namespace OpenHome {
     class IUnixTimestamp;
     class IShell;
     class IInfoAggregator;
+    class SslContext;
 namespace Net {
     class DvStack;
     class DvDeviceStandard;
@@ -93,6 +94,7 @@ public:
     virtual Media::IMute& SystemMute() = 0;
     virtual Credentials& CredentialsManager() = 0;
     virtual Media::MimeTypeList& MimeTypes() = 0;
+    virtual SslContext& Ssl() = 0;
     virtual void Add(Media::Codec::ContainerBase* aContainer) = 0;
     virtual void Add(Media::Codec::CodecBase* aCodec) = 0;
     virtual void Add(Media::Protocol* aProtocol) = 0;
@@ -116,6 +118,7 @@ public:
     void EnableConfigApp();
     void EnablePins(TUint aMaxDevice);
     void SetThreadPoolSize(TUint aCountHigh, TUint aCountMedium, TUint aCountLow);
+    void SetSsl(SslContext& aSsl); // optional - MediaPlayer will create one if not supplied
     const Brx& FriendlyNamePrefix() const;
     const Brx& DefaultRoom() const;
     const Brx& DefaultName() const;
@@ -124,6 +127,7 @@ public:
     TUint ThreadPoolCountHigh() const;
     TUint ThreadPoolCountMedium() const;
     TUint ThreadPoolCountLow() const;
+    SslContext* Ssl();
 private:
     MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName, const Brx& aFriendlyNamePrefix);
 private:
@@ -136,6 +140,7 @@ private:
     TBool iConfigAppEnable;
     TBool iPinsEnable;
     TUint iMaxDevicePins;
+    SslContext* iSsl;
 };
 
 
@@ -174,6 +179,7 @@ public: // from IMediaPlayer
     Media::IMute& SystemMute() override;
     Credentials& CredentialsManager() override;
     Media::MimeTypeList& MimeTypes() override;
+    SslContext& Ssl() override;
     void Add(Media::Codec::ContainerBase* aContainer) override;
     void Add(Media::Codec::CodecBase* aCodec) override;
     void Add(Media::Protocol* aProtocol) override;
@@ -208,6 +214,8 @@ private:
     ConfigStartupSource* iConfigStartupSource;
     Credentials* iCredentials;
     Media::MimeTypeList iMimeTypes;
+    SslContext* iSsl;
+    TBool iOwnsSsl;
     ProviderTime* iProviderTime;
     ProviderInfo* iProviderInfo;
     ProviderTransport* iProviderTransport;

@@ -30,11 +30,11 @@ const Brn Tidal::kHost("api.tidalhifi.com");
 const Brn Tidal::kId("tidalhifi.com");
 const Brn Tidal::kConfigKeySoundQuality("tidalhifi.com.SoundQuality");
 
-Tidal::Tidal(Environment& aEnv, const Brx& aToken, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser)
+Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const Brx& aToken, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser)
     : iLock("TDL1")
     , iLockConfig("TDL2")
     , iCredentialsState(aCredentialsState)
-    , iSocket(aEnv, kReadBufferBytes)
+    , iSocket(aEnv, aSsl, kReadBufferBytes)
     , iReaderBuf(iSocket)
     , iReaderUntil(iReaderBuf)
     , iWriterBuf(iSocket)

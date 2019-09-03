@@ -119,7 +119,7 @@ private:
     TBool iNoRemovalsFromRefresh;
     Timer* iRefreshTimer;
     Timer* iResumedTimer;
-    TUint iRefreshRepeatCount;
+    std::atomic<TUint> iRefreshRepeatCount;
 };
 
 class CpiDeviceListOdpAll : public CpiDeviceListOdp
