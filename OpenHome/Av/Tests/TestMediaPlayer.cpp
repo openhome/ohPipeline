@@ -237,7 +237,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
 
     // Register with the PowerManager
     IPowerManager& powerManager = iMediaPlayer->PowerManager();
-    iPowerObserver = powerManager.RegisterPowerHandler(*this, kPowerPriorityLowest);
+    iPowerObserver = powerManager.RegisterPowerHandler(*this, kPowerPriorityLowest, "TestMediaPlayer");
 
     // Set up config app.
     WebAppFrameworkInitParams* initParams = new WebAppFrameworkInitParams();

@@ -118,7 +118,7 @@ public:
     virtual void StandbyDisable(StandbyDisableReason aReason) = 0;
     virtual void StandbyTransitioning() = 0;
     virtual void FsFlush() = 0;
-    virtual IPowerManagerObserver* RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority) = 0;
+    virtual IPowerManagerObserver* RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority, const TChar* aClientId) = 0;
     virtual IStandbyObserver* RegisterStandbyHandler(IStandbyHandler& aHandler, TUint aPriority, const TChar* aClientId) = 0;
     virtual IFsFlushObserver* RegisterFsFlushHandler(IFsFlushHandler& aHandler) = 0;
     virtual ~IPowerManager() {}
@@ -146,7 +146,7 @@ public: // from IPowerManager
     void StandbyTransitioning() override;
     void StandbyDisable(StandbyDisableReason aReason) override;
     void FsFlush() override;
-    IPowerManagerObserver* RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority) override;
+    IPowerManagerObserver* RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority, const TChar* aClientId) override;
     IStandbyObserver* RegisterStandbyHandler(IStandbyHandler& aHandler, TUint aPriority, const TChar* aClientId) override;
     IFsFlushObserver* RegisterFsFlushHandler(IFsFlushHandler& aHandler) override;
 private:
@@ -192,16 +192,18 @@ public:
 class PowerManagerObserver : public IPowerManagerObserver, public INonCopyable
 {
 public:
-    PowerManagerObserver(PowerManager& aPowerManager, IPowerHandler& aHandler, TUint aId, TUint aPriority);
+    PowerManagerObserver(PowerManager& aPowerManager, IPowerHandler& aHandler, TUint aId, TUint aPriority, const TChar* aClientId);
     ~PowerManagerObserver();
     IPowerHandler& PowerHandler() const;
     TUint Id() const;
     TUint Priority() const;
+    const TChar* ClientId() const;
 private:
     PowerManager& iPowerManager;
     IPowerHandler& iHandler;
     const TUint iId;
     const TUint iPriority;
+    const TChar* iClientId;
 };
 
 class StandbyObserver : public IStandbyObserver, private INonCopyable

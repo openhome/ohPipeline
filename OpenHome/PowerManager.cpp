@@ -51,14 +51,18 @@ void PowerManager::NotifyPowerDown()
     // FIXME - the caller of power down should provide some kind of interrupt
     // for stopping any non-essential store tasks in progress
     AutoMutex _(iLock);
+    LOG(kPowerManager, ">PowerManager::NotifyPowerDown. iPowerDown: %s, iPowerObservers.size(): %u\n", PBool(iPowerDown), iPowerObservers.size());
     if (!iPowerDown)
     {
         iPowerDown = true;
+        TUint i = 0;
         for (auto it = iPowerObservers.cbegin(); it != iPowerObservers.cend(); ++it) {
             IPowerHandler& handler = (*it)->PowerHandler();
             handler.PowerDown();
+            LOG(kPowerManager, "PowerManager::NotifyPowerDown %u, %s\n", ++i, (*it)->ClientId());
         }
     }
+    LOG(kPowerManager, "<PowerManager::NotifyPowerDown\n");
 }
 
 void PowerManager::StandbyEnable()
@@ -113,7 +117,7 @@ void PowerManager::FsFlush()
     }
 }
 
-IPowerManagerObserver* PowerManager::RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority)
+IPowerManagerObserver* PowerManager::RegisterPowerHandler(IPowerHandler& aHandler, TUint aPriority, const TChar* aClientId)
 {
     ASSERT(aPriority <= kPowerPriorityHighest)
     ASSERT(aPriority >= kPowerPriorityLowest); // shouldn't matter as lowest is 0, and parameter type is TUint
@@ -123,7 +127,7 @@ IPowerManagerObserver* PowerManager::RegisterPowerHandler(IPowerHandler& aHandle
         return new PowerManagerObserverNull();
     }
 
-    PowerManagerObserver* observer = new PowerManagerObserver(*this, aHandler, iNextPowerId++, aPriority);
+    PowerManagerObserver* observer = new PowerManagerObserver(*this, aHandler, iNextPowerId++, aPriority, aClientId);
 
     PriorityList::iterator it;
     for (it = iPowerObservers.begin(); it != iPowerObservers.end(); ++it) {
@@ -243,11 +247,12 @@ PowerManagerObserverNull::~PowerManagerObserverNull()
 
 // PowerManagerObserver
 
-PowerManagerObserver::PowerManagerObserver(PowerManager& aPowerManager, IPowerHandler& aHandler, TUint aId, TUint aPriority)
+PowerManagerObserver::PowerManagerObserver(PowerManager& aPowerManager, IPowerHandler& aHandler, TUint aId, TUint aPriority, const TChar* aClientId)
     : iPowerManager(aPowerManager)
     , iHandler(aHandler)
     , iId(aId)
     , iPriority(aPriority)
+    , iClientId(aClientId)
 {
 }
 
@@ -269,6 +274,11 @@ TUint PowerManagerObserver::Id() const
 TUint PowerManagerObserver::Priority() const
 {
     return iPriority;
+}
+
+const TChar* PowerManagerObserver::ClientId() const
+{
+    return iClientId;
 }
 
 
@@ -357,7 +367,7 @@ void StoreVal::RegisterPowerHandlers(IPowerManager& aPowerManager, TUint aPowerH
     // our standby observer is relatively unimportant
     // priority enum describes importance when exiting Standby - we only do any work when we enter Standby
     iStandbyObserver.reset(aPowerManager.RegisterStandbyHandler(*this, kStandbyHandlerPriorityHighest - 1, "StoreVal"));
-    iObserver = aPowerManager.RegisterPowerHandler(*this, aPowerHandlerPriority);
+    iObserver = aPowerManager.RegisterPowerHandler(*this, aPowerHandlerPriority, "StoreVal");
     iFsFlushObserver.reset(aPowerManager.RegisterFsFlushHandler(*this));
 }
 

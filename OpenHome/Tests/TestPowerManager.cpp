@@ -528,7 +528,7 @@ void SuitePowerManager::TestPowerDownNothingRegistered()
 void SuitePowerManager::TestPriorityLowest()
 {
     // Test that a functor with the lowest priority can be registered and called.
-    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityLowest);
+    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityLowest, "Handler1");
     TEST(iHandler1->PowerUpCount() == 1);
     iPowerManager->NotifyPowerDown();
     TEST(iHandler1->Time() != 0);
@@ -538,7 +538,7 @@ void SuitePowerManager::TestPriorityLowest()
 void SuitePowerManager::TestPriorityHighest()
 {
     // Test that a functor with the highest priority can be registered and called.
-    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest);
+    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest, "Handler`");
     iPowerManager->NotifyPowerDown();
     TEST(iHandler1->Time() != 0);
     delete observer;
@@ -548,13 +548,13 @@ void SuitePowerManager::TestPriorityTooHigh()
 {
     // Test that PowerManager asserts when a functor with too high a priority
     // is registered.
-    TEST_THROWS(iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest+1), AssertionFailed);
+    TEST_THROWS(iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest+1, "Handler1"), AssertionFailed);
 }
 
 void SuitePowerManager::TestPriorityNormal()
 {
     // Test that a functor with a normal priority can be registered and called.
-    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal);
+    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal, "Handler1");
     iPowerManager->NotifyPowerDown();
     TEST(iHandler1->Time() != 0);
     delete observer;
@@ -564,9 +564,9 @@ void SuitePowerManager::TestMultipleFunctorsAddedInOrder()
 {
     // Add multiple functors, in order of calling priority, and check they are
     // called in order.
-    IPowerManagerObserver* observer1 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest);
-    IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal);
-    IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityLowest);
+    IPowerManagerObserver* observer1 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest, "Handler1");
+    IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal, "Handler2");
+    IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityLowest, "Handler3");
     iPowerManager->NotifyPowerDown();
     Log::Print("TestMultipleFunctorsAddedInOrder iTimes: %u | %u | %u\n", iHandler1->Time(), iHandler2->Time(), iHandler3->Time());
     TEST((iHandler1->Time() > 0) && (iHandler2->Time() > 0) && (iHandler3->Time() > 0));
@@ -581,9 +581,9 @@ void SuitePowerManager::TestMultipleFunctorsAddedInReverseOrder()
 {
     // Add multiple functors, in reverse order of calling priority, and check
     // they are called in order.
-    IPowerManagerObserver* observer1 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityLowest);
-    IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal);
-    IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest);
+    IPowerManagerObserver* observer1 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityLowest, "Handler3");
+    IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal, "Handler2");
+    IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest, "Handler1");
     iPowerManager->NotifyPowerDown();
     Log::Print("TestMultipleFunctorsAddedInReverseOrder iTimes: %u | %u | %u\n",
                iHandler1->Time(), iHandler2->Time(), iHandler3->Time());
@@ -599,9 +599,9 @@ void SuitePowerManager::TestMultipleFunctorsAddedOutOfOrder()
 {
     // Add multiple functors, in a non-linear order of calling, and check they
     // are called in order.
-    IPowerManagerObserver* observer1 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal);
-    IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest);
-    IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityLowest);
+    IPowerManagerObserver* observer1 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal, "Handler2");
+    IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest, "Handler1");
+    IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityLowest, "Handler3");
     iPowerManager->NotifyPowerDown();
     Log::Print("TestMultipleFunctorsAddedOutOfOrder iTimes: %u | %u | %u\n",
                iHandler1->Time(), iHandler2->Time(), iHandler3->Time());
@@ -618,9 +618,9 @@ void SuitePowerManager::TestMultipleFunctorsSamePriority()
     // Add multiple functors, with some having the same priority, and check
     // that functors with the same priority are called in the order they were
     // added.
-    IPowerManagerObserver* observer1 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest);
-    IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal);
-    IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityNormal);
+    IPowerManagerObserver* observer1 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest, "Handler1");
+    IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal, "Handler2");
+    IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityNormal, "Handler3");
     iPowerManager->NotifyPowerDown();
     Log::Print("TestMultipleFunctorsSamePriority iTimes: %u | %u | %u\n",
                iHandler1->Time(), iHandler2->Time(), iHandler3->Time());
@@ -636,7 +636,7 @@ void SuitePowerManager::TestPowerDownTwice()
 {
     // As NotifyPowerDown() should only be called once, test that subsequent calls to
     // it do nothing.
-    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal);
+    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal, "Handler1");
     iPowerManager->NotifyPowerDown();
     TEST(iHandler1->Time() > 0);
 
@@ -649,7 +649,7 @@ void SuitePowerManager::TestPowerDownTwice()
 void SuitePowerManager::TestPowerUpCalled()
 {
     // Check that PowerUp() is called before a successful registration completes.
-    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal);
+    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal, "Handler1");
     TEST(iHandler1->PowerUpCount() == 1);
     iPowerManager->NotifyPowerDown();
     TEST(iHandler1->PowerUpCount() == 1);
@@ -662,7 +662,7 @@ void SuitePowerManager::TestPowerDownNotCalledTwice()
     // Test that if NotifyPowerDown() is called on the PowerManager and shutdown then
     // proceeds as normal, that NotifyPowerDown() isn't called on the IPowerHandler
     // again when its observer is destroyed.
-    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal);
+    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal, "Handler1");
     iPowerManager->NotifyPowerDown();
     TUint time = iHandler1->Time();
     TEST(time != 0);
@@ -675,7 +675,7 @@ void SuitePowerManager::TestPowerDownNotCalledAfterDeregistering()
     // Test that if an IPowerHandler deregisters its observer and NotifyPowerDown()
     // is subsequently called on the PowerManager, then PowerDown() is not
     // called on the IPowerHandler again.
-    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal);
+    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal, "Handler1");
     delete observer;
     TUint time = iHandler1->Time();
     TEST(time != 0);
@@ -689,7 +689,7 @@ void SuitePowerManager::TestRegisterAfterPowerDown()
     // as that is a perfectly valid situation (i.e., PowerDown() could have been
     // called during startup).
     iPowerManager->NotifyPowerDown();
-    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal);
+    IPowerManagerObserver* observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal, "Handler1");
     TEST(iHandler1->PowerUpCount() == 0);
     delete observer;
     TEST(iHandler1->Time() == 0);
@@ -701,7 +701,7 @@ void SuitePowerManager::TestNoPowerDown()
     // Test that if PowerDown() is not called on the PowerManager, then
     // PowerDown() is called on the IPowerHandler when its observer is
     // destroyed.
-    auto observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal);
+    auto observer = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityNormal, "Handler1");
     TEST(iHandler1->Time() == 0);
     delete observer;
     TEST(iHandler1->Time() != 0);
