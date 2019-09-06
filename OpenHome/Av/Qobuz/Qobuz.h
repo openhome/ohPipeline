@@ -155,7 +155,7 @@ private:
     Timer* iTimerSocketActivity;
     Srs<1024> iReaderBuf;
     ReaderUntilS<1024> iReaderUntil;
-    WriterHttpChunked iChunker;
+    Sws<2048> iWriteBuffer;
     WriterHttpRequest iWriterRequest;
     ReaderHttpResponse iReaderResponse;
     ReaderHttpEntity iReaderEntity;
@@ -180,6 +180,7 @@ private:
     Mutex iLockStreamEvents;
     std::list<QobuzTrack*> iPendingStarts;
     std::list<QobuzTrack*> iPendingStops;
+    WriterBwh iStreamEventBuf;
     IThreadPoolHandle* iSchedulerStreamEvents;
     IThreadPoolHandle* iSchedulerPurchasedTracks;
     Timer* iTimerPurchasedTracks;

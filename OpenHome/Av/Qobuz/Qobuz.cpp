@@ -195,8 +195,8 @@ Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret, const 
     , iPipelineObservable(aPipelineObservable)
     , iReaderBuf(iSocket)
     , iReaderUntil(iReaderBuf)
-    , iChunker(iSocket)
-    , iWriterRequest(iChunker)
+    , iWriteBuffer(iSocket)
+    , iWriterRequest(iWriteBuffer)
     , iReaderResponse(aEnv, iReaderUntil)
     , iReaderEntity(iReaderUntil)
     , iAppId(aAppId)
@@ -208,6 +208,7 @@ Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret, const 
     , iUri(1024)
     , iConnected(false)
     , iLockStreamEvents("QBZ3")
+    , iStreamEventBuf(2048)
     , iLockPurchasedTracks("QBZ4")
 {
     iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Qobuz::SocketInactive), "Qobuz-Socket");
@@ -556,7 +557,6 @@ void Qobuz::TrackStopped(QobuzTrack& aTrack)
 TBool Qobuz::TryConnect()
 {
     if (iConnected) {
-        iChunker.SetChunked(false);
         return true;
     }
     Endpoint ep;
@@ -567,7 +567,6 @@ TBool Qobuz::TryConnect()
         iSocket.Connect(ep, kConnectTimeoutMs);
         //iSocket.LogVerbose(true);
         iConnected = true;
-        iChunker.SetChunked(false);
     }
     catch (NetworkTimeout&) {
         CloseConnection();
@@ -681,18 +680,9 @@ void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
     }
     AutoConnectionQobuz __(*this, iReaderEntity);
 
-    iPathAndQuery.Replace(kVersionAndFormat);
-    iPathAndQuery.Append("track/reportStreamingStart?app_id=");
-    iPathAndQuery.Append(iAppId);
-    iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
-    Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
-    iWriterRequest.WriteHeader(Http::kHeaderTransferEncoding, Http::kTransferEncodingChunked);
-    Http::WriteHeaderConnectionClose(iWriterRequest);
-    iWriterRequest.WriteFlush();
-    iChunker.SetChunked(true);
-
-    iChunker.Write(Brn("events="));
-    WriterJsonArray writerArray(iChunker);
+    iStreamEventBuf.Reset();
+    iStreamEventBuf.Write(Brn("events="));
+    WriterJsonArray writerArray(iStreamEventBuf);
     auto writerObject = writerArray.CreateObject();
     writerObject.WriteBool("online", true);
     writerObject.WriteBool("sample", false);
@@ -714,7 +704,17 @@ void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
     writerObject.WriteInt("format_id", aTrack.FormatId());
     writerObject.WriteEnd();
     writerArray.WriteEnd();
-    iChunker.WriteFlush();
+
+    iPathAndQuery.Replace(kVersionAndFormat);
+    iPathAndQuery.Append("track/reportStreamingStart?app_id=");
+    iPathAndQuery.Append(iAppId);
+    iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
+    Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
+    Http::WriteHeaderContentLength(iWriterRequest, iStreamEventBuf.Buffer().Bytes());
+    Http::WriteHeaderConnectionClose(iWriterRequest);
+    iWriterRequest.WriteFlush();
+    iWriteBuffer.Write(iStreamEventBuf.Buffer());
+    iWriteBuffer.WriteFlush();
 
     iReaderResponse.Read();
     const TUint code = iReaderResponse.Status().Code();
@@ -736,18 +736,9 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack)
     }
     AutoConnectionQobuz __(*this, iReaderEntity);
 
-    iPathAndQuery.Replace(kVersionAndFormat);
-    iPathAndQuery.Append("track/reportStreamingEnd?app_id=");
-    iPathAndQuery.Append(iAppId);
-    iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
-    Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
-    iWriterRequest.WriteHeader(Http::kHeaderTransferEncoding, Http::kTransferEncodingChunked);
-    Http::WriteHeaderConnectionClose(iWriterRequest);
-    iWriterRequest.WriteFlush();
-    iChunker.SetChunked(true);
-
-    iChunker.Write(Brn("events="));
-    WriterJsonArray writerArray(iChunker);
+    iStreamEventBuf.Reset();
+    iStreamEventBuf.Write(Brn("events="));
+    WriterJsonArray writerArray(iStreamEventBuf);
     auto writerObject = writerArray.CreateObject();
     writerObject.WriteInt("user_id", iUserId);
     writerObject.WriteUint("date", aTrack.StartTime());
@@ -763,7 +754,17 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack)
     writerObject.WriteInt("format_id", aTrack.FormatId());
     writerObject.WriteEnd();
     writerArray.WriteEnd();
-    iChunker.WriteFlush();
+
+    iPathAndQuery.Replace(kVersionAndFormat);
+    iPathAndQuery.Append("track/reportStreamingEnd?app_id=");
+    iPathAndQuery.Append(iAppId);
+    iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
+    Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
+    Http::WriteHeaderContentLength(iWriterRequest, iStreamEventBuf.Buffer().Bytes());
+    Http::WriteHeaderConnectionClose(iWriterRequest);
+    iWriterRequest.WriteFlush();
+    iWriteBuffer.Write(iStreamEventBuf.Buffer());
+    iWriteBuffer.WriteFlush();
 
     iReaderResponse.Read();
     const TUint code = iReaderResponse.Status().Code();
