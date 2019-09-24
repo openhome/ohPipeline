@@ -408,11 +408,6 @@ void MediaPlayer::Add(UriProvider* aUriProvider)
     iPipeline->Add(aUriProvider);
 }
 
-RingBufferLogger* MediaPlayer::LogBuffer()
-{
-    return (iLoggerBuffered ? &iLoggerBuffered->LogBuffer() : nullptr);
-}
-
 IUnixTimestamp& MediaPlayer::UnixTimestamp()
 {
     return *iUnixTimestamp;
@@ -441,4 +436,9 @@ Optional<IPinSetObservable> MediaPlayer::PinSetObservable()
 Optional<IPinsManager> MediaPlayer::PinManager()
 {
     return Optional<IPinsManager>(iPinsManager);
+}
+
+Optional<RingBufferLogger> MediaPlayer::LogBuffer()
+{
+    return iLoggerBuffered ? &iLoggerBuffered->LogBuffer() : nullptr;
 }

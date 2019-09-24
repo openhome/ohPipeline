@@ -108,6 +108,7 @@ public:
     virtual Optional<IPinsInvocable> PinsInvocable() = 0;
     virtual Optional<IPinSetObservable> PinSetObservable() = 0;
     virtual Optional<IPinsManager> PinManager() = 0;
+    virtual Optional<RingBufferLogger> LogBuffer() = 0;
 };
 
 
@@ -158,7 +159,6 @@ public:
                 MediaPlayerInitParams* aInitParams);
     ~MediaPlayer();
     void Quit();
-    RingBufferLogger* LogBuffer(); // an optional component. returns nullptr if not available. no transfer of ownership.
     void Start(IRebootHandler& aRebootHandler);
 public: // from IMediaPlayer
     Environment& Env() override;
@@ -193,6 +193,7 @@ public: // from IMediaPlayer
     Optional<IPinsInvocable> PinsInvocable() override;
     Optional<IPinSetObservable> PinSetObservable() override;
     Optional<IPinsManager> PinManager() override;
+    Optional<RingBufferLogger> LogBuffer() override;
 private:
     Net::DvStack& iDvStack;
     Net::CpStack& iCpStack;
