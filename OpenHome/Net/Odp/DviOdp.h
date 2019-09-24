@@ -16,6 +16,7 @@ namespace OpenHome {
     class Timer;
 namespace Net {
     class DvStack;
+    class DvDevice;
     class DviDevice;
     class DviService;
 
@@ -88,9 +89,11 @@ public:
 public:
     DviOdp(DvStack& aDvStack, IOdpSession& aSession);
     void Announce();
+    void AnnounceSingle(DvDevice& aDevice);
     void Disable();
     void Process(const Brx& aJsonRequest);
 private:
+    void AnnounceDevice(WriterJsonArray& aWriter, DviDevice& aDevice);
     void LogParseErrorThrow(const TChar* aEx, const Brx& aJson);
     void Action();
     void Subscribe();

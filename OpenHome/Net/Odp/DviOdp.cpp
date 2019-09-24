@@ -292,30 +292,7 @@ void DviOdp::Announce()
         writer.WriteInt(Odp::kKeyProtocolVersion, 3);
         auto writerDevices = writer.CreateArray(Odp::kKeyDevices);
         for (auto it=deviceMap.begin(); it!=deviceMap.end(); ++it) {
-            auto device = it->second;
-            const TChar* alias = nullptr;
-            device->GetAttribute("Odp.Name", &alias);
-            const Brx& udn = device->Udn();
-            if (alias == nullptr) {
-                LOG(kOdp, "Device %.*s has no alias set, skipping...\n", PBUF(udn))
-                continue;
-            }
-            auto writerDevice = writerDevices.CreateObject();
-            writerDevice.WriteString(Odp::kKeyId, udn);
-            Brn aliasBuf(alias);
-            writerDevice.WriteString(Odp::kKeyAlias, aliasBuf);
-            auto writerServices = writerDevice.CreateArray(Odp::kKeyServices);
-            const TUint count = device->ServiceCount();
-            for (TUint i=0; i<count; i++) {
-                const auto serviceType = device->Service(i).ServiceType();
-                auto writerService = writerServices.CreateObject();
-                writerService.WriteString(Odp::kKeyDomain, serviceType.Domain());
-                writerService.WriteString(Odp::kKeyName, serviceType.Name());
-                writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
-                writerService.WriteEnd();
-            }
-            writerServices.WriteEnd();
-            writerDevice.WriteEnd();
+            AnnounceDevice(writerDevices, *(it->second));
         }
         writerDevices.WriteEnd();
         writer.WriteEnd();
@@ -330,6 +307,58 @@ void DviOdp::Announce()
         iDvStack.DeviceMap().ClearMap(deviceMap);
         throw;
     }
+}
+
+void DviOdp::AnnounceSingle(DvDevice& aDevice)
+{
+    iPropertyWriterFactory = new PropertyWriterFactoryOdp(iSession, iDvStack);
+    iWriter = &iSession.WriteLock();
+    AutoOdpSession _(iSession);
+    iResponseStarted = true;
+    try {
+        WriterJsonObject writer(*iWriter);
+        writer.WriteString(Odp::kKeyType, Odp::kTypeAnnouncement);
+        writer.WriteInt(Odp::kKeyProtocolVersion, 3);
+        auto writerDevices = writer.CreateArray(Odp::kKeyDevices);
+        AnnounceDevice(writerDevices, aDevice.Device());
+        writerDevices.WriteEnd();
+        writer.WriteEnd();
+
+        iResponseEnded = true;
+        iSession.WriteEnd();
+        iWriter = nullptr;
+    }
+    catch (Exception&) {
+        iWriter = nullptr;
+        throw;
+    }
+}
+
+void DviOdp::AnnounceDevice(WriterJsonArray& aWriter, DviDevice& aDevice)
+{
+    const TChar* alias = nullptr;
+    aDevice.GetAttribute("Odp.Name", &alias);
+    const Brx& udn = aDevice.Udn();
+    if (alias == nullptr) {
+        LOG(kOdp, "Device %.*s has no alias set, skipping...\n", PBUF(udn));
+        return;
+    }
+    auto writerDevice = aWriter.CreateObject();
+    writerDevice.WriteString(Odp::kKeyId, udn);
+    Brn aliasBuf(alias);
+    writerDevice.WriteString(Odp::kKeyAlias, aliasBuf);
+    auto writerServices = writerDevice.CreateArray(Odp::kKeyServices);
+    const TUint count = aDevice.ServiceCount();
+    for (TUint i = 0; i<count; i++) {
+        const auto serviceType = aDevice.Service(i).ServiceType();
+        auto writerService = writerServices.CreateObject();
+        writerService.WriteString(Odp::kKeyDomain, serviceType.Domain());
+        writerService.WriteString(Odp::kKeyName, serviceType.Name());
+        writerService.WriteInt(Odp::kKeyVersion, serviceType.Version());
+        writerService.WriteEnd();
+    }
+    writerServices.WriteEnd();
+    writerDevice.WriteEnd();
 }
 
 void DviOdp::Disable()
