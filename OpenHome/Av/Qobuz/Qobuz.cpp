@@ -15,6 +15,7 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/md5.h>
 #include <OpenHome/Json.h>
+#include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
@@ -127,8 +128,19 @@ void QobuzTrack::NotifyMode(const Brx& /*aMode*/, const Media::ModeInfo& /*aInfo
 {
 }
 
-void QobuzTrack::NotifyTrack(Media::Track& /*aTrack*/, TBool /*aStartOfStream*/)
+void QobuzTrack::NotifyTrack(Media::Track& /*aTrack*/, TBool aStartOfStream)
 {
+    TBool stopped = false;
+    {
+        AutoMutex _(iLock);
+        if (iCurrentStream && aStartOfStream) {
+            iCurrentStream = false;
+            stopped = true;
+        }
+        if (stopped) {
+            iObserver.TrackStopped(*this);
+        }
+    }
 }
 
 void QobuzTrack::NotifyMetaText(const Brx& /*aText*/)
@@ -139,11 +151,11 @@ void QobuzTrack::NotifyTime(TUint aSeconds)
 {
     {
         AutoMutex _(iLock);
-        if (iCurrentStream) {
+        if (iCurrentStream && aSeconds > iPlayedSeconds) {
             iPlayedSeconds = aSeconds;
         }
     }
-    if (aSeconds == 1) {
+    if (aSeconds > 0 && !iStarted) {
         iStarted = true;
         try {
             iStartTime = iUnixTimestamp.Now();
@@ -682,24 +694,20 @@ void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
 
     iStreamEventBuf.Reset();
     iStreamEventBuf.Write(Brn("events="));
-    WriterJsonArray writerArray(iStreamEventBuf);
+    WriterFormUrl writerFormUrl(iStreamEventBuf);
+    WriterJsonArray writerArray(writerFormUrl);
     auto writerObject = writerArray.CreateObject();
     writerObject.WriteBool("online", true);
     writerObject.WriteBool("sample", false);
-    writerObject.WriteString("intent", "stream");
+    writerObject.WriteString("intent", "streaming");
     writerObject.WriteString("device_id", iDeviceId);
     const auto trackId = aTrack.Id();
-    Bws<Ascii::kMaxUintStringBytes> idBuf;
-    Ascii::AppendDec(idBuf, trackId);
-    writerObject.WriteString("track_id", idBuf);
+    writerObject.WriteUint("track_id", trackId);
     writerObject.WriteBool("purchase", IsTrackPurchased(trackId));
     writerObject.WriteUint("date", aTrack.StartTime());
-    idBuf.SetBytes(0);
-    Ascii::AppendDec(idBuf, iCredentialId);
-    writerObject.WriteString("credential_id", idBuf);
-    idBuf.SetBytes(0);
-    Ascii::AppendDec(idBuf, iUserId);
-    writerObject.WriteString("user_id", idBuf);
+    writerObject.WriteUint("duration", 0);
+    writerObject.WriteUint("credential_id", iCredentialId);
+    writerObject.WriteUint("user_id", iUserId);
     writerObject.WriteBool("local", false);
     writerObject.WriteInt("format_id", aTrack.FormatId());
     writerObject.WriteEnd();
@@ -711,6 +719,7 @@ void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
     iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
     Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
     Http::WriteHeaderContentLength(iWriterRequest, iStreamEventBuf.Buffer().Bytes());
+    Http::WriteHeaderContentType(iWriterRequest, Brn("application/x-www-form-urlencoded"));
     Http::WriteHeaderConnectionClose(iWriterRequest);
     iWriterRequest.WriteFlush();
     iWriteBuffer.Write(iStreamEventBuf.Buffer());
@@ -730,6 +739,11 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack)
 {
     AutoMutex _(iLock);
 
+    if (aTrack.PlayedSeconds() == 0) {
+        // Qobuz don't cope well with being informed that we didn't play anything
+        return;
+    }
+
     if (!TryConnect()) {
         LOG_ERROR(kMedia, "Qobuz::NotifyStreamStarted - connection failure\n");
         return;
@@ -738,7 +752,8 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack)
 
     iStreamEventBuf.Reset();
     iStreamEventBuf.Write(Brn("events="));
-    WriterJsonArray writerArray(iStreamEventBuf);
+    WriterFormUrl writerFormUrl(iStreamEventBuf);
+    WriterJsonArray writerArray(writerFormUrl);
     auto writerObject = writerArray.CreateObject();
     writerObject.WriteInt("user_id", iUserId);
     writerObject.WriteUint("date", aTrack.StartTime());
@@ -761,6 +776,7 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack)
     iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
     Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
     Http::WriteHeaderContentLength(iWriterRequest, iStreamEventBuf.Buffer().Bytes());
+    Http::WriteHeaderContentType(iWriterRequest, Brn("application/x-www-form-urlencoded"));
     Http::WriteHeaderConnectionClose(iWriterRequest);
     iWriterRequest.WriteFlush();
     iWriteBuffer.Write(iStreamEventBuf.Buffer());

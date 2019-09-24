@@ -6,6 +6,8 @@
 using namespace OpenHome;
 using namespace OpenHome::Av;
 
+// FormUrl
+
 void FormUrl::Encode(IWriter& aWriter, const Brx& aSrc)
 { // static
     const TUint bytes = aSrc.Bytes();
@@ -23,4 +25,44 @@ void FormUrl::Encode(IWriter& aWriter, const Brx& aSrc)
             writerAscii.WriteHex(static_cast<TByte>(ch));
         }
     }
+}
+
+
+// WriterFormUrl
+
+WriterFormUrl::WriterFormUrl(IWriter& aWriter)
+    : iWriter(aWriter)
+    , iEnabled(true)
+{
+}
+
+void WriterFormUrl::SetEnabled(TBool aEnabled)
+{
+    iEnabled = aEnabled;
+}
+
+void WriterFormUrl::Write(TByte aValue)
+{
+    if (iEnabled) {
+        Brn buf(&aValue, 1);
+        FormUrl::Encode(iWriter, buf);
+    }
+    else {
+        iWriter.Write(aValue);
+    }
+}
+
+void WriterFormUrl::Write(const Brx& aBuffer)
+{
+    if (iEnabled) {
+        FormUrl::Encode(iWriter, aBuffer);
+    }
+    else {
+        iWriter.Write(aBuffer);
+    }
+}
+
+void WriterFormUrl::WriteFlush()
+{
+    iWriter.WriteFlush();
 }
