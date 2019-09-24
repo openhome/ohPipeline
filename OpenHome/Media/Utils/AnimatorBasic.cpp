@@ -268,3 +268,8 @@ TUint AnimatorBasic::PipelineAnimatorDsdBlockSizeWords() const
 {
     return 1;
 }
+
+TUint AnimatorBasic::PipelineAnimatorMaxBitDepth() const
+{
+    return 32;
+}

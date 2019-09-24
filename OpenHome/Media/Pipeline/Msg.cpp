@@ -212,6 +212,16 @@ TUint AudioData::Bytes() const
     return iData.Bytes();
 }
 
+TByte* AudioData::PtrW()
+{
+    return const_cast<TByte*>(iData.Ptr());
+}
+
+void AudioData::SetBytes(TUint aBytes)
+{
+    iData.SetBytes(aBytes);
+}
+
 #ifdef TIMESTAMP_LOGGING_ENABLE
 void AudioData::SetTimestamp(const TChar* aId)
 {
@@ -329,6 +339,11 @@ void DecodedAudio::Aggregate(DecodedAudio& aDecodedAudio)
     iData.Append(aDecodedAudio.iData);
 }
 
+void DecodedAudio::SetBytes(TUint aBytes)
+{
+    iData.SetBytes(aBytes);
+}
+
 void DecodedAudio::ConstructPcm(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian)
 {
     ASSERT((aBitDepth & 7) == 0);
@@ -355,6 +370,11 @@ void DecodedAudio::ConstructPcm(const Brx& aData, TUint aBitDepth, AudioDataEndi
 void DecodedAudio::ConstructDsd(const Brx& aData)
 {
     iData.Replace(aData);
+}
+
+void DecodedAudio::Construct()
+{
+    iData.Replace(Brx::Empty());
 }
 
 void DecodedAudio::CopyToBigEndian16(const Brx& aData, TByte* aDest)
@@ -1595,6 +1615,16 @@ MsgAudioEncoded* MsgAudioEncoded::Clone()
     clone->iAudioData = iAudioData;
     iAudioData->AddRef();
     return clone;
+}
+
+const EncodedAudio& MsgAudioEncoded::AudioData() const
+{
+    return *iAudioData;
+}
+
+TUint MsgAudioEncoded::AudioDataOffset() const
+{
+    return iOffset;
 }
 
 void MsgAudioEncoded::Initialise(EncodedAudio* aEncodedAudio)
@@ -3975,6 +4005,11 @@ MsgSilence* MsgFactory::CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRa
 MsgQuit* MsgFactory::CreateMsgQuit()
 {
     return iAllocatorMsgQuit.Allocate();
+}
+
+DecodedAudio* MsgFactory::CreateDecodedAudio()
+{
+    return static_cast<DecodedAudio*>(iAllocatorAudioData.Allocate());
 }
 
 EncodedAudio* MsgFactory::CreateEncodedAudio(const Brx& aData)

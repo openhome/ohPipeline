@@ -33,19 +33,27 @@ private:
     void ProcessDataChunk();
     TUint FindChunk(const Brx& aChunkId);
     void SendMsgDecodedStream(TUint64 aStartSample);
+    void WriteSamples(TByte*& aDest, TUint& aSamplesWritten, TUint aSamplesDest);
+    void WriteSamples(TByte*& aDest, const TByte* aSrc, TUint aSamples);
+    void ClearAudioEncoded();
 private:
     Bws<DecodedAudio::kMaxBytes + 40> iReadBuf; // +40 to accommodate a fragment of a following (10ch, 32-bit) sample
     TUint iNumChannels;
     TUint iSampleRate;
     TUint iBitDepth;
+    TUint iBitDepthSrc;
     TUint iAudioBytesTotal;
     TUint iAudioBytesRemaining;
     TUint iFileSize;
     TUint iBitRate;
-    TUint iSampleBoundaryBytes;
+    TUint iSampleBytesSrc;
+    TUint iSampleBytesDest;
     TUint64 iTrackStart;
     TUint64 iTrackOffset;
     TUint64 iTrackLengthJiffies;
+    Bws<40> iPartialSample;
+    MsgAudioEncoded* iAudioEncoded;
+    TUint iAudioEncodedBytesConsumed;
 };
 
 } // namespace Codec
@@ -65,6 +73,7 @@ CodecBase* CodecFactory::NewWav(IMimeTypeList& aMimeTypeList)
 
 CodecWav::CodecWav(IMimeTypeList& aMimeTypeList)
     : CodecBase("WAV", kCostLow)
+    , iAudioEncoded(nullptr)
 {
     aMimeTypeList.Add("audio/wav");
     aMimeTypeList.Add("audio/wave");
@@ -73,6 +82,7 @@ CodecWav::CodecWav(IMimeTypeList& aMimeTypeList)
 
 CodecWav::~CodecWav()
 {
+    ClearAudioEncoded();
 }
 
 TBool CodecWav::Recognise(const EncodedStreamInfo& aStreamInfo)
@@ -101,13 +111,16 @@ void CodecWav::StreamInitialise()
     iNumChannels = 0;
     iSampleRate = 0;
     iBitDepth = 0;
-    iSampleBoundaryBytes = 0;
+    iBitDepthSrc = 0;
+    iSampleBytesSrc = 0;
+    iSampleBytesDest = 0;
     iAudioBytesTotal = 0;
     iAudioBytesRemaining = 0;
     iFileSize = 0;
     iTrackStart = 0;
     iTrackOffset = 0;
     iReadBuf.SetBytes(0);
+    ClearAudioEncoded();
 }
 
 void CodecWav::Process()
@@ -121,31 +134,56 @@ void CodecWav::Process()
         if ((iAudioBytesRemaining == 0) && (iFileSize != 0)) {  // check for end of file unless continuous streaming - ie iFileSize == 0
             THROW(CodecStreamEnded);
         }
-        Bwn readBuf(iReadBuf.Ptr() + iReadBuf.Bytes(), iReadBuf.MaxBytes() - iReadBuf.Bytes());
-        iController->ReadNextMsg(readBuf);
-        iReadBuf.SetBytes(iReadBuf.Bytes() + readBuf.Bytes());
-
-        // If stream has a valid length, truncate if remaining length smaller than buffer read.
-        TUint bytes = iReadBuf.Bytes();
-        if (iAudioBytesRemaining != 0) {
-            bytes = std::min(bytes, iAudioBytesRemaining);
+        TByte* dest;
+        TUint samplesDest;
+        iController->GetAudioBuf(dest, samplesDest);
+        TUint samplesWritten = 0;
+        if (iAudioEncoded != nullptr) {
+            WriteSamples(dest, samplesWritten, samplesDest);
         }
-        // It's possible that data read into buffer, or value of iAudioBytesRemaining, does not end on a sensible sample boundary.
-        const TUint remainder = bytes % iSampleBoundaryBytes;
-        bytes -= remainder;
-        const Brn outBuf(iReadBuf.Ptr(), bytes); // Do this to avoid truncating iReadBuf length to "bytes" here, as still need access to remainder of iReadBuf.
+        try {
+            if (samplesWritten < samplesDest) {
+                auto encoded = iController->ReadNextMsg();
+                if (iAudioEncoded == nullptr || iAudioEncoded->Bytes() == iAudioEncodedBytesConsumed) {
+                    iAudioEncodedBytesConsumed = 0;
+                }
+                else {
+                    Bws<40> sampleBuf;
+                    sampleBuf.Append(iAudioEncoded->AudioData().Ptr(iAudioEncoded->AudioDataOffset() + iAudioEncodedBytesConsumed),
+                        iAudioEncoded->Bytes() - iAudioEncodedBytesConsumed);
+                    const auto data2BytesRequired = iSampleBytesDest - sampleBuf.Bytes();
+                    if (data2BytesRequired > encoded->Bytes()) {
+                        THROW(CodecStreamCorrupt);
+                    }
+                    sampleBuf.Append(encoded->AudioData().Ptr(encoded->AudioDataOffset()), data2BytesRequired);
+                    WriteSamples(dest, sampleBuf.Ptr(), 1);
+                    iAudioEncodedBytesConsumed = data2BytesRequired;
+                    samplesWritten++;
+                }
+                if (iAudioEncoded != nullptr) {
+                    iAudioEncoded->RemoveRef();
+                }
+                iAudioEncoded = encoded;
+            }
 
-        iTrackOffset += iController->OutputAudioPcm(outBuf, iNumChannels, iSampleRate, iBitDepth, AudioDataEndian::Little, iTrackOffset);
-        if(iFileSize != 0) {
-            iAudioBytesRemaining -= outBuf.Bytes();
+            if (samplesWritten < samplesDest) {
+                WriteSamples(dest, samplesWritten, samplesDest - samplesWritten);
+            }
         }
-        iReadBuf.Replace(iReadBuf.Split(bytes));
+        catch (Exception&) {
+            if (samplesWritten != 0) {
+                iController->OutputAudioBuf(samplesWritten, iTrackOffset);
+            }
+            throw;
+        }
+
+        iController->OutputAudioBuf(samplesWritten, iTrackOffset);
     }
 }
 
 TBool CodecWav::TrySeek(TUint aStreamId, TUint64 aSample)
 {
-    const TUint64 bytePos = aSample * iSampleBoundaryBytes;
+    const TUint64 bytePos = aSample * iSampleBytesSrc;
 
     // Some bounds checking.
     const TUint64 seekPosJiffies = Jiffies::PerSample(iSampleRate)*aSample;
@@ -158,13 +196,14 @@ TBool CodecWav::TrySeek(TUint aStreamId, TUint64 aSample)
     }
     iTrackOffset = ((TUint64)aSample * Jiffies::kPerSecond) / iSampleRate;
     if(iFileSize != 0) {    // UI should not allow seeking within streamed audio, but check before updating track length anyhow
-        iAudioBytesRemaining = iAudioBytesTotal - (TUint)(aSample * iSampleBoundaryBytes);
+        iAudioBytesRemaining = iAudioBytesTotal - (TUint)(aSample * iSampleBytesSrc);
         // Truncate iAudioBytesRemaining to a sensible sample boundary.
-        const TUint remaining = iAudioBytesRemaining % iSampleBoundaryBytes;
+        const TUint remaining = iAudioBytesRemaining % iSampleBytesSrc;
         iAudioBytesRemaining -= remaining;
     }
 
     iReadBuf.SetBytes(0);
+    ClearAudioEncoded();
     SendMsgDecodedStream(aSample);
     return true;
 }
@@ -237,33 +276,11 @@ void CodecWav::ProcessFmtChunk()
     const TUint byteRate = Converter::LeUint32At(iReadBuf, 8);
     iBitRate = byteRate * 8;
     //const TUint blockAlign = Converter::LeUint16At(iReadBuf, 12);
-    iBitDepth = Converter::LeUint16At(iReadBuf, 14);
+    iBitDepthSrc = Converter::LeUint16At(iReadBuf, 14);
+    iBitDepth = std::min(iBitDepthSrc, 24u); // FIXME - read this from animator
     // Calculate a sample boundary that will keep pipeline happy.
-    iSampleBoundaryBytes = iNumChannels * (iBitDepth/8);
-
-    //TUint bitStorage = 0;
-    //switch(iBitDepth) {
-    //    case 8:
-    //        bitStorage = 8;
-    //        break;
-    //    case 16:
-    //        bitStorage = 16;
-    //        break;
-    //    case 20:
-    //    case 24:
-    //        bitStorage = 24;
-    //        break;
-    //    default:
-    //        THROW(CodecStreamFeatureUnsupported);
-    //}
-
-    //if ((audioFormat != 0xfffe) && (fmtChunkBytes > 16)) {
-    //    if (Converter::LeUint16At(iReadBuf, 16) == 22) {
-    //        if (Converter::LeUint16At(iReadBuf, 18) != bitStorage) {
-    //            THROW(CodecStreamFeatureUnsupported);
-    //        }
-    //    }
-    //}
+    iSampleBytesSrc = iNumChannels * (iBitDepthSrc / 8);
+    iSampleBytesDest = iNumChannels * (iBitDepth / 8);
 
     if (iNumChannels == 0 || iSampleRate == 0 || iBitRate == 0
             || iBitDepth == 0 || iBitDepth % 8 != 0) {
@@ -286,13 +303,13 @@ void CodecWav::ProcessDataChunk()
     }
     iAudioBytesRemaining = iAudioBytesTotal;
     // Truncate iAudioBytesRemaining to a sensible sample boundary.
-    // This avoids scenario where files may have miscellaneous data beyond audio data, which could result in Process() call never removing any data from read buffer at end of audio data because iAudioBytesRemaining > 0 && iAudioBytesRemaining < iSampleBoundaryBytes, so it fills read buffer and requests more data on next call.
-    const TUint remaining = iAudioBytesRemaining % iSampleBoundaryBytes;    // "fmt " chunk must come before "data" chunk, so iSampleBoundaryBytes should be initialised.
+    // This avoids scenario where files may have miscellaneous data beyond audio data, which could result in Process() call never removing any data from read buffer at end of audio data because iAudioBytesRemaining > 0 && iAudioBytesRemaining < iSampleBytesSrc, so it fills read buffer and requests more data on next call.
+    const TUint remaining = iAudioBytesRemaining % iSampleBytesSrc;    // "fmt " chunk must come before "data" chunk, so iSampleBytesSrc should be initialised.
     iAudioBytesRemaining -= remaining;
 
     iTrackStart += 8;
 
-    const TUint numSamples = iAudioBytesRemaining / iSampleBoundaryBytes;
+    const TUint numSamples = iAudioBytesRemaining / iSampleBytesSrc;
     iTrackLengthJiffies = ((TUint64)numSamples * Jiffies::kPerSecond) / iSampleRate;
 }
 
@@ -340,4 +357,61 @@ TUint CodecWav::FindChunk(const Brx& aChunkId)
 void CodecWav::SendMsgDecodedStream(TUint64 aStartSample)
 {
     iController->OutputDecodedStream(iBitRate, iBitDepth, iSampleRate, iNumChannels, Brn("WAV"), iTrackLengthJiffies, aStartSample, true, DeriveProfile(iNumChannels));
+}
+
+void CodecWav::WriteSamples(TByte*& aDest, TUint& aSamplesWritten, TUint aSamplesDest)
+{
+    const auto src = iAudioEncoded->AudioData().Ptr(iAudioEncoded->AudioDataOffset() + iAudioEncodedBytesConsumed);
+    const auto srcRemaining = iAudioEncoded->Bytes() - iAudioEncodedBytesConsumed;
+    const auto srcSamples = srcRemaining / iSampleBytesSrc;
+    const auto samples = std::min(srcSamples, aSamplesDest);
+    WriteSamples(aDest, src, samples);
+    aSamplesWritten += samples;
+    iAudioEncodedBytesConsumed += (samples * iSampleBytesSrc);
+    if (iAudioEncoded->Bytes() == iAudioEncodedBytesConsumed) {
+        ClearAudioEncoded();
+    }
+}
+
+void CodecWav::WriteSamples(TByte*& aDest, const TByte* aSrc, TUint aSamples)
+{
+    const auto bytes = aSamples * iSampleBytesSrc;
+    switch (iBitDepthSrc)
+    {
+    case 8:
+        (void)memcpy(aDest, aSrc, bytes);
+        aDest += bytes;
+        break;
+    case 16:
+        for (TUint i = 0; i < bytes; i += 2) {
+            *aDest++ = aSrc[i + 1];
+            *aDest++ = aSrc[i];
+        }
+        break;
+    case 24:
+        for (TUint i = 0; i < bytes; i += 3) {
+            *aDest++ = aSrc[i + 2];
+            *aDest++ = aSrc[i + 1];
+            *aDest++ = aSrc[i];
+        }
+        break;
+    case 32:
+        // FIXME - ask animator for its max bit depth rather than hard-coding core4 constraints
+        for (TUint i = 0; i < bytes; i += 4) {
+            *aDest++ = aSrc[i + 3];
+            *aDest++ = aSrc[i + 2];
+            *aDest++ = aSrc[i + 1];
+            // discard least significant byte of aSrc
+        }
+        break;
+    }
+}
+
+void CodecWav::ClearAudioEncoded()
+{
+    if (iAudioEncoded != nullptr) {
+        iAudioEncoded->RemoveRef();
+        iAudioEncoded = nullptr;
+    }
+    iAudioEncodedBytesConsumed = 0;
 }

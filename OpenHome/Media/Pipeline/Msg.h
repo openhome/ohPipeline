@@ -121,6 +121,8 @@ public:
     AudioData(AllocatorBase& aAllocator);
     const TByte* Ptr(TUint aOffsetBytes) const;
     TUint Bytes() const;
+    TByte* PtrW();
+    void SetBytes(TUint aBytes);
 #ifdef TIMESTAMP_LOGGING_ENABLE
     void SetTimestamp(const TChar* aId);
     TBool TryLogTimestamps();
@@ -168,10 +170,12 @@ public:
     static const TUint kMaxNumChannels = 8;
 public:
     void Aggregate(DecodedAudio& aDecodedAudio);
+    void SetBytes(TUint aBytes);
 private:
     DecodedAudio(AllocatorBase& aAllocator);
     void ConstructPcm(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
     void ConstructDsd(const Brx& aData);
+    void Construct();
     static void CopyToBigEndian16(const Brx& aData, TByte* aDest);
     static void CopyToBigEndian24(const Brx& aData, TByte* aDest);
     static void CopyToBigEndian32(const Brx& aData, TByte* aDest);
@@ -637,6 +641,8 @@ public:
     TUint Bytes() const;
     void CopyTo(TByte* aPtr);
     MsgAudioEncoded* Clone();
+    const EncodedAudio& AudioData() const;
+    TUint AudioDataOffset() const;
     inline void AddLogPoint(const TChar* aId);
 private:
     void Initialise(EncodedAudio* aEncodedAudio);
@@ -1820,6 +1826,12 @@ public:
      *             Throws FormatUnsupported if DSD is not supported.
      */
     virtual TUint PipelineAnimatorDsdBlockSizeWords() const = 0;
+    /**
+     * Report the maximum bit depth supported.
+     *
+     * @return     Bit depth.  Practically, 32 or 24.
+     */
+    virtual TUint PipelineAnimatorMaxBitDepth() const = 0;
 };
 
 class IPipeline : public IPipelineElementUpstream
@@ -1923,15 +1935,16 @@ public:
     MsgBitRate* CreateMsgBitRate(TUint aBitRate);
     MsgAudioPcm* CreateMsgAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset);
     MsgAudioPcm* CreateMsgAudioPcm(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset); // aAudio must contain big endian pcm data
+    MsgAudioPcm* CreateMsgAudioPcm(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset);
     MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset, TUint aPadBytesPerChunk);
     MsgAudioDsd* CreateMsgAudioDsd(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset, TUint aPadBytesPerChunk);
     MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels);
     MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords);
     MsgQuit* CreateMsgQuit();
+    DecodedAudio* CreateDecodedAudio();
 private:
     EncodedAudio* CreateEncodedAudio(const Brx& aData);
     DecodedAudio* CreateDecodedAudio(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
-    MsgAudioPcm* CreateMsgAudioPcm(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset);
     MsgAudioDsd* CreateMsgAudioDsd(DecodedAudio* aAudioData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset, TUint aPadBytesPerChunk);
 private:
     Allocator<MsgMode> iAllocatorMsgMode;

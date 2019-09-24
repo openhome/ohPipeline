@@ -167,6 +167,7 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override;
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
+    TUint PipelineAnimatorMaxBitDepth() const override;
 private:
     void TestDelayShorterThanMinimum();
     void TestAnimatorCalledOnStreamChange();
@@ -950,6 +951,11 @@ TUint SuiteVariableDelayRight::PipelineAnimatorDelayJiffies(AudioFormat /*aForma
 TUint SuiteVariableDelayRight::PipelineAnimatorDsdBlockSizeWords() const
 {
     return 1;
+}
+
+TUint SuiteVariableDelayRight::PipelineAnimatorMaxBitDepth() const
+{
+    return 24;
 }
 
 void SuiteVariableDelayRight::TestDelayShorterThanMinimum()

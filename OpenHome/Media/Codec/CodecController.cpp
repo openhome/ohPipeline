@@ -173,6 +173,7 @@ CodecController::CodecController(MsgFactory& aMsgFactory, IPipelineElementUpstre
     , iShutdownSem("CDC2", 0)
     , iActiveCodec(nullptr)
     , iPendingMsg(nullptr)
+    , iPendingQuit(nullptr)
     , iSeekObserver(nullptr)
     , iSeekHandle(0)
     , iPostSeekFlush(nullptr)
@@ -189,8 +190,11 @@ CodecController::CodecController(MsgFactory& aMsgFactory, IPipelineElementUpstre
     , iStreamLength(0)
     , iStreamPos(0)
     , iTrackId(UINT_MAX)
+    , iMaxOutputSamples(0)
     , iMaxOutputBytes(0)
     , iMaxOutputJiffies(aMaxOutputJiffies)
+    , iAudioDecoded(nullptr)
+    , iAudioDecodedBytes(0)
 {
     iDecoderThread = new ThreadFunctor("CodecController", MakeFunctor(*this, &CodecController::CodecThread), aThreadPriority);
     if (aLogger) {
@@ -210,6 +214,7 @@ CodecController::~CodecController()
         delete iCodecs[i];
     }
     ReleaseAudioEncoded();
+    ReleaseAudioDecoded();
     if (iPostSeekFlush != nullptr) {
         iPostSeekFlush->RemoveRef();
     }
@@ -291,10 +296,11 @@ void CodecController::CodecThread()
             iLock.Wait();
             iQueueTrackData = iStreamEnded = iStreamStopped = iSeek = iRecognising = iSeekInProgress = false;
             iActiveCodec = nullptr;
-            iChannels = iBitDepth = 0;
+            iChannels = iBitDepth = iBytesPerSample = 0;
             iSampleRate = iSeekSeconds = 0;
             iStreamPos = 0LL;
             ReleaseAudioEncoded();
+            ReleaseAudioDecoded();
             iLock.Signal();
 
             LOG(kMedia, "CodecThread - search for new stream\n");
@@ -462,6 +468,10 @@ void CodecController::CodecThread()
         Queue(iPendingMsg);
         iPendingMsg = nullptr;
     }
+    if (iPendingQuit != nullptr) {
+        Queue(iPendingQuit);
+        iPendingQuit = nullptr;
+    }
 }
 
 void CodecController::Rewind()
@@ -512,6 +522,14 @@ void CodecController::ReleaseAudioEncoded()
     if (iAudioEncoded != nullptr) {
         iAudioEncoded->RemoveRef();
         iAudioEncoded = nullptr;
+    }
+}
+
+void CodecController::ReleaseAudioDecoded()
+{
+    if (iAudioDecoded != nullptr) {
+        iAudioDecoded->RemoveRef();
+        iAudioDecoded = nullptr;
     }
 }
 
@@ -594,6 +612,10 @@ MsgAudioEncoded* CodecController::ReadNextMsg()
 {
     while (iAudioEncoded == nullptr) {
         Msg* msg = PullMsg();
+        if (iQuit && iPendingQuit == nullptr) {
+            iPendingQuit = msg;
+            msg = nullptr;
+        }
         if (msg != nullptr) {
             Queue(msg);
         }
@@ -641,6 +663,7 @@ TBool CodecController::TrySeekTo(TUint aStreamId, TUint64 aBytePos)
     LOG(kPipeline, "CodecController::TrySeekTo(%u, %llu) returning %u\n", aStreamId, aBytePos, flushId);
     if (flushId != MsgFlush::kIdInvalid) {
         ReleaseAudioEncoded();
+        ReleaseAudioDecoded();
         iExpectedFlushId = flushId;
         iConsumeExpectedFlush = false;
         iExpectedSeekFlushId = flushId;
@@ -708,6 +731,7 @@ void CodecController::DoOutputDecodedStream(MsgDecodedStream* aMsg)
         iChannels = stream.NumChannels();
         iSampleRate = stream.SampleRate();
         iBitDepth = stream.BitDepth();
+        iBytesPerSample = iChannels * iBitDepth / 8;
 
         // Handle when the new MsgDecodedStream should be output.
         if (iPostSeekStreamInfo != nullptr) {
@@ -727,8 +751,8 @@ void CodecController::DoOutputDecodedStream(MsgDecodedStream* aMsg)
             queue = false;
         }
 
-        const TUint maxSamples = Jiffies::ToSamples(iMaxOutputJiffies, iSampleRate);
-        iMaxOutputBytes = (maxSamples * iBitDepth  * iChannels) / 8;
+        iMaxOutputSamples = Jiffies::ToSamples(iMaxOutputJiffies, iSampleRate);
+        iMaxOutputBytes = (iMaxOutputSamples * iBitDepth  * iChannels) / 8;
     }
     if (queue) {
         Queue(aMsg);
@@ -876,6 +900,28 @@ void CodecController::OutputStreamInterrupted()
 {
     MsgStreamInterrupted* interrupted = iMsgFactory.CreateMsgStreamInterrupted();
     Queue(interrupted);
+}
+
+void CodecController::GetAudioBuf(TByte*& aDest, TUint& aSamples)
+{
+    if (iAudioDecoded == nullptr) {
+        iAudioDecoded = iMsgFactory.CreateDecodedAudio();
+        iAudioDecodedBytes = 0;
+    }
+    aDest = iAudioDecoded->PtrW() + iAudioDecodedBytes;
+    const auto samplesMsg = (AudioData::kMaxBytes - iAudioDecodedBytes) / iBytesPerSample;
+    aSamples = std::min(iMaxOutputSamples, samplesMsg);
+}
+
+void CodecController::OutputAudioBuf(TUint aSamples, TUint64& aTrackOffset)
+{
+    iAudioDecodedBytes += (aSamples * iBytesPerSample);
+    iAudioDecoded->SetBytes(iAudioDecodedBytes);
+    auto audioPcm = iMsgFactory.CreateMsgAudioPcm(iAudioDecoded, iChannels, iSampleRate, iBitDepth, aTrackOffset);
+    iAudioDecoded = nullptr; // ownership of reference passed to audioPcm
+    iAudioDecodedBytes = 0;
+    const TUint64 jiffies = DoOutputAudio(audioPcm);
+    aTrackOffset += jiffies;
 }
 
 Msg* CodecController::ProcessMsg(MsgMode* aMsg)

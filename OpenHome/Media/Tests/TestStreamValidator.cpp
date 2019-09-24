@@ -91,6 +91,7 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override;
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
+    TUint PipelineAnimatorMaxBitDepth() const override;
 private: // from IStreamHandler
     EStreamPlay OkToPlay(TUint aStreamId) override;
     TUint TrySeek(TUint aStreamId, TUint64 aOffset) override;
@@ -497,6 +498,11 @@ TUint SuiteStreamValidator::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/
 TUint SuiteStreamValidator::PipelineAnimatorDsdBlockSizeWords() const
 {
     return 1;
+}
+
+TUint SuiteStreamValidator::PipelineAnimatorMaxBitDepth() const
+{
+    return 32;
 }
 
 EStreamPlay SuiteStreamValidator::OkToPlay(TUint /*aStreamId*/)

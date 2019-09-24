@@ -130,6 +130,7 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override;
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
+    TUint PipelineAnimatorMaxBitDepth() const override;
 private: // from IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
@@ -901,6 +902,11 @@ TUint SuitePipeline::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint
 TUint SuitePipeline::PipelineAnimatorDsdBlockSizeWords() const
 {
     return 1;
+}
+
+TUint SuitePipeline::PipelineAnimatorMaxBitDepth() const
+{
+    return 24;
 }
 
 void SuitePipeline::ApplyVolumeMultiplier(TUint /*aValue*/)

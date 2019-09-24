@@ -252,6 +252,8 @@ public:
      * This allows the pipeline to ramp audio down/up to avoid glitches caused by a stream discontinuity. A MsgDecodedStream must follow this.
      */
     virtual void OutputStreamInterrupted() = 0;
+    virtual void GetAudioBuf(TByte*& aDest, TUint& aSamples) = 0;
+    virtual void OutputAudioBuf(TUint aSamples, TUint64& aTrackOffset) = 0;
 };
 
 class EncodedStreamInfo
@@ -397,6 +399,7 @@ private:
     void Queue(Msg* aMsg);
     TBool QueueTrackData() const;
     void ReleaseAudioEncoded();
+    void ReleaseAudioDecoded();
     TBool DoRead(Bwx& aBuf, TUint aBytes);
     void DoOutputDecodedStream(MsgDecodedStream* aMsg);
     TUint64 DoOutputAudio(MsgAudio* aAudioMsg);
@@ -422,6 +425,8 @@ private: // ICodecController
     void OutputHalt() override;
     void OutputMetaText(const Brx& aMetaText) override;
     void OutputStreamInterrupted() override;
+    void GetAudioBuf(TByte*& aDest, TUint& aSamples) override;
+    void OutputAudioBuf(TUint aSamples, TUint64& aTrackOffset) override;
 private: // IMsgProcessor
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgTrack* aMsg) override;
@@ -460,6 +465,7 @@ private:
     ThreadFunctor* iDecoderThread;
     CodecBase* iActiveCodec;
     Msg* iPendingMsg;
+    Msg* iPendingQuit;
     TBool iQueueTrackData;
     TBool iStreamStarted;
     TBool iStreamEnded;
@@ -489,12 +495,16 @@ private:
     BwsTrackUri iTrackUri;
     TUint iChannels;    // Only for detecting out-of-sequence MsgAudioPcm.
     TUint iSampleRate;
-    TUint iBitDepth;    // Only for detecting out-of-sequence MsgAudioP
+    TUint iBitDepth;    // Only for detecting out-of-sequence MsgAudioPcm
+    TUint iBytesPerSample;
     TUint64 iStreamLength;
     TUint64 iStreamPos;
     TUint iTrackId;
+    TUint iMaxOutputSamples;
     TUint iMaxOutputBytes;
     const TUint iMaxOutputJiffies;
+    DecodedAudio* iAudioDecoded;
+    TUint iAudioDecodedBytes;
 };
 
 class CodecBufferedReader : public IReader, private INonCopyable
