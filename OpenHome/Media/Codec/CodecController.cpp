@@ -695,11 +695,15 @@ void CodecController::OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint
         Log::Print("ERROR: encoded stream with %u channels cannot be played\n", aNumChannels);
         THROW(CodecStreamFeatureUnsupported);
     }
+    auto multiroom = iMultiroom;
+    if (aSampleRate > 192000) {
+        multiroom = Multiroom::Forbidden;
+    }
     MsgDecodedStream* msg =
         iMsgFactory.CreateMsgDecodedStream(iStreamId, aBitRate, aBitDepth, aSampleRate, aNumChannels,
                                            aCodecName, aTrackLength, aSampleStart,
                                            aLossless, iSeekable, iLive, aAnalogBypass,
-                                           AudioFormat::Pcm, iMultiroom, aProfile, this);
+                                           AudioFormat::Pcm, multiroom, aProfile, this);
     DoOutputDecodedStream(msg);
 }
 

@@ -223,6 +223,8 @@ private:
     static const TUint kJiffies96000    = kPerSecond / 96000;
     static const TUint kJiffies176400   = kPerSecond / 176400;
     static const TUint kJiffies192000   = kPerSecond / 192000;
+    static const TUint kJiffies352800   = kPerSecond / 352800;
+    static const TUint kJiffies384000   = kPerSecond / 384000;
     static const TUint kJiffies2822400  = kPerSecond / 2822400; // DSD only from here on
     static const TUint kJiffies5644800  = kPerSecond / 5644800;
     static const TUint kJiffies11289600 = kPerSecond / 11289600;
@@ -1829,7 +1831,6 @@ public:
     /**
      * Report the maximum bit depth supported.
      *
-     * @return     Bit depth.  Practically, 32 or 24.
      */
     virtual TUint PipelineAnimatorMaxBitDepth() const = 0;
 };

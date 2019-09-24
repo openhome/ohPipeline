@@ -17,7 +17,7 @@ static const TUint kFeedbackDataDescaleBitCount = 0;
 static const TUint kFeedbackDataFormat = 1;
 
 static const TUint kMaxChannelCount = 10;
-static const TUint kMaxSampleRate = 192000;
+static const TUint kMaxSampleRate = 384000;
 
 const TUint FlywheelRamperManager::kMaxOutputJiffiesBlockSize = Jiffies::kPerMs; // 1ms
 

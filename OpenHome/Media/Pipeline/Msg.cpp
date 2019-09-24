@@ -457,6 +457,10 @@ TUint Jiffies::PerSample(TUint aSampleRate)
         return kJiffies176400;
     case 192000:
         return kJiffies192000;
+    case 352800:
+        return kJiffies352800;
+    case 384000:
+        return kJiffies384000;
     case 2822400:
         return kJiffies2822400;
     case 5644800:
@@ -519,6 +523,7 @@ TUint Jiffies::SongcastTicksPerSecond(TUint aSampleRate)
     case 44100:
     case 88200:
     case 176400:
+    case 352800:
         return kSongcastTicksPerSec44k;
 
     case 8000:
@@ -529,6 +534,7 @@ TUint Jiffies::SongcastTicksPerSecond(TUint aSampleRate)
     case 48000:
     case 96000:
     case 192000:
+    case 384000:
         return kSongcastTicksPerSec48k;
 
     default:
