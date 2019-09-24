@@ -845,6 +845,7 @@ Msg* Pipeline::Pull()
 
 void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
 {
+    iCodecController->SetAnimator(aAnimator);
     iStreamValidator->SetAnimator(aAnimator);
     iVariableDelay1->SetAnimator(aAnimator);
     iVariableDelay2->SetAnimator(aAnimator);

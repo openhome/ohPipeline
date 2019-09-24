@@ -277,7 +277,7 @@ void CodecWav::ProcessFmtChunk()
     iBitRate = byteRate * 8;
     //const TUint blockAlign = Converter::LeUint16At(iReadBuf, 12);
     iBitDepthSrc = Converter::LeUint16At(iReadBuf, 14);
-    iBitDepth = std::min(iBitDepthSrc, 24u); // FIXME - read this from animator
+    iBitDepth = std::min(iBitDepthSrc, iController->MaxBitDepth());
     // Calculate a sample boundary that will keep pipeline happy.
     iSampleBytesSrc = iNumChannels * (iBitDepthSrc / 8);
     iSampleBytesDest = iNumChannels * (iBitDepth / 8);
@@ -401,7 +401,10 @@ void CodecWav::WriteSamples(TByte*& aDest, const TByte* aSrc, TUint aSamples)
             *aDest++ = aSrc[i + 3];
             *aDest++ = aSrc[i + 2];
             *aDest++ = aSrc[i + 1];
-            // discard least significant byte of aSrc
+            // discard least significant byte of aSrc if Animator is limited to 24-bit audio
+            if (iBitDepth > 24) {
+                *aDest++ = aSrc[i];
+            }
         }
         break;
     }

@@ -171,6 +171,7 @@ CodecController::CodecController(MsgFactory& aMsgFactory, IPipelineElementUpstre
     , iUrlBlockWriter(aUrlBlockWriter)
     , iLock("CDCC")
     , iShutdownSem("CDC2", 0)
+    , iAnimator(nullptr)
     , iActiveCodec(nullptr)
     , iPendingMsg(nullptr)
     , iPendingQuit(nullptr)
@@ -248,6 +249,11 @@ void CodecController::AddCodec(CodecBase* aCodec)
 void CodecController::Start()
 {
     iDecoderThread->Start();
+}
+
+void CodecController::SetAnimator(IPipelineAnimator& aAnimator)
+{
+    iAnimator = &aAnimator;
 }
 
 void CodecController::StartSeek(TUint aStreamId, TUint aSecondsAbsolute, ISeekObserver& aObserver, TUint& aHandle)
@@ -926,6 +932,14 @@ void CodecController::OutputAudioBuf(TUint aSamples, TUint64& aTrackOffset)
     iAudioDecodedBytes = 0;
     const TUint64 jiffies = DoOutputAudio(audioPcm);
     aTrackOffset += jiffies;
+}
+
+TUint CodecController::MaxBitDepth() const
+{
+    if (iAnimator == nullptr) { // test code - allow all bit depths
+        return 32;
+    }
+    return iAnimator->PipelineAnimatorMaxBitDepth();
 }
 
 Msg* CodecController::ProcessMsg(MsgMode* aMsg)

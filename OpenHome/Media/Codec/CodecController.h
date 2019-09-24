@@ -254,6 +254,7 @@ public:
     virtual void OutputStreamInterrupted() = 0;
     virtual void GetAudioBuf(TByte*& aDest, TUint& aSamples) = 0;
     virtual void OutputAudioBuf(TUint aSamples, TUint64& aTrackOffset) = 0;
+    virtual TUint MaxBitDepth() const = 0;
 };
 
 class EncodedStreamInfo
@@ -392,6 +393,7 @@ public:
     virtual ~CodecController();
     void AddCodec(CodecBase* aCodec);
     void Start();
+    void SetAnimator(IPipelineAnimator& aAnimator);
 private:
     void CodecThread();
     void Rewind();
@@ -427,6 +429,7 @@ private: // ICodecController
     void OutputStreamInterrupted() override;
     void GetAudioBuf(TByte*& aDest, TUint& aSamples) override;
     void OutputAudioBuf(TUint aSamples, TUint64& aTrackOffset) override;
+    TUint MaxBitDepth() const;
 private: // IMsgProcessor
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgTrack* aMsg) override;
@@ -463,6 +466,7 @@ private:
     Semaphore iShutdownSem;
     std::vector<CodecBase*> iCodecs;
     ThreadFunctor* iDecoderThread;
+    IPipelineAnimator* iAnimator;
     CodecBase* iActiveCodec;
     Msg* iPendingMsg;
     Msg* iPendingQuit;
