@@ -769,12 +769,6 @@ void CodecController::DoOutputDecodedStream(MsgDecodedStream* aMsg)
     }
 }
 
-void CodecController::OutputDelay(TUint aJiffies)
-{
-    MsgDelay* msg = iMsgFactory.CreateMsgDelay(aJiffies);
-    Queue(msg);
-}
-
 TUint64 CodecController::OutputAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset)
 {
     ASSERT(aChannels == iChannels);
@@ -886,18 +880,6 @@ void CodecController::OutputBitRate(TUint aBitRate)
 {
     auto msg = iMsgFactory.CreateMsgBitRate(aBitRate);
     Queue(msg);
-}
-
-void CodecController::OutputWait()
-{
-    MsgWait* wait = iMsgFactory.CreateMsgWait();
-    Queue(wait);
-}
-
-void CodecController::OutputHalt()
-{
-    MsgHalt* halt = iMsgFactory.CreateMsgHalt();
-    Queue(halt);
 }
 
 void CodecController::OutputMetaText(const Brx& aMetaText)

@@ -141,16 +141,6 @@ public:
     virtual void OutputDecodedStreamDsd(TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName,
                                         TUint64 aLength, TUint64 aSampleStart, SpeakerProfile aProfile) = 0;
     /**
-     * Notify the pipeline of a change in delay (latency).
-     *
-     * Only used for audio formats which embed latency requirements with audio data.
-     * Any change in delay will be applied after any previously output audio is played
-     * but before any subsequent audio.
-     *
-     * @param[in] aJiffies       Delay in Jiffies.
-     */
-    virtual void OutputDelay(TUint aJiffies) = 0;
-    /**
      * Add a block of decoded (PCM) audio to the pipeline.
      *
      * @param[in] aData          PCM audio data.  Must contain an exact number of samples.
@@ -223,21 +213,6 @@ public:
      * @param[in] aBitRate       Updated bit rate.
      */
     virtual void OutputBitRate(TUint aBitRate) = 0;
-    /**
-     * Output a Wait command to the pipeline.
-     *
-     * This hints that there may now be a break in audio.  This break would be expected
-     * so the pipeline will report its state as Waiting rather than Buffering.
-     */
-    virtual void OutputWait() = 0;
-    /**
-     * Output a Halt command to the pipeline.
-     *
-     * This hints that a break in audio may follow.  The publisher of the audio stream
-     * anticipated this and has already ramped the audio down.  The pipeline will not ramp
-     * down if network exhaustion immediately follows a Halt command.
-     */
-    virtual void OutputHalt() = 0;
     /**
      * Notify the pipeline of an update in meta text.
      *
@@ -417,14 +392,11 @@ private: // ICodecController
     TUint64 StreamPos() const override;
     void OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart, TBool aLossless, SpeakerProfile aProfile, TBool aAnalogBypass) override;
     void OutputDecodedStreamDsd(TUint aSampleRate, TUint aNumChannels, const Brx& aCodecName, TUint64 aLength, TUint64 aSampleStart, SpeakerProfile aProfile) override;
-    void OutputDelay(TUint aJiffies) override;
     TUint64 OutputAudioPcm(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aBitDepth, AudioDataEndian aEndian, TUint64 aTrackOffset) override;
     TUint64 OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset) override;
     TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk) override;
     TUint64 OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk) override;
     void OutputBitRate(TUint aBitRate) override;
-    void OutputWait() override;
-    void OutputHalt() override;
     void OutputMetaText(const Brx& aMetaText) override;
     void OutputStreamInterrupted() override;
     void GetAudioBuf(TByte*& aDest, TUint& aSamples) override;
