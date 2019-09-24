@@ -401,7 +401,7 @@ private: // ICodecController
     void OutputStreamInterrupted() override;
     void GetAudioBuf(TByte*& aDest, TUint& aSamples) override;
     void OutputAudioBuf(TUint aSamples, TUint64& aTrackOffset) override;
-    TUint MaxBitDepth() const;
+    TUint MaxBitDepth() const override;
 private: // IMsgProcessor
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgTrack* aMsg) override;
