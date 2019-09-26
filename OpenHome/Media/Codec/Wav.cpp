@@ -137,6 +137,10 @@ void CodecWav::Process()
         TByte* dest;
         TUint samplesDest;
         iController->GetAudioBuf(dest, samplesDest);
+        const auto bytesDest = samplesDest * iSampleBytesSrc;
+        if (iFileSize != 0 && bytesDest > iAudioBytesRemaining) {
+            samplesDest = iAudioBytesRemaining / iSampleBytesSrc;
+        }
         TUint samplesWritten = 0;
         if (iAudioEncoded != nullptr) {
             WriteSamples(dest, samplesWritten, samplesDest);
@@ -178,6 +182,9 @@ void CodecWav::Process()
         }
 
         iController->OutputAudioBuf(samplesWritten, iTrackOffset);
+        if (iFileSize != 0) {
+            iAudioBytesRemaining -= samplesWritten * iSampleBytesSrc;
+        }
     }
 }
 
