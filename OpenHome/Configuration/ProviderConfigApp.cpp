@@ -460,7 +460,7 @@ void ProviderConfigApp::ResetAll(IDvInvocation& aInvocation)
 {
     iStore.ResetToDefaults();
     ASSERT(iRebootHandler != nullptr);
-    iRebootHandler->Reboot(kRebootReason);
     aInvocation.StartResponse();
     aInvocation.EndResponse();
+    iRebootHandler->Reboot(kRebootReason);
 }
