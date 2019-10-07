@@ -118,7 +118,7 @@ public:
     static const TUint kMacAddrBytes = 12;
 public:
     // aMacAddr in hex of form 001122334455
-    RaopDevice(Net::DvStack& aDvStack, TUint aDiscoveryPort, IFriendlyNameObservable& aFriendlyNameObservable, TIpAddress aIpAddr, const Brx& aMacAddr, Net::IMdnsProvider& aProvider);
+    RaopDevice(TUint aDiscoveryPort, IFriendlyNameObservable& aFriendlyNameObservable, TIpAddress aIpAddr, const Brx& aMacAddr, Net::IMdnsProvider& aProvider);
     ~RaopDevice();
     void Register();
     void Deregister();
@@ -224,7 +224,7 @@ private:
 class RaopDiscoveryServer : public IRaopDiscovery, private IRaopObserver, private INonCopyable
 {
 public:
-    RaopDiscoveryServer(Environment& aEnv, Net::DvStack& aDvStack, NetworkAdapter& aNif, IFriendlyNameObservable& aFriendlyNameObservable, const Brx& aMacAddr, Media::IAttenuator& aAttenuator, Net::IMdnsProvider& aProvider);
+    RaopDiscoveryServer(Environment& aEnv, NetworkAdapter& aNif, IFriendlyNameObservable& aFriendlyNameObservable, const Brx& aMacAddr, Media::IAttenuator& aAttenuator, Net::IMdnsProvider& aProvider);
     ~RaopDiscoveryServer();
     const NetworkAdapter& Adapter() const;
     void AddObserver(IRaopServerObserver& aObserver); // FIXME - can probably do away with this and just pass a single IRaopServerObserver in at construction (i.e., a ref to the RaopDiscovery class, as this will only call that)
@@ -290,7 +290,7 @@ class RaopDiscovery : public IRaopDiscovery, public IPowerHandler, private IRaop
 public:
     static const TUint kVolMaxScaled = 256;
 public:
-    RaopDiscovery(Environment& aEnv, Net::DvStack& aDvStack, IPowerManager& aPowerManager, IFriendlyNameObservable& aFriendlyNameObservable, const Brx& aMacAddr, Media::IAttenuator& aAttenuator, Net::IMdnsProvider& aProvider);
+    RaopDiscovery(Environment& aEnv, IPowerManager& aPowerManager, IFriendlyNameObservable& aFriendlyNameObservable, const Brx& aMacAddr, Media::IAttenuator& aAttenuator, Net::IMdnsProvider& aProvider);
     ~RaopDiscovery();
     void AddObserver(IRaopObserver& aObserver);
 public: // from IRaopDiscovery
@@ -317,7 +317,6 @@ private:
     static TBool NifsMatch(const NetworkAdapter& aNif1, const NetworkAdapter& aNif2);
 private:
     Environment& iEnv;
-    Net::DvStack& iDvStack;
     const Bws<RaopDevice::kMaxNameBytes> iHostName;
     IFriendlyNameObservable& iFriendlyNameObservable;
     const Bws<RaopDevice::kMacAddrBytes> iMacAddr;

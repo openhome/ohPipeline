@@ -89,7 +89,7 @@ SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider
     , iSemSessionStart("SRDS", 0)
     , iQuit(false)
 {
-    iRaopDiscovery = new RaopDiscovery(aMediaPlayer.Env(), aMediaPlayer.DvStack(), aMediaPlayer.PowerManager(), aMediaPlayer.FriendlyNameObservable(), aMacAddr, aMediaPlayer.Pipeline(), aMdnsProvider);
+    iRaopDiscovery = new RaopDiscovery(aMediaPlayer.Env(), aMediaPlayer.PowerManager(), aMediaPlayer.FriendlyNameObservable(), aMacAddr, aMediaPlayer.Pipeline(), aMdnsProvider);
     iRaopDiscovery->AddObserver(*this);
 
     iAudioId = iServerManager.CreateServer();
