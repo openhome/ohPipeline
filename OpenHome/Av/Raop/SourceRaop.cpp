@@ -46,11 +46,11 @@ using namespace OpenHome::Net;
 
 // SourceFactory
 
-ISource* SourceFactory::NewRaop(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller, const Brx& aMacAddr, TUint aServerThreadPriority)
+ISource* SourceFactory::NewRaop(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller, const Brx& aMacAddr, TUint aServerThreadPriority, IMdnsProvider& aMdnsProvider)
 { // static
     UriProviderRaop* raopUriProvider = new UriProviderRaop(aMediaPlayer, aClockPuller);
     aMediaPlayer.Add(raopUriProvider);
-    return new SourceRaop(aMediaPlayer, *raopUriProvider, aMacAddr, aServerThreadPriority);
+    return new SourceRaop(aMediaPlayer, *raopUriProvider, aMacAddr, aServerThreadPriority, aMdnsProvider);
 }
 
 const TChar* SourceFactory::kSourceTypeRaop = "NetAux";
@@ -75,7 +75,7 @@ ModeClockPullers UriProviderRaop::ClockPullers()
 
 const Brn SourceRaop::kRaopPrefix("raop://");
 
-SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aServerThreadPriority)
+SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aServerThreadPriority, IMdnsProvider& aMdnsProvider)
     : Source(SourceFactory::kSourceNameRaop, SourceFactory::kSourceTypeRaop, aMediaPlayer.Pipeline(), false)
     , iEnv(aMediaPlayer.Env())
     , iLock("SRAO")
@@ -89,7 +89,7 @@ SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider
     , iSemSessionStart("SRDS", 0)
     , iQuit(false)
 {
-    iRaopDiscovery = new RaopDiscovery(aMediaPlayer.Env(), aMediaPlayer.DvStack(), aMediaPlayer.PowerManager(), aMediaPlayer.FriendlyNameObservable(), aMacAddr, aMediaPlayer.Pipeline());
+    iRaopDiscovery = new RaopDiscovery(aMediaPlayer.Env(), aMediaPlayer.DvStack(), aMediaPlayer.PowerManager(), aMediaPlayer.FriendlyNameObservable(), aMacAddr, aMediaPlayer.Pipeline(), aMdnsProvider);
     iRaopDiscovery->AddObserver(*this);
 
     iAudioId = iServerManager.CreateServer();

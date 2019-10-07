@@ -1,7 +1,6 @@
 #pragma once
 
 #include <OpenHome/Media/Protocol/Rtsp.h>
-#include <OpenHome/Net/Private/MdnsProvider.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Network.h>
@@ -18,6 +17,10 @@ EXCEPTION(RaopVolumeInvalid);
 
 namespace OpenHome {
     class IPowerManager;
+    class NetworkAdapter;
+namespace Net {
+    class IMdnsProvider;
+}
 namespace Av {
 
 class IRaopServerObserver
@@ -115,7 +118,7 @@ public:
     static const TUint kMacAddrBytes = 12;
 public:
     // aMacAddr in hex of form 001122334455
-    RaopDevice(Net::DvStack& aDvStack, TUint aDiscoveryPort, IFriendlyNameObservable& aFriendlyNameObservable, TIpAddress aIpAddr, const Brx& aMacAddr);
+    RaopDevice(Net::DvStack& aDvStack, TUint aDiscoveryPort, IFriendlyNameObservable& aFriendlyNameObservable, TIpAddress aIpAddr, const Brx& aMacAddr, Net::IMdnsProvider& aProvider);
     ~RaopDevice();
     void Register();
     void Deregister();
@@ -221,7 +224,7 @@ private:
 class RaopDiscoveryServer : public IRaopDiscovery, private IRaopObserver, private INonCopyable
 {
 public:
-    RaopDiscoveryServer(Environment& aEnv, Net::DvStack& aDvStack, NetworkAdapter& aNif, IFriendlyNameObservable& aFriendlyNameObservable, const Brx& aMacAddr, Media::IAttenuator& aAttenuator);
+    RaopDiscoveryServer(Environment& aEnv, Net::DvStack& aDvStack, NetworkAdapter& aNif, IFriendlyNameObservable& aFriendlyNameObservable, const Brx& aMacAddr, Media::IAttenuator& aAttenuator, Net::IMdnsProvider& aProvider);
     ~RaopDiscoveryServer();
     const NetworkAdapter& Adapter() const;
     void AddObserver(IRaopServerObserver& aObserver); // FIXME - can probably do away with this and just pass a single IRaopServerObserver in at construction (i.e., a ref to the RaopDiscovery class, as this will only call that)
@@ -287,7 +290,7 @@ class RaopDiscovery : public IRaopDiscovery, public IPowerHandler, private IRaop
 public:
     static const TUint kVolMaxScaled = 256;
 public:
-    RaopDiscovery(Environment& aEnv, Net::DvStack& aDvStack, IPowerManager& aPowerManager, IFriendlyNameObservable& aFriendlyNameObservable, const Brx& aMacAddr, Media::IAttenuator& aAttenuator);
+    RaopDiscovery(Environment& aEnv, Net::DvStack& aDvStack, IPowerManager& aPowerManager, IFriendlyNameObservable& aFriendlyNameObservable, const Brx& aMacAddr, Media::IAttenuator& aAttenuator, Net::IMdnsProvider& aProvider);
     ~RaopDiscovery();
     void AddObserver(IRaopObserver& aObserver);
 public: // from IRaopDiscovery
@@ -327,6 +330,7 @@ private:
     Mutex iServersLock;
     Mutex iObserversLock;
     Media::IAttenuator& iAttenuator;
+    Net::IMdnsProvider& iMdnsProvider;
 };
 
 } // namespace Av

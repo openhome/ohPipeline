@@ -15,6 +15,7 @@ namespace OpenHome {
     class IPowerManager;
 namespace Net {
     class DvStack;
+    class IMdnsProvider;
 }
 namespace Media {
     class PipelineManager;
@@ -31,7 +32,7 @@ class SourceRaop : public Source, public IRaopObserver, private Media::IPipeline
 private:
     static const Brn kRaopPrefix;
 public:
-    SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aUdpThreadPriority);
+    SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider, const Brx& aMacAddr, TUint aUdpThreadPriority, Net::IMdnsProvider& aMdnsProvider);
     ~SourceRaop();
     IRaopDiscovery& Discovery();
 private: // from ISource

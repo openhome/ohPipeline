@@ -470,7 +470,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     TUint priorityEvent = 0;
     iMediaPlayer->Pipeline().GetThreadPriorities(priorityFiller, priorityFlywheelRamper, priorityStarvationRamper, priorityCodec, priorityEvent);
     const TUint raopServerPriority = priorityFiller;
-    iMediaPlayer->Add(SourceFactory::NewRaop(*iMediaPlayer, Optional<IClockPuller>(nullptr), macAddr, raopServerPriority));
+    iMediaPlayer->Add(SourceFactory::NewRaop(*iMediaPlayer, Optional<IClockPuller>(nullptr), macAddr, raopServerPriority, *iMediaPlayer->Env().MdnsProvider()));
 
     iMediaPlayer->Add(SourceFactory::NewReceiver(*iMediaPlayer,
                                                  Optional<IClockPuller>(nullptr),
