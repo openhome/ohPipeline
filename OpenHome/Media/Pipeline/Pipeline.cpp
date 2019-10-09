@@ -325,19 +325,25 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                                                        aInitParams->GorgeDurationJiffies());
     downstream = iDecodedAudioReservoir;
 
+    ATTACH_ELEMENT(iDecodedAudioValidatorDecodedAudioAggregator, new DecodedAudioValidator("Decoded Audio Aggregator", *iDecodedAudioReservoir),
+                   downstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     ATTACH_ELEMENT(iLoggerDecodedAudioAggregator,
-                   new Logger("Decoded Audio Aggregator", *iDecodedAudioReservoir),
+                   new Logger("Decoded Audio Aggregator", *downstream),
                    downstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iDecodedAudioAggregator, new DecodedAudioAggregator(*downstream),
                    downstream, elementsSupported, EPipelineSupportElementsMandatory);
 
-    ATTACH_ELEMENT(iLoggerStreamValidator, new Logger("StreamValidator", *iDecodedAudioAggregator),
+    ATTACH_ELEMENT(iDecodedAudioValidatorStreamValidator, new DecodedAudioValidator("StreamValidator", *iDecodedAudioAggregator),
+                   downstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    ATTACH_ELEMENT(iLoggerStreamValidator, new Logger("StreamValidator", *downstream),
                    downstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iStreamValidator, new StreamValidator(*iMsgFactory, *downstream),
                    downstream, elementsSupported, EPipelineSupportElementsMandatory);
 
     // construct push logger slightly out of sequence
-    ATTACH_ELEMENT(iRampValidatorCodec, new RampValidator("Codec Controller", *iStreamValidator),
+    ATTACH_ELEMENT(iDecodedAudioValidatorCodec, new DecodedAudioValidator("Codec Controller", *iStreamValidator),
+                   downstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    ATTACH_ELEMENT(iRampValidatorCodec, new RampValidator("Codec Controller", *downstream),
                    downstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iLoggerCodecController, new Logger("Codec Controller", *downstream),
                    downstream, elementsSupported, EPipelineSupportElementsLogger);
@@ -349,12 +355,16 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     ATTACH_ELEMENT(iLoggerDecodedAudioReservoir,
                    new Logger(*iDecodedAudioReservoir, "Decoded Audio Reservoir"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
+    ATTACH_ELEMENT(iDecodedAudioValidatorDecodedAudioReservoir, new DecodedAudioValidator(*upstream, "Decoded Audio Reservoir"),
+                   upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     ATTACH_ELEMENT(iRamper, new Ramper(*upstream, aInitParams->RampLongJiffies(), aInitParams->RampShortJiffies()),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerRamper, new Logger(*iRamper, "Ramper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iRampValidatorRamper, new RampValidator(*upstream, "Ramper"),
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
+    ATTACH_ELEMENT(iDecodedAudioValidatorRamper, new DecodedAudioValidator(*upstream, "Ramper"),
+                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     ATTACH_ELEMENT(iSeeker, new Seeker(*iMsgFactory, *upstream, *iCodecController, aSeekRestreamer, aInitParams->RampShortJiffies()),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerSeeker, new Logger(*iSeeker, "Seeker"),
@@ -605,15 +615,20 @@ Pipeline::~Pipeline()
     delete iLoggerSeeker;
     delete iSeeker;
     delete iRampValidatorRamper;
+    delete iDecodedAudioValidatorRamper;
     delete iLoggerRamper;
     delete iRamper;
     delete iLoggerDecodedAudioReservoir;
+    delete iDecodedAudioValidatorDecodedAudioReservoir;
     delete iCodecController; // out of order - the start of a chain of pushers from iLoggerCodecController to iDecodedAudioReservoir
     delete iDecodedAudioReservoir;
+    delete iDecodedAudioValidatorDecodedAudioAggregator;
     delete iLoggerDecodedAudioAggregator;
     delete iDecodedAudioAggregator;
+    delete iDecodedAudioValidatorStreamValidator;
     delete iLoggerStreamValidator;
     delete iStreamValidator;
+    delete iDecodedAudioValidatorCodec;
     delete iRampValidatorCodec;
     delete iLoggerCodecController;
     delete iLoggerContainer;

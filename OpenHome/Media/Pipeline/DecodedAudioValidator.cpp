@@ -124,7 +124,8 @@ void DecodedAudioValidator::ProcessAudio(MsgAudioDecoded* aMsg)
 {
     const TUint64 streamPos = aMsg->TrackOffset();
     if (iExpectDecodedStreamBeforeAudio) {
-        Log::Print("WARNING: discontinuity in audio (%s): expected DecodedStream before audio\n", iId);
+        Log::Print("WARNING: discontinuity in audio (%s): expected DecodedStream before audio. Pos=%llu, jiffies=%u(%ums)\n",
+            iId, aMsg->TrackOffset(), aMsg->Jiffies(), Jiffies::ToMs(aMsg->Jiffies()));
     }
     else if (streamPos != MsgAudioPcm::kTrackOffsetInvalid) {
         if (iStreamPos < streamPos) {
