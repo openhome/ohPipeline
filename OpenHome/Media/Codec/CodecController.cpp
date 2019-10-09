@@ -617,16 +617,24 @@ void CodecController::ReadNextMsg(Bwx& aBuf)
 MsgAudioEncoded* CodecController::ReadNextMsg()
 {
     while (iAudioEncoded == nullptr) {
+        if (iStreamEnded || iQuit) {
+            THROW(CodecStreamEnded);
+        }
+        if (iStreamStopped) {
+            THROW(CodecStreamStopped);
+        }
         Msg* msg = PullMsg();
         if (iQuit && iPendingQuit == nullptr) {
             iPendingQuit = msg;
             msg = nullptr;
         }
+        else if (iStreamEnded || iStreamStopped) {
+            ASSERT(iPendingMsg == nullptr);
+            iPendingMsg = msg;
+            msg = nullptr;
+        }
         if (msg != nullptr) {
             Queue(msg);
-        }
-        if (iStreamEnded || iQuit) {
-            THROW(CodecStreamEnded);
         }
     }
     auto msg = iAudioEncoded;
