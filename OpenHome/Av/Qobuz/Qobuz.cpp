@@ -843,11 +843,11 @@ void Qobuz::ReportStreamEvents()
     }
     while (iPendingStops.size() > 0) {
         auto track = iPendingStops.front();
+        iPendingStops.pop_front();
         iLockStreamEvents.Signal();
         NotifyStreamStopped(*track);
-        iLockStreamEvents.Wait();
-        iPendingStops.pop_front();
         delete track;
+        iLockStreamEvents.Wait();
     }
     iLockStreamEvents.Signal();
 }
