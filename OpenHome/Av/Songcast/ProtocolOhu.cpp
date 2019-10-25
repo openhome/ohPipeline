@@ -130,11 +130,9 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
 
         {
             AutoMutex _(iMutexTransport);
-            if (iface != iAddr) {
-                iSocket.Close();
-                iSocket.OpenUnicast(iAddr, aTtl);
-                iface = iAddr;
-            }
+            iSocket.Close();
+            iSocket.OpenUnicast(iAddr, aTtl);
+            iface = iAddr;
         }
 
         if (iTimestamper != nullptr) {
