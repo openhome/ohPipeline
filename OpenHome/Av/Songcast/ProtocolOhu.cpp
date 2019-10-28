@@ -105,15 +105,6 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
     iNextFlushId = MsgFlush::kIdInvalid;
     iLeaveLock.Signal();
     iEndpoint.Replace(aEndpoint);
-    TIpAddress iface;
-    try {
-        AutoMutex _(iMutexTransport);
-        iSocket.OpenUnicast(iAddr, aTtl);
-        iface = iAddr;
-    }
-    catch (NetworkError&) {
-        return EProtocolStreamErrorUnrecoverable;
-    }
     TBool firstJoin = true;
     do {
         if (!firstJoin) {
@@ -128,11 +119,13 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
             iSocket.Interrupt(false);
         }
 
-        {
+        try {
             AutoMutex _(iMutexTransport);
             iSocket.Close();
             iSocket.OpenUnicast(iAddr, aTtl);
-            iface = iAddr;
+        }
+        catch (NetworkError&) {
+            return EProtocolStreamErrorUnrecoverable;
         }
 
         if (iTimestamper != nullptr) {
