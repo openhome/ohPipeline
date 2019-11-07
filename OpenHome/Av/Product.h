@@ -225,6 +225,7 @@ class FriendlyNameManager : public IFriendlyNameObservable, public IProductNameO
 public:
     FriendlyNameManager(const Brx& aPrefix, IProductNameObservable& aProduct, IThreadPool& aThreadPool);
     ~FriendlyNameManager();
+    void AddSuffix(const Brx& aSuffix);
 private: // from IFriendlyNameObservable
     TUint RegisterFriendlyNameObserver(FunctorGeneric<const Brx&> aObserver) override;
     void DeregisterFriendlyNameObserver(TUint aId) override;
@@ -237,6 +238,7 @@ private:
     void NotifyObservers();
 private:
     Brh iPrefix;
+    Brh iSuffix;
     Bws<Product::kMaxRoomBytes> iRoom;
     Bws<kMaxFriendlyNameBytes> iFriendlyName;
     TUint iNextObserverId;
