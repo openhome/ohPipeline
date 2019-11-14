@@ -219,7 +219,6 @@ private:
     VolumeConfig* iVolumeConfig;
     Av::VolumeManager* iVolumeManager;
     ConfigStartupSource* iConfigStartupSource;
-    TBool iConfigStartupSourceEnabled;
     Credentials* iCredentials;
     Media::MimeTypeList iMimeTypes;
     SslContext* iSsl;
