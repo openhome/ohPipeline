@@ -18,7 +18,7 @@ const Brn PowerManager::kConfigKey("Device.StartupMode");
 const TUint PowerManager::kConfigIdStartupStandbyEnabled = 0;
 const TUint PowerManager::kConfigIdStartupStandbyDisabled  = 1;
 
-PowerManager::PowerManager(IConfigInitialiser& aConfigInit)
+PowerManager::PowerManager(Optional<IConfigInitialiser> aConfigInit)
     : iNextPowerId(0)
     , iNextStandbyId(0)
     , iNextFsFlushId(0)
@@ -26,9 +26,15 @@ PowerManager::PowerManager(IConfigInitialiser& aConfigInit)
     , iStandby(Standby::Undefined)
     , iLock("PMLO")
 {
-    const int arr[] = { kConfigIdStartupStandbyEnabled, kConfigIdStartupStandbyDisabled };
-    std::vector<TUint> options(arr, arr + sizeof(arr)/sizeof(arr[0]));
-    iConfigStartupStandby = new ConfigChoice(aConfigInit, kConfigKey, options, kConfigIdStartupStandbyEnabled);
+    if (aConfigInit.Ok()) {
+        const int arr[] = { kConfigIdStartupStandbyEnabled, kConfigIdStartupStandbyDisabled };
+        std::vector<TUint> options(arr, arr + sizeof(arr) / sizeof(arr[0]));
+        iConfigStartupStandby = new ConfigChoice(aConfigInit.Unwrap(), kConfigKey, options, kConfigIdStartupStandbyEnabled);
+    }
+    else {
+        iConfigStartupStandby = nullptr;
+        iStandby = Standby::On;
+    }
 }
 
 PowerManager::~PowerManager()
@@ -41,9 +47,14 @@ PowerManager::~PowerManager()
 
 void PowerManager::Start()
 {
-    const TUint id = iConfigStartupStandby->Subscribe(MakeFunctorConfigChoice(*this, &PowerManager::StartupStandbyChanged));
-    // we don't care about run-time changes to iConfigStartupStandby so can unsubscribe as soon as we've read its initial value
-    iConfigStartupStandby->Unsubscribe(id);
+    if (iConfigStartupStandby == nullptr) {
+        StartupStandbyExecute(Standby::On);
+    }
+    else {
+        const TUint id = iConfigStartupStandby->Subscribe(MakeFunctorConfigChoice(*this, &PowerManager::StartupStandbyChanged));
+        // we don't care about run-time changes to iConfigStartupStandby so can unsubscribe as soon as we've read its initial value
+        iConfigStartupStandby->Unsubscribe(id);
+    }
 }
 
 void PowerManager::NotifyPowerDown()
@@ -226,9 +237,14 @@ void PowerManager::DeregisterFsFlush(TUint aId)
 
 void PowerManager::StartupStandbyChanged(KeyValuePair<TUint>& aKvp)
 {
-    Standby standby = (aKvp.Value() == kConfigIdStartupStandbyEnabled? Standby::On : Standby::Off);
+    Standby standby = (aKvp.Value() == kConfigIdStartupStandbyEnabled ? Standby::On : Standby::Off);
+    StartupStandbyExecute(standby);
+}
+
+void PowerManager::StartupStandbyExecute(Standby aMode)
+{
     iLastDisableReason = StandbyDisableReason::Boot; // this callback only runs during PowerManager construction
-    if (standby == Standby::On) {
+    if (aMode == Standby::On) {
         StandbyEnable();
     }
     else {

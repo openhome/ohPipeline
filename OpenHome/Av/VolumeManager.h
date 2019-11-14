@@ -87,6 +87,13 @@ public:
 class IVolumeProfile
 {
 public:
+    enum class StartupVolume
+    {
+        SetValue,
+        LastUsed,
+        Both // user decision which to use
+    };
+public:
     virtual TUint VolumeMax() const = 0;
     virtual TUint VolumeDefault() const = 0;
     virtual TUint VolumeUnity() const = 0;
@@ -98,6 +105,7 @@ public:
     virtual TUint FadeMax() const = 0;
     virtual TUint OffsetMax() const = 0;
     virtual TBool AlwaysOn() const = 0;
+    virtual StartupVolume StartupVolumeConfig() const = 0;
     virtual ~IVolumeProfile() {}
 };
 
@@ -132,17 +140,18 @@ private: // from IVolume
 class VolumeProfileNull : public IVolumeProfile
 {
 private: // from IVolumeProfile
-    TUint VolumeMax() const override            { return 0; }
-    TUint VolumeDefault() const override        { return 0; }
-    TUint VolumeUnity() const override          { return 0; }
-    TUint VolumeDefaultLimit() const override   { return 0; }
-    TUint VolumeStep() const override           { return 0; }
-    TUint VolumeMilliDbPerStep() const override { return 0; }
-    TUint ThreadPriority() const override       { return kPriorityNormal; }
-    TUint BalanceMax() const override           { return 0; }
-    TUint FadeMax() const override              { return 0; }
-    TUint OffsetMax() const override            { return 0; }
-    TBool AlwaysOn() const override             { return false; }
+    TUint VolumeMax() const override                   { return 0; }
+    TUint VolumeDefault() const override               { return 0; }
+    TUint VolumeUnity() const override                 { return 0; }
+    TUint VolumeDefaultLimit() const override          { return 0; }
+    TUint VolumeStep() const override                  { return 0; }
+    TUint VolumeMilliDbPerStep() const override        { return 0; }
+    TUint ThreadPriority() const override              { return kPriorityNormal; }
+    TUint BalanceMax() const override                  { return 0; }
+    TUint FadeMax() const override                     { return 0; }
+    TUint OffsetMax() const override                   { return 0; }
+    TBool AlwaysOn() const override                    { return false; }
+    StartupVolume StartupVolumeConfig() const override { return StartupVolume::SetValue; }
 };
 
 class VolumeUser : public IVolume, private IStandbyHandler, private INonCopyable
@@ -151,7 +160,13 @@ class VolumeUser : public IVolume, private IStandbyHandler, private INonCopyable
 public:
     static const Brn kStartupVolumeKey;
 public:
-    VolumeUser(IVolume& aVolume, Configuration::IConfigManager& aConfigReader, IPowerManager& aPowerManager, TUint aMaxVolume, TUint aMilliDbPerStep);
+    VolumeUser(
+        IVolume& aVolume,
+        Configuration::IConfigManager& aConfigReader,
+        IPowerManager& aPowerManager,
+        StoreInt& aStoreUserVolume,
+        TUint aMaxVolume,
+        TUint aMilliDbPerStep);
     ~VolumeUser();
 public: // from IVolume
     void SetVolume(TUint aVolume) override;
@@ -161,12 +176,17 @@ public: // from IStandbyHandler
     void StandbyDisabled(StandbyDisableReason aReason) override;
 private:
     void StartupVolumeChanged(Configuration::ConfigNum::KvpNum& aKvp);
+    void StartupVolumeEnabledChanged(Configuration::ConfigChoice::KvpChoice& aKvp);
     void ApplyStartupVolume();
 private:
     IVolume& iVolume;
-    Configuration::ConfigNum& iConfigStartupVolume;
+    Configuration::ConfigNum* iConfigStartupVolume;
+    Configuration::ConfigChoice* iConfigStartupVolumeEnabled;
     IStandbyObserver* iStandbyObserver;
     TUint iSubscriberIdStartupVolume;
+    TUint iSubscriberIdStartupVolumeEnabled;
+    StoreInt& iStoreUserVolume;
+    TBool iStartupVolumeEnabled;
     TBool iStartupVolumeReported;
     TUint iStartupVolume;
     const TUint iMaxVolume;
@@ -529,7 +549,9 @@ class VolumeConfig : public IVolumeProfile
     friend class SuiteVolumeConfig;
     friend class SuiteVolumeManager;
 public:
+    static const Brn kKeyStartupVolume;
     static const Brn kKeyStartupValue;
+    static const Brn kKeyStartupEnabled;
     static const Brn kKeyLimit;
     static const Brn kKeyEnabled;
     static const Brn kKeyBalance;
@@ -537,8 +559,13 @@ public:
     static const TInt kValueMuted   = 1;
     static const TInt kValueUnmuted = 0;
 public:
-    VolumeConfig(Configuration::IConfigInitialiser& aConfigInit, const IVolumeProfile& aProfile);
+    VolumeConfig(
+        Configuration::IStoreReadWrite& aStore,
+        Configuration::IConfigInitialiser& aConfigInit,
+        IPowerManager& aPowerManager,
+        const IVolumeProfile& aProfile);
     ~VolumeConfig();
+    StoreInt& StoreUserVolume();
     TBool VolumeControlEnabled() const;
 public: // from IVolumeProfile
     TUint VolumeMax() const override;
@@ -552,10 +579,13 @@ public: // from IVolumeProfile
     TUint FadeMax() const override;
     TUint OffsetMax() const override;
     TBool AlwaysOn() const override;
+    StartupVolume StartupVolumeConfig() const override;
 private:
     void EnabledChanged(Configuration::ConfigChoice::KvpChoice& aKvp);
 private:
+    StoreInt iStoreUserVolume;
     Configuration::ConfigNum* iVolumeStartup;
+    Configuration::ConfigChoice* iVolumeStartupEnabled;
     Configuration::ConfigNum* iVolumeLimit;
     Configuration::ConfigChoice* iVolumeEnabled;
     Configuration::ConfigNum* iBalance;
@@ -572,6 +602,7 @@ private:
     TUint iOffsetMax;
     TBool iAlwaysOn;
     TBool iVolumeControlEnabled;
+    StartupVolume iStartupVolumeConfig;
 };
 
 class IVolumeManager : public IVolumeReporter
@@ -624,6 +655,7 @@ private: // from IVolumeProfile
     TUint FadeMax() const override;
     TUint OffsetMax() const override;
     TBool AlwaysOn() const override;
+    StartupVolume StartupVolumeConfig() const override;
 private: // from IVolume
     void SetVolume(TUint aValue) override;
 private: // from IBalance

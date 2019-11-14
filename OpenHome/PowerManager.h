@@ -5,6 +5,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Optional.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 
 #include <list>
@@ -137,7 +138,7 @@ class PowerManager : public IPowerManager
     static const TUint kConfigIdStartupStandbyEnabled;
     static const TUint kConfigIdStartupStandbyDisabled;
 public:
-    PowerManager(Configuration::IConfigInitialiser& aConfigInit);
+    PowerManager(Optional<Configuration::IConfigInitialiser> aConfigInit);
     ~PowerManager();
     void Start();
 public: // from IPowerManager
@@ -150,16 +151,17 @@ public: // from IPowerManager
     IStandbyObserver* RegisterStandbyHandler(IStandbyHandler& aHandler, TUint aPriority, const TChar* aClientId) override;
     IFsFlushObserver* RegisterFsFlushHandler(IFsFlushHandler& aHandler) override;
 private:
-    void DeregisterPower(TUint aId);
-    void DeregisterStandby(TUint aId);
-    void DeregisterFsFlush(TUint aId);
-    void StartupStandbyChanged(Configuration::KeyValuePair<TUint>& aKvp);
-private:
     enum class Standby {
         On,
         Off,
         Undefined
     };
+private:
+    void DeregisterPower(TUint aId);
+    void DeregisterStandby(TUint aId);
+    void DeregisterFsFlush(TUint aId);
+    void StartupStandbyChanged(Configuration::KeyValuePair<TUint>& aKvp);
+    void StartupStandbyExecute(Standby aMode);
 private:
     typedef std::list<PowerManagerObserver*> PriorityList;  // efficient insertion and removal
     PriorityList iPowerObservers;

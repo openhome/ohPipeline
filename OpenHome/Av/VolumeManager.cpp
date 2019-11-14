@@ -92,14 +92,36 @@ void VolumeNull::SetVolume(TUint /*aVolume*/)
 
 const Brn VolumeUser::kStartupVolumeKey("Startup.Volume");
 
-VolumeUser::VolumeUser(IVolume& aVolume, IConfigManager& aConfigReader, IPowerManager& aPowerManager, TUint aMaxVolume, TUint aMilliDbPerStep)
+VolumeUser::VolumeUser(
+    IVolume& aVolume,
+    IConfigManager& aConfigReader,
+    IPowerManager& aPowerManager,
+    StoreInt& aStoreUserVolume,
+    TUint aMaxVolume,
+    TUint aMilliDbPerStep)
     : iVolume(aVolume)
-    , iConfigStartupVolume(aConfigReader.GetNum(VolumeConfig::kKeyStartupValue))
+    , iStoreUserVolume(aStoreUserVolume)
     , iStartupVolumeReported(false)
     , iMaxVolume(aMaxVolume)
     , iMilliDbPerStep(aMilliDbPerStep)
 {
-    iSubscriberIdStartupVolume = iConfigStartupVolume.Subscribe(MakeFunctorConfigNum(*this, &VolumeUser::StartupVolumeChanged));
+    if (aConfigReader.HasNum(VolumeConfig::kKeyStartupValue)) {
+        iConfigStartupVolume = &aConfigReader.GetNum(VolumeConfig::kKeyStartupValue);
+        iSubscriberIdStartupVolume = iConfigStartupVolume->Subscribe(MakeFunctorConfigNum(*this, &VolumeUser::StartupVolumeChanged));
+    }
+    else {
+        iConfigStartupVolume = nullptr;
+        iSubscriberIdStartupVolume = IConfigManager::kSubscriptionIdInvalid;
+    }
+    if (aConfigReader.HasChoice(VolumeConfig::kKeyStartupEnabled)) {
+        iConfigStartupVolumeEnabled = &aConfigReader.GetChoice(VolumeConfig::kKeyStartupEnabled);
+        iSubscriberIdStartupVolumeEnabled = iConfigStartupVolumeEnabled->Subscribe(MakeFunctorConfigChoice(*this, &VolumeUser::StartupVolumeEnabledChanged));
+    }
+    else {
+        iConfigStartupVolumeEnabled = nullptr;
+        iSubscriberIdStartupVolumeEnabled = IConfigManager::kSubscriptionIdInvalid;
+        iStartupVolumeEnabled = (iConfigStartupVolume != nullptr); // startup at last used volume if user can't specify a startup level
+    }
     iStandbyObserver = aPowerManager.RegisterStandbyHandler(*this, kStandbyHandlerPriorityNormal, "VolumeUser");
     if (!iStartupVolumeReported) {
         ApplyStartupVolume(); // set volume immediately to avoid reporting volume==0 until we exit standby
@@ -109,7 +131,12 @@ VolumeUser::VolumeUser(IVolume& aVolume, IConfigManager& aConfigReader, IPowerMa
 VolumeUser::~VolumeUser()
 {
     delete iStandbyObserver;
-    iConfigStartupVolume.Unsubscribe(iSubscriberIdStartupVolume);
+    if (iConfigStartupVolume != nullptr) {
+        iConfigStartupVolume->Unsubscribe(iSubscriberIdStartupVolume);
+    }
+    if (iConfigStartupVolumeEnabled != nullptr) {
+        iConfigStartupVolumeEnabled->Unsubscribe(iSubscriberIdStartupVolumeEnabled);
+    }
 }
 
 void VolumeUser::SetVolume(TUint aVolume)
@@ -119,6 +146,7 @@ void VolumeUser::SetVolume(TUint aVolume)
         THROW(VolumeOutOfRange);
     }
     iVolume.SetVolume(aVolume);
+    iStoreUserVolume.Set(aVolume);
 }
 
 void VolumeUser::StandbyEnabled()
@@ -140,9 +168,20 @@ void VolumeUser::StartupVolumeChanged(ConfigNum::KvpNum& aKvp)
     iStartupVolume = aKvp.Value();
 }
 
+void VolumeUser::StartupVolumeEnabledChanged(ConfigChoice::KvpChoice& aKvp)
+{
+    iStartupVolumeEnabled = (aKvp.Value() == eStringIdYes);
+}
+
 void VolumeUser::ApplyStartupVolume()
 {
-    const TUint startupVolume = iStartupVolume * iMilliDbPerStep;
+    TUint startupVolume;
+    if (iStartupVolumeEnabled) {
+        startupVolume = iStartupVolume * iMilliDbPerStep;
+    }
+    else {
+        startupVolume = iStoreUserVolume.Get();
+    }
     try {
         iVolume.SetVolume(startupVolume);
         iStartupVolumeReported = true;
@@ -813,14 +852,21 @@ TBool MuteReporter::Report(TBool aMuted)
 
 // VolumeConfig
 
+const Brn VolumeConfig::kKeyStartupVolume("Last.Volume");
 const Brn VolumeConfig::kKeyStartupValue("Volume.StartupValue");
+const Brn VolumeConfig::kKeyStartupEnabled("Volume.StartupEnabled");
 const Brn VolumeConfig::kKeyLimit("Volume.Limit");
 const Brn VolumeConfig::kKeyEnabled("Volume.Enabled");
 const Brn VolumeConfig::kKeyBalance("Volume.Balance");
 const Brn VolumeConfig::kKeyFade("Volume.Fade");
 
-VolumeConfig::VolumeConfig(IConfigInitialiser& aConfigInit, const IVolumeProfile& aProfile)
-    : iVolumeStartup(nullptr)
+VolumeConfig::VolumeConfig(
+    IStoreReadWrite& aStore,
+    IConfigInitialiser& aConfigInit,
+    IPowerManager& aPowerManager,
+    const IVolumeProfile& aProfile)
+    : iStoreUserVolume(aStore, aPowerManager, kPowerPriorityHighest, kKeyStartupVolume, aProfile.VolumeDefault())
+    , iVolumeStartup(nullptr)
     , iVolumeLimit(nullptr)
     , iVolumeEnabled(nullptr)
     , iBalance(nullptr)
@@ -837,6 +883,7 @@ VolumeConfig::VolumeConfig(IConfigInitialiser& aConfigInit, const IVolumeProfile
     iFadeMax              = aProfile.FadeMax();
     iOffsetMax            = aProfile.OffsetMax();
     iAlwaysOn             = aProfile.AlwaysOn();
+    iStartupVolumeConfig = aProfile.StartupVolumeConfig();
 
 
     std::vector<TUint> choices;
@@ -862,9 +909,19 @@ VolumeConfig::VolumeConfig(IConfigInitialiser& aConfigInit, const IVolumeProfile
 
     if (iVolumeControlEnabled)
     {
-        iVolumeStartup = new ConfigNum(aConfigInit, kKeyStartupValue, 0, iVolumeMax, iVolumeDefault);
+        if (aProfile.StartupVolumeConfig() != IVolumeProfile::StartupVolume::LastUsed) {
+            iVolumeStartup = new ConfigNum(aConfigInit, kKeyStartupValue, 0, iVolumeMax, iVolumeDefault);
+        }
+        else {
+            iVolumeStartup = nullptr;
+        }
+        if (aProfile.StartupVolumeConfig() == IVolumeProfile::StartupVolume::Both) {
+            iVolumeStartupEnabled = new ConfigChoice(aConfigInit, kKeyStartupEnabled, choices, eStringIdYes);
+        }
+        else {
+            iVolumeStartupEnabled = nullptr;
+        }
         iVolumeLimit = new ConfigNum(aConfigInit, kKeyLimit, 0, iVolumeMax, iVolumeDefaultLimit);
-
 
         const TInt maxBalance = iBalanceMax;
         if (maxBalance == 0) {
@@ -887,6 +944,7 @@ VolumeConfig::~VolumeConfig()
 {
     if (iVolumeControlEnabled) {
         delete iVolumeStartup;
+        delete iVolumeStartupEnabled;
         delete iVolumeLimit;
         delete iBalance;
         delete iFade;
@@ -895,6 +953,11 @@ VolumeConfig::~VolumeConfig()
     if (!iAlwaysOn) {
         delete iVolumeEnabled;
     }
+}
+
+StoreInt& VolumeConfig::StoreUserVolume()
+{
+    return iStoreUserVolume;
 }
 
 TBool VolumeConfig::VolumeControlEnabled() const
@@ -957,6 +1020,11 @@ TBool VolumeConfig::AlwaysOn() const
     return iAlwaysOn;
 }
 
+IVolumeProfile::StartupVolume VolumeConfig::StartupVolumeConfig() const
+{
+    return iStartupVolumeConfig;
+}
+
 void VolumeConfig::EnabledChanged(Configuration::ConfigChoice::KvpChoice& aKvp)
 {
     iVolumeControlEnabled = (aKvp.Value() == eStringIdYes);
@@ -1014,6 +1082,7 @@ VolumeManager::VolumeManager(VolumeConsumer& aVolumeConsumer, IMute* aMute, Volu
         iVolumeReporter = new VolumeReporter(*iVolumeSourceOffset, milliDbPerStep);
         iVolumeLimiter = new VolumeLimiter(*iVolumeReporter, milliDbPerStep, aConfigReader);
         iVolumeUser = new VolumeUser(*iVolumeLimiter, aConfigReader, aPowerManager,
+                                     aVolumeConfig.StoreUserVolume(),
                                      iVolumeConfig.VolumeMax() * milliDbPerStep, milliDbPerStep);
         iProviderVolume = new ProviderVolume(aDevice, aConfigReader, *this, iBalanceUser, iFadeUser, aVolumeConsumer.VolumeOffsetter(), aVolumeConsumer.Trim());
         aProduct.AddAttribute("Volume");
@@ -1153,6 +1222,11 @@ TUint VolumeManager::OffsetMax() const
 TBool VolumeManager::AlwaysOn() const
 {
     return iVolumeConfig.AlwaysOn();
+}
+
+IVolumeProfile::StartupVolume VolumeManager::StartupVolumeConfig() const
+{
+    return iVolumeConfig.StartupVolumeConfig();
 }
 
 void VolumeManager::SetVolume(TUint aValue)

@@ -55,6 +55,8 @@ MediaPlayerInitParams::MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx&
     , iPinsEnable(false)
     , iMaxDevicePins(0)
     , iSsl(nullptr)
+    , iConfigStartupMode(true)
+    , iConfigAutoPlay(true)
 {
 }
 
@@ -79,6 +81,16 @@ void MediaPlayerInitParams::SetThreadPoolSize(TUint aCountHigh, TUint aCountMedi
 void MediaPlayerInitParams::SetSsl(SslContext& aSsl)
 {
     iSsl = &aSsl;
+}
+
+void MediaPlayerInitParams::EnableConfigStartupMode(TBool aEnable)
+{
+    iConfigStartupMode = aEnable;
+}
+
+void MediaPlayerInitParams::EnableConfigAutoPlay(TBool aEnable)
+{
+    iConfigAutoPlay = aEnable;
 }
 
 const Brx& MediaPlayerInitParams::FriendlyNamePrefix() const
@@ -127,6 +139,17 @@ SslContext* MediaPlayerInitParams::Ssl()
     return iSsl;
 }
 
+TBool MediaPlayerInitParams::ConfigStartupMode() const
+{
+    return iConfigStartupMode;
+}
+
+TBool MediaPlayerInitParams::ConfigAutoPlay() const
+{
+    return iConfigAutoPlay;
+}
+
+
 
 // MediaPlayer
 
@@ -162,7 +185,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
                                                    *iConfigManager, *iConfigManager,
                                                    iReadWriteStore); // must be created before any config values
     }
-    iPowerManager = new OpenHome::PowerManager(*iConfigManager);
+    Optional<IConfigInitialiser> configInit(aInitParams->ConfigStartupMode() ? iConfigManager : nullptr);
+    iPowerManager = new OpenHome::PowerManager(configInit);
     iThreadPool = new OpenHome::ThreadPool(aInitParams->ThreadPoolCountHigh(),
                                            aInitParams->ThreadPoolCountMedium(),
                                            aInitParams->ThreadPoolCountLow());
@@ -177,14 +201,16 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     }
     iConfigProductRoom = new ConfigText(*iConfigManager, Product::kConfigIdRoomBase, Product::kMinRoomBytes, Product::kMaxRoomBytes, aInitParams->DefaultRoom());
     iConfigProductName = new ConfigText(*iConfigManager, Product::kConfigIdNameBase, Product::kMinNameBytes, Product::kMaxNameBytes, aInitParams->DefaultName());
-    std::vector<TUint> choices;
-    choices.push_back(Product::kAutoPlayDisable);
-    choices.push_back(Product::kAutoPlayEnable);
-    iConfigAutoPlay = new ConfigChoice(*iConfigManager, Product::kConfigIdAutoPlay, choices, Product::kAutoPlayDisable);
+    if (aInitParams->ConfigAutoPlay()) {
+        std::vector<TUint> choices;
+        choices.push_back(Product::kAutoPlayDisable);
+        choices.push_back(Product::kAutoPlayEnable);
+        iConfigAutoPlay = new ConfigChoice(*iConfigManager, Product::kConfigIdAutoPlay, choices, Product::kAutoPlayDisable);
+    }
     iProduct = new Av::Product(aDvStack.Env(), aDevice, *iKvpStore, iReadWriteStore, *iConfigManager, *iConfigManager, *iPowerManager);
     iFriendlyNameManager = new Av::FriendlyNameManager(aInitParams->FriendlyNamePrefix(), *iProduct, *iThreadPool);
     iPipeline = new PipelineManager(aPipelineInitParams, aInfoAggregator, *iTrackFactory);
-    iVolumeConfig = new VolumeConfig(*iConfigManager, aVolumeProfile);
+    iVolumeConfig = new VolumeConfig(aReadWriteStore, *iConfigManager, *iPowerManager, aVolumeProfile);
     iVolumeManager = new Av::VolumeManager(aVolumeConsumer, iPipeline, *iVolumeConfig, aDevice, *iProduct, *iConfigManager, *iPowerManager);
     iCredentials = new Credentials(aDvStack.Env(), aDevice, aReadWriteStore, aEntropy, *iConfigManager, *iPowerManager);
     iProduct->AddAttribute("Credentials");
@@ -289,7 +315,10 @@ void MediaPlayer::Start(IRebootHandler& aRebootHandler)
 {
     // All sources must have been added to Product by time this is called.
     // So, can now initialise startup source ConfigVal.
-    iConfigStartupSource = new ConfigStartupSource(*iConfigManager);
+    // ...only need the ConfigVal if we have a choice of sources
+    if (iProduct->SourceCount() > 1) {
+        iConfigStartupSource = new ConfigStartupSource(*iConfigManager);
+    }
 
     iConfigManager->Open();
     iPipeline->Start(*iVolumeManager, *iVolumeManager);

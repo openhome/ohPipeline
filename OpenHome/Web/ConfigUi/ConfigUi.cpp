@@ -1634,21 +1634,21 @@ void ConfigAppBase::AddConfigText(const Brx& aKey)
 
 void ConfigAppBase::AddConfigNumConditional(const Brx& aKey)
 {
-    if (iConfigManager.HasNum(aKey)) {
+    if (iConfigManager.HasNum(aKey) && iConfigManager.Access(aKey) == ConfigValAccess::Public) {
         AddConfigNum(aKey);
     }
 }
 
 void ConfigAppBase::AddConfigChoiceConditional(const Brx& aKey)
 {
-    if (iConfigManager.HasChoice(aKey)) {
+    if (iConfigManager.HasChoice(aKey) && iConfigManager.Access(aKey) == ConfigValAccess::Public) {
         AddConfigChoice(aKey);
     }
 }
 
 void ConfigAppBase::AddConfigTextConditional(const Brx& aKey)
 {
-    if (iConfigManager.HasText(aKey)) {
+    if (iConfigManager.HasText(aKey) && iConfigManager.Access(aKey) == ConfigValAccess::Public) {
         AddConfigText(aKey);
     }
 }

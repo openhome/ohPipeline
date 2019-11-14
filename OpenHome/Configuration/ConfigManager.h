@@ -99,6 +99,12 @@ public:
     virtual ~IKeyWriter() {}
 };
 
+enum class ConfigValAccess
+{
+    Public, // associated value is user-settable
+    Private // associated value is an internal implementation detail and is not user-settable
+};
+
 /*
  * Interface for reading config vals from a configuration manager.
  */
@@ -117,6 +123,7 @@ public:
     virtual TBool HasTextChoice(const Brx& aKey) const = 0;
     virtual ConfigTextChoice& GetTextChoice(const Brx& aKey) const = 0;
     virtual TBool Has(const Brx& aKey) const = 0;
+    virtual ConfigValAccess Access(const Brx& aKey) const = 0;
     virtual ISerialisable& Get(const Brx& aKey) const = 0;
 
     // Debugging.
@@ -124,12 +131,6 @@ public:
     virtual void DumpToStore() = 0;
 
     virtual ~IConfigManager() {}
-};
-
-enum class ConfigValAccess
-{
-    Public, // associated value is user-settable
-    Private // associated value is an internal implementation detail and is not user-settable
 };
 
 template <class T>
@@ -731,6 +732,7 @@ public: // from IConfigManager
     TBool HasTextChoice(const Brx& aKey) const override;
     ConfigTextChoice& GetTextChoice(const Brx& aKey) const override;
     TBool Has(const Brx& aKey) const override;
+    ConfigValAccess Access(const Brx& aKey) const override;
     ISerialisable& Get(const Brx& aKey) const override;
     void Print() const override;
     void DumpToStore() override;

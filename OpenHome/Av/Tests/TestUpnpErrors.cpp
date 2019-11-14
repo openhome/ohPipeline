@@ -79,6 +79,7 @@ private: // from IVolumeProfile
     TUint FadeMax() const override;
     TUint OffsetMax() const override;
     TBool AlwaysOn() const override;
+    StartupVolume StartupVolumeConfig() const override;
 private: // from IVolume
     void SetVolume(TUint aValue) override;
 private: // from IVolumeSourceOffset
@@ -224,6 +225,7 @@ TUint DummyVolumeManager::BalanceMax() const                         { return 5;
 TUint DummyVolumeManager::FadeMax() const                            { return 4; }
 TUint DummyVolumeManager::OffsetMax() const                          { return 3; }
 TBool DummyVolumeManager::AlwaysOn() const                           { return false; }
+IVolumeProfile::StartupVolume DummyVolumeManager::StartupVolumeConfig() const   { return IVolumeProfile::StartupVolume::Both; }
 void DummyVolumeManager::SetVolume(TUint /*aValue*/)                 {}
 void DummyVolumeManager::SetVolumeOffset(TInt /*aValue*/)            {}
 void DummyVolumeManager::SetVolumeBoost(TInt /*aValue*/)             {}

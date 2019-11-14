@@ -96,8 +96,10 @@ Product::~Product()
 {
     iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iAdapterChangeListenerId);
     delete iStandbyObserver;
-    iConfigStartupSource->Unsubscribe(iListenerIdStartupSource);
-    iConfigStartupSource = nullptr; // Didn't have ownership.
+    if (iConfigStartupSource != nullptr) {
+        iConfigStartupSource->Unsubscribe(iListenerIdStartupSource);
+        iConfigStartupSource = nullptr; // Didn't have ownership.
+    }
     for (TUint i=0; i<(TUint)iSources.size(); i++) {
         delete iSources[i];
     }
@@ -131,8 +133,10 @@ void Product::AddAttributesObserver(IProductAttributesObserver& aObserver)
 void Product::Start()
 {
     // All sources must have been registered; construct startup source config val.
-    iConfigStartupSource = &iConfigReader.GetText(ConfigStartupSource::kKeySource);
-    iListenerIdStartupSource = iConfigStartupSource->Subscribe(MakeFunctorConfigText(*this, &Product::StartupSourceChanged));
+    if (SourceCount() > 1) {
+        iConfigStartupSource = &iConfigReader.GetText(ConfigStartupSource::kKeySource);
+        iListenerIdStartupSource = iConfigStartupSource->Subscribe(MakeFunctorConfigText(*this, &Product::StartupSourceChanged));
+    }
 
     iLock.Wait();
     const Bws<ISource::kMaxSystemNameBytes> startupSourceVal(iStartupSourceVal);

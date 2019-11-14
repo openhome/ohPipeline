@@ -39,6 +39,7 @@ ConfigAppMediaPlayer::ConfigAppMediaPlayer(IInfoAggregator& aInfoAggregator,
     AddConfigNumConditional(VolumeConfig::kKeyBalance);
     AddConfigNumConditional(VolumeConfig::kKeyLimit);
     AddConfigNumConditional(VolumeConfig::kKeyStartupValue);
+    AddConfigChoiceConditional(VolumeConfig::kKeyStartupEnabled);
 
     AddConfigChoiceConditional(Brn("Device.AutoPlay"));
     AddConfigChoiceConditional(Brn("Sender.Enabled"));

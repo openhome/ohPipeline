@@ -523,6 +523,26 @@ TBool ConfigManager::Has(const Brx& aKey) const
     return HasNum(aKey) || HasChoice(aKey) || HasText(aKey) || HasTextChoice(aKey);
 }
 
+ConfigValAccess ConfigManager::Access(const Brx& aKey) const
+{
+    if (HasNum(aKey)) {
+        return iMapNum.Get(aKey).Access();
+    }
+    else if (HasChoice(aKey)) {
+        return iMapChoice.Get(aKey).Access();
+    }
+    else if (HasText(aKey)) {
+        return iMapText.Get(aKey).Access();
+    }
+    else if (HasTextChoice(aKey)) {
+        return iMapTextChoice.Get(aKey).Access();
+    }
+    else {
+        ASSERTS();
+        return iMapNum.Get(aKey).Access(); // control will never reach here
+    }
+}
+
 ISerialisable& ConfigManager::Get(const Brx& aKey) const
 {
     // FIXME - ASSERT if !iOpen?

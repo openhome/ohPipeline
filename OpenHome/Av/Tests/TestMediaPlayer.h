@@ -83,6 +83,7 @@ private: // from IVolumeProfile
     TUint FadeMax() const override;
     TUint OffsetMax() const override;
     TBool AlwaysOn() const override;
+    StartupVolume StartupVolumeConfig() const override;
 };
 
 class VolumeSinkLogger : public IVolume, public IBalance, public IFade

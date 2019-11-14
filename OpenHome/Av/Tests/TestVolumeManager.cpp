@@ -167,6 +167,7 @@ public: // from IVolumeProfile
     TUint FadeMax() const override;
     TUint OffsetMax() const override;
     TBool AlwaysOn() const override;
+    StartupVolume StartupVolumeConfig() const override;
 private:
     TUint iVolumeMax;
     TUint iVolumeDefault;
@@ -236,6 +237,8 @@ private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
     Configuration::ConfigNum* iConfigNum;
+    Configuration::ConfigChoice* iConfigStartupEnabled;
+    StoreInt* iLastVolume;
 };
 
 class SuiteVolumeLimiter : public TestFramework::SuiteUnitTest
@@ -538,6 +541,7 @@ public:
 private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfig;
+    PowerManager* iPowerManager;
 };
 
 class SuiteVolumeManager : public TestFramework::SuiteUnitTest
@@ -903,6 +907,12 @@ TBool MockVolumeProfile::AlwaysOn() const
     return iAlwaysOn;
 }
 
+IVolumeProfile::StartupVolume MockVolumeProfile::StartupVolumeConfig() const
+{
+    return IVolumeProfile::StartupVolume::Both;
+}
+
+
 // MockReadStore
 
 MockReadStore::MockReadStore()
@@ -995,13 +1005,19 @@ void SuiteVolumeUser::Setup()
     iStore = new Configuration::ConfigRamStore();
     iConfigManager = new Configuration::ConfigManager(*iStore);
     iConfigNum = new Configuration::ConfigNum(*iConfigManager, Brn("Volume.StartupValue"), 0, 100, 80);
+    std::vector<TUint> choices;
+    choices.push_back(eStringIdYes);
+    choices.push_back(eStringIdNo);
+    iConfigStartupEnabled = new Configuration::ConfigChoice(*iConfigManager, VolumeConfig::kKeyStartupEnabled, choices, eStringIdYes);
     iPowerManager = new PowerManager(*iConfigManager);
-    iUser = new VolumeUser(*iVolume, *iConfigManager, *iPowerManager, 100, kMilliDbPerStep);
+    iLastVolume = new StoreInt(*iStore, *iPowerManager, kPowerPriorityLowest, Brn("SuiteVolumeUser.LastVolume"), 0);
+    iUser = new VolumeUser(*iVolume, *iConfigManager, *iPowerManager, *iLastVolume, 100, kMilliDbPerStep);
 }
 
 void SuiteVolumeUser::TearDown()
 {
     delete iUser;
+    delete iLastVolume;
     delete iPowerManager;
     delete iConfigNum;
     delete iConfigManager;
@@ -2358,10 +2374,12 @@ void SuiteVolumeConfig::Setup()
 {
     iStore = new Configuration::ConfigRamStore();
     iConfig = new Configuration::ConfigManager(*iStore);
+    iPowerManager = new PowerManager(nullptr);
 }
 
 void SuiteVolumeConfig::TearDown()
 {
+    delete iPowerManager;
     delete iConfig;
     delete iStore;
 }
@@ -2375,7 +2393,7 @@ void SuiteVolumeConfig::TestVolumeControlNotEnabled()
     iStore->Write(VolumeConfig::kKeyEnabled, volControlEnabledBuf);
 
     MockVolumeProfile volumeProfile(100, 80, 100, 10, 10, false);
-    VolumeConfig volumeConfig(*iConfig, volumeProfile);
+    VolumeConfig volumeConfig(*iStore, *iConfig, *iPowerManager, volumeProfile);
     TEST(iConfig->HasChoice(VolumeConfig::kKeyEnabled) == true);
 
     TEST(iConfig->HasNum(VolumeConfig::kKeyStartupValue) == false);
@@ -2387,7 +2405,7 @@ void SuiteVolumeConfig::TestVolumeControlNotEnabled()
 void SuiteVolumeConfig::TestVolumeControlEnabled()
 {
     MockVolumeProfile volumeProfile(100, 80, 100, 10, 10, true);
-    VolumeConfig volumeConfig(*iConfig, volumeProfile);
+    VolumeConfig volumeConfig(*iStore, *iConfig, *iPowerManager, volumeProfile);
     TEST(iConfig->HasChoice(VolumeConfig::kKeyEnabled) == false);
 
     TEST(iConfig->HasNum(VolumeConfig::kKeyStartupValue) == true);
@@ -2399,7 +2417,7 @@ void SuiteVolumeConfig::TestVolumeControlEnabled()
 void SuiteVolumeConfig::TestNoBalanceNoFade()
 {
     MockVolumeProfile volumeProfile(100, 80, 100, 0, 0, true);
-    VolumeConfig volumeConfig(*iConfig, volumeProfile);
+    VolumeConfig volumeConfig(*iStore, *iConfig, *iPowerManager, volumeProfile);
     TEST(iConfig->HasChoice(VolumeConfig::kKeyEnabled) == false);
 
     TEST(iConfig->HasNum(VolumeConfig::kKeyStartupValue) == true);
@@ -2451,7 +2469,7 @@ void SuiteVolumeManager::Setup()
     iBalance = new MockBalance();
     iFade = new MockFade();
     iVolumeProfile = new MockVolumeProfile(100, 80, 100, 10, 10, false);
-    iVolumeConfig = new VolumeConfig(*iConfig, *iVolumeProfile);
+    iVolumeConfig = new VolumeConfig(*iStore, *iConfig, *iPowerManager, *iVolumeProfile);
 }
 
 void SuiteVolumeManager::TearDown()
@@ -2504,7 +2522,7 @@ void SuiteVolumeManager::TestNoVolumeControlNoMute()
     WriterBinary writerBinary(writerBuffer);
     writerBinary.WriteUint32Be(eStringIdNo);
     iStore->Write(VolumeConfig::kKeyEnabled, volControlEnabledBuf);
-    iVolumeConfig = new VolumeConfig(*iConfig, *iVolumeProfile);
+    iVolumeConfig = new VolumeConfig(*iStore, *iConfig, *iPowerManager, *iVolumeProfile);
 
     iVolumeConsumer->SetBalance(*iBalance);
     iVolumeConsumer->SetFade(*iFade);
@@ -2557,7 +2575,7 @@ void SuiteVolumeManager::TestNoVolumeControl()
 
     Configuration::ConfigManager configManager(*iStore);
     MockVolumeProfile volumeProfile(100, 80, 100, 10, 10, false);
-    VolumeConfig volumeConfig(configManager, volumeProfile);
+    VolumeConfig volumeConfig(*iStore, configManager, *iPowerManager, volumeProfile);
 
     iVolumeConsumer->SetBalance(*iBalance);
     iVolumeConsumer->SetFade(*iFade);

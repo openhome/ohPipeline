@@ -120,6 +120,8 @@ public:
     void EnablePins(TUint aMaxDevice);
     void SetThreadPoolSize(TUint aCountHigh, TUint aCountMedium, TUint aCountLow);
     void SetSsl(SslContext& aSsl); // optional - MediaPlayer will create one if not supplied
+    void EnableConfigStartupMode(TBool aEnable);
+    void EnableConfigAutoPlay(TBool aEnable);
     const Brx& FriendlyNamePrefix() const;
     const Brx& DefaultRoom() const;
     const Brx& DefaultName() const;
@@ -129,6 +131,8 @@ public:
     TUint ThreadPoolCountMedium() const;
     TUint ThreadPoolCountLow() const;
     SslContext* Ssl();
+    TBool ConfigStartupMode() const;
+    TBool ConfigAutoPlay() const;
 private:
     MediaPlayerInitParams(const Brx& aDefaultRoom, const Brx& aDefaultName, const Brx& aFriendlyNamePrefix);
 private:
@@ -142,6 +146,8 @@ private:
     TBool iPinsEnable;
     TUint iMaxDevicePins;
     SslContext* iSsl;
+    TBool iConfigStartupMode;
+    TBool iConfigAutoPlay;
 };
 
 
@@ -213,6 +219,7 @@ private:
     VolumeConfig* iVolumeConfig;
     Av::VolumeManager* iVolumeManager;
     ConfigStartupSource* iConfigStartupSource;
+    TBool iConfigStartupSourceEnabled;
     Credentials* iCredentials;
     Media::MimeTypeList iMimeTypes;
     SslContext* iSsl;
