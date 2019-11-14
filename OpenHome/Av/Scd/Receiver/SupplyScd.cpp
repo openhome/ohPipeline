@@ -25,10 +25,15 @@ SupplyScd::SupplyScd(MsgFactory& aMsgFactory,
     , iBytesPerAudioMsg(0)
     , iDsdSampleBlockWords(aDsdSampleBlockWords)
     , iDsdPadBytesPerChunk(aDsdPadBytesPerChunk)
-    , iPaddingBuffer(aDsdSampleBlockWords*4)
+    , iPaddingBuffer(aDsdPadBytesPerChunk)
+    , iSilenceBuffer(aDsdSampleBlockWords*4)
     , iIsDsd(true)
 {
+    // We pad with 0x00 while playing and 0x69 when at a track boundary
+    iPaddingBuffer.SetBytes(iPaddingBuffer.MaxBytes());
     iPaddingBuffer.Fill(kDsdPadding);
+    iSilenceBuffer.SetBytes(iSilenceBuffer.MaxBytes());
+    iSilenceBuffer.Fill(kDsdSilence);
 }
 
 SupplyScd::~SupplyScd()
@@ -41,9 +46,11 @@ inline void SupplyScd::OutputEncodedAudio()
     if (iAudioEncoded != nullptr) {
         if (iIsDsd && iAudioEncoded->Bytes() != iBytesPerAudioMsg) {
             const TUint sampleBlockBytes = iDsdSampleBlockWords * 4;
-            const TUint remainingBytes = sampleBlockBytes - (iAudioEncoded->Bytes() % sampleBlockBytes);
-            const Brn padBuf(iPaddingBuffer.Ptr(), remainingBytes);
-            iAudioEncoded->Append(padBuf);
+            if (iAudioEncoded->Bytes() % sampleBlockBytes != 0) {
+                const TUint remainingBytes = sampleBlockBytes - (iAudioEncoded->Bytes() % sampleBlockBytes);
+                const Brn padBuf(iSilenceBuffer.Ptr(), remainingBytes);
+                iAudioEncoded->Append(padBuf);
+            }
         }
         iDownStreamElement.Push(iAudioEncoded);
         iAudioEncoded = nullptr;

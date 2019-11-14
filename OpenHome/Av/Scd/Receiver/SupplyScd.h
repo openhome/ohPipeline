@@ -14,6 +14,7 @@ class SupplyScd : public Media::ISupply, private INonCopyable
     static const TUint kAggregateAudioJiffies = 5 * Media::Jiffies::kPerMs;
     static const TUint kDsdPlayableBytesPerChunk = 4; // DSD Specific
     static const TByte kDsdPadding = 0;
+    static const TByte kDsdSilence = 0x69;
     static const TUint kDsdChannelCount = 2;
 public:
     SupplyScd(Media::MsgFactory& aMsgFactory,
@@ -52,6 +53,7 @@ private:
     const TUint iDsdSampleBlockWords;    // DSD specific
     const TUint iDsdPadBytesPerChunk;   // DSD specific
     Bwh iPaddingBuffer; // DSD specific 
+    Bwh iSilenceBuffer; // DSD specific 
     TBool iIsDsd;   // DSD specific 
     Bws<Media::AudioData::kMaxBytes> iAudioBuf;
 };
