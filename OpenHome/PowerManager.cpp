@@ -33,7 +33,7 @@ PowerManager::PowerManager(Optional<IConfigInitialiser> aConfigInit)
     }
     else {
         iConfigStartupStandby = nullptr;
-        iStandby = Standby::On;
+        iStandby = Standby::Off;
     }
 }
 
