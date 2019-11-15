@@ -1019,6 +1019,7 @@ void SuiteVolumeUser::TearDown()
     delete iUser;
     delete iLastVolume;
     delete iPowerManager;
+    delete iConfigStartupEnabled;
     delete iConfigNum;
     delete iConfigManager;
     delete iStore;
