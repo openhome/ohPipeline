@@ -865,7 +865,12 @@ VolumeConfig::VolumeConfig(
     IConfigInitialiser& aConfigInit,
     IPowerManager& aPowerManager,
     const IVolumeProfile& aProfile)
-    : iStoreUserVolume(aStore, aPowerManager, kPowerPriorityHighest, kKeyStartupVolume, aProfile.VolumeDefault())
+    : iStoreUserVolume(
+        aStore,
+        aPowerManager,
+        kPowerPriorityHighest,
+        kKeyStartupVolume,
+        aProfile.VolumeDefault() * aProfile.VolumeMilliDbPerStep())
     , iVolumeStartup(nullptr)
     , iVolumeLimit(nullptr)
     , iVolumeEnabled(nullptr)
