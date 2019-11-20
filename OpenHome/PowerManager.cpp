@@ -33,7 +33,7 @@ PowerManager::PowerManager(Optional<IConfigInitialiser> aConfigInit)
     }
     else {
         iConfigStartupStandby = nullptr;
-        iStandby = Standby::Off;
+        iStandby = Standby::On;
     }
 }
 
@@ -48,7 +48,7 @@ PowerManager::~PowerManager()
 void PowerManager::Start()
 {
     if (iConfigStartupStandby == nullptr) {
-        StartupStandbyExecute(Standby::On);
+        StartupStandbyExecute(Standby::Off);
     }
     else {
         const TUint id = iConfigStartupStandby->Subscribe(MakeFunctorConfigChoice(*this, &PowerManager::StartupStandbyChanged));
