@@ -551,7 +551,9 @@ void SenderMsgQueue::Enqueue(Msg* aMsg)
 
 Msg* SenderMsgQueue::Dequeue()
 {
-    ASSERT(iHead != nullptr);
+    if (iHead == nullptr) {
+        return nullptr;
+    }
     auto elem = iHead;
     iHead = elem->iNext;
     iCount--;
@@ -725,8 +727,10 @@ void SenderThread::Run()
         iLock.Wait();
         auto msg = iQueue.Dequeue();
         iLock.Signal();
-        msg = msg->Process(*this);
-        iDownstream.Push(msg);
+        if (msg != nullptr) { // may be null after the queue has been pruned
+            msg = msg->Process(*this);
+            iDownstream.Push(msg);
+        }
     } while (!iQuit);
     iShutdownSem.Signal();
 }
