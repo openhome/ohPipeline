@@ -108,6 +108,7 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
     TBool firstJoin = true;
     do {
         if (!firstJoin) {
+            SendLeave();
             /* allow lower priority threads to run.  If all network operations are failing
                (say because we have no IP address), this high priority thread will loop. */
             Thread::Sleep(50);
