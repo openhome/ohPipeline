@@ -1,7 +1,9 @@
 #include <OpenHome/Av/VolumeManager.h>
 #include <OpenHome/Types.h>
+#include <OpenHome/Functor.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Thread.h>
+#include <OpenHome/Private/Timer.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Av/StringIds.h>
@@ -91,11 +93,13 @@ void VolumeNull::SetVolume(TUint /*aVolume*/)
 // VolumeUser
 
 const Brn VolumeUser::kStartupVolumeKey("Startup.Volume");
+const TUint VolumeUser::kLastUsedWriteDelayMs = 60 * 1000; // 1 minute
 
 VolumeUser::VolumeUser(
     IVolume& aVolume,
     IConfigManager& aConfigReader,
     IPowerManager& aPowerManager,
+    Environment& aEnv,
     StoreInt& aStoreUserVolume,
     TUint aMaxVolume,
     TUint aMilliDbPerStep)
@@ -105,6 +109,7 @@ VolumeUser::VolumeUser(
     , iMaxVolume(aMaxVolume)
     , iMilliDbPerStep(aMilliDbPerStep)
 {
+    iLastUsedWriter = new Timer(aEnv, MakeFunctor(*this, &VolumeUser::WriteLastUsedVolume), "VolumeUser");
     if (aConfigReader.HasNum(VolumeConfig::kKeyStartupValue)) {
         iConfigStartupVolume = &aConfigReader.GetNum(VolumeConfig::kKeyStartupValue);
         iSubscriberIdStartupVolume = iConfigStartupVolume->Subscribe(MakeFunctorConfigNum(*this, &VolumeUser::StartupVolumeChanged));
@@ -137,6 +142,7 @@ VolumeUser::~VolumeUser()
     if (iConfigStartupVolumeEnabled != nullptr) {
         iConfigStartupVolumeEnabled->Unsubscribe(iSubscriberIdStartupVolumeEnabled);
     }
+    delete iLastUsedWriter;
 }
 
 void VolumeUser::SetVolume(TUint aVolume)
@@ -147,6 +153,7 @@ void VolumeUser::SetVolume(TUint aVolume)
     }
     iVolume.SetVolume(aVolume);
     iStoreUserVolume.Set(aVolume);
+    iLastUsedWriter->FireIn(kLastUsedWriteDelayMs);
 }
 
 void VolumeUser::StandbyEnabled()
@@ -188,6 +195,11 @@ void VolumeUser::ApplyStartupVolume()
     }
     catch (VolumeNotSupported&) {}
     catch (VolumeOutOfRange&) {} // ignore any errors caused by volume limit being set lower than startup volume
+}
+
+void VolumeUser::WriteLastUsedVolume()
+{
+    iStoreUserVolume.Write();
 }
 
 
@@ -1040,7 +1052,7 @@ void VolumeConfig::EnabledChanged(Configuration::ConfigChoice::KvpChoice& aKvp)
 
 VolumeManager::VolumeManager(VolumeConsumer& aVolumeConsumer, IMute* aMute, VolumeConfig& aVolumeConfig,
                              Net::DvDevice& aDevice, Product& aProduct, IConfigManager& aConfigReader,
-                             IPowerManager& aPowerManager)
+                             IPowerManager& aPowerManager, Environment& aEnv)
     : iVolumeConfig(aVolumeConfig)
 {
     TBool volumeControlEnabled = aVolumeConfig.VolumeControlEnabled();
@@ -1086,7 +1098,7 @@ VolumeManager::VolumeManager(VolumeConsumer& aVolumeConsumer, IMute* aMute, Volu
         iVolumeSourceOffset = new VolumeSourceOffset(*iVolumeSourceUnityGain);
         iVolumeReporter = new VolumeReporter(*iVolumeSourceOffset, milliDbPerStep);
         iVolumeLimiter = new VolumeLimiter(*iVolumeReporter, milliDbPerStep, aConfigReader);
-        iVolumeUser = new VolumeUser(*iVolumeLimiter, aConfigReader, aPowerManager,
+        iVolumeUser = new VolumeUser(*iVolumeLimiter, aConfigReader, aPowerManager, aEnv,
                                      aVolumeConfig.StoreUserVolume(),
                                      iVolumeConfig.VolumeMax() * milliDbPerStep, milliDbPerStep);
         iProviderVolume = new ProviderVolume(aDevice, aConfigReader, *this, iBalanceUser, iFadeUser, aVolumeConsumer.VolumeOffsetter(), aVolumeConsumer.Trim());

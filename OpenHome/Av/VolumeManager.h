@@ -44,6 +44,8 @@ EXCEPTION(BalanceOutOfRange);
 EXCEPTION(FadeOutOfRange);
 
 namespace OpenHome {
+    class Environment;
+    class Timer;
 namespace Configuration {
     class IConfigInitialiser;
     class IStoreReadWrite;
@@ -157,6 +159,7 @@ private: // from IVolumeProfile
 class VolumeUser : public IVolume, private IStandbyHandler, private INonCopyable
 {
     friend class SuiteVolumeUser;
+    static const TUint kLastUsedWriteDelayMs;
 public:
     static const Brn kStartupVolumeKey;
 public:
@@ -164,6 +167,7 @@ public:
         IVolume& aVolume,
         Configuration::IConfigManager& aConfigReader,
         IPowerManager& aPowerManager,
+        Environment& aEnv,
         StoreInt& aStoreUserVolume,
         TUint aMaxVolume,
         TUint aMilliDbPerStep);
@@ -178,6 +182,7 @@ private:
     void StartupVolumeChanged(Configuration::ConfigNum::KvpNum& aKvp);
     void StartupVolumeEnabledChanged(Configuration::ConfigChoice::KvpChoice& aKvp);
     void ApplyStartupVolume();
+    void WriteLastUsedVolume();
 private:
     IVolume& iVolume;
     Configuration::ConfigNum* iConfigStartupVolume;
@@ -191,6 +196,7 @@ private:
     TUint iStartupVolume;
     const TUint iMaxVolume;
     const TUint iMilliDbPerStep;
+    Timer* iLastUsedWriter;
 };
 
 class VolumeLimiter : public IVolume, private INonCopyable
@@ -630,7 +636,7 @@ class VolumeManager : public IVolumeManager
 public:
     VolumeManager(VolumeConsumer& aVolumeConsumer, Media::IMute* aMute, VolumeConfig& aVolumeConfig,
                   Net::DvDevice& aDevice, Product& aProduct, Configuration::IConfigManager& aConfigReader,
-                  IPowerManager& aPowerManager);
+                  IPowerManager& aPowerManager, Environment& aEnv);
     ~VolumeManager();
 public: // from IVolumeReporter
     void AddVolumeObserver(IVolumeObserver& aObserver) override;

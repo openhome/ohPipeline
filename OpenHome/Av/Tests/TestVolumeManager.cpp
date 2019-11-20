@@ -220,7 +220,7 @@ class SuiteVolumeUser : public TestFramework::SuiteUnitTest
 private:
     static const TUint kMilliDbPerStep = 1024;
 public:
-    SuiteVolumeUser();
+    SuiteVolumeUser(Environment& aEnv);
 public: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
@@ -231,6 +231,7 @@ private:
     void TestApplyStartupVolume();
     void TestExceptionThrow();
 private:
+    Environment & iEnv;
     Test::MockVolume* iVolume;
     VolumeUser* iUser;
     PowerManager* iPowerManager;
@@ -990,8 +991,9 @@ void SuiteVolumeConsumer::ConsumeReturnVolumeComponents()
 
 // SuiteVolumeUser
 
-SuiteVolumeUser::SuiteVolumeUser()
+SuiteVolumeUser::SuiteVolumeUser(Environment& aEnv)
     : SuiteUnitTest("SuiteVolumeUser")
+    , iEnv(aEnv)
 {
     AddTest(MakeFunctor(*this, &SuiteVolumeUser::SetVolumeInLimits), "TestVolumeUserInLimits");
     AddTest(MakeFunctor(*this, &SuiteVolumeUser::SetVolumeAtLimits), "SetVolumeAtLimits");
@@ -1011,7 +1013,7 @@ void SuiteVolumeUser::Setup()
     iConfigStartupEnabled = new Configuration::ConfigChoice(*iConfigManager, VolumeConfig::kKeyStartupEnabled, choices, eStringIdYes);
     iPowerManager = new PowerManager(*iConfigManager);
     iLastVolume = new StoreInt(*iStore, *iPowerManager, kPowerPriorityLowest, Brn("SuiteVolumeUser.LastVolume"), 0);
-    iUser = new VolumeUser(*iVolume, *iConfigManager, *iPowerManager, *iLastVolume, 100, kMilliDbPerStep);
+    iUser = new VolumeUser(*iVolume, *iConfigManager, *iPowerManager, iEnv, *iLastVolume, 100, kMilliDbPerStep);
 }
 
 void SuiteVolumeUser::TearDown()
@@ -2499,7 +2501,7 @@ void SuiteVolumeManager::TestAllComponentsInitialize()
     iVolumeConsumer->SetBalance(*iBalance);
     iVolumeConsumer->SetFade(*iFade);
     iVolumeConsumer->SetVolume(*iVolume);
-    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager, iDvStack.Env());
     iProduct->Start();
 
     TEST(volumeManager.iBalanceUser != nullptr);
@@ -2528,7 +2530,7 @@ void SuiteVolumeManager::TestNoVolumeControlNoMute()
     iVolumeConsumer->SetBalance(*iBalance);
     iVolumeConsumer->SetFade(*iFade);
     iVolumeConsumer->SetVolume(*iVolume);
-    VolumeManager volumeManager(*iVolumeConsumer, nullptr, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    VolumeManager volumeManager(*iVolumeConsumer, nullptr, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager, iDvStack.Env());
     iProduct->Start();
 
     TEST(volumeManager.iBalanceUser == nullptr);
@@ -2549,7 +2551,7 @@ void SuiteVolumeManager::TestNoVolumeComponent()
     iVolumeConfig->iVolumeControlEnabled = true;
     iVolumeConsumer->SetBalance(*iBalance);
     iVolumeConsumer->SetFade(*iFade);
-    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager, iDvStack.Env());
     iProduct->Start();
 
     TEST(volumeManager.iBalanceUser != nullptr);
@@ -2581,7 +2583,7 @@ void SuiteVolumeManager::TestNoVolumeControl()
     iVolumeConsumer->SetBalance(*iBalance);
     iVolumeConsumer->SetFade(*iFade);
     iVolumeConsumer->SetVolume(*iVolume);
-    VolumeManager volumeManager(*iVolumeConsumer, iMute, volumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    VolumeManager volumeManager(*iVolumeConsumer, iMute, volumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager, iDvStack.Env());
     iProduct->Start();
 
     TEST(volumeManager.iBalanceUser == nullptr);
@@ -2604,7 +2606,7 @@ void SuiteVolumeManager::TestNoMuteComponents()
     iVolumeConsumer->SetBalance(*iBalance);
     iVolumeConsumer->SetFade(*iFade);
     iVolumeConsumer->SetVolume(*iVolume);
-    VolumeManager volumeManager(*iVolumeConsumer, nullptr, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    VolumeManager volumeManager(*iVolumeConsumer, nullptr, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager, iDvStack.Env());
     iProduct->Start();
 
     TEST(volumeManager.iMuteReporter == nullptr);
@@ -2625,7 +2627,7 @@ void SuiteVolumeManager::TestNoBalanceNoFadeComponents()
 {
     iVolumeConfig->iVolumeControlEnabled = true;
     iVolumeConsumer->SetVolume(*iVolume);
-    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager, iDvStack.Env());
     iProduct->Start();
 
     TEST(volumeManager.iBalanceUser == nullptr);
@@ -2646,7 +2648,7 @@ void SuiteVolumeManager::TestNoBalanceNoFadeComponents()
 void SuiteVolumeManager::TestNoVolumeNoBalanceNoFadeComponents()
 {
     iVolumeConfig->iVolumeControlEnabled = true;
-    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager);
+    VolumeManager volumeManager(*iVolumeConsumer, iMute, *iVolumeConfig, *iDvDevice, *iProduct, *iConfig, *iPowerManager, iDvStack.Env());
     iProduct->Start();
 
     TEST(volumeManager.iBalanceUser == nullptr);
@@ -2668,7 +2670,7 @@ void TestVolumeManager(CpStack& /* aCpStack */, DvStack& aDvStack)
 {
     Runner runner("VolumeManager tests\n");
     runner.Add(new SuiteVolumeConsumer());
-    runner.Add(new SuiteVolumeUser());
+    runner.Add(new SuiteVolumeUser(aDvStack.Env()));
     runner.Add(new SuiteVolumeLimiter());
     runner.Add(new SuiteVolumeValue());
     runner.Add(new SuiteVolumeReporter());
