@@ -2462,7 +2462,7 @@ void SuiteVolumeManager::Setup()
     iConfigText2 = new Configuration::ConfigText(*iConfig, Brn("Product.Name"), 1, 32, Brn("Product.Name"));
     iConfigText3 = new Configuration::ConfigText(*iConfig, Brn("Source.StartupName"), 1, 32, Brn("Last Used"));
 
-    iPowerManager = new PowerManager(*iConfig);
+    iPowerManager = new PowerManager(nullptr);
     iProduct = new Product(iDvStack.Env(), *iDvDevice, *iReadStore, *iStore, *iConfig, *iConfig, *iPowerManager);
     iSource = new MockSource(kSystemName, &kType);
     iProduct->AddSource(iSource);

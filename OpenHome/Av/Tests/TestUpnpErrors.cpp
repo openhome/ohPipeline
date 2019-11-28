@@ -82,6 +82,8 @@ private: // from IVolumeProfile
     StartupVolume StartupVolumeConfig() const override;
 private: // from IVolume
     void SetVolume(TUint aValue) override;
+private: // from IVolumeNoUnmute
+    void SetVolumeNoUnmute(TUint aVolume) override;
 private: // from IVolumeSourceOffset
     void SetVolumeOffset(TInt aValue) override;
 private: // from IVolumeSurroundAttenuator
@@ -227,6 +229,7 @@ TUint DummyVolumeManager::OffsetMax() const                          { return 3;
 TBool DummyVolumeManager::AlwaysOn() const                           { return false; }
 IVolumeProfile::StartupVolume DummyVolumeManager::StartupVolumeConfig() const   { return IVolumeProfile::StartupVolume::Both; }
 void DummyVolumeManager::SetVolume(TUint /*aValue*/)                 {}
+void DummyVolumeManager::SetVolumeNoUnmute(TUint /*aVolume*/)        {}
 void DummyVolumeManager::SetVolumeOffset(TInt /*aValue*/)            {}
 void DummyVolumeManager::SetVolumeBoost(TInt /*aValue*/)             {}
 void DummyVolumeManager::SetUnityGain(TBool /*aEnable*/)             {}

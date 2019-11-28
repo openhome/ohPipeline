@@ -151,7 +151,7 @@ void TrimWriterJson::Visit(const Brx& aChannel, TInt aMinBinaryMilliDb, TInt aMa
 // ProviderVolume
 
 ProviderVolume::ProviderVolume(DvDevice& aDevice, IConfigManager& aConfigReader, IVolumeManager& aVolumeManager, IBalance* aBalance, IFade* aFade, IVolumeOffsetter* aVolumeOffsetter, ITrim* aTrim)
-    : DvProviderAvOpenhomeOrgVolume3(aDevice)
+    : DvProviderAvOpenhomeOrgVolume4(aDevice)
     , iLock("PVOL")
     , iVolume(aVolumeManager)
     , iBalance(aBalance)
@@ -182,6 +182,7 @@ ProviderVolume::ProviderVolume(DvDevice& aDevice, IConfigManager& aConfigReader,
     EnableActionSetVolume();
     EnableActionVolumeInc();
     EnableActionVolumeDec();
+    EnableActionSetVolumeNoUnmute();
     EnableActionVolume();
     EnableActionSetBalance();
     EnableActionBalanceInc();
@@ -304,6 +305,23 @@ void ProviderVolume::VolumeDec(IDvInvocation& aInvocation)
     TUint volume = 0;
     GetPropertyVolume(volume);
     HelperSetVolume(aInvocation, volume-1, ErrorOutOfRange::Ignore);
+}
+
+void ProviderVolume::SetVolumeNoUnmute(IDvInvocation& aInvocation, TUint aValue)
+{
+    try {
+        iVolume.SetVolumeNoUnmute(aValue);
+    }
+    catch (VolumeOutOfRange&) {
+        if (aValue > iVolumeMax) {
+            aInvocation.Error(kInvalidVolumeCode, kInvalidVolumeMsg);
+        }
+    }
+    catch (VolumeNotSupported&) {
+        aInvocation.Error(kVolumeNotSupportedCode, kVolumeNotSupportedMsg);
+    }
+    aInvocation.StartResponse();
+    aInvocation.EndResponse();
 }
 
 void ProviderVolume::Volume(IDvInvocation& aInvocation, IDvInvocationResponseUint& aValue)

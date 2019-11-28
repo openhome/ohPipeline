@@ -1264,6 +1264,17 @@ void VolumeManager::SetVolume(TUint aValue)
     iVolumeUser->SetVolume(volume);
 }
 
+void VolumeManager::SetVolumeNoUnmute(TUint aVolume)
+{
+    // copy of SetVolume, minus consideration of iMuteUser
+    LOG(kVolume, "VolumeManager::SetVolumeNoUnmute aValue: %u\n", aVolume);
+    if (iVolumeUser == nullptr) {
+        THROW(VolumeNotSupported);
+    }
+    const TUint volume = aVolume * iVolumeConfig.VolumeMilliDbPerStep();
+    iVolumeUser->SetVolume(volume);
+}
+
 void VolumeManager::SetBalance(TInt aBalance)
 {
     if (iBalanceUser == nullptr) {

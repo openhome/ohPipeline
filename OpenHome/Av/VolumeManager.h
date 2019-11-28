@@ -70,6 +70,13 @@ public:
     virtual ~IVolume() {}
 };
 
+class IVolumeNoUnmute
+{
+public:
+    virtual void SetVolumeNoUnmute(TUint aVolume) = 0;
+    virtual ~IVolumeNoUnmute() {}
+};
+
 // Internal balance is expressed as a signed integer on [-max..+max], with negative balance implying
 // a shift to the left, positive balance implying a shift to the right.
 class IBalance
@@ -622,6 +629,7 @@ class IVolumeManager : public IVolumeReporter
                      , public Media::IVolumeMuterStepped
                      , public IVolumeMuter
                      , public Media::IMute
+                     , public IVolumeNoUnmute
 {
 public:
     virtual ~IVolumeManager() {}
@@ -664,6 +672,8 @@ private: // from IVolumeProfile
     StartupVolume StartupVolumeConfig() const override;
 private: // from IVolume
     void SetVolume(TUint aValue) override;
+private: // from IVolumeNoUnmute
+    void SetVolumeNoUnmute(TUint aVolume) override;
 private: // from IBalance
     void SetBalance(TInt aBalance) override;
 private: // from IFade

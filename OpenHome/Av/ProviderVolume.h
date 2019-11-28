@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Generated/DvAvOpenhomeOrgVolume3.h>
+#include <Generated/DvAvOpenhomeOrgVolume4.h>
 #include <OpenHome/Av/ProviderFactory.h>
 #include <OpenHome/Av/VolumeManager.h>
 #include <OpenHome/Configuration/ConfigManager.h>
@@ -56,7 +56,13 @@ private:
     WriterJsonArray iWriter;
 };
 
-class ProviderVolume : public Net::DvProviderAvOpenhomeOrgVolume3, public IProvider, private IVolumeObserver, private Media::IMuteObserver, private IUnityGainObserver, private IVolumeOffsetterObserver, private ITrimObserver
+class ProviderVolume : public Net::DvProviderAvOpenhomeOrgVolume4
+                     , public IProvider
+                     , private IVolumeObserver
+                     , private Media::IMuteObserver
+                     , private IUnityGainObserver
+                     , private IVolumeOffsetterObserver
+                     , private ITrimObserver
 {
 private:
     static const Brn kPowerDownVolume;
@@ -77,6 +83,7 @@ private: // from DvProviderAvOpenhomeOrgVolume1
     void SetVolume(Net::IDvInvocation& aInvocation, TUint aValue) override;
     void VolumeInc(Net::IDvInvocation& aInvocation) override;
     void VolumeDec(Net::IDvInvocation& aInvocation) override;
+    void SetVolumeNoUnmute(Net::IDvInvocation& aInvocation, TUint aValue) override;
     void Volume(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseUint& aValue) override;
 
     void SetBalance(Net::IDvInvocation& aInvocation, TInt aValue) override;
@@ -126,7 +133,7 @@ private:
     void FadeChanged(Configuration::ConfigNum::KvpNum& aKvp);
 private:
     Mutex iLock;
-    IVolume& iVolume;
+    IVolumeManager& iVolume;
     IBalance* iBalance;
     IFade* iFade;
     IVolumeOffsetter* iVolumeOffsetter;
