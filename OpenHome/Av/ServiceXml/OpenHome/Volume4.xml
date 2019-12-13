@@ -67,6 +67,12 @@
        </argumentList>
      </action>
      <action>
+       <name>VolumeIncNoUnmute</name>
+     </action>
+     <action>
+       <name>VolumeDecNoUnmute</name>
+     </action>
+     <action>
          <name>Volume</name>
          <argumentList>
                 <argument>
