@@ -187,7 +187,7 @@ public:
     /**
     * Add a block of decoded (DSD) audio to the pipeline.
     *
-    * Only supported for encoded audio that is already packed in a format expected by teh pipeline animator.
+    * Only supported for encoded audio that is already packed in a format expected by the pipeline animator.
     *
     * @param[in] aMsg              Returned from ReadNextMsg().
     * @param[in] aChannels         Number of channels.  Must be in the range [1..2].
