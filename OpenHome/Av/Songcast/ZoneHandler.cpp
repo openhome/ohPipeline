@@ -271,7 +271,7 @@ void ZoneHandler::CurrentSubnetChanged()
     iSem.Clear();
     DestroySockets();
     static const TChar* kNifCookie = "ZoneHandler";
-    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kNifCookie);
+    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kNifCookie).Ptr();
     if (current != nullptr) {
         TIpAddress addr = current->Address();
         current->RemoveRef(kNifCookie);

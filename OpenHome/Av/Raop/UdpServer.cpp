@@ -290,7 +290,7 @@ void SocketUdpServer::CheckRebind()
 void SocketUdpServer::CurrentAdapterChanged()
 {
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
-    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie);
+    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie).Ptr();
 
     // Get current subnet, otherwise choose first from a list
     if (current == nullptr) {

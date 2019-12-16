@@ -821,7 +821,7 @@ void OhmSender::CurrentSubnetChanged()
     AutoMutex mutex(iMutexStartStop);
 
     static const TChar* kNifCookie = "OhmSender";
-    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kNifCookie);
+    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kNifCookie).Ptr();
     const TIpAddress addr = (current? current->Address() : 0);
     if (current != nullptr) {
         current->RemoveRef(kNifCookie);

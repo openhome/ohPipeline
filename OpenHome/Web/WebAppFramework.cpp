@@ -1131,7 +1131,7 @@ void WebAppFramework::AddSessions()
 void WebAppFramework::CurrentAdapterChanged()
 {
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
-    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie);
+    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie).Ptr();
     // If no current adapter, choose first (if any) from subnet list.
     if (current == nullptr) {
         std::vector<NetworkAdapter*>* subnetList = nifList.CreateSubnetList();

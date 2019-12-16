@@ -1208,7 +1208,7 @@ void ConfigUiValRoIpAddress::CurrentAdapterChanged()
 {
     iAddress.SetBytes(0);
 
-    NetworkAdapter* adpt = iAdapterList.CurrentAdapter(kCookie);
+    NetworkAdapter* adpt = iAdapterList.CurrentAdapter(kCookie).Ptr();
     if (adpt != nullptr) {
         Endpoint::AppendAddress(iAddress, adpt->Address());
         adpt->RemoveRef(kCookie);

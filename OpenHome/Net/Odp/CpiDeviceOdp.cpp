@@ -454,7 +454,7 @@ TBool CpiDeviceListOdp::IsLocationReachable(const Brx& aLocation) const
     }
     iLock.Wait();
     Endpoint endpt(0, uri.Host());
-    NetworkAdapter* nif = iCpStack.Env().NetworkAdapterList().CurrentAdapter("CpiDeviceListOdp::IsLocationReachable");
+    NetworkAdapter* nif = iCpStack.Env().NetworkAdapterList().CurrentAdapter("CpiDeviceListOdp::IsLocationReachable").Ptr();
     if (nif != NULL) {
         if (nif->Address() == iInterface && nif->ContainsAddress(endpt.Address())) {
             reachable = true;
@@ -494,7 +494,7 @@ void CpiDeviceListOdp::SubnetListChanged()
 
 void CpiDeviceListOdp::HandleInterfaceChange()
 {
-    NetworkAdapter* current = iCpStack.Env().NetworkAdapterList().CurrentAdapter("CpiDeviceListOdp::HandleInterfaceChange");
+    NetworkAdapter* current = iCpStack.Env().NetworkAdapterList().CurrentAdapter("CpiDeviceListOdp::HandleInterfaceChange").Ptr();
     if (current != NULL && current->Address() == iInterface) {
         // list of subnets has changed but our interface is still available so there's nothing for us to do here
         current->RemoveRef("CpiDeviceListOdp::HandleInterfaceChange");
