@@ -396,19 +396,19 @@ TBool Tidal::TryLoginLocked()
     }
     {
         AutoSocketSsl _(iSocket);
-        Bws<280> reqBody(Brn("username="));
-        WriterBuffer writer(reqBody);
+        iReqBody.Replace(Brn("username="));
+        WriterBuffer writer(iReqBody);
         iLockConfig.Wait();
         FormUrl::Encode(writer, iUsername.Buffer());
-        reqBody.Append(Brn("&password="));
+        iReqBody.Append(Brn("&password="));
         FormUrl::Encode(writer, iPassword.Buffer());
         iLockConfig.Signal();
 
         Bws<128> pathAndQuery("/v1/login/username?token=");
         pathAndQuery.Append(iToken);
         try {
-            WriteRequestHeaders(Http::kMethodPost, kHost, pathAndQuery, kPort, Connection::Close, reqBody.Bytes());
-            iWriterBuf.Write(reqBody);
+            WriteRequestHeaders(Http::kMethodPost, kHost, pathAndQuery, kPort, Connection::Close, iReqBody.Bytes());
+            iWriterBuf.Write(iReqBody);
             iWriterBuf.WriteFlush();
 
             iReaderResponse.Read();

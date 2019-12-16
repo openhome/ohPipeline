@@ -98,6 +98,7 @@ private:
     TUint iSubscriberIdQuality;
     Bwh iUri;
     Uri iRequest;
+    Bws<4096> iReqBody; // local variable but too big for the stack
 };
 
 };  // namespace Av
