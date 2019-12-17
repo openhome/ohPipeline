@@ -1051,9 +1051,10 @@ void SuiteVolumeUser::SetVolumeAtLimits()
 
 void SuiteVolumeUser::SetVolumeOutsideLimits()
 {
-    iUser->SetVolume(80);
+    iUser->SetVolume(101);
+    TEST(iVolume->GetVolume() == 100);
     TEST_THROWS(iUser->SetVolume(101), VolumeOutOfRange);
-    TEST(iVolume->GetVolume() == 80);
+    TEST(iVolume->GetVolume() == 100);
 }
 
 void SuiteVolumeUser::TestApplyStartupVolume()

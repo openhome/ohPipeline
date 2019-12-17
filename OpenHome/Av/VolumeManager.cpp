@@ -149,7 +149,13 @@ void VolumeUser::SetVolume(TUint aVolume)
 {
     LOG(kVolume, "VolumeUser::SetVolume aVolume: %u\n", aVolume);
     if (aVolume > iMaxVolume) {
-        THROW(VolumeOutOfRange);
+        const TUint currentVolume = iStoreUserVolume.Get();
+        if (currentVolume < iMaxVolume) {
+            aVolume = iMaxVolume;
+        }
+        else {
+            THROW(VolumeOutOfRange);
+        }
     }
     iVolume.SetVolume(aVolume);
     iStoreUserVolume.Set(aVolume);

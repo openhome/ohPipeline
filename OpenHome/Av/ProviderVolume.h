@@ -84,6 +84,8 @@ private: // from DvProviderAvOpenhomeOrgVolume1
     void VolumeInc(Net::IDvInvocation& aInvocation) override;
     void VolumeDec(Net::IDvInvocation& aInvocation) override;
     void SetVolumeNoUnmute(Net::IDvInvocation& aInvocation, TUint aValue) override;
+    void VolumeIncNoUnmute(Net::IDvInvocation& aInvocation) override;
+    void VolumeDecNoUnmute(Net::IDvInvocation& aInvocation) override;
     void Volume(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseUint& aValue) override;
 
     void SetBalance(Net::IDvInvocation& aInvocation, TInt aValue) override;
@@ -126,6 +128,7 @@ private:
     };
 private:
     void HelperSetVolume(Net::IDvInvocation& aInvocation, TUint aVolume, ErrorOutOfRange aReportOutOfRange);
+    void HelperSetVolumeNoUnmute(Net::IDvInvocation& aInvocation, TUint aVolume, ErrorOutOfRange aReportOutOfRange);
     void HelperSetBalance(Net::IDvInvocation& aInvocation, TInt aBalance, ErrorOutOfRange aReportOutOfRange);
     void HelperSetFade(Net::IDvInvocation& aInvocation, TInt aFade, ErrorOutOfRange aReportOutOfRange);
     void VolumeLimitChanged(Configuration::ConfigNum::KvpNum& aKvp);

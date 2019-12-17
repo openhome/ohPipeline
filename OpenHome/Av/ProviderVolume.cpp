@@ -183,6 +183,8 @@ ProviderVolume::ProviderVolume(DvDevice& aDevice, IConfigManager& aConfigReader,
     EnableActionVolumeInc();
     EnableActionVolumeDec();
     EnableActionSetVolumeNoUnmute();
+    EnableActionVolumeIncNoUnmute();
+    EnableActionVolumeDecNoUnmute();
     EnableActionVolume();
     EnableActionSetBalance();
     EnableActionBalanceInc();
@@ -309,19 +311,21 @@ void ProviderVolume::VolumeDec(IDvInvocation& aInvocation)
 
 void ProviderVolume::SetVolumeNoUnmute(IDvInvocation& aInvocation, TUint aValue)
 {
-    try {
-        iVolume.SetVolumeNoUnmute(aValue);
-    }
-    catch (VolumeOutOfRange&) {
-        if (aValue > iVolumeMax) {
-            aInvocation.Error(kInvalidVolumeCode, kInvalidVolumeMsg);
-        }
-    }
-    catch (VolumeNotSupported&) {
-        aInvocation.Error(kVolumeNotSupportedCode, kVolumeNotSupportedMsg);
-    }
-    aInvocation.StartResponse();
-    aInvocation.EndResponse();
+    HelperSetVolumeNoUnmute(aInvocation, aValue, ErrorOutOfRange::Report);
+}
+
+void ProviderVolume::VolumeIncNoUnmute(IDvInvocation& aInvocation)
+{
+    TUint volume = 0;
+    GetPropertyVolume(volume);
+    HelperSetVolumeNoUnmute(aInvocation, volume + 1, ErrorOutOfRange::Ignore);
+}
+
+void ProviderVolume::VolumeDecNoUnmute(IDvInvocation& aInvocation)
+{
+    TUint volume = 0;
+    GetPropertyVolume(volume);
+    HelperSetVolumeNoUnmute(aInvocation, volume - 1, ErrorOutOfRange::Ignore);
 }
 
 void ProviderVolume::Volume(IDvInvocation& aInvocation, IDvInvocationResponseUint& aValue)
@@ -555,6 +559,23 @@ void ProviderVolume::HelperSetVolume(IDvInvocation& aInvocation, TUint aVolume, 
 {
     try {
         iVolume.SetVolume(aVolume);
+    }
+    catch (VolumeOutOfRange&) {
+        if (aVolume > iVolumeMax && aReportOutOfRange == ErrorOutOfRange::Report) {
+            aInvocation.Error(kInvalidVolumeCode, kInvalidVolumeMsg);
+        }
+    }
+    catch (VolumeNotSupported&) {
+        aInvocation.Error(kVolumeNotSupportedCode, kVolumeNotSupportedMsg);
+    }
+    aInvocation.StartResponse();
+    aInvocation.EndResponse();
+}
+
+void ProviderVolume::HelperSetVolumeNoUnmute(IDvInvocation& aInvocation, TUint aVolume, ErrorOutOfRange aReportOutOfRange)
+{
+    try {
+        iVolume.SetVolumeNoUnmute(aVolume);
     }
     catch (VolumeOutOfRange&) {
         if (aVolume > iVolumeMax && aReportOutOfRange == ErrorOutOfRange::Report) {
