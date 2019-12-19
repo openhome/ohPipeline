@@ -77,13 +77,14 @@ void UriProvider::Interrupt(TBool /*aInterrupt*/)
 {
 }
 
-UriProvider::UriProvider(const TChar* aMode, Latency aLatency,
+UriProvider::UriProvider(const TChar* aMode, Latency aLatency, Pause aPauseSupported,
                          Next aNextSupported, Prev aPrevSupported,
                          Repeat aRepeatSupported, Random aRandomSupported,
                          RampPauseResume aRampPauseResume, RampSkip aRampSkip)
     : iMode(aMode)
 {
     iModeInfo.SetSupportsLatency(aLatency == Latency::Supported);
+    iModeInfo.SetSupportsPause(aPauseSupported == Pause::Supported);
     iModeInfo.SetSupportsNextPrev(aNextSupported == Next::Supported,
                                   aPrevSupported == Prev::Supported);
     iModeInfo.SetSupportsRepeatRandom(aRepeatSupported == Repeat::Supported,

@@ -342,10 +342,12 @@ public:
     inline ModeInfo();
     inline ModeInfo(TBool aSupportsLatency);
     inline void SetSupportsLatency(TBool aSupportsLatency);
+    inline void SetSupportsPause(TBool aSupportsPause);
     inline void SetSupportsNextPrev(TBool aSupportsNext, TBool aSupportsPrev);
     inline void SetSupportsRepeatRandom(TBool aSupportsRepeat, TBool aSupportsRandom);
     inline void SetRampDurations(TBool aPauseResumeLong, TBool aSkipLong);
     inline TBool SupportsLatency() const;
+    inline TBool SupportsPause() const;
     inline TBool SupportsNext() const;
     inline TBool SupportsPrev() const;
     inline TBool SupportsRepeat() const;
@@ -356,6 +358,7 @@ private:
     void Clear();
 private:
     TBool iSupportsLatency;
+    TBool iSupportsPause;
     TBool iSupportsNext;
     TBool iSupportsPrev;
     TBool iSupportsRepeat;

@@ -13,6 +13,7 @@ const Brn UriProviderScd::kCommandUri("uri");
 UriProviderScd::UriProviderScd(TrackFactory& aTrackFactory)
     : UriProvider("SCD",
                   Latency::NotSupported,
+                  Pause::NotSupported,
                   Next::NotSupported,
                   Prev::NotSupported,
                   Repeat::NotSupported,

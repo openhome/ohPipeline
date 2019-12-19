@@ -40,6 +40,7 @@ ProviderTransport::ProviderTransport(Environment& aEnv,
     , iLockTransportControls("PTR2")
     , iTransportState(EPipelineStopped)
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
+    , iModeIsPausable(false)
     , iModes(kModesGranularity)
     , iWriterModes(iModes, WriterJsonArray::WriteOnEmpty::eEmptyArray)
 {
@@ -144,6 +145,7 @@ void ProviderTransport::NotifyMode(const Brx& /*aMode*/,
     iStreamId = IPipelineIdProvider::kStreamIdInvalid;
     (void)SetPropertyStreamId(iStreamId);
     (void)SetPropertyCanSeek(false);
+    iModeIsPausable = aInfo.SupportsPause();
     (void)SetPropertyCanPause(false);
     PropertiesUnlock();
 }
@@ -170,7 +172,9 @@ void ProviderTransport::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
     iStreamId = aStreamInfo.StreamId();
     (void)SetPropertyStreamId(iStreamId);
     (void)SetPropertyCanSeek(aStreamInfo.Seekable());
-    (void)SetPropertyCanPause(!aStreamInfo.Live());
+    if (iModeIsPausable) {
+        (void)SetPropertyCanPause(!aStreamInfo.Live());
+    }
 }
 
 void ProviderTransport::NotifyModeAdded(const Brx& aMode)

@@ -61,6 +61,10 @@ inline void ModeInfo::SetSupportsLatency(TBool aSupportsLatency)
 {
     iSupportsLatency = aSupportsLatency;
 }
+inline void ModeInfo::SetSupportsPause(TBool aSupportsPause)
+{
+    iSupportsPause = aSupportsPause;
+}
 inline void ModeInfo::SetSupportsNextPrev(TBool aSupportsNext, TBool aSupportsPrev)
 {
     iSupportsNext = aSupportsNext;
@@ -79,6 +83,10 @@ inline void ModeInfo::SetRampDurations(TBool aPauseResume, TBool aSkip)
 inline TBool ModeInfo::SupportsLatency() const
 {
     return iSupportsLatency;
+}
+inline TBool ModeInfo::SupportsPause() const
+{
+    return iSupportsPause;
 }
 inline TBool ModeInfo::SupportsNext() const
 {

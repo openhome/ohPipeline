@@ -9,9 +9,10 @@ using namespace OpenHome::Media;
 
 // UriProviderSingleTrack
 
-UriProviderSingleTrack::UriProviderSingleTrack(const TChar* aMode, TBool aSupportsLatency, TrackFactory& aTrackFactory)
+UriProviderSingleTrack::UriProviderSingleTrack(const TChar* aMode, TBool aSupportsLatency, TBool aSupportsPause, TrackFactory& aTrackFactory)
     : UriProvider(aMode,
                   aSupportsLatency? Latency::Supported : Latency::NotSupported,
+                  aSupportsPause? Pause::Supported : Pause::NotSupported,
                   Next::NotSupported, Prev::NotSupported,
                   Repeat::NotSupported, Random::NotSupported,
                   RampPauseResume::Long, RampSkip::Short)

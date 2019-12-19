@@ -958,6 +958,7 @@ void Track::Clear()
 void ModeInfo::Clear()
 {
     iSupportsLatency     = false;
+    iSupportsPause       = false;
     iSupportsNext        = false;
     iSupportsPrev        = false;
     iSupportsRepeat      = false;

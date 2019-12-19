@@ -20,6 +20,7 @@ UriProviderRadio::UriProviderRadio(TrackFactory& aTrackFactory,
                                    IPresetDatabaseReaderTrack& aDbReader)
     : UriProvider("Radio",
                   Latency::NotSupported,
+                  Pause::Supported,
                   Next::Supported,
                   Prev::Supported,
                   Repeat::NotSupported,

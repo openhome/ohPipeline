@@ -78,6 +78,7 @@ private:
     Media::EPipelineState iTransportState;
     Timer* iBufferingModerator;
     TUint iStreamId;
+    TBool iModeIsPausable;
     TUint iTrackPosSeconds;
     WriterBwh iModes;
     WriterJsonArray iWriterModes;

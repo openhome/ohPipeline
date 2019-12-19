@@ -30,7 +30,7 @@ UriProviderPlaylist::UriProviderPlaylist(ITrackDatabaseReader& aDbReader, ITrack
                                          ITrackDatabaseObserver& aDbObserver,
                                          PipelineManager& aPipeline, Optional<IPlaylistLoader> aPlaylistLoader)
     : UriProvider("Playlist",
-                  Latency::NotSupported,
+                  Latency::NotSupported, Pause::Supported,
                   Next::Supported, Prev::Supported,
                   Repeat::Supported, Random::Supported,
                   RampPauseResume::Long, RampSkip::Short)
