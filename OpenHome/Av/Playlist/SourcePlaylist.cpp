@@ -400,8 +400,13 @@ void SourcePlaylist::SetShuffle(TBool aShuffle)
 {
     AutoMutex a(iLock);
     iShuffler->SetShuffle(aShuffle);
-    if (aShuffle && iTransportState == EPipelineStopped) {
-        iNewPlaylist = true;
+    if (aShuffle) {
+        if (iTransportState == EPipelineStopped) {
+            iNewPlaylist = true;
+        }
+        else if (iTransportState == EPipelinePlaying) {
+            iShuffler->TryMoveToStart(iTrackId);
+        }
     }
 }
 
