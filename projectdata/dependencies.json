@@ -38,7 +38,7 @@
     },
     {   "name":             "libosa",
         "type":             "internal",
-        "version":          "0.2.275",
+        "version":          "0.2.276",
         "cross-check":      false,
         "archive-suffix":   "-Release",
         "platform-ignore": {
