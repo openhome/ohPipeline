@@ -92,6 +92,8 @@ void CpiOdpInvocable::InvokeAction(Invocation& aInvocation)
 
 void CpiOdpInvocable::DoHandleResponse(const JsonParser& aParser)
 {
+    ASSERT_VA(iInvocation != nullptr, "CpiOdpInvocable::DoHandleResponse this: %p, iDevice: %p\n", this, &iDevice);
+
     if (!aParser.IsNull(Odp::kKeyError)) {
         JsonParser error;
         error.Parse(aParser.String(Odp::kKeyError));
@@ -255,6 +257,8 @@ void CpiOdpSubscriber::Subscribe(CpiSubscription& aSubscription)
 
 void CpiOdpSubscriber::DoHandleResponse(const JsonParser& aParser)
 {
+    ASSERT_VA(iSubscription != nullptr, "CpiOdpSubscriber::DoHandleResponse this: %p, iDevice: %p\n", this, &iDevice);
+
     if (!aParser.IsNull(Odp::kKeyError)) {
         THROW(OdpError);
     }
