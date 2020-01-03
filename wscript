@@ -14,7 +14,7 @@ import os.path, sys
 sys.path[0:0] = [os.path.join('dependencies', 'AnyPlatform', 'ohWafHelpers')]
 
 from filetasks import gather_files, build_tree, copy_task, find_dir_or_fail, create_copy_task
-from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_openssl_location, guess_libplatform_location, guess_libosa_location, is_core_platform
+from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_libplatform_location, guess_libosa_location, is_core_platform
 
 def options(opt):
     opt.load('msvs')
@@ -25,7 +25,7 @@ def options(opt):
     opt.add_option('--ohnet-lib-dir', action='store', default=None)
     opt.add_option('--testharness-dir', action='store', default=os.path.join('dependencies', 'AnyPlatform', 'testharness'))
     opt.add_option('--ohnet', action='store', default=None)
-    opt.add_option('--openssl', action='store', default=None)
+    opt.add_option('--ssl', action='store', default=None)
     opt.add_option('--libplatform', action='store', default=None)
     opt.add_option('--libosa', action='store', default=None)
     opt.add_option('--debug', action='store_const', dest="debugmode", const="Debug", default="Release")
@@ -58,7 +58,7 @@ def configure(conf):
 
     configure_toolchain(conf)
     guess_ohnet_location(conf)
-    guess_openssl_location(conf)
+    guess_ssl_location(conf)
 
     conf.env.dest_platform = conf.options.dest_platform
     conf.env.testharness_dir = os.path.abspath(conf.options.testharness_dir)
@@ -288,7 +288,7 @@ def build(bld):
                 'OpenHome/SocketHttp.cpp',
                 'OpenHome/SocketSsl.cpp',
             ],
-            use=['ohNetCore', 'OHNET', 'OPENSSL'],
+            use=['ohNetCore', 'OHNET', 'SSL'],
             target='ohPipeline')
 
     # Library
@@ -343,7 +343,7 @@ def build(bld):
                 'OpenHome/Av/Pins/ProviderPins.cpp',
                 'OpenHome/Av/OhMetadata.cpp',
             ],
-            use=['OHNET', 'OPENSSL', 'ohPipeline'],
+            use=['OHNET', 'SSL', 'ohPipeline'],
             target='ohMediaPlayer')
 
     bld.stlib(
@@ -448,7 +448,7 @@ def build(bld):
                 'OpenHome/Av/Raop/UdpServer.cpp',
                 'OpenHome/Av/Raop/CodecRaopApple.cpp',
             ],
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'CodecAlacAppleBase'],
+            use=['OHNET', 'SSL', 'ohMediaPlayer', 'CodecAlacAppleBase'],
             target='SourceRaop')
 
     # Library
@@ -756,7 +756,7 @@ def build(bld):
         source=[
             'OpenHome/Web/ConfigUi/Tests/TestConfigUi.cpp'
         ],
-        use=['ConfigUi', 'WebAppFramework', 'OHMEDIAPLAYER', 'OHNET', 'PLATFORM', 'OPENSSL'],
+        use=['ConfigUi', 'WebAppFramework', 'OHMEDIAPLAYER', 'OHNET', 'PLATFORM', 'SSL'],
         target='ConfigUiTestUtils')
 
     # Tests
@@ -830,12 +830,12 @@ def build(bld):
                 'OpenHome/Av/Tests/TestSenderQueue.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'OPENSSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'SSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
             source='OpenHome/Media/Tests/TestShellMain.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'WebAppFrameworkTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceRaop', 'SourceSongcast', 'SourceUpnpAv', 'Odp'],
+            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'WebAppFrameworkTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceRaop', 'SourceSongcast', 'SourceUpnpAv', 'Odp'],
             target='TestShell',
             install_path=None)
     bld.program(
@@ -970,17 +970,17 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestProtocolHlsMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target='TestProtocolHls',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestProtocolHttpMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target='TestProtocolHttp',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestCodecMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target='TestCodec',
             install_path=None)
     bld.program(
@@ -1050,7 +1050,7 @@ def build(bld):
             install_path=None)
     #bld.program(
     #        source='OpenHome/Av/Tests/TestPlaylistMain.cpp',
-    #        use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
+    #        use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
     #        target='TestPlaylist',
     #        install_path=None)
     bld.program(
@@ -1060,7 +1060,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestMediaPlayerMain.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
+            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
             target='TestMediaPlayer',
             install_path=os.path.join(bld.path.abspath(), 'install', 'bin'))
     bld.program(
@@ -1075,7 +1075,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Tests/TestSslMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target='TestSsl',
             install_path=None)
     bld.program(
@@ -1085,12 +1085,12 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestCredentialsMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'OPENSSL'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target='TestCredentials',
             install_path=None)
     bld.program(
             source='OpenHome/Tests/TestHttps.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'OPENSSL'],
+            use=['OHNET', 'ohMediaPlayer', 'SSL'],
             target='TestHttps',
             install_path=None)
     bld.program(
@@ -1100,17 +1100,17 @@ def build(bld):
             install_path=None)
     #bld.program(
     #        source='OpenHome/Tests/TestKey.cpp',
-    #        use=['OHNET', 'ohMediaPlayer', 'OPENSSL'],
+    #        use=['OHNET', 'ohMediaPlayer', 'SSL'],
     #        target='TestKey',
     #        install_path=None)
     #bld.program(
     #        source='OpenHome/Tests/TestHttpsBsd.cpp',
-    #        use=['OHNET', 'ohMediaPlayer', 'OPENSSL'],
+    #        use=['OHNET', 'ohMediaPlayer', 'SSL'],
     #        target='TestHttpsBsd',
     #        install_path=None)
     bld.program(
             source='OpenHome/Av/Tidal/TestTidal.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
+            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
             target='TestTidal',
             install_path=None)
     bld.program(
@@ -1140,12 +1140,12 @@ def build(bld):
             install_path=None)
     bld.program(
             source=['OpenHome/Web/ConfigUi/Tests/TestConfigUiMain.cpp'],
-            use=['OHNET', 'PLATFORM', 'OPENSSL', 'ConfigUiTestUtils', 'WebAppFrameworkTestUtils', 'ConfigUi', 'WebAppFramework', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'ohMediaPlayer'],
+            use=['OHNET', 'PLATFORM', 'SSL', 'ConfigUiTestUtils', 'WebAppFrameworkTestUtils', 'ConfigUi', 'WebAppFramework', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'ohMediaPlayer'],
             target='TestConfigUi',
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestRaopMain.cpp',
-            use=['OHNET', 'OPENSSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourceRaop'],
+            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourceRaop'],
             target='TestRaop',
             install_path=None)
     bld.program(
