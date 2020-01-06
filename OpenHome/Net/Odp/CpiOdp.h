@@ -43,7 +43,7 @@ protected:
     CpiOdpResponseHandler(ICpiOdpDevice& aDevice);
     void WriteCorrelationId(WriterJsonObject& aWriterRequest);
     void WaitForResponse();
-private: // from ICpiOdpResponse
+public: // from ICpiOdpResponse
     void HandleOdpResponse(const JsonParser& aJsonParser) override;
     void HandleError() override;
 private:
@@ -60,7 +60,7 @@ class CpiOdpInvocable : public CpiOdpResponseHandler
 {
 public:
     CpiOdpInvocable(ICpiOdpDevice& aDevice);
-private: // from IInvocable
+public: // from IInvocable
     void InvokeAction(Invocation& aInvocation) override;
 private: // from CpiOdpResponseHandler
     void DoHandleResponse(const JsonParser& aJsonParser) override;
@@ -134,6 +134,31 @@ public:
     ~AutoOdpDevice();
 private:
     ICpiOdpDevice& iDevice;
+};
+
+/*
+ * Class that inserts itself into a queue when it receives a response callback.
+ */
+class CpiOdpInvocableQueueItem : public IInvocable, public ICpiOdpResponse, public ICpiOdpDevice
+{
+public:
+    CpiOdpInvocableQueueItem(ICpiOdpDevice& aDevice, Fifo<IInvocable*>& aQueue);
+public: // from IInvocable
+    void InvokeAction(Invocation& aInvocation) override;
+public: // from ICpiOdpResponse
+    void HandleOdpResponse(const JsonParser& aJsonParser) override;
+    void HandleError() override;
+private: // from ICpiOdpDevice
+    IWriter& WriteLock() override;
+    void WriteUnlock() override;
+    void WriteEnd(IWriter& aWriter) override;
+    TUint RegisterResponseHandler(ICpiOdpResponse& aResponseHandler) override;
+    const Brx& Udn() const override;
+    const Brx& Alias() const override;
+private:
+    ICpiOdpDevice& iDevice;
+    CpiOdpInvocable iInvocable;
+    Fifo<IInvocable*>& iQueue;
 };
 
 } // namespace Net

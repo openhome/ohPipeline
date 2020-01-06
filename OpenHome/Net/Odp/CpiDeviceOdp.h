@@ -68,7 +68,7 @@ private:
     Functor iStateChanged;
     CpiDevice* iDevice;
     ThreadFunctor* iThread;
-    IInvocable* iInvocable;
+    Fifo<IInvocable*> iQueueInvocable;
     TBool iConnected;
     TBool iExiting;
     Semaphore iDeviceConnected;

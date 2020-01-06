@@ -320,3 +320,73 @@ AutoOdpDevice::~AutoOdpDevice()
 {
     iDevice.WriteUnlock();
 }
+
+
+// CpiOdpInvocableQueueItem
+
+CpiOdpInvocableQueueItem::CpiOdpInvocableQueueItem(ICpiOdpDevice& aDevice, Fifo<IInvocable*>& aQueue)
+    : iDevice(aDevice)
+    , iInvocable(*this)
+    , iQueue(aQueue)
+{
+}
+
+void CpiOdpInvocableQueueItem::InvokeAction(Invocation& aInvocation)
+{
+    iInvocable.InvokeAction(aInvocation);
+}
+
+void CpiOdpInvocableQueueItem::HandleOdpResponse(const JsonParser& aJsonParser)
+{
+    try {
+        iInvocable.HandleOdpResponse(aJsonParser);
+        iQueue.Write(this);
+    }
+    catch (...) {
+        iQueue.Write(this);
+        throw;
+    }
+}
+
+void CpiOdpInvocableQueueItem::HandleError()
+{
+    try {
+        iInvocable.HandleError();
+        iQueue.Write(this);
+    }
+    catch (...) {
+        iQueue.Write(this);
+        throw;
+    }
+}
+
+IWriter& CpiOdpInvocableQueueItem::WriteLock()
+{
+    return iDevice.WriteLock();
+}
+
+void CpiOdpInvocableQueueItem::WriteUnlock()
+{
+    iDevice.WriteUnlock();
+}
+
+void CpiOdpInvocableQueueItem::WriteEnd(IWriter& aWriter)
+{
+    iDevice.WriteEnd(aWriter);
+}
+
+TUint CpiOdpInvocableQueueItem::RegisterResponseHandler(ICpiOdpResponse& aResponseHandler)
+{
+    // Pass this object into RegisterRespondeHandler call instead of iInvocable. When this object receives callback, it is up to it to ensure the appropriate callback is made on iInvocable.
+    return iDevice.RegisterResponseHandler(*this);
+}
+
+const Brx& CpiOdpInvocableQueueItem::Udn() const
+{
+    return iDevice.Udn();
+}
+
+const Brx& CpiOdpInvocableQueueItem::Alias() const
+{
+    return iDevice.Alias();
+}

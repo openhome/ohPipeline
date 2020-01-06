@@ -21,7 +21,8 @@
 
 using namespace OpenHome;
 using namespace OpenHome::Net;
-
+    
+    
 // CpiDeviceOdp
 
 CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, MdnsDevice& aDev, const Brx& aAlias, Functor aStateChanged)
@@ -30,6 +31,7 @@ CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, MdnsDevice& aDev, const Brx& aAlia
     , iAlias(aAlias)
     , iStateChanged(aStateChanged)
     , iDevice(nullptr)
+    , iQueueInvocable(aCpStack.Env().InitParams()->NumActionInvokerThreads())
     , iConnected(false)
     , iExiting(false)
     , iDeviceConnected("SODP", 0)
@@ -45,7 +47,11 @@ CpiDeviceOdp::CpiDeviceOdp(CpStack& aCpStack, MdnsDevice& aDev, const Brx& aAlia
     iReaderUntil = new ReaderUntilS<kMaxReadBufferBytes>(*iReadBuffer);
     iWriteBuffer = new Sws<kMaxWriteBufferBytes>(iSocket);
     iThread = new ThreadFunctor("OdpClient", MakeFunctor(*this, &CpiDeviceOdp::OdpReaderThread));
-    iInvocable = new CpiOdpInvocable(*this);
+
+    while (iQueueInvocable.SlotsFree() > 0) {
+        iQueueInvocable.Write(new CpiOdpInvocableQueueItem(*this, iQueueInvocable));
+    }
+
     iThread->Start();
     // to accomadate a device list, constructor needs to provide the cpidevice in a ready state
     try {
@@ -61,7 +67,12 @@ CpiDeviceOdp::~CpiDeviceOdp()
     iExiting = true;
     iReadBuffer->ReadInterrupt();
     delete iThread;
-    delete iInvocable;
+    // Check no invocables have been leaked.
+    ASSERT(iQueueInvocable.SlotsFree() == 0);
+    while (iQueueInvocable.SlotsUsed() > 0) {
+        auto* invocable = iQueueInvocable.Read();
+        delete invocable;
+    }
     delete iWriteBuffer;
     delete iReaderUntil;
     delete iReadBuffer;
@@ -229,7 +240,9 @@ void CpiDeviceOdp::HandleEventedUpdate(JsonParser& aParser)
 
 void CpiDeviceOdp::InvokeAction(Invocation& aInvocation)
 {
-    aInvocation.SetInvoker(*iInvocable);
+    // invocable will place itself back into free queue upon callback.
+    auto* invocable = iQueueInvocable.Read();
+    aInvocation.SetInvoker(*invocable);
     iCpStack.InvocationManager().Invoke(&aInvocation);
 }
 
