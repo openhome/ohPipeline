@@ -326,9 +326,9 @@ AutoOdpDevice::~AutoOdpDevice()
 
 CpiOdpInvocableQueueItem::CpiOdpInvocableQueueItem(ICpiOdpDevice& aDevice, Fifo<IInvocable*>& aQueue)
     : iDevice(aDevice)
-    , iInvocable(*this)
-    , iResponse(nullptr)
     , iQueue(aQueue)
+    , iResponse(nullptr)
+    , iInvocable(*this)
 {
 }
 

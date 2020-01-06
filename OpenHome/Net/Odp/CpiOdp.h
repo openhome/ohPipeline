@@ -159,9 +159,9 @@ private:
     void Reset();
 private:
     ICpiOdpDevice& iDevice;
-    CpiOdpInvocable iInvocable;
-    ICpiOdpResponse* iResponse; // Not taking ownership.
     Fifo<IInvocable*>& iQueue;
+    ICpiOdpResponse* iResponse; // Not taking ownership.
+    CpiOdpInvocable iInvocable;
 };
 
 } // namespace Net
