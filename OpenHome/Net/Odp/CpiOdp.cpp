@@ -375,7 +375,7 @@ void CpiOdpInvocableQueueItem::WriteEnd(IWriter& aWriter)
     iDevice.WriteEnd(aWriter);
 }
 
-TUint CpiOdpInvocableQueueItem::RegisterResponseHandler(ICpiOdpResponse& aResponseHandler)
+TUint CpiOdpInvocableQueueItem::RegisterResponseHandler(ICpiOdpResponse& /*aResponseHandler*/)
 {
     // Pass this object into RegisterRespondeHandler call instead of iInvocable. When this object receives callback, it is up to it to ensure the appropriate callback is made on iInvocable.
     return iDevice.RegisterResponseHandler(*this);
