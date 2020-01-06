@@ -156,8 +156,11 @@ private: // from ICpiOdpDevice
     const Brx& Udn() const override;
     const Brx& Alias() const override;
 private:
+    void Reset();
+private:
     ICpiOdpDevice& iDevice;
     CpiOdpInvocable iInvocable;
+    ICpiOdpResponse* iResponse; // Not taking ownership.
     Fifo<IInvocable*>& iQueue;
 };
 
