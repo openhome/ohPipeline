@@ -201,6 +201,7 @@ class SuiteCodecStream : public TestFramework::SuiteUnitTest, public MsgProcesso
 public:
     static const Brn kPrefixHttp;
     static const TUint kLenPrefixHttp;
+    static const TUint kMaxUriPathBytes;
     static const TUint kMaxUriBytes;
 protected:
     static const TUint kSemWaitMs = 50;

@@ -475,7 +475,8 @@ Msg* MsgProcessor::ProcessMsg(MsgQuit* aMsg)
 
 const Brn SuiteCodecStream::kPrefixHttp("http://");;
 const TUint SuiteCodecStream::kLenPrefixHttp = sizeof("http://")-1;
-const TUint SuiteCodecStream::kMaxUriBytes = Endpoint::kMaxEndpointBytes + kLenPrefixHttp;
+const TUint SuiteCodecStream::kMaxUriPathBytes = 32;
+const TUint SuiteCodecStream::kMaxUriBytes = Endpoint::kMaxEndpointBytes + kLenPrefixHttp + kMaxUriPathBytes;
 
 SuiteCodecStream::SuiteCodecStream(std::vector<AudioFileDescriptor>& aFiles, Environment& aEnv, CreateTestCodecPipelineFunc aFunc, const Uri& aUri)
     : SuiteUnitTest("Codec stream tests")
@@ -1083,6 +1084,7 @@ void TestCodec(Environment& aEnv, CreateTestCodecPipelineFunc aFunc, GetTestFile
     Bws<SuiteCodecStream::kMaxUriBytes> uriBuf;
     uriBuf.Append(SuiteCodecStream::kPrefixHttp);
     endptServer.AppendEndpoint(uriBuf);
+    uriBuf.Append("/");
     uriBuf.Append(optionPath.Value());
     Uri uri(uriBuf);
     Log::Print("Connecting to server: ");
