@@ -334,7 +334,13 @@ CpiOdpInvocableQueueItem::CpiOdpInvocableQueueItem(ICpiOdpDevice& aDevice, Fifo<
 
 void CpiOdpInvocableQueueItem::InvokeAction(Invocation& aInvocation)
 {
-    iInvocable.InvokeAction(aInvocation);
+    try {
+        iInvocable.InvokeAction(aInvocation);
+    }
+    catch (...) {
+        Reset();
+        throw;
+    }
 }
 
 void CpiOdpInvocableQueueItem::HandleOdpResponse(const JsonParser& aJsonParser)
