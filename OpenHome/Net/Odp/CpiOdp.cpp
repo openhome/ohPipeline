@@ -386,11 +386,13 @@ void CpiOdpInvocableQueueItem::WriteEnd(IWriter& aWriter)
 
 TUint CpiOdpInvocableQueueItem::RegisterResponseHandler(ICpiOdpResponse& aResponseHandler)
 {
+    // Pass this object into iDevice as the response handler. It is responsibility of this class to pass callback through to aResponseHandler.
+    auto id = iDevice.RegisterResponseHandler(*this); // May throw exception.
+    // RegisterResponseHandler() didn't throw exception, so response is expected. Set up iResponse.
     // Only one response handler may be registered at a time.
     ASSERT(iResponse == nullptr);
     iResponse = &aResponseHandler;
-    // Pass this object into iDevice as the response handler. It is responsibility of this class to pass callback through to aResponseHandler.
-    return iDevice.RegisterResponseHandler(*this);
+    return id;
 }
 
 const Brx& CpiOdpInvocableQueueItem::Udn() const
