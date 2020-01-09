@@ -325,93 +325,20 @@ AutoOdpDevice::~AutoOdpDevice()
 // CpiOdpInvocableQueueItem
 
 CpiOdpInvocableQueueItem::CpiOdpInvocableQueueItem(ICpiOdpDevice& aDevice, Fifo<IInvocable*>& aQueue)
-    : iDevice(aDevice)
-    , iQueue(aQueue)
-    , iResponse(nullptr)
-    , iInvocable(*this)
+    : iQueue(aQueue)
+    , iInvocable(aDevice)
 {
 }
 
 void CpiOdpInvocableQueueItem::InvokeAction(Invocation& aInvocation)
 {
+    // CpiOdpInvocable::InvokeAction is synchronous.
     try {
         iInvocable.InvokeAction(aInvocation);
+        iQueue.Write(this);
     }
     catch (...) {
-        Reset();
+        iQueue.Write(this);
         throw;
     }
-}
-
-void CpiOdpInvocableQueueItem::HandleOdpResponse(const JsonParser& aJsonParser)
-{
-    try {
-        ASSERT(iResponse != nullptr);
-        iResponse->HandleOdpResponse(aJsonParser);
-        Reset();
-    }
-    catch (...) {
-        Reset();
-        throw;
-    }
-}
-
-void CpiOdpInvocableQueueItem::HandleError()
-{
-    try {
-        ASSERT(iResponse != nullptr);
-        iResponse->HandleError();
-        Reset();
-    }
-    catch (...) {
-        Reset();
-        throw;
-    }
-}
-
-IWriter& CpiOdpInvocableQueueItem::WriteLock()
-{
-    return iDevice.WriteLock();
-}
-
-void CpiOdpInvocableQueueItem::WriteUnlock()
-{
-    iDevice.WriteUnlock();
-}
-
-void CpiOdpInvocableQueueItem::WriteEnd(IWriter& aWriter)
-{
-    iDevice.WriteEnd(aWriter);
-}
-
-TUint CpiOdpInvocableQueueItem::RegisterResponseHandler(ICpiOdpResponse& aResponseHandler)
-{
-    // Set up iResponse first, as response callbacks can happen any time following a successful iDevice.RegisterResponseHandler() call.
-    ASSERT(iResponse == nullptr);
-    iResponse = &aResponseHandler;
-    // Pass this object into iDevice as the response handler. It is responsibility of this class to pass callback through to aResponseHandler.
-    try {
-        return iDevice.RegisterResponseHandler(*this);
-    }
-    catch (...) {
-        // Exception thrown, so no response expected.
-        iResponse = nullptr;
-        throw;
-    }
-}
-
-const Brx& CpiOdpInvocableQueueItem::Udn() const
-{
-    return iDevice.Udn();
-}
-
-const Brx& CpiOdpInvocableQueueItem::Alias() const
-{
-    return iDevice.Alias();
-}
-
-void CpiOdpInvocableQueueItem::Reset()
-{
-    iResponse = nullptr;
-    iQueue.Write(this);
 }

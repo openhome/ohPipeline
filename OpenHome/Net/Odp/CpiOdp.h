@@ -139,28 +139,14 @@ private:
 /*
  * Class that inserts itself into a queue when it receives a response callback.
  */
-class CpiOdpInvocableQueueItem : public IInvocable, public ICpiOdpResponse, public ICpiOdpDevice
+class CpiOdpInvocableQueueItem : public IInvocable
 {
 public:
     CpiOdpInvocableQueueItem(ICpiOdpDevice& aDevice, Fifo<IInvocable*>& aQueue);
 public: // from IInvocable
     void InvokeAction(Invocation& aInvocation) override;
-public: // from ICpiOdpResponse
-    void HandleOdpResponse(const JsonParser& aJsonParser) override;
-    void HandleError() override;
-private: // from ICpiOdpDevice
-    IWriter& WriteLock() override;
-    void WriteUnlock() override;
-    void WriteEnd(IWriter& aWriter) override;
-    TUint RegisterResponseHandler(ICpiOdpResponse& aResponseHandler) override;
-    const Brx& Udn() const override;
-    const Brx& Alias() const override;
 private:
-    void Reset();
-private:
-    ICpiOdpDevice& iDevice;
     Fifo<IInvocable*>& iQueue;
-    ICpiOdpResponse* iResponse; // Not taking ownership.
     CpiOdpInvocable iInvocable;
 };
 
