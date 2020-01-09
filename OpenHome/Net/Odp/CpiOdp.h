@@ -52,6 +52,7 @@ protected:
     ICpiOdpDevice & iDevice;
 private:
     Semaphore iSem;
+    TBool iResponsePending;
 };
 
 class CpiOdpInvocable : public CpiOdpResponseHandler

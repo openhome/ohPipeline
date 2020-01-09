@@ -24,12 +24,14 @@ using namespace OpenHome::Net;
 CpiOdpResponseHandler::CpiOdpResponseHandler(ICpiOdpDevice& aDevice)
     : iDevice(aDevice)
     , iSem("OdpA", 0)
+    , iResponsePending(false)
 {
 }
 
 void CpiOdpResponseHandler::WriteCorrelationId(WriterJsonObject& aWriterRequest)
 {
     const TUint id = iDevice.RegisterResponseHandler(*this);
+    iResponsePending = true;
     Bws<Ascii::kMaxUintStringBytes> idBuf;
     Ascii::AppendDec(idBuf, id);
     aWriterRequest.WriteString(Odp::kKeyCorrelationId, idBuf);
@@ -37,7 +39,10 @@ void CpiOdpResponseHandler::WriteCorrelationId(WriterJsonObject& aWriterRequest)
 
 void CpiOdpResponseHandler::WaitForResponse()
 {
-    iSem.Wait();
+    if (iResponsePending) {
+        iSem.Wait();
+        iResponsePending = false;
+    }
 }
 
 void CpiOdpResponseHandler::HandleOdpResponse(const JsonParser& aJsonParser)
@@ -62,32 +67,39 @@ CpiOdpInvocable::CpiOdpInvocable(ICpiOdpDevice& aDevice)
 
 void CpiOdpInvocable::InvokeAction(Invocation& aInvocation)
 {
-    iWriter = &iDevice.WriteLock();
-    {
-        AutoOdpDevice _(iDevice);
-        iInvocation = &aInvocation;
-        WriterJsonObject writerAction(*iWriter);
-        writerAction.WriteString(Odp::kKeyType, Odp::kTypeAction);
-        writerAction.WriteString(Odp::kKeyId, iDevice.Udn());
-        writerAction.WriteString(Odp::kKeyDevice, iDevice.Alias());
-        CpiOdpWriterService::Write(writerAction, aInvocation.ServiceType());
-        writerAction.WriteString(Odp::kKeyAction, aInvocation.Action().Name());
-        auto args = aInvocation.InputArguments();
-        if (args.size() > 0) {
-            auto writerArgs = writerAction.CreateArray(Odp::kKeyArguments);
-            CpiOdpWriterArgs writerArgValues(writerArgs);
-            for (auto it = args.begin(); it != args.end(); ++it) {
-                writerArgValues.Process(**it);
+    try {
+        iWriter = &iDevice.WriteLock();
+        {
+            AutoOdpDevice _(iDevice);
+            iInvocation = &aInvocation;
+            WriterJsonObject writerAction(*iWriter);
+            writerAction.WriteString(Odp::kKeyType, Odp::kTypeAction);
+            writerAction.WriteString(Odp::kKeyId, iDevice.Udn());
+            writerAction.WriteString(Odp::kKeyDevice, iDevice.Alias());
+            CpiOdpWriterService::Write(writerAction, aInvocation.ServiceType());
+            writerAction.WriteString(Odp::kKeyAction, aInvocation.Action().Name());
+            auto args = aInvocation.InputArguments();
+            if (args.size() > 0) {
+                auto writerArgs = writerAction.CreateArray(Odp::kKeyArguments);
+                CpiOdpWriterArgs writerArgValues(writerArgs);
+                for (auto it = args.begin(); it != args.end(); ++it) {
+                    writerArgValues.Process(**it);
+                }
+                writerArgs.WriteEnd();
             }
-            writerArgs.WriteEnd();
+            WriteCorrelationId(writerAction);
+            writerAction.WriteEnd();
+            iDevice.WriteEnd(*iWriter);
         }
-        WriteCorrelationId(writerAction);
-        writerAction.WriteEnd();
-        iDevice.WriteEnd(*iWriter);
-    }
 
-    WaitForResponse();
-    iInvocation = nullptr;
+        WaitForResponse();
+        iInvocation = nullptr;
+    }
+    catch (...) {
+        WaitForResponse();
+        iInvocation = nullptr;
+        throw;
+    }
 }
 
 void CpiOdpInvocable::DoHandleResponse(const JsonParser& aParser)
@@ -237,22 +249,29 @@ CpiOdpSubscriber::CpiOdpSubscriber(ICpiOdpDevice& aDevice)
 
 void CpiOdpSubscriber::Subscribe(CpiSubscription& aSubscription)
 {
-    iSubscription = &aSubscription;
-    auto& writer = iDevice.WriteLock();
-    {
-        AutoOdpDevice _(iDevice);
-        WriterJsonObject writerSubs(writer);
-        writerSubs.WriteString(Odp::kKeyType, Odp::kTypeSubscribe);
-        writerSubs.WriteString(Odp::kKeyId, iDevice.Udn());
-        writerSubs.WriteString(Odp::kKeyDevice, iDevice.Alias());
-        CpiOdpWriterService::Write(writerSubs, aSubscription.ServiceType());
-        WriteCorrelationId(writerSubs);
-        writerSubs.WriteEnd();
-        iDevice.WriteEnd(writer);
-    }
+    try {
+        iSubscription = &aSubscription;
+        auto& writer = iDevice.WriteLock();
+        {
+            AutoOdpDevice _(iDevice);
+            WriterJsonObject writerSubs(writer);
+            writerSubs.WriteString(Odp::kKeyType, Odp::kTypeSubscribe);
+            writerSubs.WriteString(Odp::kKeyId, iDevice.Udn());
+            writerSubs.WriteString(Odp::kKeyDevice, iDevice.Alias());
+            CpiOdpWriterService::Write(writerSubs, aSubscription.ServiceType());
+            WriteCorrelationId(writerSubs);
+            writerSubs.WriteEnd();
+            iDevice.WriteEnd(writer);
+        }
 
-    WaitForResponse();
-    iSubscription = nullptr;
+        WaitForResponse();
+        iSubscription = nullptr;
+    }
+    catch (...) {
+        WaitForResponse();
+        iSubscription = nullptr;
+        throw;
+    }
 }
 
 void CpiOdpSubscriber::DoHandleResponse(const JsonParser& aParser)
@@ -276,18 +295,24 @@ CpiOdpUnsubscriber::CpiOdpUnsubscriber(ICpiOdpDevice& aDevice)
 
 void CpiOdpUnsubscriber::Unsubscribe(const Brx& aSid)
 {
-    auto& writer = iDevice.WriteLock();
-    {
-        AutoOdpDevice _(iDevice);
-        WriterJsonObject writerUnsubs(writer);
-        writerUnsubs.WriteString(Odp::kKeyType, Odp::kTypeUnsubscribe);
-        writerUnsubs.WriteString(Odp::kKeySid, aSid);
-        WriteCorrelationId(writerUnsubs);
-        writerUnsubs.WriteEnd();
-        iDevice.WriteEnd(writer);
-    }
+    try {
+        auto& writer = iDevice.WriteLock();
+        {
+            AutoOdpDevice _(iDevice);
+            WriterJsonObject writerUnsubs(writer);
+            writerUnsubs.WriteString(Odp::kKeyType, Odp::kTypeUnsubscribe);
+            writerUnsubs.WriteString(Odp::kKeySid, aSid);
+            WriteCorrelationId(writerUnsubs);
+            writerUnsubs.WriteEnd();
+            iDevice.WriteEnd(writer);
+        }
 
-    WaitForResponse();
+        WaitForResponse();
+    }
+    catch (...) {
+        WaitForResponse();
+        throw;
+    }
 }
 
 void CpiOdpUnsubscriber::DoHandleResponse(const JsonParser& /*aParser*/)
