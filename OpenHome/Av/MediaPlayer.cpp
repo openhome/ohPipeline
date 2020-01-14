@@ -298,6 +298,11 @@ void MediaPlayer::Add(Protocol* aProtocol)
 void MediaPlayer::Add(ISource* aSource)
 {
     iProduct->AddSource(aSource);
+
+    // Only need startup source config value if we have a choice of sources
+    if (iConfigStartupSource == nullptr && iProduct->SourceCount() > 1) {
+        iConfigStartupSource = new ConfigStartupSource(*iConfigManager);
+    }
 }
 
 void MediaPlayer::AddAttribute(const TChar* aAttribute)
@@ -313,13 +318,6 @@ ILoggerSerial& MediaPlayer::BufferLogOutput(TUint aBytes, IShell& aShell, Option
 
 void MediaPlayer::Start(IRebootHandler& aRebootHandler)
 {
-    // All sources must have been added to Product by time this is called.
-    // So, can now initialise startup source ConfigVal.
-    // ...only need the ConfigVal if we have a choice of sources
-    if (iProduct->SourceCount() > 1) {
-        iConfigStartupSource = new ConfigStartupSource(*iConfigManager);
-    }
-
     iConfigManager->Open();
     iPipeline->Start(*iVolumeManager, *iVolumeManager);
     iProviderTransport->Start();
