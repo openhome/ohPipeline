@@ -306,7 +306,11 @@ void ProviderVolume::VolumeDec(IDvInvocation& aInvocation)
 {
     TUint volume = 0;
     GetPropertyVolume(volume);
-    if (volume != 0) {
+    if (volume == 0) {
+        aInvocation.StartResponse();
+        aInvocation.EndResponse();
+    }
+    else {
         HelperSetVolume(aInvocation, volume - 1, ErrorOutOfRange::Ignore);
     }
 }
@@ -327,7 +331,11 @@ void ProviderVolume::VolumeDecNoUnmute(IDvInvocation& aInvocation)
 {
     TUint volume = 0;
     GetPropertyVolume(volume);
-    if (volume != 0) {
+    if (volume == 0) {
+        aInvocation.StartResponse();
+        aInvocation.EndResponse();
+    }
+    else {
         HelperSetVolumeNoUnmute(aInvocation, volume - 1, ErrorOutOfRange::Ignore);
     }
 }
