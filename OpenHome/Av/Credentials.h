@@ -105,7 +105,7 @@ class Credentials : public ICredentials
     static const Brn kKeyRsaPrivate;
     static const Brn kKeyRsaPublic;
     static const TUint kModerationTimeMs = 500;
-    static const TUint kNumFifoElements = 10;
+    static const TUint kNumFifoElements = 100;
 public:
     Credentials(Environment& aEnv,
                 Net::DvDevice& aDevice,

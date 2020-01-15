@@ -58,6 +58,7 @@ private:
     void EnableChanged(Configuration::KeyValuePair<TUint>& aKvp);
     void ModerationTimerCallback();
     void CheckStatus();
+    void TryScheduleStatusCheck();
     void ReportChangesLocked();
 private:
     Mutex iLock;
@@ -344,8 +345,8 @@ void Credential::ModerationTimerCallback()
     iModerationTimerStarted = false;
     ReportChangesLocked();
     if (iEnabled && !iStatusUpdatePending) {
-        iFifoCredentialsChanged.Write(this);
         iStatusUpdatePending = true;
+        iFifoCredentialsChanged.Write(this);
     }
 }
 
@@ -356,6 +357,16 @@ void Credential::CheckStatus()
         iStatusUpdatePending = false;
     }
     iConsumer->UpdateStatus();
+}
+
+void Credential::TryScheduleStatusCheck()
+{
+    AutoMutex _(iLock);
+    if (iStatusUpdatePending) {
+        return;
+    }
+    iStatusUpdatePending = true;
+    iFifoCredentialsChanged.Write(this);
 }
 
 void Credential::ReportChangesLocked()
@@ -572,8 +583,8 @@ void Credentials::CreateKey(IStoreReadWrite& aStore, const Brx& aEntropy, TUint 
 
 void Credentials::CurrentAdapterChanged()
 {
-    for (auto it=iCredentials.begin(); it!=iCredentials.end(); ++it) {
-        iFifo.Write(*it);
+    for (auto cred : iCredentials) {
+        cred->TryScheduleStatusCheck();
     }
 }
 
