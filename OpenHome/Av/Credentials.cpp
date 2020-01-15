@@ -3,6 +3,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/PowerManager.h>
+#include <OpenHome/Private/DnsChangeNotifier.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Timer.h>
@@ -409,11 +410,13 @@ Credentials::Credentials(Environment& aEnv,
     iModerationTimer = new Timer(aEnv, MakeFunctor(*this, &Credentials::ModerationTimerCallback), "Credentials");
     Functor f = MakeFunctor(*this, &Credentials::CurrentAdapterChanged);
     iAdapterChangeListenerId = iEnv.NetworkAdapterList().AddCurrentChangeListener(f, "Credentials", false);
+    iDnsChangeListenerId = iEnv.DnsChangeNotifier()->Register(MakeFunctor(*this, &Credentials::DnsChanged));
 }
 
 Credentials::~Credentials()
 {
     iModerationTimerStarted = true; // prevent further callbacks being queued
+    iEnv.DnsChangeNotifier()->Deregister(iDnsChangeListenerId);
     iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iAdapterChangeListenerId);
     delete iModerationTimer;
     iFifo.ReadInterrupt();
@@ -582,6 +585,16 @@ void Credentials::CreateKey(IStoreReadWrite& aStore, const Brx& aEntropy, TUint 
 }
 
 void Credentials::CurrentAdapterChanged()
+{
+    ScheduleStatusCheck();
+}
+
+void Credentials::DnsChanged()
+{
+    ScheduleStatusCheck();
+}
+
+void Credentials::ScheduleStatusCheck()
 {
     for (auto cred : iCredentials) {
         cred->TryScheduleStatusCheck();

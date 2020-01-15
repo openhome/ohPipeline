@@ -137,6 +137,8 @@ private:
     Credential* Find(const Brx& aId) const;
     void CreateKey(Configuration::IStoreReadWrite& aStore, const Brx& aEntropy, TUint aKeyBits);
     void CurrentAdapterChanged();
+    void DnsChanged();
+    void ScheduleStatusCheck();
     void ModerationTimerCallback();
     void CredentialsThread();
 private:
@@ -171,6 +173,7 @@ private:
     ThreadFunctor* iThread;
     Fifo<Credential*> iFifo;
     TUint iAdapterChangeListenerId;
+    TUint iDnsChangeListenerId;
     TBool iStarted;
 };
 

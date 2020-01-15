@@ -15,6 +15,7 @@
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Private/Converter.h>
+#include <OpenHome/Private/DnsChangeNotifier.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Media/MimeTypeList.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
@@ -167,6 +168,7 @@ RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv,
     iListenerId = iConfigUsername->Subscribe(MakeFunctorConfigText(*this, &RadioPresetsTuneIn::UsernameChanged));
 
     iNacnId = iEnv.NetworkAdapterList().AddCurrentChangeListener(MakeFunctor(*this, &RadioPresetsTuneIn::CurrentAdapterChanged), "TuneIn", false);
+    iDnsId = iEnv.DnsChangeNotifier()->Register(MakeFunctor(*this, &RadioPresetsTuneIn::DnsChanged));
 
     new CredentialsTuneIn(aCredentialsManager, aPartnerId); // ownership transferred to aCredentialsManager
 }
@@ -179,6 +181,7 @@ RadioPresetsTuneIn::~RadioPresetsTuneIn()
     iRefreshTimer->Cancel();
     iThreadPoolHandle->Destroy();
     iConfigUsername->Unsubscribe(iListenerId);
+    iEnv.DnsChangeNotifier()->Deregister(iDnsId);
     iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iNacnId);
     delete iConfigUsername;
     delete iRefreshTimer;
@@ -209,6 +212,12 @@ void RadioPresetsTuneIn::Refresh()
 }
 
 void RadioPresetsTuneIn::CurrentAdapterChanged()
+{
+    iRefreshTimerWrapper->Reset();
+    Refresh();
+}
+
+void RadioPresetsTuneIn::DnsChanged()
 {
     iRefreshTimerWrapper->Reset();
     Refresh();

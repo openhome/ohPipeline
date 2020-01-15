@@ -2,7 +2,7 @@
     {   "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.26.3683",
+        "version": "1.26.3715",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
@@ -38,7 +38,7 @@
     },
     {   "name":             "libosa",
         "type":             "internal",
-        "version":          "0.2.276",
+        "version":          "0.2.277",
         "cross-check":      false,
         "archive-suffix":   "-Release",
         "platform-ignore": {
