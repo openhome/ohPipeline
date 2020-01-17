@@ -45,6 +45,11 @@ void DviProtocolOdp::Disable(Functor& aComplete)
     aComplete();
 }
 
+void DviProtocolOdp::SendAnnouncements()
+{
+    // FIXME - no obvious benefit to repeating announcements on a persistent connection but really should for completeness...
+}
+
 const Brx& DviProtocolOdp::ProtocolName() const
 {
     return kProtocolName;

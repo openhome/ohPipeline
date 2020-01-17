@@ -30,6 +30,7 @@ private: // from IDvProtocol
     const Brx& ProtocolName() const override;
     void Enable() override;
     void Disable(Functor& aComplete) override;
+    void SendAnnouncements() override;
     void GetAttribute(const TChar* aKey, const TChar** aValue) const override;
     void SetAttribute(const TChar* aKey, const TChar* aValue) override;
     void SetCustomData(const TChar* aTag, void* aData) override;
