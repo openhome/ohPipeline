@@ -174,7 +174,7 @@ upnp_services = [
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Config2.xml',        'av.openhome.org', 'Config',            '2', 'AvOpenhomeOrgConfig2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/ConfigApp1.xml',     'av.openhome.org', 'ConfigApp',         '1', 'AvOpenhomeOrgConfigApp1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Credentials1.xml',   'av.openhome.org', 'Credentials',       '1', 'AvOpenhomeOrgCredentials1'),
-        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Debug1.xml',         'av.openhome.org', 'Debug',             '1', 'AvOpenhomeOrgDebug1'),
+        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Debug2.xml',         'av.openhome.org', 'Debug',             '2', 'AvOpenhomeOrgDebug2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Transport1.xml',     'av.openhome.org', 'Transport',         '1', 'AvOpenhomeOrgTransport1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Pins1.xml',          'av.openhome.org', 'Pins',              '1', 'AvOpenhomeOrgPins1'),
     ]
@@ -336,7 +336,7 @@ def build(bld):
                 'OpenHome/Av/ProviderCredentials.cpp',
                 'OpenHome/Av/VolumeManager.cpp',
                 'OpenHome/Av/FriendlyNameAdapter.cpp',
-                'Generated/DvAvOpenhomeOrgDebug1.cpp',
+                'Generated/DvAvOpenhomeOrgDebug2.cpp',
                 'OpenHome/Av/ProviderDebug.cpp',
                 'OpenHome/Av/Pins/Pins.cpp',
                 'Generated/DvAvOpenhomeOrgPins1.cpp',
