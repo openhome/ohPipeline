@@ -279,12 +279,15 @@ void SocketUdpServer::CheckRebind()
 {
     AutoMutex amx(iLock);
 
-    if (iRebindPosted)
-    {
-        iSocket.ReBind(iRebindJob.iPort, iRebindJob.iAddress);
-        iRebindPosted = false;
-        iRebindJob.iCompleteFunctor(); // we have to call this with iLock held. Should be ok unless the
-    }                                  // functor tries to take the lock: We have control of this, so it's cool.
+    if (iRebindPosted) {
+        try {
+            iSocket.ReBind(iRebindJob.iPort, iRebindJob.iAddress);
+            iRebindPosted = false;
+            iRebindJob.iCompleteFunctor(); // we have to call this with iLock held. Should be ok unless the
+                                          // functor tries to take the lock: We have control of this, so it's cool.
+        }
+        catch (NetworkError&) {}
+    }
 }
 
 void SocketUdpServer::CurrentAdapterChanged()
