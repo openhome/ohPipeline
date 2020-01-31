@@ -1160,11 +1160,11 @@ void WebAppFramework::CurrentAdapterChanged()
     // Shouldn't need to clear any active tabs here.
     // Could potentially resume session. In the worst case, they will time out
     // and be recreated, which is what would otherwise be done here anyway.
+    delete iServer;
+    iServer = nullptr;
+    iSessions.clear();
     if (iCurrentAdapter != nullptr) {
         try {
-            delete iServer;
-            iServer = nullptr;
-            iSessions.clear();
             const TUint port = iInitParams->Port();
             Endpoint::EndpointBuf epBuf;
             const Endpoint ep(port, iCurrentAdapter->Address());
