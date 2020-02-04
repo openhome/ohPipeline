@@ -42,7 +42,7 @@ ProviderPlaylist::ProviderPlaylist(DvDevice& aDevice,
     , iDatabase(aDatabase)
     , iRepeater(aRepeater)
     , iTransportRepeatRandom(aTransportRepeatRandom)
-    , iIdArrayBuf(aDatabase.TracksMax() * sizeof TUint32)
+    , iIdArrayBuf(aDatabase.TracksMax() * sizeof(TUint32))
     , iTimerLock("PPL2")
     , iTimerActive(false)
 {
