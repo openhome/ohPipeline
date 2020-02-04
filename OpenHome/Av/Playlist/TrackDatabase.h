@@ -30,7 +30,7 @@ public:
 class ITrackDatabase
 {
 public:
-    static const TUint kTrackIdNone = 0;
+    static const TUint kTrackIdNone;
 public:
     virtual ~ITrackDatabase() {}
     virtual void AddObserver(ITrackDatabaseObserver& aObserver) = 0;

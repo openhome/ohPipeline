@@ -14,6 +14,9 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
+
+const TUint ITrackDatabase::kTrackIdNone = 0;
+
 static inline void AddRefIfNonNull(Track* aTrack)
 {
     if (aTrack != nullptr) {
