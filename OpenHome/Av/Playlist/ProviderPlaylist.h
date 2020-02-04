@@ -10,7 +10,7 @@
 #include <OpenHome/Av/TransportControl.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 
-#include <array>
+#include <vector>
 
 namespace OpenHome {
     class Environment;
@@ -96,8 +96,8 @@ private:
     Brn iProtocolInfo;
     Media::EPipelineState iPipelineState;
     TUint iDbSeq;
-    std::array<TUint, ITrackDatabase::kMaxTracks> iIdArray;
-    Bws<ITrackDatabase::kMaxTracks * sizeof(TUint32)> iIdArrayBuf;
+    std::vector<TUint> iIdArray;
+    Bwh iIdArrayBuf;
     Timer* iTimer;
     Mutex iTimerLock;
     TBool iTimerActive;

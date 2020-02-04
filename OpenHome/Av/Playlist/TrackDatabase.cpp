@@ -8,7 +8,6 @@
 #include <OpenHome/Av/Debug.h>
 
 #include <algorithm>
-#include <array>
 #include <vector>
 
 using namespace OpenHome;
@@ -31,13 +30,14 @@ static inline void RemoveRefIfNonNull(Track* aTrack)
 
 // TrackDatabase
 
-TrackDatabase::TrackDatabase(TrackFactory& aTrackFactory)
+TrackDatabase::TrackDatabase(TrackFactory& aTrackFactory, TUint aMaxTracks)
     : iLock("TDB1")
     , iObserverLock("TDB2")
     , iTrackFactory(aTrackFactory)
+    , iMaxTracks(aMaxTracks)
     , iSeq(0)
 {
-    iTrackList.reserve(kMaxTracks);
+    iTrackList.reserve(aMaxTracks);
 }
 
 TrackDatabase::~TrackDatabase()
@@ -50,15 +50,16 @@ void TrackDatabase::AddObserver(ITrackDatabaseObserver& aObserver)
     iObservers.push_back(&aObserver);
 }
 
-void TrackDatabase::GetIdArray(std::array<TUint32, kMaxTracks>& aIdArray, TUint& aSeq) const
+void TrackDatabase::GetIdArray(std::vector<TUint32>& aIdArray, TUint& aSeq) const
 {
     AutoMutex a(iLock);
     TUint i;
+    aIdArray.clear();
     for (i=0; i<iTrackList.size(); i++) {
-        aIdArray[i] = iTrackList[i]->Id();
+        aIdArray.push_back(iTrackList[i]->Id());
     }
-    for (i=iTrackList.size(); i<kMaxTracks; i++) {
-        aIdArray[i] = kTrackIdNone;
+    for (i=iTrackList.size(); i<iMaxTracks; i++) {
+        aIdArray.push_back(kTrackIdNone);
     }
     aSeq = iSeq;
 }
@@ -99,7 +100,7 @@ void TrackDatabase::Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData
     AutoMutex _(iObserverLock);
     {
         AutoMutex a(iLock);
-        if (iTrackList.size() == kMaxTracks) {
+        if (iTrackList.size() == iMaxTracks) {
             THROW(TrackDbFull);
         }
         TUint index = 0;
@@ -168,6 +169,11 @@ TUint TrackDatabase::TrackCount() const
     const TUint count = iTrackList.size();
     iLock.Signal();
     return count;
+}
+
+TUint TrackDatabase::TracksMax() const
+{
+    return iMaxTracks;
 }
 
 void TrackDatabase::SetObserver(ITrackDatabaseObserver& aObserver)
@@ -274,7 +280,7 @@ TBool TrackDatabase::TryGetTrackById(TUint aId, Track*& aTrack, TUint aStartInde
 
 // Shuffler
 
-Shuffler::Shuffler(Environment& aEnv, ITrackDatabaseReader& aReader)
+Shuffler::Shuffler(Environment& aEnv, ITrackDatabaseReader& aReader, TUint aMaxTracks)
     : iLock("TSHF")
     , iEnv(aEnv)
     , iReader(aReader)
@@ -283,7 +289,7 @@ Shuffler::Shuffler(Environment& aEnv, ITrackDatabaseReader& aReader)
     , iShuffle(false)
 {
     aReader.SetObserver(*this);
-    iShuffleList.reserve(ITrackDatabase::kMaxTracks);
+    iShuffleList.reserve(aMaxTracks);
 }
 
 TBool Shuffler::Enabled() const
@@ -634,7 +640,6 @@ void Repeater::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfte
 {
     iLock.Wait();
     iTrackCount++;
-    ASSERT(iTrackCount <= ITrackDatabase::kMaxTracks);
     iLock.Signal();
     iObserver->NotifyTrackInserted(aTrack, aIdBefore, aIdAfter);
 }
@@ -643,7 +648,6 @@ void Repeater::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aAfter)
 {
     iLock.Wait();
     iTrackCount--;
-    ASSERT(iTrackCount <= ITrackDatabase::kMaxTracks);
     iLock.Signal();
     iObserver->NotifyTrackDeleted(aId, aBefore, aAfter);
 }

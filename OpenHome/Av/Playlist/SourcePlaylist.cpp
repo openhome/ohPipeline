@@ -14,6 +14,7 @@
 #include <OpenHome/Av/KvpStore.h>
 #include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Media/MimeTypeList.h>
 #include <OpenHome/Av/Pins/PodcastPinsITunes.h>
 #include <OpenHome/Av/Pins/PodcastPinsTuneIn.h>
@@ -36,12 +37,16 @@ class ProviderPlaylist;
 
 class SourcePlaylist : public Source, private ISourcePlaylist, private ITrackDatabaseObserver, private Media::IPipelineObserver
 {
+    static const Brn kKeyTracksMax;
+    static const TUint kTracksMin;
+    static const TUint kTracksMax;
 public:
     SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoader> aPlaylistLoader);
     ~SourcePlaylist();
 private:
     TBool StartedShuffled();
     void DoSeekToTrackId(Media::Track* aTrack);
+    void TracksMaxChanged(Configuration::KeyValuePair<TInt>& aKvp);
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
@@ -78,6 +83,8 @@ private:
     Repeater* iRepeater;
     UriProviderPlaylist* iUriProvider;
     ProviderPlaylist* iProviderPlaylist;
+    Configuration::ConfigNum* iConfigTracksMax;
+    TUint iMaxDbTracks;
     TUint iTrackPosSeconds;
     TUint iStreamId;
     Media::EPipelineState iTransportState; // FIXME - this appears to be set but never used
@@ -108,11 +115,16 @@ const Brn SourceFactory::kSourceNamePlaylist("Playlist");
 
 // SourcePlaylist
 
+const Brn SourcePlaylist::kKeyTracksMax("Playlist.TracksMax");
+const TUint SourcePlaylist::kTracksMin = 50;
+const TUint SourcePlaylist::kTracksMax = 1000;
+
 SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoader> aPlaylistLoader)
     : Source(SourceFactory::kSourceNamePlaylist,
              SourceFactory::kSourceTypePlaylist,
              aMediaPlayer.Pipeline())
     , iLock("SPL1")
+    , iMaxDbTracks(kTracksMax)
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
     , iTransportState(EPipelineStopped)
@@ -120,9 +132,13 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     , iNewPlaylist(true)
     , iPlaylistMode(false)
 {
+    iConfigTracksMax = new Configuration::ConfigNum(aMediaPlayer.ConfigInitialiser(), kKeyTracksMax, kTracksMin, kTracksMax, kTracksMax, true /* reboot required */);
+    auto id = iConfigTracksMax->Subscribe(MakeFunctorConfigNum(*this, &SourcePlaylist::TracksMaxChanged));
+    // iMaxDbTracks initialised inside Subscribe call above
+    iConfigTracksMax->Unsubscribe(id);
     auto& env = aMediaPlayer.Env();
-    iDatabase = new TrackDatabase(aMediaPlayer.TrackFactory());
-    iShuffler = new Shuffler(env, *iDatabase);
+    iDatabase = new TrackDatabase(aMediaPlayer.TrackFactory(), iMaxDbTracks);
+    iShuffler = new Shuffler(env, *iDatabase, iMaxDbTracks);
     iRepeater = new Repeater(*iShuffler);
     iUriProvider = new UriProviderPlaylist(*iRepeater, *iDatabase, *this, iPipeline, aPlaylistLoader);
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourcePlaylist::Play));
@@ -159,6 +175,7 @@ SourcePlaylist::~SourcePlaylist()
     delete iDatabase;
     delete iShuffler;
     delete iRepeater;
+    delete iConfigTracksMax;
 }
 
 TBool SourcePlaylist::StartedShuffled()
@@ -191,6 +208,11 @@ void SourcePlaylist::DoSeekToTrackId(Track* aTrack)
     iLock.Wait();
     iTransportState = EPipelinePlaying;
     iLock.Signal();
+}
+
+void SourcePlaylist::TracksMaxChanged(Configuration::KeyValuePair<TInt>& aKvp)
+{
+    iMaxDbTracks = aKvp.Value();
 }
 
 void SourcePlaylist::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)

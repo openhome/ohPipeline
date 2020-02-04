@@ -19,6 +19,7 @@ namespace Av {
 
 class SuiteTrackDatabase : public SuiteUnitTest, private ITrackDatabaseObserver
 {
+    static const TUint kMaxTracks = 100;
 public:
     SuiteTrackDatabase();
 private: // from SuiteUnitTest
@@ -52,7 +53,7 @@ private:
     TrackFactory* iTrackFactory;
     TrackDatabase* iDb;
     ITrackDatabase* iTrackDatabase;
-    std::array<TUint32, ITrackDatabase::kMaxTracks> iIdArray;
+    std::vector<TUint32> iIdArray;
     TUint iInsertedCount;
     TUint iIdLastInserted;
     TUint iIdLastInsertedBefore;
@@ -66,6 +67,7 @@ private:
 
 class SuiteTrackReader : public SuiteUnitTest, private ITrackDatabaseObserver
 {
+    static const TUint kMaxTracks = 100;
 public:
     SuiteTrackReader();
 private: // from SuiteUnitTest
@@ -99,6 +101,7 @@ private:
 
 class SuiteShuffler : public SuiteUnitTest, private ITrackDatabaseObserver
 {
+    static const TUint kMaxTracks = 60;
 public:
     SuiteShuffler();
 private: // from SuiteUnitTest
@@ -133,6 +136,7 @@ private:
 
 class SuiteRepeater : public SuiteUnitTest, private ITrackDatabaseObserver
 {
+    static const TUint kMaxTracks = 85;
 public:
     SuiteRepeater();
 private: // from SuiteUnitTest
@@ -194,8 +198,9 @@ SuiteTrackDatabase::SuiteTrackDatabase()
 
 void SuiteTrackDatabase::Setup()
 {
-    iTrackFactory = new TrackFactory(iInfoAggregator, ITrackDatabase::kMaxTracks);
-    iDb = new TrackDatabase(*iTrackFactory);
+    iIdArray.reserve(kMaxTracks);
+    iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
+    iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
     iTrackDatabase = static_cast<ITrackDatabase*>(iDb);
     iTrackDatabase->AddObserver(*this);
     iInsertedCount = iDeletedCount = iAllDeletedCount = 0;
@@ -252,7 +257,7 @@ void SuiteTrackDatabase::InsertFailsWhenFull()
 {
     TUint after = ITrackDatabase::kTrackIdNone;
     TUint newId;
-    for (TUint i=0; i<ITrackDatabase::kMaxTracks; i++) {
+    for (TUint i=0; i<kMaxTracks; i++) {
         iTrackDatabase->Insert(after, Brx::Empty(), Brx::Empty(), newId);
         after = newId;
     }
@@ -264,7 +269,7 @@ void SuiteTrackDatabase::GetIdArrayDbEmpty()
 {
     TUint seq;
     iTrackDatabase->GetIdArray(iIdArray, seq);
-    for (TUint i=0; i<ITrackDatabase::kMaxTracks; i++) {
+    for (TUint i=0; i<kMaxTracks; i++) {
         TEST_QUIETLY(iIdArray[i] == ITrackDatabase::kTrackIdNone);
     }
 }
@@ -290,7 +295,7 @@ void SuiteTrackDatabase::GetIdArrayDbPartiallyFull()
         TEST(it == trackIds.end()); // check that each track id is unique
         trackIds[i] = id;
     }
-    for (i=kTrackCount; i<ITrackDatabase::kMaxTracks; i++) {
+    for (i=kTrackCount; i<kMaxTracks; i++) {
         TEST_QUIETLY(iIdArray[i] == ITrackDatabase::kTrackIdNone);
     }
 }
@@ -299,13 +304,13 @@ void SuiteTrackDatabase::GetIdArrayDbFull()
 {
     TUint after = ITrackDatabase::kTrackIdNone;
     TUint newId;
-    for (TUint i=0; i<ITrackDatabase::kMaxTracks; i++) {
+    for (TUint i=0; i<kMaxTracks; i++) {
         iTrackDatabase->Insert(after, Brx::Empty(), Brx::Empty(), newId);
         after = newId;
     }
     TUint seq;
     iTrackDatabase->GetIdArray(iIdArray, seq);
-    for (TUint i=0; i<ITrackDatabase::kMaxTracks; i++) {
+    for (TUint i=0; i<kMaxTracks; i++) {
         TEST_QUIETLY(iIdArray[i] != ITrackDatabase::kTrackIdNone);
     }
 }
@@ -569,8 +574,8 @@ SuiteTrackReader::SuiteTrackReader()
 
 void SuiteTrackReader::Setup()
 {
-    iTrackFactory = new TrackFactory(iInfoAggregator, ITrackDatabase::kMaxTracks);
-    iDb = new TrackDatabase(*iTrackFactory);
+    iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
+    iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
     iReader = static_cast<ITrackDatabaseReader*>(iDb);
     iReader->SetObserver(*this);
     
@@ -722,9 +727,9 @@ SuiteShuffler::SuiteShuffler()
 
 void SuiteShuffler::Setup()
 {
-    iTrackFactory = new TrackFactory(iInfoAggregator, ITrackDatabase::kMaxTracks);
-    iDb = new TrackDatabase(*iTrackFactory);
-    iShuffler = new Shuffler(*gEnv, *iDb);
+    iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
+    iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
+    iShuffler = new Shuffler(*gEnv, *iDb, kMaxTracks);
     iReader = static_cast<ITrackDatabaseReader*>(iShuffler);
     iReader->SetObserver(*this);
     
@@ -1006,9 +1011,9 @@ SuiteRepeater::SuiteRepeater()
 
 void SuiteRepeater::Setup()
 {
-    iTrackFactory = new TrackFactory(iInfoAggregator, ITrackDatabase::kMaxTracks);
-    iDb = new TrackDatabase(*iTrackFactory);
-    iShuffler = new Shuffler(*gEnv, *iDb);
+    iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
+    iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
+    iShuffler = new Shuffler(*gEnv, *iDb, kMaxTracks);
     iRepeater = new Repeater(*iShuffler);
     iReader = static_cast<ITrackDatabaseReader*>(iRepeater);
     iReader->SetObserver(*this);

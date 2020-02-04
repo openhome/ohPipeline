@@ -5,7 +5,6 @@
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Thread.h>
 
-#include <array>
 #include <vector>
 
 EXCEPTION(TrackDbIdNotFound);
@@ -31,18 +30,18 @@ public:
 class ITrackDatabase
 {
 public:
-    static const TUint kMaxTracks = 1000;
     static const TUint kTrackIdNone = 0;
 public:
     virtual ~ITrackDatabase() {}
     virtual void AddObserver(ITrackDatabaseObserver& aObserver) = 0;
-    virtual void GetIdArray(std::array<TUint32, kMaxTracks>& aIdArray, TUint& aSeq) const = 0;
+    virtual void GetIdArray(std::vector<TUint32>& aIdArray, TUint& aSeq) const = 0;
     virtual void GetTrackById(TUint aId, Media::Track*& aTrack) const = 0;
     virtual void GetTrackById(TUint aId, TUint aSeq, Media::Track*& aTrack, TUint& aIndex) const = 0;
     virtual void Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData, TUint& aIdInserted) = 0;
     virtual void DeleteId(TUint aId) = 0;
     virtual void DeleteAll() = 0;
     virtual TUint TrackCount() const = 0;
+    virtual TUint TracksMax() const = 0;
 };
 
 class ITrackDatabaseReader
@@ -68,17 +67,18 @@ public:
 class TrackDatabase : public ITrackDatabase, public ITrackDatabaseReader
 {
 public:
-    TrackDatabase(Media::TrackFactory& aTrackFactory);
+    TrackDatabase(Media::TrackFactory& aTrackFactory, TUint aMaxTracks);
     ~TrackDatabase();
 private: // from ITrackDatabase
     void AddObserver(ITrackDatabaseObserver& aObserver) override;
-    void GetIdArray(std::array<TUint32, kMaxTracks>& aIdArray, TUint& aSeq) const override;
+    void GetIdArray(std::vector<TUint32>& aIdArray, TUint& aSeq) const override;
     void GetTrackById(TUint aId, Media::Track*& aTrack) const override;
     void GetTrackById(TUint aId, TUint aSeq, Media::Track*& aTrack, TUint& aIndex) const override;
     void Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData, TUint& aIdInserted) override;
     void DeleteId(TUint aId) override;
     void DeleteAll() override;
     TUint TrackCount() const override;
+    TUint TracksMax() const override;
 private: // from ITrackDatabaseReader
     void SetObserver(ITrackDatabaseObserver& aObserver) override;
     Media::Track* TrackRef(TUint aId) override;
@@ -96,6 +96,7 @@ private:
     Media::TrackFactory& iTrackFactory;
     std::vector<ITrackDatabaseObserver*> iObservers;
     std::vector<Media::Track*> iTrackList;
+    const TUint iMaxTracks;
     TUint iSeq;
 };
 
@@ -103,7 +104,7 @@ class Shuffler : public ITrackDatabaseReader, public ITrackDatabaseObserver
 {
     friend class SuiteShuffler;
 public:
-    Shuffler(Environment& aEnv, ITrackDatabaseReader& aReader);
+    Shuffler(Environment& aEnv, ITrackDatabaseReader& aReader, TUint aMaxTracks);
     ~Shuffler();
     TBool Enabled() const;
     void SetShuffle(TBool aShuffle);

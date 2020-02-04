@@ -12,6 +12,8 @@
 #include <OpenHome/Private/Timer.h>
 #include <OpenHome/Media/Pipeline/Seeker.h>
 
+#include <vector>
+
 using namespace OpenHome;
 using namespace OpenHome::Net;
 using namespace OpenHome::Av;
@@ -40,9 +42,11 @@ ProviderPlaylist::ProviderPlaylist(DvDevice& aDevice,
     , iDatabase(aDatabase)
     , iRepeater(aRepeater)
     , iTransportRepeatRandom(aTransportRepeatRandom)
+    , iIdArrayBuf(aDatabase.TracksMax() * sizeof TUint32)
     , iTimerLock("PPL2")
     , iTimerActive(false)
 {
+    iIdArray.reserve(aDatabase.TracksMax());
     iTimer = new Timer(aEnv, MakeFunctor(*this, &ProviderPlaylist::TimerCallback), "ProviderPlaylist");
     iDatabase.AddObserver(*this);
 
@@ -83,7 +87,7 @@ ProviderPlaylist::ProviderPlaylist(DvDevice& aDevice,
     NotifyPipelineState(Media::EPipelineStopped);
     NotifyTrack(ITrackDatabase::kTrackIdNone);
     UpdateIdArrayProperty();
-    (void)SetPropertyTracksMax(ITrackDatabase::kMaxTracks);
+    (void)SetPropertyTracksMax(aDatabase.TracksMax());
 }
 
 ProviderPlaylist::~ProviderPlaylist()
@@ -457,7 +461,7 @@ void ProviderPlaylist::UpdateIdArray()
 {
     iDatabase.GetIdArray(iIdArray, iDbSeq);
     iIdArrayBuf.SetBytes(0);
-    for (TUint i=0; i<ITrackDatabase::kMaxTracks; i++) {
+    for (TUint i=0; i<(TUint)iIdArray.size(); i++) {
         if (iIdArray[i] == ITrackDatabase::kTrackIdNone) {
             break;
         }
