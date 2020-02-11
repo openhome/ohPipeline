@@ -143,6 +143,10 @@ void ConfigChoiceMappingWriterJson::Write(IWriter& aWriter, TUint aChoice, const
 
 void ConfigChoiceMappingWriterJson::WriteComplete(IWriter& aWriter)
 {
+    if (!iStarted) {
+        aWriter.Write(Brn("\"options\":["));
+        iStarted = true;
+    }
     aWriter.Write(Brn("]"));
 }
 
@@ -168,13 +172,24 @@ TBool ConfigChoiceMapperResourceFile::ProcessLine(const Brx& aLine)
     Parser p(aLine);
     Brn idBuf = p.Next();
     Brn valueBuf = p.NextToEnd();
-    ASSERT(valueBuf.Bytes() > 0);
+    if (valueBuf.Bytes() == 0) {
+        // Key has been found and now processing options, but have unexpectedly reached end of available mappings for the given key, by reading onto the empty line after the list of mappings.
+        // Report that there is nothing more to be processed. Any un-mapped options will not be made available in the Web UI.
+        iMappingWriter.WriteComplete(iWriter);
+        return false;
+    }
+
+    TUint id = 0;
     try {
-        TUint id = Ascii::Uint(idBuf);
-        ASSERT(id == iChoices[iChoicesIndex]);
+        id = Ascii::Uint(idBuf);
     }
     catch (AsciiError&) {
         ASSERTS();
+    }
+
+    if (id != iChoices[iChoicesIndex]) {
+        // This mapped value is not in the choices list. Skip over it.
+        return true;
     }
 
     try {
