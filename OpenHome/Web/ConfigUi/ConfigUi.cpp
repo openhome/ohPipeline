@@ -811,7 +811,8 @@ void ConfigUiValChoice::WriteMeta(IWriter& aWriter, ILanguageResourceManager& aL
                 || suffix == Brn("UnityGain")
                 || suffix == Brn("InputTransformer")
                 || suffix == Brn("DigitalFeatures")
-                || suffix == Brn("DelayMode")) {
+                || suffix == Brn("DelayMode")
+                || suffix == Brn("InputMode")) {
                 key.Replace("Source.");
                 key.Append(suffix);
             }
