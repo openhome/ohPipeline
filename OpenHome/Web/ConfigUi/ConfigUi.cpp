@@ -184,7 +184,8 @@ TBool ConfigChoiceMapperResourceFile::ProcessLine(const Brx& aLine)
         id = Ascii::Uint(idBuf);
     }
     catch (AsciiError&) {
-        ASSERTS();
+        // Unable to parse this value. Skip over it.
+        return true;
     }
 
     if (id != iChoices[iChoicesIndex]) {
