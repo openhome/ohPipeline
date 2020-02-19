@@ -86,7 +86,7 @@ CalmRadio::CalmRadio(Environment& aEnv, SslContext& aSsl, ICredentialsState& aCr
     , iWriterBuf(iSocket)
     , iWriterRequest(iWriterBuf)
     , iReaderResponse(aEnv, iReaderUntil)
-    , iDechunker(iReaderUntil)
+    , iReaderEntity(iReaderUntil)
     , iUsername(kGranularity)
     , iPassword(kGranularity)
     , iToken(kGranularity)
@@ -235,47 +235,32 @@ TBool CalmRadio::TryLoginLocked()
             iWriterRequest.WriteFlush();
 
             iReaderResponse.Read();
+
             const TUint code = iReaderResponse.Status().Code();
+
+            iLoginResp.Replace(Brx::Empty());
+            WriterBuffer writer(iLoginResp);
+
+            iReaderEntity.ReadAll(writer,
+                                  iHeaderContentLength,
+                                  iHeaderTransferEncoding,
+                                  ReaderHttpEntity::Mode::Client);
+
             if (code != 200) {
-                Bws<kMaxStatusBytes> status;
-                const TUint len = std::min(status.MaxBytes(), iHeaderContentLength.ContentLength());
-                if (len > 0) {
-                    status.Replace(iReaderUntil.Read(len));
-                    iCredentialsState.SetState(kId, status, Brx::Empty());
+                if (iLoginResp.Bytes() > 0)
+                {
+                    iCredentialsState.SetState(kId, iLoginResp, Brx::Empty());
                 }
-                else {
+                else
+                {
                     error.AppendPrintf("Login Error (Response Code %d): Please Try Again.", code);
                     iCredentialsState.SetState(kId, error, Brx::Empty());
                 }
                 updatedStatus = true;
-                LOG(kPipeline, "Http error - %d - in response to CalmRadio login.  Some/all of response is:\n%.*s\n", code, PBUF(status));
+                LOG(kPipeline, "Http error - %d - in response to CalmRadio login.  Some/all of response is:\n%.*s\n", code, PBUF(iLoginResp));
                 THROW(ReaderError);
             }
 
-            iLoginResp.Replace(Brx::Empty());
-            if (iHeaderTransferEncoding.IsChunked()) {
-                iDechunker.SetChunked(true);
-                for (;;) {
-                    Brn buf = iDechunker.Read(iLoginResp.MaxBytes() - iLoginResp.Bytes());
-                    if (buf.Bytes() == 0) {
-                        break;
-                    }
-                    iLoginResp.Append(buf);
-                }
-            }
-            else {
-                iDechunker.SetChunked(false);
-                TUint bytes = iHeaderContentLength.ContentLength();
-                if (bytes > iLoginResp.MaxBytes()) {
-                    LOG_ERROR(kPipeline, "CalmRadio::TryLoginLocked - response is too long (%u bytes)\n", bytes);
-                    THROW(ReaderError);
-                }
-                while (bytes != 0) {
-                    Brn buf = iDechunker.Read(bytes);
-                    iLoginResp.Append(buf);
-                    bytes -= buf.Bytes();
-                }
-            }
             iCredentialsState.SetState(kId, Brx::Empty(), iLoginResp);
             /* don't note that we've updatedStatus yet - if parsing
                iLoginResp fails, we'll reset state to report the error */
