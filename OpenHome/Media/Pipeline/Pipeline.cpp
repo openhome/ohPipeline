@@ -373,6 +373,10 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorSeeker, new DecodedAudioValidator(*upstream, "Seeker"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    ATTACH_ELEMENT(iDrainer1, new DrainerLeft(*iMsgFactory, *upstream),
+                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
+    ATTACH_ELEMENT(iLoggerDrainer1, new Logger(*iDrainer1, "DrainerLeft"),
+                   upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iVariableDelay1,
                    new VariableDelayLeft(*iMsgFactory, *upstream,
                                          aInitParams->RampEmergencyJiffies(),
@@ -433,9 +437,9 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iDecodedAudioValidatorRouter, new DecodedAudioValidator(*upstream, "Router"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
-    ATTACH_ELEMENT(iDrainer, new Drainer(*iMsgFactory, *upstream),
+    ATTACH_ELEMENT(iDrainer2, new DrainerRight(*iMsgFactory, *upstream),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerDrainer, new Logger(*iDrainer, "Drainer"),
+    ATTACH_ELEMENT(iLoggerDrainer2, new Logger(*iDrainer2, "DrainerRight"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iVariableDelay2,
                    new VariableDelayRight(*iMsgFactory, *upstream,
@@ -511,6 +515,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerDecodedAudioReservoir->SetEnabled(true);
     //iLoggerRamper->SetEnabled(true);
     //iLoggerSeeker->SetEnabled(true);
+    //iLoggerDrainer1->SetEnabled(true);
     //iLoggerVariableDelay1->SetEnabled(true);
     //iLoggerSkipper->SetEnabled(true);
     //iLoggerTrackInspector->SetEnabled(true);
@@ -520,7 +525,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerReporter->SetEnabled(true);
     //iLoggerRouter->SetEnabled(true);
     //iLoggerAttenuator->SetEnabled(true);
-    //iLoggerDrainer->SetEnabled(true);
+    //iLoggerDrainer2->SetEnabled(true);
     //iLoggerVariableDelay2->SetEnabled(true);
     //iLoggerStarvationRamper->SetEnabled(true);
     //iLoggerMuter->SetEnabled(true);
@@ -539,6 +544,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerDecodedAudioReservoir->SetFilter(Logger::EMsgAll);
     //iLoggerRamper->SetFilter(Logger::EMsgAll);
     //iLoggerSeeker->SetFilter(Logger::EMsgAll);
+    //iLoggerDrainer1->SetFilter(Logger::EMsgAll);
     //iLoggerVariableDelay1->SetFilter(Logger::EMsgAll);
     //iLoggerSkipper->SetFilter(Logger::EMsgAll);
     //iLoggerTrackInspector->SetFilter(Logger::EMsgAll);
@@ -548,7 +554,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerReporter->SetFilter(Logger::EMsgAll);
     //iLoggerRouter->SetFilter(Logger::EMsgAll);
     //iLoggerAttenuator->SetFilter(Logger::EMsgAll);
-    //iLoggerDrainer->SetFilter(Logger::EMsgAll);
+    //iLoggerDrainer2->SetFilter(Logger::EMsgAll);
     //iLoggerVariableDelay2->SetFilter(Logger::EMsgAll);
     //iLoggerStarvationRamper->SetFilter(Logger::EMsgAll);
     //iLoggerMuter->SetFilter(Logger::EMsgAll);
@@ -583,8 +589,8 @@ Pipeline::~Pipeline()
     delete iRampValidatorDelay2;
     delete iLoggerVariableDelay2;
     delete iVariableDelay2;
-    delete iLoggerDrainer;
-    delete iDrainer;
+    delete iLoggerDrainer2;
+    delete iDrainer2;
     delete iDecodedAudioValidatorRouter;
     delete iLoggerRouter;
     delete iRouter;
@@ -608,6 +614,8 @@ Pipeline::~Pipeline()
     delete iSkipper;
     delete iDecodedAudioValidatorDelay1;
     delete iRampValidatorDelay1;
+    delete iLoggerDrainer1;
+    delete iDrainer1;
     delete iLoggerVariableDelay1;
     delete iVariableDelay1;
     delete iDecodedAudioValidatorSeeker;

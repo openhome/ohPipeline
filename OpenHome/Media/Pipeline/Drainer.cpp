@@ -7,48 +7,49 @@
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Media/Debug.h>
 
+#include <atomic>
+
 using namespace OpenHome;
 using namespace OpenHome::Media;
 
-const TUint Drainer::kSupportedMsgTypes =   eMode
-                                          | eTrack
-                                          | eDrain
-                                          | eDelay
-                                          | eEncodedStream
-                                          | eAudioEncoded
-                                          | eMetatext
-                                          | eStreamInterrupted
-                                          | eHalt
-                                          | eFlush
-                                          | eWait
-                                          | eDecodedStream
-                                          | eBitRate
-                                          | eAudioPcm
-                                          | eAudioDsd
-                                          | eSilence
-                                          | eQuit;
+const TUint DrainerBase::kSupportedMsgTypes =   eMode
+                                              | eTrack
+                                              | eDrain
+                                              | eDelay
+                                              | eEncodedStream
+                                              | eAudioEncoded
+                                              | eMetatext
+                                              | eStreamInterrupted
+                                              | eHalt
+                                              | eFlush
+                                              | eWait
+                                              | eDecodedStream
+                                              | eBitRate
+                                              | eAudioPcm
+                                              | eAudioDsd
+                                              | eSilence
+                                              | eQuit;
 
-Drainer::Drainer(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream)
+DrainerBase::DrainerBase(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream)
     : PipelineElement(kSupportedMsgTypes)
     , iMsgFactory(aMsgFactory)
+    , iGenerateDrainMsg(false)
     , iUpstream(aUpstream)
     , iSem("DRAI", 0)
     , iPending(nullptr)
-    , iStreamHandler(nullptr)
-    , iGenerateDrainMsg(false)
     , iWaitForDrained(false)
 {
     ASSERT(iGenerateDrainMsg.is_lock_free());
 }
 
-Drainer::~Drainer()
+DrainerBase::~DrainerBase()
 {
     if (iPending != nullptr) {
         iPending->RemoveRef();
     }
 }
 
-Msg* Drainer::Pull()
+Msg* DrainerBase::Pull()
 {
     if (iWaitForDrained) {
         iSem.Wait();
@@ -84,52 +85,66 @@ Msg* Drainer::Pull()
     return msg;
 }
 
-Msg* Drainer::ProcessMsg(MsgHalt* aMsg)
+
+// DrainerLeft
+
+DrainerLeft::DrainerLeft(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream)
+    : DrainerBase(aMsgFactory, aUpstream)
+    , iStreamHandler(nullptr)
 {
-    LOG(kPipeline, "Drainer enabled (MsgHalt)\n");
-    iGenerateDrainMsg.store(true);
-    return aMsg;
 }
 
-Msg* Drainer::ProcessMsg(MsgDecodedStream* aMsg)
+Msg* DrainerLeft::ProcessMsg(MsgEncodedStream* aMsg)
 {
-    iStreamHandler.store(aMsg->StreamInfo().StreamHandler());
-    auto msg = iMsgFactory.CreateMsgDecodedStream(aMsg, this);
+    iStreamHandler = aMsg->StreamHandler();
+    auto msg = iMsgFactory.CreateMsgEncodedStream(aMsg, this);
     aMsg->RemoveRef();
     return msg;
 }
 
-EStreamPlay Drainer::OkToPlay(TUint /*aStreamId*/)
+EStreamPlay DrainerLeft::OkToPlay(TUint aStreamId)
 {
-    ASSERTS();
-    return ePlayNo;
+    return iStreamHandler.load()->OkToPlay(aStreamId);
 }
 
-TUint Drainer::TrySeek(TUint /*aStreamId*/, TUint64 /*aOffset*/)
+TUint DrainerLeft::TrySeek(TUint aStreamId, TUint64 aOffset)
 {
-    ASSERTS();
-    return MsgFlush::kIdInvalid;
+    return iStreamHandler.load()->TrySeek(aStreamId, aOffset);
 }
 
-TUint Drainer::TryDiscard(TUint aJiffies)
+TUint DrainerLeft::TryDiscard(TUint aJiffies)
 {
     return iStreamHandler.load()->TryDiscard(aJiffies);
 }
 
-TUint Drainer::TryStop(TUint /*aStreamId*/)
+TUint DrainerLeft::TryStop(TUint aStreamId)
 {
-    ASSERTS();
-    return MsgFlush::kIdInvalid;
+    return iStreamHandler.load()->TryStop(aStreamId);
 }
 
-void Drainer::NotifyStarving(const Brx& aMode, TUint aStreamId, TBool aStarving)
+void DrainerLeft::NotifyStarving(const Brx& aMode, TUint aStreamId, TBool aStarving)
 {
     if (aStarving) {
-        LOG(kPipeline, "Drainer enabled (NotifyStarving)\n");
+        LOG(kPipeline, "DrainerLeft enabled (NotifyStarving)\n");
         iGenerateDrainMsg.store(true);
     }
     auto streamHandler = iStreamHandler.load();
     if (streamHandler != nullptr) {
         streamHandler->NotifyStarving(aMode, aStreamId, aStarving);
     }
+}
+
+
+// DrainerRight
+
+DrainerRight::DrainerRight(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream)
+    : DrainerBase(aMsgFactory, aUpstream)
+{
+}
+
+Msg* DrainerRight::ProcessMsg(MsgHalt* aMsg)
+{
+    LOG(kPipeline, "DrainerRight enabled (MsgHalt)\n");
+    iGenerateDrainMsg.store(true);
+    return aMsg;
 }
