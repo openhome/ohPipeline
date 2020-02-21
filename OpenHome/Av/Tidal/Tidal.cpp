@@ -429,14 +429,15 @@ TBool Tidal::TryLoginLocked()
             const TUint code = iReaderResponse.Status().Code();
 
             iResponseBuffer.Replace(Brx::Empty());
-            WriterBuffer writer(iResponseBuffer);
+            WriterBuffer writerResponse(iResponseBuffer);
 
-            iReaderEntity.ReadAll(writer,
+            iReaderEntity.ReadAll(writerResponse,
                                   iHeaderContentLength,
                                   iHeaderTransferEncoding,
                                   ReaderHttpEntity::Mode::Client);
 
-            if (code != 200) {
+            if (code != 200)
+            {
                 if (iResponseBuffer.Bytes() > 0)
                 {
                     iCredentialsState.SetState(kId, iResponseBuffer, Brx::Empty());
