@@ -71,6 +71,7 @@ private:
     TUint iNextTimerDuration;
     MsgPlayable* iPlayable;
     TUint64 iPullValue;
+    TBool iRamping;
     TBool iQuit;
 };
 
