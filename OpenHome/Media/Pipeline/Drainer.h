@@ -10,19 +10,31 @@
 namespace OpenHome {
 namespace Media {
 
-class Drainer : public PipelineElement, public IPipelineElementUpstream, private IStreamHandler, private INonCopyable
+class DrainerBase : public PipelineElement, public IPipelineElementUpstream, private INonCopyable
 {
-    friend class SuiteDrainer;
-
     static const TUint kSupportedMsgTypes;
-public:
-    Drainer(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
-    ~Drainer();
+protected:
+    DrainerBase(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
+    ~DrainerBase();
 private: // from IPipelineElementUpstream
     Msg* Pull() override;
+protected:
+    MsgFactory& iMsgFactory;
+    std::atomic<TBool> iGenerateDrainMsg;
+private:
+    IPipelineElementUpstream& iUpstream;
+    Semaphore iSem;
+    Msg* iPending;
+    TBool iWaitForDrained;
+};
+
+class DrainerLeft : public DrainerBase, private IStreamHandler
+{
+    friend class SuiteDrainer;
+public:
+    DrainerLeft(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
 private: // from PipelineElement
-    Msg* ProcessMsg(MsgHalt* aMsg) override;
-    Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
 private: // from IStreamHandler
     EStreamPlay OkToPlay(TUint aStreamId) override;
     TUint TrySeek(TUint aStreamId, TUint64 aOffset) override;
@@ -30,13 +42,16 @@ private: // from IStreamHandler
     TUint TryStop(TUint aStreamId) override;
     void NotifyStarving(const Brx& aMode, TUint aStreamId, TBool aStarving) override;
 private:
-    MsgFactory& iMsgFactory;
-    IPipelineElementUpstream& iUpstream;
-    Semaphore iSem;
-    Msg* iPending;
     std::atomic<IStreamHandler*> iStreamHandler;
-    std::atomic<TBool> iGenerateDrainMsg;
-    TBool iWaitForDrained;
+};
+
+class DrainerRight : public DrainerBase
+{
+    friend class SuiteDrainer;
+public:
+    DrainerRight(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
+private: // from PipelineElement
+    Msg* ProcessMsg(MsgHalt* aMsg) override;
 };
 
 } // namespace Media

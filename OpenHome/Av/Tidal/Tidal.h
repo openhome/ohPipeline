@@ -69,8 +69,6 @@ private:
     TBool TryGetSubscriptionLocked();
     TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, Connection aConnection);
     void WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, Connection aConnection = Connection::Close, TUint aContentLength = 0);
-    static Brn ReadInt(ReaderUntil& aReader, const Brx& aTag);
-    static Brn ReadString(ReaderUntil& aReader, const Brx& aTag);
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
     void SocketInactive();
 private:
@@ -84,7 +82,9 @@ private:
     Sws<kWriteBufferBytes> iWriterBuf;
     WriterHttpRequest iWriterRequest;
     ReaderHttpResponse iReaderResponse;
+    ReaderHttpEntity iReaderEntity;
     HttpHeaderContentLength iHeaderContentLength;
+    HttpHeaderTransferEncoding iHeaderTransferEncoding;
     const Bws<32> iToken;
     WriterBwh iUsername;
     WriterBwh iPassword;
@@ -99,6 +99,7 @@ private:
     Bwh iUri;
     Uri iRequest;
     Bws<4096> iReqBody; // local variable but too big for the stack
+    Bws<4096> iResponseBuffer;
 };
 
 };  // namespace Av

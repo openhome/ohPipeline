@@ -75,13 +75,12 @@ private:
     void TestMsgDrainFollowsHalt();
     void TestBlocksWaitingForDrainResponse();
     void TestDrainAfterStarvation();
-    void TestOneDrainAfterHaltAndStarvation();
 private:
     Environment& iEnv;
     AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
     MsgFactory* iMsgFactory;
-    Drainer* iDrainer;
+    IPipelineElementUpstream* iDrainer;
     MsgDrain* iMsgDrain;
     EMsgType iLastPulledMsg;
     std::list<Msg*> iPendingMsgs;
@@ -99,7 +98,6 @@ SuiteDrainer::SuiteDrainer(Environment& aEnv)
     AddTest(MakeFunctor(*this, &SuiteDrainer::TestMsgDrainFollowsHalt), "TestMsgDrainFollowsHalt");
     AddTest(MakeFunctor(*this, &SuiteDrainer::TestBlocksWaitingForDrainResponse), "TestBlocksWaitingForDrainResponse");
     AddTest(MakeFunctor(*this, &SuiteDrainer::TestDrainAfterStarvation), "TestDrainAfterStarvation");
-    AddTest(MakeFunctor(*this, &SuiteDrainer::TestOneDrainAfterHaltAndStarvation), "TestOneDrainAfterHaltAndStarvation");
 }
 
 SuiteDrainer::~SuiteDrainer()
@@ -111,7 +109,6 @@ void SuiteDrainer::Setup()
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
     MsgFactoryInitParams init;
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
-    iDrainer = new Drainer(*iMsgFactory, *this);
     iMsgDrain = nullptr;
     iTimer = new Timer(iEnv, MakeFunctor(*this, &SuiteDrainer::TimerCallback), "SuiteDrainer");
 }
@@ -274,6 +271,8 @@ Msg* SuiteDrainer::CreateMsgSilence()
 
 void SuiteDrainer::TestMsgDrainFollowsHalt()
 {
+    iDrainer = new DrainerRight(*iMsgFactory, *this);
+
     iPendingMsgs.push_back(CreateMsgSilence());
     iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());
 
@@ -284,6 +283,8 @@ void SuiteDrainer::TestMsgDrainFollowsHalt()
 
 void SuiteDrainer::TestBlocksWaitingForDrainResponse()
 {
+    iDrainer = new DrainerRight(*iMsgFactory, *this);
+
     iPendingMsgs.push_back(CreateMsgSilence());
     iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());
     iPendingMsgs.push_back(iMsgFactory->CreateMsgMode(Brx::Empty()));
@@ -302,23 +303,11 @@ void SuiteDrainer::TestBlocksWaitingForDrainResponse()
 
 void SuiteDrainer::TestDrainAfterStarvation()
 {
-    iDrainer->NotifyStarving(Brx::Empty(), 0, true);
-    PullNext(EMsgDrain);
-}
+    auto drainer = new DrainerLeft(*iMsgFactory, *this);
+    iDrainer = drainer;
 
-void SuiteDrainer::TestOneDrainAfterHaltAndStarvation()
-{
-    iPendingMsgs.push_back(CreateMsgSilence());
-    iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());
-    PullNext(EMsgSilence);
-    iPendingMsgs.push_back(CreateMsgSilence());
-    PullNext(EMsgHalt);
-    iDrainer->NotifyStarving(Brx::Empty(), 0, true);
+    drainer->NotifyStarving(Brx::Empty(), 0, true);
     PullNext(EMsgDrain);
-    iMsgDrain->ReportDrained();
-    iMsgDrain->RemoveRef();
-    iMsgDrain = nullptr;
-    PullNext(EMsgSilence);
 }
 
 

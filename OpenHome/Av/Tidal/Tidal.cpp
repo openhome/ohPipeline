@@ -22,7 +22,6 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Configuration;
 
-
 static const TChar* kSoundQualities[3] = {"LOW", "HIGH", "LOSSLESS"};
 static const TUint kNumSoundQualities = sizeof(kSoundQualities) / sizeof(kSoundQualities[0]);
 
@@ -40,13 +39,17 @@ Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const Brx& aToken, ICredential
     , iWriterBuf(iSocket)
     , iWriterRequest(iSocket)
     , iReaderResponse(aEnv, iReaderUntil)
+    , iReaderEntity(iReaderUntil)
     , iToken(aToken)
     , iUsername(kGranularityUsername)
     , iPassword(kGranularityPassword)
     , iUri(1024)
 {
     iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Tidal::SocketInactive), "Tidal");
+
     iReaderResponse.AddHeader(iHeaderContentLength);
+    iReaderResponse.AddHeader(iHeaderTransferEncoding);
+
     const int arr[] = {0, 1, 2};
     std::vector<TUint> qualities(arr, arr + sizeof(arr)/sizeof(arr[0]));
     iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 2);
@@ -110,14 +113,29 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
-        if (code != 200) {
-            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal GetStreamUrl.  Some/all of response is:\n", code);
-            Brn buf = iReaderUntil.Read(kReadBufferBytes);
-            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
+
+        iResponseBuffer.Replace(Brx::Empty());
+        WriterBuffer writer(iResponseBuffer);
+
+        iReaderEntity.ReadAll(writer,
+                              iHeaderContentLength,
+                              iHeaderTransferEncoding,
+                              ReaderHttpEntity::Mode::Client);
+
+        if (code != 200) 
+        {
+            LOG_ERROR(kPipeline, 
+                      "Http error - %d - in response to Tidal GetStreamUrl.  Some/all of response is:\n%.*s\n", 
+                      code,
+                      PBUF(iResponseBuffer));
             THROW(ReaderError);
         }
 
-        aStreamUrl.Replace(ReadString(iReaderUntil, Brn("url")));
+        JsonParser p;
+        p.ParseAndUnescape(iResponseBuffer);
+
+        aStreamUrl.Replace(p.String("url"));
+
         LOG(kMedia, "Tidal::TryGetStreamUrl aStreamUrl: %.*s\n", PBUF(aStreamUrl));
         success = true;
     }
@@ -274,15 +292,10 @@ TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQue
             THROW(ReaderError);
         }  
         
-        TUint count = iHeaderContentLength.ContentLength();
-        //Log::Print("Read tidal response (%d): ", count);
-        while(count > 0) {
-            Brn buf = iReaderUntil.Read(kReadBufferBytes);
-            //Log::Print(buf);
-            aWriter.Write(buf);
-            count -= buf.Bytes();
-        }   
-        //Log::Print("\n");     
+        iReaderEntity.ReadAll(aWriter,
+                              iHeaderContentLength,
+                              iHeaderTransferEncoding,
+                              ReaderHttpEntity::Mode::Client);
 
         success = true;
     }
@@ -412,27 +425,42 @@ TBool Tidal::TryLoginLocked()
             iWriterBuf.WriteFlush();
 
             iReaderResponse.Read();
+
             const TUint code = iReaderResponse.Status().Code();
-            if (code != 200) {
-                Bws<kMaxStatusBytes> status;
-                const TUint len = std::min(status.MaxBytes(), iHeaderContentLength.ContentLength());
-                if (len > 0) {
-                    status.Replace(iReaderUntil.Read(len));
-                    iCredentialsState.SetState(kId, status, Brx::Empty());
+
+            iResponseBuffer.Replace(Brx::Empty());
+            WriterBuffer writerResponse(iResponseBuffer);
+
+            iReaderEntity.ReadAll(writerResponse,
+                                  iHeaderContentLength,
+                                  iHeaderTransferEncoding,
+                                  ReaderHttpEntity::Mode::Client);
+
+            if (code != 200)
+            {
+                if (iResponseBuffer.Bytes() > 0)
+                {
+                    iCredentialsState.SetState(kId, iResponseBuffer, Brx::Empty());
                 }
-                else {
+                else
+                {
                     error.AppendPrintf("Login Error (Response Code %d): Please Try Again.", code);
                     iCredentialsState.SetState(kId, error, Brx::Empty());
                     LOG_ERROR(kPipeline, "HTTP error - %d - in Tidal::TryLogin\n", code);
                 }
+
                 updatedStatus = true;
-                LOG(kPipeline, "Http error - %d - in response to Tidal login.  Some/all of response is:\n%.*s\n", code, PBUF(status));
+                LOG(kPipeline, "Http error - %d - in response to Tidal login.  Some/all of response is:\n%.*s\n", code, PBUF(iResponseBuffer));
                 THROW(ReaderError);
             }
 
-            iUserId.Replace(ReadInt(iReaderUntil, Brn("userId")));
-            iSessionId.Replace(ReadString(iReaderUntil, Brn("sessionId")));
-            iCountryCode.Replace(ReadString(iReaderUntil, Brn("countryCode")));
+            JsonParser p;
+            p.ParseAndUnescape(iResponseBuffer);
+
+            iUserId.Replace(p.String("userId"));
+            iSessionId.Replace(p.String("sessionId"));
+            iCountryCode.Replace(p.String("countryCode"));
+
             iCredentialsState.SetState(kId, Brx::Empty(), iCountryCode);
             updatedStatus = true;
             success = true;
@@ -523,26 +551,44 @@ TBool Tidal::TryGetSubscriptionLocked()
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
-        if (code != 200) {
-            Bws<kMaxStatusBytes> status;
-            const TUint len = std::min(status.MaxBytes(), iHeaderContentLength.ContentLength());
-            if (len > 0) {
-                error.Replace(iReaderUntil.Read(len));
+
+        iResponseBuffer.Replace(Brx::Empty());
+        WriterBuffer writer(iResponseBuffer);
+
+        iReaderEntity.ReadAll(writer,
+                              iHeaderContentLength,
+                              iHeaderTransferEncoding,
+                              ReaderHttpEntity::Mode::Client);
+        if (code != 200)
+        {
+            if (iResponseBuffer.Bytes() > 0)
+            {
+                error.Replace(iResponseBuffer.Ptr(), kMaxStatusBytes);
             }
-            else {
+            else
+            {
                 error.AppendPrintf("Subscription Error (Response Code %d): Please Try Again.", code);
             }
+
             updateStatus = true;
-            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal subscription.  Some/all of response is:\n%.*s\n", code, PBUF(status));
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal subscription.  Some/all of response is:\n%.*s\n", code, PBUF(iResponseBuffer));
             THROW(ReaderError);
         }
-        Brn quality = ReadString(iReaderUntil, Brn("highestSoundQuality"));
-        for (TUint i=0; i<kNumSoundQualities; i++) {
-            if (Brn(kSoundQualities[i]) == quality) {
+
+        JsonParser p;
+        p.ParseAndUnescape(iResponseBuffer);
+
+        Brn quality = p.String("highestSoundQuality");
+
+        for (TUint i=0; i<kNumSoundQualities; i++)
+         {
+            if (Brn(kSoundQualities[i]) == quality)
+            {
                 iMaxSoundQuality = i;
                 break;
             }
         }
+        
         iSoundQuality = std::min(iSoundQuality, iMaxSoundQuality);
         updateStatus = false;
         success = true;
@@ -579,35 +625,6 @@ void Tidal::WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx&
     iWriterRequest.WriteFlush();
 }
 
-
-Brn Tidal::ReadInt(ReaderUntil& aReader, const Brx& aTag)
-{ // static
-    (void)aReader.ReadUntil('\"');
-    for (;;) {
-        Brn buf = aReader.ReadUntil('\"');
-        if (buf == aTag) {
-            break;
-        }
-    }
-
-    (void)aReader.ReadUntil(':');
-    Brn buf = aReader.ReadUntil(','); // FIXME - assumes aTag isn't the last element in this container
-    return buf;
-}
-
-Brn Tidal::ReadString(ReaderUntil& aReader, const Brx& aTag)
-{ // static
-    (void)aReader.ReadUntil('\"');
-    for (;;) {
-        Brn buf = aReader.ReadUntil('\"');
-        if (buf == aTag) {
-            break;
-        }
-    }
-    (void)aReader.ReadUntil('\"');
-    Brn buf = aReader.ReadUntil('\"');
-    return buf;
-}
 
 void Tidal::QualityChanged(Configuration::KeyValuePair<TUint>& aKvp)
 {

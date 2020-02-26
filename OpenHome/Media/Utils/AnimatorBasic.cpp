@@ -54,6 +54,7 @@ AnimatorBasic::AnimatorBasic(Environment& aEnv, IPipeline& aPipeline, TBool aPul
     , iSampleRate(0)
     , iPlayable(nullptr)
     , iPullValue(IPullableClock::kNominalFreq)
+    , iRamping(false)
     , iQuit(false)
 {
     iPipeline.SetAnimator(*this);
@@ -204,6 +205,7 @@ Msg* AnimatorBasic::ProcessMsg(MsgDrain* aMsg)
 
 Msg* AnimatorBasic::ProcessMsg(MsgHalt* aMsg)
 {
+    Log::Print("AnimatorBasic - MsgHalt\n");
     iPendingJiffies = 0;
     iNextTimerDuration = 0;
     aMsg->ReportHalted();
@@ -218,13 +220,20 @@ Msg* AnimatorBasic::ProcessMsg(MsgDecodedStream* aMsg)
     iSampleRate = stream.SampleRate();
     iNumChannels = stream.NumChannels();
     iBitDepth = stream.BitDepth();
+    Log::Print("AnimatorBasic - MsgDecodedStream - %u/%u/%u\n", iSampleRate, iBitDepth, iNumChannels);
     iJiffiesPerSample = Jiffies::PerSample(iSampleRate);
+    iRamping = false;
     aMsg->RemoveRef();
     return nullptr;
 }
 
 Msg* AnimatorBasic::ProcessMsg(MsgPlayable* aMsg)
 {
+    const TBool ramping = aMsg->Ramp().IsEnabled();
+    if (ramping && !iRamping) {
+        Log::Print("AnimatorBasic - ramping\n");
+    }
+    iRamping = ramping;
     ProcessAudio(aMsg);
     return nullptr;
 }
