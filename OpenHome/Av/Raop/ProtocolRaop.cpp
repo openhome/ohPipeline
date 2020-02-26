@@ -63,11 +63,14 @@ void RtpHeaderRaop::Set(const Brx& aRtpHeader)
         THROW(InvalidRaopPacket);
     }
 
-    const TUint version = (aRtpHeader[0] & 0xc0) >> 6;
-    if (version != kVersion) {
-        LOG_ERROR(kMedia, "RtpHeaderRaop::Set version > kVersion. Throwing InvalidRaopPacket. version: %u, kVersion: %u\n", version, kVersion);
-        THROW(InvalidRaopPacket);
-    }
+    /*
+     * Ignore RTP version. Some RAOP senders set RTP version for resent audio packets as 0 instead of 2.
+     */
+    // const TUint version = (aRtpHeader[0] & 0xc0) >> 6;
+    // if (version != kVersion) {
+    //     LOG_ERROR(kMedia, "RtpHeaderRaop::Set version > kVersion. Throwing InvalidRaopPacket. version: %u, kVersion: %u\n", version, kVersion);
+    //     THROW(InvalidRaopPacket);
+    // }
     iPadding = (aRtpHeader[0] & 0x20) == 0x20;
     iExtension = (aRtpHeader[0] & 0x10) == 0x10;
     iCsrcCount = aRtpHeader[0] & 0x0f;
@@ -225,11 +228,14 @@ void RaopPacketAudio::Set(const RtpPacketRaop& aRtpPacket)
         THROW(InvalidRaopPacket);
     }
 
-    if (iPacket.Header().Type() != kType) {
-        Clear();
-        LOG_ERROR(kMedia, "RaopPacketAudio::Set iPacket.Header().Type() != kType. Throwing InvalidRaopPacket. iPacket.Header().Type(): %u, kType: %u\n", iPacket.Header().Type(), kType);
-        THROW(InvalidRaopPacket);
-    }
+    /*
+     * Ignore RTP type. Some RAOP senders set RTP type for resent audio packets as 0 instead of 96.
+     */
+    // if (iPacket.Header().Type() != kType) {
+    //     Clear();
+    //     LOG_ERROR(kMedia, "RaopPacketAudio::Set iPacket.Header().Type() != kType. Throwing InvalidRaopPacket. iPacket.Header().Type(): %u, kType: %u\n", iPacket.Header().Type(), kType);
+    //     THROW(InvalidRaopPacket);
+    // }
 
     const Brx& payload = iPacket.Payload();
     ReaderBuffer readerBuffer(payload);
