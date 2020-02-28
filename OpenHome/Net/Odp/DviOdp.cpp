@@ -33,17 +33,12 @@ PropertyWriterFactoryOdp::PropertyWriterFactoryOdp(IOdpSession& aSession, DvStac
     , iEnabled(true)
     , iRefCount(1)
     , iWriter(nullptr)
-    , iDuration(aDvStack.Env().InitParams()->DvMaxUpdateTimeSecs())
 {
     ASSERT(iRefCount.is_lock_free());
-    iRenewTimer = new Timer(aDvStack.Env(),
-                            MakeFunctor(*this, &PropertyWriterFactoryOdp::Renew),
-                            "PropertyWriterFactoryOdp");
 }
 
 void PropertyWriterFactoryOdp::Disable()
 {
-    iRenewTimer->Cancel();
     std::vector<DviSubscription*> subscriptions;
     subscriptions.reserve(iSubscriptions.size());
     {
@@ -65,7 +60,6 @@ void PropertyWriterFactoryOdp::Disable()
 
 PropertyWriterFactoryOdp::~PropertyWriterFactoryOdp()
 {
-    delete iRenewTimer;
 }
 
 void PropertyWriterFactoryOdp::AddRef()
@@ -78,35 +72,6 @@ void PropertyWriterFactoryOdp::RemoveRef()
     if (--iRefCount == 0) {
         delete this;
     }
-}
-
-void PropertyWriterFactoryOdp::Renew()
-{
-    std::vector<DviSubscription*> subscriptions;
-    subscriptions.reserve(iSubscriptions.size());
-    {
-        AutoMutex _(iLock);
-        for (auto it=iSubscriptions.begin(); it!=iSubscriptions.end(); ++it) {
-            auto subscription = iSubscriptionManager.Find(it->second);
-            if (subscription != nullptr) {
-                subscriptions.push_back(subscription);
-            }
-        }
-    }
-    for (auto it=subscriptions.begin(); it!=subscriptions.end(); ++it) {
-        try {
-            (*it)->Renew(iDuration);
-        }
-        catch (DvSubscriptionError&) {}
-        (*it)->RemoveRef();
-    }
-    ScheduleRenewTimer();
-}
-
-void PropertyWriterFactoryOdp::ScheduleRenewTimer()
-{
-    const TUint renewMs = (iDuration * 1000) / 20;
-    iRenewTimer->FireIn(renewMs);
 }
 
 IPropertyWriter* PropertyWriterFactoryOdp::ClaimWriter(const IDviSubscriptionUserData* /*aUserData*/,
@@ -157,23 +122,15 @@ void PropertyWriterFactoryOdp::ReleaseWriter(IPropertyWriter* /*aWriter*/)
 
 void PropertyWriterFactoryOdp::NotifySubscriptionCreated(const Brx& aSid)
 {
-    TBool startTimer = false;
-    {
-        AutoMutex _(iLock);
-        Brn sid(aSid);
-        iSubscriptions.insert(std::pair<Brn, Brn>(sid, sid));
-        AddRef();
-        startTimer = (iSubscriptions.size() == 1); // 1 => first subscription created
-    }
-    if (startTimer) {
-        ScheduleRenewTimer();
-    }
+    AutoMutex _(iLock);
+    Brn sid(aSid);
+    iSubscriptions.insert(std::pair<Brn, Brn>(sid, sid));
+    AddRef();
 }
 
 void PropertyWriterFactoryOdp::NotifySubscriptionDeleted(const Brx& aSid)
 {
     TBool knownSubscription = false;
-    TBool cancelTimer = false;
     {
         AutoMutex _(iLock);
         Brn sid(aSid);
@@ -182,10 +139,6 @@ void PropertyWriterFactoryOdp::NotifySubscriptionDeleted(const Brx& aSid)
             iSubscriptions.erase(it);
             knownSubscription = true;
         }
-        cancelTimer = (iSubscriptions.size() == 0);
-    }
-    if (cancelTimer) {
-        iRenewTimer->Cancel();
     }
     if (knownSubscription) {
         RemoveRef();

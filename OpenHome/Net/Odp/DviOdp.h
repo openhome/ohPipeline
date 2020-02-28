@@ -13,7 +13,6 @@
 
 namespace OpenHome {
     class IWriter;
-    class Timer;
 namespace Net {
     class DvStack;
     class DvDevice;
@@ -42,8 +41,6 @@ private:
     ~PropertyWriterFactoryOdp();
     void AddRef();
     void RemoveRef();
-    void Renew();
-    void ScheduleRenewTimer();
 private: // from IPropertyWriterFactory
     IPropertyWriter* ClaimWriter(const IDviSubscriptionUserData* aUserData,
                                  const Brx& aSid, TUint aSequenceNumber) override;
@@ -69,8 +66,6 @@ private:
     IWriter* iWriter;
     WriterJsonObject iWriterNotify;
     WriterJsonArray iWriterProperties;
-    Timer* iRenewTimer;
-    TUint iDuration;
 };
 
 class DviOdp : private IDviInvocation
