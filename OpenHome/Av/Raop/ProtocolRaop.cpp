@@ -36,12 +36,15 @@ RtpHeaderRaop::RtpHeaderRaop(TBool aPadding, TBool aExtension, TUint aCsrcCount,
     , iSequenceNumber(aSeqNumber)
 {
     if (iCsrcCount > 0xf) {
+        LOG_ERROR(kMedia, "RtpHeaderRaop::RtpHeaderRaop iCrscCount > 0xf. Throwing InvalidRaopPacket. iCsrcCount: %u\n", iCsrcCount);
         THROW(InvalidRaopPacket);
     }
     if (iPayloadType > 0x7f) {
+        LOG_ERROR(kMedia, "RtpHeaderRaop::RtpHeaderRaop iPayloadType > 0x7f. Throwing InvalidRaopPacket. iPayloadType: %u\n", iPayloadType);
         THROW(InvalidRaopPacket);
     }
     if (iSequenceNumber > 0xffff) {
+        LOG_ERROR(kMedia, "RtpHeaderRaop::RtpHeaderRaop iSequenceNumber > 0xffff. Throwing InvalidRaopPacket. iSequenceNumber: %u\n", iSequenceNumber);
         THROW(InvalidRaopPacket);
     }
 }
@@ -56,13 +59,18 @@ void RtpHeaderRaop::Set(const Brx& aRtpHeader)
     Clear(); // Clear previous state.
 
     if (aRtpHeader.Bytes() != kBytes) {
+        LOG_ERROR(kMedia, "RtpHeaderRaop::Set aRtpHeader.Bytes() != kBytes. Throwing InvalidRaopPacket. aRtpHeader.Bytes(): %u, kBytes: %u\n", aRtpHeader.Bytes(), kBytes);
         THROW(InvalidRaopPacket);
     }
 
-    const TUint version = (aRtpHeader[0] & 0xc0) >> 6;
-    if (version != kVersion) {
-        THROW(InvalidRaopPacket);
-    }
+    /*
+     * Ignore RTP version. Some RAOP senders set RTP version for resent audio packets as 0 instead of 2.
+     */
+    // const TUint version = (aRtpHeader[0] & 0xc0) >> 6;
+    // if (version != kVersion) {
+    //     LOG_ERROR(kMedia, "RtpHeaderRaop::Set version > kVersion. Throwing InvalidRaopPacket. version: %u, kVersion: %u\n", version, kVersion);
+    //     THROW(InvalidRaopPacket);
+    // }
     iPadding = (aRtpHeader[0] & 0x20) == 0x20;
     iExtension = (aRtpHeader[0] & 0x10) == 0x10;
     iCsrcCount = aRtpHeader[0] & 0x0f;
@@ -163,6 +171,7 @@ void RtpPacketRaop::Set(const Brx& aRtpPacket)
         iPayload.Set(aRtpPacket.Ptr()+RtpHeaderRaop::kBytes, aRtpPacket.Bytes()-RtpHeaderRaop::kBytes);
     }
     else {
+        LOG_ERROR(kMedia, "RtpPacketRaop::Set aRtpPacket.Bytes() < RtpHeaderRaop::kBytes. Throwing InvalidRaopPacket. aRtpPacket.Bytes(): %u, RtpHeaderRaop::kBytes: %u\n", aRtpPacket.Bytes(), RtpHeaderRaop::kBytes);
         THROW(InvalidRaopPacket);
     }
 }
@@ -215,13 +224,18 @@ void RaopPacketAudio::Set(const RtpPacketRaop& aRtpPacket)
     }
     else {
         Clear();
+        LOG_ERROR(kMedia, "RaopPacketAudio::Set iPacket.Payload().Bytes() < kAudioSpecificHeaderBytes. Throwing InvalidRaopPacket. iPacket.Payload().Bytes(): %u, kAudioSpecificHeaderBytes: %u\n", iPacket.Payload().Bytes(), kAudioSpecificHeaderBytes);
         THROW(InvalidRaopPacket);
     }
 
-    if (iPacket.Header().Type() != kType) {
-        Clear();
-        THROW(InvalidRaopPacket);
-    }
+    /*
+     * Ignore RTP type. Some RAOP senders set RTP type for resent audio packets as 0 instead of 96.
+     */
+    // if (iPacket.Header().Type() != kType) {
+    //     Clear();
+    //     LOG_ERROR(kMedia, "RaopPacketAudio::Set iPacket.Header().Type() != kType. Throwing InvalidRaopPacket. iPacket.Header().Type(): %u, kType: %u\n", iPacket.Header().Type(), kType);
+    //     THROW(InvalidRaopPacket);
+    // }
 
     const Brx& payload = iPacket.Payload();
     ReaderBuffer readerBuffer(payload);
@@ -341,6 +355,7 @@ void RaopPacketResendResponse::Set(const RtpPacketRaop& aRtpPacket)
 
     if (iPacketOuter.Header().Type() != kType) {
         Clear();
+        LOG_ERROR(kMedia, "RaopPacketResendResponse::Set Expected type: %u. Actual type: %u\n", kType, iPacketOuter.Header().Type());
         THROW(InvalidRaopPacket);
     }
 }
@@ -533,8 +548,6 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
                 // Resume normal operation.
                 LOG(kMedia, "ProtocolRaop::Stream signalled end of wait.\n");
             }
-
-            
 
             if (discontinuity) {
                 LOG(kMedia, "ProtocolRaop::Stream discontinuity.\n");
@@ -1184,6 +1197,14 @@ void RaopControlServer::Run()
                             iPacket.Set(packet);
                         }
                         catch (InvalidRaopPacket&) {
+                            LOG_ERROR(kMedia, "RaopControlServer::Run caught InvalidRaopPacket while attempting to parse resend respons. Padding: %u, extension: %u, csrcCount: %u, marker: %u, type: %u, seq: %u\n",
+                                packet.Header().Padding(),
+                                packet.Header().Extension(),
+                                packet.Header().CsrcCount(),
+                                packet.Header().Marker(),
+                                packet.Header().Type(),
+                                packet.Header().Seq()
+                            );
                             iSem.Signal();
                             continue;
                         }
@@ -1203,7 +1224,7 @@ void RaopControlServer::Run()
                     }
                 }
                 catch (InvalidRaopPacket&) {
-                    LOG(kMedia, "RaopControlServer::Run caught InvalidRtpHeader\n");
+                    LOG_ERROR(kMedia, "RaopControlServer::Run caught InvalidRaopPacket\n");
                     iSem.Signal();
                 }
             }
