@@ -80,7 +80,7 @@ private:
     void TestMultipleAudioReplacedByStreamInterrupted();
     void TestMultipleAudioBlocks();
     void TestPrunesBeforeMode();
-    void TestPrunesEarlierModes();
+    void TestPrunesEarlierModeContent();
     void TestPrunesBeforeTrack();
     void TestPrunesEarlierTrack();
     void TestPrunesBeforeStream();
@@ -125,7 +125,7 @@ SuiteSenderQueue::SuiteSenderQueue()
     AddTest(MakeFunctor(*this, &SuiteSenderQueue::TestMultipleAudioReplacedByStreamInterrupted), "TestMultipleAudioReplacedByStreamInterrupted");
     AddTest(MakeFunctor(*this, &SuiteSenderQueue::TestMultipleAudioBlocks), "TestMultipleAudioBlocks");
     AddTest(MakeFunctor(*this, &SuiteSenderQueue::TestPrunesBeforeMode), "TestPrunesBeforeMode");
-    AddTest(MakeFunctor(*this, &SuiteSenderQueue::TestPrunesEarlierModes), "TestPrunesEarlierModes");
+    AddTest(MakeFunctor(*this, &SuiteSenderQueue::TestPrunesEarlierModeContent), "TestPrunesEarlierModeContent");
     AddTest(MakeFunctor(*this, &SuiteSenderQueue::TestPrunesBeforeTrack), "TestPrunesBeforeTrack");
     AddTest(MakeFunctor(*this, &SuiteSenderQueue::TestPrunesEarlierTrack), "TestPrunesEarlierTrack");
     AddTest(MakeFunctor(*this, &SuiteSenderQueue::TestPrunesBeforeStream), "TestPrunesBeforeStream");
@@ -390,7 +390,7 @@ void SuiteSenderQueue::TestPrunesBeforeMode()
     TEST(iQueue->Count() == 0);
 }
 
-void SuiteSenderQueue::TestPrunesEarlierModes()
+void SuiteSenderQueue::TestPrunesEarlierModeContent()
 {
     iQueue->Enqueue(iMsgFactory->CreateMsgMetaText(Brx::Empty()));
     iQueue->Enqueue(CreateAudio());
@@ -411,6 +411,8 @@ void SuiteSenderQueue::TestPrunesEarlierModes()
 
     PullNext(EMsgStreamInterrupted);
     TEST(iLastStreamInterruptedJiffies == block1);
+    PullNext(EMsgMode);
+    TEST(iLastMode == kMode1);
     PullNext(EMsgStreamInterrupted);
     TEST(iLastStreamInterruptedJiffies == block2);
     PullNext(EMsgMode);

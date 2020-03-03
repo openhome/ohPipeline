@@ -309,10 +309,7 @@ Msg* ProcessorMode::RemoveIfNotLatestMode(Msg* aMsg, TUint& aCount)
 }
 Msg* ProcessorMode::ProcessMsg(MsgMode* aMsg)
 {
-    if (--iCountMode != 0) {
-        aMsg->RemoveRef();
-        return nullptr;
-    }
+    --iCountMode;
     return aMsg;
 }
 Msg* ProcessorMode::ProcessMsg(MsgTrack* aMsg)              { return RemoveIfNotLatestMode(aMsg, iCountTrack); }
