@@ -65,6 +65,7 @@ private:
     Media::IPipelineElementDownstream& iBranch;
     Brn iSongcastMode;
     TBool iBranchEnabled;
+    TBool iBranchEnabledOverride;
 };
 
 } // namespace Av

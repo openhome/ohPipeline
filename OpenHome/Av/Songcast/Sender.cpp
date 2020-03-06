@@ -121,14 +121,18 @@ Msg* Sender::ProcessMsg(MsgMode* aMsg)
 {
     const TBool wasEnabled = iEnabled;
     iEnabled = (aMsg->Mode() != iSongcastMode);
-    if (wasEnabled && !iEnabled) {
-        SendPendingAudio(true);
-        iOhmSender->EnableUnicastOverride(true);
-        iUnicastOverrideObserver.UnicastOverrideEnabled();
-    }
-    else if (!wasEnabled && iEnabled) {
-        iOhmSender->EnableUnicastOverride(false);
+    if (iEnabled) {
+        if (!wasEnabled) {
+            iOhmSender->EnableUnicastOverride(false);
+        }
         iUnicastOverrideObserver.UnicastOverrideDisabled();
+    }
+    else {
+        SendPendingAudio(true);
+        if (wasEnabled) {
+            iOhmSender->EnableUnicastOverride(true);
+        }
+        iUnicastOverrideObserver.UnicastOverrideEnabled();
     }
     aMsg->RemoveRef();
     return nullptr;

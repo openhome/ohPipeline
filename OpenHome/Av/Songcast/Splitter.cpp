@@ -14,6 +14,7 @@ Splitter::Splitter(IPipelineElementDownstream& aBranch, const Brx& aSongcastMode
     , iBranch(aBranch)
     , iSongcastMode(aSongcastMode)
     , iBranchEnabled(true)
+    , iBranchEnabledOverride(false)
 {
 }
 
@@ -25,9 +26,10 @@ void Splitter::SetUpstream(IPipelineElementUpstream& aUpstream)
 Msg* Splitter::Pull()
 {
     Msg* msg = iUpstream->Pull();
+    iBranchEnabledOverride = false;
     const auto branchWasEnabled = iBranchEnabled;
     (void)msg->Process(*this);
-    if (iBranchEnabled || branchWasEnabled) {
+    if (iBranchEnabled || branchWasEnabled || iBranchEnabledOverride) {
         // pass on the MsgMode that signals the branch being disabled
         // ...OhmSender needs to be halted to reduce demand on multicast sockets on old hardware targets
         // ...and we can't disable the sender outide the pipeline without risking audio glitches
@@ -41,6 +43,7 @@ Msg* Splitter::Pull()
 Msg* Splitter::ProcessMsg(MsgMode* aMsg)
 {
     iBranchEnabled = (aMsg->Mode() != iSongcastMode);
+    iBranchEnabledOverride = true;
     return aMsg;
 }
 
