@@ -73,6 +73,7 @@ void NullPipelineObserver::NotifyStreamInfo(const DecodedStreamInfo& /*aStreamIn
 
 LoggingPipelineObserver::LoggingPipelineObserver()
     : iEnable(true)
+    , iDurationSeconds(0) // NotifyTime may be called before NotifyStreamInfo during startup
 {
 }
 
