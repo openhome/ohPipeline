@@ -105,6 +105,12 @@ const TChar* CalmRadioPins::Mode() const
     return kPinModeCalmRadio;
 }
 
+TBool CalmRadioPins::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
+
 TBool CalmRadioPins::LoadStation(const Brx& aStation, const IPin& aPin)
 {
     try {

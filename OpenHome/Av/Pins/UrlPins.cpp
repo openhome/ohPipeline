@@ -91,6 +91,11 @@ const TChar* UrlPins::Mode() const
     return kPinModeUrl;
 }
 
+TBool UrlPins::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
 TBool UrlPins::LoadStream(const Brx& aStream, const IPin& aPin)
 {
     try {

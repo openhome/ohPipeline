@@ -104,6 +104,12 @@ const TChar* TidalPins::Mode() const
     return kPinModeTidal;
 }
 
+TBool TidalPins::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
+
 void TidalPins::Invoke()
 {
     AutoFunctor _(iCompleted);

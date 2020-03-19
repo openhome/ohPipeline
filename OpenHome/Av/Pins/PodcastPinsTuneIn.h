@@ -187,7 +187,7 @@ private:
 
 class PodcastPinsLatestEpisodeTuneIn
     : public IPodcastTransportHandler
-{
+{ 
 public:
     PodcastPinsLatestEpisodeTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, const OpenHome::Brx& aPartnerId);
     ~PodcastPinsLatestEpisodeTuneIn();
@@ -207,6 +207,9 @@ class PodcastPinsEpisodeListTuneIn
     : public IPinInvoker
     , public IPodcastTransportHandler
 {
+    const TUint kMinSupportedVersion = 1;
+    const TUint kMaxSupportedVersion = 1;
+
 public:
     PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool);
     ~PodcastPinsEpisodeListTuneIn();
@@ -219,6 +222,7 @@ private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
+    TBool SupportsVersion(TUint version) const override;
 private:
     void Invoke();
 private:

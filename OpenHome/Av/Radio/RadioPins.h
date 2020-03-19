@@ -19,6 +19,9 @@ namespace Av {
 class RadioPins
     : public IPinInvoker
 {
+    const TUint kMinSupportedVersion = 1;
+    const TUint kMaxSupportedVersion = 1;
+
 public:
     RadioPins(Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack);
     ~RadioPins();
@@ -27,6 +30,7 @@ private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
+    TBool SupportsVersion(TUint version) const override;
 private:
     TBool LoadPreset(TUint aPreset);
     TBool LoadPreset(const Brx& aPreset);

@@ -100,6 +100,12 @@ const TChar* QobuzPins::Mode() const
     return kPinModeQobuz;
 }
 
+TBool QobuzPins::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
+
 void QobuzPins::Invoke()
 {
     AutoFunctor _(iCompleted);

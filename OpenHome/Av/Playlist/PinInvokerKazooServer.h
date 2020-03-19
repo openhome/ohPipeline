@@ -69,6 +69,10 @@ class PinInvokerKazooServer : public IPinInvoker
     static const Brn kHostPlaylist;
     static const Brn kResponseTracks;
     static const Brn kResponseAlbums;
+
+    const TUint kMinSupportedVersion = 1;
+    const TUint kMaxSupportedVersion = 1;
+
 public:
     PinInvokerKazooServer(Environment& aEnv,
                           Net::CpStack& aCpStack,
@@ -79,6 +83,7 @@ private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
+    TBool SupportsVersion(TUint version) const override;
 private:
     Brn FromQuery(const TChar* aKey) const;
     void ReadFromServer();

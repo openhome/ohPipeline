@@ -50,3 +50,8 @@ const TChar* PinInvokerPlaylist::Mode() const
 {
     return "playlist";
 }
+
+TBool PinInvokerPlaylist::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}

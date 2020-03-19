@@ -22,6 +22,9 @@ namespace Av {
 class UrlPins
     : public IPinInvoker
 {
+    const TUint kMinSupportedVersion = 1;
+    const TUint kMaxSupportedVersion = 1;
+
 public:
     UrlPins(Net::DvDeviceStandard& aDevice, Net::CpStack& aCpStack, IThreadPool& aThreadPool);
     ~UrlPins();
@@ -30,6 +33,7 @@ private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
+    TBool SupportsVersion(TUint version) const override;
 private:
     void Invoke();
     TBool LoadStream(const Brx& aStream, const IPin& aPin);

@@ -31,6 +31,10 @@ class TidalPins
 {
     static const TUint kItemLimitPerRequest = 10;
     static const TUint kJsonResponseChunks = 4 * 1024;
+
+    const TUint kMinSupportedVersion = 1;
+    const TUint kMaxSupportedVersion = 1;
+
 public:
     TidalPins(Tidal& aTidal,
               Environment& iEnv,
@@ -43,6 +47,7 @@ private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
+    TBool SupportsVersion(TUint version) const override;
 private:
     void Invoke();
     TBool LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle);

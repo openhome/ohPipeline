@@ -190,6 +190,12 @@ const TChar* PodcastPinsEpisodeListTuneIn::Mode() const
     return kPinModeTuneInList;
 }
 
+TBool PodcastPinsEpisodeListTuneIn::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
+
 void PodcastPinsEpisodeListTuneIn::Init(TBool aShuffle)
 {
     iCpPlaylist->SyncDeleteAll();

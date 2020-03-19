@@ -1,4 +1,4 @@
-#include <OpenHome/Av/Pins/Pins.h>
+﻿#include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Functor.h>
@@ -530,6 +530,12 @@ void PinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Br
         THROW(PinUriError);
     }
 
+    TUint uriVersion = TryParsePinUriVersion(aUri);
+    if (uriVersion != 0 && !it->second->SupportsVersion(uriVersion))
+    {
+        THROW(PinUriError);
+    }
+
     if (IsAccountIndex(aIndex)) {
         const auto accountIndex = AccountFromCombinedIndex(aIndex);
         AccountSetter().Set(accountIndex, aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle);
@@ -543,6 +549,7 @@ void PinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Br
         }
     }
 }
+
 
 void PinsManager::Clear(TUint aId)
 {
@@ -697,6 +704,41 @@ TBool PinsManager::TryGetIndexFromId(TUint aId, TUint& aIndex)
         return false;
     }
     return true;
+}
+
+TUint PinsManager::TryParsePinUriVersion(const Brx& aUri) const
+{
+    TUint version = 0;
+    Parser parser(aUri);
+    Brn versionQuery("version");
+
+    (void)parser.Next('?'); //Consume up until the query string...
+
+    do
+    {
+        Brn v = parser.Next('=');
+        if (v == Brx::Empty())
+            break;
+
+        if (v == versionQuery)
+        {
+            Brn readVersion = parser.Next('&');
+
+            if (readVersion.Bytes() == 0)
+                readVersion = parser.Remaining();
+
+            version = Ascii::Uint(readVersion);
+            break;
+        }
+        else
+        {
+            parser.Next('&');
+        }
+
+    } while(true);
+
+
+    return version;
 }
 
 void PinsManager::NotifySettable(TBool aConnected, TBool aAssociated)

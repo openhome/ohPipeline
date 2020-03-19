@@ -70,6 +70,12 @@ const TChar* TransportPins::Mode() const
     return kPinModeTransport;
 }
 
+TBool TransportPins::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
+
 TBool TransportPins::SelectLocalInput(const Brx& aSourceSystemName)
 {
     Bws<20> input;

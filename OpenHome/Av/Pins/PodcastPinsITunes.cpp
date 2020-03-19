@@ -114,6 +114,11 @@ const TChar* PodcastPinsLatestEpisodeITunes::Mode() const
     return kPinModeITunesEpisode;
 }
 
+TBool PodcastPinsLatestEpisodeITunes::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
 void PodcastPinsLatestEpisodeITunes::Init(TBool /*aShuffle*/)
 {
     // Single shot so nothing to delete or shuffle
@@ -206,6 +211,11 @@ void PodcastPinsEpisodeListITunes::Cancel()
 const TChar* PodcastPinsEpisodeListITunes::Mode() const
 {
     return kPinModeITunesList;
+}
+
+TBool PodcastPinsEpisodeListITunes::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
 }
 
 void PodcastPinsEpisodeListITunes::Init(TBool aShuffle)

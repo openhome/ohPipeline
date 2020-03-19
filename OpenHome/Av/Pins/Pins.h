@@ -201,7 +201,9 @@ public:
     virtual void BeginInvoke(const IPin& aPin, Functor aCompleted) = 0;
     virtual void Cancel() = 0; // will only be called on an in-progress invocation
                                // (BeginInvoke returned but its Completed callback not yet called or returned)
+
     virtual const TChar* Mode() const = 0;
+    virtual TBool SupportsVersion(TUint version) const = 0;
 };
 
 class IPinsInvocable
@@ -276,6 +278,7 @@ private:
     inline IPinsAccount& AccountSetter();
     void BeginInvoke();
     void NotifyInvocationCompleted();
+    TUint TryParsePinUriVersion(const Brx&) const;
 private:
     Configuration::IStoreReadWrite& iStore;
     Mutex iLock;

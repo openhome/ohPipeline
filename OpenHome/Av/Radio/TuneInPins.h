@@ -22,6 +22,9 @@ namespace Av {
 class TuneInPins
     : public IPinInvoker
 {
+    const TUint kMinSupportedVersion = 1;
+    const TUint kMaxSupportedVersion = 1;
+
 public:
     TuneInPins(Net::DvDeviceStandard& aDevice, OpenHome::Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool, const Brx& aPartnerId);
     ~TuneInPins();
@@ -30,6 +33,7 @@ private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
+    TBool SupportsVersion(TUint version) const override;
 private:
     TBool LoadStream(const Brx& aStream, const IPin& aPin); // playable stream (tunein url)
     TBool LoadStation(const Brx& aStation, const IPin& aPin); // tunein station id (ie s1234)

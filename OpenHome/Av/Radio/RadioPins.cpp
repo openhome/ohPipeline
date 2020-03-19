@@ -69,6 +69,11 @@ const TChar* RadioPins::Mode() const
     return kPinModeRadio;
 }
 
+TBool RadioPins::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
 TBool RadioPins::LoadPreset(const Brx& aPreset)
 {
     try {

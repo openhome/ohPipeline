@@ -93,15 +93,19 @@ class DummyPinInvoker : public IPinInvoker
 {
 public:
     DummyPinInvoker(const TChar* aMode);
+    DummyPinInvoker(const TChar* aMode, TUint aMinVersion, TUint aMaxVersion);
     TUint InvocationCount() const;
 public: // from IPinInvoker
     const TChar* Mode() const override;
+    TBool SupportsVersion(TUint version) const override;
 private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
 private:
     const TChar* iMode;
     TUint iInvocationCount;
+    TUint iMinVersion;
+    TUint iMaxVersion;
 };
 
 class SuitePinsManager : public SuiteUnitTest
@@ -144,6 +148,8 @@ private:
     void TestSetDevicePinInvalidIndex();
     void TestSetDevicePinInvalidMode();
     void TestSetDevicePinInvalidUri();
+    void TestSetDevicePinVersionTooLow();
+    void TestSetDevicePinVersionTooHigh();
     void TestClearDevicePin();
     void TestClearDevicePinObserverNotified();
     void TestClearDevicePinInvalidId();
@@ -190,7 +196,9 @@ private:
     static const TUint kMaxDevicePins;
     static const TUint kMaxAccountPins;
     static const TChar* kModeStr;
+    static const TChar* kVersionedModeStr;
     static const Brn kMode;
+    static const Brn kVersionedMode;
     static const Brn kType;
     static const Brn kUri;
     static const Brn kTitle;
@@ -631,14 +639,29 @@ void SuitePinSet::TestIdArray()
 // DummyPinInvoker
 
 DummyPinInvoker::DummyPinInvoker(const TChar* aMode)
-    : iMode(aMode)
-    , iInvocationCount(0)
+    : DummyPinInvoker(aMode, 1, 1)
 {
+}
+
+DummyPinInvoker::DummyPinInvoker(const TChar* aMode,
+                                 TUint aMinVersion,
+                                 TUint aMaxVersion)
+    : iMode(aMode),
+      iInvocationCount(0),
+      iMinVersion(aMinVersion),
+      iMaxVersion(aMaxVersion)
+{
+
 }
 
 const TChar* DummyPinInvoker::Mode() const
 {
     return iMode;
+}
+
+TBool DummyPinInvoker::SupportsVersion(TUint version) const
+{
+    return version >= iMinVersion && version <= iMaxVersion;
 }
 
 TUint DummyPinInvoker::InvocationCount() const
@@ -663,7 +686,9 @@ void DummyPinInvoker::Cancel()
 const TUint SuitePinsManager::kMaxDevicePins = 6;
 const TUint SuitePinsManager::kMaxAccountPins = 10;
 const TChar* SuitePinsManager::kModeStr = "mode";
+const TChar* SuitePinsManager::kVersionedModeStr = "mode-version";
 const Brn SuitePinsManager::kMode(kModeStr);
+const Brn SuitePinsManager::kVersionedMode(kVersionedModeStr);
 const Brn SuitePinsManager::kType("type");
 const Brn SuitePinsManager::kUri("scheme://host");
 const Brn SuitePinsManager::kTitle("title");
@@ -685,6 +710,8 @@ SuitePinsManager::SuitePinsManager()
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinInvalidIndex), "TestSetDevicePinInvalidIndex");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinInvalidMode), "TestSetDevicePinInvalidMode");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinInvalidUri), "TestSetDevicePinInvalidUri");
+    AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinVersionTooLow), "TestSetDevicePinVersionTooLow");
+    AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinVersionTooHigh), "TestSetDevicePinVersionTooHigh");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestClearDevicePin), "TestClearDevicePin");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestClearDevicePinObserverNotified), "TestClearDevicePinObserverNotified");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestClearDevicePinInvalidId), "TestClearDevicePinInvalidId");
@@ -912,6 +939,36 @@ void SuitePinsManager::TestSetDevicePinInvalidUri()
     TEST_THROWS(Manager()->Set(0, kMode, Brx::Empty(), Brx::Empty(),
         Brx::Empty(), Brx::Empty(), Brx::Empty(), false),
         PinModeNotSupported);
+}
+
+void SuitePinsManager::TestSetDevicePinVersionTooLow()
+{
+    iPinsManager->Add(new DummyPinInvoker(kVersionedModeStr, 2, 4));
+
+    TEST_THROWS(Manager()->Set(0,
+                               kVersionedMode,
+                               Brx::Empty(),
+                               Brn("http://host?query=true&version=1"),
+                               Brx::Empty(),
+                               Brx::Empty(),
+                               Brx::Empty(),
+                               false),
+                PinUriError);
+}
+
+void SuitePinsManager::TestSetDevicePinVersionTooHigh()
+{
+    iPinsManager->Add(new DummyPinInvoker(kVersionedModeStr, 2, 4));
+
+    TEST_THROWS(Manager()->Set(0,
+                               kVersionedMode,
+                               Brx::Empty(),
+                               Brn("http://host?query=true&version=256"),
+                               Brx::Empty(),
+                               Brx::Empty(),
+                               Brx::Empty(),
+                               false),
+                PinUriError);
 }
 
 void SuitePinsManager::TestClearDevicePin()

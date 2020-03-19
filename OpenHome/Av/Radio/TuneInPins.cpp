@@ -116,6 +116,12 @@ const TChar* TuneInPins::Mode() const
     return kPinModeTuneIn;
 }
 
+TBool TuneInPins::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
+
 TBool TuneInPins::LoadStation(const Brx& aStation, const IPin& aPin)
 {
     try {

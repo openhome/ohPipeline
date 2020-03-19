@@ -232,6 +232,12 @@ const TChar* PinInvokerKazooServer::Mode() const
     return kMode;
 }
 
+TBool PinInvokerKazooServer::SupportsVersion(TUint version) const
+{
+    return version >= kMinSupportedVersion && version <= kMaxSupportedVersion;
+}
+
+
 Brn PinInvokerKazooServer::FromQuery(const TChar* aKey) const
 {
     Brn key(aKey);

@@ -147,6 +147,7 @@ class PodcastPinsITunes
     static const TUint kJsonResponseChunks = 8 * 1024;
     static const TUint kXmlResponseChunks = 8 * 1024;
     static const OpenHome::Brn kPodcastKey;
+
 public:
     static const TUint kMaxFormatBytes = 40; // cover json formatting
     static const TUint kMaxEntryBytes = PodcastPins::kMaxPodcastIdBytes + PodcastPins::kMaxPodcastDateBytes + kMaxFormatBytes;  //{ "id" : "261447018", "date" : "Fri, 24 Nov 2017 20:15:00 GMT", "pty" : 26}, 
@@ -198,6 +199,9 @@ class PodcastPinsLatestEpisodeITunes
     : public IPinInvoker
     , public IPodcastTransportHandler
 {
+    const TUint kMinSupportedVersion = 1;
+    const TUint kMaxSupportedVersion = 1;
+
 public:
     PodcastPinsLatestEpisodeITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool);
     ~PodcastPinsLatestEpisodeITunes();
@@ -210,6 +214,7 @@ private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
+    TBool SupportsVersion(TUint version) const override;
 private:
     void Invoke();
 private:
@@ -226,6 +231,9 @@ class PodcastPinsEpisodeListITunes
     : public IPinInvoker
     , public IPodcastTransportHandler
 {
+    const TUint kMinSupportedVersion = 1;
+    const TUint kMaxSupportedVersion = 1;
+
 public:
     PodcastPinsEpisodeListITunes(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool);
     ~PodcastPinsEpisodeListITunes();
@@ -238,6 +246,7 @@ private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
     void Cancel() override;
     const TChar* Mode() const override;
+    TBool SupportsVersion(TUint version) const override;
 private:
     void Invoke();
 private:
