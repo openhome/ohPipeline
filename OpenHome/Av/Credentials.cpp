@@ -231,13 +231,20 @@ void Credential::Clear()
 
 void Credential::Enable(TBool aEnable)
 {
-    AutoMutex _(iLock);
-    if (iEnabled == aEnable) {
-        return;
+    {
+        AutoMutex _(iLock);
+        if (iEnabled == aEnable) {
+            return;
+        }
+        iEnabled = aEnable;
+
+        iObserver.CredentialChanged();
+        ReportChangesLocked();
     }
-    iEnabled = aEnable;
-    iObserver.CredentialChanged();
-    ReportChangesLocked();
+
+    // Stop recursive locking
+    iConfigEnable->Set(iEnabled ? kEnableYes
+                                : kEnableNo);
 }
 
 void Credential::SetState(const Brx& aStatus, const Brx& aData)
