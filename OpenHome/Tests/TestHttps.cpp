@@ -28,7 +28,7 @@ static void TestHttps(Environment& aEnv, const Brx& aHost, const Brx& aPath)
     static const TUint kTimeoutMs = 5 * 1000;
     static const TUint kPort = 443;
     Endpoint ep(kPort, aHost);
-    socket->Connect(ep, kTimeoutMs);
+    socket->Connect(ep, aHost, kTimeoutMs);
     //socket->LogVerbose(true);
     writerRequest->WriteMethod(Http::kMethodGet, aPath, Http::eHttp11);
     Http::WriteHeaderHostAndPort(*writerRequest, aHost, kPort);

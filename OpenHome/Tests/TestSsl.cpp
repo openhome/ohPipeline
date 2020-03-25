@@ -88,7 +88,7 @@ void SuiteSsl::Head(const TChar* aHost, const TChar* aPath)
     static const TUint kTimeoutMs = 5 * 1000;
     static const TUint kPort = 443;
     Endpoint ep(kPort, host);
-    iSocket->Connect(ep, kTimeoutMs);
+    iSocket->Connect(ep, host, kTimeoutMs);
     iWriterRequest->WriteMethod(Http::kMethodHead, path, Http::eHttp11);
     Http::WriteHeaderHostAndPort(*iWriterRequest, host, kPort);
     Http::WriteHeaderConnectionClose(*iWriterRequest);

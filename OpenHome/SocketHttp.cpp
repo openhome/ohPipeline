@@ -298,7 +298,7 @@ void SocketHttp::Connect()
     if (!iConnected) {
         try {
             LOG(kHttp, "SocketHttp::Connect connecting...\n");
-            iSocket.Connect(iEndpoint, iConnectTimeoutMs);
+            iSocket.Connect(iEndpoint, iUri.Host(), iConnectTimeoutMs);
         }
         catch (const NetworkTimeout&) {
             iSocket.Close();

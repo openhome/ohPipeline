@@ -28,10 +28,11 @@ public:
     SocketSsl(Environment& aEnv, SslContext& aSsl, TUint aReadBytes);
     ~SocketSsl();
     void SetSecure(TBool aSecure);
-    void Connect(const Endpoint& aEndpoint, TUint aTimeoutMs);
     /*
-     * Allows use of Server Name Indication if hostname is specified.
+     * Does not support Server Name Indication.
+     * A bit fragile, may be broken by server-side changes without warning.
      */
+    void ConnectNoSni(const Endpoint& aEndpoint, TUint aTimeoutMs);
     void Connect(const Endpoint& aEndpoint, const Brx& aHostname, TUint aTimeoutMs);
     void Close();
     void Interrupt(TBool aInterrupt);

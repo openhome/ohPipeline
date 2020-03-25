@@ -198,7 +198,7 @@ TBool CalmRadio::TryLoginLocked()
     try {
         ep.SetAddress(kHost);
         ep.SetPort(kPort);
-        iSocket.Connect(ep, kConnectTimeoutMs);
+        iSocket.Connect(ep, kHost, kConnectTimeoutMs);
     }
     catch (NetworkTimeout&) {
         LOG_ERROR(kPipeline, "CalmRadio::TryLoginLocked - connection failure\n");

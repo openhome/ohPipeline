@@ -128,7 +128,7 @@ void SocketSsl::SetSecure(TBool aSecure)
     iImpl->SetSecure(aSecure);
 }
 
-void SocketSsl::Connect(const Endpoint& aEndpoint, TUint aTimeoutMs)
+void SocketSsl::ConnectNoSni(const Endpoint& aEndpoint, TUint aTimeoutMs)
 {
     iImpl->Connect(aEndpoint, aTimeoutMs);
 }
