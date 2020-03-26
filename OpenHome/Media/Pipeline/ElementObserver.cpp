@@ -35,6 +35,7 @@ void PipelineElementObserverThread::Start()
 void PipelineElementObserverThread::Stop()
 {
     iThread->Kill();
+    iThread->Join();
 }
 
 void PipelineElementObserverThread::PipelineEventThread()
