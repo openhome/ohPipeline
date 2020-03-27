@@ -388,6 +388,11 @@ void Credential::ReportChangesLocked()
 }
 
 
+// class IRsaObservable
+
+const TUint IRsaObservable::kObserverIdNull = 0;
+
+
 // Credentials
 
 const Brn Credentials::kKeyRsaPrivate("RsaPrivateKey");
@@ -407,6 +412,7 @@ Credentials::Credentials(Environment& aEnv,
     , iPowerManager(aPowerManager)
     , iKey(nullptr)
     , iLockRsaConsumers("CRD2")
+    , iNextObserverId(kObserverIdNull + 1)
     , iModerationTimerStarted(false)
     , iKeyParams(aStore, aEntropy, aKeyBits)
     , iThread(nullptr)
@@ -454,14 +460,31 @@ void Credentials::Start()
     }
 }
 
-void Credentials::GetKey(FunctorGeneric<IRsaProvider&> aCb)
+TUint Credentials::AddObserver(FunctorGeneric<IRsaProvider&> aCb)
 {
+    TUint id = kObserverIdNull;
     AutoMutex _(iLockRsaConsumers);
     if (iKey != nullptr) {
         aCb(*this);
     }
     else {
-        iRsaConsumers.push_back(aCb);
+        id = iNextObserverId++;
+        iRsaConsumers.push_back(std::pair<TUint, FunctorGeneric<IRsaProvider&>>(id, aCb));
+    }
+    return id;
+}
+
+void Credentials::RemoveObserver(TUint aId)
+{
+    if (aId == kObserverIdNull) {
+        return;
+    }
+    AutoMutex _(iLockRsaConsumers);
+    for (auto it = iRsaConsumers.begin(); it != iRsaConsumers.end(); ++it) {
+        if (it->first == aId) {
+            iRsaConsumers.erase(it);
+            break;
+        }
     }
 }
 
@@ -559,8 +582,8 @@ void Credentials::CreateKey(IStoreReadWrite& aStore, const Brx& aEntropy, TUint 
         AutoMutex _(iLockRsaConsumers);
         iKey = (void*)PEM_read_bio_RSAPrivateKey(bio, nullptr, 0, nullptr);
         BIO_free(bio);
-        for (auto cb : iRsaConsumers) {
-            cb(*this);
+        for (auto p : iRsaConsumers) {
+            p.second(*this);
         }
         return;
     }
@@ -586,8 +609,8 @@ void Credentials::CreateKey(IStoreReadWrite& aStore, const Brx& aEntropy, TUint 
     AutoMutex _(iLockRsaConsumers);
     iKey = (void*)rsa;
 
-    for (auto cb : iRsaConsumers) {
-        cb(*this);
+    for (auto p : iRsaConsumers) {
+        p.second(*this);
     }
 }
 

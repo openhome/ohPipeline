@@ -94,11 +94,22 @@ public:
     virtual ~IRsaProvider() {}
 };
 
+class IRsaObservable
+{
+public:
+    static const TUint kObserverIdNull;
+public:
+    virtual TUint AddObserver(FunctorGeneric<IRsaProvider&> aCb) = 0;
+    virtual void RemoveObserver(TUint aId) = 0; // cannot be called from callback registered with AddObserver
+    virtual ~IRsaObservable() {}
+};
+
 class ProviderCredentials;
 class Credential;
 
 class Credentials : public ICredentials
                   , public ICredentialsState
+                  , public IRsaObservable
                   , private ICredentialObserver
                   , private IRsaProvider
 {
@@ -117,8 +128,11 @@ public:
     virtual ~Credentials();
     void Add(ICredentialConsumer* aConsumer);
     void Start();
-    void GetKey(FunctorGeneric<IRsaProvider&> aCb);
     void GetPublicKey(Bwx& aKey); // test use only
+private: // from IRsaObservable
+    TUint AddObserver(FunctorGeneric<IRsaProvider&> aCb) override;
+    void RemoveObserver(TUint aId) override;
+//    void GetKey(FunctorGeneric<IRsaProvider&> aCb);
 private: // from ICredentials
     void Set(const Brx& aId, const Brx& aUsername, const Brx& aPassword) override; // password must be encrypted
     void Clear(const Brx& aId) override;
@@ -165,7 +179,8 @@ private:
                    These define lower case macros which can conflict with functions in our code. */
     std::vector<Credential*> iCredentials;
     Mutex iLockRsaConsumers;
-    std::vector<FunctorGeneric<IRsaProvider&>> iRsaConsumers;
+    std::vector<std::pair<TUint, FunctorGeneric<IRsaProvider&>>> iRsaConsumers;
+    TUint iNextObserverId;
     Timer* iModerationTimer;
     TBool iModerationTimerStarted;
     Bws<2048> iKeyBuf;
