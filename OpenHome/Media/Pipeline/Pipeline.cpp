@@ -59,7 +59,7 @@ PipelineInitParams::PipelineInitParams()
     , iMaxLatencyJiffies(kMaxLatencyDefault)
     , iSupportElements(EPipelineSupportElementsAll)
     , iMuter(kMuterDefault)
-    , iDsdSupported(kDsdSupportedDefault)
+    , iDsdMaxSampleRate(kDsdMaxSampleRateDefault)
 {
     SetThreadPriorityMax(kThreadPriorityMax);
 }
@@ -142,9 +142,9 @@ void PipelineInitParams::SetMuter(MuterImpl aMuter)
     iMuter = aMuter;
 }
 
-void PipelineInitParams::SetDsdSupported(TBool aDsd)
+void PipelineInitParams::SetDsdMaxSampleRate(TUint aMaxSampleRate)
 {
-    iDsdSupported = aDsd;
+    iDsdMaxSampleRate = aMaxSampleRate;
 }
 
 TUint PipelineInitParams::EncodedReservoirBytes() const
@@ -222,9 +222,9 @@ PipelineInitParams::MuterImpl PipelineInitParams::Muter() const
     return iMuter;
 }
 
-TBool OpenHome::Media::PipelineInitParams::DsdSupported() const
+TUint OpenHome::Media::PipelineInitParams::DsdMaxSampleRate() const
 {
-    return iDsdSupported;
+    return iDsdMaxSampleRate;
 }
 
 // Pipeline
@@ -261,7 +261,43 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     encodedAudioCount += kRewinderMaxMsgs; // this may only be required on platforms that don't guarantee priority based thread scheduling
     const TUint msgEncodedAudioCount = encodedAudioCount + 100; // +100 allows for Split()ing by Container and CodecController
     const TUint decodedReservoirSize = aInitParams->DecodedReservoirJiffies() + aInitParams->StarvationRamperMinJiffies();
-    const TUint decodedAudioCount = ((decodedReservoirSize + iInitParams->SenderMinLatency()) / DecodedAudioAggregator::kMaxJiffies) + 200; // +200 allows for DSD support (not 256), songcast sender, some smaller msgs and some buffering in non-reservoir elements
+
+    // Work out number of decoded audio (AudioData) and MsgAudioDsd required, based on the maximum DSD sample rate supported.
+    // Where empirical measurements are referenced below, these were achieved in the following way:
+    // - Boot the DS.
+    // - Connect to the shell.
+    // - Execute "info memory" to get a baseline of pipeline peak message usage.
+    // - Play a DSD track at a given sample rate.
+    // - Execute "info memory" in the shell again to get the pipeline peak message usage.
+    // - Compare the post-playback peak usage to the baseline peak usage to identify how many messages were required for DSD at the given sample rate.
+    // - Repeat the above process for other sample rates and use this to identify a pattern in how many extra messages need to be allocated as sample rate increases.
+    const auto dsdMaxSampleRate = aInitParams->DsdMaxSampleRate();
+    TUint dsdExtraDecodedAudioCount = 0;
+    TUint msgAudioDsdCount = 0;
+    if (dsdMaxSampleRate > 0) {
+        TUint dsdMultiplier = dsdMaxSampleRate / 44100;
+        if (dsdMaxSampleRate % 48000 == 0) {
+            dsdMultiplier = dsdMaxSampleRate / 48000;
+        }
+
+        // Existing decodedAudioCount parameter catered for up to DSD128, so let's ensure its not increased for up to DSD128 as it may result in running out of memory on some platforms.
+        if (dsdMaxSampleRate > 128 * 44100) {
+            // Empirically, for DSD the decodedAudioCount needs to have (2 * DSD multiplier) msgs added to it.
+            // E.g., for DSD256, would require 2 * 256 = 512 additional msgs.
+            static const TUint kDsdAudioMsgMultiplier = 2;
+            dsdExtraDecodedAudioCount = dsdMultiplier * kDsdAudioMsgMultiplier;
+        }
+
+        // Empirically, the pipeline requires just under (4 * DSD multiplier) MsgAudioDsd.
+        // Want to give some headroom in allocated messages. Previous approach was to allocate ~1.5x the messages required for the maximum supported DSD sample rate.
+        // As we're using a multiplier of 4 here, add 2 to it to increase it to 1.5x to save scaling the message count to 1.5x later on.
+        static const TUint kDsdMsgMultiplier = 4 + 2;
+        msgAudioDsdCount = dsdMultiplier * kDsdMsgMultiplier;
+    }
+
+    TUint decodedAudioCount = ((decodedReservoirSize + iInitParams->SenderMinLatency()) / DecodedAudioAggregator::kMaxJiffies) + 200; // +200 allows for DSD support (not 256), songcast sender, some smaller msgs and some buffering in non-reservoir elements
+    decodedAudioCount += dsdExtraDecodedAudioCount;
+
     const TUint msgAudioPcmCount = decodedAudioCount + 100; // +100 allows for Split()ing in various elements
     const TUint msgHaltCount = perStreamMsgCount * 2; // worst case is tiny Vorbis track with embedded metatext in a single-track playlist with repeat
     MsgFactoryInitParams msgInit;
@@ -278,8 +314,8 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     msgInit.SetMsgWaitCount(perStreamMsgCount);
     msgInit.SetMsgDecodedStreamCount(perStreamMsgCount);
     msgInit.SetMsgAudioPcmCount(msgAudioPcmCount, decodedAudioCount);
-    if (aInitParams->DsdSupported()) {
-        msgInit.SetMsgAudioDsdCount(msgAudioPcmCount);
+    if (msgAudioDsdCount > 0) {
+        msgInit.SetMsgAudioDsdCount(msgAudioDsdCount);
     }
     msgInit.SetMsgSilenceCount(kMsgCountSilence);
     msgInit.SetMsgPlayableCount(kMsgCountPlayablePcm, kMsgCountPlayableDsd, kMsgCountPlayableSilence);

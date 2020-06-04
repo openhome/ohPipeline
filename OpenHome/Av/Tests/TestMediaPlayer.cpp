@@ -133,6 +133,16 @@ void RebootLogger::Reboot(const Brx& aReason)
 // TestMediaPlayer
 
 const Brn TestMediaPlayer::kSongcastSenderIconFileName("SongcastSenderIcon");
+const TUint TestMediaPlayer::kTrackCount;
+const TUint TestMediaPlayer::kNumOdpSessions;
+const TUint TestMediaPlayer::kMinWebUiResourceThreads;
+const TUint TestMediaPlayer::kMaxWebUiTabs;
+const TUint TestMediaPlayer::kUiSendQueueSize;
+const TUint TestMediaPlayer::kMaxPinsDevice;
+const TUint TestMediaPlayer::kFsFlushFreqMs;
+const TUint TestMediaPlayer::kDsdMaxSampleRate;
+const TUint TestMediaPlayer::kDsdSampleBlockWords;
+const TUint TestMediaPlayer::kDsdPadBytesPerChunk;
 
 TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                                  const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
@@ -221,7 +231,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     pipelineInit->SetStarvationRamperMinSize(100 * Jiffies::kPerMs); // larger StarvationRamper size useful for desktop
                                                                      // platforms with slightly unpredictable thread scheduling
     pipelineInit->SetGorgerDuration(pipelineInit->DecodedReservoirJiffies());
-    pipelineInit->SetDsdSupported(true);
+    pipelineInit->SetDsdMaxSampleRate(kDsdMaxSampleRate);
     const Brn kFriendlyNamePrefix("OpenHome ");
     auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName), kFriendlyNamePrefix);
     mpInit->EnableConfigApp();
