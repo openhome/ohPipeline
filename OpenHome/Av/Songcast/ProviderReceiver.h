@@ -19,6 +19,7 @@ public:
     virtual void Play() = 0;
     virtual void Stop() = 0;
     virtual void SetSender(const Brx& aUri, const Brx& aMetadata) = 0;
+    virtual void SenderInfo(Bwx& aUri, Bwx& aMetadata) = 0;
 };
 
 class ProviderReceiver : public Net::DvProviderAvOpenhomeOrgReceiver1

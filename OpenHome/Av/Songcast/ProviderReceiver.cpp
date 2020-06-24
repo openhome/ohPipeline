@@ -33,8 +33,9 @@ ProviderReceiver::ProviderReceiver(Net::DvDevice& aDevice, ISourceReceiver& aSou
     EnableActionProtocolInfo();
     EnableActionTransportState();
 
-    SetPropertyUri(Brx::Empty());
-    SetPropertyMetadata(Brx::Empty());
+    iSource.SenderInfo(iSenderUri, iSenderMetadata);
+    SetPropertyUri(iSenderUri);
+    SetPropertyMetadata(iSenderMetadata);
     NotifyPipelineState(Media::EPipelineStopped);
     SetPropertyProtocolInfo(iProtocolInfo);
 }

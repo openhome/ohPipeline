@@ -66,6 +66,7 @@ private: // from ISourceReceiver
     void Play() override;
     void Stop() override;
     void SetSender(const Brx& aUri, const Brx& aMetadata) override;
+    void SenderInfo(Bwx& aUri, Bwx& aMetadata) override;
 private: // from IZoneListener
     void ZoneUriChanged(const Brx& aZone, const Brx& aUri) override;
     void NotifyPresetInfo(TUint aPreset, const Brx& aMetadata) override;
@@ -101,6 +102,8 @@ private:
     Media::BwsTrackUri iPendingTrackUri;
     SongcastSender* iSender;
     StoreText* iStoreZone;
+    StoreText* iStoreUri;
+    StoreText* iStoreMetadata;
     TUint iNacnId;
 };
 
@@ -206,6 +209,10 @@ SourceReceiver::SourceReceiver(IMediaPlayer& aMediaPlayer,
     iZoneHandler = new ZoneHandler(env, device.Udn());
 
     // Receiver
+    iStoreUri = new StoreText(aMediaPlayer.ReadWriteStore(), aMediaPlayer.PowerManager(), kPowerPriorityNormal,
+                               Brn("Receiver.Uri"), Brx::Empty(), iTrackUri.MaxBytes());
+    iStoreMetadata = new StoreText(aMediaPlayer.ReadWriteStore(), aMediaPlayer.PowerManager(), kPowerPriorityNormal,
+                               Brn("Receiver.Metadata"), Brx::Empty(), iTrackMetadata.MaxBytes());
     iProviderReceiver = new ProviderReceiver(device, *this, kProtocolInfo);
     iUriProvider = new UriProviderSongcast(aMediaPlayer, aClockPuller);
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceReceiver::Play));
@@ -232,6 +239,8 @@ SourceReceiver::~SourceReceiver()
     delete iSender;
     iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iNacnId);
     delete iStoreZone;
+    delete iStoreUri;
+    delete iStoreMetadata;
     delete iOhmMsgFactory;
     iZoneHandler->RemoveListener(*this);
     delete iZoneChangeThread;
@@ -266,6 +275,8 @@ void SourceReceiver::Deactivate()
     iPlaying = false;
     iTrackUri.Replace(Brx::Empty());
     iStoreZone->Write();
+    iStoreUri->Write();
+    iStoreMetadata->Write();
     Source::Deactivate();
 }
 
@@ -380,6 +391,14 @@ void SourceReceiver::SetSender(const Brx& aUri, const Brx& aMetadata)
             UriChanged();
         }
     }
+    iStoreUri->Set(aUri);
+    iStoreMetadata->Set(aMetadata);
+}
+
+void SourceReceiver::SenderInfo(Bwx& aUri, Bwx& aMetadata)
+{
+    iStoreUri->Get(aUri);
+    iStoreMetadata->Get(aMetadata);
 }
 
 void SourceReceiver::ZoneUriChanged(const Brx& aZone, const Brx& aUri)
