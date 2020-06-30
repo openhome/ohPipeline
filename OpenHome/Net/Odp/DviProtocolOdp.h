@@ -12,7 +12,7 @@ namespace Net {
 class DviProtocolFactoryOdp : public IDvProtocolFactory
 {
 public: // from IDvProtocolFactory
-    void Start();
+    void Start() override;
 private: // from IDvProtocolFactory
     IDvProtocol* CreateProtocol(DviDevice& aDevice) override;
 };
