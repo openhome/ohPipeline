@@ -15,6 +15,9 @@ IDvProtocol* DviProtocolFactoryOdp::CreateProtocol(DviDevice& aDevice)
     return new DviProtocolOdp(aDevice);
 }
 
+void DviProtocolFactoryOdp::Start()
+{
+}
 
 // DviProtocolOdp
 

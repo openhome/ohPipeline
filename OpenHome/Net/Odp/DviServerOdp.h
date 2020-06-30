@@ -72,6 +72,8 @@ public:
     ~DviServerOdp();
     TUint Port() const;
     void SetServerCreatedCallback(Functor aCallback);
+public: // from DviServer
+    void Start();
 private: // from DviServer
     SocketTcpServer* CreateServer(const NetworkAdapter& aNif) override;
     void NotifyServerDeleted(TIpAddress aInterface) override; 

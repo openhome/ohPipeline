@@ -198,12 +198,16 @@ DviServerOdp::DviServerOdp(DvStack& aDvStack, TUint aNumSessions, TUint aPort)
     , iNumSessions(aNumSessions)
     , iPort(aPort)
 {
-    Initialise();
 }
 
 DviServerOdp::~DviServerOdp()
 {
     Deinitialise();
+}
+
+void DviServerOdp::Start()
+{
+    Initialise();
 }
 
 TUint DviServerOdp::Port() const

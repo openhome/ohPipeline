@@ -331,6 +331,7 @@ void MediaPlayer::Start(IRebootHandler& aRebootHandler)
     iMimeTypes.Start();
     iProduct->Start();
     iPowerManager->Start();
+    iDvStack.Start();
 }
 
 Environment& MediaPlayer::Env()

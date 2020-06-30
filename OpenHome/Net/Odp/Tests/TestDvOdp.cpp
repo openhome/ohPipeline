@@ -376,6 +376,7 @@ void TestDvOdp(CpStack& aCpStack, DvStack& aDvStack)
     observableProd->SetRoomName(Brn("TestDvOdp"));
     observableProd->SetProductName(Brn("Product"));
     auto server = new DviServerOdp(aDvStack, 1);
+    server->Start();
     auto odp = new OdpZeroConf(aDvStack.Env(), *server, observablefn);
     odp->SetZeroConfEnabled(true);
     aDvStack.AddProtocolFactory(new DviProtocolFactoryOdp());

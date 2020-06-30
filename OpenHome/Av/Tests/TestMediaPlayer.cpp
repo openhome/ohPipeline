@@ -338,6 +338,7 @@ void TestMediaPlayer::Run()
     iAppFramework->Start();
 
     iServerOdp = new DviServerOdp(iMediaPlayer->DvStack(), kNumOdpSessions, iOdpPort);
+    iServerOdp->Start();
     Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
     iOdpZeroConf = new OdpZeroConf(iMediaPlayer->Env(), *iServerOdp, iMediaPlayer->FriendlyNameObservable());
     iOdpZeroConf->SetZeroConfEnabled(true);
