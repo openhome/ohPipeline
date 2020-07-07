@@ -264,7 +264,7 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
     if (iTimestamper != nullptr) {
         iTimestamper->Stop();
     }
-    
+
     Interrupt(false); // cancel any interrupt to allow SendLeave to succeed
     iReadBuffer.ReadFlush();
     // Ensure a JOIN/LISTEN doesn't go out after SendLeave() is called, which may confuse a sender and think this receiver has immediately re-joined.
