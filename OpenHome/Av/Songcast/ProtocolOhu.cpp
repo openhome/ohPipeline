@@ -40,6 +40,9 @@ void ProtocolOhu::HandleAudio(const OhmHeader& aHeader)
     AutoMutex a(iLeaveLock);
     if (iLeaving) {
         iTimerLeave->Cancel();
+        // Ensure a JOIN/LISTEN doesn't go out after a LEAVE.
+        iTimerJoin->Cancel();
+        iTimerListen->Cancel();
         SendLeave();
         iReadBuffer.ReadInterrupt();
     }
@@ -108,6 +111,9 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
     TBool firstJoin = true;
     do {
         if (!firstJoin) {
+            // Ensure a JOIN/LISTEN doesn't go out after a LEAVE.
+            iTimerJoin->Cancel();
+            iTimerListen->Cancel();
             SendLeave();
             /* allow lower priority threads to run.  If all network operations are failing
                (say because we have no IP address), this high priority thread will loop. */
@@ -261,15 +267,17 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
     
     Interrupt(false); // cancel any interrupt to allow SendLeave to succeed
     iReadBuffer.ReadFlush();
+    // Ensure a JOIN/LISTEN doesn't go out after SendLeave() is called, which may confuse a sender and think this receiver has immediately re-joined.
+    iTimerJoin->Cancel();
+    iTimerListen->Cancel();
+    // About to directly call SendLeave() below, if outstanding, so cancel LEAVE timer here.
+    iTimerLeave->Cancel();
     iLeaveLock.Wait();
     if (iLeaving) {
         iLeaving = false;
         SendLeave();
     }
     iLeaveLock.Signal();
-    iTimerJoin->Cancel();
-    iTimerListen->Cancel();
-    iTimerLeave->Cancel();
     iSocket.Close();
     iMutexTransport.Wait();
     iStreamId = IPipelineIdProvider::kStreamIdInvalid;
@@ -318,6 +326,9 @@ void ProtocolOhu::SendLeave()
 
 void ProtocolOhu::TimerLeaveExpired()
 {
+    // Ensure a JOIN/LISTEN doesn't go out after a LEAVE.
+    iTimerJoin->Cancel();
+    iTimerListen->Cancel();
     AutoMutex a (iLeaveLock);
     if (!iLeaving) {
         return;
