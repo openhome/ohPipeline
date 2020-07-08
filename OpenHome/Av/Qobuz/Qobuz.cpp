@@ -730,7 +730,7 @@ void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
     iReaderEntity.Set(iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
     iResponseBody.Reset();
     iReaderEntity.ReadAll(iResponseBody);
-    if (code != 200) {
+    if (code < 200 || code > 299) {
         LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz track/reportStreamingStart.\n%.*s\n", code, PBUF(iResponseBody.Buffer()));
     }
 }
@@ -787,7 +787,7 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack)
     iReaderEntity.Set(iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
     iResponseBody.Reset();
     iReaderEntity.ReadAll(iResponseBody);
-    if (code != 200) {
+    if (code < 200 || code > 299) {
         LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz track/reportStreamingEnd.\n%.*s\n", code, PBUF(iResponseBody.Buffer()));
     }
 }
