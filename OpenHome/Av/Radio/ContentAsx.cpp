@@ -49,6 +49,7 @@ namespace Av {
 class ContentAsx : public Media::ContentProcessor
 {
     static const TUint kMaxReadBytes = 4 * 1024;
+    static const TUint kRefIdBytes = 4;
 public:
     ContentAsx();
     ~ContentAsx();
@@ -177,15 +178,18 @@ ProtocolStreamResult ContentAsx::Stream(IReader& aReader, TUint64 aTotalBytes)
                             iInEntryBlock = false;
                             break;
                         }
-                        else if (tryPlay && tag.BeginsWith(Brn("ref "))) {
-                            Parser parser(tag);
-                            parser.Next('\"');
-                            Brn uri = parser.Next('\"');
-                            ProtocolStreamResult res = iProtocolSet->Stream(uri);
-                            if (res == EProtocolStreamStopped || res == EProtocolStreamErrorRecoverable) {
-                                return res;
+                        else if (tryPlay && tag.Bytes() >= kRefIdBytes) {
+                            const Brn tagRef(tag.Ptr(), kRefIdBytes);
+                            if (Ascii::CaseInsensitiveEquals(tagRef, Brn("ref "))) {
+                                Parser parser(tag);
+                                parser.Next('\"');
+                                Brn uri = parser.Next('\"');
+                                ProtocolStreamResult res = iProtocolSet->Stream(uri);
+                                if (res == EProtocolStreamStopped || res == EProtocolStreamErrorRecoverable) {
+                                    return res;
+                                }
+                                tryPlay = (res != EProtocolStreamSuccess);
                             }
-                            tryPlay = (res != EProtocolStreamSuccess);
                         }
                     }
                     playedSomething = playedSomething || !tryPlay;
