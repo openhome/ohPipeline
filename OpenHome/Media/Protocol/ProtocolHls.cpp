@@ -24,6 +24,11 @@ namespace Media {
 
 class ProtocolHls : public Protocol
 {
+private:
+    static const Brn kSchemeHls;
+    static const Brn kSchemeHlsSecure;
+    static const Brn kSchemeHttp;
+    static const Brn kSchemeHttps;
 public:
     ProtocolHls(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent);
     ~ProtocolHls();
@@ -461,14 +466,11 @@ void SegmentDescriptor::AbsoluteUri(const Uri& aBaseUri, Uri& aUriOut) const
 {
     // Segment URI MAY be relative.
     // If it is relative, it is relative to URI of playlist that contains it.
-    static const Brn kSchemeHttp("http");
-
-    if (iUri.Bytes() > kSchemeHttp.Bytes()
-            && Brn(iUri.Ptr(), kSchemeHttp.Bytes()) == kSchemeHttp) {
-        // Segment URI is absolute.
-
-        // May throw UriError.
-        aUriOut.Replace(iUri);
+    Parser p(iUri);
+    const auto parseEntry = p.Next(':');
+    if (parseEntry.Bytes() > 0 && parseEntry.Bytes() < iUri.Bytes()) {
+        // Segment URI starts with a scheme (terminated by ':'), so URI is absolute.
+        aUriOut.Replace(iUri); // May throw UriError.
     }
     else {
         // Segment URI is relative.
@@ -492,8 +494,7 @@ void SegmentDescriptor::AbsoluteUri(const Uri& aBaseUri, Uri& aUriOut) const
             }
         }
 
-        // May throw UriError.
-        aUriOut.Replace(uriBuf, iUri);
+        aUriOut.Replace(uriBuf, iUri); // May throw UriError.
     }
 }
 
@@ -1068,6 +1069,11 @@ void SegmentStreamer::Reset()
 
 // ProtocolHls
 
+const Brn ProtocolHls::kSchemeHls("hls");
+const Brn ProtocolHls::kSchemeHlsSecure("hlss");
+const Brn ProtocolHls::kSchemeHttp("http");
+const Brn ProtocolHls::kSchemeHttps("https");
+
 ProtocolHls::ProtocolHls(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent)
     : Protocol(aEnv)
     , iTimerFactory(aEnv)
@@ -1151,7 +1157,8 @@ ProtocolStreamResult ProtocolHls::Stream(const Brx& aUri)
 
     Reinitialise();
     Uri uriHls(aUri);
-    if (uriHls.Scheme() != Brn("hls")) {
+    const auto& scheme = uriHls.Scheme();
+    if (!Ascii::CaseInsensitiveEquals(scheme, kSchemeHls) && !Ascii::CaseInsensitiveEquals(scheme, kSchemeHlsSecure)) {
         return EProtocolErrorNotSupported;
     }
     LOG(kMedia, "ProtocolHls::Stream(%.*s)\n", PBUF(aUri));
@@ -1171,11 +1178,22 @@ ProtocolStreamResult ProtocolHls::Stream(const Brx& aUri)
     iSem.Wait();
     LOG(kMedia, "ProtocolHls::Stream live stream restart\n");
 
-    // Convert hls:// scheme to http:// scheme
+    // Convert hls(s):// scheme to http(s):// scheme
     const Brx& uriHlsBuf = uriHls.AbsoluteUri();
     Parser p(uriHlsBuf);
-    p.Next(':');    // skip "hls" scheme
-    Bws<Uri::kMaxUriBytes> uriHttpBuf("http:");
+    p.Next(':');    // skip "hls(s)" scheme
+    Bws<Uri::kMaxUriBytes> uriHttpBuf;
+    if (Ascii::CaseInsensitiveEquals(scheme, kSchemeHls)) {
+        uriHttpBuf.Append(kSchemeHttp);
+    }
+    else if (Ascii::CaseInsensitiveEquals(scheme, kSchemeHlsSecure)) {
+        uriHttpBuf.Append(kSchemeHttps);
+    }
+    else {
+        LOG(kMedia, "ProtocolHls::Stream Don't know how to handle scheme \"%.*s\" for URI: %.*s\n", PBUF(scheme), PBUF(aUri));
+        return EProtocolStreamErrorUnrecoverable;
+    }
+    uriHttpBuf.Append(':');
     uriHttpBuf.Append(p.NextToEnd());
 
     Uri uriHttp;

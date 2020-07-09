@@ -43,6 +43,9 @@ class ContentM3uX : public Media::ContentProcessor
 {
     static const TUint kMaxLineBytes = 2 * 1024;
     static const Brn kSchemeHttp;
+    static const Brn kSchemeHttps;
+    static const Brn kSchemeHls;
+    static const Brn kSchemeHlsSecure;
 public:
     ContentM3uX();
     ~ContentM3uX();
@@ -54,6 +57,9 @@ private:
     void CacheUri(const Brx& aResource);
     void StoreHlsUriAbsolute(const Uri& aUri);
     void StoreHlsUriRelative(const Uri& aUri, const Brx& aResource);
+private:
+    static const Brn StripUriResource(const Uri& aUri);
+    static const Brx& ConvertScheme(const Brx& aScheme);
 private:
     ReaderUntil* iReaderUntil;
     Uri iUriPlaylist;
@@ -80,6 +86,9 @@ ContentProcessor* ContentProcessorFactory::NewM3uX()
 // ContentM3uX
 
 const Brn ContentM3uX::kSchemeHttp("http");
+const Brn ContentM3uX::kSchemeHttps("https");
+const Brn ContentM3uX::kSchemeHls("hls");
+const Brn ContentM3uX::kSchemeHlsSecure("hlss");
 
 ContentM3uX::ContentM3uX()
 {
@@ -141,7 +150,6 @@ ProtocolStreamResult ContentM3uX::Stream(IReader& aReader, TUint64 aTotalBytes)
 
             // Only want to stream one variant, but one or more may fail.
             // If that is the case, definitely want to fall through to other variants.
-
             if (line.BeginsWith(Brn("#EXT-X-STREAM-INF"))) {
                 TUint attribBandwidth = 0;
                 TBool attribAudio = false;
@@ -235,20 +243,12 @@ void ContentM3uX::CacheUri(const Brx& aResource)
         // Not an absolute URL.
     }
 
-    // Currently only support HTTP (not HTTPS).
-    // Fail here if non-HTTP stream discovered as, due to custom
-    // URI that is sent, it would be impossible to easily detect in
-    // other components that the fault was an unsupported URI.
     try {
         if (absoluteUri.AbsoluteUri().Bytes() > 0) {
-            if (Ascii::CaseInsensitiveEquals(absoluteUri.Scheme(), kSchemeHttp)) {
-                StoreHlsUriAbsolute(absoluteUri);
-            }
+            StoreHlsUriAbsolute(absoluteUri); // May throw UriError.
         }
         else {
-            if (Ascii::CaseInsensitiveEquals(iUriPlaylist.Scheme(), kSchemeHttp)) {
-                StoreHlsUriRelative(iUriPlaylist, aResource);
-            }
+            StoreHlsUriRelative(iUriPlaylist, aResource); // May throw UriError.
         }
     }
     catch (UriError&) {
@@ -259,26 +259,46 @@ void ContentM3uX::CacheUri(const Brx& aResource)
 
 void ContentM3uX::StoreHlsUriAbsolute(const Uri& aUri)
 {
-    Bws<Uri::kMaxUriBytes> uri("hls");
-    const TUint offset = aUri.Scheme().Bytes();
+    const auto& scheme = aUri.Scheme();
+    Bws<Uri::kMaxUriBytes> uri(ConvertScheme(scheme)); // ConvertScheme() may throw UriError.
+    const TUint offset = scheme.Bytes();
     uri.Append(aUri.AbsoluteUri().Ptr()+offset, aUri.AbsoluteUri().Bytes()-offset);
     iUriHls.Replace(uri);
 }
 
 void ContentM3uX::StoreHlsUriRelative(const Uri& aUri, const Brx& aResource)
 {
-    Bws<Uri::kMaxUriBytes> uri("hls");
-    // Uri::Replace(aBaseUri, aRelativeUri) expects aBaseUri to have been stripped, so do that here.
-    const TUint offset = aUri.Scheme().Bytes();
-    const Brn tail(aUri.AbsoluteUri().Ptr()+offset, aUri.AbsoluteUri().Bytes()-offset);
-    //uri.Append("://");
-    Parser p(tail);
+    // Uri::Replace(aBaseUri, aRelativeUri) expects aBaseUri to have been stripped of the resource it points to, so do that here.
+    const auto uriStrippedBuf = StripUriResource(aUri);
+    const Uri uriStripped(uriStrippedBuf, aResource); // May throw UriError.
+
+    StoreHlsUriAbsolute(uriStripped);
+}
+
+const Brn ContentM3uX::StripUriResource(const Uri& aUri)
+{
+    TUint idx = 0;
+    Parser p(aUri.AbsoluteUri());
     while (!p.Finished()) {
         const Brn next = p.Next('/');
         if (!p.Finished()) {
-            uri.Append(next);
-            uri.Append('/');
+            idx = p.Index();
         }
     }
-    iUriHls.Replace(uri, aResource);
+    const Brn uri(aUri.AbsoluteUri().Ptr(), idx);
+    return uri;
+}
+
+const Brx& ContentM3uX::ConvertScheme(const Brx& aScheme)
+{
+    if (Ascii::CaseInsensitiveEquals(aScheme, kSchemeHttp)) {
+        return kSchemeHls;
+    }
+    else if (Ascii::CaseInsensitiveEquals(aScheme, kSchemeHttps)) {
+        return kSchemeHlsSecure;
+    }
+    else {
+        LOG(kMedia, "ContentM3uX::ConvertScheme Don't know how to handle aScheme: %.*s\n", PBUF(aScheme));
+        THROW(UriError);
+    }
 }
