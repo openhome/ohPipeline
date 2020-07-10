@@ -720,8 +720,7 @@ void SuiteM3uX::TestParse()
     iProcessor->Recognise(kPlaylistUri, kMimeType, Brx::Empty());
     TEST(iProcessor->Stream(*this, iFileStream.Bytes()) == EProtocolStreamErrorUnrecoverable);
 
-    // standard file with unix line endings and desired stream first using https
-    // Don't currently support HTTPS, so should report unsupported.
+    // Standard file with unix line endings and desired stream first using https.
     static const TChar* kFile6 =
         "#EXTM3U\n"
         "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"mp4a.40.5\"\n"
@@ -736,13 +735,13 @@ void SuiteM3uX::TestParse()
     iProcessor->Reset();
     FileBrx file6(kFile6);
     iFileStream.SetFile(&file6);
-    const char* expected6[] ={ "hls://example.com/audio-only.m3u8" };
+    const char* expected6[] ={ "hlss://example.com/audio-only.m3u8" };
     iExpectedStreams = expected6;
     iReadBuffer->ReadFlush();
     iIndex = 0;
     iProcessor->Recognise(kPlaylistUri, kMimeType, Brx::Empty());
-    TEST(iProcessor->Stream(*this, iFileStream.Bytes()) == EProtocolStreamErrorUnrecoverable);
-    TEST(iIndex == 0);
+    TEST(iProcessor->Stream(*this, iFileStream.Bytes()) == EProtocolStreamSuccess);
+    TEST(iIndex == 1);
 
     // standard file with unix line endings and desired stream first using relative URIs
     static const TChar* kFile7 =
