@@ -274,7 +274,7 @@ Msg* SuiteStarvationRamper::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
-Msg* SuiteStarvationRamper::ProcessMsg(MsgStreamSegment* aMsg)
+Msg* SuiteStarvationRamper::ProcessMsg(MsgStreamSegment* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
