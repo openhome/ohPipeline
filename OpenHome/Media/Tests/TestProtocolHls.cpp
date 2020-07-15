@@ -1557,8 +1557,11 @@ void SuiteHlsSegmentStreamer::TestSingleSegmentReadFull()
     const Brn kSegment1("123123123");
     iProvider->QueueSegment(kSegment1);
 
-    auto buf1 = iStreamer->Read(9);
-    TEST(buf1 == kSegment1);
+    auto buf = iStreamer->Read(9);
+    TEST(buf == kSegment1);
+
+    buf = iStreamer->Read(9);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
 
     TEST_THROWS(iStreamer->Read(9), ReaderError);
 }
@@ -1568,14 +1571,17 @@ void SuiteHlsSegmentStreamer::TestSingleSegmentReadIncrements()
     const Brn kSegment1("123123123");
     iProvider->QueueSegment(kSegment1);
 
-    auto buf1 = iStreamer->Read(4);
-    TEST(buf1 == Brn("1231"));
+    auto buf = iStreamer->Read(4);
+    TEST(buf == Brn("1231"));
 
-    auto buf2 = iStreamer->Read(4);
-    TEST(buf2 == Brn("2312"));
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("2312"));
 
-    auto buf3 = iStreamer->Read(4);
-    TEST(buf3 == Brn("3"));
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("3"));
+
+    buf = iStreamer->Read(4);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
 
     TEST_THROWS(iStreamer->Read(4), ReaderError);
 }
@@ -1591,13 +1597,24 @@ void SuiteHlsSegmentStreamer::TestMultipleSegmentsReadFullExact()
 
     // Request exactly number of bytes in stream.
     // SegmentStreamer will return only what is available from the current segment.
-    auto buf1 = iStreamer->Read(27);
-    TEST(buf1 == Brn("123123123"));
-    auto buf2 = iStreamer->Read(27);
-    TEST(buf2 == Brn("456456456"));
-    auto buf3 = iStreamer->Read(27);
-    TEST(buf3 == Brn("789789789"));
+    auto buf = iStreamer->Read(27);
+    TEST(buf == Brn("123123123"));
+    buf = iStreamer->Read(27);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
+    TEST_THROWS(iStreamer->Read(27), ReaderError);
 
+    iStreamer->Reset();
+    buf = iStreamer->Read(27);
+    TEST(buf == Brn("456456456"));
+    buf = iStreamer->Read(27);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
+    TEST_THROWS(iStreamer->Read(27), ReaderError);
+
+    iStreamer->Reset();
+    buf = iStreamer->Read(27);
+    TEST(buf == Brn("789789789"));
+    buf = iStreamer->Read(27);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
     TEST_THROWS(iStreamer->Read(27), ReaderError);
 }
 
@@ -1611,12 +1628,22 @@ void SuiteHlsSegmentStreamer::TestMultipleSegmentsReadFullMoreThan()
     iProvider->QueueSegment(kSegment3);
 
     // Request more than the number of bytes in stream.
-    auto buf1 = iStreamer->Read(28);
-    TEST(buf1 == Brn("123123123"));
-    auto buf2 = iStreamer->Read(28);
-    TEST(buf2 == Brn("456456456"));
-    auto buf3 = iStreamer->Read(28);
-    TEST(buf3 == Brn("789789789"));
+    auto buf = iStreamer->Read(28);
+    TEST(buf == Brn("123123123"));
+    buf = iStreamer->Read(28);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
+
+    iStreamer->Reset();
+    buf = iStreamer->Read(28);
+    TEST(buf == Brn("456456456"));
+    buf = iStreamer->Read(28);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
+
+    iStreamer->Reset();
+    buf = iStreamer->Read(28);
+    TEST(buf == Brn("789789789"));
+    buf = iStreamer->Read(28);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
 
     TEST_THROWS(iStreamer->Read(28), ReaderError);
 }
@@ -1630,32 +1657,34 @@ void SuiteHlsSegmentStreamer::TestMultipleSegmentsReadIncrements()
     iProvider->QueueSegment(kSegment2);
     iProvider->QueueSegment(kSegment3);
 
-    auto buf1 = iStreamer->Read(4);
-    TEST(buf1 == Brn("1231"));
+    auto buf = iStreamer->Read(4);
+    TEST(buf == Brn("1231"));
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("2312"));
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("3"));
+    buf = iStreamer->Read(4);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
 
-    auto buf2 = iStreamer->Read(4);
-    TEST(buf2 == Brn("2312"));
+    iStreamer->Reset();
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("4564"));
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("5645"));
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("6"));
+    buf = iStreamer->Read(4);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
 
-    auto buf3 = iStreamer->Read(4);
-    TEST(buf3 == Brn("3"));
-
-    auto buf4 = iStreamer->Read(4);
-    TEST(buf4 == Brn("4564"));
-
-    auto buf5 = iStreamer->Read(4);
-    TEST(buf5 == Brn("5645"));
-
-    auto buf6 = iStreamer->Read(4);
-    TEST(buf6 == Brn("6"));
-
-    auto buf7 = iStreamer->Read(4);
-    TEST(buf7 == Brn("7897"));
-
-    auto buf8 = iStreamer->Read(4);
-    TEST(buf8 == Brn("8978"));
-
-    auto buf9 = iStreamer->Read(4);
-    TEST(buf9 == Brn("9"));
+    iStreamer->Reset();
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("7897"));
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("8978"));
+    buf = iStreamer->Read(4);
+    TEST(buf == Brn("9"));
+    buf = iStreamer->Read(4);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
 
     TEST_THROWS(iStreamer->Read(4), ReaderError);
 }
@@ -1669,13 +1698,16 @@ void SuiteHlsSegmentStreamer::TestEndOfStreamReadExact()
     iProvider->SetStreamEnd();
 
     // Request more than the number of bytes in stream.
-    auto buf1 = iStreamer->Read(27);
-    TEST(buf1 == Brn("123123123"));
-    auto buf2 = iStreamer->Read(27);
-    TEST(buf2 == Brn("456456456"));
+    auto buf = iStreamer->Read(27);
+    TEST(buf == Brn("123123123"));
+    buf = iStreamer->Read(27);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
 
-    auto buf3 = iStreamer->Read(27);
-    TEST(buf3.Bytes() == 0);
+    iStreamer->Reset();
+    buf = iStreamer->Read(27);
+    TEST(buf == Brn("456456456"));
+    buf = iStreamer->Read(27);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
 
     TEST_THROWS(iStreamer->Read(27), ReaderError);
 }
@@ -1689,13 +1721,16 @@ void SuiteHlsSegmentStreamer::TestEndOfStreamReadMoreThan()
     iProvider->SetStreamEnd();
 
     // Request more than the number of bytes in stream.
-    auto buf1 = iStreamer->Read(28);
-    TEST(buf1 == Brn("123123123"));
-    auto buf2 = iStreamer->Read(28);
-    TEST(buf2 == Brn("456456456"));
+    auto buf = iStreamer->Read(28);
+    TEST(buf == Brn("123123123"));
+    buf = iStreamer->Read(28);
+    TEST(buf.Bytes() == 0); // End-of-stream condition.
 
-    auto buf3 = iStreamer->Read(28);
-    TEST(buf3.Bytes() == 0);
+    iStreamer->Reset();
+    buf = iStreamer->Read(28);
+    TEST(buf == Brn("456456456"));
+    buf = iStreamer->Read(28);
+    TEST(buf.Bytes() == 0);
 
     TEST_THROWS(iStreamer->Read(28), ReaderError);
 }
