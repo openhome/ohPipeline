@@ -1531,6 +1531,38 @@ Msg* MsgEncodedStream::Process(IMsgProcessor& aProcessor)
 }
 
 
+// MsgStreamSegment
+
+const TUint MsgStreamSegment::kMaxIdBytes;
+
+MsgStreamSegment::MsgStreamSegment(AllocatorBase& aAllocator)
+    : Msg(aAllocator)
+{
+}
+
+const Brx& MsgStreamSegment::Id() const
+{
+    return iId;
+}
+
+void MsgStreamSegment::Initialise(const Brx& aId)
+{
+    iId.Replace(aId);
+}
+
+void MsgStreamSegment::Clear()
+{
+#ifdef DEFINE_DEBUG
+    iId.SetBytes(0);
+#endif // DEFINE_DEBUG
+}
+
+Msg* MsgStreamSegment::Process(IMsgProcessor& aProcessor)
+{
+    return aProcessor.ProcessMsg(this);
+}
+
+
 // MsgAudioEncoded
 
 MsgAudioEncoded::MsgAudioEncoded(AllocatorBase& aAllocator)
@@ -3254,6 +3286,7 @@ void MsgReservoir::ProcessMsgIn(MsgTrack* /*aMsg*/)             { }
 void MsgReservoir::ProcessMsgIn(MsgDrain* /*aMsg*/)             { }
 void MsgReservoir::ProcessMsgIn(MsgDelay* /*aMsg*/)             { }
 void MsgReservoir::ProcessMsgIn(MsgEncodedStream* /*aMsg*/)     { }
+void MsgReservoir::ProcessMsgIn(MsgStreamSegment* /*aMsg*/)     { }
 void MsgReservoir::ProcessMsgIn(MsgAudioEncoded* /*aMsg*/)      { }
 void MsgReservoir::ProcessMsgIn(MsgMetaText* /*aMsg*/)          { }
 void MsgReservoir::ProcessMsgIn(MsgStreamInterrupted* /*aMsg*/) { }
@@ -3272,6 +3305,7 @@ Msg* MsgReservoir::ProcessMsgOut(MsgTrack* aMsg)                { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgDrain* aMsg)                { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgDelay* aMsg)                { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgEncodedStream* aMsg)        { return aMsg; }
+Msg* MsgReservoir::ProcessMsgOut(MsgStreamSegment* aMsg)        { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgAudioEncoded* aMsg)         { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgMetaText* aMsg)             { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgStreamInterrupted* aMsg)    { return aMsg; }
@@ -3311,6 +3345,11 @@ Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgDelay* aMsg)
 Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgEncodedStream* aMsg)
 {
     iQueue.iEncodedStreamCount++;
+    return aMsg;
+}
+
+Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgStreamSegment* aMsg)
+{
     return aMsg;
 }
 
@@ -3409,6 +3448,13 @@ Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgDelay* aMsg)
 }
 
 Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgEncodedStream* aMsg)
+{
+    (void)ProcessorEnqueue::ProcessMsg(aMsg);
+    iQueue.ProcessMsgIn(aMsg);
+    return aMsg;
+}
+
+Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgStreamSegment* aMsg)
 {
     (void)ProcessorEnqueue::ProcessMsg(aMsg);
     iQueue.ProcessMsgIn(aMsg);
@@ -3532,6 +3578,11 @@ Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgDelay* aMsg)
 Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgEncodedStream* aMsg)
 {
     iQueue.iEncodedStreamCount--;
+    return iQueue.ProcessMsgOut(aMsg);
+}
+
+Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgStreamSegment* aMsg)
+{
     return iQueue.ProcessMsgOut(aMsg);
 }
 
@@ -3665,6 +3716,12 @@ Msg* PipelineElement::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* PipelineElement::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    CheckSupported(eStreamSegment);
+    return aMsg;
+}
+
 Msg* PipelineElement::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     CheckSupported(eAudioEncoded);
@@ -3793,6 +3850,7 @@ MsgFactory::MsgFactory(IInfoAggregator& aInfoAggregator, const MsgFactoryInitPar
     , iDrainId(0)
     , iAllocatorMsgDelay("MsgDelay", aInitParams.iMsgDelayCount, aInfoAggregator)
     , iAllocatorMsgEncodedStream("MsgEncodedStream", aInitParams.iMsgEncodedStreamCount, aInfoAggregator)
+    , iAllocatorMsgStreamSegment("MsgStreamSegment", aInitParams.iMsgStreamSegmentCount, aInfoAggregator)
     , iAllocatorAudioData("AudioData", aInitParams.iEncodedAudioCount + aInitParams.iDecodedAudioCount, aInfoAggregator)
     , iAllocatorMsgAudioEncoded("MsgAudioEncoded", aInitParams.iMsgAudioEncodedCount, aInfoAggregator)
     , iAllocatorMsgMetaText("MsgMetaText", aInitParams.iMsgMetaTextCount, aInfoAggregator)
@@ -3885,6 +3943,13 @@ MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(MsgEncodedStream* aMsg, ISt
     else {
         msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler);
     }
+    return msg;
+}
+
+MsgStreamSegment* MsgFactory::CreateMsgStreamSegment(const Brx& aId)
+{
+    MsgStreamSegment* msg = iAllocatorMsgStreamSegment.Allocate();
+    msg->Initialise(aId);
     return msg;
 }
 

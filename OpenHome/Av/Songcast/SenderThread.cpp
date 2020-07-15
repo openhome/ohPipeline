@@ -28,6 +28,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -71,6 +72,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override                { return aMsg; }
     Msg* ProcessMsg(MsgDelay* aMsg) override                { iCountDelay++; return aMsg; }
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override        { ASSERTS(); return aMsg; }
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override        { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override         { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgMetaText* aMsg) override             { iCountMetaText++; return aMsg; }
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override    { return aMsg; }
@@ -109,6 +111,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -147,6 +150,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -182,6 +186,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -215,6 +220,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -260,6 +266,7 @@ Msg* ProcessorMsgAudioPrune::ProcessMsg(MsgTrack* aMsg)             { EndDiscard
 Msg* ProcessorMsgAudioPrune::ProcessMsg(MsgDrain* aMsg)             { EndDiscardBlock(); return aMsg; }
 Msg* ProcessorMsgAudioPrune::ProcessMsg(MsgDelay* aMsg)             { EndDiscardBlock(); return aMsg; }
 Msg* ProcessorMsgAudioPrune::ProcessMsg(MsgEncodedStream* aMsg)     { EndDiscardBlock(); return aMsg; }
+Msg* ProcessorMsgAudioPrune::ProcessMsg(MsgStreamSegment* aMsg)     { ASSERTS(); return aMsg; }
 Msg* ProcessorMsgAudioPrune::ProcessMsg(MsgAudioEncoded* aMsg)      { EndDiscardBlock(); return aMsg; }
 Msg* ProcessorMsgAudioPrune::ProcessMsg(MsgMetaText* aMsg)          { EndDiscardBlock(); return aMsg; }
 Msg* ProcessorMsgAudioPrune::ProcessMsg(MsgStreamInterrupted* aMsg) { EndDiscardBlock(); return aMsg; }
@@ -316,6 +323,7 @@ Msg* ProcessorMode::ProcessMsg(MsgTrack* aMsg)              { return RemoveIfNot
 Msg* ProcessorMode::ProcessMsg(MsgDrain* aMsg)              { return RemoveIfNotLatestMode(aMsg); }
 Msg* ProcessorMode::ProcessMsg(MsgDelay* aMsg)              { return RemoveIfNotLatestMode(aMsg, iCountDelay); }
 Msg* ProcessorMode::ProcessMsg(MsgEncodedStream* aMsg)      { return RemoveIfNotLatestMode(aMsg); }
+Msg* ProcessorMode::ProcessMsg(MsgStreamSegment* aMsg)      { ASSERTS(); return RemoveIfNotLatestMode(aMsg); }
 Msg* ProcessorMode::ProcessMsg(MsgAudioEncoded* aMsg)       { ASSERTS(); return RemoveIfNotLatestMode(aMsg); }
 Msg* ProcessorMode::ProcessMsg(MsgMetaText* aMsg)           { return RemoveIfNotLatestMode(aMsg, iCountMetaText); }
 Msg* ProcessorMode::ProcessMsg(MsgStreamInterrupted* aMsg)  { return aMsg; }
@@ -373,6 +381,7 @@ Msg* ProcessorTrack::ProcessMsg(MsgTrack* aMsg)
 Msg* ProcessorTrack::ProcessMsg(MsgDrain* aMsg)             { return RemoveIfNotLatestTrack(aMsg); }
 Msg* ProcessorTrack::ProcessMsg(MsgDelay* aMsg)             { return aMsg; }
 Msg* ProcessorTrack::ProcessMsg(MsgEncodedStream* aMsg)     { return RemoveIfNotLatestTrack(aMsg); }
+Msg* ProcessorTrack::ProcessMsg(MsgStreamSegment* aMsg)     { ASSERTS(); return RemoveIfNotLatestTrack(aMsg); }
 Msg* ProcessorTrack::ProcessMsg(MsgAudioEncoded* aMsg)      { ASSERTS(); return RemoveIfNotLatestTrack(aMsg); }
 Msg* ProcessorTrack::ProcessMsg(MsgMetaText* aMsg)          { return RemoveIfNotLatestTrack(aMsg, iCountMetaText); }
 Msg* ProcessorTrack::ProcessMsg(MsgStreamInterrupted* aMsg) { return aMsg; }
@@ -422,6 +431,7 @@ Msg* ProcessorStream::ProcessMsg(MsgTrack* aMsg)                { return aMsg; }
 Msg* ProcessorStream::ProcessMsg(MsgDrain* aMsg)                { return RemoveIfNotLatestStream(aMsg); }
 Msg* ProcessorStream::ProcessMsg(MsgDelay* aMsg)                { return aMsg; }
 Msg* ProcessorStream::ProcessMsg(MsgEncodedStream* aMsg)        { return aMsg; }
+Msg* ProcessorStream::ProcessMsg(MsgStreamSegment* aMsg)        { ASSERTS(); return RemoveIfNotLatestStream(aMsg); }
 Msg* ProcessorStream::ProcessMsg(MsgAudioEncoded* aMsg)         { ASSERTS(); return RemoveIfNotLatestStream(aMsg); }
 Msg* ProcessorStream::ProcessMsg(MsgMetaText* aMsg)             { return RemoveIfNotLatestStream(aMsg, iCountMetaText); }
 Msg* ProcessorStream::ProcessMsg(MsgStreamInterrupted* aMsg)    { return aMsg; }
@@ -470,6 +480,7 @@ Msg* ProcessorDelayMetaTextHalt::ProcessMsg(MsgTrack* aMsg)             { return
 Msg* ProcessorDelayMetaTextHalt::ProcessMsg(MsgDrain* aMsg)             { return aMsg; }
 Msg* ProcessorDelayMetaTextHalt::ProcessMsg(MsgDelay* aMsg)             { return RemoveIfNotLatest(aMsg, iCountDelay); }
 Msg* ProcessorDelayMetaTextHalt::ProcessMsg(MsgEncodedStream* aMsg)     { return aMsg; }
+Msg* ProcessorDelayMetaTextHalt::ProcessMsg(MsgStreamSegment* aMsg)     { return aMsg; }
 Msg* ProcessorDelayMetaTextHalt::ProcessMsg(MsgAudioEncoded* aMsg)      { return aMsg; }
 Msg* ProcessorDelayMetaTextHalt::ProcessMsg(MsgMetaText* aMsg)          { return RemoveIfNotLatest(aMsg, iCountMetaText); }
 Msg* ProcessorDelayMetaTextHalt::ProcessMsg(MsgStreamInterrupted* aMsg) { return aMsg; }
@@ -737,6 +748,7 @@ Msg* SenderThread::ProcessMsg(MsgTrack* aMsg)             { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgDrain* aMsg)             { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgDelay* aMsg)             { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgEncodedStream* aMsg)     { return aMsg; }
+Msg* SenderThread::ProcessMsg(MsgStreamSegment* aMsg)     { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgAudioEncoded* aMsg)      { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgMetaText* aMsg)          { return aMsg; }
 Msg* SenderThread::ProcessMsg(MsgStreamInterrupted* aMsg) { return aMsg; }

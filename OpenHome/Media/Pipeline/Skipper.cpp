@@ -135,6 +135,12 @@ Msg* Skipper::ProcessMsg(MsgEncodedStream* aMsg)
     return msg;
 }
 
+Msg* Skipper::ProcessMsg(MsgStreamSegment* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
 Msg* Skipper::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
 {
     ASSERTS();

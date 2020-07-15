@@ -19,6 +19,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -140,6 +141,7 @@ Msg* SilencerMsgInProcessor::ProcessMsg(MsgTrack* aMsg)                 { return
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgDrain* aMsg)                 { return aMsg; }
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgDelay* aMsg)                 { return aMsg; }
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgEncodedStream* aMsg)         { return aMsg; }
+Msg* SilencerMsgInProcessor::ProcessMsg(MsgStreamSegment* aMsg)         { return aMsg; }
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgAudioEncoded* aMsg)          { return aMsg; }
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgMetaText* aMsg)              { return aMsg; }
 Msg* SilencerMsgInProcessor::ProcessMsg(MsgStreamInterrupted* aMsg)     { return aMsg; }

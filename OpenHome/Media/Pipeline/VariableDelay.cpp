@@ -29,6 +29,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -97,6 +98,7 @@ Msg* AudioDiscarder::ProcessMsg(MsgTrack* aMsg)               { ASSERTS(); retur
 Msg* AudioDiscarder::ProcessMsg(MsgDrain* aMsg)               { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgDelay* aMsg)               { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgEncodedStream* aMsg)       { ASSERTS(); return aMsg; }
+Msg* AudioDiscarder::ProcessMsg(MsgStreamSegment* aMsg)       { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgAudioEncoded* aMsg)        { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgMetaText* aMsg)            { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgStreamInterrupted* aMsg)   { ASSERTS(); return aMsg; }

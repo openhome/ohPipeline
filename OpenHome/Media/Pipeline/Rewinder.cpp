@@ -22,6 +22,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -70,6 +71,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -110,6 +112,7 @@ protected: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override                { return aMsg; }
     Msg* ProcessMsg(MsgDelay* aMsg) override                { return aMsg; }
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override        { return aMsg; }
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override        { return aMsg; }
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override    { return aMsg; }
     Msg* ProcessMsg(MsgMetaText* aMsg) override             { return aMsg; }
     Msg* ProcessMsg(MsgHalt* aMsg) override                 { return aMsg; }
@@ -193,6 +196,12 @@ Msg* MsgCloner::ProcessMsg(MsgDelay* aMsg)
 }
 
 Msg* MsgCloner::ProcessMsg(MsgEncodedStream* aMsg)
+{
+    aMsg->AddRef();
+    return aMsg;
+}
+
+Msg* MsgCloner::ProcessMsg(MsgStreamSegment* aMsg)
 {
     aMsg->AddRef();
     return aMsg;
@@ -313,6 +322,11 @@ Msg* RewinderBufferProcessor::ProcessMsg(MsgDelay* /*aMsg*/)
 }
 
 Msg* RewinderBufferProcessor::ProcessMsg(MsgEncodedStream* aMsg)
+{
+    return aMsg;
+}
+
+Msg* RewinderBufferProcessor::ProcessMsg(MsgStreamSegment* aMsg)
 {
     return aMsg;
 }
@@ -517,6 +531,13 @@ Msg* Rewinder::ProcessMsg(MsgEncodedStream* aMsg)
     TryBuffer(msg);
     iBuffering = true;
     return msg;
+}
+
+Msg* Rewinder::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    TryBuffer(aMsg);
+    iBuffering = true;
+    return aMsg;
 }
 
 Msg* Rewinder::ProcessMsg(MsgAudioEncoded* aMsg)

@@ -261,6 +261,11 @@ Msg* MsgAudioEncodedCache::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* MsgAudioEncodedCache::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    return aMsg;
+}
+
 Msg* MsgAudioEncodedCache::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     AutoMutex a(iLock);
@@ -613,6 +618,10 @@ Msg* ContainerController::Pull()
             msg = iActiveContainer->Pull();
             ASSERT(msg != nullptr);
             msg = msg->Process(*this);
+            if (msg == nullptr && iRecognising) {
+                // Break out of this so that recognition can begin.
+                return msg;
+            }
         }
 
         return msg;
@@ -724,8 +733,24 @@ Msg* ContainerController::ProcessMsg(MsgEncodedStream* aMsg)
     iExpectedFlushId = MsgFlush::kIdInvalid;
     iStreamHandler.store(aMsg->StreamHandler());
     aMsg->RemoveRef();
-
     return msg;
+}
+
+Msg* ContainerController::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    iStreamEnded = true;
+    if (iRecognising) {
+        aMsg->RemoveRef();
+        return nullptr;
+    }
+    iRecognising = true;
+    iState = eRecognitionStart;
+    // Keep URI from MsgEncodedStream.
+    // iUrl.Replace(aMsg->Uri());  // Required to allow containers to do an out-of-band read.
+
+    // Consume message here, as nothing downstream currently makes use of it. CodecController may make use of it one day.
+    aMsg->RemoveRef();
+    return nullptr;
 }
 
 Msg* ContainerController::ProcessMsg(MsgAudioEncoded* aMsg)
@@ -948,6 +973,11 @@ Msg* MsgAudioEncodedRecogniser::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* MsgAudioEncodedRecogniser::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    return aMsg;
+}
+
 Msg* MsgAudioEncodedRecogniser::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     ASSERT(iAudioEncoded == nullptr);
@@ -1058,6 +1088,13 @@ Msg* MsgEncodedStreamRecogniser::ProcessMsg(MsgDelay* aMsg)
 }
 
 Msg* MsgEncodedStreamRecogniser::ProcessMsg(MsgEncodedStream* aMsg)
+{
+    ASSERT(iRecognisedMsgEncodedStream == false);
+    iRecognisedMsgEncodedStream = true;
+    return aMsg;
+}
+
+Msg* MsgEncodedStreamRecogniser::ProcessMsg(MsgStreamSegment* aMsg)
 {
     ASSERT(iRecognisedMsgEncodedStream == false);
     iRecognisedMsgEncodedStream = true;

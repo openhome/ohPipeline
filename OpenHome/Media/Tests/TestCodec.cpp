@@ -394,6 +394,11 @@ Msg* MsgProcessor::ProcessMsg(MsgEncodedStream* aMsg)
     //LOG(kMedia, ">MsgProcessor::ProcessMsgEncodedStream\n");
     return aMsg;
 }
+Msg* MsgProcessor::ProcessMsg(MsgStreamSegment* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
 Msg* MsgProcessor::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
 {
     //LOG(kMedia, ">MsgProcessor::ProcessMsgAudioEncoded\n");

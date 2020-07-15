@@ -1024,6 +1024,12 @@ Msg* CodecController::ProcessMsg(MsgEncodedStream* aMsg)
     return msg;
 }
 
+Msg* CodecController::ProcessMsg(MsgStreamSegment* /*aMsg*/)
+{
+    ASSERTS(); // not expected at this stage of the pipeline
+    return nullptr;
+}
+
 Msg* CodecController::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     if (!QueueTrackData()) {

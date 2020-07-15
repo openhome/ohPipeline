@@ -274,6 +274,12 @@ Msg* Stopper::ProcessMsg(MsgEncodedStream* aMsg)
     return nullptr;
 }
 
+Msg* Stopper::ProcessMsg(MsgStreamSegment* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
 Msg* Stopper::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
 {
     ASSERTS();

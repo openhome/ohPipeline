@@ -58,6 +58,12 @@ void Supply::OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekab
     iDownStreamElement.Push(msg);
 }
 
+void Supply::OutputSegment(const Brx& aId)
+{
+    auto msg = iMsgFactory.CreateMsgStreamSegment(aId);
+    iDownStreamElement.Push(msg);
+}
+
 void Supply::OutputData(const Brx& aData)
 {
     if (aData.Bytes() == 0) {

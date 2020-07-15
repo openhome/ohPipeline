@@ -67,6 +67,12 @@ Msg* Splitter::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* Splitter::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    ASSERTS(); /* only expect to deal with decoded audio at this stage of the pipeline */
+    return nullptr;
+}
+
 Msg* Splitter::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
 {
     ASSERTS(); /* only expect to deal with decoded audio at this stage of the pipeline */
@@ -174,6 +180,12 @@ Msg* Splitter::MsgCloner::ProcessMsg(MsgDelay* aMsg)
 }
 
 Msg* Splitter::MsgCloner::ProcessMsg(MsgEncodedStream* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
+Msg* Splitter::MsgCloner::ProcessMsg(MsgStreamSegment* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;

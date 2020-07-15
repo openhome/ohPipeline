@@ -17,6 +17,7 @@ const TUint AudioDumper::kSupportedMsgTypes =   eMode
                                               | eDrain
                                               | eDelay
                                               | eEncodedStream
+                                              | eStreamSegment
                                               | eAudioEncoded
                                               | eMetatext
                                               | eStreamInterrupted

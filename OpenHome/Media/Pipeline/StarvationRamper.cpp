@@ -26,6 +26,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override                { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgDelay* aMsg) override                { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override        { ASSERTS(); return aMsg; }
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override        { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override         { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgMetaText* aMsg) override             { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override    { ASSERTS(); return aMsg; }

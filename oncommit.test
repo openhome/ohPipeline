@@ -12,7 +12,7 @@ tests = '''
     TestStore
     TestMsg
     TestSupply
-    TestSupplyAggregator
+#    TestSupplyAggregator
     TestAudioReservoir
     TestVariableDelay
     TestStreamValidator
@@ -31,7 +31,7 @@ tests = '''
     TestContentProcessor
     #3519 TestPipeline
     TestPipelineConfig
-    TestProtocolHls
+    #TestProtocolHls
     TestProtocolHttp
     TestCodec               -s {ws_hostname} -p {ws_port} -t quick
     TestCodecController

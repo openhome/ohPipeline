@@ -291,6 +291,7 @@ inline MsgFactoryInitParams::MsgFactoryInitParams()
     , iMsgDrainCount(1)
     , iMsgDelayCount(1)
     , iMsgEncodedStreamCount(1)
+    , iMsgStreamSegmentCount(1)
     , iEncodedAudioCount(1)
     , iMsgAudioEncodedCount(1)
     , iMsgMetaTextCount(1)
@@ -313,7 +314,7 @@ inline MsgFactoryInitParams::MsgFactoryInitParams()
 inline void MsgFactoryInitParams::SetMsgModeCount(TUint aCount)
 {
     iMsgModeCount = aCount;
-    }
+}
 inline void MsgFactoryInitParams::SetMsgTrackCount(TUint aCount)
 {
     iMsgTrackCount = aCount;
@@ -329,6 +330,10 @@ inline void MsgFactoryInitParams::SetMsgDelayCount(TUint aCount)
 inline void MsgFactoryInitParams::SetMsgEncodedStreamCount(TUint aCount)
 {
     iMsgEncodedStreamCount = aCount;
+}
+inline void MsgFactoryInitParams::SetMsgStreamSegmentCount(TUint aCount)
+{
+    iMsgStreamSegmentCount = aCount;
 }
 inline void MsgFactoryInitParams::SetMsgAudioEncodedCount(TUint aCount, TUint aEncodedAudioCount)
 {

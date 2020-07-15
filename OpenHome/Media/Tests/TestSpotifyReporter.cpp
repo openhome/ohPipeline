@@ -117,6 +117,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -481,6 +482,14 @@ Msg* MockMsgProcessor::ProcessMsg(MsgEncodedStream* aMsg)
     writerBool.WriteBool(aMsg->Live());
     writerAscii.WriteSpace();
     writerBool.WriteBool(aMsg->StreamFormat() == MsgEncodedStream::Format::Pcm);
+    iTestPipe.Write(buf);
+    return aMsg;
+}
+
+Msg* MockMsgProcessor::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    Bws<kMaxMsgBytes> buf("MMP::ProcessMsg MsgStreamSegment ");
+    buf.Append(aMsg->Id());
     iTestPipe.Write(buf);
     return aMsg;
 }

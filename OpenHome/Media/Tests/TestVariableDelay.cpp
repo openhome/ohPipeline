@@ -53,6 +53,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgTrack* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -346,6 +347,12 @@ Msg* SuiteVariableDelay::ProcessMsg(MsgEncodedStream* aMsg)
 {
     iLastMsg = EMsgEncodedStream;
     return aMsg;
+}
+
+Msg* SuiteVariableDelay::ProcessMsg(MsgStreamSegment* /*aMsg*/)
+{
+    ASSERTS(); /* only expect to deal with decoded audio at this stage of the pipeline */
+    return nullptr;
 }
 
 Msg* SuiteVariableDelay::ProcessMsg(MsgAudioEncoded* /*aMsg*/)

@@ -42,6 +42,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -71,6 +72,7 @@ private:
        ,EMsgDrain
        ,EMsgDelay
        ,EMsgEncodedStream
+       ,EMsgStreamSegment
        ,EMsgMetaText
        ,EMsgStreamInterrupted
        ,EMsgHalt
@@ -132,6 +134,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -153,6 +156,7 @@ private:
         ENone
        ,EMsgTrack
        ,EMsgEncodedStream
+       ,EMsgStreamSegment
        ,EMsgAudioEncoded
        ,EMsgFlush
        ,EMsgQuit
@@ -213,6 +217,7 @@ private:
         , EMsgDrain
         , EMsgDelay
         , EMsgEncodedStream
+        , EMsgStreamSegment
         , EMsgAudioEncoded
         , EMsgMetaText
         , EMsgStreamInterrupted
@@ -233,6 +238,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -555,6 +561,12 @@ Msg* SuiteAudioReservoir::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* SuiteAudioReservoir::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    ASSERTS(); /* only expect to deal with decoded audio at this stage of the pipeline */
+    return nullptr;
+}
+
 Msg* SuiteAudioReservoir::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
 {
     ASSERTS(); /* only expect to deal with decoded audio at this stage of the pipeline */
@@ -732,6 +744,12 @@ void SuiteEncodedReservoir::NotifyStarving(const Brx& /*aMode*/, TUint /*aStream
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgEncodedStream* aMsg)
 {
     iLastMsg = EMsgEncodedStream;
+    return aMsg;
+}
+
+Msg* SuiteEncodedReservoir::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    iLastMsg = EMsgStreamSegment;
     return aMsg;
 }
 
@@ -1002,6 +1020,12 @@ Msg* SuiteGorger::ProcessMsg(MsgDelay* aMsg)
 Msg* SuiteGorger::ProcessMsg(MsgEncodedStream* aMsg)
 {
     iLastPulledMsg = EMsgEncodedStream;
+    return aMsg;
+}
+
+Msg* SuiteGorger::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    iLastPulledMsg = EMsgStreamSegment;
     return aMsg;
 }
 

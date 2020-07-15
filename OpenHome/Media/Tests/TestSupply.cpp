@@ -25,6 +25,7 @@ private: // from IStreamHandler
 class SuiteSupply : public Suite, private IPipelineElementDownstream, private IMsgProcessor
 {
     #define kUri "http://www.openhome.org/dir/file.ext"
+    #define kSegmentId "http://www.openhome.org/stream/audio1.ext"
     static const TUint kTotalBytes = 32000000;
     static const TBool kSeekable   = true;
     static const TBool kLive       = false;
@@ -47,6 +48,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -75,6 +77,7 @@ private:
        ,EMsgDrain
        ,EMsgDelay
        ,EMsgEncodedStream
+       ,EMsgStreamSegment
        ,EMsgMetaText
        ,EMsgStreamInterrupted
        ,EMsgBitRate
@@ -225,6 +228,13 @@ Msg* SuiteSupply::ProcessMsg(MsgEncodedStream* aMsg)
     TEST(aMsg->Live()          == kLive);
     TEST(aMsg->StreamHandler() == &iDummyStreamHandler);
 
+    return aMsg;
+}
+
+Msg* SuiteSupply::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    iLastMsg = EMsgStreamSegment;
+    TEST(aMsg->Id() == Brn(kSegmentId));
     return aMsg;
 }
 

@@ -306,6 +306,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     msgInit.SetMsgDrainCount(kMsgCountDrain);
     msgInit.SetMsgDelayCount(perStreamMsgCount);
     msgInit.SetMsgEncodedStreamCount(perStreamMsgCount);
+    msgInit.SetMsgStreamSegmentCount(perStreamMsgCount);
     msgInit.SetMsgAudioEncodedCount(msgEncodedAudioCount, encodedAudioCount);
     msgInit.SetMsgMetaTextCount(perStreamMsgCount);
     msgInit.SetMsgStreamInterruptedCount(perStreamMsgCount);

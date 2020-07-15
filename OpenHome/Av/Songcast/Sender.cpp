@@ -167,6 +167,12 @@ Msg* Sender::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* Sender::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    ASSERTS(); // don't expect this msg at this stage of the pipeline
+    return aMsg;
+}
+
 Msg* Sender::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     ASSERTS(); // don't expect this msg at this stage of the pipeline
@@ -448,6 +454,12 @@ Msg* Sender::PlayableCreator::ProcessMsg(MsgDelay* /*aMsg*/)
 }
 
 Msg* Sender::PlayableCreator::ProcessMsg(MsgEncodedStream* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
+Msg* Sender::PlayableCreator::ProcessMsg(MsgStreamSegment* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;

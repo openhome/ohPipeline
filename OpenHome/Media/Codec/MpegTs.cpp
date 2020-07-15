@@ -368,6 +368,14 @@ Msg* StreamTerminatorDetector::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* StreamTerminatorDetector::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    ASSERT(iStreamTerminated == false);
+    // New segment/chunk in stream detected. Consider stream ended and restart recognition.
+    iStreamTerminated = true;
+    return aMsg;
+}
+
 Msg* StreamTerminatorDetector::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     ASSERT(iStreamTerminated == false);

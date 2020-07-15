@@ -62,6 +62,12 @@ void SupplyAggregator::OutputDsdStream(const Brx& /*aUri*/, TUint64 /*aTotalByte
     ASSERTS(); // no known clients, so no need to support yet
 }
 
+void SupplyAggregator::OutputSegment(const Brx& aId)
+{
+    auto* msg = iMsgFactory.CreateMsgStreamSegment(aId);
+    Output(msg);
+}
+
 void SupplyAggregator::OutputMetadata(const Brx& aMetadata)
 {
     MsgMetaText* msg = iMsgFactory.CreateMsgMetaText(aMetadata);

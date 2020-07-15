@@ -34,6 +34,7 @@ enum EMsgType
         ,EMsgDrain
         ,EMsgDelay
         ,EMsgEncodedStream
+        ,EMsgStreamSegment
         ,EMsgMetaText
         ,EMsgStreamInterrupted
         ,EMsgHalt
@@ -76,6 +77,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -297,6 +299,13 @@ Msg* SuiteRewinder::ProcessMsg(MsgEncodedStream* aMsg)
     iStreamHandler = aMsg->StreamHandler();
     iRcvdMsgType = EMsgEncodedStream;
     iStreamId = aMsg->StreamId();
+    return aMsg;
+}
+
+Msg* SuiteRewinder::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    TEST(iLastMsgType == EMsgStreamSegment);
+    iRcvdMsgType = EMsgStreamSegment;
     return aMsg;
 }
 

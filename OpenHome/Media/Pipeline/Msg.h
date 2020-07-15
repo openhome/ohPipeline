@@ -634,6 +634,23 @@ private:
     DsdStreamInfo iDsdStreamInfo;
 };
 
+class MsgStreamSegment : public Msg
+{
+    friend class MsgFactory;
+public:
+    static const TUint kMaxIdBytes = 1024;
+public:
+    MsgStreamSegment(AllocatorBase& aAllocator);
+    const Brx& Id() const;
+private:
+    void Initialise(const Brx& aId);
+private: // from Msg
+    void Clear() override;
+    Msg* Process(IMsgProcessor& aProcessor) override;
+private:
+    Bws<kMaxIdBytes> iId;
+};
+
 class MsgAudioEncoded : public Msg
 {
     friend class MsgFactory;
@@ -1148,6 +1165,7 @@ public:
     virtual Msg* ProcessMsg(MsgDrain* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgDelay* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgEncodedStream* aMsg) = 0;
+    virtual Msg* ProcessMsg(MsgStreamSegment* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgAudioEncoded* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgMetaText* aMsg) = 0;
     virtual Msg* ProcessMsg(MsgStreamInterrupted* aMsg) = 0;
@@ -1309,6 +1327,7 @@ private:
     virtual void ProcessMsgIn(MsgDrain* aMsg);
     virtual void ProcessMsgIn(MsgDelay* aMsg);
     virtual void ProcessMsgIn(MsgEncodedStream* aMsg);
+    virtual void ProcessMsgIn(MsgStreamSegment* aMsg);
     virtual void ProcessMsgIn(MsgAudioEncoded* aMsg);
     virtual void ProcessMsgIn(MsgMetaText* aMsg);
     virtual void ProcessMsgIn(MsgStreamInterrupted* aMsg);
@@ -1326,6 +1345,7 @@ private:
     virtual Msg* ProcessMsgOut(MsgDrain* aMsg);
     virtual Msg* ProcessMsgOut(MsgDelay* aMsg);
     virtual Msg* ProcessMsgOut(MsgEncodedStream* aMsg);
+    virtual Msg* ProcessMsgOut(MsgStreamSegment* aMsg);
     virtual Msg* ProcessMsgOut(MsgAudioEncoded* aMsg);
     virtual Msg* ProcessMsgOut(MsgMetaText* aMsg);
     virtual Msg* ProcessMsgOut(MsgStreamInterrupted* aMsg);
@@ -1349,6 +1369,7 @@ private:
         Msg* ProcessMsg(MsgDrain* aMsg) override;
         Msg* ProcessMsg(MsgDelay* aMsg) override;
         Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+        Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
         Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
         Msg* ProcessMsg(MsgMetaText* aMsg) override;
         Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -1377,6 +1398,7 @@ private:
         Msg* ProcessMsg(MsgDrain* aMsg) override;
         Msg* ProcessMsg(MsgDelay* aMsg) override;
         Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+        Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
         Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
         Msg* ProcessMsg(MsgMetaText* aMsg) override;
         Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -1401,6 +1423,7 @@ private:
         Msg* ProcessMsg(MsgDrain* aMsg) override;
         Msg* ProcessMsg(MsgDelay* aMsg) override;
         Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+        Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
         Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
         Msg* ProcessMsg(MsgMetaText* aMsg) override;
         Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -1443,19 +1466,20 @@ protected:
        ,eDrain              = 1 <<  2
        ,eDelay              = 1 <<  3
        ,eEncodedStream      = 1 <<  4
-       ,eAudioEncoded       = 1 <<  5
-       ,eMetatext           = 1 <<  6
-       ,eStreamInterrupted  = 1 <<  7
-       ,eHalt               = 1 <<  8
-       ,eFlush              = 1 <<  9
-       ,eWait               = 1 << 10
-       ,eDecodedStream      = 1 << 11
-       ,eBitRate            = 1 << 12
-       ,eAudioPcm           = 1 << 13
-       ,eAudioDsd           = 1 << 14
-       ,eSilence            = 1 << 15
-       ,ePlayable           = 1 << 16
-       ,eQuit               = 1 << 17
+       ,eStreamSegment      = 1 <<  5 // Used to indicate new chunk within an encoded stream (e.g., for restarting container/codec recognition).
+       ,eAudioEncoded       = 1 <<  6
+       ,eMetatext           = 1 <<  7
+       ,eStreamInterrupted  = 1 <<  8
+       ,eHalt               = 1 <<  9
+       ,eFlush              = 1 << 10
+       ,eWait               = 1 << 11
+       ,eDecodedStream      = 1 << 12
+       ,eBitRate            = 1 << 13
+       ,eAudioPcm           = 1 << 14
+       ,eAudioDsd           = 1 << 15
+       ,eSilence            = 1 << 16
+       ,ePlayable           = 1 << 17
+       ,eQuit               = 1 << 18
     };
 protected:
     PipelineElement(TUint aSupportedTypes);
@@ -1466,6 +1490,7 @@ protected: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -1561,6 +1586,12 @@ public:
      * @param[in] aDsdStream       Sample rate, etc.
      */
     virtual void OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, IStreamHandler& aStreamHandler, TUint aStreamId, const DsdStreamInfo& aDsdStream) = 0;
+    /**
+     * Inform the pipeline that a new segment is starting within this audio stream (e.g., for chunked streaming protocols).
+     *
+     * @param[in] aId              ID of the segment. May be, e.g., segment URI or some relative indicator within the stream.
+     */
+    virtual void OutputSegment(const Brx& aId) = 0;
     /**
      * Push a block of (encoded or PCM) audio into the pipeline.
      *
@@ -1875,6 +1906,7 @@ public:
     inline void SetMsgDrainCount(TUint aCount);
     inline void SetMsgDelayCount(TUint aCount);
     inline void SetMsgEncodedStreamCount(TUint aCount);
+    inline void SetMsgStreamSegmentCount(TUint aCount);
     inline void SetMsgAudioEncodedCount(TUint aCount, TUint aEncodedAudioCount);
     inline void SetMsgMetaTextCount(TUint aCount);
     inline void SetMsgStreamInterruptedCount(TUint aCount);
@@ -1894,6 +1926,7 @@ private:
     TUint iMsgDrainCount;
     TUint iMsgDelayCount;
     TUint iMsgEncodedStreamCount;
+    TUint iMsgStreamSegmentCount;
     TUint iEncodedAudioCount;
     TUint iMsgAudioEncodedCount;
     TUint iMsgMetaTextCount;
@@ -1927,6 +1960,7 @@ public:
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);
     MsgEncodedStream* CreateMsgEncodedStream(MsgEncodedStream* aMsg, IStreamHandler* aStreamHandler);
+    MsgStreamSegment* CreateMsgStreamSegment(const Brx& aId);
     MsgAudioEncoded* CreateMsgAudioEncoded(const Brx& aData);
     MsgMetaText* CreateMsgMetaText(const Brx& aMetaText);
     MsgStreamInterrupted* CreateMsgStreamInterrupted(TUint aJiffies = 0);
@@ -1957,6 +1991,7 @@ private:
     TUint iDrainId;
     Allocator<MsgDelay> iAllocatorMsgDelay;
     Allocator<MsgEncodedStream> iAllocatorMsgEncodedStream;
+    Allocator<MsgStreamSegment> iAllocatorMsgStreamSegment;
     Allocator<AudioData> iAllocatorAudioData;
     Allocator<MsgAudioEncoded> iAllocatorMsgAudioEncoded;
     Allocator<MsgMetaText> iAllocatorMsgMetaText;

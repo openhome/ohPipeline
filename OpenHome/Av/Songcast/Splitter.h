@@ -20,6 +20,7 @@ private: // Media::IMsgProcessor
     Media::Msg* ProcessMsg(Media::MsgDrain* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgDelay* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgEncodedStream* aMsg) override;
+    Media::Msg* ProcessMsg(Media::MsgStreamSegment* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgAudioEncoded* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgMetaText* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgStreamInterrupted* aMsg) override;
@@ -46,6 +47,7 @@ private:
         Media::Msg* ProcessMsg(Media::MsgDrain* aMsg) override;
         Media::Msg* ProcessMsg(Media::MsgDelay* aMsg) override;
         Media::Msg* ProcessMsg(Media::MsgEncodedStream* aMsg) override;
+        Media::Msg* ProcessMsg(Media::MsgStreamSegment* aMsg) override;
         Media::Msg* ProcessMsg(Media::MsgAudioEncoded* aMsg) override;
         Media::Msg* ProcessMsg(Media::MsgMetaText* aMsg) override;
         Media::Msg* ProcessMsg(Media::MsgStreamInterrupted* aMsg) override;

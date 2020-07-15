@@ -52,6 +52,7 @@ public:
         ,EMsgDrain
         ,EMsgDelay
         ,EMsgEncodedStream
+        ,EMsgStreamSegment
         ,EMsgMetaText
         ,EMsgStreamInterrupted
         ,EMsgHalt
@@ -126,6 +127,7 @@ public: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -180,6 +182,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
     Msg* ProcessMsg(MsgHalt* aMsg) override;
@@ -587,6 +590,10 @@ Msg* TestContainerMsgProcessor::ProcessMsg(MsgEncodedStream* aMsg)
 {
     return aMsg;
 }
+Msg* TestContainerMsgProcessor::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    return aMsg;
+}
 Msg* TestContainerMsgProcessor::ProcessMsg(MsgMetaText* aMsg)
 {
     return aMsg;
@@ -737,6 +744,12 @@ Msg* SuiteContainerBase::ProcessMsg(MsgEncodedStream* aMsg)
     TEST(iGenerator->LastMsgType() == TestContainerMsgGenerator::EMsgEncodedStream);
     iStreamHandler = aMsg->StreamHandler();
     iStreamId = aMsg->StreamId();
+    return aMsg;
+}
+
+Msg* SuiteContainerBase::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    TEST(iGenerator->LastMsgType() == TestContainerMsgGenerator::EMsgStreamSegment);
     return aMsg;
 }
 

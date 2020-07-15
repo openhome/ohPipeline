@@ -24,20 +24,21 @@ public:
        ,EMsgDrain               = 1 <<  2
        ,EMsgDelay               = 1 <<  3
        ,EMsgEncodedStream       = 1 <<  4
-       ,EMsgAudioEncoded        = 1 <<  5
-       ,EMsgMetaText            = 1 <<  6
-       ,EMsgStreamInterrupted   = 1 <<  7
-       ,EMsgHalt                = 1 <<  8
-       ,EMsgFlush               = 1 <<  9
-       ,EMsgWait                = 1 << 10
-       ,EMsgDecodedStream       = 1 << 11
-       ,EMsgBitRate             = 1 << 12
-       ,EMsgAudioPcm            = 1 << 13
-       ,EMsgAudioDsd            = 1 << 14
-       ,EMsgSilence             = 1 << 15
-       ,EMsgAudioRamped         = 1 << 16
-       ,EMsgPlayable            = 1 << 17
-       ,EMsgQuit                = 1 << 18
+       ,EMsgStreamSegment       = 1 <<  5
+       ,EMsgAudioEncoded        = 1 <<  6
+       ,EMsgMetaText            = 1 <<  7
+       ,EMsgStreamInterrupted   = 1 <<  8
+       ,EMsgHalt                = 1 <<  9
+       ,EMsgFlush               = 1 << 10
+       ,EMsgWait                = 1 << 11
+       ,EMsgDecodedStream       = 1 << 12
+       ,EMsgBitRate             = 1 << 13
+       ,EMsgAudioPcm            = 1 << 14
+       ,EMsgAudioDsd            = 1 << 15
+       ,EMsgSilence             = 1 << 16
+       ,EMsgAudioRamped         = 1 << 17
+       ,EMsgPlayable            = 1 << 18
+       ,EMsgQuit                = 1 << 19
        ,EMsgAll                 = 0x7fffffff
     };
 public:
@@ -56,6 +57,7 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;

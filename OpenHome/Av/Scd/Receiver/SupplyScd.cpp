@@ -202,6 +202,11 @@ void SupplyScd::OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes,
     Output(msg);
 }
 
+void SupplyScd::OutputSegment(const Brx& /*aId*/)
+{
+    ASSERTS(); // chunked streams not supported.
+}
+
 void SupplyScd::OutputData(const Brx& /*aData*/)
 {
     ASSERTS(); // not supported - use OutputData(TUint, IReader&) insread

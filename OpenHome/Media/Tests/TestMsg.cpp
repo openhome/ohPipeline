@@ -240,6 +240,7 @@ public:
        ,EMsgDrain
        ,EMsgDelay
        ,EMsgEncodedStream
+       ,EMsgStreamSegment
        ,EMsgAudioEncoded
        ,EMsgMetaText
        ,EMsgStreamInterrupted
@@ -263,6 +264,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
     Msg* ProcessMsg(MsgMetaText* aMsg) override;
     Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
@@ -331,6 +333,7 @@ public:
        ,EMsgDrain
        ,EMsgDelay
        ,EMsgEncodedStream
+       ,EMsgStreamSegment
        ,EMsgDecodedStream
        ,EMsgBitRate
        ,EMsgMetaText
@@ -364,6 +367,7 @@ private: // from MsgQueueFlushable
     void ProcessMsgIn(MsgDrain* aMsg) override;
     void ProcessMsgIn(MsgDelay* aMsg) override;
     void ProcessMsgIn(MsgEncodedStream* aMsg) override;
+    void ProcessMsgIn(MsgStreamSegment* aMsg) override;
     void ProcessMsgIn(MsgDecodedStream* aMsg) override;
     void ProcessMsgIn(MsgBitRate* aMsg) override;
     void ProcessMsgIn(MsgMetaText* aMsg) override;
@@ -380,6 +384,7 @@ private: // from MsgQueueFlushable
     Msg* ProcessMsgOut(MsgDrain* aMsg) override;
     Msg* ProcessMsgOut(MsgDelay* aMsg) override;
     Msg* ProcessMsgOut(MsgEncodedStream* aMsg) override;
+    Msg* ProcessMsgOut(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsgOut(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsgOut(MsgBitRate* aMsg) override;
     Msg* ProcessMsgOut(MsgMetaText* aMsg) override;
@@ -2616,6 +2621,12 @@ Msg* ProcessorMsgType::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* ProcessorMsgType::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    iLastMsgType = ProcessorMsgType::EMsgStreamSegment;
+    return aMsg;
+}
+
 Msg* ProcessorMsgType::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     iLastMsgType = ProcessorMsgType::EMsgAudioEncoded;
@@ -3401,6 +3412,11 @@ void TestMsgReservoir::ProcessMsgIn(MsgEncodedStream* /*aMsg*/)
     iLastMsgIn = EMsgEncodedStream;
 }
 
+void TestMsgReservoir::ProcessMsgIn(MsgStreamSegment* /*aMsg*/)
+{
+    iLastMsgIn = EMsgStreamSegment;
+}
+
 void TestMsgReservoir::ProcessMsgIn(MsgDecodedStream* /*aMsg*/)
 {
     iLastMsgIn = EMsgDecodedStream;
@@ -3486,6 +3502,12 @@ Msg* TestMsgReservoir::ProcessMsgOut(MsgDelay* aMsg)
 Msg* TestMsgReservoir::ProcessMsgOut(MsgEncodedStream* aMsg)
 {
     iLastMsgOut = EMsgEncodedStream;
+    return aMsg;
+}
+
+Msg* TestMsgReservoir::ProcessMsgOut(MsgStreamSegment* aMsg)
+{
+    iLastMsgOut = EMsgStreamSegment;
     return aMsg;
 }
 
@@ -3617,6 +3639,8 @@ Msg* SuitePipelineElement::CreateMsg(ProcessorMsgType::EMsgType aType)
         return iMsgFactory->CreateMsgDelay(0);
     case ProcessorMsgType::EMsgEncodedStream:
         return iMsgFactory->CreateMsgEncodedStream(Brn("http://1.2.3.4:5"), Brn("Test metatext"), 0, 0, 0, false, false, Multiroom::Allowed, nullptr);
+    case ProcessorMsgType::EMsgStreamSegment:
+        return iMsgFactory->CreateMsgStreamSegment(Brn("http://1.2.3.4:5/1.ext"));
     case ProcessorMsgType::EMsgAudioEncoded:
     {
         const TUint kDataBytes = 256;

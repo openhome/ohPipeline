@@ -143,6 +143,14 @@ Msg* Logger::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* Logger::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    if (IsEnabled(EMsgStreamSegment)) {
+        Log::Print("Pipeline (%s): streamSegment {%.*s}\n", iId, PBUF(aMsg->Id()));
+    }
+    return aMsg;
+}
+
 Msg* Logger::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     if (IsEnabled(EMsgAudioEncoded)) {

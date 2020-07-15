@@ -25,6 +25,7 @@ public: // from ISupply
     void OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId) override;
     void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId, const PcmStreamInfo& aPcmStream) override;
     void OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, IStreamHandler& aStreamHandler, TUint aStreamId, const DsdStreamInfo& aDsdStream) override;
+    void OutputSegment(const Brx& aId) override;
     void OutputData(const Brx& aData) override;
     void OutputMetadata(const Brx& aMetadata) override;
     void OutputHalt(TUint aHaltId = MsgHalt::kIdNone) override;

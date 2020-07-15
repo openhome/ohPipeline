@@ -131,6 +131,12 @@ Msg* Seeker::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* Seeker::ProcessMsg(MsgStreamSegment* /*aMsg*/)
+{
+    ASSERTS();
+    return nullptr;
+}
+
 Msg* Seeker::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
 {
     ASSERTS();

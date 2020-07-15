@@ -480,6 +480,11 @@ Msg* Filler::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
+Msg* Filler::ProcessMsg(MsgStreamSegment* aMsg)
+{
+    return aMsg;
+}
+
 Msg* Filler::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     if (iNoAudioBeforeNextTrack) {

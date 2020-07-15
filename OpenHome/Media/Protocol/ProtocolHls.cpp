@@ -46,6 +46,7 @@ private:
     void StartStream(const Uri& aUri);
     TBool IsCurrentStream(TUint aStreamId) const;
     void WaitForDrain();
+    ProtocolStreamResult OutputAudio(const Brx& aUri); // FIXME - passing aUri in here to report overall stream URI for each segment for now instead of individual segment URI.
 private:
     TimerFactory iTimerFactory;
     Supply* iSupply;
@@ -58,7 +59,6 @@ private:
     TUint iStreamId;
     TBool iStarted;
     TBool iStopped;
-    ContentProcessor* iContentProcessor;
     TUint iNextFlushId;
     Semaphore iSem;
     Mutex iLock;
@@ -1014,16 +1014,7 @@ Brn SegmentStreamer::Read(TUint aBytes)
             }
 
             const auto buf = iReader.Read(aBytes);
-            if (buf.Bytes() > 0) {
-                return buf;
-            }
-            else { // buf == 0
-                // End of stream condition for this segment.
-                // Must request next segment to maintain stream continuity.
-                // Do this by clearing reader and going back to start of loop.
-                iReader.ReadFlush();
-                iReader.Clear();
-            }
+            return buf; // if buf.Bytes() == 0 all subsequent called to this Read() method will throw ReaderError until Reset() is called on this.
         }
     }
     catch (HlsSegmentError&) {
@@ -1205,10 +1196,6 @@ ProtocolStreamResult ProtocolHls::Stream(const Brx& aUri)
         return EProtocolStreamErrorUnrecoverable;
     }
 
-    if (iContentProcessor == nullptr) {
-        iContentProcessor = iProtocolManager->GetAudioProcessor();
-    }
-
     ProtocolStreamResult res = EProtocolStreamErrorRecoverable;
     while (res == EProtocolStreamErrorRecoverable) {
         {
@@ -1219,8 +1206,7 @@ ProtocolStreamResult ProtocolHls::Stream(const Brx& aUri)
             }
         }
 
-        // This will only return EProtocolStreamErrorRecoverable for live streams (i.e., streams of length 0)!
-        res = iContentProcessor->Stream(iSegmentStreamer, 0);
+        res = OutputAudio(aUri);
 
         // Check for context of above method returning.
         // i.e., identify whether it was actually caused by:
@@ -1289,7 +1275,6 @@ ProtocolStreamResult ProtocolHls::Stream(const Brx& aUri)
             Reinitialise();
             iPlaylistProvider.SetUri(uriHttp);
             iM3uReader.SetStartSegment(lastSegment+1);
-            iContentProcessor = iProtocolManager->GetAudioProcessor();
 
             StartStream(uriHls);    // Output new MsgEncodedStream to signify discontinuity.
             continue;
@@ -1326,10 +1311,6 @@ ProtocolGetResult ProtocolHls::Get(IWriter& /*aWriter*/, const Brx& /*aUri*/, TU
 
 void ProtocolHls::Deactivated()
 {
-    if (iContentProcessor != nullptr) {
-        iContentProcessor->Reset();
-        iContentProcessor = nullptr;
-    }
     iSegmentStreamer.Reset();
     iM3uReader.Reset();
 }
@@ -1381,7 +1362,6 @@ void ProtocolHls::Reinitialise()
     AutoMutex a(iLock);
     iStreamId = IPipelineIdProvider::kStreamIdInvalid;
     iStarted = iStopped = false;
-    iContentProcessor = nullptr;
     iNextFlushId = MsgFlush::kIdInvalid;
     (void)iSem.Clear();
 }
@@ -1389,9 +1369,9 @@ void ProtocolHls::Reinitialise()
 void ProtocolHls::StartStream(const Uri& aUri)
 {
     LOG(kMedia, "ProtocolHls::StartStream\n");
-    TBool totalBytes = 0;
-    TBool seekable = false;
-    TBool live = true;
+    const TBool totalBytes = 0;
+    const TBool seekable = false;
+    const TBool live = true;
     iStreamId = iIdProvider->NextStreamId();
     iSupply->OutputStream(aUri.AbsoluteUri(), totalBytes, 0, seekable, live, Multiroom::Allowed, *this, iStreamId);
     iStarted = true;
@@ -1410,4 +1390,42 @@ void ProtocolHls::WaitForDrain()
     Semaphore semDrain("HLSD", 0);
     iSupply->OutputDrain(MakeFunctor(semDrain, &Semaphore::Signal));
     semDrain.Wait();
+}
+
+ProtocolStreamResult ProtocolHls::OutputAudio(const Brx& aUri)
+{
+    // Manipulating SegmentStreamer directly instead of using ContentAudio.
+    static const TUint kMaxReadBytes = EncodedAudio::kMaxBytes;
+    ProtocolStreamResult res = EProtocolStreamSuccess;
+    TUint totalBytes = 0;
+    try {
+        for (;;) {
+            // Assume stream is live (i.e., never ends).
+            Brn buf = iSegmentStreamer.Read(kMaxReadBytes);
+            if (buf.Bytes() == 0) {
+                // Reached end of the current segment.
+                iSegmentStreamer.Reset();
+                // No need to flush iSupply, as Supply immediately pushes audio into pipeline.
+                iSupply->OutputSegment(aUri); // FIXME - re-using aUri instead of getting specific segment URI.
+            }
+            else { // else block instead of using continue above to jump over this section if buf.Bytes() == 0.
+                iSupply->OutputData(buf);
+                if (totalBytes > 0) {
+                    if (buf.Bytes() > totalBytes) { // totalBytes is inaccurate - ignore it
+                        totalBytes = 0;
+                    }
+                    else {
+                        totalBytes -= buf.Bytes();
+                        if (totalBytes == 0) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch (ReaderError&) {
+        res = EProtocolStreamErrorRecoverable;
+    }
+    return res;
 }
