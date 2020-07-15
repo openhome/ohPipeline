@@ -212,7 +212,6 @@ private:
     MsgFactory& iMsgFactory;
     IContainerStopper& iStopper;
     EState iState;
-    MsgEncodedStreamRecogniser iEncodedStreamRecogniser;
     StreamTerminatorDetector iStreamTerminatorDetector;
     MsgAudioEncodedRecogniser iAudioEncodedRecogniser;
     MpegTsTransportStreamHeader iStreamHeader;

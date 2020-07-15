@@ -282,36 +282,6 @@ private:
     MsgAudioEncoded* iAudioEncoded;
 };
 
-class MsgEncodedStreamRecogniser : public IMsgProcessor
-{
-public:
-    MsgEncodedStreamRecogniser();
-    void Reset();
-    const TBool RecognisedMsgEncodedStream();
-private: // from IMsgProcessor
-    Msg* ProcessMsg(MsgMode* aMsg) override;
-    Msg* ProcessMsg(MsgTrack* aMsg) override;
-    Msg* ProcessMsg(MsgDrain* aMsg) override;
-    Msg* ProcessMsg(MsgDelay* aMsg) override;
-    Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgStreamSegment* aMsg) override;
-    Msg* ProcessMsg(MsgAudioEncoded* aMsg) override;
-    Msg* ProcessMsg(MsgMetaText* aMsg) override;
-    Msg* ProcessMsg(MsgStreamInterrupted* aMsg) override;
-    Msg* ProcessMsg(MsgHalt* aMsg) override;
-    Msg* ProcessMsg(MsgFlush* aMsg) override;
-    Msg* ProcessMsg(MsgWait* aMsg) override;
-    Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
-    Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
-    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
-    Msg* ProcessMsg(MsgSilence* aMsg) override;
-    Msg* ProcessMsg(MsgPlayable* aMsg) override;
-    Msg* ProcessMsg(MsgQuit* aMsg) override;
-private:
-    TBool iRecognisedMsgEncodedStream;
-};
-
 } // namespace Codec
 } // namespace Media
 } // namespace OpenHome

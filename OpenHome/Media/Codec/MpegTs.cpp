@@ -634,7 +634,6 @@ TBool MpegTs::Recognised() const
 void MpegTs::Reset()
 {
     iState = eStart;
-    iEncodedStreamRecogniser.Reset();
     iStreamTerminatorDetector.Reset();
     iAudioEncodedRecogniser.Reset();
     iStreamHeader.Reset();
