@@ -119,7 +119,7 @@ Msg* Flusher::ProcessMsg(MsgEncodedStream* aMsg)
     return ProcessFlushable(aMsg);
 }
 
-Msg* Flusher::ProcessMsg(MsgStreamSegment* aMsg)
+Msg* Flusher::ProcessMsg(MsgStreamSegment* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
