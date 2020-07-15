@@ -67,7 +67,7 @@ Msg* Splitter::ProcessMsg(MsgEncodedStream* aMsg)
     return aMsg;
 }
 
-Msg* Splitter::ProcessMsg(MsgStreamSegment* aMsg)
+Msg* Splitter::ProcessMsg(MsgStreamSegment* /*aMsg*/)
 {
     ASSERTS(); /* only expect to deal with decoded audio at this stage of the pipeline */
     return nullptr;
