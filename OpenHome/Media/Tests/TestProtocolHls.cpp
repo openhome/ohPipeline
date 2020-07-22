@@ -96,7 +96,7 @@ private:
     void TestEndlistAtEnd();
     void TestEndlistAtStart();
     void TestPlaylistCrLf();
-    void TestUnsupportedVersion();
+    void TestUnsupportedTag();
     void TestInvalidAttributes();
 private:
     HlsPlaylistParser* iParser;
@@ -150,7 +150,7 @@ private:
     void TestReloadNoChange();
     void TestReloadNonContinuous();
     void TestEndlist();
-    void TestUnsupportedVersion();
+    void TestUnsupportedTag();
     void TestInvalidPlaylist();
 private:
     OpenHome::Test::TestPipeDynamic* iTestPipe;
@@ -445,7 +445,7 @@ SuiteHlsPlaylistParser::SuiteHlsPlaylistParser()
     AddTest(MakeFunctor(*this, &SuiteHlsPlaylistParser::TestEndlistAtEnd), "TestEndlistAtEnd");
     AddTest(MakeFunctor(*this, &SuiteHlsPlaylistParser::TestEndlistAtStart), "TestEndlistAtStart");
     AddTest(MakeFunctor(*this, &SuiteHlsPlaylistParser::TestPlaylistCrLf), "TestPlaylistCrLf");
-    AddTest(MakeFunctor(*this, &SuiteHlsPlaylistParser::TestUnsupportedVersion), "TestUnsupportedVersion");
+    AddTest(MakeFunctor(*this, &SuiteHlsPlaylistParser::TestUnsupportedTag), "TestUnsupportedTag");
     AddTest(MakeFunctor(*this, &SuiteHlsPlaylistParser::TestInvalidAttributes), "TestInvalidAttributes");
 }
 
@@ -751,28 +751,8 @@ void SuiteHlsPlaylistParser::TestPlaylistCrLf()
     TEST(iParser->StreamEnded() == false);
 }
 
-void SuiteHlsPlaylistParser::TestUnsupportedVersion()
+void SuiteHlsPlaylistParser::TestUnsupportedTag()
 {
-    // Test version 4 playlist with floating-point milliseconds for segment durations.
-    const Brn kFileVersion4(
-    "#EXTM3U\n"
-    "#EXT-X-VERSION:4\n"
-    "#EXT-X-TARGETDURATION:8\n"
-    "#EXT-X-MEDIA-SEQUENCE:2680\n"
-    "\n"
-    "#EXTINF:7.975,\n"
-    "https://priv.example.com/fileSequence2680.ts\n"
-    "#EXTINF:7.941,\n"
-    "https://priv.example.com/fileSequence2681.ts\n"
-    "#EXTINF:7.975,\n"
-    "https://priv.example.com/fileSequence2682.ts\n"
-    );
-    ReaderBuffer reader1(kFileVersion4);
-    TEST_THROWS(iParser->Parse(reader1), HlsPlaylistUnsupported);
-    TEST(iParser->TargetDurationMs() == 0);
-    TEST(iParser->StreamEnded() == false);
-    TEST_THROWS(iParser->GetNextSegmentUri(), HlsPlaylistUnsupported);
-
     // Test version 3 playlist with EXT-X-KEY tags. Should skip over tags
     // (would fail to decrypt in real-world use, but just want to check
     // unrecognised tags are successfully skipped here).
@@ -945,7 +925,7 @@ SuiteHlsM3uReader::SuiteHlsM3uReader()
     AddTest(MakeFunctor(*this, &SuiteHlsM3uReader::TestReloadNoChange), "TestReloadNoChange");
     AddTest(MakeFunctor(*this, &SuiteHlsM3uReader::TestReloadNonContinuous), "TestReloadNonContinuous");
     AddTest(MakeFunctor(*this, &SuiteHlsM3uReader::TestEndlist), "TestEndlist");
-    AddTest(MakeFunctor(*this, &SuiteHlsM3uReader::TestUnsupportedVersion), "TestUnsupportedVersion");
+    AddTest(MakeFunctor(*this, &SuiteHlsM3uReader::TestUnsupportedTag), "TestUnsupportedTag");
     AddTest(MakeFunctor(*this, &SuiteHlsM3uReader::TestInvalidPlaylist), "TestInvalidPlaylist");
 }
 
@@ -1437,25 +1417,53 @@ void SuiteHlsM3uReader::TestEndlist()
     TEST_THROWS(iM3uReader->NextSegmentUri(uri), HlsEndOfStream);
 }
 
-void SuiteHlsM3uReader::TestUnsupportedVersion()
+void SuiteHlsM3uReader::TestUnsupportedTag()
 {
     const Brn kUri("http://www.example.com/playlist.m3u8");
-    const Brn kFileVersion4(
+    // Test version 3 playlist with EXT-X-KEY tags. Should skip over tags
+    // (would fail to decrypt in real-world use, but just want to check
+    // unrecognised tags are successfully skipped here).
+    const Brn kFileEncrypted(
     "#EXTM3U\n"
-    "#EXT-X-VERSION:4\n"
-    "#EXT-X-TARGETDURATION:8\n"
-    "#EXT-X-MEDIA-SEQUENCE:2680\n"
+    "#EXT-X-VERSION:2\n"
+    "#EXT-X-TARGETDURATION:6\n"
+    "#EXT-X-MEDIA-SEQUENCE:1234\n"
     "\n"
-    "#EXTINF:7.975,\n"
-    "https://priv.example.com/fileSequence2680.ts\n"
-    "#EXTINF:7.941,\n"
-    "https://priv.example.com/fileSequence2681.ts\n"
-    "#EXTINF:7.975,\n"
-    "https://priv.example.com/fileSequence2682.ts\n"
+    "#EXT-X-KEY:METHOD=AES-128,URI=\"https://priv.example.com/key.php?r=52\"\n"
+    "\n"
+    "#EXTINF:6,\n"
+    "https://priv.example.com/a.ts\n"
+    "#EXTINF:5,\n"
+    "https://priv.example.com/b.ts\n"
+    "\n"
+    "#EXT-X-KEY:METHOD=AES-128,URI=\"https://priv.example.com/key.php?r=53\"\n"
+    "\n"
+    "#EXTINF:4,\n"
+    "https://priv.example.com/c.ts\n"
     );
-    iProvider->QueuePlaylist(kUri, kFileVersion4);
+    iProvider->QueuePlaylist(kUri, kFileEncrypted);
+
     Uri uri;
+    TUint durationMs = iM3uReader->NextSegmentUri(uri);
+    // First load of playlist, so should have reset reload timer.
+    TEST(iTestPipe->Expect(Brn("MRT::Restart")));
+    TEST(uri.AbsoluteUri() == Brn("https://priv.example.com/a.ts"));
+    TEST(durationMs == 6000);
+    TEST(iM3uReader->LastSegment() == 1234);
+
+    durationMs = iM3uReader->NextSegmentUri(uri);
+    TEST(uri.AbsoluteUri() == Brn("https://priv.example.com/b.ts"));
+    TEST(durationMs == 5000);
+    TEST(iM3uReader->LastSegment() == 1235);
+
+    durationMs = iM3uReader->NextSegmentUri(uri);
+    TEST(uri.AbsoluteUri() == Brn("https://priv.example.com/c.ts"));
+    TEST(durationMs == 4000);
+    TEST(iM3uReader->LastSegment() == 1236);
+
     TEST_THROWS(iM3uReader->NextSegmentUri(uri), HlsSegmentUriError);
+    // Should have attempted to reload playlist, so should have waited.
+    TEST(iTestPipe->Expect(Brn("MRT::Wait 6000")));
 }
 
 void SuiteHlsM3uReader::TestInvalidPlaylist()
