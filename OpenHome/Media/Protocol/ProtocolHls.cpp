@@ -506,7 +506,6 @@ TUint SegmentDescriptor::DurationMs() const
 
 // HlsPlaylistParser
 
-const TUint HlsPlaylistParser::kMaxM3uVersion;
 const TUint HlsPlaylistParser::kMaxLineBytes;
 
 HlsPlaylistParser::HlsPlaylistParser()
@@ -662,12 +661,9 @@ void HlsPlaylistParser::PreProcess()
             Brn tag = p.Next(':');
 
             if (tag == Brn("#EXT-X-VERSION")) {
-                const auto version = Ascii::Uint(p.Next());
-                if (version > kMaxM3uVersion) {
-                    LOG(kMedia, "Unsupported M3U version. Max supported version: %u, version encountered: %u\n", kMaxM3uVersion, version);
-                    iUnsupported = true;
-                    THROW(HlsPlaylistUnsupported);
-                }
+                // Nothing conditional is done with this version value, so just skip over it until it is required.
+                // Don't attempt to reject playlists on version alone, as that could result in, e.g., an older version of this protocol module rejecting a newer playlist version that it isn't aware of, even if that new version doesn't break compatibility. (In the worst case, if a new playlist version breaks compatibility, this will probably fail during parsing and the code will need updated anyway.)
+                // const auto version = Ascii::Uint(p.Next());
             }
             if (tag == Brn("#EXT-X-MEDIA-SEQUENCE")) {
                 // If this isn't found, it must be assumed that first segment in playlist is 0.
