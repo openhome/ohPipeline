@@ -199,8 +199,9 @@ private:
 class HlsPlaylistParser
 {
 private:
-    // Attempt to parse up to version 3 (EXTINF with floating point values). However, don't actually support EXT-X-KEY tag (i.e., encrypted stream), which is a requirement of version 1.
-    static const TUint kMaxM3uVersion = 3;
+    // Attempt to parse up to version 7 (which includes EXTINF tags with floating point values, introduced in version 3).
+    // However, don't support all tags across all versions (e.g., don't support EXT-X-KEY tag for encrypted streams, which is actually a requirement of version 1).
+    static const TUint kMaxM3uVersion = 7;
     static const TUint kMaxLineBytes = 2048;
     static const TUint kMillisecondsPerSecond = 1000;
 public:
