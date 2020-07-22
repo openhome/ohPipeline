@@ -233,7 +233,6 @@ private:
     TBool iEndList;
     TBool iEndOfStreamReached;
     Brn iNextLine;
-    TBool iUnsupported;
     TBool iInvalid;
 };
 

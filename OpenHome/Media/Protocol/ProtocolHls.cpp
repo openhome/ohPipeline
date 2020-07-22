@@ -517,7 +517,6 @@ HlsPlaylistParser::HlsPlaylistParser()
     , iEndList(false)
     , iEndOfStreamReached(false)
     , iNextLine(Brx::Empty())
-    , iUnsupported(false)
     , iInvalid(false)
 {
     //iReaderLogger.SetEnabled(true);
@@ -536,7 +535,6 @@ void HlsPlaylistParser::Parse(IReader& aReader)
     iEndList = false;
     iEndOfStreamReached = false;
     iNextLine.Set(Brx::Empty());
-    iUnsupported = false;
     iInvalid = false;
 
     PreProcess();
@@ -552,7 +550,6 @@ void HlsPlaylistParser::Reset()
     iEndList = false;
     iEndOfStreamReached = false;
     iNextLine.Set(Brx::Empty());
-    iUnsupported = false;
     iInvalid = false;
 }
 
@@ -569,9 +566,6 @@ TBool HlsPlaylistParser::StreamEnded() const
 SegmentDescriptor HlsPlaylistParser::GetNextSegmentUri()
 {
     LOG(kMedia, ">HlsPlaylistParser::GetNextSegmentUri\n");
-    if (iUnsupported) {
-        THROW(HlsPlaylistUnsupported);
-    }
     if (iInvalid) {
         THROW(HlsPlaylistInvalid);
     }
