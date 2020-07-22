@@ -103,6 +103,7 @@ class MpegTsProgramMapTable : public MpegTsTableBase
 private:
     static const TUint kTableId = 0x02;
     static const TUint kFixedBytes = 4;
+    static const TUint kFixedElementaryStreamBytes = 5;
 public:
     MpegTsProgramMapTable(TUint aAllowedStreamType);
     TUint StreamPid() const;
@@ -183,7 +184,7 @@ private:
     static const TUint kStreamHeaderBytes = MpegTsTransportStreamHeader::kTransportStreamHeaderBytes;
 
     static const TUint kStreamSpecificFixedBytes = 5;
-    static const TUint kStreamTypeAdtsAac = 0x0f;   // stream type 15/0x0f is ISO/IEC 13818-7 ADTS AAC
+    static const TUint kStreamTypeAdtsAac = 0x0f;   // Stream type 15/0x0f is "ISO/IEC 13818-7 ADTS AAC (MPEG-2 lower bit-rate audio) in a packetized stream".
 public:
     MpegTs(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFactory, IContainerStopper& aStopper);
     ~MpegTs();

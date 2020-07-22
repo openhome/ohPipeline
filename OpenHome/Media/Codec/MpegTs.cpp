@@ -217,6 +217,7 @@ MpegTsProgramAssociationTable::MpegTsProgramAssociationTable()
     : MpegTsTableBase(kTableId)
 {
 }
+
 void MpegTsProgramAssociationTable::Parse(const Brx& aPat)
 {
     MpegTsTableBase::Parse(aPat);
@@ -249,6 +250,10 @@ TUint MpegTsProgramAssociationTable::ProgramMapPid() const
 
 
 // MpegTsProgramMapTable
+
+const TUint MpegTsProgramMapTable::kTableId;
+const TUint MpegTsProgramMapTable::kFixedBytes;
+const TUint MpegTsProgramMapTable::kFixedElementaryStreamBytes;
 
 MpegTsProgramMapTable::MpegTsProgramMapTable(TUint aAllowedStreamType)
     : MpegTsTableBase(kTableId)
@@ -284,31 +289,50 @@ void MpegTsProgramMapTable::Parse(const Brx& aPmt)
     }
     TUint progInfoLength = (aPmt[offset+2] & 0x03) << 8 | aPmt[offset+3];
 
-
     // Get elementary-stream specific data.
-    offset += kFixedBytes+progInfoLength;
-    if (iTableHeader.SectionLength()-offset < kFixedBytes) {
-        THROW(InvalidMpegTsPacket);
+    offset += kFixedBytes + progInfoLength;
+    
+    TUint remaining = iTableHeader.SectionLength() - offset;
+    while (remaining > 0) {
+        if (remaining < kFixedBytes) {
+            // Not enough data to be elementary stream info.
+            THROW(InvalidMpegTsPacket);
+        }
+        const TUint streamType = aPmt[offset];
+        if ((aPmt[offset+1] & 0xe0) != 0xe0) {    // reserved bits
+            THROW(InvalidMpegTsPacket);
+        }
+        const TUint elementPid = (aPmt[offset+1] & 0x1f) << 8 | aPmt[offset+2];
+        if ((aPmt[offset+3] & 0xf0) != 0xf0) {    // reserved bits
+            THROW(InvalidMpegTsPacket);
+        }
+        if ((aPmt[offset+3] & 0x0c) != 0x00) {    // ES info length unused bits
+            THROW(InvalidMpegTsPacket);
+        }
+        // esInfoLength is no. of stream descriptor bytes.
+        const TUint esInfoLength = (aPmt[offset+3] & 0x03) << 8 | aPmt[offset+4];
+
+        if (streamType == iAllowedStreamType) {
+            LOG(kCodec, "MpegTsProgramMapTable::Parse found supported elementary stream type: 0x%02x\n", streamType);
+            // Found stream of interest. No need to parse further.
+            iStreamPid = elementPid;
+            return;
+        }
+        else {
+            LOG(kCodec, "MpegTsProgramMapTable::Parse found unsupported elementary stream type: 0x%02x\n", streamType);
+        }
+
+        const TUint streamInfoLength = kFixedElementaryStreamBytes + esInfoLength;
+        offset += streamInfoLength;
+        if (remaining >= streamInfoLength) {
+            remaining -= streamInfoLength;
+        }
+        else {
+            THROW(InvalidMpegTsPacket);
+        }
     }
-    TUint streamType = aPmt[offset];
-    if ((aPmt[offset+1] & 0xe0) != 0xe0) {    // reserved bits
-        THROW(InvalidMpegTsPacket);
-    }
-    TUint elementPid = (aPmt[offset+1] & 0x1f) << 8 | aPmt[offset+2];
-    if ((aPmt[offset+3] & 0xf0) != 0xf0) {    // reserved bits
-        THROW(InvalidMpegTsPacket);
-    }
-    if ((aPmt[offset+3] & 0x0c) != 0x00) {    // ES info length unused bits
-        THROW(InvalidMpegTsPacket);
-    }
-    // esInfoLength is no. of stream descriptor bytes.
-    //TUint esInfoLength = (aPmt[offset+3] & 0x03) << 8 | aPmt[offset+4];
 
     // Table finishes with 32-bit CRC.
-
-    if (streamType == iAllowedStreamType) {
-        iStreamPid = elementPid;
-    }
 }
 
 void MpegTsProgramMapTable::Reset()
