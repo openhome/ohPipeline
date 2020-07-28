@@ -60,6 +60,7 @@ tests = '''
     TestWebAppFramework
     #TestConfigUi
     TestFlywheelRamper
+    TestOAuth
     '''
 w = StaticWebServer(os.path.join('dependencies', 'AnyPlatform', 'TestTones'))
 w.start()

@@ -177,6 +177,7 @@ upnp_services = [
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Debug2.xml',         'av.openhome.org', 'Debug',             '2', 'AvOpenhomeOrgDebug2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Transport1.xml',     'av.openhome.org', 'Transport',         '1', 'AvOpenhomeOrgTransport1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Pins1.xml',          'av.openhome.org', 'Pins',              '1', 'AvOpenhomeOrgPins1'),
+        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/OAuth1.xml',         'av.openhome.org', 'OAuth',             '1', 'AvOpenhomeOrgOAuth1'),
     ]
 
 def build(bld):
@@ -322,6 +323,8 @@ def build(bld):
                 'OpenHome/Av/Logger.cpp',
                 'Generated/DvAvOpenhomeOrgConfig2.cpp',
                 'OpenHome/Json.cpp',
+                'OpenHome/OAuth.cpp',
+                'Generated/DvAvOpenhomeOrgOAuth1.cpp',
                 'OpenHome/Av/Utils/FormUrl.cpp',
                 'OpenHome/NtpClient.cpp',
                 'OpenHome/UnixTimestamp.cpp',
@@ -334,6 +337,7 @@ def build(bld):
                 'OpenHome/Av/Credentials.cpp',
                 'Generated/DvAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Av/ProviderCredentials.cpp',
+                'OpenHome/Av/ProviderOAuth.cpp',
                 'OpenHome/Av/VolumeManager.cpp',
                 'OpenHome/Av/FriendlyNameAdapter.cpp',
                 'Generated/DvAvOpenhomeOrgDebug2.cpp',
@@ -1087,6 +1091,11 @@ def build(bld):
             source='OpenHome/Av/Tests/TestCredentialsMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target='TestCredentials',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Tests/TestOAuth.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
+            target='TestOAuth',
             install_path=None)
     bld.program(
             source='OpenHome/Tests/TestHttps.cpp',

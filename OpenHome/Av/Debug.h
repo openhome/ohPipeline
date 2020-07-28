@@ -8,6 +8,7 @@ namespace OpenHome {
 #define kSongcast    kApplication4
 #define kVolume      kApplication15
 #define kScd         kApplication24
+#define kOAuth       kApplication32
 
 } // namespace OpenHome
 

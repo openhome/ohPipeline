@@ -1,6 +1,7 @@
 #pragma once
 
 #include <OpenHome/Types.h>
+#include <OpenHome/OAuth.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Functor.h>
@@ -13,6 +14,9 @@
 EXCEPTION(CredentialsIdNotFound);
 EXCEPTION(CredentialsTooLong);
 EXCEPTION(CredentialsLoginFailed);
+
+#define ENABLED_NO  0
+#define ENABLED_YES 1
 
 namespace OpenHome {
     class Environment;

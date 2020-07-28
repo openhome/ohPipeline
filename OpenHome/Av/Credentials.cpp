@@ -105,8 +105,8 @@ AutoCredentialState::~AutoCredentialState()
 
 // Credential
 
-const TUint Credential::kEnableNo  = 0;
-const TUint Credential::kEnableYes = 1;
+const TUint Credential::kEnableNo  = ENABLED_NO;
+const TUint Credential::kEnableYes = ENABLED_YES;
 
 Credential::Credential(Environment& aEnv,
                        ICredentialConsumer* aConsumer, ICredentialObserver& aObserver,
