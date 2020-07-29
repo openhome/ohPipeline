@@ -833,6 +833,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestPins.cpp',
                 'OpenHome/Av/Tests/TestSenderQueue.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
+                'OpenHome/Tests/TestOAuth.cpp',
             ],
             use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'SSL'],
             target='ohMediaPlayerTestUtils')
@@ -1093,8 +1094,8 @@ def build(bld):
             target='TestCredentials',
             install_path=None)
     bld.program(
-            source='OpenHome/Tests/TestOAuth.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
+            source='OpenHome/Tests/TestOAuthMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestOAuth',
             install_path=None)
     bld.program(

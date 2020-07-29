@@ -585,14 +585,3 @@ void TestOAuth(Environment& aEnv)
     runner.Add(new SuiteTokenManager(aEnv));
     runner.Run();
 }
-
-
-
-
-void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], Net::InitialisationParams* aInitParams)
-{
-    Environment* env = Net::UpnpLibrary::Initialise(aInitParams);
-    TestOAuth(*env);
-
-    Net::UpnpLibrary::Close();
-}
