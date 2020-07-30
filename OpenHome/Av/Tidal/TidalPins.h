@@ -33,7 +33,7 @@ class TidalPins
     static const TUint kJsonResponseChunks = 4 * 1024;
 
     const TUint kMinSupportedVersion = 1;
-    const TUint kMaxSupportedVersion = 1;
+    const TUint kMaxSupportedVersion = 2;
 
 public:
     TidalPins(Tidal& aTidal,

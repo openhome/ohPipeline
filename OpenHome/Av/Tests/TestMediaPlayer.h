@@ -170,7 +170,7 @@ private:
     Semaphore iDisabled;
     IPowerManagerObserver* iPowerObserver;
     const Brh iTuneInPartnerId;
-    const Brh iTidalId;
+    const Brh iTidalValues;
     const Brh iQobuzIdSecret;
     const Brh iUserAgent;
     IOhmTimestamper* iTxTimestamper;

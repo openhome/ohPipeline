@@ -11,6 +11,7 @@
 #include <OpenHome/Private/Timer.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Uri.h>
+#include <OpenHome/Av/Debug.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/Json.h>
@@ -25,11 +26,15 @@ using namespace OpenHome::Configuration;
 static const TChar* kSoundQualities[3] = {"LOW", "HIGH", "LOSSLESS"};
 static const TUint kNumSoundQualities = sizeof(kSoundQualities) / sizeof(kSoundQualities[0]);
 
+
 const Brn Tidal::kHost("api.tidalhifi.com");
+const Brn Tidal::kAuthenticationHost("auth.tidal.com");
+
 const Brn Tidal::kId("tidalhifi.com");
+
 const Brn Tidal::kConfigKeySoundQuality("tidalhifi.com.SoundQuality");
 
-Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const Brx& aToken, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser)
+Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues& aTidalConfig, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser)
     : iLock("TDL1")
     , iLockConfig("TDL2")
     , iCredentialsState(aCredentialsState)
@@ -40,10 +45,14 @@ Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const Brx& aToken, ICredential
     , iWriterRequest(iSocket)
     , iReaderResponse(aEnv, iReaderUntil)
     , iReaderEntity(iReaderUntil)
-    , iToken(aToken)
+    , iToken(aTidalConfig.partnerId)
+    , iClientId(aTidalConfig.clientId)
+    , iClientSecret(aTidalConfig.clientSecret)
     , iUsername(kGranularityUsername)
     , iPassword(kGranularityPassword)
     , iUri(1024)
+    , iTokenProvider(nullptr)
+    , iConnectedHost(SocketHost::None)
 {
     iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Tidal::SocketInactive), "Tidal");
 
@@ -63,6 +72,13 @@ Tidal::~Tidal()
     iConfigQuality->Unsubscribe(iSubscriberIdQuality);
     delete iConfigQuality;
 }
+
+
+void Tidal::SetTokenProvider(ITokenProvider* aProvider)
+{
+    iTokenProvider = aProvider;
+}
+
 
 TBool Tidal::TryLogin(Bwx& aSessionId)
 {
@@ -87,29 +103,72 @@ TBool Tidal::TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
     return true;
 }
 
-TBool Tidal::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
+TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
+                             const Brx& aTokenId,
+                             Bwx& aStreamUrl)
 {
     iTimerSocketActivity->Cancel(); // socket automatically closed by call below
     AutoMutex _(iLock);
     TBool success = false;
-    if (!TryConnect(kPort)) {
-        LOG_ERROR(kMedia, "Tidal::TryGetStreamUrl - connection failure\n");
+
+    const TBool isUsingOAuth = aTokenId.Bytes() > 0;
+
+    if (!TryConnect(SocketHost::API, kPort))
+    {
+        LOG_ERROR(kPipeline, "Tidal::TryGetStreamUrl() - connection failure.\n");
         return false;
     }
+
+    ServiceToken accessToken;
+    if (isUsingOAuth)
+    {
+        if (!iTokenProvider->TryGetToken(aTokenId, accessToken))
+        {
+            LOG_ERROR(kPipeline, "Tidal::TryGetStreamUrl() - token '%.*s' not available.\n", PBUF(aTokenId));
+            return false;
+        }
+    }
+
     AutoSocketSsl __(iSocket);
+
     Bws<128> pathAndQuery("/v1/tracks/");
+
     pathAndQuery.Append(aTrackId);
-    pathAndQuery.Append("/streamurl?sessionId=");
-    pathAndQuery.Append(iSessionId);
-    pathAndQuery.Append("&countryCode=");
-    pathAndQuery.Append(iCountryCode);
+    pathAndQuery.Append("/streamurl?");
+
+    if (isUsingOAuth)
+    {
+        UserInfo& info = iUserInfos[Brn(aTokenId)];
+
+        pathAndQuery.Append("countryCode=");
+        pathAndQuery.Append(info.countryCode);
+    }
+    else
+    {
+        pathAndQuery.Append("countryCode=");
+        pathAndQuery.Append(iCountryCode);
+        pathAndQuery.Append("&sessionId=");
+        pathAndQuery.Append(iSessionId);
+    }
+
     pathAndQuery.Append("&soundQuality=");
     iLockConfig.Wait();
     pathAndQuery.Append(Brn(kSoundQualities[iSoundQuality]));
     iLockConfig.Signal();
+
+    LOG_TRACE(kPipeline, "~ Tidal::TryGetStreamUrl() - Resource: %.*s\n", PBUF(pathAndQuery));
+
     Brn url;
-    try {
-        WriteRequestHeaders(Http::kMethodGet, kHost, pathAndQuery, kPort);
+    try
+    {
+        if (isUsingOAuth)
+        {
+            WriteRequestHeaders(Http::kMethodGet, kHost, pathAndQuery, kPort, Connection::Close, 0, accessToken.token);
+        }
+        else
+        {
+            WriteRequestHeaders(Http::kMethodGet, kHost, pathAndQuery, kPort);
+        }
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();
@@ -133,6 +192,8 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId, Bwx& aStreamUrl)
 
         JsonParser p;
         p.ParseAndUnescape(iResponseBuffer);
+
+        aStreamUrl.Replace(p.String("url"));
 
         aStreamUrl.Replace(p.String("url"));
 
@@ -259,7 +320,7 @@ TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQue
     iTimerSocketActivity->Cancel();
     AutoMutex _(iLock);
     TBool success = false;
-    if (!TryConnect(kPort)) {
+    if (!TryConnect(SocketHost::API, kPort)) {
         LOG_ERROR(kMedia, "Tidal::TryGetResponse - connection failure\n");
         return false;
     }
@@ -364,25 +425,63 @@ void Tidal::ReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
     }
 }
 
-TBool Tidal::TryConnect(TUint aPort)
+TBool Tidal::TryConnect(SocketHost aHost, 
+                        TUint aPort)
 {
-    if (iSocket.IsConnected()) {
+    const TBool isConnected = iSocket.IsConnected();
+    const TBool isMatchingHost = aHost == iConnectedHost;
+
+    if (isConnected && isMatchingHost)
+    {        
         return true;
     }
+
+    if (isConnected)
+    {
+        iSocket.Close();
+    }
+
+    
     Endpoint ep;
-    try {
-        ep.SetAddress(kHost);
+    Brn host;
+
+    try
+    {
+        switch(aHost)
+        {
+            case SocketHost::API:
+            {
+                host = kHost;
+                break;
+            }
+            case SocketHost::Auth:
+            {
+                host = kAuthenticationHost;
+                break;
+            }
+            default:
+            {
+                ASSERTS();
+            }
+        }
+
+        ep.SetAddress(host);
         ep.SetPort(aPort);
-        iSocket.Connect(ep, kHost, kConnectTimeoutMs);
+
+        iSocket.Connect(ep, host, kConnectTimeoutMs);
     }
-    catch (NetworkTimeout&) {
+    catch (NetworkTimeout&)
+    {
         iSocket.Close();
         return false;
     }
-    catch (NetworkError&) {
+    catch (NetworkError&)
+    {
         iSocket.Close();
         return false;
     }
+
+    iConnectedHost = aHost;
     return true;
 }
 
@@ -402,8 +501,8 @@ TBool Tidal::TryLoginLocked()
     Bws<80> error;
     iSessionId.SetBytes(0);
     TBool success = false;
-    if (!TryConnect(kPort)) {
-        LOG_ERROR(kPipeline, "Tidal::TryLogin - connection failure\n");
+    if (!TryConnect(SocketHost::API, kPort)) {
+        LOG_ERROR(Debug::kPipeline, "Tidal::TryLogin - connection failure\n");
         iCredentialsState.SetState(kId, Brn("Login Error (Connection Failed): Please Try Again."), Brx::Empty());
         return false;
     }
@@ -492,40 +591,17 @@ TBool Tidal::TryLoginLocked()
 
 TBool Tidal::TryLogoutLocked(const Brx& aSessionId)
 {
-    if (aSessionId.Bytes() == 0) {
+    if (aSessionId.Bytes() == 0)
+    {
         return true;
     }
-    TBool success = false;
-    if (!TryConnect(kPort)) {
-        LOG_ERROR(kPipeline, "Tidal: connection failure\n");
-        return false;
-    }
-    AutoSocketSsl _(iSocket);
-    Bws<128> pathAndQuery("/v1/logout?sessionId=");
-    pathAndQuery.Append(aSessionId);
-    try {
-        WriteRequestHeaders(Http::kMethodPost, kHost, pathAndQuery, kPort);
 
-        iReaderResponse.Read();
-        const TUint code = iReaderResponse.Status().Code();
-        if (code < 200 || code >= 300) {
-            LOG_ERROR(kPipeline, "Http error - %d - in response to Tidal logout.  Some/all of response is:\n", code);
-            Brn buf = iReaderUntil.Read(kReadBufferBytes);
-            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
-            THROW(ReaderError);
-        }
-        success = true;
+    TBool success = TryLogoutSession(TokenType::UsernamePassword, aSessionId);
+    if (success)
+    {
         iSessionId.SetBytes(0);
     }
-    catch (WriterError&) {
-        LOG_ERROR(kPipeline, "WriterError from Tidal logout\n");
-    }
-    catch (ReaderError&) {
-        LOG_ERROR(kPipeline, "ReaderError from Tidal logout\n");
-    }
-    catch (HttpError&) {
-        LOG_ERROR(kPipeline, "HttpError from Tidal logout\n");
-    }
+
     return success;
 }
 
@@ -534,7 +610,7 @@ TBool Tidal::TryGetSubscriptionLocked()
     TBool updateStatus = false;
     Bws<kMaxStatusBytes> error;
     TBool success = false;
-    if (!TryConnect(kPort)) {
+    if (!TryConnect(SocketHost::API, kPort)) {
         LOG_ERROR(kMedia, "Tidal::TryGetSubscriptionLocked - connection failure\n");
         iCredentialsState.SetState(kId, Brn("Subscription Error (Connection Failed): Please Try Again."), Brx::Empty());
         return false;
@@ -611,19 +687,257 @@ TBool Tidal::TryGetSubscriptionLocked()
     return success;
 }
 
-void Tidal::WriteRequestHeaders(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TUint aPort, Connection aConnection, TUint aContentLength)
+void Tidal::WriteRequestHeaders(const Brx& aMethod,
+                                const Brx& aHost,
+                                const Brx& aPathAndQuery,
+                                TUint aPort,
+                                Connection aConnection,
+                                TUint aContentLength,
+                                const Brx& aAccessToken)
 {
     iWriterRequest.WriteMethod(aMethod, aPathAndQuery, Http::eHttp11);
     Http::WriteHeaderHostAndPort(iWriterRequest, aHost, aPort);
-    if (aContentLength > 0) {
+
+    if (aContentLength > 0) 
+    {
         Http::WriteHeaderContentLength(iWriterRequest, aContentLength);
     }
+
     Http::WriteHeaderContentType(iWriterRequest, Brn("application/x-www-form-urlencoded"));
-    if (aConnection == Connection::Close) {
+
+    if (aConnection == Connection::Close)
+    {
         Http::WriteHeaderConnectionClose(iWriterRequest);
     }
+
+    if (aAccessToken != Brx::Empty())
+    {
+        OAuth::WriteAccessTokenHeader(iWriterRequest, aAccessToken);
+    }
+
     iWriterRequest.WriteFlush();
 }
+
+
+TBool Tidal::TryGetAccessToken(const Brx& aTokenId,
+                               const Brx& aRefreshToken,
+                               AccessTokenResponse& aResponse)
+{
+    //TODO: All other methods tend to lock round the credentials.
+    //      now that credentials are seperate, we might need to introduce
+    //      a second mutex to lock around the socket, preventing multiple
+    //      threads from accessing this at once.
+    AutoMutex m(iLock);
+
+    const Brn kTidalScope("r_usr+w_usr+w_sub");
+
+    iTimerSocketActivity->Cancel(); //Socket automatically closed by call below
+
+    if (!TryConnect(SocketHost::Auth, kPort))
+    {
+        LOG_ERROR(kOAuth, "Tidal::TryGetAccessToken() - connection failure.\n");
+        return false;
+    }
+
+    // Write request
+    iReqBody.Replace(Brx::Empty());
+    WriterBuffer writer(iReqBody);
+
+    const Brn path("/v1/oauth2/token");
+
+    OAuth::ConstructRefreshTokenRequestBody(writer,
+                                            aRefreshToken,
+                                            iClientId,
+                                            iClientSecret,
+                                            kTidalScope);
+
+    AutoSocketSsl _(iSocket);
+
+    try
+    {
+        WriteRequestHeaders(Http::kMethodPost, kAuthenticationHost, path, 443, Connection::Close, iReqBody.Bytes());
+
+        iWriterBuf.Write(iReqBody);
+        iWriterBuf.WriteFlush();
+
+        iReaderResponse.Read();
+
+        const TUint code = iReaderResponse.Status()
+                                          .Code();
+
+        iResponseBuffer.Replace(Brx::Empty());
+        WriterBuffer writer2(iResponseBuffer);
+
+        iReaderEntity.ReadAll(writer2,
+                              iHeaderContentLength,
+                              iHeaderTransferEncoding,
+                              ReaderHttpEntity::Mode::Client);
+
+        JsonParser parser;
+        parser.ParseAndUnescape(iResponseBuffer);
+
+
+        if (code != 200)
+        {
+            const Brx& error = parser.String(OAuth::kErrorResponseFieldError);
+            const Brx& errorDesc = parser.StringOptional(OAuth::kErrorResponseFieldErrorDescription);
+            const TBool hasDesc = errorDesc != Brx::Empty();
+
+            const Brn noDescMsg("< No description present >");
+
+            LOG_ERROR(kOAuth,
+                      "Tidal::TryGetAccessToken() ~ Failed to refresh access token.\n- HttpCode: %u\n- Error: %.*s\n- Message: %.*s\n",
+                      code,
+                      PBUF(error),
+                      PBUF(hasDesc ? errorDesc : noDescMsg));
+
+            return false;
+        }
+
+        const Brx& accessToken = parser.String(OAuth::kTokenResponseFieldAccessToken);
+        const TUint expiry = (TUint)parser.Num(OAuth::kTokenResponseFieldTokenExpiry);
+
+        // Make sure to populate response value
+        aResponse.accessToken.Set(accessToken);
+        aResponse.tokenExpiry = expiry;
+
+        // User information is also contained within our response
+        // which is needed for future API requests.
+        JsonParser parserUser;
+        parserUser.Parse(parser.String("user"));
+
+        const TUint userId = parserUser.Num("userId");
+        const Brx& countryCode = parserUser.String("countryCode");
+        const Brx& username = parserUser.String("username");
+
+        // Store our user info internally for future API calls...
+        UserInfo& storedInfos = iUserInfos[Brn(aTokenId)];
+        storedInfos.userId = userId;
+        storedInfos.countryCode.Replace(countryCode);
+
+        storedInfos.username.Reset();
+        storedInfos.username.Write(username);
+
+        //FIX ME: Need to handle JSON exceptions that might be thrown by this...
+
+        return true;
+    }
+    catch (HttpError&)
+    {
+        LOG_ERROR(kOAuth, "HttpError in Tidal::TryGetAccessToken\n");
+    }
+    catch (ReaderError&) 
+    {
+        LOG_ERROR(kOAuth, "ReaderError in Tidal::TryGetAccessToken\n");
+    }
+    catch (WriterError&)
+    {
+        LOG_ERROR(kOAuth, "WriterError in Tidal::TryGetAccessToken\n");
+    }
+
+    return false;
+}
+
+
+TBool Tidal::TryGetUsernameFromToken(const Brx& aTokenId,
+                                     const Brx& /*aAccessToken*/,
+                                     IWriter& aUsername)
+{
+    AutoMutex m(iLock);
+    Brn tokenComp(aTokenId);
+
+    TBool tokenExists = iUserInfos.count(tokenComp) > 0;
+    if (!tokenExists)
+    {
+        return false;
+    }
+
+    UserInfo& infos = iUserInfos[tokenComp];
+    aUsername.Write(infos.username.Buffer());
+
+    return true;
+}
+
+
+void Tidal::OnTokenRemoved(const Brx& aTokenId,
+                           const Brx& aAccessToken)
+{
+    LOG(kOAuth, "Tidal::OnTokenRemoved() - %.*s\n", PBUF(aTokenId));
+
+    // TODO: All other methods lock around the credentials to prevent multi-threaded
+    //       access. We could create a socket lock as well as credential locking
+    AutoMutex m(iLock);
+
+    iUserInfos.erase(Brn(aTokenId));
+
+    (void)TryLogoutSession(TokenType::OAuth, aAccessToken);
+}
+
+
+
+TBool Tidal::TryLogoutSession(const TokenType aTokenType, const Brx& aToken)
+{
+    if (aToken.Bytes() == 0)
+    {
+        return true;
+    }
+
+
+    if (!TryConnect(SocketHost::API, kPort))
+    {
+        LOG_ERROR(kOAuth, "Tidal: connection failure\n");
+        return true;
+    }
+
+    AutoSocketSsl _(iSocket);
+    TBool success = false;
+    Bws<64> pathAndQuery("/v1/logout");
+
+    if (aTokenType == TokenType::UsernamePassword)
+    {
+        pathAndQuery.Append("?sessionId=");
+        pathAndQuery.Append(aToken);
+    }
+
+    try
+    {
+        WriteRequestHeaders(Http::kMethodPost,
+                            kHost,
+                            pathAndQuery,
+                            kPort,
+                            Connection::Close,
+                            0,
+                            aTokenType == TokenType::OAuth ? aToken : Brx::Empty());
+
+        iReaderResponse.Read();
+        const TUint code = iReaderResponse.Status().Code();
+        if (code < 200 || code >= 300)
+        {
+            LOG_ERROR(kOAuth, "Http error - %d - in response to Tidal logout.  Some/all of response is:\n", code);
+            Brn buf = iReaderUntil.Read(kReadBufferBytes);
+            LOG_ERROR(kOAuth, "%.*s\n", PBUF(buf));
+            THROW(ReaderError);
+        }
+
+        success = true;
+    }
+    catch (WriterError&)
+    {
+        LOG_ERROR(kOAuth, "WriterError from Tidal logout\n");
+    }
+    catch (ReaderError&)
+    {
+        LOG_ERROR(kOAuth, "ReaderError from Tidal logout\n");
+    }
+    catch (HttpError&)
+    {
+        LOG_ERROR(kOAuth, "HttpError from Tidal logout\n");
+    }
+
+    return success;
+}
+
+
 
 
 void Tidal::QualityChanged(Configuration::KeyValuePair<TUint>& aKvp)
