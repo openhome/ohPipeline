@@ -5,6 +5,14 @@
 #include <OpenHome/Av/FriendlyNameAdapter.h>
 #include <OpenHome/Net/Private/DviStack.h>
 
+static inline void WaitForCallbackThreadsToFinish()
+{
+    /* Callback threads can collide with collections resulting in them
+     * being modified across threads. Ultimately, this will crash test
+     * runs. A small sleep is enough to stop this from happening */
+    OpenHome::Thread::Sleep(50);
+}
+
 
 namespace OpenHome {
 namespace Av {
@@ -211,12 +219,18 @@ void SuiteFriendlyNameManager::TestRegisterDeregister()
     observer1.WaitForCallback();    // Synchronous callback, but need to consume sem signal.
     TEST(observer1.FriendlyName() == expected);
 
+    WaitForCallbackThreadsToFinish();
+
     const TUint id2 = observable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(observer2, &MockFriendlyNameObserver::FriendlyNameChanged));
     observer2.WaitForCallback();    // Synchronous callback, but need to consume sem signal.
     TEST(observer2.FriendlyName() == expected);
 
+    WaitForCallbackThreadsToFinish();
+
     observable.DeregisterFriendlyNameObserver(id2);
     observable.DeregisterFriendlyNameObserver(id1);
+
+    WaitForCallbackThreadsToFinish();
 }
 
 void SuiteFriendlyNameManager::TestUpdate()
@@ -231,12 +245,16 @@ void SuiteFriendlyNameManager::TestUpdate()
     const TUint id2 = observable.RegisterFriendlyNameObserver(MakeFunctorGeneric<const Brx&>(observer2, &MockFriendlyNameObserver::FriendlyNameChanged));
     observer2.WaitForCallback();    // Synchronous callback, but need to consume sem signal.
 
+    WaitForCallbackThreadsToFinish();
+
     iObservable->SetRoomName(Brn("NewRoom"));
 
     observer1.WaitForCallback();
     TEST(observer1.FriendlyName() == Brn("test:NewRoom"));
     observer2.WaitForCallback();
     TEST(observer2.FriendlyName() == Brn("test:NewRoom"));
+
+    WaitForCallbackThreadsToFinish();
 
     // Now, deregister the first observer, then issue an update.
     observable.DeregisterFriendlyNameObserver(id1);
@@ -245,12 +263,16 @@ void SuiteFriendlyNameManager::TestUpdate()
     TEST(observer1.FriendlyName() == Brn("test:NewRoom"));   // Observer 1 shouldn't be updated.
     TEST(observer2.FriendlyName() == Brn("test:NewerRoom")); // Observer 2 should be updated.
 
+    WaitForCallbackThreadsToFinish();
+
     observable.DeregisterFriendlyNameObserver(id2);
 
     iObservable->SetRoomName(Brn("RoomName2"));
     // Observers shouldn't have been updated.
     TEST(observer1.FriendlyName() == Brn("test:NewRoom"));
     TEST(observer2.FriendlyName() == Brn("test:NewerRoom"));
+
+    WaitForCallbackThreadsToFinish();
 }
 
 void SuiteFriendlyNameManager::TestDvUpdate()
