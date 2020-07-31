@@ -279,6 +279,7 @@ private:
     void BeginInvoke();
     void NotifyInvocationCompleted();
     TUint TryParsePinUriVersion(const Brx&) const;
+    TBool CheckPinUriHasTokenId(const Brx&) const;
 private:
     Configuration::IStoreReadWrite& iStore;
     Mutex iLock;

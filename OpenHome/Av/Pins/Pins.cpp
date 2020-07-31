@@ -531,10 +531,21 @@ void PinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Br
     }
 
     TUint uriVersion = TryParsePinUriVersion(aUri);
-    if (uriVersion != 0 && !it->second->SupportsVersion(uriVersion))
+    if (uriVersion == 0 || !it->second->SupportsVersion(uriVersion))
     {
         THROW(PinUriError);
     }
+
+    if (uriVersion == 2)
+    {
+        TBool hasTokenId = CheckPinUriHasTokenId(aUri);
+        if (!hasTokenId)
+        {
+            // Pin URI V2 needs an OAuthToken ID to continue
+            THROW(PinUriError);
+        }
+    }
+
 
     if (IsAccountIndex(aIndex)) {
         const auto accountIndex = AccountFromCombinedIndex(aIndex);
@@ -706,11 +717,9 @@ TBool PinsManager::TryGetIndexFromId(TUint aId, TUint& aIndex)
     return true;
 }
 
-TUint PinsManager::TryParsePinUriVersion(const Brx& aUri) const
+static const Brn TryFindQueryValue(const Brx& aUri, const Brx& queryKey)
 {
-    TUint version = 0;
     Parser parser(aUri);
-    Brn versionQuery("version");
 
     (void)parser.Next('?'); //Consume up until the query string...
 
@@ -720,15 +729,14 @@ TUint PinsManager::TryParsePinUriVersion(const Brx& aUri) const
         if (v == Brx::Empty())
             break;
 
-        if (v == versionQuery)
+        if (v == queryKey)
         {
-            Brn readVersion = parser.Next('&');
+            Brn queryValue = parser.Next('&');
 
-            if (readVersion.Bytes() == 0)
-                readVersion = parser.Remaining();
+            if (queryValue.Bytes() == 0)
+                queryValue = parser.Remaining();
 
-            version = Ascii::Uint(readVersion);
-            break;
+            return queryValue;
         }
         else
         {
@@ -738,8 +746,29 @@ TUint PinsManager::TryParsePinUriVersion(const Brx& aUri) const
     } while(true);
 
 
+    return Brx::Empty();
+}
+
+
+
+TUint PinsManager::TryParsePinUriVersion(const Brx& aUri) const
+{
+    TUint version = 0;
+    Brn versionStr = TryFindQueryValue(aUri, Brn("version"));
+
+    if (versionStr.Bytes() > 0)
+    {
+        version = Ascii::Uint(versionStr);
+    }
+
     return version;
 }
+
+TBool PinsManager::CheckPinUriHasTokenId(const Brx& aUri) const
+{
+    return TryFindQueryValue(aUri, Brn("token")).Bytes() > 0;
+}
+
 
 void PinsManager::NotifySettable(TBool aConnected, TBool aAssociated)
 {
