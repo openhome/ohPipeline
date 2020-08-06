@@ -10,6 +10,7 @@
 #include <OpenHome/Av/Playlist/UriProviderPlaylist.h>
 #include <OpenHome/Av/Playlist/PinInvokerPlaylist.h>
 #include <OpenHome/Av/Playlist/PinInvokerKazooServer.h>
+#include <OpenHome/Av/Playlist/PinInvokerUpnpServer.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Av/KvpStore.h>
 #include <OpenHome/Av/SourceFactory.h>
@@ -161,6 +162,8 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
         pinsInvocable.Unwrap().Add(podcastPinsTuneIn);
         auto pinsKazooServer = new PinInvokerKazooServer(env, cpStack, dvDevice, aMediaPlayer.ThreadPool());
         pinsInvocable.Unwrap().Add(pinsKazooServer);
+        auto pinsUpnpServer = new PinInvokerUpnpServer(env, cpStack, dvDevice, aMediaPlayer.ThreadPool(), *iDatabase);
+        pinsInvocable.Unwrap().Add(pinsUpnpServer);
         if (aPlaylistLoader.Ok()) {
             auto invoker = new PinInvokerPlaylist(*iDatabase,
                                                   aPlaylistLoader.Unwrap());
