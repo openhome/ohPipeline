@@ -14,7 +14,6 @@
 #include <vector>
 
 namespace OpenHome {
-    class Environment;
     class IThreadPool;
     class IThreadPoolHandle;
     namespace Net {
@@ -39,8 +38,7 @@ class PinInvokerUpnpServer : public IPinInvoker
     const TUint kMinSupportedVersion = 1;
     const TUint kMaxSupportedVersion = 1;
 public:
-    PinInvokerUpnpServer(Environment& aEnv,
-                         Net::CpStack& aCpStack,
+    PinInvokerUpnpServer(Net::CpStack& aCpStack,
                          Net::DvDevice& aDevice,
                          IThreadPool& aThreadPool,
                          ITrackDatabase& aTrackDatabase,
@@ -69,7 +67,6 @@ private:
     void TryAddArtistTags(const Brx& aItemDidl);
     void TryAddTag(const TChar* aTag, const Brx& aVal, Ns aNs, const Brx& aRole);
 private:
-    Environment & iEnv;
     ITrackDatabase& iTrackDatabase;
     DeviceListMediaServer& iDeviceList;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iProxyPlaylist;
@@ -86,7 +83,6 @@ private:
     Media::BwsTrackMetaData iTrackMetadata;
     TBool iShuffle;
     TBool iPlaying;
-    TBool iStarted;
     std::atomic<TBool> iCancel;
     std::vector<Brh*> iContainers;
     TUint iContainersIndex;

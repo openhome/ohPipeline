@@ -33,14 +33,12 @@ const Brn PinInvokerUpnpServer::kModeBuf(kMode);
 const TChar* PinInvokerUpnpServer::kQueryContainer = "id";
 const TChar* PinInvokerUpnpServer::kQueryTrack = "trackId";
 
-PinInvokerUpnpServer::PinInvokerUpnpServer(Environment& aEnv,
-                                           CpStack& aCpStack,
+PinInvokerUpnpServer::PinInvokerUpnpServer(CpStack& aCpStack,
                                            Net::DvDevice& aDevice,
                                            IThreadPool& aThreadPool,
                                            ITrackDatabase& aTrackDatabase,
                                            DeviceListMediaServer& aDeviceList)
-    : iEnv(aEnv)
-    , iTrackDatabase(aTrackDatabase)
+    : iTrackDatabase(aTrackDatabase)
     , iDeviceList(aDeviceList)
     , iProxyContentDirectory(nullptr)
     , iSemDeviceFound("PiKS", 0)

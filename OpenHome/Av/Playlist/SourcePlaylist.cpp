@@ -166,7 +166,7 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
         pinsInvocable.Unwrap().Add(podcastPinsTuneIn);
         auto pinsKazooServer = new PinInvokerKazooServer(env, cpStack, dvDevice, aMediaPlayer.ThreadPool(), *iDeviceListMediaServer);
         pinsInvocable.Unwrap().Add(pinsKazooServer);
-        auto pinsUpnpServer = new PinInvokerUpnpServer(env, cpStack, dvDevice, aMediaPlayer.ThreadPool(), *iDatabase, *iDeviceListMediaServer);
+        auto pinsUpnpServer = new PinInvokerUpnpServer(cpStack, dvDevice, aMediaPlayer.ThreadPool(), *iDatabase, *iDeviceListMediaServer);
         pinsInvocable.Unwrap().Add(pinsUpnpServer);
         if (aPlaylistLoader.Ok()) {
             auto invoker = new PinInvokerPlaylist(*iDatabase,
