@@ -181,7 +181,7 @@ ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
 
     SetPropertyPublicKey(Brx::Empty());
     SetPropertyUpdateId(0);
-    SetPropertySupportedServices(Brx::Empty());
+    SetPropertySupportedServices(Brn("[]"));
 
     iKeyObserver = iRsaObservable.AddObserver(MakeFunctorGeneric(*this, &ProviderOAuth::RsaKeySet));
 
