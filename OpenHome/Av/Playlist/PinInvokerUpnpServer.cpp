@@ -37,9 +37,11 @@ PinInvokerUpnpServer::PinInvokerUpnpServer(Environment& aEnv,
                                            CpStack& aCpStack,
                                            Net::DvDevice& aDevice,
                                            IThreadPool& aThreadPool,
-                                           ITrackDatabase& aTrackDatabase)
+                                           ITrackDatabase& aTrackDatabase,
+                                           DeviceListMediaServer& aDeviceList)
     : iEnv(aEnv)
     , iTrackDatabase(aTrackDatabase)
+    , iDeviceList(aDeviceList)
     , iProxyContentDirectory(nullptr)
     , iSemDeviceFound("PiKS", 0)
     , iShuffle(false)
@@ -50,7 +52,6 @@ PinInvokerUpnpServer::PinInvokerUpnpServer(Environment& aEnv,
                                              "PinInvokerUpnpServer-Container", ThreadPoolPriority::Medium);
     iTphTrack = aThreadPool.CreateHandle(MakeFunctor(*this, &PinInvokerUpnpServer::ReadTrack),
                                          "PinInvokerUpnpServer-Track", ThreadPoolPriority::Medium);
-    iDeviceList = new DeviceListMediaServer(aEnv, aCpStack);
     auto cpDeviceSelf = CpDeviceDv::New(aCpStack, aDevice);
     iProxyPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDeviceSelf);
     cpDeviceSelf->RemoveRef(); // iProxyPlaylist will have claimed a ref above
@@ -60,7 +61,6 @@ PinInvokerUpnpServer::~PinInvokerUpnpServer()
 {
     delete iProxyPlaylist;
     delete iProxyContentDirectory; // from most recent pin invocation (if any)
-    delete iDeviceList;
     iTphTrack->Destroy();
     iTphContainer->Destroy();
 }
@@ -94,7 +94,7 @@ void PinInvokerUpnpServer::BeginInvoke(const IPin& aPin, Functor aCompleted)
 
     auto udn = FromQuery("udn");
     CpDevice* server = nullptr;
-    iDeviceList->GetServerRef(udn, server, 5000);
+    iDeviceList.GetServerRef(udn, server, 5000);
     iProxyContentDirectory = new CpProxyUpnpOrgContentDirectory1(*server);
     server->RemoveRef();
     iShuffle = aPin.Shuffle();

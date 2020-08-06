@@ -5,10 +5,8 @@
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/Av/Playlist/DeviceListMediaServer.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
-#include <OpenHome/Net/Core/CpDevice.h>
-#include <OpenHome/Net/Core/CpDeviceUpnp.h>
-#include <OpenHome/Net/Core/FunctorCpDevice.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Net/Private/XmlParser.h>
@@ -23,118 +21,12 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
 
-#include <map>
 #include <vector>
 #include <utility>
 
 using namespace OpenHome;
 using namespace OpenHome::Net;
 using namespace OpenHome::Av;
-
-// DeviceListKazooServer
-
-const Brn DeviceListKazooServer::kDomainUpnp("upnp.org");
-const Brn DeviceListKazooServer::kServiceContentDirectory("ContentDirectory");
-
-DeviceListKazooServer::DeviceListKazooServer(Environment& aEnv, CpStack& aCpStack)
-    : iEnv(aEnv)
-    , iLock("DLKS")
-    , iSemAdded("DLKS", 0)
-    , iCancelled(false)
-{
-    auto added = MakeFunctorCpDevice(*this, &DeviceListKazooServer::DeviceAdded);
-    auto removed = MakeFunctorCpDevice(*this, &DeviceListKazooServer::DeviceRemoved);
-    iDeviceList = new CpDeviceListUpnpServiceType(aCpStack, kDomainUpnp, kServiceContentDirectory,
-                                                  1, added, removed);
-}
-
-DeviceListKazooServer::~DeviceListKazooServer()
-{
-    delete iDeviceList;
-    for (auto kvp : iMap) {
-        kvp.second->RemoveRef();
-    }
-}
-
-void DeviceListKazooServer::GetPropertyServerUri(const Brx& aUdn, Bwx& aPsUri, TUint aTimeoutMs)
-{
-    auto timeout = Time::Now(iEnv) + aTimeoutMs;
-    iLock.Wait();
-    iSemAdded.Clear();
-    Brn udn(aUdn);
-    auto it = iMap.find(udn);
-    iLock.Signal();
-    while (it == iMap.end()) {
-        auto waitTime = timeout - Time::Now(iEnv);
-        if (waitTime == 0 || waitTime > timeout) {
-            break;
-        }
-        iDeviceList->Refresh();
-        iSemAdded.Wait(waitTime);
-        {
-            AutoMutex _(iLock);
-            if (iCancelled) {
-                THROW(PropertyServerNotFound);
-            }
-            it = iMap.find(udn);
-        }
-    }
-    if (it == iMap.end()) {
-        THROW(PropertyServerNotFound);
-    }
-    Brh xml;
-    if (!it->second->GetAttribute("Upnp.DeviceXml", xml)) {
-        THROW(PropertyServerNotFound);
-    }
-    try {
-        /* Note that the following would not work against all UPnP devices.
-           The Media Endpoint API is complex and lightly documented so we assume that no-one
-           but Linn will ever implement it ...and that Linn's implementation will continue to
-           use ohNet, which formats its device XML in predictable ways.*/
-        Brn root = XmlParserBasic::Find("root", xml);
-        Brn device = XmlParserBasic::Find("device", root);
-        Brn presUrl = XmlParserBasic::Find("presentationURL", root);
-        Brn psRoot = XmlParserBasic::Find("X_PATH", device);
-
-        iUri.Replace(presUrl);
-        aPsUri.ReplaceThrow(iUri.Scheme());
-        aPsUri.AppendThrow("://");
-        aPsUri.AppendThrow(iUri.Host());
-        aPsUri.Append(':');
-        Ascii::AppendDec(aPsUri, iUri.Port());
-        aPsUri.AppendThrow(psRoot);
-    }
-    catch (XmlError&) {
-        THROW(PropertyServerNotFound);
-    }
-}
-
-void DeviceListKazooServer::Cancel()
-{
-    AutoMutex _(iLock);
-    iCancelled = true;
-    iSemAdded.Signal();
-}
-
-void DeviceListKazooServer::DeviceAdded(CpDevice& aDevice)
-{
-    AutoMutex _(iLock);
-    aDevice.AddRef();
-    Brn udn(aDevice.Udn());
-    iMap.insert(std::pair<Brn, CpDevice*>(udn, &aDevice));
-    iSemAdded.Signal();
-}
-
-void DeviceListKazooServer::DeviceRemoved(CpDevice& aDevice)
-{
-    AutoMutex _(iLock);
-    Brn udn(aDevice.Udn());
-    auto it = iMap.find(udn);
-    if (it != iMap.end()) {
-        it->second->RemoveRef();
-        iMap.erase(it);
-    }
-}
 
 
 //PinInvokerKazooServer
@@ -155,8 +47,10 @@ const Brn PinInvokerKazooServer::kResponseAlbums("albums");
 PinInvokerKazooServer::PinInvokerKazooServer(Environment& aEnv,
                                              CpStack& aCpStack,
                                              DvDevice& aDevice,
-                                             IThreadPool& aThreadPool)
+                                             IThreadPool& aThreadPool,
+                                             DeviceListMediaServer& aDeviceList)
     : iEnv(aEnv)
+    , iDeviceList(aDeviceList)
     , iReaderBuf(iSocket)
     , iReaderUntil1(iReaderBuf)
     , iWriterBuf(iSocket)
@@ -173,14 +67,12 @@ PinInvokerKazooServer::PinInvokerKazooServer(Environment& aEnv,
 
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &PinInvokerKazooServer::ReadFromServer),
                                                  "PinInvokerKazooServer", ThreadPoolPriority::Medium);
-    iDeviceList = new DeviceListKazooServer(aEnv, aCpStack);;
     iCpDeviceSelf = CpDeviceDv::New(aCpStack, aDevice);
     iProxyPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*iCpDeviceSelf);
 }
 
 PinInvokerKazooServer::~PinInvokerKazooServer()
 {
-    delete iDeviceList;
     iThreadPoolHandle->Destroy();
     delete iProxyPlaylist;
     iCpDeviceSelf->RemoveRef();
@@ -213,7 +105,7 @@ void PinInvokerKazooServer::BeginInvoke(const IPin& aPin, Functor aCompleted)
 
     Brn udn = FromQuery("udn");
     Bws<128> psUri;
-    iDeviceList->GetPropertyServerUri(udn, psUri, 5000);
+    iDeviceList.GetPropertyServerUri(udn, psUri, 5000);
     iEndpointUri.Replace(psUri);
     iSocket.Interrupt(false);
     iSocket.Open(iEnv);

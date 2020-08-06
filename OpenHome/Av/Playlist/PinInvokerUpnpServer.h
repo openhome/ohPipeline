@@ -43,7 +43,8 @@ public:
                          Net::CpStack& aCpStack,
                          Net::DvDevice& aDevice,
                          IThreadPool& aThreadPool,
-                         ITrackDatabase& aTrackDatabase);
+                         ITrackDatabase& aTrackDatabase,
+                         DeviceListMediaServer& aDeviceList);
     ~PinInvokerUpnpServer();
 private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
@@ -70,10 +71,10 @@ private:
 private:
     Environment & iEnv;
     ITrackDatabase& iTrackDatabase;
+    DeviceListMediaServer& iDeviceList;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iProxyPlaylist;
     IThreadPoolHandle* iTphContainer;
     IThreadPoolHandle* iTphTrack;
-    DeviceListMediaServer* iDeviceList;
     Net::CpProxyUpnpOrgContentDirectory1* iProxyContentDirectory;
     Uri iPinUri;
     std::vector<std::pair<Brn, Brn>> iQueryKvps;
