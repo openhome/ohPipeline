@@ -14,45 +14,18 @@
 #include <vector>
 #include <utility>
 
-EXCEPTION(PropertyServerNotFound);
-
 namespace OpenHome {
     class Environment;
     class IThreadPool;
     class IThreadPoolHandle;
     namespace Net {
         class CpStack;
-        class CpDevice;
-        class CpDeviceList;
         class CpDeviceDv;
         class CpProxyAvOpenhomeOrgPlaylist1;
         class DvDevice;
     }
 namespace Av {
-    class ITrackDatabase;
-
-class DeviceListKazooServer
-{
-    static const Brn kDomainUpnp;
-    static const Brn kServiceContentDirectory;
-public:
-    DeviceListKazooServer(Environment& aEnv, Net::CpStack& aCpStack);
-    ~DeviceListKazooServer();
-    void GetPropertyServerUri(const Brx& aUdn, Bwx& aPsUri, TUint aTimeoutMs);
-    void Cancel();
-private:
-    void DeviceAdded(Net::CpDevice& aDevice);
-    void DeviceRemoved(Net::CpDevice& aDevice);
-private:
-    Environment & iEnv;
-    Mutex iLock;
-    Semaphore iSemAdded;
-    Net::CpDeviceList* iDeviceList;
-    std::map<Brn, Net::CpDevice*, BufferCmp> iMap;
-    Uri iUri; // only used in GetPropertyServerUri but too large for the stack
-    TBool iCancelled;
-};
-
+    class DeviceListMediaServer;
     
 class PinInvokerKazooServer : public IPinInvoker
 {
@@ -77,7 +50,8 @@ public:
     PinInvokerKazooServer(Environment& aEnv,
                           Net::CpStack& aCpStack,
                           Net::DvDevice& aDevice,
-                          IThreadPool& aThreadPool);
+                          IThreadPool& aThreadPool,
+                          DeviceListMediaServer& aDeviceList);
     ~PinInvokerKazooServer();
 private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
@@ -106,8 +80,8 @@ private:
     static const TChar* OhMetadataKey(TUint aKsTag);
 private:
     Environment & iEnv;
+    DeviceListMediaServer& iDeviceList;
     IThreadPoolHandle* iThreadPoolHandle;
-    DeviceListKazooServer* iDeviceList;
     Net::CpDeviceDv* iCpDeviceSelf;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iProxyPlaylist;
     SocketTcpClient iSocket;

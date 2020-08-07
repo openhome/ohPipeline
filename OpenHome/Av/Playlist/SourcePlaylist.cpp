@@ -8,8 +8,10 @@
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Playlist/ProviderPlaylist.h>
 #include <OpenHome/Av/Playlist/UriProviderPlaylist.h>
+#include <OpenHome/Av/Playlist/DeviceListMediaServer.h>
 #include <OpenHome/Av/Playlist/PinInvokerPlaylist.h>
 #include <OpenHome/Av/Playlist/PinInvokerKazooServer.h>
+#include <OpenHome/Av/Playlist/PinInvokerUpnpServer.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Av/KvpStore.h>
 #include <OpenHome/Av/SourceFactory.h>
@@ -83,6 +85,7 @@ private:
     Repeater* iRepeater;
     UriProviderPlaylist* iUriProvider;
     ProviderPlaylist* iProviderPlaylist;
+    DeviceListMediaServer* iDeviceListMediaServer;
     Configuration::ConfigNum* iConfigTracksMax;
     TUint iMaxDbTracks;
     TUint iTrackPosSeconds;
@@ -124,6 +127,7 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
              SourceFactory::kSourceTypePlaylist,
              aMediaPlayer.Pipeline())
     , iLock("SPL1")
+    , iDeviceListMediaServer(nullptr)
     , iMaxDbTracks(kTracksMax)
     , iTrackPosSeconds(0)
     , iStreamId(UINT_MAX)
@@ -155,12 +159,15 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     auto pinsInvocable = aMediaPlayer.PinsInvocable();
     if (pinsInvocable.Ok()) {
         auto& cpStack = aMediaPlayer.CpStack();
+        iDeviceListMediaServer = new DeviceListMediaServer(env, cpStack);
         auto podcastPinsITunes = new PodcastPinsEpisodeListITunes(dvDevice, aMediaPlayer.TrackFactory(), cpStack, aMediaPlayer.ReadWriteStore(), aMediaPlayer.ThreadPool());
         pinsInvocable.Unwrap().Add(podcastPinsITunes);
         auto podcastPinsTuneIn = new PodcastPinsEpisodeListTuneIn(dvDevice, aMediaPlayer.TrackFactory(), cpStack, aMediaPlayer.ReadWriteStore(), aMediaPlayer.ThreadPool());
         pinsInvocable.Unwrap().Add(podcastPinsTuneIn);
-        auto pinsKazooServer = new PinInvokerKazooServer(env, cpStack, dvDevice, aMediaPlayer.ThreadPool());
+        auto pinsKazooServer = new PinInvokerKazooServer(env, cpStack, dvDevice, aMediaPlayer.ThreadPool(), *iDeviceListMediaServer);
         pinsInvocable.Unwrap().Add(pinsKazooServer);
+        auto pinsUpnpServer = new PinInvokerUpnpServer(cpStack, dvDevice, aMediaPlayer.ThreadPool(), *iDatabase, *iDeviceListMediaServer);
+        pinsInvocable.Unwrap().Add(pinsUpnpServer);
         if (aPlaylistLoader.Ok()) {
             auto invoker = new PinInvokerPlaylist(*iDatabase,
                                                   aPlaylistLoader.Unwrap());
@@ -171,6 +178,7 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
 
 SourcePlaylist::~SourcePlaylist()
 {
+    delete iDeviceListMediaServer;
     delete iProviderPlaylist;
     delete iDatabase;
     delete iShuffler;

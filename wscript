@@ -163,6 +163,7 @@ upnp_services = [
         GeneratedFile('OpenHome/Av/ServiceXml/Upnp/AVTransport1.xml',       'upnp.org',        'AVTransport',       '1', 'UpnpOrgAVTransport1'),
         GeneratedFile('OpenHome/Av/ServiceXml/Upnp/ConnectionManager1.xml', 'upnp.org',        'ConnectionManager', '1', 'UpnpOrgConnectionManager1'),
         GeneratedFile('OpenHome/Av/ServiceXml/Upnp/RenderingControl1.xml',  'upnp.org',        'RenderingControl',  '1', 'UpnpOrgRenderingControl1'),
+        GeneratedFile('OpenHome/Av/ServiceXml/Upnp/ContentDirectory1.xml',  'upnp.org',        'ContentDirectory',  '1', 'UpnpOrgContentDirectory1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Product3.xml',       'av.openhome.org', 'Product',           '3', 'AvOpenhomeOrgProduct3'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Radio1.xml',         'av.openhome.org', 'Radio',             '1', 'AvOpenhomeOrgRadio1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Sender2.xml',        'av.openhome.org', 'Sender',            '2', 'AvOpenhomeOrgSender2'),
@@ -383,7 +384,10 @@ def build(bld):
                 'OpenHome/Av/Qobuz/ProtocolQobuz.cpp',
                 'Generated/CpAvOpenhomeOrgTransport1.cpp',
                 'OpenHome/Av/Playlist/PinInvokerPlaylist.cpp',
+                'OpenHome/Av/Playlist/DeviceListMediaServer.cpp',
                 'OpenHome/Av/Playlist/PinInvokerKazooServer.cpp',
+                'OpenHome/Av/Playlist/PinInvokerUpnpServer.cpp',
+                'Generated/CpUpnpOrgContentDirectory1.cpp',
             ],
             use=['OHNET', 'ohMediaPlayer', 'Podcast'],
             target='SourcePlaylist')
