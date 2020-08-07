@@ -165,7 +165,8 @@ ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
       iLockRsa("OAuth::RSA"),
       iLockProviders("OAuth::PVD"),
       iLockModerator("OAuth::MOD"),
-      iRsa(nullptr)
+      iRsa(nullptr),
+      iUpdateId(0)
 {
     EnablePropertyPublicKey();
     EnablePropertyUpdateId();
