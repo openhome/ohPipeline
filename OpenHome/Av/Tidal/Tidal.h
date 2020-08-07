@@ -69,6 +69,13 @@ public:
         TBool SupportsOAuth() const { return clientId.Bytes() > 0 && clientSecret.Bytes() > 0; }
     };
 
+
+    struct AuthenticationConfig
+    {
+        TBool fallbackIfTokenNotPresent;
+        const Brx& oauthTokenId;
+    };
+
 private:
     // Differentiates between which host the socket
     // is currently connected to
@@ -98,10 +105,10 @@ public:
     TBool TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken);
     TBool TryGetStreamUrl(const Brx& aTrackId, const Brx& aTokenId, Bwx& aStreamUrl);
     TBool TryLogout(const Brx& aSessionId);
-    TBool TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType, Connection aConnection = Connection::KeepAlive);
-    TBool TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse, Connection aConnection = Connection::KeepAlive);
-    TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection = Connection::KeepAlive);
-    TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl,TUint aLimitPerResponse, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
+    TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
     void Interrupt(TBool aInterrupt);
     void SetTokenProvider(ITokenProvider* aProvider);
 
@@ -131,7 +138,7 @@ private:
     TBool TryLogoutSession(const TokenType aTokenType, const Brx& aToken);
     TBool TryLogoutLocked(const Brx& aSessionId);
     TBool TryGetSubscriptionLocked();
-    TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, Connection aConnection);
+    TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection);
     void WriteRequestHeaders(const Brx& aMethod,
                              const Brx& aHost,
                              const Brx& aPathAndQuery,

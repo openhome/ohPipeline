@@ -119,6 +119,9 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
         return false;
     }
 
+    //TODO: Playback will need to handle the case where a V1 control point has
+    //      tried to play a track when the DS is using V2 exclusively
+
     ServiceToken accessToken;
     if (isUsingOAuth)
     {
@@ -219,7 +222,11 @@ TBool Tidal::TryLogout(const Brx& aSessionId)
     return TryLogoutLocked(aSessionId);
 }
 
-TBool Tidal::TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType, Connection aConnection)
+TBool Tidal::TryGetId(IWriter& aWriter,
+                      const Brx& aQuery,
+                      TidalMetadata::EIdType aType,
+                      const AuthenticationConfig& aAuthConfig,
+                      Connection aConnection)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
 
@@ -228,10 +235,15 @@ TBool Tidal::TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdTyp
     pathAndQuery.Append("&types=");
     pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
 
-    return TryGetResponse(aWriter, kHost, pathAndQuery, 1, 0, aConnection);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, 1, 0, aAuthConfig, aConnection);
 }
 
-TBool Tidal::TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse, Connection aConnection)
+TBool Tidal::TryGetIds(IWriter& aWriter,
+                       const Brx& aMood,
+                       TidalMetadata::EIdType aType,
+                       TUint aLimitPerResponse,
+                       const AuthenticationConfig& aAuthConfig,
+                       Connection aConnection)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
 
@@ -263,10 +275,16 @@ TBool Tidal::TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdTyp
         pathAndQuery.Append(Brn("/albums?order=NAME&orderDirection=ASC"));
     }
 
-    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimitPerResponse, 0, aConnection);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimitPerResponse, 0, aAuthConfig, aConnection);
 }
 
-TBool Tidal::TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection)
+TBool Tidal::TryGetTracksById(IWriter& aWriter,
+                              const Brx& aId,
+                              TidalMetadata::EIdType aType,
+                              TUint aLimit,
+                              TUint aOffset,
+                              const AuthenticationConfig& aAuthConfig,
+                              Connection aConnection)
 {
     Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
     if (aType == TidalMetadata::eMood || aType == TidalMetadata::eSmartExclusive || aType == TidalMetadata::eSavedPlaylist) {
@@ -303,20 +321,58 @@ TBool Tidal::TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::E
         case TidalMetadata::eNone: break;
     }
 
-    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimit, aOffset, aConnection);
+    return TryGetResponse(aWriter, kHost, pathAndQuery, aLimit, aOffset, aAuthConfig, aConnection);
 }
 
-TBool Tidal::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection)
+TBool Tidal::TryGetIdsByRequest(IWriter& aWriter,
+                                const Brx& aRequestUrl,
+                                TUint aLimitPerResponse,
+                                TUint aOffset,
+                                const AuthenticationConfig& aAuthConfig,
+                                Connection aConnection)
 {
     iUri.SetBytes(0);
     Uri::Unescape(iUri, aRequestUrl);
     iRequest.Replace(iUri);
     iUri.Replace(iRequest.PathAndQuery());
-    return TryGetResponse(aWriter, iRequest.Host(), iUri, aLimitPerResponse, aOffset, aConnection);
+    return TryGetResponse(aWriter, iRequest.Host(), iUri, aLimitPerResponse, aOffset, aAuthConfig, aConnection);
 }
 
-TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, Connection aConnection)
+TBool Tidal::TryGetResponse(IWriter& aWriter,
+                            const Brx& aHost,
+                            Bwx& aPathAndQuery,
+                            TUint aLimit,
+                            TUint aOffset,
+                            const AuthenticationConfig& aAuthConfig,
+                            Connection aConnection)
 {
+    // First check all our tokens are correct and valid!
+    TBool hasToken = false;
+    WriterBwh tokenIdWriter(128);
+    tokenIdWriter.Reset();
+
+    if (aAuthConfig.oauthTokenId.Bytes() > 0)
+    {
+        Log::Print("Tidal: TGR -> Has OAuth token Id\n");
+        hasToken = iTokenProvider != nullptr && iTokenProvider->HasToken(aAuthConfig.oauthTokenId);
+        if (hasToken)
+        {
+            Log::Print("Tidal: TGR -> OAuth Token was found.\n");
+            tokenIdWriter.Write(aAuthConfig.oauthTokenId);
+        }
+    }
+    else if (aAuthConfig.oauthTokenId.Bytes() == 0 && aAuthConfig.fallbackIfTokenNotPresent)
+    {
+        hasToken = iTokenProvider != nullptr && iTokenProvider->TryGetFirstValidTokenId(tokenIdWriter);
+    }
+
+    if (!hasToken && !aAuthConfig.fallbackIfTokenNotPresent)
+    {
+        Log::Print("Tidal: TGR -> Token not found and not falling back.\n");
+        return false;
+    }
+
+
     iTimerSocketActivity->Cancel();
     AutoMutex _(iLock);
     TBool success = false;
@@ -324,25 +380,56 @@ TBool Tidal::TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQue
         LOG_ERROR(kMedia, "Tidal::TryGetResponse - connection failure\n");
         return false;
     }
+
+    //TODO: If we're appending the ? then limit should be appended without prefix '&'
     if (!Ascii::Contains(aPathAndQuery, '?')) {
         aPathAndQuery.Append("?");
     }
+
     aPathAndQuery.Append("&limit=");
     Ascii::AppendDec(aPathAndQuery, aLimit);
     aPathAndQuery.Append("&offset=");
     Ascii::AppendDec(aPathAndQuery, aOffset);
-    if (!Ascii::Contains(aPathAndQuery, Brn("sessionId"))) {
+
+    if (!Ascii::Contains(aPathAndQuery, Brn("countryCode")))
+    {
+        if (hasToken)
+        {
+            Log::Print("Write Tidal request: Using OAuth and has token of id: %.s\n", PBUF(tokenIdWriter.Buffer()));
+
+            UserInfo& info = iUserInfos[Brn(tokenIdWriter.Buffer())];
+
+            aPathAndQuery.Append("&countryCode=");
+            aPathAndQuery.Append(info.countryCode);
+        }
+        else
+        {
+            aPathAndQuery.Append("&countryCode=");
+            aPathAndQuery.Append(iCountryCode);
+        }
+    }
+
+    if (!hasToken && !Ascii::Contains(aPathAndQuery, Brn("sessionId"))) {
         aPathAndQuery.Append("&sessionId=");
         aPathAndQuery.Append(iSessionId);
     }
-    if (!Ascii::Contains(aPathAndQuery, Brn("countryCode"))) {
-        aPathAndQuery.Append("&countryCode=");
-        aPathAndQuery.Append(iCountryCode);
-    }
-    
+
     try {
-        Log::Print("Write Tidal request: http://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
-        WriteRequestHeaders(Http::kMethodGet, aHost, aPathAndQuery, kPort, aConnection);
+        Log::Print("Write Tidal request: https://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
+
+        if (hasToken)
+        {
+            ServiceToken accessToken;
+            if (!iTokenProvider->TryGetToken(tokenIdWriter.Buffer(), accessToken)) {
+                THROW(OAuthTokenIdNotFound);
+            }
+
+            WriteRequestHeaders(Http::kMethodGet, aHost, aPathAndQuery, kPort, aConnection, 0, accessToken.token);
+        }
+        else
+        {
+            WriteRequestHeaders(Http::kMethodGet, aHost, aPathAndQuery, kPort, aConnection);
+        }
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();

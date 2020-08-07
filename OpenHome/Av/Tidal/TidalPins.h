@@ -26,6 +26,8 @@ namespace Configuration {
 }
 namespace Av {
 
+class TidalMetadata;
+
 class TidalPins
     : public IPinInvoker
 {
@@ -50,13 +52,13 @@ private: // from IPinInvoker
     TBool SupportsVersion(TUint version) const override;
 private:
     void Invoke();
-    TBool LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle);
-    TBool LoadTracks(const Brx& aPath, TBool aShuffle);
-    TBool LoadContainers(const Brx& aPath, TidalMetadata::EIdType aIdType, TBool aShuffle);
-    TBool LoadByStringQuery(const Brx& aQuery, TidalMetadata::EIdType aIdType, TBool aShuffle);
-    TUint LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount);
+    TBool LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle, const Tidal::AuthenticationConfig& aAuthConfig);
+    TBool LoadTracks(const Brx& aPath, TBool aShuffle, const Tidal::AuthenticationConfig& aAuthConfig);
+    TBool LoadContainers(const Brx& aPath, TidalMetadata::EIdType aIdType, TBool aShuffle, const Tidal::AuthenticationConfig& aAuthConfig);
+    TBool LoadByStringQuery(const Brx& aQuery,TidalMetadata::EIdType aIdType, TBool aShuffle, const Tidal::AuthenticationConfig& aAuthConfig);
+    TUint LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount, const Tidal::AuthenticationConfig& aAuthConfig);
 private: // helpers
-    TUint GetTotalItems(JsonParser& aParser, const Brx& aId, TidalMetadata::EIdType aIdType, TBool aIsContainer, TUint& aStartIndex, TUint& aEndIndex);
+    TUint GetTotalItems(JsonParser& aParser, const Brx& aId, TidalMetadata::EIdType aIdType, TBool aIsContainer, TUint& aStartIndex, TUint& aEndIndex, const Tidal::AuthenticationConfig& aAuthConfig);
     void UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TUint& aOffset);
     TBool IsValidId(const Brx& aRequest, TidalMetadata::EIdType aIdType);
     TBool IsValidUuid(const Brx& aRequest);
