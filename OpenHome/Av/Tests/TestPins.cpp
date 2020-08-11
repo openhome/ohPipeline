@@ -690,7 +690,7 @@ const TChar* SuitePinsManager::kVersionedModeStr = "mode-version";
 const Brn SuitePinsManager::kMode(kModeStr);
 const Brn SuitePinsManager::kVersionedMode(kVersionedModeStr);
 const Brn SuitePinsManager::kType("type");
-const Brn SuitePinsManager::kUri("scheme://host");
+const Brn SuitePinsManager::kUri("scheme://host?version=1");
 const Brn SuitePinsManager::kTitle("title");
 const Brn SuitePinsManager::kDescription("longer description");
 const Brn SuitePinsManager::kArtworkUri("scheme://host/path");
@@ -922,23 +922,29 @@ void SuitePinsManager::TestSetDevicePinInvalidIndex()
     Manager()->SetObserver(*this);
     iPinsManager->Add(new DummyPinInvoker(kModeStr));
     const auto index = iIdArrayDevice.size();
-    TEST_THROWS(Manager()->Set(index, kMode, Brx::Empty(), Brn("http://host?query"),
+    TEST_THROWS(Manager()->Set(index, kMode, Brx::Empty(), Brn("http://host?version=1"),
                                Brx::Empty(), Brx::Empty(), Brx::Empty(), false),
                 PinIndexOutOfRange);
 }
 
 void SuitePinsManager::TestSetDevicePinInvalidMode()
 {
-    TEST_THROWS(Manager()->Set(0, Brx::Empty(), Brx::Empty(), Brn("http://host?query"),
+    TEST_THROWS(Manager()->Set(0, Brx::Empty(), Brx::Empty(), Brn("http://host?version=1"),
                                Brx::Empty(), Brx::Empty(), Brx::Empty(), false),
                 PinModeNotSupported);
 }
 
 void SuitePinsManager::TestSetDevicePinInvalidUri()
 {
-    TEST_THROWS(Manager()->Set(0, kMode, Brx::Empty(), Brx::Empty(),
-        Brx::Empty(), Brx::Empty(), Brx::Empty(), false),
-        PinModeNotSupported);
+    iPinsManager->Add(new DummyPinInvoker(kModeStr));
+
+    // Version needs to be present in query string
+    TEST_THROWS(Manager()->Set(0, kMode, Brx::Empty(), Brn("scheme://host"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false),
+                PinUriError);
+
+    // Version needs to be greater than 0
+    TEST_THROWS(Manager()->Set(0, kMode, Brx::Empty(), Brn("scheme://host?version=0"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false),
+                PinUriError);
 }
 
 void SuitePinsManager::TestSetDevicePinVersionTooLow()
@@ -1197,7 +1203,7 @@ void SuitePinsManager::TestInvokeDevicePinId()
     auto invoker = new DummyPinInvoker("dummy");
     Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
-    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brn("scheme://host"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
+    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brn("scheme://host?version=1"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
     Manager()->InvokeId(iIdArrayDevice[0]);
     TEST(invoker->InvocationCount() == 1);
 }
@@ -1228,7 +1234,7 @@ void SuitePinsManager::TestInvokeDevicePinIndex()
     auto invoker = new DummyPinInvoker("dummy");
     Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
-    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brn("scheme://host"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
+    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brn("scheme://host?version=1"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
     Manager()->InvokeIndex(0);
     TEST(invoker->InvocationCount() == 1);
 }
@@ -1260,8 +1266,8 @@ void SuitePinsManager::TestInvokeUri()
     auto invoker = new DummyPinInvoker("dummy");
     Invocable()->Add(invoker);
     TEST(invoker->InvocationCount() == 0);
-    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brn("scheme://host"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
-    Manager()->InvokeUri(Brn("dummy"), Brx::Empty(), Brn("scheme://host"), false);
+    Manager()->Set(0, Brn("dummy"), Brx::Empty(), Brn("scheme://host?version=1"), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
+    Manager()->InvokeUri(Brn("dummy"), Brx::Empty(), Brn("scheme://host?version=1"), false);
     TEST(invoker->InvocationCount() == 1);
 }
 
