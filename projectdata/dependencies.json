@@ -11,14 +11,6 @@
         ],
         "source-git": "https://github.com/openhome/ohNet.git"
     },
-    {   "name": "ohWafHelpers",
-        "type": "openhome",
-        "platform-specific": false,
-        "version": "0.2.125",
-        "cross-check": false,
-        "archive-filename": "${name}-${version}.tar.gz",
-        "source-git": "https://github.com/openhome/ohWafHelpers.git"
-    },
     {   "name": "TestTones",
         "type": "external",
         "version": "1.9",
@@ -45,12 +37,6 @@
             "Core-ppc32": false,
             "*": true },
         "ignore":           "${platform-ignore[$platform]}"
-    },
-    {   "name": "libressl",
-        "type": "internal",
-        "platform-specific": true,
-        "version": "0.1.29",
-        "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
     },
     {   "name":             "testharness",
         "version":          "0.1.58",

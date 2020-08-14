@@ -1,6 +1,6 @@
 #!/bin/sh
 readlinkf() {
-    python -c 'import os,sys;print os.path.realpath(sys.argv[1])' $1
+    python -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' $1
 }
 SCRIPT=`readlinkf $0`
 PROJECT_ROOT=`dirname $SCRIPT`
