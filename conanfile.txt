@@ -1,0 +1,5 @@
+[requires]
+libressl/2.9.2
+
+[generators]
+json

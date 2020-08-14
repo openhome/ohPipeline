@@ -1,0 +1,85 @@
+language: c++
+
+matrix:
+  include:
+  - os: osx
+    env:
+      - OH_PLATFORM=Mac-x64
+    before_install:
+    - pip3 install virtualenv
+    - virtualenv -p python3 venv
+    - source venv/bin/activate
+    - pip install conan
+    - conan profile new default --detect
+    - conan profile update settings.compiler=clang default
+    - conan profile update settings.compiler.version=9 default
+    - conan profile update settings.compiler.libcxx=libc++ default
+  - os: windows
+    env:
+      - OH_PLATFORM=Mac-x64
+    env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
+    before_install:
+    - export CMAKE_GENERATOR="Visual Studio 15 2017"
+    - export MSVER=14.16.27023
+    - export WKITVER=10.0.17134.0
+    - export TOOLSVER=BuildTools
+    - export INCLUDE=/c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/$TOOLSVER/VC/Tools/MSVC/$MSVER/include
+    - export INCLUDE=$INCLUDE:/c/Program\ Files\ \(x86\)/Windows\ Kits/10/Include/$WKITVER/ucrt
+    - export INCLUDE=$INCLUDE:/c/Program\ Files\ \(x86\)/Windows\ Kits/10/include/$WKITVER/ucrt
+    - export INCLUDE=$INCLUDE:/c/Program\ Files\ \(x86\)/Windows\ Kits/10/include/$WKITVER/shared
+    - export INCLUDE=$INCLUDE:/c/Program\ Files\ \(x86\)/Windows\ Kits/10/include/$WKITVER/um
+    - export INCLUDE=$INCLUDE:/c/Program\ Files\ \(x86\)/Windows\ Kits/10/include/$WKITVER/winrt
+    - export INCLUDE=$INCLUDE:/c/Program\ Files\ \(x86\)/Windows\ Kits/10/include/$WKITVER/cppwinrt
+    - ls /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/
+    - ls /c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/2017/$TOOLSVER/VC/Tools/MSVC/$MSVER/include
+    - ls /c/Program\ Files\ \(x86\)/Windows\ Kits/10/Include/
+    - unset CXX
+    - unset CC
+    - echo $INCLUDE
+    - choco install python --version 3.8.0
+    - python -m pip install --upgrade pip
+    - python -m pip install conan
+    - conan profile new default --detect
+    - conan profile update settings.arch=x86 default
+    - conan profile update settings.compiler.runtime=MT default
+  - os: linux
+    dist: bionic
+    env:
+      - OH_PLATFORM=Linux-x64
+    addons:
+      apt:
+        sources:
+        - ubuntu-toolchain-r-test
+        packages:
+        - binutils
+        - g++-9
+        - gcc-9
+    before_install:
+    - export PATH=/opt/python/3.8/bin:$PATH
+    - export COMPILER_NAME=gcc
+    - pip install conan
+    - conan profile new default --detect
+    - conan profile update settings.compiler.libcxx=libstdc++11 default
+script:
+  - python --version
+  - pip install boto3
+  - conan install . --build=missing
+  - git clone https://github.com/openhome/ohdevtools ../ohdevtools
+  - ./go fetch ohNet
+  - mkdir -p dependencies/AnyPlatform
+  - git clone https://github.com/merakiacoustic/ohWafHelpers.git -b enable-upstream-libressl
+    dependencies/AnyPlatform/ohWafHelpers
+  - ./waf configure -v
+  - ./waf build -v
+  - ./waf bundle
+  - mv build/ohMediaPlayer.tar.gz build/ohMediaPlayer-$OH_PLATFORM.tar.gz
+
+deploy:
+  provider: releases
+  api_key:
+    secure: QnD5Wks2AQX+qMVgblPJoRhvKoaxQf5UYODe0o+nvjKKl1G5F/SrdsYHWvIORS9nWiYfj164xZYAfs+BnUpnuktUNm9UhM8AnX2F+RR7a+sBtmWZGnjNvEtMuixSRkDJYGW2MhYX/WWEUS1PVh1A8PyXHO9Vdy0JBcTqIzfEx3TtLFC/MMHi4LuVHGDCGShKESASYS+MnsMpWQSXWs0JTgwv3qmLdkqX157bhLWwvUW+WacDgcdrXuDxfk4NQgzAORsJbqbhA1jGcWMKnsl46IjBB6X/Nn8u6Ue2djqDSh8C+wXVfHSgEzFzdlI98g+nf9VO7KuD6mZ0rBMBcMkDoaJila0MQ3YPu+SgmW2XYKXHzoKIezgSLXcqc+DiaWUVsJ/PKQQBnknuQIe/BrSdA6JzkGrhZPjnqlWmw+J7pKy0kEMHaklVLKWH0E4tAXk5adK99WMwUBSQFjfW5Ju/0yLa+zAwm4xBIUlhM84fTtsbDr/q/mqdJUbwrCwqLr50qYyXzmDYR3h09RQbVHDqjCh+7TtwkkbvQdyan36Ae9kaSsy704Qg3BbeB8xtyG3AtAV9gD6tgAULwECk2f8gD/1D/8PWClrSgYM+tEaE7BByUzxLMhCOUzU9eaiv/+VcxX3syeUcr905avLVr0ka/gxtpUpSqVJwkHjzREBdpmE=
+  file_glob: true
+  file: build/ohMediaPlayer-*.tar.gz
+  skip_cleanup: true
+  on:
+    tags: true

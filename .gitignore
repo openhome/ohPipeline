@@ -6,6 +6,8 @@ tags
 /dependencies/
 /waf-*-*
 /.waf-*/
+/waf3-*-*
+/.waf3-*/
 /.lock-*
 /install
 /transmute-output
@@ -26,3 +28,9 @@ project.*
 
 # FunctionalTest Config
 .testconfig.xml
+
+# Conan-related
+conan.lock
+conanbuildinfo.*
+conaninfo.txt
+graph_info.json
