@@ -43,6 +43,8 @@ static const TChar* kPinKeyId = "id";
 static const TChar* kPinKeyTrackId = "trackId";
 static const TChar* kPinKeyPath = "path";
 static const TChar* kPinKeyResponseType = "response";
+static const TChar* kPinKeyVersion = "version";
+static const TChar* kPinKeyTokenId = "token";
 
 // Pin response types
 static const TChar* kPinResponseTracks = "tracks";
@@ -85,9 +87,11 @@ void TidalPins::BeginInvoke(const IPin& aPin, Functor aCompleted)
     AutoPinComplete completion(aCompleted);
     iInterrupted.store(false);
     iTidal.Interrupt(false);
-    iTidal.Login(iToken);
+
     (void)iPin.TryUpdate(aPin.Mode(), aPin.Type(), aPin.Uri(), aPin.Title(),
                          aPin.Description(), aPin.ArtworkUri(), aPin.Shuffle());
+
+
     completion.Cancel();
     iCompleted = aCompleted;
     (void)iThreadPoolHandle->TrySchedule();
@@ -118,9 +122,32 @@ void TidalPins::Invoke()
     try {
         PinUri pinUri(iPin);
         Brn val;
+        Brn tokenId = Brx::Empty();
+
+        const TBool hasVersion = pinUri.TryGetValue(kPinKeyVersion, val);
+        const TBool hasTokenId = pinUri.TryGetValue(kPinKeyTokenId, tokenId);
+
+        const TBool isV2 = hasVersion && val == Brn("2");
+
+        // Needs a version and if V2, needs a tokenId
+        if (!hasVersion || (isV2 && !hasTokenId))
+        {
+            THROW(PinUriMissingRequiredParameter);
+        }
+
+        //If V2 pin, we *MUST* only use OAUTH. Fallback there to support V1 playback
+        Tidal::AuthenticationConfig authConfig =
+        {
+            !isV2,          //fallbackIfTokenNotPresent
+            Brn(tokenId)    //oauthTokenId
+        };
+
+
+        Log::Print("Working with:\nfallbackIfNoTokenPresent: %d\noauthTokenId: %.*s\n", authConfig.fallbackIfTokenNotPresent, PBUF(authConfig.oauthTokenId));
+
         if (Brn(pinUri.Type()) == Brn(kPinTypeTrack)) {
             if (pinUri.TryGetValue(kPinKeyTrackId, val)) {
-                res = LoadByStringQuery(val, TidalMetadata::eTrack, iPin.Shuffle());
+                res = LoadByStringQuery(val, TidalMetadata::eTrack, iPin.Shuffle(), authConfig);
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -132,11 +159,11 @@ void TidalPins::Invoke()
                  Brn(pinUri.Type()) == Brn(kPinTypeArtist) ||
                  Brn(pinUri.Type()) == Brn(kPinTypeAlbum)) {
             if (pinUri.TryGetValue(kPinKeyPath, val)) {
-                res = LoadByPath(val, pinUri, iPin.Shuffle());
+                res = LoadByPath(val, pinUri, iPin.Shuffle(), authConfig);
             }
             else if (pinUri.TryGetValue(kPinKeyId, val)) {
                 // test only - load by string query as if done by a control point
-                res = LoadByStringQuery(val, TidalMetadata::StringToIdType(pinUri.Type()), iPin.Shuffle());
+                res = LoadByStringQuery(val, TidalMetadata::StringToIdType(pinUri.Type()), iPin.Shuffle(), authConfig);
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -157,19 +184,22 @@ void TidalPins::Invoke()
     }
 }
 
-TBool TidalPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle)
+TBool TidalPins::LoadByPath(const Brx& aPath,
+                            const PinUri& aPinUri,
+                            TBool aShuffle,
+                            const Tidal::AuthenticationConfig& aAuthConfig)
 {
     TBool res = false;
     Brn response(Brx::Empty());
     aPinUri.TryGetValue(kPinKeyResponseType, response);
     if (response == Brn(kPinResponseTracks)) {
-        res = LoadTracks(aPath, aShuffle);
+        res = LoadTracks(aPath, aShuffle, aAuthConfig);
     }
     else if (response == Brn(kPinResponseAlbums)) {
-        res = LoadContainers(aPath, TidalMetadata::eAlbum, aShuffle);
+        res = LoadContainers(aPath, TidalMetadata::eAlbum, aShuffle, aAuthConfig);
     }
     else if (response == Brn(kPinResponsePlaylists)) {
-        res = LoadContainers(aPath, TidalMetadata::ePlaylist, aShuffle);
+        res = LoadContainers(aPath, TidalMetadata::ePlaylist, aShuffle, aAuthConfig);
     }
     else {
         THROW(PinUriMissingRequiredParameter);
@@ -177,7 +207,10 @@ TBool TidalPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuf
     return res;
 }
 
-TBool TidalPins::LoadByStringQuery(const Brx& aQuery, TidalMetadata::EIdType aIdType, TBool aShuffle)
+TBool TidalPins::LoadByStringQuery(const Brx& aQuery,
+                                   TidalMetadata::EIdType aIdType,
+                                   TBool aShuffle,
+                                   const Tidal::AuthenticationConfig& aAuthConfig)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
@@ -193,7 +226,7 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery, TidalMetadata::EIdType aId
         // track/artist/album/playlist/genre search string to id
         else if (!IsValidId(aQuery, aIdType)) {
             iJsonResponse.Reset();
-            TBool success = iTidal.TryGetId(iJsonResponse, aQuery, aIdType); // send request to tidal
+            TBool success = iTidal.TryGetId(iJsonResponse, aQuery, aIdType, aAuthConfig); // send request to tidal
             if (!success) {
                 return false;
             }
@@ -206,7 +239,7 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery, TidalMetadata::EIdType aId
             inputBuf.ReplaceThrow(aQuery);
         }
         try {
-            lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound);
+            lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound, aAuthConfig);
         }
         catch (PinNothingToPlay&) {
         }
@@ -223,7 +256,9 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery, TidalMetadata::EIdType aId
     return lastId;
 }
 
-TBool TidalPins::LoadTracks(const Brx& aPath, TBool aShuffle)
+TBool TidalPins::LoadTracks(const Brx& aPath,
+                            TBool aShuffle,
+                            const Tidal::AuthenticationConfig& aAuthConfig)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
@@ -235,7 +270,7 @@ TBool TidalPins::LoadTracks(const Brx& aPath, TBool aShuffle)
             return false;
         }
         try {
-            lastId = LoadTracksById(aPath, TidalMetadata::eNone, lastId, tracksFound);
+            lastId = LoadTracksById(aPath, TidalMetadata::eNone, lastId, tracksFound, aAuthConfig);
         }
         catch (PinNothingToPlay&) {
         }
@@ -252,7 +287,10 @@ TBool TidalPins::LoadTracks(const Brx& aPath, TBool aShuffle)
     return lastId;
 }
 
-TBool TidalPins::LoadContainers(const Brx& aPath, TidalMetadata::EIdType aIdType, TBool aShuffle)
+TBool TidalPins::LoadContainers(const Brx& aPath,
+                                TidalMetadata::EIdType aIdType,
+                                TBool aShuffle,
+                                const Tidal::AuthenticationConfig& aAuthConfig)
 {
     AutoMutex _(iLock);
     const TChar* kIdString = (aIdType == TidalMetadata::eAlbum) ? "id" : "uuid";
@@ -268,13 +306,13 @@ TBool TidalPins::LoadContainers(const Brx& aPath, TidalMetadata::EIdType aIdType
     }
 
     TUint start, end;
-    TUint total = GetTotalItems(parser, aPath, TidalMetadata::eNone, true, start, end); // aIdType relevant to tracks, not containers
+    TUint total = GetTotalItems(parser, aPath, TidalMetadata::eNone, true, start, end, aAuthConfig); // aIdType relevant to tracks, not containers
     TUint offset = start;
 
     do {
         try {
             iJsonResponse.Reset();
-            TBool success = iTidal.TryGetIdsByRequest(iJsonResponse, aPath, kItemLimitPerRequest, offset); // send request to Tidal
+            TBool success = iTidal.TryGetIdsByRequest(iJsonResponse, aPath, kItemLimitPerRequest, offset, aAuthConfig); // send request to Tidal
             if (!success) {
                 return false;
             }
@@ -299,7 +337,7 @@ TBool TidalPins::LoadContainers(const Brx& aPath, TidalMetadata::EIdType aIdType
             catch (JsonArrayEnumerationComplete&) {}
             for (TUint j = 0; j < idCount; j++) {
                 try {
-                    lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound);
+                    lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound, aAuthConfig);
                 }
                 catch (PinNothingToPlay&) {
                 }
@@ -322,7 +360,11 @@ TBool TidalPins::LoadContainers(const Brx& aPath, TidalMetadata::EIdType aIdType
     return true;
 }
 
-TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount)
+TUint TidalPins::LoadTracksById(const Brx& aId,
+                                TidalMetadata::EIdType aIdType,
+                                TUint aPlaylistId,
+                                TUint& aCount,
+                                const Tidal::AuthenticationConfig& aAuthConfig)
 {
     if (iInterrupted.load()) {
         LOG(kMedia, "TidalPins::LoadTracksById - interrupted\n");
@@ -337,7 +379,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
     Media::Track* track = nullptr;
 
     TUint start, end;
-    TUint total = GetTotalItems(parser, aId, aIdType, false, start, end);
+    TUint total = GetTotalItems(parser, aId, aIdType, false, start, end, aAuthConfig);
     TUint offset = start;
 
     // id to list of tracks
@@ -348,10 +390,10 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
             TBool success = false;
             auto connection = aCount < iMaxPlaylistTracks - 1 ? Tidal::Connection::KeepAlive : Tidal::Connection::Close;
             if (aIdType == TidalMetadata::eNone) {
-                success = iTidal.TryGetIdsByRequest(iJsonResponse, aId, kItemLimitPerRequest, offset, connection);
+                success = iTidal.TryGetIdsByRequest(iJsonResponse, aId, kItemLimitPerRequest, offset, aAuthConfig, connection);
             }
             else {
-                success = iTidal.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset, connection);
+                success = iTidal.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset, aAuthConfig, connection);
             }
             if (!success) {
                 THROW(PinNothingToPlay);
@@ -364,7 +406,8 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
                 if (parser.HasKey("items")) {
                     auto parserItems = JsonParserArray::Create(parser.String("items"));
                     for (;;) {
-                        track = iTidalMetadata.TrackFromJson(parserItems.NextObject());
+                        track = iTidalMetadata.TrackFromJson(parserItems.NextObject(),
+                                                             aAuthConfig.oauthTokenId);
                         if (track != nullptr) {
                             aCount++;
                             iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
@@ -381,7 +424,8 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
                 }
                 else {
                     // special case for only one track (no 'items' object)
-                    track = iTidalMetadata.TrackFromJson(iJsonResponse.Buffer());
+                    track = iTidalMetadata.TrackFromJson(iJsonResponse.Buffer(),
+                                                         aAuthConfig.oauthTokenId);
                     if (track != nullptr) {
                         aCount++;
                         iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
@@ -416,17 +460,23 @@ TUint TidalPins::LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, 
     return currId;
 }
 
-TUint TidalPins::GetTotalItems(JsonParser& aParser, const Brx& aId, TidalMetadata::EIdType aIdType, TBool aIsContainer, TUint& aStartIndex, TUint& aEndIndex)
+TUint TidalPins::GetTotalItems(JsonParser& aParser,
+                               const Brx& aId,
+                               TidalMetadata::EIdType aIdType,
+                               TBool aIsContainer,
+                               TUint& aStartIndex,
+                               TUint& aEndIndex,
+                               const Tidal::AuthenticationConfig& aAuthConfig)
 {
     TUint total = 0;
     try {
         iJsonResponse.Reset();
         TBool success = false;
         if (aIdType == TidalMetadata::eNone) {
-            success = iTidal.TryGetIdsByRequest(iJsonResponse, aId, 1, 0);
+            success = iTidal.TryGetIdsByRequest(iJsonResponse, aId, 1, 0, aAuthConfig);
         }
         else {
-            success = iTidal.TryGetTracksById(iJsonResponse, aId, aIdType, 1, 0);
+            success = iTidal.TryGetTracksById(iJsonResponse, aId, aIdType, 1, 0, aAuthConfig);
         }
         if (success) {
             aParser.Reset();

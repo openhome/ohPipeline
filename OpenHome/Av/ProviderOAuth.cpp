@@ -165,7 +165,8 @@ ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
       iLockRsa("OAuth::RSA"),
       iLockProviders("OAuth::PVD"),
       iLockModerator("OAuth::MOD"),
-      iRsa(nullptr)
+      iRsa(nullptr),
+      iUpdateId(0)
 {
     EnablePropertyPublicKey();
     EnablePropertyUpdateId();
@@ -181,7 +182,7 @@ ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
 
     SetPropertyPublicKey(Brx::Empty());
     SetPropertyUpdateId(0);
-    SetPropertySupportedServices(Brx::Empty());
+    SetPropertySupportedServices(Brn("[]"));
 
     iKeyObserver = iRsaObservable.AddObserver(MakeFunctorGeneric(*this, &ProviderOAuth::RsaKeySet));
 

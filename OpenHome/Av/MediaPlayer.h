@@ -8,11 +8,6 @@
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/TransportControl.h>
 
-// Uncomment line below to enable the OAuth service on
-// the device
-//#define OAUTH_SERVICE
-
-
 namespace OpenHome {
     class Environment;
     class IPowerManager;
@@ -89,11 +84,7 @@ public:
     virtual Media::PipelineManager& Pipeline() = 0;
     virtual Media::TrackFactory& TrackFactory() = 0;
     virtual IReadStore& ReadStore() = 0;
-
-#ifdef OAUTH_SERVICE
     virtual Av::ProviderOAuth& OAuthManager() = 0;
-#endif
-
     virtual Configuration::IStoreReadWrite& ReadWriteStore() = 0;
     virtual Configuration::IConfigManager& ConfigManager() = 0;
     virtual Configuration::IConfigInitialiser& ConfigInitialiser() = 0;
@@ -185,11 +176,7 @@ public: // from IMediaPlayer
     Media::PipelineManager& Pipeline() override;
     Media::TrackFactory& TrackFactory() override;
     IReadStore& ReadStore() override;
-
-#ifdef OAUTH_SERVICE
     Av::ProviderOAuth& OAuthManager() override;
-#endif
-
     Configuration::IStoreReadWrite& ReadWriteStore() override;
     Configuration::IConfigManager& ConfigManager() override;
     Configuration::IConfigInitialiser& ConfigInitialiser() override;
@@ -239,11 +226,7 @@ private:
     Media::MimeTypeList iMimeTypes;
     SslContext* iSsl;
     TBool iOwnsSsl;
-
-#ifdef OAUTH_SERVICE
     ProviderOAuth* iProviderOAuth;
-#endif
-
     ProviderTime* iProviderTime;
     ProviderInfo* iProviderInfo;
     ProviderTransport* iProviderTransport;

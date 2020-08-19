@@ -13,7 +13,7 @@ namespace Av {
 class TestTidal : private ICredentialsState
 {
 public:
-    TestTidal(Environment& aEnv, const Brx& aToken);
+    TestTidal(Environment& aEnv, const Brx& aToken, const Brx& aClientId, const Brx& aClientSecret);
     virtual ~TestTidal();
     void Start(const Brx& aUsername, const Brx& aPassword);
     void Test();
@@ -33,12 +33,23 @@ using namespace OpenHome;
 using namespace OpenHome::TestFramework;
 using namespace OpenHome::Av;
 
-TestTidal::TestTidal(Environment& aEnv, const Brx& aToken)
+TestTidal::TestTidal(Environment& aEnv,
+                     const Brx& aToken,
+                     const Brx& aClientId,
+                     const Brx& aClientSecret)
 {
     iStore = new Configuration::ConfigRamStore();
     iConfigManager = new Configuration::ConfigManager(*iStore);
     iSsl = new SslContext();
-    iTidal = new Tidal(aEnv, *iSsl, aToken, *this, *iConfigManager);
+
+    Tidal::ConfigurationValues config
+    {
+        aToken,
+        aClientId,
+        aClientSecret
+    };
+
+    iTidal = new Tidal(aEnv, *iSsl, config, *this, *iConfigManager);
 }
 
 TestTidal::~TestTidal()
@@ -83,15 +94,16 @@ void TestTidal::Test()
     TUint count = 0;
     Bws<256> streamUrl;
     Bws<64> sessionId;
+    Brn tokenId = Brx::Empty(); //TODO: Set to something non-null for testing OAuth
     iTidal->TryReLogin(sessionId, sessionId);
     for (;;) {
         for (TUint i=0; i<numElems; i++) {
             Log::Print("#%6u, %s\n", count++, kTracks[i]);
             Brn trackId(kTracks[i]);
-            iTidal->TryGetStreamUrl(trackId, streamUrl);
+            iTidal->TryGetStreamUrl(trackId, tokenId, streamUrl);
             iTidal->TryLogout(sessionId);
             iTidal->TryLogin(sessionId);
-            iTidal->TryGetStreamUrl(trackId, streamUrl);
+            iTidal->TryGetStreamUrl(trackId, tokenId, streamUrl);
         }
     }
 }
@@ -107,6 +119,10 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
     OptionParser parser;
     OptionString optionToken("-t", "--token", Brn(""), "Tidal application token");
     parser.AddOption(&optionToken);
+    OptionString optionClientId("", "--client-id", Brn(""), "ClientId");
+    parser.AddOption(&optionClientId);
+    OptionString optionClientSecret("", "--client-secret", Brn(""), "ClientSecret");
+    parser.AddOption(&optionClientSecret);
     OptionString optionUsername("-u", "--username", Brn(""), "Username");
     parser.AddOption(&optionUsername);
     OptionString optionPassword("-p", "--password", Brn(""), "Password");
@@ -118,7 +134,11 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
 
     Debug::SetLevel(Debug::kApplication6);
     Debug::SetSeverity(Debug::kSeverityError);
-    TestTidal* tidal = new TestTidal(*env, optionToken.Value());
+    TestTidal* tidal = new TestTidal(*env,
+                                     optionToken.Value(),
+                                     optionClientId.Value(),
+                                     optionClientSecret.Value());
+
     tidal->Start(optionUsername.Value(), optionPassword.Value());
     tidal->Test();
     delete tidal;

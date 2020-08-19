@@ -90,10 +90,11 @@ TidalMetadata::TidalMetadata(Media::TrackFactory& aTrackFactory)
 {
 }
 
-Media::Track* TidalMetadata::TrackFromJson(const Brx& aMetadata)
+Media::Track* TidalMetadata::TrackFromJson(const Brx& aMetadata,
+                                           const Brx& aTokenId)
 {
     try {
-        ParseTidalMetadata(aMetadata);
+        ParseTidalMetadata(aMetadata, aTokenId);
         return iTrackFactory.CreateTrack(iTrackUri, iMetaDataDidl);
     }
     catch (AssertionFailed&) {
@@ -146,7 +147,8 @@ Brn TidalMetadata::FirstIdFromJson(const Brx& aJsonResponse, EIdType aType)
     return Brx::Empty();
 }
 
-void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata)
+void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata,
+                                       const Brx& aTokenId)
 {
     static const Tidal2DidlTagMapping kTidal2Didl[] ={
         { "title", "dc:title", kNsDc },
@@ -196,8 +198,22 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata)
     //    iTrackUri.ReplaceThrow(parser.String("url")); 
     //}
     if (parser.HasKey("id")) { // special linn style tidal url (non-streamable, gets converted later)
-        iTrackUri.ReplaceThrow(Brn("tidal://track?version=1&trackId="));
+
+        iTrackUri.ReplaceThrow(Brn("tidal://track?trackId="));
         iTrackUri.AppendThrow(parser.String("id"));
+        iTrackUri.AppendThrow(Brn("&version="));
+
+        const TBool isUsingOAuth = aTokenId.Bytes() > 0;
+
+        if (isUsingOAuth)
+        {
+            iTrackUri.AppendThrow("2&token=");
+            iTrackUri.AppendThrow(aTokenId);
+        }
+        else
+        {
+            iTrackUri.AppendThrow("1");
+        }
     }
     TryAppend("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
     TryAppend("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");

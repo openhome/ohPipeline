@@ -29,6 +29,7 @@
 #include <OpenHome/Av/UpnpAv/FriendlyNameUpnpAv.h>
 #include <OpenHome/Net/Odp/DviServerOdp.h>
 #include <OpenHome/Net/Odp/DviProtocolOdp.h>
+#include <OpenHome/Private/Debug.h>
 
 #undef LPEC_ENABLE
 
@@ -153,7 +154,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     , iSemShutdown("TMPS", 0)
     , iDisabled("test", 0)
     , iTuneInPartnerId(aTuneInPartnerId)
-    , iTidalId(aTidalId)
+    , iTidalValues(aTidalId)
     , iQobuzIdSecret(aQobuzIdSecret)
     , iUserAgent(aUserAgent)
     , iTxTimestamper(nullptr)
@@ -446,8 +447,21 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(ProtocolFactory::NewHls(aEnv, ssl, iUserAgent));
 
     // only add Tidal if we have a token to use with login
-    if (iTidalId.Bytes() > 0) {
-        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, ssl, iTidalId, *iMediaPlayer));
+    if (iTidalValues.Bytes() > 0) {
+        Parser p(iTidalValues);
+        Brn partnerId(p.Next(':'));
+        Brn clientId(p.Next(':'));
+        Brn clientSecret(p.Next(':'));
+
+        Log::Print("Tidal: partnerId = ");
+        Log::Print(partnerId);
+        Log::Print(", clientId = ");
+        Log::Print(clientId);
+        Log::Print(", clientSecret = ");
+        Log::Print(clientSecret);
+        Log::Print("\n");
+
+        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, ssl, partnerId, clientId, clientSecret, *iMediaPlayer));
     }
     // ...likewise, only add Qobuz if we have ids for login
     if (iQobuzIdSecret.Bytes() > 0) {
@@ -665,6 +679,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, T
     Debug::AddLevel(Debug::kMedia);
     Debug::AddLevel(Debug::kAdapterChange);
     //Debug::AddLevel(Debug::kSongcast);
+    Debug::AddLevel(Debug::kOAuth);
     Debug::SetSeverity(Debug::kSeverityInfo);
     Net::Library* lib = new Net::Library(initParams);
     //Net::DvStack* dvStack = lib->StartDv();

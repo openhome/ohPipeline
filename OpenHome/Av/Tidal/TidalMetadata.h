@@ -68,12 +68,14 @@ public:
     };
 public:
     TidalMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
-    OpenHome::Media::Track* TrackFromJson(const OpenHome::Brx& aMetadata);
+    OpenHome::Media::Track* TrackFromJson(const OpenHome::Brx& aMetadata,
+                                          const OpenHome::Brx& aTokenId);
     static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse, EIdType aType);
     static const Brx& IdTypeToString(EIdType aType);
     static EIdType StringToIdType(const Brx& aString);
 private:
-    void ParseTidalMetadata(const OpenHome::Brx& aMetadata);
+    void ParseTidalMetadata(const OpenHome::Brx& aMetadata,
+                            const OpenHome::Brx& aTokenId);
     void TryAddAttribute(OpenHome::JsonParser& aParser,
                          const TChar* aTidalKey, const TChar* aDidlAttr);
     void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
