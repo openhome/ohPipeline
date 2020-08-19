@@ -95,7 +95,6 @@ void PinInvokerUpnpServer::BeginInvoke(const IPin& aPin, Functor aCompleted)
     iDeviceList.GetServerRef(udn, server, 5000);
     iProxyContentDirectory = new CpProxyUpnpOrgContentDirectory1(*server);
     server->RemoveRef();
-    iShuffle = aPin.Shuffle();
     iPlaying = false;
     iTrackIdInsertAfter = ITrackDatabase::kTrackIdNone;
     IThreadPoolHandle* tph = nullptr;
@@ -279,6 +278,7 @@ TBool PinInvokerUpnpServer::TryAddItem(const Brx& aItemDidl)
         iTrackDatabase.Insert(iTrackIdInsertAfter, trackUri, iTrackMetadata, iTrackIdInsertAfter);
         if (!iPlaying) {
             FunctorAsync empty;
+            iProxyPlaylist->BeginSetShuffle(iShuffle, empty);
             iProxyPlaylist->BeginPlay(empty);
             iPlaying = true;
         }
