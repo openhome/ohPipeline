@@ -245,9 +245,14 @@ void PinInvokerUpnpServer::BrowseTrackCallback(IAsync& aAsync)
     TUint updateId;
     iProxyContentDirectory->EndBrowse(aAsync, xml, numberReturned, totalMatches, updateId);
 
-    auto didl = XmlParserBasic::Find("DIDL-Lite", xml);
-    auto item = XmlParserBasic::Find("item", didl, didl);
-    (void)TryAddItem(item);
+    try {
+        auto didl = XmlParserBasic::Find("DIDL-Lite", xml);
+        auto item = XmlParserBasic::Find("item", didl, didl);
+        (void)TryAddItem(item);
+    }
+    catch (XmlError&) {
+        Log::Print("PinInvokerUpnpServer - XmlError parsing %.*s\n", PBUF(xml));
+    }
 }
 
 TBool PinInvokerUpnpServer::TryAddItem(const Brx& aItemDidl)
