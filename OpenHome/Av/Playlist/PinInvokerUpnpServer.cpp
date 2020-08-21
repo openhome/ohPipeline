@@ -32,6 +32,7 @@ const TChar* PinInvokerUpnpServer::kMode = "upnp.cd";
 const Brn PinInvokerUpnpServer::kModeBuf(kMode);
 const TChar* PinInvokerUpnpServer::kQueryContainer = "id";
 const TChar* PinInvokerUpnpServer::kQueryTrack = "trackId";
+const Brn PinInvokerUpnpServer::kBrowseFilterAll("*");
 
 PinInvokerUpnpServer::PinInvokerUpnpServer(CpStack& aCpStack,
                                            Net::DvDevice& aDevice,
@@ -179,7 +180,7 @@ void PinInvokerUpnpServer::ReadContainer()
     //Log::Print("Container: %.*s, total=%u, index=%u\n", PBUF(container), iContainers.size(), iContainersIndex - 1);
     static const Brn kBrowseFlag("BrowseDirectChildren");
     auto callback = MakeFunctorAsync(*this, &PinInvokerUpnpServer::BrowseContainerCallback);
-    iProxyContentDirectory->BeginBrowse(container, kBrowseFlag, Brx::Empty(), 0, 0, Brx::Empty(), callback);
+    iProxyContentDirectory->BeginBrowse(container, kBrowseFlag, kBrowseFilterAll, 0, 0, Brx::Empty(), callback);
 }
 
 void PinInvokerUpnpServer::ReadTrack()
@@ -187,7 +188,7 @@ void PinInvokerUpnpServer::ReadTrack()
     CheckCancelled();
     static const Brn kBrowseFlag("BrowseMetadata");
     auto callback = MakeFunctorAsync(*this, &PinInvokerUpnpServer::BrowseTrackCallback);
-    iProxyContentDirectory->BeginBrowse(*iTrackId, kBrowseFlag, Brx::Empty(), 0, 0, Brx::Empty(), callback);
+    iProxyContentDirectory->BeginBrowse(*iTrackId, kBrowseFlag, kBrowseFilterAll, 0, 0, Brx::Empty(), callback);
 }
 
 void PinInvokerUpnpServer::BrowseContainerCallback(IAsync& aAsync)
@@ -211,7 +212,9 @@ void PinInvokerUpnpServer::BrowseContainerCallback(IAsync& aAsync)
             newContainers = true;
         }
     }
-    catch (XmlError&) {}
+    catch (XmlError&) {
+        Log::Print("BrowseContainerCallback - XmlError parsing %.*s\n", PBUF(didl));
+    }
 
     TBool playlistFull = false;
     try {

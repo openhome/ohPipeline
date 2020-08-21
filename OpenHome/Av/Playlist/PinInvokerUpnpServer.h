@@ -34,6 +34,7 @@ class PinInvokerUpnpServer : public IPinInvoker
     static const Brn kModeBuf;
     static const TChar* kQueryContainer;
     static const TChar* kQueryTrack;
+    static const Brn kBrowseFilterAll;
 
     const TUint kMinSupportedVersion = 1;
     const TUint kMaxSupportedVersion = 1;
