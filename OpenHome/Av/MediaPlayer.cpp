@@ -215,8 +215,12 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     iVolumeManager = new Av::VolumeManager(aVolumeConsumer, iPipeline, *iVolumeConfig, aDevice, *iProduct, *iConfigManager, *iPowerManager, aDvStack.Env());
     iCredentials = new Credentials(aDvStack.Env(), aDevice, aReadWriteStore, aEntropy, *iConfigManager, *iPowerManager);
     iProduct->AddAttribute("Credentials");
+
+#ifdef OAUTH_SERVICE
     iProviderOAuth = new ProviderOAuth(aDevice, aDvStack.Env(), *iThreadPool, *iCredentials, *iConfigManager, aReadWriteStore);
     iProduct->AddAttribute("OAuth");
+#endif
+
     iProviderTime = new ProviderTime(aDevice, *iPipeline);
     iProduct->AddAttribute("Time");
     iProviderInfo = new ProviderInfo(aDevice, *iPipeline);
@@ -245,9 +249,11 @@ MediaPlayer::~MediaPlayer()
     ASSERT(!iDevice.Enabled());
     delete iPipeline;
 
+#ifdef OAUTH_SERVICE
     /* ProviderOAuth will observe changes in service's enabled state from
      * credentials service. Need to unsubscribe first before freeing credentials */
     delete iProviderOAuth;
+#endif
 
     delete iCredentials;
     /**
@@ -382,10 +388,12 @@ IStoreReadWrite& MediaPlayer::ReadWriteStore()
     return iReadWriteStore;
 }
 
+#ifdef OAUTH_SERVICE
 ProviderOAuth& MediaPlayer::OAuthManager()
 {
     return *iProviderOAuth;
 }
+#endif
 
 IConfigManager& MediaPlayer::ConfigManager()
 {
