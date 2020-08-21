@@ -28,7 +28,7 @@
     },
     {   "name": "libplatform",
         "type": "internal",
-        "version": "0.71.891",
+        "version": "0.73.904",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
