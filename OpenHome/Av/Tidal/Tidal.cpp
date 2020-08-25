@@ -16,6 +16,7 @@
 #include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/Json.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
+#include <OpenHome/Private/Converter.h>
 
 #include <algorithm>
 
@@ -119,9 +120,6 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
         return false;
     }
 
-    //TODO: Playback will need to handle the case where a V1 control point has
-    //      tried to play a track when the DS is using V2 exclusively
-
     ServiceToken accessToken;
     if (isUsingOAuth)
     {
@@ -134,27 +132,21 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
 
     AutoSocketSsl __(iSocket);
 
-    Bws<128> pathAndQuery("/v1/tracks/");
+    Bws<256> pathAndQuery("/v1/tracks/");
 
     pathAndQuery.Append(aTrackId);
-    pathAndQuery.Append("/streamurl?");
+    pathAndQuery.Append("/playbackinfopostpaywall?");
 
-    if (isUsingOAuth)
-    {
-        UserInfo& info = iUserInfos[Brn(aTokenId)];
+    pathAndQuery.Append("playbackmode=STREAM");     // Options: STREAM, OFFLINE
+    pathAndQuery.Append("&assetpresentation=FULL"); // Options: FULL, PREVIEW
 
-        pathAndQuery.Append("countryCode=");
-        pathAndQuery.Append(info.countryCode);
-    }
-    else
+    if (!isUsingOAuth)
     {
-        pathAndQuery.Append("countryCode=");
-        pathAndQuery.Append(iCountryCode);
         pathAndQuery.Append("&sessionId=");
         pathAndQuery.Append(iSessionId);
     }
 
-    pathAndQuery.Append("&soundQuality=");
+    pathAndQuery.Append("&audioquality=");
     iLockConfig.Wait();
     pathAndQuery.Append(Brn(kSoundQualities[iSoundQuality]));
     iLockConfig.Signal();
@@ -193,15 +185,47 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
             THROW(ReaderError);
         }
 
-        JsonParser p;
-        p.ParseAndUnescape(iResponseBuffer);
+        JsonParser playbackInfoParser;
+        playbackInfoParser.ParseAndUnescape(iResponseBuffer);
 
-        aStreamUrl.Replace(p.String("url"));
+        LOG_TRACE(kPipeline,
+                  "Tidal::TryGetStreamUrl - Requested TrackId: %.*s, received: %.*s (Quality: %.*s)\n",
+                  PBUF(aTrackId),
+                  PBUF(playbackInfoParser.String("trackId")),
+                  PBUF(playbackInfoParser.String("audioQuality")));
 
-        aStreamUrl.Replace(p.String("url"));
+        Brn manifestType = playbackInfoParser.String("manifestMimeType");
 
-        LOG(kMedia, "Tidal::TryGetStreamUrl aStreamUrl: %.*s\n", PBUF(aStreamUrl));
-        success = true;
+        /* 4 types of manifest:
+         * - EMU: Link that points to the actual manifest (Not Implemented)
+         * - BTS: Old streaming API wrapped up in the new payload
+         * - 2x MPEG LiveStreaming (Assuming for video content. Not implemented) */
+        if (manifestType == Brn("application/vnd.tidal.bts"))
+        {
+            LOG_TRACE(kPipeline, "Tidal::TryGetStreamUrl - Manifest type is 'Basic (BTS)'\n");
+
+            Brn manifest = playbackInfoParser.String("manifest");
+            Bwn manifestW(manifest.Ptr(), manifest.Bytes(), manifest.Bytes());  // We can reuse the underlying buffer provided by iResponseBuffer
+            Converter::FromBase64(manifestW);
+
+            JsonParser manifestParser;
+            manifestParser.ParseAndUnescape(manifestW);
+
+            LOG_TRACE(kPipeline,
+                      "Tidal::TryGetStreamUrl - Parsed manifest. Audio mimeType: %.*s, encryption: %.*s\n",
+                      PBUF(manifestParser.String("mimeType")),
+                      PBUF(manifestParser.String("encryptionType")));
+
+            auto urlParser = JsonParserArray::Create(manifestParser.String("urls"));
+            aStreamUrl.Replace(urlParser.NextString());
+
+            LOG(kMedia, "Tidal::TryGetStreamUrl aStreamUrl: %.*s\n", PBUF(aStreamUrl));
+            success = true;
+        }
+        else
+        {
+            LOG_ERROR(kPipeline, "Unknown manifest type (%.*s) in Tidal::TryGetStreamUrl\n", PBUF(manifestType));
+        }
     }
     catch (HttpError&) {
         LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetStreamUrl\n");
