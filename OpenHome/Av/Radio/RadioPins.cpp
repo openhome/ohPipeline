@@ -101,6 +101,7 @@ TBool RadioPins::LoadPreset(TUint aPreset)
             }
             const TUint id = Converter::BeUint32At(idArray, pos);
             iCpRadio->SyncSetId(id, Brx::Empty());
+            Thread::Sleep(300);
             iCpRadio->SyncPlay();
             return true;
         }

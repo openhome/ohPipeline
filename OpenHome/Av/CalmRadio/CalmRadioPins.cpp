@@ -134,6 +134,7 @@ TBool CalmRadioPins::LoadStream(const Brx& aStream, const IPin& aPin)
         Bwh metadata(1024 * 5);
         PinMetadata::GetDidlLite(aPin, metadata);
         iCpRadio->SyncSetChannel(uri, metadata);
+        Thread::Sleep(300);
         iCpRadio->SyncPlay();
         return true;
     }
