@@ -122,7 +122,7 @@ void TidalPins::Invoke()
     try {
         PinUri pinUri(iPin);
         Brn val;
-        Brn tokenId = Brx::Empty();
+        Brn tokenId;
 
         const TBool hasVersion = pinUri.TryGetValue(kPinKeyVersion, val);
         const TBool hasTokenId = pinUri.TryGetValue(kPinKeyTokenId, tokenId);
@@ -143,7 +143,10 @@ void TidalPins::Invoke()
         };
 
 
-        Log::Print("Working with:\nfallbackIfNoTokenPresent: %d\noauthTokenId: %.*s\n", authConfig.fallbackIfTokenNotPresent, PBUF(authConfig.oauthTokenId));
+        Log::Print("Working with:\nfallbackIfNoTokenPresent: %d\noauthTokenId: %.*s\n", 
+                   authConfig.fallbackIfTokenNotPresent, 
+                   PBUF(authConfig.oauthTokenId.Bytes() == 0 ? Brn("None")
+                                                             : Brn(authConfig.oauthTokenId)));
 
         if (Brn(pinUri.Type()) == Brn(kPinTypeTrack)) {
             if (pinUri.TryGetValue(kPinKeyTrackId, val)) {
