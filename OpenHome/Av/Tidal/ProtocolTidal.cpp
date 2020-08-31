@@ -485,7 +485,7 @@ TBool ProtocolTidal::TryGetTrackId(const Brx& aQuery,
         {
             aTrackId.Replace(val);
         }
-        else if (key == Brn("tokenId"))
+        else if (key == Brn("token"))
         {
             aTokenId.Write(val);
         }
@@ -520,6 +520,7 @@ TBool ProtocolTidal::TryGetTrackId(const Brx& aQuery,
 
     // - V2
     // Valiate tokenId...
+    Log::Print("%.*s\n", PBUF(aTokenId.Buffer()));
     if (version == 2 && aTokenId.Buffer().Bytes() == 0)
     {
         LOG_ERROR(kPipeline, "TryGetTrackId failed - no token id value\n");
