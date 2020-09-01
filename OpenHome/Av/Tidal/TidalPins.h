@@ -35,11 +35,7 @@ class TidalPins
     static const TUint kJsonResponseChunks = 4 * 1024;
 
     const TUint kMinSupportedVersion = 1;
-#ifdef OAUTH_SERVICE
     const TUint kMaxSupportedVersion = 2;
-#else
-    const TUint kMaxSupportedVersion = 1;
-#endif
 
 public:
     TidalPins(Tidal& aTidal,

@@ -25,25 +25,13 @@ class ProtocolTidal : public Media::ProtocolNetwork, private IReader
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
 
     static const TUint kMinSupportedTrackVersion = 1;
-#ifdef OAUTH_SERVICE
     static const TUint kMaxSupportedTrackVersion = 2;
-#else
-    static const TUint kMaxSupportedTrackVersion = 1;
-#endif
 
 public:
     ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::ConfigurationValues& aConfiguration, Credentials& aCredentialsManager,
                   Configuration::IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice,
                   Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack,
-                  Optional<IPinsInvocable> aPinsInvocable, IThreadPool& aThreadPool);
-
-#ifdef OAUTH_SERVICE
-    ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::ConfigurationValues& aConfiguration, Credentials& aCredentialsManager,
-                  Configuration::IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice,
-                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack,
                   Optional<IPinsInvocable> aPinsInvocable, IThreadPool& aThreadPool, ProviderOAuth& aOAuthManager);
-#endif
-
     ~ProtocolTidal();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -122,48 +110,14 @@ Protocol* ProtocolFactory::NewTidal(Environment& aEnv,
         aClientSecret // clientSecret
     };
 
-#ifdef OAUTH_SERVICE
     return new ProtocolTidal(aEnv, aSsl, config, aMediaPlayer.CredentialsManager(),
                              aMediaPlayer.ConfigInitialiser(), aMediaPlayer.Device(),
                              aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(),
                              aMediaPlayer.PinsInvocable(), aMediaPlayer.ThreadPool(), aMediaPlayer.OAuthManager());
-#else
-    return new ProtocolTidal(aEnv, aSsl, config, aMediaPlayer.CredentialsManager(),
-                             aMediaPlayer.ConfigInitialiser(), aMediaPlayer.Device(),
-                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(),
-                             aMediaPlayer.PinsInvocable(), aMediaPlayer.ThreadPool());
-#endif
 }
 
 
 // ProtocolTidal
-ProtocolTidal::ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::ConfigurationValues& aConfig, Credentials& aCredentialsManager,
-                             IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice,
-                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack,
-                             Optional<IPinsInvocable> aPinsInvocable, IThreadPool& aThreadPool)
-    : ProtocolNetwork(aEnv)
-    , iTokenProvider(nullptr)
-    , iSupply(nullptr)
-    , iTokenId(128)
-    , iWriterRequest(iWriterBuf)
-    , iReaderUntil(iReaderBuf)
-    , iReaderResponse(aEnv, iReaderUntil)
-    , iTotalBytes(0)
-    , iSeekable(false)
-{
-    iReaderResponse.AddHeader(iHeaderContentType);
-    iReaderResponse.AddHeader(iHeaderContentLength);
-
-    iTidal = new Tidal(aEnv, aSsl, aConfig, aCredentialsManager, aConfigInitialiser);
-    aCredentialsManager.Add(iTidal);
-
-    if (aPinsInvocable.Ok()) {
-        auto pins = new TidalPins(*iTidal, aEnv, aDevice, aTrackFactory, aCpStack, aThreadPool);
-        aPinsInvocable.Unwrap().Add(pins);
-    }
-}
-
-#ifdef OAUTH_SERVICE
 ProtocolTidal::ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::ConfigurationValues& aConfig, Credentials& aCredentialsManager,
                              IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice,
                              Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack,
@@ -197,8 +151,6 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::Configu
         aPinsInvocable.Unwrap().Add(pins);
     }
 }
-#endif
-
 
 ProtocolTidal::~ProtocolTidal()
 {
@@ -243,7 +195,6 @@ ProtocolStreamResult ProtocolTidal::Stream(const Brx& aUri)
     }
 
 
-#ifdef OAUTH_SERVICE
     // Tracks that don't specify an OAuth token ID (a V2 uri) will attempt to use the
     // first token found that's available and valid.
     //
@@ -289,12 +240,6 @@ ProtocolStreamResult ProtocolTidal::Stream(const Brx& aUri)
             return EProtocolStreamErrorUnrecoverable;
         }
     }
-#else
-    if (iSessionId.Bytes() == 0 && !iTidal->TryLogin(iSessionId))
-    {
-        return EProtocolStreamErrorUnrecoverable;
-    }
-#endif
 
     // Token / Credentials available, try get the streamable URI from tidal
     if (!iTidal->TryGetStreamUrl(iTrackId, iTokenId.Buffer(), iStreamUrl))
