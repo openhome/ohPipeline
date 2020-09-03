@@ -244,7 +244,6 @@ ProtocolStreamResult ProtocolTidal::Stream(const Brx& aUri)
     // Token / Credentials available, try get the streamable URI from tidal
     if (!iTidal->TryGetStreamUrl(iTrackId, iTokenId.Buffer(), iStreamUrl))
     {
-#ifdef OAUTH_SERVICE
         if (hasTokenId)
         {
             if (!iTokenProvider->EnsureTokenIsValid(iTokenId.Buffer())
@@ -254,7 +253,6 @@ ProtocolStreamResult ProtocolTidal::Stream(const Brx& aUri)
             }
         }
         else
-#endif
         {
             // attempt logout, login, getStreamUrl to see if that fixes things
             (void)iTidal->TryLogout(iSessionId);
