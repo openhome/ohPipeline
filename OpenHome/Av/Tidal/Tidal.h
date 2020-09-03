@@ -35,7 +35,7 @@ class Tidal : public ICredentialConsumer,
 public:
     static const Brn kId;
 
-    static const TUint kMaximumNumberOfStoredTokens = 5;
+    static const TUint kMaximumNumberOfStoredTokens = 10; //Family account of 4 + one for each of the 6 device pins
 
 private:
     static const Brn kHost;
