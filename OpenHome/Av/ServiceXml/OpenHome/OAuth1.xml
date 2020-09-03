@@ -73,7 +73,7 @@
 
 
         <action>
-            <name>GetServiceStatusUpdateId</name>
+            <name>GetUpdateId</name>
             <argumentList>
                 <argument>
                     <name>UpdateId</name>

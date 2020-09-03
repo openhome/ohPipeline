@@ -176,7 +176,7 @@ ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
     EnableActionSetToken();
     EnableActionClearToken();
     EnableActionClearTokens();
-    EnableActionGetServiceStatusUpdateId();
+    EnableActionGetUpdateId();
     EnableActionGetServiceStatus();
     EnableActionGetSupportedServices();
 
@@ -414,8 +414,8 @@ void ProviderOAuth::ClearTokens(IDvInvocation& aInvocation,
 }
 
 
-void ProviderOAuth::GetServiceStatusUpdateId(Net::IDvInvocation& aInvocation,
-                                             Net::IDvInvocationResponseUint& aUpdateId)
+void ProviderOAuth::GetUpdateId(Net::IDvInvocation& aInvocation,
+                                Net::IDvInvocationResponseUint& aUpdateId)
 {
     AutoMutex m(iLockModerator);
 

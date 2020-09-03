@@ -74,8 +74,8 @@ class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
         void ClearTokens(Net::IDvInvocation& aInvocation,
                          const Brx& aServiceId) override;
 
-        void GetServiceStatusUpdateId(Net::IDvInvocation& aInvocation,
-                                      Net::IDvInvocationResponseUint& aUpdateId) override;
+        void GetUpdateId(Net::IDvInvocation& aInvocation,
+                         Net::IDvInvocationResponseUint& aUpdateId) override;
 
         void GetServiceStatus(Net::IDvInvocation& aInvocation,
                               Net::IDvInvocationResponseString& aServiceStatusJson) override;
