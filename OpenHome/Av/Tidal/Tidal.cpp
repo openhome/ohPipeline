@@ -438,11 +438,11 @@ TBool Tidal::TryGetResponse(IWriter& aWriter,
 
     if (aAuthConfig.oauthTokenId.Bytes() > 0)
     {
-        Log::Print("Tidal: TGR -> Has OAuth token Id\n");
+        LOG_TRACE(kMedia, "Tidal::TryGetResponse -> Has OAuth token Id\n");
         hasToken = iTokenProvider != nullptr && iTokenProvider->HasToken(aAuthConfig.oauthTokenId);
         if (hasToken)
         {
-            Log::Print("Tidal: TGR -> OAuth Token was found.\n");
+            LOG_TRACE(kMedia, "Tidal::TryGetResponse -> OAuth Token was found.\n");
             tokenIdWriter.Write(aAuthConfig.oauthTokenId);
         }
     }
@@ -453,7 +453,7 @@ TBool Tidal::TryGetResponse(IWriter& aWriter,
 
     if (!hasToken && !aAuthConfig.fallbackIfTokenNotPresent)
     {
-        Log::Print("Tidal: TGR -> Token not found and not falling back.\n");
+        Log::Print("Tidal::TryGetResponse: Token not found. Fallback to username/password not requested.\n");
         return false;
     }
 

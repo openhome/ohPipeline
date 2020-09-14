@@ -126,7 +126,6 @@ void TidalPins::Invoke()
 
         const TBool hasVersion = pinUri.TryGetValue(kPinKeyVersion, val);
         const TBool hasTokenId = pinUri.TryGetValue(kPinKeyTokenId, tokenId);
-
         const TBool isV2 = hasVersion && val == Brn("2");
 
         // Needs a version and if V2, needs a tokenId
