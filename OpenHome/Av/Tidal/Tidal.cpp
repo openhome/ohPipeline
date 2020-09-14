@@ -480,8 +480,6 @@ TBool Tidal::TryGetResponse(IWriter& aWriter,
     {
         if (hasToken)
         {
-            Log::Print("Write Tidal request: Using OAuth and has token of id: %.s\n", PBUF(tokenIdWriter.Buffer()));
-
             TBool success = false;
             for(auto& v : iUserInfos)
             {
@@ -496,8 +494,8 @@ TBool Tidal::TryGetResponse(IWriter& aWriter,
 
             if (!success)
             {
-                //TODO: Handle error here...
-                Log::Print("No country code found...\n");
+                LOG_ERROR(kPipeline, "Tidal::TryGetResponse: Unable to find associated userId or countryCode for the given token id.\n");
+                return false;
             }
         }
         else
@@ -513,7 +511,7 @@ TBool Tidal::TryGetResponse(IWriter& aWriter,
     }
 
     try {
-        Log::Print("Write Tidal request: https://%.*s%.*s\n", PBUF(aHost), PBUF(aPathAndQuery));
+        Log::Print("Tidal::TryGetResponse: Request for 'https://%.*s%.*s'\n", PBUF(aHost), PBUF(aPathAndQuery));
 
         if (hasToken)
         {
