@@ -35,6 +35,66 @@ const Brn Tidal::kId("tidalhifi.com");
 
 const Brn Tidal::kConfigKeySoundQuality("tidalhifi.com.SoundQuality");
 
+
+// UserInfo
+/* Associated information connected to an OAuthToken.
+ * Populated when an AccessToken is generated to avoid later requests
+ * to obtain this information */
+class Tidal::UserInfo
+{
+    public:
+        UserInfo()
+            : iPopulated(false)
+            , iUsername(64)
+            , iTokenId(32)
+        { }
+
+        const TBool Populated() const { return iPopulated; };
+        const TUint UserId() const { return iUserId; };
+        const Brx& CountryCode() const { return iCountryCode; };
+        const Brx& Username() const { return iUsername.Buffer(); }
+        const Brx& TokenId() const { return iTokenId.Buffer(); }
+
+        void Populate(const Brx& aTokenId,
+                      TUint aUserId,
+                      const Brx& aUsername,
+                      const Brx& aCountryCode)
+        {
+            iPopulated = true;
+            iUserId  = aUserId;
+
+            iTokenId.Reset();
+            iTokenId.Write(aTokenId);
+
+            iUsername.Reset();
+            iUsername.Write(aTokenId);
+
+            iCountryCode.Replace(aCountryCode);
+        }
+
+        void Empty()
+        {
+            iPopulated = false;
+            iUserId = 0;
+
+            iTokenId.Reset();
+            iUsername.Reset();
+
+            iCountryCode.Replace("");
+        }
+
+    private:
+        TBool iPopulated;
+        TUint iUserId;
+        Bws<4> iCountryCode;
+        WriterBwh iUsername;
+        WriterBwh iTokenId;
+};
+
+
+
+// Tidal
+
 Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues& aTidalConfig, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser)
     : iLock("TDL1")
     , iLockConfig("TDL2")
@@ -54,6 +114,7 @@ Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues& aTi
     , iUri(1024)
     , iTokenProvider(nullptr)
     , iConnectedHost(SocketHost::None)
+    , iUserInfos(kMaximumNumberOfStoredTokens)
 {
     iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Tidal::SocketInactive), "Tidal");
 
@@ -421,10 +482,23 @@ TBool Tidal::TryGetResponse(IWriter& aWriter,
         {
             Log::Print("Write Tidal request: Using OAuth and has token of id: %.s\n", PBUF(tokenIdWriter.Buffer()));
 
-            UserInfo& info = iUserInfos[Brn(tokenIdWriter.Buffer())];
+            TBool success = false;
+            for(auto& v : iUserInfos)
+            {
+                if (v.TokenId() == tokenIdWriter.Buffer())
+                {
+                    aPathAndQuery.Append("&countryCode=");
+                    aPathAndQuery.Append(v.CountryCode());
+                    success = true;
+                    break;
+                }
+            }
 
-            aPathAndQuery.Append("&countryCode=");
-            aPathAndQuery.Append(info.countryCode);
+            if (!success)
+            {
+                //TODO: Handle error here...
+                Log::Print("No country code found...\n");
+            }
         }
         else
         {
@@ -922,15 +996,16 @@ TBool Tidal::TryGetAccessToken(const Brx& aTokenId,
         const Brx& username = parserUser.String("username");
 
         // Store our user info internally for future API calls...
-        UserInfo& storedInfos = iUserInfos[Brn(aTokenId)];
-        storedInfos.userId = userId;
-        storedInfos.countryCode.Replace(countryCode);
-
-        storedInfos.username.Reset();
-        storedInfos.username.Write(username);
+        for(auto& v : iUserInfos)
+        {
+            if (!v.Populated())
+            {
+                v.Populate(aTokenId, userId, username, countryCode);
+                break;
+            }
+        }
 
         //FIX ME: Need to handle JSON exceptions that might be thrown by this...
-
         return true;
     }
     catch (HttpError&)
@@ -954,19 +1029,21 @@ TBool Tidal::TryGetUsernameFromToken(const Brx& aTokenId,
                                      const Brx& /*aAccessToken*/,
                                      IWriter& aUsername)
 {
+    TBool success = false;
     AutoMutex m(iLock);
     Brn tokenComp(aTokenId);
 
-    TBool tokenExists = iUserInfos.count(tokenComp) > 0;
-    if (!tokenExists)
+    for(auto& v : iUserInfos)
     {
-        return false;
+        if (v.TokenId() == aTokenId)
+        {
+            aUsername.Write(v.TokenId());
+            success = true;
+            break;
+        }
     }
 
-    UserInfo& infos = iUserInfos[tokenComp];
-    aUsername.Write(infos.username.Buffer());
-
-    return true;
+    return success;
 }
 
 
@@ -979,7 +1056,14 @@ void Tidal::OnTokenRemoved(const Brx& aTokenId,
     //       access. We could create a socket lock as well as credential locking
     AutoMutex m(iLock);
 
-    iUserInfos.erase(Brn(aTokenId));
+    for(auto& v : iUserInfos)
+    {
+        if (v.TokenId() == aTokenId)
+        {
+            v.Empty();
+            break;
+        }
+    }
 
     (void)TryLogoutSession(TokenType::OAuth, aAccessToken);
 }

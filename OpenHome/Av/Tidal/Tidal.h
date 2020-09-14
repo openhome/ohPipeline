@@ -12,7 +12,7 @@
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Tidal/TidalMetadata.h>
         
-#include <map>
+#include <vector>
 
 namespace OpenHome {
     class Environment;
@@ -86,17 +86,7 @@ private:
         Auth,
     };
 
-    struct UserInfo
-    {
-        TUint userId;
-        Bws<4> countryCode;
-        WriterBwh username;
-
-        UserInfo()
-            : username(64)
-        { }
-    };
-
+    class UserInfo;
 
 public:
     Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues&, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser);
@@ -181,7 +171,7 @@ private:
     Bws<4096> iResponseBuffer;
     ITokenProvider* iTokenProvider;
     SocketHost iConnectedHost;
-    std::map<Brn, UserInfo, BufferCmp> iUserInfos;
+    std::vector<UserInfo> iUserInfos;
 };
 
 };  // namespace Av
