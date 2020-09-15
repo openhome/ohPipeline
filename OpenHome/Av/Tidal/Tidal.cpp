@@ -779,7 +779,7 @@ TBool Tidal::TryLogoutLocked(const Brx& aSessionId)
         return true;
     }
 
-    TBool success = TryLogoutSession(TokenType::UsernamePassword, aSessionId);
+    TBool success = TryLogoutSession(aSessionId);
     if (success)
     {
         iSessionId.SetBytes(0);
@@ -1063,18 +1063,20 @@ void Tidal::OnTokenRemoved(const Brx& aTokenId,
         }
     }
 
-    (void)TryLogoutSession(TokenType::OAuth, aAccessToken);
+    // Don't try and logout the session. Doing so would invalidatew all other tokens
+    // on systems stopping playback...
 }
 
 
-
-TBool Tidal::TryLogoutSession(const TokenType aTokenType, const Brx& aToken)
+/* This should only be called when using Username/Password credentials.
+ * Otherwise, logging out an OAuth token would invalidate all existing tokens
+ * on DSs and will eventually cause playback to cease. */
+TBool Tidal::TryLogoutSession(const Brx& aToken)
 {
     if (aToken.Bytes() == 0)
     {
         return true;
     }
-
 
     if (!TryConnect(SocketHost::API, kPort))
     {
@@ -1084,23 +1086,15 @@ TBool Tidal::TryLogoutSession(const TokenType aTokenType, const Brx& aToken)
 
     AutoSocketSsl _(iSocket);
     TBool success = false;
-    Bws<64> pathAndQuery("/v1/logout");
-
-    if (aTokenType == TokenType::UsernamePassword)
-    {
-        pathAndQuery.Append("?sessionId=");
-        pathAndQuery.Append(aToken);
-    }
+    Bws<64> pathAndQuery("/v1/logout?sessionId=");
+    pathAndQuery.Append(aToken);
 
     try
     {
         WriteRequestHeaders(Http::kMethodPost,
                             kHost,
                             pathAndQuery,
-                            kPort,
-                            Connection::Close,
-                            0,
-                            aTokenType == TokenType::OAuth ? aToken : Brx::Empty());
+                            kPort);
 
         iReaderResponse.Read();
         const TUint code = iReaderResponse.Status().Code();

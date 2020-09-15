@@ -125,7 +125,7 @@ private:
     TBool TryConnect(SocketHost aHost, TUint aPort);
     TBool TryLoginLocked();
     TBool TryLoginLocked(Bwx& aSessionId);
-    TBool TryLogoutSession(const TokenType aTokenType, const Brx& aToken);
+    TBool TryLogoutSession(const Brx& aToken);
     TBool TryLogoutLocked(const Brx& aSessionId);
     TBool TryGetSubscriptionLocked();
     TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection);
