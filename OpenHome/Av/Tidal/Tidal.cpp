@@ -67,7 +67,7 @@ class Tidal::UserInfo
             iTokenId.Write(aTokenId);
 
             iUsername.Reset();
-            iUsername.Write(aTokenId);
+            iUsername.Write(aUsername);
 
             iCountryCode.Replace(aCountryCode);
         }
@@ -482,19 +482,19 @@ TBool Tidal::TryGetResponse(IWriter& aWriter,
     {
         if (hasToken)
         {
-            TBool success = false;
+            TBool tokenFound = false;
             for(auto& v : iUserInfos)
             {
                 if (v.TokenId() == tokenIdWriter.Buffer())
                 {
                     aPathAndQuery.Append("&countryCode=");
                     aPathAndQuery.Append(v.CountryCode());
-                    success = true;
+                    tokenFound = true;
                     break;
                 }
             }
 
-            if (!success)
+            if (!tokenFound)
             {
                 LOG_ERROR(kPipeline, "Tidal::TryGetResponse: Unable to find associated userId or countryCode for the given token id.\n");
                 return false;
