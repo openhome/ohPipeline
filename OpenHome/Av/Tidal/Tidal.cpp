@@ -170,18 +170,10 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
                              Bwx& aStreamUrl)
 {
     iTimerSocketActivity->Cancel(); // socket automatically closed by call below
-    AutoMutex _(iLock);
-    TBool success = false;
-
-    const TBool isUsingOAuth = aTokenId.Bytes() > 0;
-
-    if (!TryConnect(SocketHost::API, kPort))
-    {
-        LOG_ERROR(kPipeline, "Tidal::TryGetStreamUrl() - connection failure.\n");
-        return false;
-    }
 
     ServiceToken accessToken;
+    const TBool isUsingOAuth = aTokenId.Bytes() > 0;
+
     if (isUsingOAuth)
     {
         if (!iTokenProvider->TryGetToken(aTokenId, accessToken))
@@ -189,6 +181,16 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
             LOG_ERROR(kPipeline, "Tidal::TryGetStreamUrl() - token '%.*s' not available.\n", PBUF(aTokenId));
             return false;
         }
+    }
+
+
+    AutoMutex _(iLock);
+    TBool success = false;
+
+    if (!TryConnect(SocketHost::API, kPort))
+    {
+        LOG_ERROR(kPipeline, "Tidal::TryGetStreamUrl() - connection failure.\n");
+        return false;
     }
 
     AutoSocketSsl __(iSocket);
