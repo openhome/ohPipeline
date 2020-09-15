@@ -1048,7 +1048,7 @@ TBool Tidal::TryGetUsernameFromToken(const Brx& aTokenId,
 
 
 void Tidal::OnTokenRemoved(const Brx& aTokenId,
-                           const Brx& aAccessToken)
+                           const Brx& /*aAccessToken*/)
 {
     LOG(kOAuth, "Tidal::OnTokenRemoved() - %.*s\n", PBUF(aTokenId));
 
