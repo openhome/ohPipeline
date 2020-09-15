@@ -247,8 +247,9 @@ ProtocolStreamResult ProtocolTidal::Stream(const Brx& aUri)
         if (hasTokenId)
         {
             if (!iTokenProvider->EnsureTokenIsValid(iTokenId.Buffer())
-                    || iTidal->TryGetStreamUrl(iTrackId, iTokenId.Buffer(), iStreamUrl))
+                    || !iTidal->TryGetStreamUrl(iTrackId, iTokenId.Buffer(), iStreamUrl))
             {
+                LOG_ERROR(kPipeline, "ProtocolTidal::Stream - token '%.*s' is no longer valid or has failed to obtain a stream URL.\n", PBUF(iTokenid.Buffer()));
                 return EProtocolStreamErrorUnrecoverable;
             }
         }
@@ -260,6 +261,7 @@ ProtocolStreamResult ProtocolTidal::Stream(const Brx& aUri)
             if (!iTidal->TryLogin(iSessionId)
                   || !iTidal->TryGetStreamUrl(iTrackId, iTokenId.Buffer(), iStreamUrl))
             {
+                LOG_ERROR(kPipeline, "ProtocolTidal::Stream - failed to relogin or obtain a valid stream URL.\n");
                 return EProtocolStreamErrorUnrecoverable;
             }
         }
