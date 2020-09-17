@@ -137,10 +137,13 @@ void TidalPins::Invoke()
         //If V2 pin, we *MUST* only use OAUTH. Fallback there to support V1 playback
         Tidal::AuthenticationConfig authConfig =
         {
-            !isV2,          //fallbackIfTokenNotPresent
-            Brn(tokenId)    //oauthTokenId
+            !isV2,     //fallbackIfTokenNotPresent
+            tokenId    //oauthTokenId
         };
 
+
+        TUint theBytes = authConfig.oauthTokenId.Bytes();
+        Brn somethingToPrint = theBytes == 0 ? Brn("None") : tokenId;
 
         Log::Print("Working with:\nfallbackIfNoTokenPresent: %d\noauthTokenId: %.*s\n", 
                    authConfig.fallbackIfTokenNotPresent, 
