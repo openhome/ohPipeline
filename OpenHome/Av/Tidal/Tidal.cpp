@@ -1037,7 +1037,7 @@ TBool Tidal::TryGetUsernameFromToken(const Brx& aTokenId,
     {
         if (v.TokenId() == aTokenId)
         {
-            aUsername.Write(v.TokenId());
+            aUsername.Write(v.Username());
             success = true;
             break;
         }
