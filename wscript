@@ -323,6 +323,7 @@ def build(bld):
                 'OpenHome/Av/MediaPlayer.cpp',
                 'OpenHome/Av/Logger.cpp',
                 'Generated/DvAvOpenhomeOrgConfig2.cpp',
+                'OpenHome/AESHelpers.cpp',
                 'OpenHome/Json.cpp',
                 'OpenHome/OAuth.cpp',
                 'Generated/DvAvOpenhomeOrgOAuth1.cpp',
@@ -831,6 +832,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestCredentials.cpp',
                 'Generated/CpAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Tests/TestJson.cpp',
+                'OpenHome/Tests/TestAESHelpers.cpp',
                 'OpenHome/Tests/TestThreadPool.cpp',
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
@@ -1131,6 +1133,11 @@ def build(bld):
             source='OpenHome/Tests/TestJsonMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestJson',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Tests/TestAESHelpersMain.cpp',
+            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestAESHelpers',
             install_path=None)
     bld.program(
             source='OpenHome/Tests/TestThreadPoolMain.cpp',
