@@ -49,14 +49,12 @@ void SuiteAESHelpers::Test()
     TestEncryptDecrypt(valE);
     TestEncryptDecrypt(valF);
 
-    /*
     TestEncryptDecryptWithContentLength(valA);
     TestEncryptDecryptWithContentLength(valB);
     TestEncryptDecryptWithContentLength(valC);
     TestEncryptDecryptWithContentLength(valD);
     TestEncryptDecryptWithContentLength(valE);
     TestEncryptDecryptWithContentLength(valF);
-    */
 }
 
 
@@ -91,7 +89,7 @@ void SuiteAESHelpers::TestEncryptDecrypt(const Brx& aValue)
     TEST(iRawValueBuf.Equals(iDecryptionBuf));
 }
 
-/*
+
 void SuiteAESHelpers::TestEncryptDecryptWithContentLength(const Brx& aValue)
 {
     iRawValueBuf.SetBytes(0);
@@ -131,8 +129,6 @@ void SuiteAESHelpers::TestEncryptDecryptWithContentLength(const Brx& aValue)
 
     TEST(aValue.Equals(iDecryptionBuf));
 }
-*/
-
 
 
 void TestAESHelpers()

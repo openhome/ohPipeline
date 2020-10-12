@@ -30,7 +30,12 @@ TBool AESHelpers::DecryptWithContentLengthPrefix(unsigned char* aAesKeyData,
         return false;
     }
 
-    aDecrypted.Replace(aDecrypted.Ptr() + 2, len);
+    // Calling 'Replace' directly here will crash on some platforms,
+    // as 'Replace(Ptr, SZ)' uses memcpy where doesn't allow for
+    // overlapping reasons.
+    Brn valueWithoutContentLength(aDecrypted.Ptr() + 2, len);
+    aDecrypted.Replace(valueWithoutContentLength);
+
     return true;
 }
 

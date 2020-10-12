@@ -65,6 +65,7 @@ CP_DV_TEST_DECLARATION(TestUpnpErrors);
 CP_DV_TEST_DECLARATION(TestDvOdp);
 ENV_TEST_DECLARATION(TestSocket);
 ENV_TEST_DECLARATION(TestOAuth);
+SIMPLE_TEST_DECLARATION(TestAESHelpers);
 
 
 extern void TestCodec(OpenHome::Environment& aEnv, CreateTestCodecPipelineFunc aFunc, GetTestFiles aFiles, const std::vector<Brn>& aArgs);
@@ -136,6 +137,7 @@ void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], N
     shellTests.push_back(ShellTest("TestWebAppFramework", ShellTestWebAppFramework));
     shellTests.push_back(ShellTest("TestSocket", ShellTestSocket));
     shellTests.push_back(ShellTest("TestOAuth", ShellTestOAuth));
+    shellTests.push_back(ShellTest("TestAESHelpers", ShellTestAESHelpers));
 
     OpenHome::Media::ExecuteTestShell(aInitParams, shellTests);
 }
