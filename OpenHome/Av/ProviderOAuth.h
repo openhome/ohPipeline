@@ -46,6 +46,7 @@ class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
     public:
         void AddService(const Brx& aServiceId,
                         const TUint aMaxTokens,
+                        const TUint aMaxLongLivedTokens,
                         IOAuthAuthenticator& aAuthenticator);
 
         ITokenProvider* GetTokenProvider(const Brx& aServiceId);
@@ -65,14 +66,21 @@ class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
                       const Brx& aTokenId,
                       const Brx& aAesKeyRsaEncrypted,
                       const Brx& aInitVectorRsaEncrypted,
-                      const Brx& aTokenAesEncrypted) override;
+                      const Brx& aTokenAesEncrypted,
+                      TBool aIsLongLived) override;
 
         void ClearToken(Net::IDvInvocation& aInvocation,
                         const Brx& aServiceId,
                         const Brx& aTokenId) override;
 
-        void ClearTokens(Net::IDvInvocation& aInvocation,
-                         const Brx& aServiceId) override;
+        void ClearShortLivedTokens(Net::IDvInvocation& aInvocation,
+                                   const Brx& aServiceId) override;
+
+        void ClearLongLivedTokens(Net::IDvInvocation& aInvocation,
+                                  const Brx& aServiceId) override;
+
+        void ClearAllTokens(Net::IDvInvocation& aInvocation,
+                            const Brx& aServiceId) override;
 
         void GetUpdateId(Net::IDvInvocation& aInvocation,
                          Net::IDvInvocationResponseUint& aUpdateId) override;

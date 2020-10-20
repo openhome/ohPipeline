@@ -33,6 +33,11 @@
                     <direction>in</direction>
                     <relatedStateVariable>A_ARG_TYPE_Binary</relatedStateVariable>
                 </argument>
+                <argument>
+                    <name>IsLongLived</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>A_ARG_TYPE_Bool</relatedStateVariable>
+                </argument>
             </argumentList>
         </action>
         <action>
@@ -61,7 +66,27 @@
             </argumentList>
         </action>
         <action>
-            <name>ClearTokens</name>
+            <name>ClearShortLivedTokens</name>
+            <argumentList>
+                <argument>
+                    <name>ServiceId</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>ClearLongLivedTokens</name>
+            <argumentList>
+                <argument>
+                    <name>ServiceId</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>ClearAllTokens</name>
             <argumentList>
                 <argument>
                     <name>ServiceId</name>

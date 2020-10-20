@@ -12,6 +12,5 @@ void OpenHome::TestFramework::Runner::Main(TInt /* aArgc */, TChar* /* aArgv */[
 {
     Environment* env = Net::UpnpLibrary::Initialise(aInitParams);
     TestOAuth(*env);
-
     Net::UpnpLibrary::Close();
 }

@@ -94,10 +94,11 @@ void OAuth::WriteAccessTokenHeader(WriterHttpHeader& aWriter,
 
 OAuthToken::OAuthToken(Environment& aEnv,
                        ITokenObserver& aObserver)
-    : iHasExpired(true),
-      iId(kIdGranularity),
-      iUsername(kUsernameGranularity),
-      iObserver(aObserver)
+    : iHasExpired(true)
+    , iIsLongLived(false)
+    , iId(kIdGranularity)
+    , iUsername(kUsernameGranularity)
+    , iObserver(aObserver)
 {
     iTimer = new Timer(aEnv, MakeFunctor(*this, &OAuthToken::OnTokenExpired), "OAuthTokenExpiry");
 }
@@ -138,9 +139,19 @@ TBool OAuthToken::IsPresent() const
     return iRefreshToken.Bytes() > 0;
 }
 
+TBool OAuthToken::IsLongLived() const
+{
+    return iIsLongLived;
+}
+
 const TByte OAuthToken::RetryCount() const
 {
     return iRetryCount;
+}
+
+TBool OAuthToken::CanRefresh(TUint aMaxRetryCount) const
+{
+    return HasExpired() && (RetryCount() < aMaxRetryCount);
 }
 
 
@@ -171,17 +182,20 @@ void OAuthToken::Clear()
     iRefreshToken.Replace(Brx::Empty());
 
     iHasExpired = true;
+    iIsLongLived = false;
     iRetryCount = 0;
 }
 
 void OAuthToken::Set(const Brx& aId,
-                     const Brx& aRefreshToken)
+                     const Brx& aRefreshToken,
+                     TBool aIsLongLived)
 {
-    SetWithAccessToken(aId, aRefreshToken, Brx::Empty(), 0, Brx::Empty());
+    SetWithAccessToken(aId, aRefreshToken, aIsLongLived, Brx::Empty(), 0, Brx::Empty());
 }
 
 void OAuthToken::SetWithAccessToken(const Brx& aId,
                                     const Brx& aRefreshToken,
+                                    TBool aIsLongLived,
                                     const Brx& aAccessToken,
                                     TUint aTokenExpiry,
                                     const Brx& aUsername)
@@ -189,6 +203,8 @@ void OAuthToken::SetWithAccessToken(const Brx& aId,
     Clear();
 
     iId.Write(aId);
+    iIsLongLived = aIsLongLived;
+
     iRefreshToken.ReplaceThrow(aRefreshToken);
 
     if (aAccessToken.Bytes() > 0)
@@ -230,41 +246,57 @@ void OAuthToken::ToJson(WriterJsonObject& aWriter)
 /* *************
  * TokenManager
  * ************* */
-static const Brn kTokenIdsKey("Ids");
+static const Brn kShortLivedTokenIdsKey("Ids"); //Davaar 80 has this already so will be difficult to change without migration step.
+static const Brn kLongLivedTokenIdsKey("llIds");
+
 static const TUint kRefreshRetryCount = 5;
 
 TokenManager::TokenManager(const Brx& aServiceId,
-                           TUint aMaxCapacity,
+                           TUint aMaxShortLivedCapacity,
+                           TUint aMaxLongLivedCapacity,
                            Environment& aEnv,
                            IThreadPool& aThreadPool,
                            IOAuthAuthenticator& aAuthenticator,
                            Configuration::IStoreReadWrite& aStore,
                            ITokenManagerObserver& aObserver)
-    : iServiceId(aServiceId),
-      iMaxCapacity(aMaxCapacity),
-      iLock("TKNMGR"),
-      iEnv(aEnv),
-      iUsernameBuffer(OAuthToken::kUsernameGranularity),
-      iStoreKeyBuffer(128),
-      iTokenIdsBuffer(128),
-      iAuthenticator(aAuthenticator),
-      iStore(aStore),
-      iObserver(aObserver)
+    : iServiceId(aServiceId)
+    , iMaxShortLivedCapacity(aMaxShortLivedCapacity)
+    , iMaxLongLivedCapacity(aMaxLongLivedCapacity)
+    , iLock("TKNMGR")
+    , iEnv(aEnv)
+    , iUsernameBuffer(OAuthToken::kUsernameGranularity)
+    , iStoreKeyBuffer(128)
+    , iTokenIdsBuffer(128)
+    , iAuthenticator(aAuthenticator)
+    , iStore(aStore)
+    , iObserver(aObserver)
 {
     iRefresherHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &TokenManager::RefreshTokens), "OAuthTokenRefresher", ThreadPoolPriority::Medium);
 
-    ASSERT_VA(aMaxCapacity <= kMaxSupportedTokens,
-              "Exceeded maximum number of stored tokens supported. (Requested %u, Max: %u)",
-              iMaxCapacity,
-              kMaxSupportedTokens);
+    ASSERT_VA(aMaxShortLivedCapacity <= kMaxShortLivedTokens,
+              "Exceeded maximum number of stored tokens supported (Short lived). (Requested %u, Max: %u)",
+              iMaxShortLivedCapacity,
+              kMaxShortLivedTokens);
 
-    for(TUint i = 0; i < iMaxCapacity; ++i)
+    ASSERT_VA(aMaxLongLivedCapacity <= kMaxLongLivedTokens,
+              "Exceeded maximum number of stored tokens supported (Long lived). (Requested %u, Max: %u)",
+              iMaxLongLivedCapacity,
+              kMaxLongLivedTokens)
+
+    for(TUint i = 0; i < iMaxShortLivedCapacity; ++i)
     {
         OAuthToken* newToken = new OAuthToken(iEnv, *this);
-        iTokens.push_front(newToken);
+        iShortLivedTokens.push_front(newToken);
     }
 
-    LoadStoredTokens();
+    for(TUint i = 0; i < iMaxLongLivedCapacity; ++i)
+    {
+        OAuthToken* newToken = new OAuthToken(iEnv, *this);
+        iLongLivedTokens.push_front(newToken);
+    }
+
+    LoadStoredTokens(ETokenTypeSelection::ShortLived);
+    LoadStoredTokens(ETokenTypeSelection::LongLived);
 }
 
 
@@ -272,12 +304,18 @@ TokenManager::~TokenManager()
 {
     iRefresherHandle->Destroy();
 
-    for(auto val : iTokens)
+    for(auto val : iShortLivedTokens)
     {
         delete val;
     }
 
-    iTokens.clear();
+    for(auto val : iLongLivedTokens)
+    {
+        delete val;
+    }
+
+    iShortLivedTokens.clear();
+    iLongLivedTokens.clear();
 }
 
 
@@ -286,19 +324,32 @@ const Brx& TokenManager::ServiceId() const
     return iServiceId;
 }
 
-TUint TokenManager::Capacity() const
+TUint TokenManager::ShortLivedCapacity() const
 {
-    return iMaxCapacity;
+    return iMaxShortLivedCapacity;
+}
+
+TUint TokenManager::LongLivedCapacity() const
+{
+    return iMaxLongLivedCapacity;
 }
 
 
 //Useful in testing...
-TUint TokenManager::NumberOfStoredTokens()
+TUint TokenManager::NumberOfStoredTokens() const
 {
     AutoMutex m(iLock);
     TUint numTokens = 0;
 
-    for(auto val : iTokens)
+    for(auto val : iShortLivedTokens)
+    {
+        if (val->IsPresent())
+        {
+            ++numTokens;
+        }
+    }
+
+    for(auto val : iLongLivedTokens)
     {
         if (val->IsPresent())
         {
@@ -309,23 +360,38 @@ TUint TokenManager::NumberOfStoredTokens()
     return numTokens;
 }
 
+void TokenManager::ExpireToken(const Brx& aId)
+{
+    /* NOTE: This is used when testing.
+     *       If the SyncThreadPool,we must trigger the TokenExpiry
+     *       outside of the lock, otherwise tests will crash with
+     *       a recursive lock take exception. */
+    OAuthToken* token = nullptr;
+    {
+        AutoMutex m(iLock);
+        token = FindTokenLocked(aId);
+    }
+
+    if (token != nullptr)
+    {
+        token->OnTokenExpired();
+    }
+}
+
 
 void TokenManager::AddToken(const Brx& aTokenId,
-                            const Brx& aRefreshToken)
+                            const Brx& aRefreshToken,
+                            TBool aIsLongLived)
 {
     AutoMutex m(iLock);
 
     /* Check token already exists.
      * If so, and it's still valid, don't bother doing anything. */
-    OAuthToken* existingToken = FindTokenLocked(aTokenId);
-    if (existingToken != nullptr)
+    OAuthToken* existingToken = FindTokenLocked(aTokenId, aIsLongLived);
+    if (existingToken != nullptr && !existingToken->HasExpired())
     {
-        if (!existingToken->HasExpired())
-        {
-            return;
-        }
+        return;
     }
-
 
     /* Validate the new token to make sure it's usable! */
     AccessTokenResponse response;
@@ -347,6 +413,7 @@ void TokenManager::AddToken(const Brx& aTokenId,
     {
         existingToken->SetWithAccessToken(existingToken->Id(),
                                           aRefreshToken,
+                                          aIsLongLived,
                                           response.accessToken,
                                           response.tokenExpiry,
                                           iUsernameBuffer.Buffer());
@@ -360,14 +427,14 @@ void TokenManager::AddToken(const Brx& aTokenId,
 
     /* Otherwise, try and find a suitable space to store the token.
      * If there is no free space, we'll evict a token to make space */
-    const TBool isFull = !CheckSpaceAvailableLocked();
+    const TBool isFull = !CheckSpaceAvailableLocked(aIsLongLived);
 
     if (isFull)
     {
-        // Evicit a token...
-        // Token that has been least recently used will be found at the
-        // end of the collection
-        OAuthToken* tokenToEvict = iTokens.back();
+        /* If full, we must evict a token. The least recently used token
+         * is found at the back of the list so we use that. */
+        OAuthToken* tokenToEvict = aIsLongLived ? iLongLivedTokens.back()
+                                                : iShortLivedTokens.back();
 
         ASSERT_VA(tokenToEvict != nullptr && tokenToEvict->IsPresent(),
                   "%.*s",
@@ -377,6 +444,7 @@ void TokenManager::AddToken(const Brx& aTokenId,
 
         tokenToEvict->SetWithAccessToken(aTokenId,
                                          aRefreshToken,
+                                         aIsLongLived,
                                          response.accessToken,
                                          response.tokenExpiry,
                                          iUsernameBuffer.Buffer());
@@ -386,6 +454,7 @@ void TokenManager::AddToken(const Brx& aTokenId,
     else
     {
         const TBool didAdd = InsertTokenLocked(aTokenId,
+                                               aIsLongLived,
                                                aRefreshToken,
                                                response.accessToken,
                                                response.tokenExpiry,
@@ -394,8 +463,9 @@ void TokenManager::AddToken(const Brx& aTokenId,
         ASSERT_VA(didAdd == true, "Assumed that token storage had space, but wasn't able to find a space to add OAuth token.\n", 0);
     }
 
-    StoreTokenIdsLocked();
     StoreTokenLocked(aTokenId, aRefreshToken);
+    StoreTokenIdsLocked(aIsLongLived ? ETokenTypeSelection::LongLived
+                                     : ETokenTypeSelection::ShortLived);
 
     iObserver.OnTokenChanged();
 }
@@ -416,26 +486,69 @@ void TokenManager::RemoveToken(const Brx& aTokenId)
     RemoveTokenLocked(token);
     MoveTokenToEndOfList(token);
 
-    StoreTokenIdsLocked();
+    StoreTokenIdsLocked(token->IsLongLived() ? ETokenTypeSelection::LongLived
+                                             : ETokenTypeSelection::ShortLived);
     iObserver.OnTokenChanged();
 }
 
-void TokenManager::ClearTokens()
+
+void TokenManager::ClearAllTokens()
 {
+    DoClearTokens(ETokenTypeSelection::All);
+}
+
+void TokenManager::ClearShortLivedTokens()
+{
+    DoClearTokens(ETokenTypeSelection::ShortLived);
+}
+
+void TokenManager::ClearLongLivedTokens()
+{
+    DoClearTokens(ETokenTypeSelection::LongLived);
+}
+
+void TokenManager::DoClearTokens(ETokenTypeSelection operation)
+{
+    const TBool clearLongLived =  operation == ETokenTypeSelection::All || operation == ETokenTypeSelection::LongLived;
+    const TBool clearShortLived = operation == ETokenTypeSelection::All || operation == ETokenTypeSelection::ShortLived;
+
     AutoMutex m(iLock);
 
-    for(auto val : iTokens)
+    if (clearShortLived)
     {
-        if (val->IsPresent())
+        for(auto val : iShortLivedTokens)
         {
-            RemoveTokenLocked(val);
+            if (val->IsPresent())
+            {
+                RemoveTokenLocked(val);
+            }
         }
     }
 
-    // All tokens are cleared, so don't obhter rearranging the elements
-    // in the token collection
+    if (clearLongLived)
+    {
+        for(auto val : iLongLivedTokens)
+        {
+            if (val->IsPresent())
+            {
+                RemoveTokenLocked(val);
+            }
+        }
+    }
 
-    StoreTokenIdsLocked();
+
+    // Since all tokens from one or both collections have
+    // been cleared there is no need to rearrange the orders
+    if (clearShortLived)
+    {
+        StoreTokenIdsLocked(ETokenTypeSelection::ShortLived);
+    }
+
+    if (clearLongLived)
+    {
+        StoreTokenIdsLocked(ETokenTypeSelection::LongLived);
+    }
+
     iObserver.OnTokenChanged();
 }
 
@@ -453,14 +566,21 @@ void TokenManager::RefreshTokens()
         AutoMutex m(iLock);
         OAuthToken* token = nullptr;
 
-        for(auto val : iTokens)
+        for(auto val : iShortLivedTokens)
         {
-            if (val->IsPresent())
+            if (val->IsPresent() && val->CanRefresh(kRefreshRetryCount))
             {
-                TBool expired = val->HasExpired();
-                TBool needRefresh = val->RetryCount() < kRefreshRetryCount;
+                token = val;
+                break;
+            }
+        }
 
-                if (expired && needRefresh)
+        // If no token found, check the long lived collection
+        if (token == nullptr)
+        {
+            for(auto val : iLongLivedTokens)
+            {
+                if (val->IsPresent() && val->CanRefresh(kRefreshRetryCount))
                 {
                     token = val;
                     break;
@@ -468,9 +588,11 @@ void TokenManager::RefreshTokens()
             }
         }
 
+        // At this point, we've no token in either collection that needs
+        // refreshed so our work here is done.
         if (token == nullptr)
         {
-            return; //Nothing to refresh. We're finished...
+            return;
         }
 
         AccessTokenResponse response;
@@ -526,7 +648,17 @@ TBool TokenManager::TryGetFirstValidTokenId(IWriter& writer)
 {
     AutoMutex m(iLock);
 
-    for(auto val : iTokens)
+    for(auto val : iShortLivedTokens)
+    {
+        if (val->IsPresent() && !val->HasExpired())
+        {
+            writer.Write(val->Id());
+            return true;
+        }
+    }
+
+    // Try long lived tokens if we've yet to find a usable one.
+    for(auto val : iLongLivedTokens)
     {
         if (val->IsPresent() && !val->HasExpired())
         {
@@ -593,9 +725,12 @@ TBool TokenManager::TryGetToken(const Brx& aId,
 }
 
 
-TBool TokenManager::CheckSpaceAvailableLocked() const
+TBool TokenManager::CheckSpaceAvailableLocked(TBool aIsLongLived) const
 {
-    for(auto val : iTokens)
+    const auto& tokenList = aIsLongLived ? iLongLivedTokens
+                                         : iShortLivedTokens;
+
+    for(auto val : tokenList)
     {
         if (!val->IsPresent())
         {
@@ -606,12 +741,26 @@ TBool TokenManager::CheckSpaceAvailableLocked() const
     return false;
 }
 
-
-OAuthToken* TokenManager::FindTokenLocked(const Brx& aId) const
+OAuthToken* TokenManager::FindTokenLocked(const Brx& aTokenId) const
 {
-    for (auto val : iTokens)
+    OAuthToken* token = FindTokenLocked(aTokenId, false);
+    if (token == nullptr)
     {
-        if(val->Id() == aId)
+        token = FindTokenLocked(aTokenId, true);
+    }
+
+    return token;
+}
+
+
+OAuthToken* TokenManager::FindTokenLocked(const Brx& aId, TBool aIsLongLived) const
+{
+    const auto& tokenList = aIsLongLived ? iLongLivedTokens
+                                         : iShortLivedTokens;
+
+    for (auto val : tokenList)
+    {
+        if (val->Id() == aId)
         {
             return val;
         }
@@ -622,17 +771,18 @@ OAuthToken* TokenManager::FindTokenLocked(const Brx& aId) const
 
 
 TBool TokenManager::InsertTokenLocked(const Brx& aId,
+                                      TBool aIsLongLived,
                                       const Brx& aRefreshToken,
                                       const Brx& aAccessToken,
                                       TUint aTokenExpiry,
                                       const Brx& aUsername)
 {
     const TBool hasAccessToken = aAccessToken.Bytes() > 0;
+    const auto& tokenList = aIsLongLived ? iLongLivedTokens
+                                         : iShortLivedTokens;
 
-    for(auto it = iTokens.begin(); it != iTokens.end(); ++it)
+    for(auto val : tokenList)
     {
-        OAuthToken* val = *it;
-
         if (!val->IsPresent())
         {
             if (hasAccessToken)
@@ -643,7 +793,7 @@ TBool TokenManager::InsertTokenLocked(const Brx& aId,
                     PBUF(aId),
                     aTokenExpiry);
 
-                val->SetWithAccessToken(aId, aRefreshToken, aAccessToken, aTokenExpiry, aUsername);
+                val->SetWithAccessToken(aId, aRefreshToken, aIsLongLived, aAccessToken, aTokenExpiry, aUsername);
             }
             else
             {
@@ -654,7 +804,7 @@ TBool TokenManager::InsertTokenLocked(const Brx& aId,
 
                 // Token will automatically schedule a refresh upon set
                 // since no access token has been provided
-                val->Set(aId, aRefreshToken);
+                val->Set(aId, aRefreshToken, aIsLongLived);
             }
 
             return true;
@@ -666,7 +816,15 @@ TBool TokenManager::InsertTokenLocked(const Brx& aId,
 
 TBool TokenManager::IsTokenPtrPresentLocked(OAuthToken* aTokenPtr) const
 {
-    for(auto val : iTokens)
+    for(auto val : iShortLivedTokens)
+    {
+        if (val == aTokenPtr)
+        {
+            return true;
+        }
+    }
+
+    for(auto val : iLongLivedTokens)
     {
         if (val == aTokenPtr)
         {
@@ -699,22 +857,28 @@ void TokenManager::RemoveTokenLocked(OAuthToken* aToken)
 
 void TokenManager::MoveTokenToFrontOfList(OAuthToken* aToken)
 {
-    for(auto it = iTokens.begin(); it != iTokens.end(); ++it)
+    auto& tokenList = aToken->IsLongLived() ? iLongLivedTokens
+                                            : iShortLivedTokens;
+
+    for(auto it = tokenList.begin(); it != tokenList.end(); ++it)
     {
         if (*it == aToken)
         {
-            iTokens.splice(iTokens.begin(), iTokens, it);
+            tokenList.splice(tokenList.begin(), tokenList, it);
         }
     }
 }
 
 void TokenManager::MoveTokenToEndOfList(OAuthToken* aToken)
 {
-    for(auto it = iTokens.begin(); it != iTokens.end(); ++it)
+    auto& tokenList = aToken->IsLongLived() ? iLongLivedTokens
+                                            : iShortLivedTokens;
+
+    for(auto it = tokenList.begin(); it != tokenList.end(); ++it)
     {
         if (*it == aToken)
         {
-            iTokens.splice(iTokens.end(), iTokens, it);
+            tokenList.splice(tokenList.end(), tokenList, it);
             break;
         }
     }
@@ -725,10 +889,18 @@ void TokenManager::MoveTokenToEndOfList(OAuthToken* aToken)
 /* TokenIds are stored in a space-seperated value
  * in the store.
  * Each refresh token is stored individually.
- * Store Keys are in the form <serviceId>.Ids / <serviceId>.<tokenId> */
-void TokenManager::LoadStoredTokens()
+ * Store Keys are in the form <serviceId>.Ids / <serviceId>.<tokenId>
+ * In the case of a "long-lived" key, kLongLivedPostfix (.ll) is appended
+ * so we know which list to insert it into*/
+void TokenManager::LoadStoredTokens(ETokenTypeSelection operation)
 {
     Bwh tokenReadBuffer(OAuth::kMaxTokenBytes);
+
+    const TBool isLongLived = operation == ETokenTypeSelection::LongLived;
+    const Brx& tokenIdKey = isLongLived ? kLongLivedTokenIdsKey
+                                        : kShortLivedTokenIdsKey;
+
+    iTokenIdsBuffer.Reset();
 
     // Read in list of all the stored token Ids
     try
@@ -737,7 +909,7 @@ void TokenManager::LoadStoredTokens()
 
         iStoreKeyBuffer.Write(iServiceId);
         iStoreKeyBuffer.Write('.');
-        iStoreKeyBuffer.Write(kTokenIdsKey);
+        iStoreKeyBuffer.Write(tokenIdKey);
 
         iStore.Read(iStoreKeyBuffer.Buffer(), iTokenIdsBuffer);
     }
@@ -782,7 +954,7 @@ void TokenManager::LoadStoredTokens()
                 continue;
             }
 
-            if (InsertTokenLocked(id, tokenReadBuffer))
+            if (InsertTokenLocked(id, isLongLived, tokenReadBuffer))
             {
                 LOG(kOAuth,
                     "TokenManager(%.*s)::LoadStoredTokens() - Loaded token '%.*s'.\n",
@@ -809,17 +981,24 @@ void TokenManager::LoadStoredTokens()
      * it in the future. */
     if (tokenIdsChanged)
     {
-        StoreTokenIdsLocked();
+        StoreTokenIdsLocked(isLongLived ? ETokenTypeSelection::LongLived
+                                        : ETokenTypeSelection::ShortLived);
     }
 
     iObserver.OnTokenChanged();
 }
 
-void TokenManager::StoreTokenIdsLocked()
+void TokenManager::StoreTokenIdsLocked(ETokenTypeSelection operation)
 {
     iTokenIdsBuffer.Reset();
 
-    for(auto val : iTokens)
+    const Brx& storeKey = operation == ETokenTypeSelection::LongLived ? kLongLivedTokenIdsKey
+                                                                      : kShortLivedTokenIdsKey;
+
+    const auto& tokenList = operation == ETokenTypeSelection::LongLived ? iLongLivedTokens
+                                                                        : iShortLivedTokens;
+
+    for(auto val : tokenList)
     {
         if (val->IsPresent())
         {
@@ -831,7 +1010,7 @@ void TokenManager::StoreTokenIdsLocked()
     iStoreKeyBuffer.Reset();
     iStoreKeyBuffer.Write(iServiceId);
     iStoreKeyBuffer.Write('.');
-    iStoreKeyBuffer.Write(kTokenIdsKey);
+    iStoreKeyBuffer.Write(storeKey);
 
     if (iTokenIdsBuffer.Buffer()
                        .Bytes() == 0)
@@ -870,17 +1049,31 @@ void TokenManager::TokenStateToJson(WriterJsonObject& aWriter)
 {
     AutoMutex m(iLock);
 
-    WriterJsonArray arrayWriter = aWriter.CreateArray("tokens");
-    for(auto val : iTokens)
     {
-        if (val->IsPresent())
+        WriterJsonArray arrayWriter = aWriter.CreateArray("shortLivedTokens");
+        for(auto val : iShortLivedTokens)
         {
-            WriterJsonObject objWriter = arrayWriter.CreateObject();
-            val->ToJson(objWriter); //Consumes writer and calls WriteEnd();
+            if (val->IsPresent())
+            {
+                WriterJsonObject objWriter = arrayWriter.CreateObject();
+                val->ToJson(objWriter); //Consumes writer and calls WriteEnd();
+            }
         }
+        arrayWriter.WriteEnd();
     }
 
-    arrayWriter.WriteEnd();
+    {
+        WriterJsonArray arrayWriter = aWriter.CreateArray("longLivedTokens");
+        for(auto val : iLongLivedTokens)
+        {
+            if (val->IsPresent())
+            {
+                WriterJsonObject objWriter = arrayWriter.CreateObject();
+                val->ToJson(objWriter); //Consume writer and calls WriteEnd();
+            }
+        }
+        arrayWriter.WriteEnd();
+    }
 }
 
 

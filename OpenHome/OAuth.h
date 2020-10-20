@@ -22,7 +22,14 @@ namespace OpenHome
 namespace Av
 {
     class Credentials;
+
+namespace TestOAuth
+{
+    class SuiteOAuthToken;
+    class SuiteTokenManager;
+} //namespace TestOAuth
 } //namespace Av
+
 
 
 class OAuth
@@ -49,7 +56,6 @@ class OAuth
         // OAuth Error Response fields
         static const Brn kErrorResponseFieldError;
         static const Brn kErrorResponseFieldErrorDescription;
-
 
     public:
         static void WriteAccessTokenHeader(WriterHttpHeader&,
@@ -163,6 +169,7 @@ class ITokenManagerObserver
 class OAuthToken
 {
     friend class TokenManager;
+    friend class Av::TestOAuth::SuiteOAuthToken;
 
     static const TUint kIdGranularity = 128;
     static const TUint kUsernameGranularity = 64;
@@ -180,18 +187,22 @@ class OAuthToken
         const Brx& Username() const;
 
         TBool IsPresent() const;
+        TBool IsLongLived() const;
         TBool HasExpired() const;
         const TByte RetryCount() const;
+        TBool CanRefresh(TUint aMaxRetryCount) const;
 
         void UpdateToken(const Brx& aNewAccessToken,
                          TUint aTokenExpiry,
                          const Brx& aUsername);
 
         void Set(const Brx& aId,
-                 const Brx& aRefreshToken);
+                 const Brx& aRefreshToken,
+                 TBool aIsLongLived);
 
         void SetWithAccessToken(const Brx& aId,
                                 const Brx& aRefreshToken,
+                                TBool aIsLongLived,
                                 const Brx& aAccessToken,
                                 TUint aTokenExpiry,
                                 const Brx& aUsername);
@@ -205,6 +216,7 @@ class OAuthToken
 
     private:
         TBool iHasExpired;
+        TBool iIsLongLived;
         TByte iRetryCount;
         WriterBwh iId;
         WriterBwh iUsername;
@@ -222,12 +234,25 @@ class OAuthToken
 class TokenManager : public ITokenObserver,
                      public ITokenProvider
 {
+    friend class Av::TestOAuth::SuiteTokenManager;
+
     public:
-        static const TUint kMaxSupportedTokens = 16;
+        static const TUint kMaxShortLivedTokens = 10;
+        static const TUint kMaxLongLivedTokens = 5;
+
+    private:
+
+        enum ETokenTypeSelection
+        {
+            ShortLived,
+            LongLived,
+            All,
+        };
 
     public:
         TokenManager(const Brx& aServiceId,
-                     TUint aMaxCapacity,
+                     TUint aMaxShortLivedCapacity,
+                     TUint aMaxLongLivedCapacity,
                      Environment&,
                      IThreadPool&,
                      IOAuthAuthenticator&,
@@ -237,16 +262,20 @@ class TokenManager : public ITokenObserver,
 
     public:
         const Brx& ServiceId() const;
-        TUint Capacity() const;
+        TUint ShortLivedCapacity() const;
+        TUint LongLivedCapacity() const;
 
         void AddToken(const Brx& aId,
-                      const Brx& aRefreshToken);
+                      const Brx& aRefreshToken,
+                      TBool aIsLongLived);
 
         void RemoveToken(const Brx& aId);
 
-        void ClearTokens();
+        void ClearShortLivedTokens();
+        void ClearLongLivedTokens();
+        void ClearAllTokens();
 
-        TUint NumberOfStoredTokens();
+        TUint NumberOfStoredTokens() const;
 
         void TokenStateToJson(WriterJsonObject& aWriter);
 
@@ -265,8 +294,9 @@ class TokenManager : public ITokenObserver,
 
     private:
         void RefreshTokens();
-        TBool CheckSpaceAvailableLocked() const;
+        TBool CheckSpaceAvailableLocked(TBool aIsLongLoved) const;
         TBool InsertTokenLocked(const Brx& aId,
+                                TBool aIsLongLived,
                                 const Brx& aRefreshToken,
                                 const Brx& aAccessToken = Brx::Empty(),
                                 TUint aTokenExpiry = 0,
@@ -274,6 +304,7 @@ class TokenManager : public ITokenObserver,
         void RemoveTokenLocked(OAuthToken* aToken);
 
         OAuthToken* FindTokenLocked(const Brx& aTokenId) const;
+        OAuthToken* FindTokenLocked(const Brx& aTokenId, TBool aIsLongLived) const;
         TBool IsTokenPtrPresentLocked(OAuthToken* aTokenPtr) const;
 
         void MoveTokenToFrontOfList(OAuthToken*);
@@ -284,22 +315,29 @@ class TokenManager : public ITokenObserver,
                             AccessTokenResponse& aResponse,
                             IWriter& aUsername);
 
+        void DoClearTokens(ETokenTypeSelection operation);
+
         // Token Storage
-        void LoadStoredTokens();
-        void StoreTokenIdsLocked();
+        void LoadStoredTokens(ETokenTypeSelection operation);
+        void StoreTokenIdsLocked(ETokenTypeSelection operation);
         void StoreTokenLocked(const Brx& aTokenId,
                               const Brx& aRefreshToken);
         void RemoveStoredTokenLocked(const Brx& aTokenId);
 
+        // Testing helpers
+        void ExpireToken(const Brx& aId);
+
     private:
         const Brx& iServiceId;
-        const TUint iMaxCapacity;
-        Mutex iLock;
+        const TUint iMaxShortLivedCapacity;
+        const TUint iMaxLongLivedCapacity;
+        mutable Mutex iLock;
         Environment& iEnv;
         WriterBwh iUsernameBuffer;
         WriterBwh iStoreKeyBuffer;
         WriterBwh iTokenIdsBuffer;
-        std::list<OAuthToken*> iTokens;
+        std::list<OAuthToken*> iShortLivedTokens;
+        std::list<OAuthToken*> iLongLivedTokens;
         IThreadPoolHandle* iRefresherHandle;
         IOAuthAuthenticator& iAuthenticator;
         Configuration::IStoreReadWrite& iStore;

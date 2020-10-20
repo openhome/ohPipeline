@@ -63,12 +63,13 @@ class SuiteTokenManager : public Suite
         void TestAddRemove();
         void TestContains();
         void TestAddingInvalidToken();
-        void TestTokenRefreshes();
-        void TestTokenEviction();
+        void TestTokenRefreshes(TBool aIsLongLived);
+        void TestTokenEviction(TBool aIsLongLived);
+        void TestTokenClears();
 
     private:
         Environment& iEnv;
-        ThreadPool* iThreadPool;
+        IThreadPool* iThreadPool;
 };
 
 class SuiteOAuthToken : public Suite
@@ -78,6 +79,8 @@ class SuiteOAuthToken : public Suite
 
     private:
         void Test() override;
+
+        void DoTest(TBool aIsLongLived);
 
     private:
         Environment& iEnv;
@@ -224,8 +227,7 @@ TBool AlternatingValidAuthenticator::TryGetAccessToken(const Brx& aTokenId,
                                                        AccessTokenResponse& aResponse)
 {
     TBool isOdd = iCallCount & 0b1;
-
-    ++iCallCount;
+    iCallCount++;
 
     return isOdd ? iAuthB.TryGetAccessToken(aTokenId, aRefreshToken, aResponse)
                  : iAuthA.TryGetAccessToken(aTokenId, aRefreshToken, aResponse);
@@ -237,7 +239,8 @@ TBool AlternatingValidAuthenticator::TryGetUsernameFromToken(const Brx& aTokenId
 {
     TBool isOdd = iCallCount & 0b1;
 
-    ++iCallCount;
+    // Don't increment the call count here.
+    // TryGetAccessToken / TryGetUsername always called in a pair
 
     return isOdd ? iAuthB.TryGetUsernameFromToken(aTokenId, aAccessToken, aUsername)
                  : iAuthA.TryGetUsernameFromToken(aTokenId, aAccessToken, aUsername);
@@ -254,7 +257,7 @@ SuiteTokenManager::SuiteTokenManager(Environment& aEnv)
     : Suite("TokenManager Tests"),
       iEnv(aEnv)
 {
-    iThreadPool = new ThreadPool(1,1,1);
+    iThreadPool = new MockThreadPoolSync();
 }
 
 SuiteTokenManager::~SuiteTokenManager()
@@ -273,7 +276,13 @@ void SuiteTokenManager::Test()
 
     TestAddRemove();
 
-    TestTokenEviction();
+    TestTokenEviction(true);
+    TestTokenEviction(false);
+
+    TestTokenRefreshes(true);
+    TestTokenRefreshes(false);
+
+    TestTokenClears();
 }
 
 void SuiteTokenManager::TestTokenStorage()
@@ -285,7 +294,7 @@ void SuiteTokenManager::TestTokenStorage()
     // Test TokenManager doesn't crash if there's nothing present in the store
     // Below code will throw if the fact that the key isn't present.
     {
-        TokenManager manager(kServiceId, TokenManager::kMaxSupportedTokens, iEnv, *iThreadPool, auth, store, observer);
+        TokenManager manager(kServiceId, TokenManager::kMaxShortLivedTokens, TokenManager::kMaxLongLivedTokens, iEnv, *iThreadPool, auth, store, observer);
     }
 
     Bws<32> storeKey;
@@ -301,16 +310,31 @@ void SuiteTokenManager::TestTokenStorage()
 
     store.Write(storeKey, Brn("TOKEN"));
 
-    TokenManager manager(kServiceId, 5, iEnv, *iThreadPool, auth, store, observer);
+    // Also add a long-lived token..
+    storeKey.Replace(kServiceId);
+    storeKey.Append('.');
+    storeKey.Append("llIds");
 
-    TEST(manager.NumberOfStoredTokens() == 1);
+    store.Write(storeKey, Brn("KeyC"));
+
+    storeKey.Replace(kServiceId);
+    storeKey.Append('.');
+    storeKey.Append("KeyC");
+
+    store.Write(storeKey, Brn("TOKEN FOR C"));
+
+
+    TokenManager manager(kServiceId, 5, 1, iEnv, *iThreadPool, auth, store, observer);
+
+    TEST(manager.NumberOfStoredTokens() == 2);
 
     TEST(manager.HasToken(Brn("KeyA")));
     TEST(manager.HasToken(Brn("KeyB")) == false);
+    TEST(manager.HasToken(Brn("KeyC")));
 
-    manager.AddToken(Brn("TEST-KEY"), Brn("anotherToken"));
+    manager.AddToken(Brn("TEST-KEY"), Brn("anotherToken"), false);
 
-    TEST(manager.NumberOfStoredTokens() == 2);
+    TEST(manager.NumberOfStoredTokens() == 3);
 
     Bws<32> storeBuffer;
     storeKey.Replace(kServiceId);
@@ -334,11 +358,11 @@ void SuiteTokenManager::TestAddingInvalidToken()
     ConfigRamStore store;
     InvalidOAuthAuthenticator auth;
     DummyTokenManagerObserver observer;
-    TokenManager manager(kServiceId, 1, iEnv, *iThreadPool, auth, store, observer);
+    TokenManager manager(kServiceId, 1, 1, iEnv, *iThreadPool, auth, store, observer);
 
     try
     {
-        manager.AddToken(Brn("key"), Brn("invalid-token"));
+        manager.AddToken(Brn("key"), Brn("invalid-token"), true);
     }
     catch (OAuthTokenInvalid)
     {
@@ -355,11 +379,13 @@ void SuiteTokenManager::TestContains()
     DummyTokenManagerObserver observer;
     ValidOAuthAuthenticator auth(Brn("access-token"), 1);
 
-    TokenManager manager(kServiceId, 1, iEnv, *iThreadPool, auth, store, observer);
+    TokenManager manager(kServiceId, 1, 1, iEnv, *iThreadPool, auth, store, observer);
 
-    manager.AddToken(Brn("id"), Brn("refresh-token"));
+    manager.AddToken(Brn("id"), Brn("refresh-token"), false);
+    manager.AddToken(Brn("id-ll"), Brn("refresh-token"), true);
 
     TEST(manager.HasToken(Brn("id")));
+    TEST(manager.HasToken(Brn("id-ll")));
 
     TEST(manager.HasToken(Brx::Empty()) == false);
     TEST(manager.HasToken(Brn("another-id")) == false);
@@ -376,9 +402,9 @@ void SuiteTokenManager::TestAddRemove()
     ConfigRamStore store;
     DummyTokenManagerObserver observer;
     ValidOAuthAuthenticator auth(Brn("access-token"), 1);
-    TokenManager manager(kServiceId, 1, iEnv, *iThreadPool, auth, store, observer);
+    TokenManager manager(kServiceId, 1, 1, iEnv, *iThreadPool, auth, store, observer);
 
-    manager.AddToken(idA, refreshToken);
+    manager.AddToken(idA, refreshToken, false);
 
     TEST(manager.HasToken(idA));
     TEST(manager.HasToken(idB) == false);
@@ -402,7 +428,7 @@ void SuiteTokenManager::TestAddRemove()
 }
 
 
-void SuiteTokenManager::TestTokenRefreshes()
+void SuiteTokenManager::TestTokenRefreshes(TBool aIsLongLived)
 {
     const Brn id("A");
     const Brn refreshToken("rf");
@@ -414,16 +440,15 @@ void SuiteTokenManager::TestTokenRefreshes()
     DummyTokenManagerObserver observer;
     AlternatingValidAuthenticator auth(accessTokenA, 1,
                                        accessTokenB, 1);    // Expiries are treated as seconds
-    TokenManager manager(kServiceId, 5, iEnv, *iThreadPool, auth, store, observer);
+    TokenManager manager(kServiceId, 5, 2, iEnv, *iThreadPool, auth, store, observer);
 
-    /* Attempt to add token multiple times. 
-     * If the token is added more than once, then 
-     * the later tests of the access tokens will fail
-     * as the AlternatingValidAuthenticator will be out of
-     * sync and so subsequent tests will fail. */
-    manager.AddToken(id, refreshToken);
-    manager.AddToken(id, refreshToken);
-    manager.AddToken(id, refreshToken);
+    /* Adding multiple times should only result in one call
+     * to get AccessTokens/Username. If not, then the number
+     * of calls here will put the AlternatingValidAuthenticator
+     * out of sync and fail the rest of the tests */
+    manager.AddToken(id, refreshToken, aIsLongLived);
+    manager.AddToken(id, refreshToken, aIsLongLived);
+    manager.AddToken(id, refreshToken, aIsLongLived);
 
     TEST(manager.NumberOfStoredTokens() == 1);
 
@@ -432,18 +457,12 @@ void SuiteTokenManager::TestTokenRefreshes()
 
     TEST(tokenA.token == accessTokenA);
 
-
-    Thread::Sleep(1200);
-
-
+    manager.ExpireToken(id);
     ServiceToken tokenB;
     manager.TryGetToken(id, tokenB);
-
     TEST(tokenB.token == accessTokenB);
 
-
-    Thread::Sleep(1200);
-
+    manager.ExpireToken(id);
 
     ServiceToken tokenC;
     manager.TryGetToken(id, tokenC);
@@ -451,7 +470,7 @@ void SuiteTokenManager::TestTokenRefreshes()
     TEST(tokenC.token == accessTokenA);
 }
 
-void SuiteTokenManager::TestTokenEviction()
+void SuiteTokenManager::TestTokenEviction(TBool aIsLongLived)
 {
     const Brn id("id");
     const Brn accessToken("at");
@@ -463,10 +482,10 @@ void SuiteTokenManager::TestTokenEviction()
     ConfigRamStore store;
     DummyTokenManagerObserver observer;
     ValidOAuthAuthenticator auth(accessToken, 10);
-    TokenManager manager(id, 2, iEnv, *iThreadPool, auth, store, observer);
+    TokenManager manager(id, 2, 2, iEnv, *iThreadPool, auth, store, observer);
 
-    manager.AddToken(id1, refreshToken);
-    manager.AddToken(id2, refreshToken);
+    manager.AddToken(id1, refreshToken, aIsLongLived);
+    manager.AddToken(id2, refreshToken, aIsLongLived);
 
     TEST(manager.NumberOfStoredTokens() == 2);
 
@@ -475,7 +494,7 @@ void SuiteTokenManager::TestTokenEviction()
     manager.TryGetToken(id1, __); //Should put "id1" at the front of token list
 
     // Adding token here should evict the LRU, which in this case is 'id2'
-    manager.AddToken(id3, refreshToken);
+    manager.AddToken(id3, refreshToken, aIsLongLived);
 
     TEST(manager.NumberOfStoredTokens() == 2);
 
@@ -487,13 +506,50 @@ void SuiteTokenManager::TestTokenEviction()
     manager.TryGetToken(id3, __); // Should put "id3" at the front of the token list
 
     // Adding token here should evict the LRU, which in this case is 'id1'
-    manager.AddToken(id2, refreshToken);
+    manager.AddToken(id2, refreshToken, aIsLongLived);
 
     TEST(manager.NumberOfStoredTokens() == 2);
 
     TEST(manager.HasToken(id1) == false);
     TEST(manager.HasToken(id2));
     TEST(manager.HasToken(id3));
+}
+
+void SuiteTokenManager::TestTokenClears()
+{
+    const Brn idA("A");
+    const Brn idB("B");
+    const Brn idC("C");
+    const Brn rt("RT");
+
+    ConfigRamStore store;
+    DummyTokenManagerObserver observer;
+    ValidOAuthAuthenticator auth(Brn("at"), 10000);
+    TokenManager manager(kServiceId, 2, 2, iEnv, *iThreadPool, auth, store, observer);
+
+    manager.AddToken(idA, rt, false);
+    manager.AddToken(idB, rt, false);
+    manager.AddToken(idC, rt, true);
+
+    manager.ClearShortLivedTokens();
+
+    TEST(manager.HasToken(idA) == false);
+    TEST(manager.HasToken(idB) == false);
+    TEST(manager.HasToken(idC));
+
+    manager.ClearLongLivedTokens();
+
+    TEST(manager.HasToken(idC) == false);
+
+    manager.AddToken(idA, rt, false);
+    manager.AddToken(idB, rt, false);
+    manager.AddToken(idC, rt, true);
+
+    manager.ClearAllTokens();
+
+    TEST(manager.HasToken(idA) == false);
+    TEST(manager.HasToken(idB) == false);
+    TEST(manager.HasToken(idC) == false);
 }
 
 
@@ -508,6 +564,12 @@ SuiteOAuthToken::SuiteOAuthToken(Environment& aEnv)
 { }
 
 void SuiteOAuthToken::Test()
+{
+    DoTest(true);
+    DoTest(false);
+}
+
+void SuiteOAuthToken::DoTest(TBool aIsLongLived)
 {
     const Brn id("id");
     const Brn accessToken("at");
@@ -524,7 +586,7 @@ void SuiteOAuthToken::Test()
     TEST(token.RefreshToken() == Brx::Empty());
 
 
-    token.Set(id, refreshToken);
+    token.Set(id, refreshToken, aIsLongLived);
 
     TEST(token.IsPresent());
     TEST(token.Id() == id);
@@ -541,7 +603,7 @@ void SuiteOAuthToken::Test()
     TEST(token.RefreshToken() == Brx::Empty());
 
 
-    token.SetWithAccessToken(id, refreshToken, accessToken, 1, username); // Expiries are treated as seconds
+    token.SetWithAccessToken(id, refreshToken, aIsLongLived, accessToken, 1, username); // Expiries are treated as seconds
 
     TEST(token.IsPresent());
 
@@ -551,7 +613,8 @@ void SuiteOAuthToken::Test()
     TEST(token.RefreshToken() == refreshToken);
     TEST(token.HasExpired() == false);
 
-    Thread::Sleep(1200);
+    // Expire token...
+    token.OnTokenExpired();
 
     TEST(token.HasExpired() == true);
 

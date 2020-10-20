@@ -25,6 +25,7 @@ class ServiceProvider
                         Environment&,
                         IThreadPool&,
                         const TUint aNumTokens,
+                        const TUint aNumLongLivedTokens,
                         IOAuthAuthenticator&,
                         IConfigManager&,
                         IStoreReadWrite&,
@@ -37,11 +38,14 @@ class ServiceProvider
         ITokenProvider* TokenProvider() { return iTokenManager; }
 
         void AddToken(const Brx& aId,
-                      const Brx& aRefreshToken) { iTokenManager->AddToken(aId, aRefreshToken); }
+                      TBool aIsLongLived,
+                      const Brx& aRefreshToken) { iTokenManager->AddToken(aId, aRefreshToken, aIsLongLived); }
 
         void RemoveToken(const Brx& aId) { iTokenManager->RemoveToken(aId); }
 
-        void ClearTokens() { iTokenManager->ClearTokens(); }
+        void ClearAllTokens() { iTokenManager->ClearAllTokens(); }
+        void ClearShortLivedTokens() { iTokenManager->ClearShortLivedTokens(); }
+        void ClearLongLivedTokens() { iTokenManager->ClearLongLivedTokens(); }
 
         void ToJson(WriterJsonObject& aWriter);
 
@@ -72,6 +76,7 @@ ServiceProvider::ServiceProvider(const Brx& aServiceId,
                                  Environment& aEnv,
                                  IThreadPool& aThreadPool,
                                  const TUint aNumTokens,
+                                 const TUint aNumLongLivedTokens,
                                  IOAuthAuthenticator& aServiceAuthenticator,
                                  IConfigManager& aConfigManager,
                                  IStoreReadWrite& aStore,
@@ -87,8 +92,7 @@ ServiceProvider::ServiceProvider(const Brx& aServiceId,
     //  - When a value does change, then we should grab a copy of the value
     //  - Notify observes we've changed :)
 
-
-    iTokenManager = new TokenManager(aServiceId, aNumTokens, aEnv, aThreadPool, aServiceAuthenticator, aStore, aObserver);
+    iTokenManager = new TokenManager(aServiceId, aNumTokens, aNumLongLivedTokens, aEnv, aThreadPool, aServiceAuthenticator, aStore, aObserver);
 }
 
 ServiceProvider::~ServiceProvider()
@@ -103,7 +107,8 @@ void ServiceProvider::ToJson(WriterJsonObject& aWriter)
 {
     aWriter.WriteString("id" ,iServiceId);
     aWriter.WriteBool("visible", iServiceEnabled);
-    aWriter.WriteInt("tokenMax", iTokenManager->Capacity());
+    aWriter.WriteInt("shortLivedMax", iTokenManager->ShortLivedCapacity());
+    aWriter.WriteInt("longLivedMax", iTokenManager->LongLivedCapacity());
 
     iTokenManager->TokenStateToJson(aWriter);
 
@@ -175,7 +180,9 @@ ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
     EnableActionGetPublicKey();
     EnableActionSetToken();
     EnableActionClearToken();
-    EnableActionClearTokens();
+    EnableActionClearShortLivedTokens();
+    EnableActionClearLongLivedTokens();
+    EnableActionClearAllTokens();
     EnableActionGetUpdateId();
     EnableActionGetServiceStatus();
     EnableActionGetSupportedServices();
@@ -204,6 +211,7 @@ ProviderOAuth::~ProviderOAuth()
 
 void ProviderOAuth::AddService(const Brx& aServiceId,
                                const TUint aMaxTokens,
+                               const TUint aMaxLongLivedTokens,
                                IOAuthAuthenticator& aAuthenticator)
 {
    AutoMutex m(iLockProviders);
@@ -212,6 +220,7 @@ void ProviderOAuth::AddService(const Brx& aServiceId,
                                                        iEnv,
                                                        iThreadPool, 
                                                        aMaxTokens,
+                                                       aMaxLongLivedTokens,
                                                        aAuthenticator,
                                                        iConfigManager,
                                                        iStore,
@@ -265,7 +274,8 @@ void ProviderOAuth::SetToken(IDvInvocation& aInvocation,
                              const Brx& aTokenId,
                              const Brx& aAesKeyRsaEncrypted,
                              const Brx& aInitVectorRsaEncrypted,
-                             const Brx& aTokenAesEncrypted)
+                             const Brx& aTokenAesEncrypted,
+                             TBool aIsLongLived)
 {
     ValidateSetTokenParams(aInvocation,
                            aTokenId,
@@ -341,7 +351,7 @@ void ProviderOAuth::SetToken(IDvInvocation& aInvocation,
             THROW(ServiceIdNotFound);
         }
 
-        provider->AddToken(aTokenId, token);
+        provider->AddToken(aTokenId, aIsLongLived, token);
     }
     catch (ServiceIdNotFound&)
     {
@@ -386,8 +396,8 @@ void ProviderOAuth::ClearToken(IDvInvocation& aInvocation,
 }
 
 
-void ProviderOAuth::ClearTokens(IDvInvocation& aInvocation,
-                                const Brx& aServiceId)
+void ProviderOAuth::ClearShortLivedTokens(IDvInvocation& aInvocation,
+                                          const Brx& aServiceId)
 {
     try
     {
@@ -398,15 +408,57 @@ void ProviderOAuth::ClearTokens(IDvInvocation& aInvocation,
         if (provider == nullptr)
             THROW(ServiceIdNotFound);
 
-        provider->ClearTokens();
+        provider->ClearShortLivedTokens();
     }
     catch (ServiceIdNotFound&)
     {
         aInvocation.Error(kServiceIdNotFoundCode, kServiceIdNotFoundMsg);
     }
-    catch (OAuthTokenIdNotFound&)
+
+    aInvocation.StartResponse();
+    aInvocation.EndResponse();
+}
+
+void ProviderOAuth::ClearLongLivedTokens(Net::IDvInvocation &aInvocation,
+                                         const Brx& aServiceId)
+{
+    try
     {
-        aInvocation.Error(kTokenIdNotFoundCode, kTokenIdNotFoundMsg);
+        AutoMutex m(iLockProviders);
+
+        ServiceProvider* provider = GetProviderLocked(aServiceId);
+
+        if (provider == nullptr)
+            THROW(ServiceIdNotFound);
+
+        provider->ClearLongLivedTokens();
+    }
+    catch (ServiceIdNotFound&)
+    {
+        aInvocation.Error(kServiceIdNotFoundCode, kServiceIdNotFoundMsg);
+    }
+
+    aInvocation.StartResponse();
+    aInvocation.EndResponse();
+}
+
+void ProviderOAuth::ClearAllTokens(Net::IDvInvocation& aInvocation,
+                                   const Brx& aServiceId)
+{
+    try
+    {
+        AutoMutex m(iLockProviders);
+
+        ServiceProvider* provider = GetProviderLocked(aServiceId);
+
+        if (provider == nullptr)
+            THROW(ServiceIdNotFound);
+
+        provider->ClearAllTokens();
+    }
+    catch (ServiceIdNotFound&)
+    {
+        aInvocation.Error(kServiceIdNotFoundCode, kServiceIdNotFoundMsg);
     }
 
     aInvocation.StartResponse();

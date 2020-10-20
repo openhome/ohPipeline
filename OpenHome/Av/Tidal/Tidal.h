@@ -36,6 +36,7 @@ public:
     static const Brn kId;
 
     static const TUint kMaximumNumberOfStoredTokens = 10; //Family account of 4 + one for each of the 6 device pins
+    static const TUint kMaximumNumberOfLongLivedTokens = 1; // Currently only need one for Gateway use
 
 private:
     static const Brn kHost;

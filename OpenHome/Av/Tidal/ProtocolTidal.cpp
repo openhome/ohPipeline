@@ -140,7 +140,10 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::Configu
 
     if (aConfig.SupportsOAuth())
     {
-        aOAuthManager.AddService(Tidal::kId, Tidal::kMaximumNumberOfStoredTokens, *iTidal);
+        aOAuthManager.AddService(Tidal::kId,
+                                 Tidal::kMaximumNumberOfStoredTokens,
+                                 Tidal::kMaximumNumberOfLongLivedTokens,
+                                 *iTidal);
 
         iTokenProvider = aOAuthManager.GetTokenProvider(Tidal::kId);
         iTidal->SetTokenProvider(iTokenProvider);
