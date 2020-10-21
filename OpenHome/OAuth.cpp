@@ -483,11 +483,16 @@ void TokenManager::RemoveToken(const Brx& aTokenId)
         return;
     }
 
+    // Need to grab this value here before the token is removed
+    // Otherwise, the 'IsLongLived' flag will be incorrect.
+    const TBool isTokenLongLived = token->IsLongLived();
+
     RemoveTokenLocked(token);
     MoveTokenToEndOfList(token);
 
-    StoreTokenIdsLocked(token->IsLongLived() ? ETokenTypeSelection::LongLived
-                                             : ETokenTypeSelection::ShortLived);
+    StoreTokenIdsLocked(isTokenLongLived ? ETokenTypeSelection::LongLived
+                                         : ETokenTypeSelection::ShortLived);
+
     iObserver.OnTokenChanged();
 }
 
