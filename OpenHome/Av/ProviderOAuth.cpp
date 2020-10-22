@@ -214,6 +214,8 @@ ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
     EnableActionGetPublicKey();
     EnableActionSetToken();
     EnableActionClearToken();
+    EnableActionClearShortLivedToken();
+    EnableActionClearLongLivedToken();
     EnableActionClearShortLivedTokens();
     EnableActionClearLongLivedTokens();
     EnableActionClearAllTokens();
