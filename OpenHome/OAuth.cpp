@@ -472,11 +472,13 @@ void TokenManager::AddToken(const Brx& aTokenId,
 
 
 
-void TokenManager::RemoveToken(const Brx& aTokenId)
+void TokenManager::RemoveToken(const Brx& aTokenId, ETokenTypeSelection type)
 {
+    const TBool isLongLived = type == ETokenTypeSelection::LongLived;
+
     AutoMutex m(iLock);
 
-    OAuthToken* token = FindTokenLocked(aTokenId);
+    OAuthToken* token = FindTokenLocked(aTokenId, isLongLived);
     if (token == nullptr)
     {
         THROW(OAuthTokenIdNotFound);
@@ -485,13 +487,13 @@ void TokenManager::RemoveToken(const Brx& aTokenId)
 
     // Need to grab this value here before the token is removed
     // Otherwise, the 'IsLongLived' flag will be incorrect.
-    const TBool isTokenLongLived = token->IsLongLived();
+    ASSERT_VA(token->IsLongLived() == isLongLived, "%s\n", "Found token with matching ID, but it's long-lived property wasn't what we expected.");
 
     RemoveTokenLocked(token);
     MoveTokenToEndOfList(token);
 
-    StoreTokenIdsLocked(isTokenLongLived ? ETokenTypeSelection::LongLived
-                                         : ETokenTypeSelection::ShortLived);
+    StoreTokenIdsLocked(isLongLived ? ETokenTypeSelection::LongLived
+                                    : ETokenTypeSelection::ShortLived);
 
     iObserver.OnTokenChanged();
 }

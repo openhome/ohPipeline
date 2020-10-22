@@ -41,7 +41,41 @@ class ServiceProvider
                       TBool aIsLongLived,
                       const Brx& aRefreshToken) { iTokenManager->AddToken(aId, aRefreshToken, aIsLongLived); }
 
-        void RemoveToken(const Brx& aId) { iTokenManager->RemoveToken(aId); }
+        void RemoveToken(const Brx& aId, TokenManager::ETokenTypeSelection tokenSelection)
+        {
+            const TBool clearShortLived = tokenSelection == TokenManager::ETokenTypeSelection::ShortLived || tokenSelection == TokenManager::ETokenTypeSelection::All;
+            const TBool clearLongLived = tokenSelection == TokenManager::ETokenTypeSelection::LongLived || tokenSelection == TokenManager::ETokenTypeSelection::All;
+
+            TBool tokenFound = false;
+
+            if (clearShortLived)
+            {
+                try
+                {
+                    iTokenManager->RemoveToken(aId, TokenManager::ETokenTypeSelection::ShortLived);
+                    tokenFound = true;
+                }
+                catch (OAuthTokenIdNotFound&)
+                { }
+            }
+
+            if (clearLongLived)
+            {
+                try
+                {
+                    iTokenManager->RemoveToken(aId, TokenManager::ETokenTypeSelection::LongLived);
+                    tokenFound = true;
+                }
+                catch (OAuthTokenIdNotFound&)
+                { }
+            }
+
+            // Maintains compatibiliy with first version of this service
+            if (!tokenFound)
+            {
+                THROW(OAuthTokenIdNotFound);
+            }
+        }
 
         void ClearAllTokens() { iTokenManager->ClearAllTokens(); }
         void ClearShortLivedTokens() { iTokenManager->ClearShortLivedTokens(); }
@@ -370,17 +404,41 @@ void ProviderOAuth::SetToken(IDvInvocation& aInvocation,
 void ProviderOAuth::ClearToken(IDvInvocation& aInvocation,
                                const Brx& aServiceId,
                                const Brx& aTokenId)
+
 {
-    try 
+    DoClearToken(aInvocation, aServiceId, aTokenId, TokenManager::ETokenTypeSelection::All);
+}
+
+void ProviderOAuth::ClearShortLivedToken(Net::IDvInvocation& aInvocation,
+                                         const Brx& aServiceId,
+                                         const Brx& aTokenId)
+{
+    DoClearToken(aInvocation, aServiceId, aTokenId, TokenManager::ETokenTypeSelection::ShortLived);
+}
+
+void ProviderOAuth::ClearLongLivedToken(IDvInvocation& aInvocation,
+                                        const Brx& aServiceId,
+                                        const Brx& aTokenId)
+{
+    DoClearToken(aInvocation, aServiceId, aTokenId, TokenManager::ETokenTypeSelection::LongLived);
+}
+
+void ProviderOAuth::DoClearToken(Net::IDvInvocation& aInvocation,
+                                 const Brx& aServiceId,
+                                 const Brx& aTokenId,
+                                 TokenManager::ETokenTypeSelection tokenType)
+{
+    try
     {
         AutoMutex m(iLockProviders);
 
         ServiceProvider* provider = GetProviderLocked(aServiceId);
-
         if (provider == nullptr)
+        {
             THROW(ServiceIdNotFound);
+        }
 
-        provider->RemoveToken(aTokenId);
+        provider->RemoveToken(aTokenId, tokenType);
     }
     catch (ServiceIdNotFound&)
     {

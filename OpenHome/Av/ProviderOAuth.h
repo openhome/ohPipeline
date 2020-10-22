@@ -73,6 +73,14 @@ class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
                         const Brx& aServiceId,
                         const Brx& aTokenId) override;
 
+        void ClearShortLivedToken(Net::IDvInvocation& aInvocation,
+                                  const Brx& aServiceId,
+                                  const Brx& aTokenId) override;
+
+        void ClearLongLivedToken(Net::IDvInvocation& aInvocation,
+                                 const Brx& aServiceId,
+                                 const Brx& aTokenId) override;
+
         void ClearShortLivedTokens(Net::IDvInvocation& aInvocation,
                                    const Brx& aServiceId) override;
 
@@ -96,6 +104,11 @@ class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
                                     const Brx& aTokenAesEncrypted);
 
         ServiceProvider* GetProviderLocked(const Brx& aServiceId);
+
+        void DoClearToken(Net::IDvInvocation& aInvocation,
+                          const Brx& aServiceId,
+                          const Brx& aTokenId,
+                          TokenManager::ETokenTypeSelection tokenType);
 
         void RsaKeySet(IRsaProvider&);
 

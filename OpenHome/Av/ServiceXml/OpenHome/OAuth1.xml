@@ -66,6 +66,36 @@
             </argumentList>
         </action>
         <action>
+            <name>ClearShortLivedToken</name>
+            <argumentList>
+                <argument>
+                    <name>ServiceId</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+                <argument>
+                    <name>TokenId</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>ClearLongLivedToken</name>
+            <argumentList>
+                <argument>
+                    <name>ServiceId</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+                <argument>
+                    <name>TokenId</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
             <name>ClearShortLivedTokens</name>
             <argumentList>
                 <argument>

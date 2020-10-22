@@ -240,8 +240,7 @@ class TokenManager : public ITokenObserver,
         static const TUint kMaxShortLivedTokens = 10;
         static const TUint kMaxLongLivedTokens = 5;
 
-    private:
-
+    public:
         enum ETokenTypeSelection
         {
             ShortLived,
@@ -269,7 +268,7 @@ class TokenManager : public ITokenObserver,
                       const Brx& aRefreshToken,
                       TBool aIsLongLived);
 
-        void RemoveToken(const Brx& aId);
+        void RemoveToken(const Brx& aId, ETokenTypeSelection tokenType);
 
         void ClearShortLivedTokens();
         void ClearLongLivedTokens();

@@ -410,7 +410,7 @@ void SuiteTokenManager::TestAddRemove()
     TEST(manager.HasToken(idB) == false);
 
 
-    manager.RemoveToken(idA);
+    manager.RemoveToken(idA, TokenManager::ETokenTypeSelection::ShortLived);
 
     TEST(manager.HasToken(idA) == false);
     TEST(manager.HasToken(idB) == false);
@@ -419,7 +419,16 @@ void SuiteTokenManager::TestAddRemove()
     // Attempt to remove an ID that doesn't exist
     try
     {
-        manager.RemoveToken(idA);
+        manager.RemoveToken(idA, TokenManager::ETokenTypeSelection::ShortLived);
+    }
+    catch(OAuthTokenIdNotFound)
+    {
+        TEST(true);
+    }
+
+    try
+    {
+        manager.RemoveToken(idA, TokenManager::ETokenTypeSelection::LongLived);
     }
     catch(OAuthTokenIdNotFound)
     {
