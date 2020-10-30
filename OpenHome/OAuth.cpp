@@ -519,6 +519,9 @@ void TokenManager::DoClearTokens(ETokenTypeSelection operation)
     const TBool clearLongLived =  operation == ETokenTypeSelection::All || operation == ETokenTypeSelection::LongLived;
     const TBool clearShortLived = operation == ETokenTypeSelection::All || operation == ETokenTypeSelection::ShortLived;
 
+    TUint numberOfShortLivedRemoved = 0;
+    TUint numberOfLongLivedRemoved = 0;
+
     AutoMutex m(iLock);
 
     if (clearShortLived)
@@ -528,6 +531,7 @@ void TokenManager::DoClearTokens(ETokenTypeSelection operation)
             if (val->IsPresent())
             {
                 RemoveTokenLocked(val);
+                numberOfShortLivedRemoved++;
             }
         }
     }
@@ -539,19 +543,24 @@ void TokenManager::DoClearTokens(ETokenTypeSelection operation)
             if (val->IsPresent())
             {
                 RemoveTokenLocked(val);
+                numberOfLongLivedRemoved++;
             }
         }
     }
 
+    LOG_TRACE(kOAuth,
+              "TokenManager::DoClearTokens - Cleared: %d short lived & %d long lived token(s)\n.",
+              numberOfShortLivedRemoved,
+              numberOfLongLivedRemoved);
 
     // Since all tokens from one or both collections have
     // been cleared there is no need to rearrange the orders
-    if (clearShortLived)
+    if (clearShortLived && numberOfShortLivedRemoved > 0)
     {
         StoreTokenIdsLocked(ETokenTypeSelection::ShortLived);
     }
 
-    if (clearLongLived)
+    if (clearLongLived && numberOfLongLivedRemoved > 0)
     {
         StoreTokenIdsLocked(ETokenTypeSelection::LongLived);
     }
@@ -1005,7 +1014,7 @@ void TokenManager::StoreTokenIdsLocked(ETokenTypeSelection operation)
     const auto& tokenList = operation == ETokenTypeSelection::LongLived ? iLongLivedTokens
                                                                         : iShortLivedTokens;
 
-    for(auto val : tokenList)
+    for(const auto val : tokenList)
     {
         if (val->IsPresent())
         {

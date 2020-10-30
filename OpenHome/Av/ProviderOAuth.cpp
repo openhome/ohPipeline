@@ -510,9 +510,10 @@ void ProviderOAuth::ClearAllTokens(Net::IDvInvocation& aInvocation,
         AutoMutex m(iLockProviders);
 
         ServiceProvider* provider = GetProviderLocked(aServiceId);
-
         if (provider == nullptr)
+        {
             THROW(ServiceIdNotFound);
+        }
 
         provider->ClearAllTokens();
     }
