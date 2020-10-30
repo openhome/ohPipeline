@@ -1,4 +1,5 @@
 #include <OpenHome/Av/Debug.h>
+#include <OpenHome/AESHelpers.h>
 #include <OpenHome/Av/Credentials.h>
 #include <OpenHome/Av/ProviderOAuth.h>
 #include <OpenHome/Private/Converter.h>
@@ -325,6 +326,11 @@ void ProviderOAuth::SetToken(IDvInvocation& aInvocation,
     {
         LOG_ERROR(kOAuth, "ProviderOAuth::SetToken failed - no RSA key\n");
         aInvocation.Error(kDecryptionFailedCode, kDecryptionFailedMsg);
+
+        aInvocation.StartResponse();
+        aInvocation.EndResponse();
+
+        return;
     }
 
     unsigned char aesKeyData[16];
@@ -337,6 +343,11 @@ void ProviderOAuth::SetToken(IDvInvocation& aInvocation,
     {
         LOG_ERROR(kOAuth, "ProviderOAuth::SetToken failed - could not decode AES key\n");
         aInvocation.Error(kDecryptionFailedCode, kDecryptionFailedMsg);
+
+        aInvocation.StartResponse();
+        aInvocation.EndResponse();
+
+        return;
     }
 
     AES_KEY aesKey;
@@ -356,38 +367,31 @@ void ProviderOAuth::SetToken(IDvInvocation& aInvocation,
 
     Bws<OAuth::kMaxTokenBytes> tokenBuf;
 
-    AES_cbc_encrypt(aTokenAesEncrypted.Ptr(),
-                    const_cast<TByte*>(tokenBuf.Ptr()),
-                    aTokenAesEncrypted.Bytes(),
-                    &aesKey,
-                    initVector,
-                    AES_DECRYPT);
-
-    tokenBuf.SetBytes(aTokenAesEncrypted.Bytes());
-
-    const TUint len = Converter::BeUint16At(tokenBuf, 0);
-    if (len > tokenBuf.Bytes() - 2) 
+    if (!AESHelpers::DecryptWithContentLengthPrefix(aesKeyData,
+                                                   initVector,
+                                                   aTokenAesEncrypted,
+                                                   tokenBuf))
     {
-        LOG_ERROR(kOAuth, "ProviderOAuth::SetAssociated failed - token begins with length %u\n", len);
+        LOG_ERROR(kOAuth, "ProviderOAuth::SetToken failed - unable to decrypt token.\n");
         aInvocation.Error(kDecryptionFailedCode, kDecryptionFailedMsg);
+
+        aInvocation.StartResponse();
+        aInvocation.EndResponse();
+
+        return;
     }
-
-    Brn token;
-    token.Set(tokenBuf.Ptr() + 2, len);
-
 
     try
     {
         AutoMutex mProviders(iLockProviders);
 
         ServiceProvider* provider = GetProviderLocked(aServiceId);
-
         if (provider == nullptr)
         {
             THROW(ServiceIdNotFound);
         }
 
-        provider->AddToken(aTokenId, aIsLongLived, token);
+        provider->AddToken(aTokenId, aIsLongLived, tokenBuf);
     }
     catch (ServiceIdNotFound&)
     {
