@@ -17,6 +17,7 @@
 #include <OpenHome/Json.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Private/Converter.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <algorithm>
 
@@ -35,6 +36,7 @@ const Brn Tidal::kId("tidalhifi.com");
 
 const Brn Tidal::kConfigKeySoundQuality("tidalhifi.com.SoundQuality");
 
+const Brn kTidalTokenScope("r_usr+w_usr+w_sub");
 
 // UserInfo
 /* Associated information connected to an OAuthToken.
@@ -95,7 +97,12 @@ class Tidal::UserInfo
 
 // Tidal
 
-Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues& aTidalConfig, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser)
+Tidal::Tidal(Environment& aEnv,
+             SslContext& aSsl,
+             const ConfigurationValues& aTidalConfig,
+             ICredentialsState& aCredentialsState,
+             Configuration::IConfigInitialiser& aConfigInitialiser,
+             IThreadPool& aThreadPool)
     : iLock("TDL1")
     , iLockConfig("TDL2")
     , iCredentialsState(aCredentialsState)
@@ -114,7 +121,10 @@ Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues& aTi
     , iUri(1024)
     , iTokenProvider(nullptr)
     , iConnectedHost(SocketHost::None)
-    , iUserInfos(kMaximumNumberOfStoredTokens)
+    , iUserInfos(kMaximumNumberOfTokens + 1) // Need an extra slot so that incoming tokens can be verified first, before stored internally
+    , iPollResultListener(nullptr)
+    , iPollRequestLock("TDL3")
+    , iPollRequests(0)
 {
     iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Tidal::SocketInactive), "Tidal");
 
@@ -126,6 +136,8 @@ Tidal::Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues& aTi
     iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 2);
     iMaxSoundQuality = kNumSoundQualities - 1;
     iSubscriberIdQuality = iConfigQuality->Subscribe(MakeFunctorConfigChoice(*this, &Tidal::QualityChanged));
+
+    iPollHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &Tidal::DoPollForToken), "Tidal-POLL", ThreadPoolPriority::Low);
 }
 
 Tidal::~Tidal()
@@ -133,6 +145,9 @@ Tidal::~Tidal()
     delete iTimerSocketActivity;
     iConfigQuality->Unsubscribe(iSubscriberIdQuality);
     delete iConfigQuality;
+
+    iPollHandle->Cancel();
+    iPollHandle->Destroy();
 }
 
 
@@ -914,8 +929,6 @@ TBool Tidal::TryGetAccessToken(const Brx& aTokenId,
     //      threads from accessing this at once.
     AutoMutex m(iLock);
 
-    const Brn kTidalScope("r_usr+w_usr+w_sub");
-
     iTimerSocketActivity->Cancel(); //Socket automatically closed by call below
 
     if (!TryConnect(SocketHost::Auth, kPort))
@@ -934,33 +947,32 @@ TBool Tidal::TryGetAccessToken(const Brx& aTokenId,
                                             aRefreshToken,
                                             iClientId,
                                             iClientSecret,
-                                            kTidalScope);
+                                            kTidalTokenScope);
 
     AutoSocketSsl _(iSocket);
 
     try
     {
-        WriteRequestHeaders(Http::kMethodPost, kAuthenticationHost, path, 443, Connection::Close, iReqBody.Bytes());
+        WriteRequestHeaders(Http::kMethodPost, kAuthenticationHost, path, kPort, Connection::Close, iReqBody.Bytes());
 
         iWriterBuf.Write(iReqBody);
         iWriterBuf.WriteFlush();
 
         iReaderResponse.Read();
 
-        const TUint code = iReaderResponse.Status()
-                                          .Code();
+        iResponseBuffer.SetBytes(0);
+        WriterBuffer responseWriter(iResponseBuffer);
 
-        iResponseBuffer.Replace(Brx::Empty());
-        WriterBuffer writer2(iResponseBuffer);
-
-        iReaderEntity.ReadAll(writer2,
+        iReaderEntity.ReadAll(responseWriter,
                               iHeaderContentLength,
                               iHeaderTransferEncoding,
                               ReaderHttpEntity::Mode::Client);
 
+        const TUint code = iReaderResponse.Status()
+                                          .Code();
+
         JsonParser parser;
         parser.ParseAndUnescape(iResponseBuffer);
-
 
         if (code != 200)
         {
@@ -996,17 +1008,21 @@ TBool Tidal::TryGetAccessToken(const Brx& aTokenId,
         const Brx& username = parserUser.String("username");
 
         // Store our user info internally for future API calls...
+        TBool didPopulate = false;
         for(auto& v : iUserInfos)
         {
             if (!v.Populated())
             {
                 v.Populate(aTokenId, userId, username, countryCode);
+                didPopulate = true;
                 break;
             }
         }
 
         //FIX ME: Need to handle JSON exceptions that might be thrown by this...
-        return true;
+
+        // NOTE: We need to check we have actually stored the username details
+        return didPopulate;
     }
     catch (HttpError&)
     {
@@ -1126,9 +1142,6 @@ TBool Tidal::TryLogoutSession(const Brx& aToken)
     return success;
 }
 
-
-
-
 void Tidal::QualityChanged(Configuration::KeyValuePair<TUint>& aKvp)
 {
     iLockConfig.Wait();
@@ -1140,4 +1153,276 @@ void Tidal::SocketInactive()
 {
     AutoMutex _(iLock);
     iSocket.Close();
+}
+
+TUint Tidal::MaxPollingJobs() const
+{
+    return Tidal::kMaximumNumberOfPollingJobs;
+}
+
+TBool Tidal::StartLimitedInputFlow(LimitedInputFlowDetails& aDetails)
+{
+    AutoMutex m(iLock);
+
+    if (!TryConnect(SocketHost::Auth, kPort))
+    {
+        LOG_ERROR(kOAuth, "Tidal::StartLimitedInputFlow - Failed to connect socket.\n");
+        return false;
+    }
+
+    AutoSocketSsl s(iSocket);
+
+    iReqBody.SetBytes(0);
+    WriterBuffer bodyWriter(iReqBody);
+    Brn path("/v1/oauth2/device_authorization");
+
+    OAuth::WriteRequestToStartLimitedInputFlowBody(bodyWriter,
+                                                   iClientId,
+                                                   kTidalTokenScope);
+
+    try
+    {
+        WriteRequestHeaders(Http::kMethodPost,
+                            kAuthenticationHost,
+                            path,
+                            kPort,
+                            Connection::Close,
+                            iReqBody.Bytes());
+
+        iWriterBuf.Write(iReqBody);
+        iWriterBuf.WriteFlush();
+
+        iReaderResponse.Read();
+
+        iResponseBuffer.SetBytes(0);
+        WriterBuffer responseWriter(iResponseBuffer);
+
+        iReaderEntity.ReadAll(responseWriter,
+                              iHeaderContentLength,
+                              iHeaderTransferEncoding,
+                              ReaderHttpEntity::Mode::Client);
+
+        const TUint status = iReaderResponse.Status().Code();
+
+        if (status != 200)
+        {
+            LOG_ERROR(kOAuth, "Tidal::StartLimitedInputFlow - Failed to start flow. Code: %d. Response:\n%.*s\n", status, PBUF(iResponseBuffer));
+            return false;
+        }
+        else
+        {
+            JsonParser p;
+            p.ParseAndUnescape(iResponseBuffer);
+
+            aDetails.Set(p.String("verificationUriComplete"),
+                         p.String("userCode"),
+                         p.String("deviceCode"),
+                         static_cast<TUint>(p.Num("interval")));
+
+            LOG_TRACE(kOAuth,
+                      "Tidal::StartLimitedInputFlow - Fetched new device code: %.*s, user code: %.*s, with polling interval: %ud\n",
+                      PBUF(aDetails.DeviceCode()),
+                      PBUF(aDetails.AuthCode()),
+                      aDetails.SuggestedPollingInterval());
+
+            return true;
+        }
+    }
+    catch (ReaderError&)
+    {
+        LOG_ERROR(kOAuth, "Tidal::StartLimitedInputFlow - ReaderError.\n");
+        return false;
+    }
+    catch (WriterError&)
+    {
+        LOG_ERROR(kOAuth, "Tidal::StartLimitedInputFlow - WriterError.\n");
+        return false;
+    }
+    catch (HttpError&)
+    {
+        LOG_ERROR(kOAuth, "Tidal::StartLimitedInputFlow - HttpError.\n");
+        return false;
+    }
+}
+
+void Tidal::SetPollResultListener(IOAuthTokenPollResultListener* aListener)
+{
+    AutoMutex m(iPollRequestLock);
+
+    ASSERT_VA(iPollResultListener == nullptr,
+              "%s\n",
+              "Tidal::SetPollResultListener - Listener already set.");
+
+    iPollResultListener = aListener;
+}
+
+TBool Tidal::RequestPollForToken(OAuthPollRequest& aRequest)
+{
+    AutoMutex m(iPollRequestLock);
+
+    if (iPollRequests.size() == kMaximumNumberOfPollingJobs)
+    {
+        LOG_WARNING(kOAuth, "Tidal::RequestPollForToken - Not enough space in queue to add new polling job.\n");
+        return false;
+    }
+    else
+    {
+        const TBool hasPendingJobs = iPollRequests.size() == 0;
+
+        iPollRequests.push_back(aRequest);
+        LOG_TRACE(kOAuth, "Tidal::RequestPollForToken - Polling request added for job: %.*s\n", PBUF(aRequest.JobId()));
+
+        if (hasPendingJobs)
+        {
+            LOG_TRACE(kOAuth, "Tidal::RequestPollForToken - Queue was previously empty, scheduling the polling task.\n");
+            return iPollHandle->TrySchedule();
+        }
+        else
+        {
+            return true;
+        }
+    }
+}
+
+
+void Tidal::DoPollForToken()
+{
+    ASSERT_VA(iPollResultListener != nullptr,
+              "%s\n",
+              "Tidal::DoPollForToken - Attempting to poll for a token when there is nothing to listen for results.");
+
+    OAuthPollRequest request;
+    {
+        AutoMutex m(iPollRequestLock);
+
+        if (iPollRequests.size() == 0)
+        {
+            LOG_TRACE(kOAuth, "Tidal::DoPollForToken - Poll task has no work left to complete!\n");
+            return;
+        }
+        else
+        {
+            request = iPollRequests.front();
+            iPollRequests.pop_front();
+        }
+
+    }
+
+    OAuthPollResult result(request.JobId());
+
+    LOG_TRACE(kOAuth, "Tidal::DoPollForToken - Polling token for Job: %.*s\n", PBUF(request.JobId()));
+
+    /* NOTE: As the reporting of polling results could call back into
+     *       this class, we need to release control of the socket and lock
+     *       so prevent deadlocks and subsequent network calls tramping on
+     *       response buffers! */
+    {
+        AutoMutex m(iLock);
+
+        if (!TryConnect(SocketHost::Auth, kPort))
+        {
+            LOG_ERROR(kOAuth, "Tidal::DoPollForToken - Failed to connect socket. Reporting error.\n");
+
+            result.Set(OAuth::PollResult::Failed);
+            iPollResultListener->OnPollCompleted(result);
+
+            iPollHandle->TrySchedule();
+        }
+
+        AutoSocketSsl s(iSocket);
+        Brn path("/v1/oauth2/token");
+
+        iReqBody.SetBytes(0);
+        WriterBuffer bodyWriter(iReqBody);
+
+        OAuth::WriteTokenPollRequestBody(bodyWriter,
+                                         iClientId,
+                                         iClientSecret,
+                                         kTidalTokenScope,
+                                         request.DeviceCode());
+
+
+        try
+        {
+            WriteRequestHeaders(Http::kMethodPost,
+                                kAuthenticationHost,
+                                path,
+                                kPort,
+                                Connection::Close,
+                                iReqBody.Bytes());
+
+            iWriterBuf.Write(iReqBody);
+            iWriterBuf.WriteFlush();
+
+            iReaderResponse.Read();
+
+            iResponseBuffer.SetBytes(0);
+            WriterBuffer responseWriter(iResponseBuffer);
+
+            iReaderEntity.ReadAll(responseWriter,
+                                  iHeaderContentLength,
+                                  iHeaderTransferEncoding,
+                                  ReaderHttpEntity::Mode::Client);
+
+            const TUint status = iReaderResponse.Status().Code();
+
+            JsonParser p;
+            p.ParseAndUnescape(iResponseBuffer);
+
+            // Success - polling complete...
+            if (status == 200)
+            {
+                LOG_INFO(kOAuth, "Tidal::DoPollForToken - Polling successful for job: %.*s\n", PBUF(result.JobId()));
+
+                result.Set(OAuth::PollResult::Success, p.String(OAuth::kTokenResponseFieldRefreshToken));
+            }
+            else if (status > 399 && status < 500)
+            {
+                const Brx& error = p.String(OAuth::kErrorResponseFieldError);
+                const Brx& errorDesc = p.String(OAuth::kErrorResponseFieldErrorDescription);
+
+                if (error == OAuth::kPollingStateTryAgain)
+                {
+                    LOG_TRACE(kOAuth, "Tidal::DoPollForToken - User not yet completed login for job: %.*s\n", PBUF(result.JobId()));
+                    result.Set(OAuth::PollResult::Poll);
+                }
+                else if (error == OAuth::kPollingStateSlowDown)
+                {
+                    LOG_TRACE(kOAuth, "Tidal::DoPollForToken - We're polling to quickly on job: %.*s\n", PBUF(result.JobId()));
+                    result.Set(OAuth::PollResult::SlowDown);
+                }
+                else
+                {
+                    LOG_ERROR(kOAuth,
+                              "Tidal::DoPollForToken - Polling failed on job: %.*s with the following error: %.*s. Message: %.*s\n",
+                              PBUF(result.JobId()),
+                              PBUF(error),
+                              PBUF(errorDesc));
+
+                    result.Set(OAuth::PollResult::Failed);
+                }
+            }
+        }
+        catch (ReaderError&)
+        {
+            LOG_ERROR(kOAuth, "Tidal::DoPollForToken - Reader error.\n");
+            result.Set(OAuth::PollResult::Failed);
+        }
+        catch (WriterError&)
+        {
+            LOG_ERROR(kOAuth, "Tidal::DoPollForToken - Writer error.\n");
+            result.Set(OAuth::PollResult::Failed);
+        }
+        catch (HttpError&)
+        {
+            LOG_ERROR(kOAuth, "Tidal::DoPollForToken - Htt error.\n");
+            result.Set(OAuth::PollResult::Failed);
+        }
+
+    }
+
+    //NOTE: This should be called outside the lock to allow
+    //      other threads to continue and prevent deadlocking
+    iPollResultListener->OnPollCompleted(result);
+    iPollHandle->TrySchedule();
 }

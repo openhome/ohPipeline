@@ -146,19 +146,65 @@
                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
                </argument>
            </argumentList>
-       </action>
+        </action>
 
+        <action>
+            <name>GetJobUpdateId</name>
+            <argumentList>
+                <argument>
+                    <name>JobUpdateId</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>JobUpdateId</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>GetJobStatus</name>
+            <argumentList>
+                <argument>
+                    <name>JobStatusJson</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
 
-       <action>
-           <name>GetSupportedServices</name>
-           <argumentList>
-               <argument>
-                   <name>SupportedServiceListJson</name>
-                   <direction>out</direction>
-                   <relatedStateVariable>SupportedServices</relatedStateVariable>
-               </argument>
-           </argumentList>
-       </action>
+        <action>
+            <name>GetSupportedServices</name>
+            <argumentList>
+                <argument>
+                    <name>SupportedServiceListJson</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>SupportedServices</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+
+        <action>
+            <name>BeginLimitedInputFlow</name>
+            <argumentList>
+                <argument>
+                    <name>ServiceId</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+                <argument>
+                    <name>JobId</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+                <argument>
+                    <name>LoginUrl</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+                <argument>
+                    <name>UserCode</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
 
     </actionList>
     <serviceStateTable>
@@ -168,6 +214,10 @@
         </stateVariable>
         <stateVariable sendEvents="yes">
             <name>UpdateId</name>
+            <dataType>ui4</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="yes">
+            <name>JobUpdateId</name>
             <dataType>ui4</dataType>
         </stateVariable>
         <stateVariable sendEvents="yes">

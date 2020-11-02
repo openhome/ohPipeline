@@ -1,13 +1,15 @@
 #include <OpenHome/Json.h>
 #include <OpenHome/OAuth.h>
 #include <OpenHome/Av/Debug.h>
+#include <OpenHome/OsWrapper.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Private/Http.h>
-#include <OpenHome/Private/Timer.h>
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/Private/Converter.h>
+
+#include <limits>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -17,15 +19,19 @@ using namespace OpenHome::Av;
  * OAuth Static class
  * ******************* */
 
+const TUint OAuth::kMaxTokenBytes;
+
 // OAuth request parameters
 const Brn OAuth::kParameterRefreshToken("refresh_token");
 const Brn OAuth::kParameterClientId("client_id");
 const Brn OAuth::kParameterClientSecret("client_secret");
 const Brn OAuth::kParameterScope("scope");
 const Brn OAuth::kParameterGrantType("grant_type");
+const Brn OAuth::kParameterDeviceCode("device_code");
 
 // OAuth Grant types
 const Brn OAuth::kGrantTypeRefreshToken("refresh_token");
+const Brn OAuth::kGrantTypeDeviceCode("urn:ietf:params:oauth:grant-type:device_code");
 
 // OAuth Token Response fields
 const Brn OAuth::kTokenResponseFieldTokenType("token_type");
@@ -36,6 +42,10 @@ const Brn OAuth::kTokenResponseFieldRefreshToken("refresh_token");
 // OAuth Error Response fields
 const Brn OAuth::kErrorResponseFieldError("error");
 const Brn OAuth::kErrorResponseFieldErrorDescription("error_description");
+
+// OAuth Polling Errors
+const Brn OAuth::kPollingStateSlowDown("slow_down");
+const Brn OAuth::kPollingStateTryAgain("authorization_pending");
 
 
 
@@ -85,6 +95,57 @@ void OAuth::WriteAccessTokenHeader(WriterHttpHeader& aWriter,
     headerWriter.WriteSpace();
     headerWriter.Write(aAccessToken);
     headerWriter.WriteFlush();
+}
+
+void OAuth::WriteRequestToStartLimitedInputFlowBody(IWriter& aWriter,
+                                                    const Brx& aClientId,
+                                                    const Brx& aTokenScope)
+{
+    aWriter.Write(kParameterClientId);
+    aWriter.Write('=');
+    aWriter.Write(aClientId);
+
+    aWriter.Write('&');
+
+    aWriter.Write(kParameterScope);
+    aWriter.Write('=');
+    aWriter.Write(aTokenScope);
+}
+
+
+void OAuth::WriteTokenPollRequestBody(IWriter& aWriter,
+                                      const Brx& aClientId,
+                                      const Brx& aClientSecret,
+                                      const Brx& aTokenScope,
+                                      const Brx& aDeviceCode)
+{
+    aWriter.Write(kParameterGrantType);
+    aWriter.Write('=');
+    aWriter.Write(kGrantTypeDeviceCode);
+
+    aWriter.Write('&');
+
+    aWriter.Write(kParameterClientId);
+    aWriter.Write('=');
+    aWriter.Write(aClientId);
+
+    aWriter.Write('&');
+
+    aWriter.Write(kParameterClientSecret);
+    aWriter.Write('=');
+    aWriter.Write(aClientSecret);
+
+    aWriter.Write('&');
+
+    aWriter.Write(kParameterScope);
+    aWriter.Write('=');
+    aWriter.Write(aTokenScope);
+
+    aWriter.Write('&');
+
+    aWriter.Write(kParameterDeviceCode);
+    aWriter.Write('=');
+    aWriter.Write(aDeviceCode);
 }
 
 
@@ -440,6 +501,7 @@ void TokenManager::AddToken(const Brx& aTokenId,
                   "%.*s",
                   PBUF(Brn("TokenManager::AddToken - Token storage is full and a suitable token for eviction can't be found.")));
 
+
         RemoveTokenLocked(tokenToEvict);
 
         tokenToEvict->SetWithAccessToken(aTokenId,
@@ -449,7 +511,14 @@ void TokenManager::AddToken(const Brx& aTokenId,
                                          response.tokenExpiry,
                                          iUsernameBuffer.Buffer());
 
-        // TODO: If a token has been evicited, then should we place it at the head of the list??
+        LOG(kOAuth,
+            "TokenManager::AddToken (by eviction) - Added token '%.*s', expires in %us.\n",
+            PBUF(tokenToEvict->Id()),
+            response.tokenExpiry);
+
+        // Since we have just added a token, then we should put it at the head of the list
+        // as it's now the most recently used!
+        MoveTokenToFrontOfList(tokenToEvict);
     }
     else
     {
@@ -1115,5 +1184,417 @@ TBool TokenManager::ValidateToken(const Brx& aTokenId,
     return false;
 }
 
+/************************************
+ * OAuthPollingManager :: Polling Job
+ ************************************/
+static const TUint kBasePollingRate = 1000; // In seconds.
+static const TUint kPollingRateIncrease = 1000; // Increase polling by this amount (in seconds) if we're told to slow down.
+
+
+OAuthPollingManager::PollingJob::PollingJob(Environment& aEnv,
+                                            IPollingJobObserver& aObserver,
+                                            const Brx& aJobId,
+                                            const Brx& aDeviceCode,
+                                            TUint suggestedPollingInterval)
+    : iJobId(aJobId)
+    , iDeviceCode(aDeviceCode)
+    , iObserver(aObserver)
+{
+    iStatus = EPollingJobStatus::InProgress;
+    iPollingInterval = std::max<TUint>(kBasePollingRate, suggestedPollingInterval);
+
+    iPollTimer = new Timer(aEnv, MakeFunctor(*this, &OAuthPollingManager::PollingJob::OnPollRequired), "PollingJobTimer");
+}
+
+OAuthPollingManager::PollingJob::~PollingJob()
+{
+    iPollTimer->Cancel();
+    delete iPollTimer;
+}
+
+void OAuthPollingManager::PollingJob::StartPollTimer()
+{
+    iPollTimer->FireIn(iPollingInterval);
+}
+
+void OAuthPollingManager::PollingJob::HandleOnFailed()
+{
+    iStatus = EPollingJobStatus::Failed;
+
+    LOG_TRACE(kOAuth,
+              "PollingJob::HandleOnRequestToPollAgain - Job: %.*s: Handling case where we've failed to poll. Not requesting a new poll.\n",
+              PBUF(iJobId));
+
+}
+
+void OAuthPollingManager::PollingJob::HandleOnSuccess()
+{
+    iStatus = EPollingJobStatus::Success;
+
+    LOG_TRACE(kOAuth,
+              "PollingJob::HandleOnRequestToPollAgain - Job: %.*s: Polling was successful. Adding token...\n",
+              PBUF(iJobId));
+
+}
+
+void OAuthPollingManager::PollingJob::HandleOnRequestToPollAgain()
+{
+    iStatus = EPollingJobStatus::InProgress;
+    StartPollTimer();
+
+    LOG_TRACE(kOAuth,
+              "PollingJob::HandleOnRequestToPollAgain - Job: %.*s: Handling case where user hasn't logged in. Poll requested in %udms\n",
+              PBUF(iJobId),
+              iPollingInterval);
+
+}
+
+void OAuthPollingManager::PollingJob::HandleOnRequestToSlowPollingDown()
+{
+    iStatus = EPollingJobStatus::InProgress;
+
+    iPollingInterval += kPollingRateIncrease;
+    StartPollTimer();
+
+    LOG_TRACE(kOAuth,
+              "PollingJob::HandleOnRequestToPollAgain - Job: %.*s: Handling case where we're polling too quickly. Poll requested in %udms\n",
+              PBUF(iJobId),
+              iPollingInterval);
+
+}
+
+void OAuthPollingManager::PollingJob::OnPollRequired()
+{
+    iObserver.OnPollRequested(iJobId);
+}
+
+
+/*********************
+ * OAuthPollingManager
+ *********************/
+
+OAuthPollingManager::OAuthPollingManager(Environment& aEnv,
+                                         IOAuthTokenPoller& aPoller,
+                                         TokenManager& aTokenManager,
+                                         IOAuthPollingManagerObserver& aObserver)
+    : iLockJobs("PLCK")
+    , iEnv(aEnv)
+    , iPoller(aPoller)
+    , iTokenManager(aTokenManager)
+    , iObserver(aObserver)
+{
+
+}
+
+OAuthPollingManager::~OAuthPollingManager()
+{
+    for(auto val : iJobs)
+    {
+        delete val;
+    }
+}
+
+TUint OAuthPollingManager::MaxPollingJobs() const
+{
+    return iPoller.MaxPollingJobs();
+}
+
+TUint OAuthPollingManager::RunningPollingJobs() const
+{
+    AutoMutex m(iLockJobs);
+    return NumberOfRunningJobsLocked();
+}
+
+TBool OAuthPollingManager::CanRequestJob() const
+{
+    return RunningPollingJobs() < MaxPollingJobs();
+}
+
+TUint OAuthPollingManager::NumberOfRunningJobsLocked() const
+{
+    TUint runningJobs = 0;
+
+    for(const auto v : iJobs)
+    {
+        if (v->Status() == EPollingJobStatus::InProgress)
+        {
+            runningJobs++;
+        }
+    }
+
+    return runningJobs;
+}
+
+
+TBool OAuthPollingManager::RequestNewJob(PublicLimitedInputFlowDetails& aDetails)
+{
+    TBool success = false;
+
+    {
+        AutoMutex m(iLockJobs);
+        LimitedInputFlowDetails privateDetails;
+
+        if (NumberOfRunningJobsLocked() >= MaxPollingJobs())
+        {
+            LOG_WARNING(kOAuth, "OAuthPollingManager::RequestNewJob - Failed request job as we are currently at capacity.");
+            return false;
+        }
+
+        if (iPoller.StartLimitedInputFlow(privateDetails))
+        {
+            // Create new job....
+            Bws<64> newJobId;
+            if (!GenerateJobId(newJobId))
+            {
+                LOG_ERROR(kOAuth, "OAuthPollingManager::RequestNewJob - Failed to generate a suitable ID for new job.\n");
+                return false;
+            }
+
+            PollingJob* newJob = new PollingJob(iEnv,
+                                                *this,
+                                                newJobId,
+                                                privateDetails.DeviceCode(),
+                                                privateDetails.SuggestedPollingInterval());
+
+            newJob->StartPollTimer();
+
+            // Add to job list...
+            iJobs.push_back(newJob);
+
+            // Populate details for caller...
+            aDetails.Set(newJob->JobId(),
+                         privateDetails.UserUrl(),
+                         privateDetails.AuthCode());
+
+            success = true;
+        }
+    }
+
+    if (success)
+    {
+        iObserver.OnJobStatusChanged();
+    }
+
+    return true;
+}
+
+void OAuthPollingManager::GetJobStatusJSON(WriterJsonObject& aJsonWriter)
+{
+    AutoMutex m(iLockJobs);
+
+    WriterJsonArray arrayWriter = aJsonWriter.CreateArray("jobs");
+    for(auto v : iJobs)
+    {
+        auto w = arrayWriter.CreateObject();
+        w.WriteString("id", v->JobId());
+
+        switch(v->Status())
+        {
+            case EPollingJobStatus::InProgress:
+            {
+                w.WriteString("status", "inProgress");
+                break;
+            }
+
+            case EPollingJobStatus::Failed:
+            {
+                w.WriteString("status", "failed");
+                break;
+            }
+
+            case EPollingJobStatus::Success:
+            {
+                w.WriteString("status", "success");
+                break;
+            }
+        }
+
+        w.WriteEnd();
+    }
+
+    arrayWriter.WriteEnd();
+}
+
+void OAuthPollingManager::OnPollCompleted(OAuthPollResult& aResult)
+{
+    TBool notifyStatusChanged = false;
+
+    {
+        AutoMutex m(iLockJobs);
+
+        PollingJob* job = nullptr;
+        for(const auto v : iJobs)
+        {
+            if (v->JobId() == aResult.JobId())
+            {
+                job = v;
+                break;
+            }
+        }
+
+        ASSERT_VA(job != nullptr,
+                  "%s %.*s\n",
+                  "OAuthPollanager::OnPollCompleted - Unable to find job with id:",
+                  PBUF(aResult.JobId()));
+
+
+        switch(aResult.PollResult())
+        {
+            case OAuth::PollResult::Poll:
+            {
+                job->HandleOnRequestToPollAgain();
+
+                // Don't notify every poll loop to avoid flooding the network with updates that aren't visible to clients
+                notifyStatusChanged = false;
+                break;
+            }
+
+            case OAuth::PollResult::SlowDown:
+            {
+                job->HandleOnRequestToSlowPollingDown();
+
+                // Don't notify every poll loop to avoid flooding the network with updates that aren't visible to clients
+                notifyStatusChanged = false;
+                break;
+            }
+
+            case OAuth::PollResult::Failed:
+            {
+                job->HandleOnFailed();
+
+                notifyStatusChanged = true;
+                break;
+            }
+
+            case OAuth::PollResult::Success:
+            {
+                job->HandleOnSuccess();
+
+                // Copy token to prevent the underlying memory being reused in later network requests...
+                iTokenBuffer.Replace(aResult.RefreshToken());
+
+                iTokenManager.AddToken(job->JobId(), iTokenBuffer, false);
+
+                notifyStatusChanged = true;
+                break;
+            }
+        }
+    }
+
+    if (notifyStatusChanged)
+    {
+        iObserver.OnJobStatusChanged();
+    }
+}
+
+
+void OAuthPollingManager::OnPollRequested(const Brx& jobId)
+{
+    AutoMutex m(iLockJobs);
+
+    PollingJob* job = nullptr;
+    for(const auto v : iJobs)
+    {
+        if (v->JobId() == jobId)
+        {
+            job = v;
+            break;
+        }
+    }
+
+    ASSERT_VA(job != nullptr,
+              "%s %.*s\n",
+              "OAuthPollingManager::OnPollRequested - Failed to find job with id:",
+              PBUF(jobId));
+
+
+    OAuthPollRequest request (jobId, job->DeviceCode());
+
+    LOG_TRACE(kOAuth,
+              "OAuthPollingManager::OnPollRequested - Requesting poll for job: %.*s\n",
+              PBUF(jobId));
+
+    if (!iPoller.RequestPollForToken(request))
+    {
+        LOG_ERROR(kOAuth,
+                  "OAuthPollingManager::OnPollRequested - Failed to request poll for job: %.*s\n",
+                  PBUF(jobId));
+
+        // TODO: What's best here? Set the job to failed and leave it?
+        //       Reschedule??
+    }
+}
+
+
+TBool OAuthPollingManager::GenerateJobId(Bwx& aBuffer)
+{
+    // Prevents clashing GUIDs
+    const TUint kMaxRetries = 5;
+    TUint tryCount = 0;
+
+    do
+    {
+        GenerateGUID(aBuffer);
+        tryCount++;
+    } while((iTokenManager.HasToken(aBuffer) || HasJobWithMatchingId(aBuffer)) && tryCount < kMaxRetries);
+
+    return tryCount < kMaxRetries;
+}
+
+TBool OAuthPollingManager::HasJobWithMatchingId(const Brx& aJobId) const
+{
+    for(const auto v: iJobs)
+    {
+        if (v->JobId() == aJobId)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void OAuthPollingManager::GenerateGUID(Bwx& aBuffer)
+{
+    // Build unique GUID. See: http://msdn.microsoft.com/en-us/library/cc251279%28PROT.10%29.aspx
+    // GUID is of form (we don't use the enclosing curly brackets)
+    // 8HEXDIG "-" 4HEXDIG "-" 4HEXDIG "-" 4HEXDIG "-" 12HEXDIG
+    // Based on ProtocolMMS in 'ds'
+
+    // 8 hex digits.
+    TUint rand = iEnv.Random(std::numeric_limits<TUint>::max(), 0);
+    Ascii::AppendHex(aBuffer, rand);
+    aBuffer.Append(Brn("-"));
+
+    // 4 hex digits.
+    TUint versionMajor = 0;
+    TUint versionMinor = 0;
+    iEnv.GetVersion(versionMajor, versionMinor);
+    Ascii::AppendHex(aBuffer, static_cast<TByte>(versionMajor & 0xff));
+    Ascii::AppendHex(aBuffer, static_cast<TByte>(versionMinor & 0xff));
+    aBuffer.Append(Brn("-"));
+
+    // 4 hex digits.
+    // Take 2 least significant bytes.
+    TUint timeInMs = Os::TimeInMs(iEnv.OsCtx());
+    Ascii::AppendHex(aBuffer, static_cast<TByte>((timeInMs>>8) & 0xff));
+    Ascii::AppendHex(aBuffer, static_cast<TByte>(timeInMs & 0xff));
+    aBuffer.Append(Brn("-"));
+
+    // 4 hex digits.
+    TUint seqNo = iEnv.SequenceNumber();
+    Ascii::AppendHex(aBuffer, static_cast<TByte>((seqNo>>8) & 0xff));
+    Ascii::AppendHex(aBuffer, static_cast<TByte>(seqNo & 0xff));
+    aBuffer.Append(Brn("-"));
+
+    // 12 hex digits.
+    TUint64 timeInUs = Os::TimeInUs(iEnv.OsCtx());
+    Bws<12> timeUsBuf;
+    // Take 6 least significant bytes.
+    Ascii::AppendHex(timeUsBuf, static_cast<TUint>((timeInUs>>16) & 0xffffffff));
+    Ascii::AppendHex(timeUsBuf, static_cast<TByte>((timeInUs>>8) & 0xff));
+    Ascii::AppendHex(timeUsBuf, static_cast<TByte>(timeInUs & 0xff));
+    aBuffer.Append(timeUsBuf);
+}
 
 
