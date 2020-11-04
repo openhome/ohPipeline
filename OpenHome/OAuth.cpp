@@ -9,6 +9,7 @@
 #include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/Private/Converter.h>
 
+#include <algorithm>
 #include <limits>
 
 using namespace OpenHome;
