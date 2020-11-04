@@ -57,7 +57,7 @@ private:
     };
 private:
     Brn FromQuery(const TChar* aKey) const;
-    void CheckCancelled();
+    TBool IsCancelled();
     void Complete();
     void ReadContainer();
     void ReadTrack();

@@ -148,13 +148,14 @@ Brn PinInvokerUpnpServer::FromQuery(const TChar* aKey) const
     return val;
 }
 
-void PinInvokerUpnpServer::CheckCancelled()
+TBool PinInvokerUpnpServer::IsCancelled()
 {
-    if (iCancel) {
-        Complete();
-        iCancel = false;
-        THROW(PinInterrupted);
+    if (!iCancel) {
+        return false;
     }
+    Complete();
+    iCancel = false;
+    return true;
 }
 
 void PinInvokerUpnpServer::Complete()
@@ -175,7 +176,9 @@ void PinInvokerUpnpServer::Complete()
 
 void PinInvokerUpnpServer::ReadContainer()
 {
-    CheckCancelled();
+    if (IsCancelled()) {
+        return;
+    }
     Brn container(*iContainers[iContainersIndex++]);
     //Log::Print("Container: %.*s, total=%u, index=%u\n", PBUF(container), iContainers.size(), iContainersIndex - 1);
     static const Brn kBrowseFlag("BrowseDirectChildren");
@@ -185,7 +188,9 @@ void PinInvokerUpnpServer::ReadContainer()
 
 void PinInvokerUpnpServer::ReadTrack()
 {
-    CheckCancelled();
+    if (IsCancelled()) {
+        return;
+    }
     static const Brn kBrowseFlag("BrowseMetadata");
     auto callback = MakeFunctorAsync(*this, &PinInvokerUpnpServer::BrowseTrackCallback);
     iProxyContentDirectory->BeginBrowse(*iTrackId, kBrowseFlag, kBrowseFilterAll, 0, 0, Brx::Empty(), callback);
@@ -193,7 +198,9 @@ void PinInvokerUpnpServer::ReadTrack()
 
 void PinInvokerUpnpServer::BrowseContainerCallback(IAsync& aAsync)
 {
-    CheckCancelled();
+    if (IsCancelled()) {
+        return;
+    }
 
     Brh xml;
     TUint numberReturned;
@@ -239,7 +246,9 @@ void PinInvokerUpnpServer::BrowseContainerCallback(IAsync& aAsync)
 
 void PinInvokerUpnpServer::BrowseTrackCallback(IAsync& aAsync)
 {
-    CheckCancelled();
+    if (IsCancelled()) {
+        return;
+    }
     AutoPinComplete _(iCompleted);
 
     Brh xml;
