@@ -263,7 +263,7 @@ Msg* SuiteVariableDelay::Pull()
         return iMsgFactory->CreateMsgSilence(size, kSampleRate, 16, kNumChannels);
     }
     case EMsgDecodedStream:
-        return iMsgFactory->CreateMsgDecodedStream(iNextStreamId++, 0, 8, 44100, 2, Brx::Empty(), 0, iNextStreamSampleStart, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this);
+        return iMsgFactory->CreateMsgDecodedStream(iNextStreamId++, 0, 8, 44100, 2, Brx::Empty(), 0, iNextStreamSampleStart, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this, RampType::Sample);
     case EMsgMode:
     {
         ModeInfo info;

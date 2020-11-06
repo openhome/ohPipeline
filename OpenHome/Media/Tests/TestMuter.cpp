@@ -303,11 +303,11 @@ Msg* SuiteMuter::ProcessMsg(MsgAudioPcm* aMsg)
     const TByte* ptr = buf.Ptr();
     const TUint bytes = buf.Bytes();
     const TUint firstSubsample = (ptr[0]<<16) | (ptr[1]<<8) | ptr[2];
- 
+
     if (iRampingDown) {
         ASSERT(!iRampingUp);
     }
-    
+
     if (iRampingDown) {
         TEST(firstSubsample <= iLastSubsample);
     }
@@ -447,7 +447,7 @@ Msg* SuiteMuter::CreateTrack()
 
 Msg* SuiteMuter::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr, RampType::Sample);
 }
 
 Msg* SuiteMuter::CreateAudio()

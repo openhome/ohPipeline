@@ -81,9 +81,9 @@ void DecodedAudioReservoir::Push(Msg* aMsg)
     iGorgeLock.Wait();
     const TUint oldPriorityMsgCount = iPriorityMsgCount;
     iGorgeLock.Signal();
-    
+
     DoEnqueue(aMsg);
-    
+
     iGorgeLock.Wait();
     if (iGorging) {
         if (Jiffies() >= iGorgeSize) {
@@ -323,9 +323,9 @@ Msg* DecodedAudioReservoir::ProcessAudioOut(MsgAudioDecoded* aMsg)
         const TUint64 sampleStart = (aMsg->TrackOffset() + aMsg->Jiffies()) / Jiffies::PerSample(s.SampleRate());
         auto stream = iMsgFactory.CreateMsgDecodedStream(s.StreamId(), s.BitRate(), s.BitDepth(), s.SampleRate(),
                                                          s.NumChannels(), s.CodecName(), s.TrackLength(),
-                                                         sampleStart, s.Lossless(), s.Seekable(), s.Live(), 
+                                                         sampleStart, s.Lossless(), s.Seekable(), s.Live(),
                                                          s.AnalogBypass(), s.Format(), s.Multiroom(), s.Profile(),
-                                                         s.StreamHandler());
+                                                         s.StreamHandler(), s.Ramp());
         EnqueueAtHead(stream);
 
         ret = iMsgFactory.CreateMsgFlush(iPostDiscardFlush);

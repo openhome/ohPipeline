@@ -238,7 +238,7 @@ Msg* Seeker::ProcessAudio(MsgAudioDecoded* aMsg)
                                                   info.TrackLength(), numSamples, info.Lossless(),
                                                   info.Seekable(), info.Live(), info.AnalogBypass(),
                                                   info.Format(), info.Multiroom(), info.Profile(),
-                                                  info.StreamHandler());
+                                                  info.StreamHandler(), info.Ramp());
     }
 
     iStreamPosJiffies = aMsg->TrackOffset() + aMsg->Jiffies();

@@ -412,7 +412,7 @@ Msg* SuiteSkipper::CreateEncodedStream()
 
 Msg* SuiteSkipper::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this, RampType::Sample);
 }
 
 Msg* SuiteSkipper::CreateAudio()
@@ -714,7 +714,7 @@ void SuiteSkipper::TestTryRemoveRampValidStream()
 
     TEST(iSkipper->TryRemoveStream(iStreamId, true));
     iRamping = true;
-    
+
     iPendingMsgs.push_back(iMsgFactory->CreateMsgMetaText(Brx::Empty()));
     PullNext(EMsgMetaText);
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2));
@@ -757,7 +757,7 @@ void SuiteSkipper::TestTryRemoveNoRampValidStream()
 
     TEST(iSkipper->TryRemoveStream(iStreamId, false));
     iRamping = false;
-    
+
     iPendingMsgs.push_back(iMsgFactory->CreateMsgMetaText(Brx::Empty()));
     iPendingMsgs.push_back(CreateAudio());
     iPendingMsgs.push_back(CreateSilence(Jiffies::kPerMs * 3));

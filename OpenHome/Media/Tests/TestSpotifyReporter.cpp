@@ -778,10 +778,10 @@ void SuiteSpotifyReporter::TestMsgsPassedThroughSamplesInPipeline()
     Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
     TUint64 trackOffset = 0;
     iUpstream->Enqueue(CreateAudio(2, 44100, trackOffset));
-    
+
     for (TUint i=0; i<4; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
@@ -809,7 +809,7 @@ void SuiteSpotifyReporter::TestMsgModeResets()
     Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
     TUint64 trackOffset = 0;
     iUpstream->Enqueue(CreateAudio(2, 44100, trackOffset));
 
@@ -856,7 +856,7 @@ void SuiteSpotifyReporter::TestSubSamples()
     Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
     for (TUint i=0; i<4; i++) {
         Msg* msg = iReporter->Pull();
@@ -901,7 +901,7 @@ void SuiteSpotifyReporter::TestSampleRateChange()
     Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
     for (TUint i=0; i<4; i++) {
         Msg* msg = iReporter->Pull();
@@ -936,7 +936,7 @@ void SuiteSpotifyReporter::TestSampleRateChange()
     Track* track2 = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text 2"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track2));
     track2->RemoveRef();
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 768000, 16, 48000, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 768000, 16, 48000, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
     for (TUint i=0; i<3; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
@@ -985,7 +985,7 @@ void SuiteSpotifyReporter::TestNumChannelsChange()
     Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
     for (TUint i=0; i<4; i++) {
         Msg* msg = iReporter->Pull();
@@ -1020,7 +1020,7 @@ void SuiteSpotifyReporter::TestNumChannelsChange()
     Track* track2 = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track2));
     track2->RemoveRef();
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 1, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(1), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 1, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(1), nullptr, RampType::Sample));
     for (TUint i=0; i<3; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
@@ -1058,7 +1058,7 @@ void SuiteSpotifyReporter::TestInvalidSampleRate()
     Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
-    MsgDecodedStream* decodedStream = iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, sampleRate, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr);
+    MsgDecodedStream* decodedStream = iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, sampleRate, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample);
     iUpstream->Enqueue(decodedStream);
 
     for (TUint i=0; i<2; i++) {
@@ -1086,7 +1086,7 @@ void SuiteSpotifyReporter::TestInvalidNumChannels()
     Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
-    MsgDecodedStream* decodedStream = iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, channels, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, profile, nullptr);
+    MsgDecodedStream* decodedStream = iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, channels, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, profile, nullptr, RampType::Sample);
     iUpstream->Enqueue(decodedStream);
 
     for (TUint i=0; i<2; i++) {
@@ -1129,7 +1129,7 @@ void SuiteSpotifyReporter::TestPassThroughInjectTrack()
     // If in pass-through mode, metadata won't be deallocated until more is passed in, forcing current metadata to be deallocated, or at shutdown (which internal allocator check will catch).
     TEST(iMetadataAllocator->DeallocatedCount() == 0);
 
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     // Check a modified MsgDecodedStream wasn't inserted (should report track
@@ -1176,7 +1176,7 @@ void SuiteSpotifyReporter::TestModeSpotifyTrackInjected()
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
 
     // Queue up MsgDecodedStream and pull again. Should be injected track.
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     msg->RemoveRef();
@@ -1261,7 +1261,7 @@ void SuiteSpotifyReporter::TestModeSpotifySeek()
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
 
     // Queue up MsgDecodedStream and pull again. Should get injected track.
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     msg->RemoveRef();
@@ -1335,7 +1335,7 @@ void SuiteSpotifyReporter::TestModeSpotifySyncLost()
     Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
     for (TUint i=0; i<4; i++) {
         Msg* msg = iReporter->Pull();
@@ -1414,7 +1414,7 @@ void SuiteSpotifyReporter::TestModeSpotifyMetadataChanged()
     Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
-    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
     for (TUint i=0; i<4; i++) {
         Msg* msg = iReporter->Pull();

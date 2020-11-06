@@ -392,7 +392,7 @@ Msg* SuiteStopper::ProcessMsg(MsgAudioPcm* aMsg)
     if (iRampingDown) {
         ASSERT(!iRampingUp);
     }
-    
+
     if (iRampingDown) {
         TEST(firstSubsample <= iLastSubsample);
     }
@@ -481,7 +481,7 @@ Msg* SuiteStopper::CreateEncodedStream()
 
 Msg* SuiteStopper::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, iLiveStream, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, iLiveStream, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr, RampType::Sample);
 }
 
 Msg* SuiteStopper::CreateAudio()

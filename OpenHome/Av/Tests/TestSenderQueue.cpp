@@ -323,7 +323,7 @@ Msg* SuiteSenderQueue::CreateTrack(const Brx& aUri)
 Msg* SuiteSenderQueue::CreateDecodedStream()
 {
     const TUint64 sampleStart = iTrackOffset / Jiffies::PerSample(kSampleRate);
-    return iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 12345678LL, sampleStart, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 12345678LL, sampleStart, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr, RampType::Sample);
 }
 
 Msg* SuiteSenderQueue::CreateAudio()
@@ -583,7 +583,7 @@ void SuiteSenderQueue::TestPrunesAllAbove()
     PullNext(EMsgTrack);
     TEST(iLastTrackUri == kUri);
     PullNext(EMsgDecodedStream);
-    TEST(iStreamId == iNextStreamId);    
+    TEST(iStreamId == iNextStreamId);
     PullNext(EMsgStreamInterrupted);
     TEST(iLastStreamInterruptedJiffies == block3);
     PullNext(EMsgMetaText);

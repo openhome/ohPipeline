@@ -175,7 +175,7 @@ public:
     * @param[in] aChannels         Number of channels.
     * @param[in] aSampleRate       Sample rate.
     * @param[in] aSampleBlockWords Block size (in words) of DSD data.  The minimum required output
-    *                              of DSD data is 16bits x left, 16bits x right, so any valid 
+    *                              of DSD data is 16bits x left, 16bits x right, so any valid
     *                              output must be a multiple of this convention.
     * @param[in] aPadBytesPerChunk  The number of bytes padding present for every word of playable data.
     *                              If aPadBytesPerChunk = 2, the total chunk size will be 6 bytes, (4 bytes playable + padding)
@@ -192,9 +192,9 @@ public:
     * @param[in] aMsg              Returned from ReadNextMsg().
     * @param[in] aChannels         Number of channels.  Must be in the range [1..2].
     * @param[in] aSampleRate       Sample rate.
-    * @param[in] aSampleBlockWords Block size (in words) of DSD data including any padding applied by the codecs. 
-    *                              There is a 1 word (4 byte) minimum for any DSD data. Where 32 bits are 
-    *                              assigned for a stereo sample pair (16 bits x R, 16 bits x R). 
+    * @param[in] aSampleBlockWords Block size (in words) of DSD data including any padding applied by the codecs.
+    *                              There is a 1 word (4 byte) minimum for any DSD data. Where 32 bits are
+    *                              assigned for a stereo sample pair (16 bits x R, 16 bits x R).
     *                              BlockSize will increase depending on padding applied and the output method.
     * @param[in] aPadBytesPerChunk  The number of bytes padding present for every word of playable data.
     *                              If aPadBytesPerChunk = 2, the total chunk size will be 6 bytes, (4 bytes playable + padding)
@@ -272,7 +272,7 @@ private:
     TUint64 iStartSample;
     BwsCodecName iCodecName;
 };
-    
+
 /**
  * Base class for all codecs.
  *
@@ -482,6 +482,7 @@ private:
     const TUint iMaxOutputJiffies;
     DecodedAudio* iAudioDecoded;
     TUint iAudioDecodedBytes;
+    RampType iRamp;
 };
 
 class CodecBufferedReader : public IReader, private INonCopyable
@@ -508,4 +509,3 @@ private:
 } // namespace Codec
 } // namespace Media
 } // namespace OpenHome
-

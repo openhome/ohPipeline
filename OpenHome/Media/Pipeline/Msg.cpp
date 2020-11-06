@@ -1392,6 +1392,10 @@ DsdStreamInfo::operator TBool() const
 
 // MsgEncodedStream
 
+const TUint MsgEncodedStream::kMaxUriBytes;
+const RampType MsgEncodedStream::kRampDefault;
+const RampType MsgEncodedStream::kRampDsd;
+
 MsgEncodedStream::MsgEncodedStream(AllocatorBase& aAllocator)
     : Msg(aAllocator)
 {
@@ -1459,6 +1463,11 @@ const DsdStreamInfo& MsgEncodedStream::DsdStream() const
     return iDsdStreamInfo;
 }
 
+RampType MsgEncodedStream::Ramp() const
+{
+    return iRamp;
+}
+
 void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler)
 {
     iUri.Replace(aUri);
@@ -1473,9 +1482,10 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iStreamFormat = Format::Encoded;
     iPcmStreamInfo.Clear();
     iDsdStreamInfo.Clear();
+    iRamp = kRampDefault;
 }
 
-void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream)
+void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp)
 {
     iUri.Replace(aUri);
     iMetaText.Replace(aMetaText);
@@ -1489,6 +1499,7 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iStreamFormat = Format::Pcm;
     iPcmStreamInfo = aPcmStream;
     iDsdStreamInfo.Clear();
+    iRamp = aRamp;
 }
 
 void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes,
@@ -1508,6 +1519,7 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iStreamFormat = Format::Dsd;
     iPcmStreamInfo.Clear();
     iDsdStreamInfo = aDsdStream;
+    iRamp = kRampDsd;
 }
 
 void MsgEncodedStream::Clear()
@@ -1522,6 +1534,7 @@ void MsgEncodedStream::Clear()
     iStreamFormat = Format::Encoded;
     iStreamHandler = nullptr;
     iPcmStreamInfo.Clear();
+    iRamp = kRampDefault;
 #endif
 }
 
@@ -1835,6 +1848,8 @@ Msg* MsgWait::Process(IMsgProcessor& aProcessor)
 
 // DecodedStreamInfo
 
+const RampType DecodedStreamInfo::kRampDefault;
+
 DecodedStreamInfo::DecodedStreamInfo()
     : iBitRate(0)
     , iBitDepth(0)
@@ -1845,6 +1860,7 @@ DecodedStreamInfo::DecodedStreamInfo()
     , iLossless(false)
     , iFormat(AudioFormat::Pcm)
     , iStreamHandler(nullptr)
+    , iRamp(kRampDefault)
 {
 }
 
@@ -1852,7 +1868,8 @@ void DecodedStreamInfo::Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TU
                             TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength,
                             TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive,
                             TBool aAnalogBypass, AudioFormat aFormat, Media::Multiroom aMultiroom,
-                            const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler)
+                            const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler,
+                            RampType aRamp)
 {
     iStreamId = aStreamId;
     iBitRate = aBitRate;
@@ -1870,6 +1887,7 @@ void DecodedStreamInfo::Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TU
     iMultiroom = aMultiroom;
     iProfile = aProfile;
     iStreamHandler = aStreamHandler;
+    iRamp = aRamp;
 }
 
 
@@ -1889,11 +1907,12 @@ void MsgDecodedStream::Initialise(TUint aStreamId, TUint aBitRate, TUint aBitDep
                                   TUint aNumChannels, const Brx& aCodecName, TUint64 aTrackLength,
                                   TUint64 aSampleStart, TBool aLossless, TBool aSeekable, TBool aLive,
                                   TBool aAnalogBypass, AudioFormat aFormat, Media::Multiroom aMultiroom,
-                                  const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler)
+                                  const SpeakerProfile& aProfile, IStreamHandler* aStreamHandler,
+                                  RampType aRamp)
 {
     iStreamInfo.Set(aStreamId, aBitRate, aBitDepth, aSampleRate, aNumChannels, aCodecName,
                     aTrackLength, aSampleStart, aLossless, aSeekable, aLive, aAnalogBypass,
-                    aFormat, aMultiroom, aProfile, aStreamHandler);
+                    aFormat, aMultiroom, aProfile, aStreamHandler, aRamp);
 }
 
 void MsgDecodedStream::Clear()
@@ -1901,7 +1920,7 @@ void MsgDecodedStream::Clear()
 #ifdef DEFINE_DEBUG
     iStreamInfo.Set(UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, Brx::Empty(),
                     ULONG_MAX, ULONG_MAX, false, false, false, false,
-                    AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
+                    AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr, kRampDefault);
 #endif
 }
 
@@ -2165,7 +2184,7 @@ void MsgAudioDecoded::Initialise(DecodedAudio* aDecodedAudio, TUint aSampleRate,
     iOffset = 0;
 }
 
-void MsgAudioDecoded::InitialiseDsd(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords, 
+void MsgAudioDecoded::InitialiseDsd(DecodedAudio* aDecodedAudio, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords,
                                     TUint64 aTrackOffset, TUint aNumSubsamples, Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayableSilenceDsd)
 {
     MsgAudio::Initialise(aSampleRate, 1, aChannels);
@@ -3918,8 +3937,13 @@ MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx&
 
 MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream)
 {
+    return CreateMsgEncodedStream(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, aStreamHandler, aPcmStream);
+}
+
+MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp)
+{
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
-    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, aStreamHandler, aPcmStream);
+    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, aStreamHandler, aPcmStream, aRamp);
     return msg;
 }
 
@@ -3935,7 +3959,7 @@ MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(MsgEncodedStream* aMsg, ISt
 {
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
     if (aMsg->StreamFormat() == MsgEncodedStream::Format::Pcm) {
-        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->PcmStream());
+        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->PcmStream(), aMsg->Ramp());
     }
     else if (aMsg->StreamFormat() == MsgEncodedStream::Format::Dsd) {
         msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->DsdStream());
@@ -4005,12 +4029,12 @@ MsgDecodedStream* MsgFactory::CreateMsgDecodedStream(TUint aStreamId, TUint aBit
                                                      const Brx& aCodecName, TUint64 aTrackLength, TUint64 aSampleStart,
                                                      TBool aLossless, TBool aSeekable, TBool aLive, TBool aAnalogBypass,
                                                      AudioFormat aFormat, Media::Multiroom aMultiroom, const SpeakerProfile& aProfile,
-                                                     IStreamHandler* aStreamHandler)
+                                                     IStreamHandler* aStreamHandler, RampType aRamp)
 {
     MsgDecodedStream* msg = iAllocatorMsgDecodedStream.Allocate();
     msg->Initialise(aStreamId, aBitRate, aBitDepth, aSampleRate, aNumChannels, aCodecName,
                     aTrackLength, aSampleStart, aLossless, aSeekable, aLive, aAnalogBypass,
-                    aFormat, aMultiroom, aProfile, aStreamHandler);
+                    aFormat, aMultiroom, aProfile, aStreamHandler, aRamp);
     return msg;
 }
 
@@ -4021,7 +4045,8 @@ MsgDecodedStream* MsgFactory::CreateMsgDecodedStream(MsgDecodedStream* aMsg, ISt
                                       stream.SampleRate(), stream.NumChannels(), stream.CodecName(),
                                       stream.TrackLength(), stream.SampleStart(), stream.Lossless(),
                                       stream.Seekable(), stream.Live(), stream.AnalogBypass(),
-                                      stream.Format(), stream.Multiroom(), stream.Profile(), aStreamHandler);
+                                      stream.Format(), stream.Multiroom(), stream.Profile(), aStreamHandler,
+                                      stream.Ramp());
     return msg;
 }
 

@@ -356,7 +356,7 @@ MsgDecodedStream* VariableDelayBase::UpdateDecodedStream(TUint64 aTrackOffset)
                                                      s.NumChannels(), s.CodecName(), s.TrackLength(),
                                                      sampleStart, s.Lossless(), s.Seekable(), s.Live(),
                                                      s.AnalogBypass(), s.Format(), s.Multiroom(),
-                                                     s.Profile(), s.StreamHandler());
+                                                     s.Profile(), s.StreamHandler(), s.Ramp());
     iDecodedStream->RemoveRef();
     iDecodedStream = stream;
     iDecodedStream->AddRef();

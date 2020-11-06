@@ -32,6 +32,7 @@ public: // from Media::ISupply
     void OutputDelay(TUint aJiffies) override;
     void OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId) override;
     void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::PcmStreamInfo& aPcmStream) override;
+    void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::PcmStreamInfo& aPcmStream, Media::RampType aRamp) override;
     void OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::DsdStreamInfo& aDsdStream) override;
     void OutputSegment(const Brx& aId) override;
     void OutputData(const Brx& aData) override;
@@ -53,9 +54,9 @@ private:
     TUint iBytesPerAudioMsg;
     const TUint iDsdSampleBlockWords;    // DSD specific
     const TUint iDsdPadBytesPerChunk;   // DSD specific
-    Bwh iPaddingBuffer; // DSD specific 
-    Bwh iSilenceBuffer; // DSD specific 
-    TBool iIsDsd;   // DSD specific 
+    Bwh iPaddingBuffer; // DSD specific
+    Bwh iSilenceBuffer; // DSD specific
+    TBool iIsDsd;   // DSD specific
     Bws<Media::AudioData::kMaxBytes> iAudioBuf;
 };
 

@@ -5,6 +5,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Av/Debug.h>
+#include <OpenHome/Media/Debug.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
@@ -76,7 +77,14 @@ Msg* VolumeRamper::ProcessMsg(MsgHalt* aMsg)
 Msg* VolumeRamper::ProcessMsg(MsgDecodedStream* aMsg)
 {
     auto& stream = aMsg->StreamInfo();
-    iEnabled = (stream.AnalogBypass() || stream.Format() == AudioFormat::Dsd);
+
+    // Analog bypass and DSD must be volume ramped. Any other ramping strategy will be ignored in those cases.
+    if (stream.Ramp() != RampType::Volume && (stream.AnalogBypass() || stream.Format() == AudioFormat::Dsd)) {
+        LOG(kPipeline, "VolumeRamper overriding incompatible ramp type: %u. Analogue bypass: %u, format: %u.\n", stream.Ramp(), stream.AnalogBypass(), stream.Format());
+    }
+
+    iEnabled = (stream.AnalogBypass() || stream.Format() == AudioFormat::Dsd || stream.Ramp() == RampType::Volume);
+
     return aMsg;
 }
 

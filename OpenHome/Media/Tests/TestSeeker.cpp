@@ -368,7 +368,7 @@ Msg* SuiteSeeker::ProcessMsg(MsgAudioPcm* aMsg)
     if (iRampingDown) {
         ASSERT(!iRampingUp);
     }
-    
+
     if (iRampingDown) {
         TEST(firstSubsample <= iLastSubsample);
     }
@@ -449,7 +449,7 @@ Msg* SuiteSeeker::CreateEncodedStream()
 Msg* SuiteSeeker::CreateDecodedStream()
 {
     const TUint64 sampleStart = iTrackOffset / Jiffies::PerSample(kSampleRate);
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), iTrackLengthJiffies, sampleStart, true, iSeekable, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), iTrackLengthJiffies, sampleStart, true, iSeekable, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr, RampType::Sample);
 }
 
 Msg* SuiteSeeker::CreateAudio()

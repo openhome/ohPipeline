@@ -257,7 +257,7 @@ MsgPlayable* SuiteSilencer::CreateAudio()
 
 Msg* SuiteSilencer::CreateDecodedStream()
 {
-    return iMsgFactory->CreateMsgDecodedStream(0, 128000, iBitDepth, iSampleRate, iNumChannels, Brn("dummy codec"), (TUint64)1<<31, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, iProfile, nullptr);
+    return iMsgFactory->CreateMsgDecodedStream(0, 128000, iBitDepth, iSampleRate, iNumChannels, Brn("dummy codec"), (TUint64)1<<31, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, iProfile, nullptr, RampType::Sample);
 }
 
 void SuiteSilencer::PullNext(EMsgType aExpectedMsg)

@@ -408,7 +408,7 @@ Msg* SuiteDecodedAudioAggregator::CreateEncodedStream()
 MsgDecodedStream* SuiteDecodedAudioAggregator::CreateDecodedStream()
 {
     static const TUint kBitrate = 256;
-    return iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, kBitrate, kBitDepth, kSampleRate, kChannels, Brn("Dummy"), 0, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this);
+    return iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, kBitrate, kBitDepth, kSampleRate, kChannels, Brn("Dummy"), 0, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this, RampType::Sample);
 }
 
 MsgFlush* SuiteDecodedAudioAggregator::CreateFlush()
@@ -581,7 +581,8 @@ void SuiteDecodedAudioAggregator::TestDsdAggregated()
     Queue(iMsgFactory->CreateMsgEncodedStream(Brx::Empty(), Brx::Empty(), 1 << 21, 0, ++iNextStreamId, iSeekable, false, Multiroom::Allowed, this));
     Queue(iMsgFactory->CreateMsgDecodedStream(++iNextStreamId, 256, 1, 2822400, 2, Brn("DSD"),
                                               0, 0, true, true, false, false,
-                                              AudioFormat::Dsd, Multiroom::Forbidden, kProfile, this));
+                                              AudioFormat::Dsd, Multiroom::Forbidden, kProfile, this,
+                                              RampType::Sample));
     TByte decodedAudioData = 0x7f; // 4 samples for 1-bit stereo
     Brn decodedAudioBuf(&decodedAudioData, 1);
     const TUint kSampleRateDsd = 2822400;

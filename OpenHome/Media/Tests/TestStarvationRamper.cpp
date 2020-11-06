@@ -479,7 +479,7 @@ Msg* SuiteStarvationRamper::CreateTrack()
 
 Msg* SuiteStarvationRamper::CreateDecodedStream(AudioFormat aFormat)
 {
-    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, iBitDepth, iSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, aFormat, Multiroom::Allowed, kProfile, this);
+    return iMsgFactory->CreateMsgDecodedStream(iNextStreamId, 100, iBitDepth, iSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, false, aFormat, Multiroom::Allowed, kProfile, this, RampType::Sample);
 }
 
 Msg* SuiteStarvationRamper::CreateAudio()
@@ -571,11 +571,11 @@ void SuiteStarvationRamper::TestBlocksWhenHasMaxAudio()
         ASSERT(retries != 0);
         Thread::Sleep(10);
     }
-    
+
     // ...now wait long enough for pending audio to be pulled if SR is running
-    Thread::Sleep(100); 
+    Thread::Sleep(100);
     TEST(iPendingMsgs.size() == 1);
-    
+
     do {
         PullNext(EMsgAudioPcm);
     } while (iPendingMsgs.size() != 0 || !iStarvationRamper->IsEmpty());

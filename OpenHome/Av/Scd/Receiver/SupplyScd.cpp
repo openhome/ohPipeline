@@ -13,7 +13,7 @@ using namespace OpenHome::Media;
 
 // SupplyScd
 
-SupplyScd::SupplyScd(MsgFactory& aMsgFactory, 
+SupplyScd::SupplyScd(MsgFactory& aMsgFactory,
                      IPipelineElementDownstream& aDownStreamElement,
                      TUint aDsdSampleBlockWords,
                      TUint aDsdPadBytesPerChunk)
@@ -180,6 +180,23 @@ void SupplyScd::OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes,
                                                   0LL, // FIXME - seek support will require that Protocol can set this
                                                   aStreamId, aSeekable, aLive, aMultiroom,
                                                   &aStreamHandler, aPcmStream);
+    iIsDsd = false;
+    iBitsPerSample = aPcmStream.BitDepth() * aPcmStream.NumChannels();
+    const auto bytesPerSample = iBitsPerSample / 8;
+    iSamplesCapacity = iAudioBuf.MaxBytes() / bytesPerSample;
+    iBytesPerAudioMsg = iSamplesCapacity * bytesPerSample;
+    Output(msg);
+}
+
+void SupplyScd::OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes,
+                                TBool aSeekable, TBool aLive, Multiroom aMultiroom,
+                                IStreamHandler& aStreamHandler, TUint aStreamId,
+                                const PcmStreamInfo& aPcmStream, RampType aRamp)
+{
+    auto msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes,
+                                                  0LL, // FIXME - seek support will require that Protocol can set this
+                                                  aStreamId, aSeekable, aLive, aMultiroom,
+                                                  &aStreamHandler, aPcmStream, aRamp);
     iIsDsd = false;
     iBitsPerSample = aPcmStream.BitDepth() * aPcmStream.NumChannels();
     const auto bytesPerSample = iBitsPerSample / 8;

@@ -196,6 +196,7 @@ CodecController::CodecController(MsgFactory& aMsgFactory, IPipelineElementUpstre
     , iMaxOutputJiffies(aMaxOutputJiffies)
     , iAudioDecoded(nullptr)
     , iAudioDecodedBytes(0)
+    , iRamp(RampType::Sample)
 {
     iDecoderThread = new ThreadFunctor("CodecController", MakeFunctor(*this, &CodecController::CodecThread), aThreadPriority);
     if (aLogger) {
@@ -717,7 +718,7 @@ void CodecController::OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint
         iMsgFactory.CreateMsgDecodedStream(iStreamId, aBitRate, aBitDepth, aSampleRate, aNumChannels,
                                            aCodecName, aTrackLength, aSampleStart,
                                            aLossless, iSeekable, iLive, aAnalogBypass,
-                                           AudioFormat::Pcm, multiroom, aProfile, this);
+                                           AudioFormat::Pcm, multiroom, aProfile, this, iRamp);
     DoOutputDecodedStream(msg);
 }
 
@@ -736,7 +737,8 @@ void CodecController::OutputDecodedStreamDsd(TUint aSampleRate, TUint aNumChanne
         iMsgFactory.CreateMsgDecodedStream(iStreamId, bitRate, kBitDepth, aSampleRate, aNumChannels,
                                            aCodecName, aTrackLength, aSampleStart,
                                            true, iSeekable, iLive, false,
-                                           AudioFormat::Dsd, Multiroom::Forbidden, aProfile, this);
+                                           AudioFormat::Dsd, Multiroom::Forbidden, aProfile, this,
+                                           iRamp);
     DoOutputDecodedStream(msg);
 }
 
@@ -1020,6 +1022,7 @@ Msg* CodecController::ProcessMsg(MsgEncodedStream* aMsg)
     else if (iStreamFormat == MsgEncodedStream::Format::Dsd) {
         iDsdStream = aMsg->DsdStream();
     }
+    iRamp = aMsg->Ramp();
     aMsg->RemoveRef();
     return msg;
 }

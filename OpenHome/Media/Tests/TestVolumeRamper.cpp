@@ -96,6 +96,10 @@ private:
     void TestBypassRampsVolumeDownOnAudioRampDown();
     void TestBypassRampsVolumeUpOnAudioRampUp();
     void TestDsdRampsVolumeDownOnAudioRampDown();
+    void TestVolRampOverrideOnAudioRampDown();
+    void TestVolRampOverrideOnAudioRampUp();
+    void TestSampleRampOverrideIgnoredOnBypassRampDown();
+    void TestSampleRampOverrideIgnoredOnDsdRampDown();
 private:
     AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
@@ -110,6 +114,7 @@ private:
     TBool iDeferHaltAcknowledgement;
     TBool iAnalogBypassEnable;
     AudioFormat iFormat;
+    RampType iRampType;
     Ramp::EDirection iRampDirection;
     TUint iRampPos;
     TUint iRampRemaining;
@@ -135,6 +140,10 @@ SuiteVolumeRamper::SuiteVolumeRamper()
     AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestBypassRampsVolumeDownOnAudioRampDown), "TestBypassRampsVolumeDownOnAudioRampDown");
     AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestBypassRampsVolumeUpOnAudioRampUp), "TestBypassRampsVolumeUpOnAudioRampUp");
     AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestDsdRampsVolumeDownOnAudioRampDown), "TestDsdRampsVolumeDownOnAudioRampDown");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestVolRampOverrideOnAudioRampDown), "TestVolRampOverrideOnAudioRampDown");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestVolRampOverrideOnAudioRampUp), "TestVolRampOverrideOnAudioRampUp");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestSampleRampOverrideIgnoredOnBypassRampDown), "TestSampleRampOverrideIgnoredOnBypassRampDown");
+    AddTest(MakeFunctor(*this, &SuiteVolumeRamper::TestSampleRampOverrideIgnoredOnDsdRampDown), "TestSampleRampOverrideIgnoredOnDsdRampDown");
 }
 
 SuiteVolumeRamper::~SuiteVolumeRamper()
@@ -157,6 +166,7 @@ void SuiteVolumeRamper::Setup()
     iDrainAcknowledged = iHaltAcknowledged = iDeferDrainAcknowledgement = iDeferHaltAcknowledgement = false;
     iAnalogBypassEnable = false;
     iFormat = AudioFormat::Pcm;
+    iRampType = RampType::Sample;
     iRampDirection = Ramp::ENone;
     iLastRampMultiplier = kVolumeMultiplierUninitialised;
     iLastDrainMsg = nullptr;
@@ -181,7 +191,7 @@ Msg* SuiteVolumeRamper::Pull()
     case EMsgStreamInterrupted:
         return iMsgFactory->CreateMsgStreamInterrupted();
     case EMsgDecodedStream:
-        return iMsgFactory->CreateMsgDecodedStream(1, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, iAnalogBypassEnable, iFormat, Multiroom::Allowed, kProfile, nullptr);
+        return iMsgFactory->CreateMsgDecodedStream(1, 100, 24, kSampleRate, kNumChannels, Brn("notARealCodec"), 1LL<<38, 0, true, true, false, iAnalogBypassEnable, iFormat, Multiroom::Allowed, kProfile, nullptr, iRampType);
     case EMsgAudioPcm:
         return CreateAudio();
     case EMsgAudioDsd:
@@ -488,6 +498,7 @@ void SuiteVolumeRamper::TestBypassRampsVolumeDownOnAudioRampDown()
     iRampPos = Ramp::kMax;
     iRampRemaining = kRampDuration;
     iAnalogBypassEnable = true;
+    iRampType = RampType::Volume;
     PullNext(EMsgDecodedStream);
     TUint prevRampMultiplier = iLastRampMultiplier;
     do {
@@ -506,6 +517,7 @@ void SuiteVolumeRamper::TestBypassRampsVolumeUpOnAudioRampUp()
     iRampPos = Ramp::kMin;
     iRampRemaining = kRampDuration;
     iAnalogBypassEnable = true;
+    iRampType = RampType::Volume;
     PullNext(EMsgDecodedStream);
     PullNext(EMsgHalt);
     TUint prevRampMultiplier = iLastRampMultiplier;
@@ -526,6 +538,7 @@ void SuiteVolumeRamper::TestDsdRampsVolumeDownOnAudioRampDown()
     iRampRemaining = kRampDurationDsd;
     iAnalogBypassEnable = false;
     iFormat = AudioFormat::Dsd;
+    iRampType = RampType::Volume;
     PullNext(EMsgDecodedStream);
     TUint prevRampMultiplier = iLastRampMultiplier;
     do {
@@ -537,6 +550,81 @@ void SuiteVolumeRamper::TestDsdRampsVolumeDownOnAudioRampDown()
     PullNext(EMsgHalt);
     TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierZero);
 }
+
+void SuiteVolumeRamper::TestVolRampOverrideOnAudioRampDown()
+{
+    iRampDirection = Ramp::EDown;
+    iRampPos = Ramp::kMax;
+    iRampRemaining = kRampDuration;
+    iRampType = RampType::Volume;
+    PullNext(EMsgDecodedStream);
+    TUint prevRampMultiplier = iLastRampMultiplier;
+    do {
+        PullNext(EMsgAudioPcm);
+        TEST(prevRampMultiplier > iLastRampMultiplier);
+        prevRampMultiplier = iLastRampMultiplier;
+
+    } while (iRampRemaining > 0);
+    PullNext(EMsgHalt);
+    TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierZero);
+}
+
+void SuiteVolumeRamper::TestVolRampOverrideOnAudioRampUp()
+{
+    iRampDirection = Ramp::EUp;
+    iRampPos = Ramp::kMin;
+    iRampRemaining = kRampDuration;
+    iRampType = RampType::Volume;
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgHalt);
+    TUint prevRampMultiplier = iLastRampMultiplier;
+    do {
+        PullNext(EMsgAudioPcm);
+        TEST(prevRampMultiplier < iLastRampMultiplier);
+        prevRampMultiplier = iLastRampMultiplier;
+
+    } while (iRampRemaining > 0);
+    PullNext(EMsgAudioPcm);
+    TEST(IVolumeRamper::kMultiplierFull - iLastRampMultiplier < IVolumeRamper::kMultiplierFull/8);
+}
+
+void SuiteVolumeRamper::TestSampleRampOverrideIgnoredOnBypassRampDown()
+{
+    iRampDirection = Ramp::EDown;
+    iRampPos = Ramp::kMax;
+    iRampRemaining = kRampDuration;
+    iAnalogBypassEnable = true;
+    PullNext(EMsgDecodedStream);
+    TUint prevRampMultiplier = iLastRampMultiplier;
+    do {
+        PullNext(EMsgAudioPcm);
+        TEST(prevRampMultiplier > iLastRampMultiplier);
+        prevRampMultiplier = iLastRampMultiplier;
+
+    } while (iRampRemaining > 0);
+    PullNext(EMsgHalt);
+    TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierZero);
+}
+
+void SuiteVolumeRamper::TestSampleRampOverrideIgnoredOnDsdRampDown()
+{
+    iRampDirection = Ramp::EDown;
+    iRampPos = Ramp::kMax;
+    iRampRemaining = kRampDurationDsd;
+    iAnalogBypassEnable = false;
+    iFormat = AudioFormat::Dsd;
+    PullNext(EMsgDecodedStream);
+    TUint prevRampMultiplier = iLastRampMultiplier;
+    do {
+        PullNext(EMsgAudioDsd);
+        TEST(prevRampMultiplier > iLastRampMultiplier);
+        prevRampMultiplier = iLastRampMultiplier;
+
+    } while (iRampRemaining > 0);
+    PullNext(EMsgHalt);
+    TEST(iLastRampMultiplier == IVolumeRamper::kMultiplierZero);
+}
+
 
 
 void TestVolumeRamper()

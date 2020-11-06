@@ -461,14 +461,14 @@ void SuiteAllocator::Test()
         cells[i] = allocator->Allocate();
         TEST(cells[i] != nullptr);
     }
-    
+
     //Print("\nalloc 11th TestCell.  Check this throws\n");
     // currently disabled until allocator throws rather than blocking when full
     //TEST_THROWS(allocator->Allocate(), AllocatorNoMemory);
-    
+
     //Print("\nuse InfoProvider.  Visually check results\n");
     iInfoAggregator.PrintStats();
-    
+
     //Print("\nmemset each TestCell to a different value, check that all can be read back (so TestCells don't overlap)\n");
     for (TUint i=0; i<kNumTestCells; i++) {
         cells[i]->Fill((TByte)i);
@@ -476,7 +476,7 @@ void SuiteAllocator::Test()
     for (TUint i=0; i<kNumTestCells; i++) {
         cells[i]->CheckIsFilled((TByte)i);
     }
-    
+
     //Print("\nfree all TestCells.  Check values of iTestCellsUsed and iTestCellsUsedMax\n");
     TEST(allocator->CellsUsed() == kNumTestCells);
     TEST(allocator->CellsUsedMax() == kNumTestCells);
@@ -486,14 +486,14 @@ void SuiteAllocator::Test()
         TEST(allocator->CellsUsed() == kNumTestCells - i - 1);
         TEST(allocator->CellsUsedMax() == kNumTestCells);
     }
-    
+
     //Print("\nreallocate all TestCells, confirming that freed TestCells can be reused\n");
     for (TUint i=0; i<kNumTestCells; i++) {
         cells[i] = allocator->Allocate();
         TEST(cells[i] != nullptr);
     }
     TEST(allocator->CellsUsed() == kNumTestCells);
-    
+
     //Print("\nfree 9 of the 10 TestCells then delete allocator.  Check this asserts (due to the memory leak)\n");
     // disabled until Fifo is updated to enable this assert
     // ...even then we may not want the test if it causes valgrind failures
@@ -2295,7 +2295,7 @@ void SuiteMode::Test()
     TEST(msg->Mode() != mode2);
 }
 
-    
+
 // SuiteDelay
 
 SuiteDelay::SuiteDelay()
@@ -2359,7 +2359,8 @@ void SuiteDecodedStream::Test()
     Media::Multiroom multiroom = Multiroom::Forbidden;
     SpeakerProfile profile(2);   // stereo
     IStreamHandler* handler = this;
-    MsgDecodedStream* msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, format, multiroom, profile, handler);
+    RampType ramp = RampType::Volume;
+    MsgDecodedStream* msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, format, multiroom, profile, handler, ramp);
     TEST(msg != nullptr);
     TEST(msg->StreamInfo().StreamId() == streamId);
     TEST(msg->StreamInfo().BitRate() == bitRate);
@@ -2376,6 +2377,7 @@ void SuiteDecodedStream::Test()
     TEST(msg->StreamInfo().Multiroom() == multiroom);
     TEST(msg->StreamInfo().Profile() == profile);
     TEST(msg->StreamInfo().StreamHandler() == handler);
+    TEST(msg->StreamInfo().Ramp() == ramp);
     msg->RemoveRef();
 
 #ifdef DEFINE_DEBUG
@@ -2393,6 +2395,7 @@ void SuiteDecodedStream::Test()
     TEST(msg->StreamInfo().Live() != live);
     TEST(msg->StreamInfo().Multiroom() != multiroom);
     TEST(msg->StreamInfo().StreamHandler() != handler);
+    TEST(msg->StreamInfo().Ramp() != ramp);
 #endif
 
     streamId = 4;
@@ -2409,7 +2412,8 @@ void SuiteDecodedStream::Test()
     format = AudioFormat::Dsd;
     multiroom = Multiroom::Allowed;
     profile = SpeakerProfile(3, 2, 1);    // 5.1
-    msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, format, multiroom, profile, handler);
+    ramp = RampType::Sample;
+    msg = iMsgFactory->CreateMsgDecodedStream(streamId, bitRate, bitDepth, sampleRate, numChannels, codecName, trackLength, startSample, lossless, seekable, live, false, format, multiroom, profile, handler, ramp);
     TEST(msg != nullptr);
     TEST(msg->StreamInfo().StreamId() == streamId);
     TEST(msg->StreamInfo().BitRate() == bitRate);
@@ -2426,6 +2430,7 @@ void SuiteDecodedStream::Test()
     TEST(msg->StreamInfo().Multiroom() == multiroom);
     TEST(msg->StreamInfo().Profile() == profile);
     TEST(msg->StreamInfo().StreamHandler() == handler);
+    TEST(msg->StreamInfo().Ramp() == ramp);
     msg->RemoveRef();
 }
 
@@ -2484,7 +2489,7 @@ void SuiteMsgProcessor::Test()
     TByte audioData[kDataBytes];
     (void)memset(audioData, 0xab, kDataBytes);
     Brn audioBuf(audioData, kDataBytes);
-    
+
     MsgAudioEncoded* audioEncoded = iMsgFactory->CreateMsgAudioEncoded(audioBuf);
     TEST(audioEncoded == static_cast<Msg*>(audioEncoded)->Process(processor));
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgAudioEncoded);
@@ -2515,7 +2520,7 @@ void SuiteMsgProcessor::Test()
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgPlayable);
     playable->RemoveRef();
 
-    Msg* msg = iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
+    Msg* msg = iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr, RampType::Sample);
     TEST(msg == msg->Process(processor));
     TEST(processor.LastMsgType() == ProcessorMsgType::EMsgDecodedStream);
     msg->RemoveRef();
@@ -2725,7 +2730,7 @@ SuiteMsgQueue::~SuiteMsgQueue()
 void SuiteMsgQueue::Test()
 {
     MsgQueue* queue = new MsgQueue();
-    
+
     // queue can be populated and read from
     TEST(queue->IsEmpty());
     TUint size = Jiffies::kPerMs;
@@ -3175,7 +3180,7 @@ void SuiteMsgReservoir::Test()
     TEST(queue->EncodedStreamCount() == 1);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
-    msg = iMsgFactory->CreateMsgDecodedStream(3, 128, 16, 44100, 2, Brn("test codec"), 1<<16, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
+    msg = iMsgFactory->CreateMsgDecodedStream(3, 128, 16, 44100, 2, Brn("test codec"), 1<<16, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr, RampType::Sample);
     TEST(queue->DecodedStreamCount() == 0);
     queue->Enqueue(msg);
     TEST(queue->Jiffies() == 0);
@@ -3361,7 +3366,7 @@ TestMsgReservoir::TestMsgReservoir()
     , iSplitNextAudio(false)
 {
 }
-    
+
 Msg* TestMsgReservoir::ProcessMsgAudioOut(MsgAudio* aMsgAudio)
 {
     if (iSplitNextAudio) {
@@ -3660,7 +3665,7 @@ Msg* SuitePipelineElement::CreateMsg(ProcessorMsgType::EMsgType aType)
     case ProcessorMsgType::EMsgWait:
         return iMsgFactory->CreateMsgWait();
     case ProcessorMsgType::EMsgDecodedStream:
-        return iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr);
+        return iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr, RampType::Sample);
     case ProcessorMsgType::EMsgBitRate:
         return iMsgFactory->CreateMsgBitRate(1234);
     case ProcessorMsgType::EMsgAudioPcm:

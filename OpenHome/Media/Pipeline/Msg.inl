@@ -253,6 +253,10 @@ inline IStreamHandler* DecodedStreamInfo::StreamHandler() const
 {
     return iStreamHandler;
 }
+inline RampType DecodedStreamInfo::Ramp() const
+{
+    return iRamp;
+}
 
 
 // MsgQueueLite

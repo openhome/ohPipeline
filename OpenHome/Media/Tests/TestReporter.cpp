@@ -240,7 +240,7 @@ void SuiteReporter::RunTests()
     TEST(iTimeUpdates == expectedTimeUpdates);
     TEST(iAudioFormatUpdates == expectedAudioFormatUpdates);
     TEST(iMetaText == Brn(kMetaText));
-    
+
     // deliver large MsgSilence.  Check this does not cause NotifyTime to be called.
     iNextGeneratedMsg = EMsgSilence;
     msg = iReporter->Pull();
@@ -414,7 +414,7 @@ Msg* SuiteReporter::Pull()
     case EMsgDecodedStream:
     {
         const TUint64 sampleStart = iTrackOffset / Jiffies::PerSample(kSampleRate);
-        return iMsgFactory->CreateMsgDecodedStream(0, kBitRate, kBitDepth, kSampleRate, kNumChannels, Brn(kCodecName), kTrackLength, sampleStart, kLossless, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr);
+        return iMsgFactory->CreateMsgDecodedStream(0, kBitRate, kBitDepth, kSampleRate, kNumChannels, Brn(kCodecName), kTrackLength, sampleStart, kLossless, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr, RampType::Sample);
     }
     case EMsgMode:
         return iMsgFactory->CreateMsgMode(Brn(kMode));
