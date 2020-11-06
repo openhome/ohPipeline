@@ -135,14 +135,15 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::Configu
     iReaderResponse.AddHeader(iHeaderContentType);
     iReaderResponse.AddHeader(iHeaderContentLength);
 
-    iTidal = new Tidal(aEnv, aSsl, aConfig, aCredentialsManager, aConfigInitialiser);
+    iTidal = new Tidal(aEnv, aSsl, aConfig, aCredentialsManager, aConfigInitialiser, aThreadPool);
     aCredentialsManager.Add(iTidal);
 
     if (aConfig.SupportsOAuth())
     {
         aOAuthManager.AddService(Tidal::kId,
-                                 Tidal::kMaximumNumberOfStoredTokens,
+                                 Tidal::kMaximumNumberOfShortLivedTokens,
                                  Tidal::kMaximumNumberOfLongLivedTokens,
+                                 *iTidal,
                                  *iTidal);
 
         iTokenProvider = aOAuthManager.GetTokenProvider(Tidal::kId);

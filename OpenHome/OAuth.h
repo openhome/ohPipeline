@@ -5,6 +5,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Http.h>
+#include <OpenHome/Private/Timer.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Configuration/IStore.h>
 
@@ -35,6 +36,15 @@ namespace TestOAuth
 class OAuth
 {
     public:
+        enum class PollResult
+        {
+            Poll,      // Token not ready, try again
+            SlowDown,  // We're polling too quickly, slow down and try again.
+            Failed,    // Something went wrong when attempting to poll
+            Success,   // Login process completed and we now have a token!
+        };
+
+    public:
         static const TUint kMaxTokenBytes = 2048;
 
         // OAuth request parameters
@@ -43,9 +53,11 @@ class OAuth
         static const Brn kParameterClientSecret;
         static const Brn kParameterScope;
         static const Brn kParameterGrantType;
+        static const Brn kParameterDeviceCode;
 
         // OAuth Grant types
         static const Brn kGrantTypeRefreshToken;
+        static const Brn kGrantTypeDeviceCode;
 
         // OAuth Token Response fields
         static const Brn kTokenResponseFieldTokenType;
@@ -57,6 +69,10 @@ class OAuth
         static const Brn kErrorResponseFieldError;
         static const Brn kErrorResponseFieldErrorDescription;
 
+        // OAuth Limited Input Flow Polling responses
+        static const Brn kPollingStateTryAgain;
+        static const Brn kPollingStateSlowDown;
+
     public:
         static void WriteAccessTokenHeader(WriterHttpHeader&,
                                            const Brx& aAccessToken);
@@ -66,8 +82,17 @@ class OAuth
                                                      const Brx& aClientId,
                                                      const Brx& aClientSecret,
                                                      const Brx& aTokenScope);
-};
 
+        static void WriteRequestToStartLimitedInputFlowBody(IWriter& aWriter,
+                                                            const Brx& aClientId,
+                                                            const Brx& aTokenScope);
+
+        static void WriteTokenPollRequestBody(IWriter& aWriter,
+                                              const Brx& aClientId,
+                                              const Brx& aClientSecret,
+                                              const Brx& aTokenScope,
+                                              const Brx& aDeviceCode);
+};
 
 enum class TokenType : TByte
 {
@@ -91,6 +116,121 @@ struct ServiceToken
 {
     TokenType type;
     Brn       token;
+};
+
+
+/* Internal details for limited input flow, returned from a service */
+class LimitedInputFlowDetails
+{
+public:
+    const Brx& UserUrl() const { return iUserUrl; }
+    const Brx& AuthCode() const { return iAuthCode; }
+    const Brx& DeviceCode() const { return iDeviceCode; }
+    const TUint SuggestedPollingInterval() const { return iSuggestedPollingInterval; }
+
+    void Set(const Brx& aUserUrl,
+             const Brx& aAuthCode,
+             const Brx& aDeviceCode,
+             TUint aSuggestedPollingInterval)
+    {
+        iUserUrl.Set(aUserUrl);
+        iAuthCode.Replace(aAuthCode);
+        iDeviceCode.Set(aDeviceCode);
+        iSuggestedPollingInterval = aSuggestedPollingInterval;
+    }
+
+private:
+    Brh      iUserUrl;                   // Link for client to visit to authorise the DS
+    Bws<16>  iAuthCode;                  // Code for user to enter
+    Brh      iDeviceCode;                // Internal device code used to poll
+    TUint    iSuggestedPollingInterval;  // Suggested polling interval to use
+};
+
+/* Information required by a client in order to conduct Limited Input
+ * Flow.
+ * If there are multiple urls given by a service (i.e: TIDAL provide
+ * an auto-complete and non-autocomplete option) then the DS should
+ * pick a suitable one to return to clients. */
+class PublicLimitedInputFlowDetails
+{
+    public:
+        const Brx& JobId() const { return iJobId; }
+        const Brx& UserUrl() const { return iUserUrl; }
+        const Brx& AuthCode() const { return iAuthCode; }
+
+        void Set(const Brx& aJobId,
+                 const Brx& aUserUrl,
+                 const Brx& aAuthCode)
+        {
+            iJobId.Set(aJobId);
+            iUserUrl.Set(aUserUrl);
+            iAuthCode.Replace(aAuthCode);
+        }
+
+    private:
+
+        Brn     iJobId;      // JobId, and later the given TokenId clients can use
+        Brh     iUserUrl;    // Link for client to visit to authorise the DS
+        Bws<16> iAuthCode;   // Code for user to enter
+};
+
+
+/* Internal struct used by polling sub-system to request
+ * a poll for a given service.
+ * Using 'Brn' here as the backing memory for the job
+ * will always be present */
+class OAuthPollRequest
+{
+    public:
+        OAuthPollRequest()
+            : OAuthPollRequest(Brx::Empty(), Brx::Empty())
+        { }
+        OAuthPollRequest(const Brx& aJobId,
+                         const Brx& aDeviceCode)
+            : iJobId(aJobId)
+            , iDeviceCode(aDeviceCode)
+        { }
+
+        const Brx& JobId() const { return iJobId; }
+        const Brx& DeviceCode() const { return iDeviceCode; }
+
+    private:
+        Brn iJobId;
+        Brn iDeviceCode;
+};
+
+/* Internal struct used by service code to report a poll
+ * completion.
+ * Using 'Brn' here as the backing memory for the jobId will
+ * always be present. Backing memory for the refreshToken
+ * should be copied by result observer when recieved. */
+class OAuthPollResult
+{
+    public:
+        OAuthPollResult(const Brx& aJobId)
+            : iJobId(aJobId)
+        { }
+
+        const Brx& JobId() const { return iJobId; }
+        const Brx& RefreshToken() const { return iRefreshToken; }
+        OAuth::PollResult PollResult() const { return iPollResult; }
+
+        void Set(OAuth::PollResult aResult)
+        {
+            Set(aResult, Brx::Empty());
+        }
+
+        void Set(OAuth::PollResult aResult,
+                 const Brx& aRefreshToken)
+        {
+            iPollResult = aResult;
+            iRefreshToken = Brn(aRefreshToken);
+        }
+
+    private:
+        Brn               iJobId;
+        OAuth::PollResult iPollResult;
+        Brn               iRefreshToken;
 };
 
 
@@ -126,7 +266,8 @@ class IOAuthAuthenticator
         virtual void OnTokenRemoved(const Brx& aTokenId,
                                     const Brx& aAccessToken) = 0;
 };
-    
+
+
 class ITokenObserver
 {
     public:
@@ -342,6 +483,152 @@ class TokenManager : public ITokenObserver,
         Configuration::IStoreReadWrite& iStore;
         ITokenManagerObserver& iObserver;
 };
+
+/* Limited Input support.
+ *
+ * A 'OAuthPollingManager' will construct a 'job' each time a
+ * client requests we start this flow. We then request a 'Poller'
+ * implementer to provide us with polling & client details.
+ *
+ * Internally this job has an assicated timer which will expire
+ * after a polling interval. Upon expiry, we request a poll from
+ * the 'Poller' implementer who will callback with a result some
+ * point in the future.
+ *
+ * The result will indicate if we need to poll again, increase our
+ * polling interval before trying again, stop polling due to an error
+ * or add the fetched token to the token management sub-system. */
+
+
+class IOAuthTokenPollResultListener
+{
+    public:
+        virtual ~IOAuthTokenPollResultListener() {}
+
+        // Called by a 'IOAuthTokenPoller' instance once a poll has been executed
+        virtual void OnPollCompleted(OAuthPollResult&) = 0;
+};
+
+
+class IOAuthTokenPoller
+{
+    public:
+        virtual ~IOAuthTokenPoller() {}
+
+        virtual TUint MaxPollingJobs() const = 0;
+
+        // Returns details required to poll and pass back to clients in order to complete the flow
+        virtual TBool StartLimitedInputFlow(LimitedInputFlowDetails&) = 0;
+
+        // Set a listener so that we have something to accept results after a poll has been executed
+        // Ownership is not taken by the implementer. Since this method is called outside the constructor
+        // then a pointer must be used.
+        virtual void SetPollResultListener(IOAuthTokenPollResultListener*) = 0;
+
+        // Called by OAuthPollingManager to request a poll for the given details.
+        virtual TBool RequestPollForToken(OAuthPollRequest&) = 0;
+};
+
+
+
+/* Internal interface used by OAuthPollingManager to receieve expiry events
+ * from the individual job timers. */
+class IPollingJobObserver
+{
+    public:
+        virtual ~IPollingJobObserver() { }
+        virtual void OnPollRequested(const Brx& aJobId) = 0;
+};
+
+// Allows an implementer to be notified whenever a job is created or has changed state.
+class IOAuthPollingManagerObserver
+{
+    public:
+        virtual ~IOAuthPollingManagerObserver() { }
+        virtual void OnJobStatusChanged() = 0;
+};
+
+
+class OAuthPollingManager : public IOAuthTokenPollResultListener
+                          , private IPollingJobObserver
+{
+    private:
+        enum class EPollingJobStatus
+        {
+            InProgress,
+            Failed,
+            Success,
+        };
+
+        class PollingJob
+        {
+            public:
+                PollingJob(Environment& aEnv,
+                           IPollingJobObserver& aObserver,
+                           const Brx& aJobId,
+                           const Brx& aDeviceCode,
+                           TUint suggestedPollingInterval);
+                ~PollingJob();
+
+                const Brx& JobId() const { return iJobId; }
+                const Brx& DeviceCode() const { return iDeviceCode; }
+                const TUint PollingInterval() const { return iPollingInterval; }
+                const EPollingJobStatus Status() const { return iStatus; }
+
+                void StartPollTimer();
+                void HandleOnRequestToPollAgain();
+                void HandleOnRequestToSlowPollingDown();
+                void HandleOnFailed();
+                void HandleOnSuccess();
+            private:
+                void OnPollRequired();
+
+            private:
+                Bws<64>              iJobId;
+                Bws<64>              iDeviceCode;
+                TUint                iPollingInterval;
+                EPollingJobStatus    iStatus;
+                Timer*               iPollTimer;
+                IPollingJobObserver& iObserver;
+        };
+
+
+    public:
+        OAuthPollingManager(Environment& aEnv,
+                            IOAuthTokenPoller&,
+                            TokenManager&,
+                            IOAuthPollingManagerObserver&);
+        ~OAuthPollingManager();
+
+    public:
+        TUint MaxPollingJobs() const;
+        TUint RunningPollingJobs() const;
+        TBool CanRequestJob() const;
+        TBool RequestNewJob(PublicLimitedInputFlowDetails& aDetails);
+        void GetJobStatusJSON(WriterJsonObject& aJsonWriter);
+
+    public: // IOAuthTokenPollResultListener
+        void OnPollCompleted(OAuthPollResult&) override;
+
+    private: // IPollingJobObserver
+        void OnPollRequested(const Brx& aJobId) override;
+
+    private:
+        TBool GenerateJobId(Bwx& aBuffer);
+        void GenerateGUID(Bwx& aBuffer);
+        TUint NumberOfRunningJobsLocked() const;
+        TBool HasJobWithMatchingId(const Brx& aJobId) const;
+
+    private:
+        mutable Mutex iLockJobs;
+        Environment& iEnv;
+        IOAuthTokenPoller& iPoller;
+        TokenManager& iTokenManager;
+        IOAuthPollingManagerObserver& iObserver;
+        std::vector<PollingJob*> iJobs;
+        Bws<OAuth::kMaxTokenBytes> iTokenBuffer;
+};
+
 
 
 } // namespace OpenHome

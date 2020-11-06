@@ -28,9 +28,11 @@ class ServiceProvider
                         const TUint aNumTokens,
                         const TUint aNumLongLivedTokens,
                         IOAuthAuthenticator&,
+                        IOAuthTokenPoller&,
                         IConfigManager&,
                         IStoreReadWrite&,
-                        ITokenManagerObserver&);
+                        ITokenManagerObserver&,
+                        IOAuthPollingManagerObserver&);
         ~ServiceProvider();
 
     public:
@@ -82,7 +84,12 @@ class ServiceProvider
         void ClearShortLivedTokens() { iTokenManager->ClearShortLivedTokens(); }
         void ClearLongLivedTokens() { iTokenManager->ClearLongLivedTokens(); }
 
+        TUint MaxPollingJobs() const { return iPollingManager->MaxPollingJobs(); }
+        TBool CanRequestJob() const { return iPollingManager->CanRequestJob(); }
+        TBool BeginLimitedInputFlow(PublicLimitedInputFlowDetails& details) { return iPollingManager->RequestNewJob(details); }
+
         void ToJson(WriterJsonObject& aWriter);
+        void WriteJobStatus(WriterJsonObject& aWriter);
 
     private:
         ConfigChoice& GetEnabledConfigValue();
@@ -91,6 +98,7 @@ class ServiceProvider
     private:
         const Brx& iServiceId;
         TokenManager* iTokenManager;
+        OAuthPollingManager* iPollingManager;
         ITokenManagerObserver& iObserver;
         IConfigManager& iConfigManager;
         TUint iConfigEnabledSubscription;
@@ -113,12 +121,14 @@ ServiceProvider::ServiceProvider(const Brx& aServiceId,
                                  const TUint aNumTokens,
                                  const TUint aNumLongLivedTokens,
                                  IOAuthAuthenticator& aServiceAuthenticator,
+                                 IOAuthTokenPoller& aPoller,
                                  IConfigManager& aConfigManager,
                                  IStoreReadWrite& aStore,
-                                 ITokenManagerObserver& aObserver)
-    : iServiceId(aServiceId),
-      iObserver(aObserver),
-      iConfigManager(aConfigManager)
+                                 ITokenManagerObserver& aTokenObserver,
+                                 IOAuthPollingManagerObserver& aPollingObserver)
+    : iServiceId(aServiceId)
+    , iObserver(aTokenObserver)
+    , iConfigManager(aConfigManager)
 {
     ConfigChoice& choice = GetEnabledConfigValue();
     iConfigEnabledSubscription = choice.Subscribe(MakeFunctorConfigChoice(*this, &ServiceProvider::EnabledChanged));
@@ -127,7 +137,10 @@ ServiceProvider::ServiceProvider(const Brx& aServiceId,
     //  - When a value does change, then we should grab a copy of the value
     //  - Notify observes we've changed :)
 
-    iTokenManager = new TokenManager(aServiceId, aNumTokens, aNumLongLivedTokens, aEnv, aThreadPool, aServiceAuthenticator, aStore, aObserver);
+    iTokenManager = new TokenManager(aServiceId, aNumTokens, aNumLongLivedTokens, aEnv, aThreadPool, aServiceAuthenticator, aStore, aTokenObserver);
+
+    iPollingManager = new OAuthPollingManager(aEnv, aPoller, *iTokenManager, aPollingObserver);
+    aPoller.SetPollResultListener(iPollingManager);
 }
 
 ServiceProvider::~ServiceProvider()
@@ -135,6 +148,7 @@ ServiceProvider::~ServiceProvider()
     ConfigChoice& choice = GetEnabledConfigValue();
     choice.Unsubscribe(iConfigEnabledSubscription);
 
+    delete iPollingManager;
     delete iTokenManager;
 }
 
@@ -146,6 +160,17 @@ void ServiceProvider::ToJson(WriterJsonObject& aWriter)
     aWriter.WriteInt("longLivedMax", iTokenManager->LongLivedCapacity());
 
     iTokenManager->TokenStateToJson(aWriter);
+
+    aWriter.WriteEnd();
+}
+
+void ServiceProvider::WriteJobStatus(WriterJsonObject& aWriter)
+{
+    aWriter.WriteString("id", iServiceId);
+    aWriter.WriteInt("maxRunningJobs", iPollingManager->MaxPollingJobs());
+    aWriter.WriteInt("currentRunningJobs", iPollingManager->RunningPollingJobs());
+
+    iPollingManager->GetJobStatusJSON(aWriter);
 
     aWriter.WriteEnd();
 }
@@ -189,6 +214,12 @@ static const Brn kDecryptionFailedMsg("Failed to decrypt provided token");
 static const TUint kTokenIdNotFoundCode = 804;
 static const Brn kTokenIdNotFoundMsg("Token with matching Id not found");
 
+static const TUint kPollingJobsAtCapacityCode = 805;
+static const Brn kPollingJobsAtCapacityMsg("Too many jobs already running. Please try again later.");
+
+static const TUint kPollingRequestFailedCode = 806;
+static const Brn kPollingRequestFailedMsg("Failed to start limited input flow for the specified service.");
+
 
 ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
                              Environment& aEnv,
@@ -196,20 +227,22 @@ ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
                              IRsaObservable& aRsaObservable,
                              Configuration::IConfigManager& aConfigManager,
                              Configuration::IStoreReadWrite& aStore)
-    : DvProviderAvOpenhomeOrgOAuth1(aDevice),
-      iEnv(aEnv),
-      iThreadPool(aThreadPool),
-      iRsaObservable(aRsaObservable),
-      iConfigManager(aConfigManager),
-      iStore(aStore),
-      iLockRsa("OAuth::RSA"),
-      iLockProviders("OAuth::PVD"),
-      iLockModerator("OAuth::MOD"),
-      iRsa(nullptr),
-      iUpdateId(0)
+    : DvProviderAvOpenhomeOrgOAuth1(aDevice)
+    , iEnv(aEnv)
+    , iThreadPool(aThreadPool)
+    , iRsaObservable(aRsaObservable)
+    , iConfigManager(aConfigManager)
+    , iStore(aStore)
+    , iLockRsa("OAuth::RSA")
+    , iLockProviders("OAuth::PVD")
+    , iLockModerator("OAuth::MOD")
+    , iRsa(nullptr)
+    , iUpdateId(0)
+    , iPollingJobUpdateId(0)
 {
     EnablePropertyPublicKey();
     EnablePropertyUpdateId();
+    EnablePropertyJobUpdateId();
     EnablePropertySupportedServices();
 
     EnableActionGetPublicKey();
@@ -223,19 +256,25 @@ ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
     EnableActionGetUpdateId();
     EnableActionGetServiceStatus();
     EnableActionGetSupportedServices();
+    EnableActionGetJobUpdateId();
+    EnableActionGetJobStatus();
+    EnableActionBeginLimitedInputFlow();
 
     SetPropertyPublicKey(Brx::Empty());
     SetPropertyUpdateId(0);
+    SetPropertyJobUpdateId(0);
     SetPropertySupportedServices(Brn("[]"));
 
     iKeyObserver = iRsaObservable.AddObserver(MakeFunctorGeneric(*this, &ProviderOAuth::RsaKeySet));
 
-    iModeratorTimer = new Timer(aEnv, MakeFunctor(*this, &ProviderOAuth::UpdateIdSet), "OAuthModerator");
+    iTokenUpdateModerationTimer = new Timer(aEnv, MakeFunctor(*this, &ProviderOAuth::UpdateIdSet), "OAuthTokenUpdateModerator");
+    iPollingUpdateModerationTimer = new Timer(aEnv, MakeFunctor(*this, &ProviderOAuth::JobUpdateIdSet), "OAuthPollingJobUpdateModerator");
 }
 
 ProviderOAuth::~ProviderOAuth()
 {
-    delete iModeratorTimer;
+    delete iTokenUpdateModerationTimer;
+    delete iPollingUpdateModerationTimer;
 
     iRsaObservable.RemoveObserver(iKeyObserver);
 
@@ -249,7 +288,8 @@ ProviderOAuth::~ProviderOAuth()
 void ProviderOAuth::AddService(const Brx& aServiceId,
                                const TUint aMaxTokens,
                                const TUint aMaxLongLivedTokens,
-                               IOAuthAuthenticator& aAuthenticator)
+                               IOAuthAuthenticator& aAuthenticator,
+                               IOAuthTokenPoller& aPoller)
 {
    AutoMutex m(iLockProviders);
 
@@ -259,8 +299,10 @@ void ProviderOAuth::AddService(const Brx& aServiceId,
                                                        aMaxTokens,
                                                        aMaxLongLivedTokens,
                                                        aAuthenticator,
+                                                       aPoller,
                                                        iConfigManager,
                                                        iStore,
+                                                       *this,
                                                        *this);
 
     iProviders.push_back(newProvider);
@@ -624,6 +666,95 @@ void ProviderOAuth::GetServiceStatus(IDvInvocation& aInvocation,
     aInvocation.EndResponse();
 }
 
+void ProviderOAuth::GetJobUpdateId(IDvInvocation& aInvocation,
+                                   IDvInvocationResponseUint& aJobUpdateId)
+{
+    AutoMutex m(iLockModerator);
+
+    aInvocation.StartResponse();
+    aJobUpdateId.Write(iPollingJobUpdateId);
+    aInvocation.EndResponse();
+}
+
+void ProviderOAuth::GetJobStatus(IDvInvocation& aInvocation,
+                                 IDvInvocationResponseString& aJobStatusJson)
+{
+    AutoMutex m(iLockProviders);
+
+    aInvocation.StartResponse();
+
+    WriterJsonObject jsonWriter(aJobStatusJson);
+
+    jsonWriter.WriteUint("updateId", iPollingJobUpdateId);
+
+    WriterJsonArray jobArrayWriter = jsonWriter.CreateArray("services");
+    for(auto v : iProviders)
+    {
+        WriterJsonObject serviceJobWriter = jobArrayWriter.CreateObject();
+        v->WriteJobStatus(serviceJobWriter);
+    }
+    jobArrayWriter.WriteEnd();
+    jsonWriter.WriteEnd();
+
+    aJobStatusJson.WriteFlush();
+
+    aInvocation.EndResponse();
+}
+
+void ProviderOAuth::BeginLimitedInputFlow(Net::IDvInvocation& aInvocation,
+                                          const Brx& aServiceId,
+                                          Net::IDvInvocationResponseString& aJobId,
+                                          Net::IDvInvocationResponseString& aLoginUrl,
+                                          Net::IDvInvocationResponseString& aUserCode)
+{
+    AutoMutex m(iLockProviders);
+
+    ServiceProvider* provider = GetProviderLocked(aServiceId);
+    if (provider == nullptr)
+    {
+        aInvocation.Error(kServiceIdNotFoundCode, kServiceIdNotFoundMsg);
+        aInvocation.StartResponse();
+        aInvocation.EndResponse();
+
+        return;
+    }
+
+    PublicLimitedInputFlowDetails details;
+
+    if (!provider->CanRequestJob())
+    {
+        aInvocation.Error(kPollingJobsAtCapacityCode, kPollingJobsAtCapacityMsg);
+        aInvocation.StartResponse();
+        aInvocation.EndResponse();
+
+        return;
+    }
+
+    const TBool success = provider->BeginLimitedInputFlow(details);
+
+    if (!success)
+    {
+        aInvocation.Error(kPollingRequestFailedCode, kPollingRequestFailedMsg);
+        aInvocation.StartResponse();
+        aInvocation.EndResponse();
+    }
+    else
+    {
+        aInvocation.StartResponse();
+
+        aJobId.Write(details.JobId());
+        aJobId.WriteFlush();
+
+        aLoginUrl.Write(details.UserUrl());
+        aLoginUrl.WriteFlush();
+
+        aUserCode.Write(details.AuthCode());
+        aUserCode.WriteFlush();
+
+        aInvocation.EndResponse();
+    }
+}
+
 
 
 ServiceProvider* ProviderOAuth::GetProviderLocked(const Brx& aServiceId)
@@ -643,9 +774,15 @@ void ProviderOAuth::UpdateIdSet()
     AutoMutex m(iLockModerator);
 
     iUpdateId++;
-
     SetPropertyUpdateId(iUpdateId);
+}
 
+void ProviderOAuth::JobUpdateIdSet()
+{
+    AutoMutex m(iLockModerator);
+
+    iPollingJobUpdateId++;
+    SetPropertyJobUpdateId(iPollingJobUpdateId);
 }
 
 
@@ -653,6 +790,14 @@ void ProviderOAuth::OnTokenChanged()
 {
     AutoMutex m(iLockModerator);
 
-    iModeratorTimer->Cancel();
-    iModeratorTimer->FireIn(kModerationTimeout);
+    iTokenUpdateModerationTimer->Cancel();
+    iTokenUpdateModerationTimer->FireIn(kModerationTimeout);
+}
+
+void ProviderOAuth::OnJobStatusChanged()
+{
+    AutoMutex m(iLockModerator);
+
+    iPollingUpdateModerationTimer->Cancel();
+    iPollingUpdateModerationTimer->FireIn(kModerationTimeout);
 }

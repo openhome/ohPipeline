@@ -11,8 +11,10 @@
 #include <OpenHome/Av/MediaPlayer.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Tidal/TidalMetadata.h>
+#include <OpenHome/ThreadPool.h>
         
 #include <vector>
+#include <deque>
 
 namespace OpenHome {
     class Environment;
@@ -23,8 +25,9 @@ namespace Configuration {
 }
 namespace Av {
 
-class Tidal : public ICredentialConsumer,
-              public IOAuthAuthenticator
+class Tidal : public ICredentialConsumer
+            , public IOAuthAuthenticator
+            , public IOAuthTokenPoller
 {
     friend class TestTidal;
     friend class TidalPins;
@@ -35,8 +38,11 @@ class Tidal : public ICredentialConsumer,
 public:
     static const Brn kId;
 
-    static const TUint kMaximumNumberOfStoredTokens = 10; //Family account of 4 + one for each of the 6 device pins
+    static const TUint kMaximumNumberOfShortLivedTokens = 10; //Family account of 4 + one for each of the 6 device pins
     static const TUint kMaximumNumberOfLongLivedTokens = 1; // Currently only need one for Gateway use
+    static const TUint kMaximumNumberOfTokens = kMaximumNumberOfShortLivedTokens + kMaximumNumberOfLongLivedTokens;
+
+    static const TUint kMaximumNumberOfPollingJobs = 5;
 
 private:
     static const Brn kHost;
@@ -90,7 +96,7 @@ private:
     class UserInfo;
 
 public:
-    Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues&, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser);
+    Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues&, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser, IThreadPool& aThreadPool);
     ~Tidal();
     TBool TryLogin(Bwx& aSessionId);
     TBool TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken);
@@ -114,6 +120,12 @@ public: // IOAuthAuthenticator
 
      void OnTokenRemoved(const Brx& aTokenId,
                          const Brx& aAccessToken) override;
+
+public: // IOAuthTokenPoller
+     TUint MaxPollingJobs() const override;
+     void SetPollResultListener(IOAuthTokenPollResultListener* aListener) override;
+     TBool StartLimitedInputFlow(LimitedInputFlowDetails& aDetails) override;
+     TBool RequestPollForToken(OAuthPollRequest& aRequest) override;
 
 private: // from ICredentialConsumer
     const Brx& Id() const override;
@@ -139,6 +151,7 @@ private:
                              const Brx& aAccessToken = Brx::Empty());
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
     void SocketInactive();
+    void DoPollForToken();
 private:
     Mutex iLock;
     Mutex iLockConfig;
@@ -173,6 +186,10 @@ private:
     ITokenProvider* iTokenProvider;
     SocketHost iConnectedHost;
     std::vector<UserInfo> iUserInfos;
+    IOAuthTokenPollResultListener* iPollResultListener; // ownership not taken. Reference taken after constructer called
+    IThreadPoolHandle* iPollHandle;
+    Mutex iPollRequestLock;
+    std::deque<OAuthPollRequest> iPollRequests;
 };
 
 };  // namespace Av

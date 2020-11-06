@@ -6,6 +6,7 @@
 #include <OpenHome/Av/Tidal/Tidal.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Configuration/Tests/ConfigRamStore.h>
+#include <OpenHome/ThreadPool.h>
 
 namespace OpenHome {
 namespace Av {
@@ -23,6 +24,7 @@ private:
     Configuration::ConfigRamStore* iStore;
     Configuration::ConfigManager* iConfigManager;
     SslContext* iSsl;
+    IThreadPool* iThreadPool;
     Tidal* iTidal;
 };
 
@@ -42,6 +44,8 @@ TestTidal::TestTidal(Environment& aEnv,
     iConfigManager = new Configuration::ConfigManager(*iStore);
     iSsl = new SslContext();
 
+    iThreadPool = new MockThreadPoolSync();
+
     Tidal::ConfigurationValues config
     {
         aToken,
@@ -49,7 +53,7 @@ TestTidal::TestTidal(Environment& aEnv,
         aClientSecret
     };
 
-    iTidal = new Tidal(aEnv, *iSsl, config, *this, *iConfigManager);
+    iTidal = new Tidal(aEnv, *iSsl, config, *this, *iConfigManager, *iThreadPool);
 }
 
 TestTidal::~TestTidal()
@@ -58,6 +62,7 @@ TestTidal::~TestTidal()
     delete iSsl;
     delete iConfigManager;
     delete iStore;
+    delete iThreadPool;
 }
 
 void TestTidal::Start(const Brx& aUsername, const Brx& aPassword)

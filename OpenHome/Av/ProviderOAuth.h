@@ -28,11 +28,12 @@ class IRsaObservable; //From Credentials
 class ServiceProvider;
 
 
-class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
-                     public ITokenManagerObserver
+class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1
+                   , private ITokenManagerObserver
+                   , private IOAuthPollingManagerObserver
 {
     public:
-        static const TUint kModerationTimeout = 1000;
+        static const TUint kModerationTimeout = 500;
 
     public:
         ProviderOAuth(Net::DvDevice&,
@@ -47,12 +48,16 @@ class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
         void AddService(const Brx& aServiceId,
                         const TUint aMaxTokens,
                         const TUint aMaxLongLivedTokens,
-                        IOAuthAuthenticator& aAuthenticator);
+                        IOAuthAuthenticator& aAuthenticator,
+                        IOAuthTokenPoller& aPoller);
 
         ITokenProvider* GetTokenProvider(const Brx& aServiceId);
 
     private: // ITokenManagerObserver
         void OnTokenChanged() override;
+
+    private: // IOAuthPollingManagerObserver
+        void OnJobStatusChanged() override;
 
     private: // from Net::DvProviderAvOpenhomeOrgOAuth1
         void GetPublicKey(Net::IDvInvocation& aInvocation,
@@ -96,6 +101,18 @@ class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
         void GetServiceStatus(Net::IDvInvocation& aInvocation,
                               Net::IDvInvocationResponseString& aServiceStatusJson) override;
 
+        void GetJobUpdateId(Net::IDvInvocation& aInvocation,
+                            Net::IDvInvocationResponseUint& aJobUpdateId) override;
+
+        void GetJobStatus(Net::IDvInvocation& aInvocation,
+                          Net::IDvInvocationResponseString& aJobStatusJson) override;
+
+        void BeginLimitedInputFlow(Net::IDvInvocation& aInvocation,
+                                   const Brx& aServiceId,
+                                   Net::IDvInvocationResponseString& aJobId,
+                                   Net::IDvInvocationResponseString& aLoginUrl,
+                                   Net::IDvInvocationResponseString& aUserCode) override;
+
     private:
         void ValidateSetTokenParams(Net::IDvInvocation& aInvocation,
                                     const Brx& aTokenId,
@@ -113,6 +130,7 @@ class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
         void RsaKeySet(IRsaProvider&);
 
         void UpdateIdSet();
+        void JobUpdateIdSet();
         void OnModerationTimerExpired();
 
     private:
@@ -128,8 +146,10 @@ class ProviderOAuth: public Net::DvProviderAvOpenhomeOrgOAuth1,
                        These define lower case macros which can conflict with functions in our code. */
         std::vector<ServiceProvider*> iProviders;
         Bws<1024> iKeyBuf;
-        Timer* iModeratorTimer;
+        Timer* iTokenUpdateModerationTimer;
+        Timer* iPollingUpdateModerationTimer;
         TUint iUpdateId;
+        TUint iPollingJobUpdateId;
         TUint iKeyObserver;
 };
 
