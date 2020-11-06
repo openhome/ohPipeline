@@ -1893,6 +1893,8 @@ void DecodedStreamInfo::Set(TUint aStreamId, TUint aBitRate, TUint aBitDepth, TU
 
 // MsgDecodedStream
 
+const RampType MsgDecodedStream::kRampDefault;
+
 MsgDecodedStream::MsgDecodedStream(AllocatorBase& aAllocator)
     : Msg(aAllocator)
 {

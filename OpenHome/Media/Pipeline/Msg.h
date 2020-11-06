@@ -817,6 +817,8 @@ private:
 class MsgDecodedStream : public Msg
 {
     friend class MsgFactory;
+private:
+    static const RampType kRampDefault = RampType::Sample;
 public:
     MsgDecodedStream(AllocatorBase& aAllocator);
     const DecodedStreamInfo& StreamInfo() const;
