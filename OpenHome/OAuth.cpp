@@ -1102,9 +1102,9 @@ void TokenManager::LoadStoredTokens(ETokenTypeSelection operation)
                 continue;
             }
 
-            Parser p(tokenReadBuffer);
-            const Brx& refreshToken = p.Next(':');
-            const Brx& tokenSource = p.Remaining();
+            Parser tokenParser(tokenReadBuffer);
+            const Brx& refreshToken = tokenParser.Next(':');
+            const Brx& tokenSource = tokenParser.Remaining();
 
             if (InsertTokenLocked(id, tokenSource, isLongLived, refreshToken))
             {
