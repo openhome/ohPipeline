@@ -29,8 +29,9 @@ static const TChar* kSoundQualities[3] = {"LOW", "HIGH", "LOSSLESS"};
 static const TUint kNumSoundQualities = sizeof(kSoundQualities) / sizeof(kSoundQualities[0]);
 
 
-const Brn Tidal::kHost("api.stage.tidal.com");
-const Brn Tidal::kAuthenticationHost("auth.stage.tidal.com");
+// Staging = XXXX.stage.tidal.com
+const Brn Tidal::kHost("api.tidal.com");
+const Brn Tidal::kAuthenticationHost("auth.tidal.com");
 
 const Brn Tidal::kId("tidalhifi.com");
 
