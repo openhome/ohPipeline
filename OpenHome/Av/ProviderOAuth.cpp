@@ -448,6 +448,10 @@ void ProviderOAuth::SetToken(IDvInvocation& aInvocation,
                 aInvocation.Error(kTokenIdInvalid, kTokenSourceTooBig);
                 break;
 
+            case TokenManager::EAddTokenResult::TokenInvalid:
+                aInvocation.Error(kTokenInvalidCode, kTokenInvalidMsg);
+                break;
+
             default:
                 break;
         }
