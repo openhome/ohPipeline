@@ -31,6 +31,8 @@
 #include <OpenHome/Net/Odp/DviProtocolOdp.h>
 #include <OpenHome/Private/Debug.h>
 
+#include <vector>
+
 #undef LPEC_ENABLE
 
 using namespace OpenHome;
@@ -452,16 +454,24 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
         Brn partnerId(p.Next(':'));
         Brn clientId(p.Next(':'));
         Brn clientSecret(p.Next(':'));
+        std::vector<OAuthAppDetails> apps;
 
-        Log::Print("Tidal: partnerId = ");
-        Log::Print(partnerId);
-        Log::Print(", clientId = ");
-        Log::Print(clientId);
-        Log::Print(", clientSecret = ");
-        Log::Print(clientSecret);
-        Log::Print("\n");
+        while(!p.Finished())
+        {
+            Brn appId = p.Next(':');
+            Brn appClientId = p.Next(':');
+            Brn appClientSecret = p.Next(':');
 
-        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, ssl, partnerId, clientId, clientSecret, *iMediaPlayer));
+            apps.push_back(OAuthAppDetails(appId, appClientId, appClientSecret));
+        }
+
+        Log::Print("TIDAL: partnerId = %.*s, clientId = %.*s, clientSecret = %.*s\n", PBUF(partnerId), PBUF(clientId), PBUF(clientSecret));
+        for(const auto& v : apps)
+        {
+            Log::Print("    App: ID: %.*s - ClientId = %.*s, Secret = %.*s\n", PBUF(v.AppId()), PBUF(v.ClientId()), PBUF(v.ClientSecret()));
+        }
+
+        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, ssl, partnerId, clientId, clientSecret, apps, *iMediaPlayer));
     }
     // ...likewise, only add Qobuz if we have ids for login
     if (iQobuzIdSecret.Bytes() > 0) {

@@ -40,9 +40,9 @@ class ServiceProvider
 
         ITokenProvider* TokenProvider() { return iTokenManager; }
 
-        void AddToken(const Brx& aId,
-                      TBool aIsLongLived,
-                      const Brx& aRefreshToken) { iTokenManager->AddToken(aId, aRefreshToken, aIsLongLived); }
+        TokenManager::EAddTokenResult AddToken(const Brx& aId,
+                                               TBool aIsLongLived,
+                                               const Brx& aRefreshToken) { return iTokenManager->AddToken(aId, TokenManager::ETokenOrigin::External, aRefreshToken, aIsLongLived); }
 
         void RemoveToken(const Brx& aId, TokenManager::ETokenTypeSelection tokenSelection)
         {
@@ -219,6 +219,10 @@ static const Brn kPollingJobsAtCapacityMsg("Too many jobs already running. Pleas
 
 static const TUint kPollingRequestFailedCode = 806;
 static const Brn kPollingRequestFailedMsg("Failed to start limited input flow for the specified service.");
+
+static const TUint kTokenIdInvalid = 807;
+static const Brn kTokenIdNotPresentMsg("TokenId not present.");
+static const Brn kTokenSourceTooBig("Token source is too big");
 
 
 ProviderOAuth::ProviderOAuth(Net::DvDevice& aDevice,
@@ -433,15 +437,24 @@ void ProviderOAuth::SetToken(IDvInvocation& aInvocation,
             THROW(ServiceIdNotFound);
         }
 
-        provider->AddToken(aTokenId, aIsLongLived, tokenBuf);
+        switch (provider->AddToken(aTokenId, aIsLongLived, tokenBuf))
+        {
+            case TokenManager::EAddTokenResult::NoTokenId:
+            case TokenManager::EAddTokenResult::NoTokenSourceSpecified:
+                aInvocation.Error(kTokenIdInvalid, kTokenIdNotPresentMsg);
+                break;
+
+            case TokenManager::EAddTokenResult::TokenSourceTooBig:
+                aInvocation.Error(kTokenIdInvalid, kTokenSourceTooBig);
+                break;
+
+            default:
+                break;
+        }
     }
     catch (ServiceIdNotFound&)
     {
         aInvocation.Error(kServiceIdNotFoundCode, kServiceIdNotFoundMsg);
-    }
-    catch (OAuthTokenInvalid&)
-    {
-        aInvocation.Error(kTokenInvalidCode, kTokenInvalidMsg);
     }
 
     aInvocation.StartResponse();

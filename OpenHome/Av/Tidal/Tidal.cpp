@@ -29,14 +29,14 @@ static const TChar* kSoundQualities[3] = {"LOW", "HIGH", "LOSSLESS"};
 static const TUint kNumSoundQualities = sizeof(kSoundQualities) / sizeof(kSoundQualities[0]);
 
 
-const Brn Tidal::kHost("api.tidalhifi.com");
-const Brn Tidal::kAuthenticationHost("auth.tidal.com");
+const Brn Tidal::kHost("api.stage.tidal.com");
+const Brn Tidal::kAuthenticationHost("auth.stage.tidal.com");
 
 const Brn Tidal::kId("tidalhifi.com");
 
 const Brn Tidal::kConfigKeySoundQuality("tidalhifi.com.SoundQuality");
 
-const Brn kTidalTokenScope("r_usr+w_usr+w_sub");
+const Brn kTidalTokenScope("r_usr+w_usr");
 
 // UserInfo
 /* Associated information connected to an OAuthToken.
@@ -126,6 +126,11 @@ Tidal::Tidal(Environment& aEnv,
     , iPollRequestLock("TDL3")
     , iPollRequests(0)
 {
+    for(const auto& v : aTidalConfig.appDetails)
+    {
+        iAppDetails.insert(std::pair<Brn, OAuthAppDetails>(Brn(v.AppId()), OAuthAppDetails(v.AppId(), v.ClientId(), v.ClientSecret())));
+    }
+
     iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Tidal::SocketInactive), "Tidal");
 
     iReaderResponse.AddHeader(iHeaderContentLength);
@@ -920,6 +925,7 @@ void Tidal::WriteRequestHeaders(const Brx& aMethod,
 
 
 TBool Tidal::TryGetAccessToken(const Brx& aTokenId,
+                               const Brx& aTokenSource,
                                const Brx& aRefreshToken,
                                AccessTokenResponse& aResponse)
 {
@@ -929,119 +935,29 @@ TBool Tidal::TryGetAccessToken(const Brx& aTokenId,
     //      threads from accessing this at once.
     AutoMutex m(iLock);
 
-    iTimerSocketActivity->Cancel(); //Socket automatically closed by call below
-
-    if (!TryConnect(SocketHost::Auth, kPort))
+    /* TIDAL token fetching takes a 2 stage process.
+     * First we refresh the token to grant us an up-to-date token.
+     * After that, we then 'inherit' that token to be granted a
+     * longer-living token for the DS.
+     *
+     * However, if the token has been added internally, using the
+     * limited input flow, then we can't inherit this as the id/secret
+     * used MUST be different. */
+    if (DoTryGetAccessToken(aTokenId, aTokenSource, aRefreshToken, aResponse))
     {
-        LOG_ERROR(kOAuth, "Tidal::TryGetAccessToken() - connection failure.\n");
+        return aTokenSource == OAuth::kTokenSourceInternal ? true
+                                                           : DoInheritToken(aResponse.accessToken, aResponse);
+    }
+    else
+    {
+        LOG_TRACE(kOAuth, "Tidal::TryGetAccessToken - Initial token fetch failed. Not attempting an inherit.\n");
         return false;
     }
-
-    // Write request
-    iReqBody.Replace(Brx::Empty());
-    WriterBuffer writer(iReqBody);
-
-    const Brn path("/v1/oauth2/token");
-
-    OAuth::ConstructRefreshTokenRequestBody(writer,
-                                            aRefreshToken,
-                                            iClientId,
-                                            iClientSecret,
-                                            kTidalTokenScope);
-
-    AutoSocketSsl _(iSocket);
-
-    try
-    {
-        WriteRequestHeaders(Http::kMethodPost, kAuthenticationHost, path, kPort, Connection::Close, iReqBody.Bytes());
-
-        iWriterBuf.Write(iReqBody);
-        iWriterBuf.WriteFlush();
-
-        iReaderResponse.Read();
-
-        iResponseBuffer.SetBytes(0);
-        WriterBuffer responseWriter(iResponseBuffer);
-
-        iReaderEntity.ReadAll(responseWriter,
-                              iHeaderContentLength,
-                              iHeaderTransferEncoding,
-                              ReaderHttpEntity::Mode::Client);
-
-        const TUint code = iReaderResponse.Status()
-                                          .Code();
-
-        JsonParser parser;
-        parser.ParseAndUnescape(iResponseBuffer);
-
-        if (code != 200)
-        {
-            const Brx& error = parser.String(OAuth::kErrorResponseFieldError);
-            const Brx& errorDesc = parser.StringOptional(OAuth::kErrorResponseFieldErrorDescription);
-            const TBool hasDesc = errorDesc != Brx::Empty();
-
-            const Brn noDescMsg("< No description present >");
-
-            LOG_ERROR(kOAuth,
-                      "Tidal::TryGetAccessToken() ~ Failed to refresh access token.\n- HttpCode: %u\n- Error: %.*s\n- Message: %.*s\n",
-                      code,
-                      PBUF(error),
-                      PBUF(hasDesc ? errorDesc : noDescMsg));
-
-            return false;
-        }
-
-        const Brx& accessToken = parser.String(OAuth::kTokenResponseFieldAccessToken);
-        const TUint expiry = (TUint)parser.Num(OAuth::kTokenResponseFieldTokenExpiry);
-
-        // Make sure to populate response value
-        aResponse.accessToken.Set(accessToken);
-        aResponse.tokenExpiry = expiry;
-
-        // User information is also contained within our response
-        // which is needed for future API requests.
-        JsonParser parserUser;
-        parserUser.Parse(parser.String("user"));
-
-        const TUint userId = parserUser.Num("userId");
-        const Brx& countryCode = parserUser.String("countryCode");
-        const Brx& username = parserUser.String("username");
-
-        // Store our user info internally for future API calls...
-        TBool didPopulate = false;
-        for(auto& v : iUserInfos)
-        {
-            if (!v.Populated())
-            {
-                v.Populate(aTokenId, userId, username, countryCode);
-                didPopulate = true;
-                break;
-            }
-        }
-
-        //FIX ME: Need to handle JSON exceptions that might be thrown by this...
-
-        // NOTE: We need to check we have actually stored the username details
-        return didPopulate;
-    }
-    catch (HttpError&)
-    {
-        LOG_ERROR(kOAuth, "HttpError in Tidal::TryGetAccessToken\n");
-    }
-    catch (ReaderError&) 
-    {
-        LOG_ERROR(kOAuth, "ReaderError in Tidal::TryGetAccessToken\n");
-    }
-    catch (WriterError&)
-    {
-        LOG_ERROR(kOAuth, "WriterError in Tidal::TryGetAccessToken\n");
-    }
-
-    return false;
 }
 
 
 TBool Tidal::TryGetUsernameFromToken(const Brx& aTokenId,
+                                     const Brx& /*aTokenSource*/,
                                      const Brx& /*aAccessToken*/,
                                      IWriter& aUsername)
 {
@@ -1064,6 +980,7 @@ TBool Tidal::TryGetUsernameFromToken(const Brx& aTokenId,
 
 
 void Tidal::OnTokenRemoved(const Brx& aTokenId,
+                           const Brx& /*aTokenSource*/,
                            const Brx& /*aAccessToken*/)
 {
     LOG(kOAuth, "Tidal::OnTokenRemoved() - %.*s\n", PBUF(aTokenId));
@@ -1081,7 +998,7 @@ void Tidal::OnTokenRemoved(const Brx& aTokenId,
         }
     }
 
-    // Don't try and logout the session. Doing so would invalidatew all other tokens
+    // Don't try and logout the session. Doing so would invalidate all other tokens
     // on systems stopping playback...
 }
 
@@ -1425,4 +1342,262 @@ void Tidal::DoPollForToken()
     //      other threads to continue and prevent deadlocking
     iPollResultListener->OnPollCompleted(result);
     iPollHandle->TrySchedule();
+}
+
+TBool Tidal::DoTryGetAccessToken(const Brx& aTokenId,
+                                 const Brx& aTokenSource,
+                                 const Brx& aRefreshToken,
+                                 AccessTokenResponse& aResponse)
+{
+    iTimerSocketActivity->Cancel(); //Socket automatically closed by call below
+
+    if (!TryConnect(SocketHost::Auth, kPort))
+    {
+        LOG_ERROR(kOAuth, "Tidal::DoTryGetAccessToken() - connection failure.\n");
+        return false;
+    }
+
+    // Write request
+    iReqBody.Replace(Brx::Empty());
+    WriterBuffer writer(iReqBody);
+
+    const Brn path("/v1/oauth2/token");
+
+
+    if (aTokenSource == OAuth::kTokenSourceInternal)
+    {
+        OAuth::ConstructRefreshTokenRequestBody(writer,
+                                                aRefreshToken,
+                                                iClientId,
+                                                iClientSecret,
+                                                kTidalTokenScope);
+    }
+    else
+    {
+        const auto& details = iAppDetails.find(Brn(aTokenSource));
+
+        if (details == iAppDetails.end())
+        {
+            LOG_ERROR(kOAuth, "Tidal::DoTryGetAccessToken() - Given token source (%.*s) not known.\n", PBUF(aTokenSource));
+            return false;
+        }
+
+        OAuth::ConstructRefreshTokenRequestBody(writer,
+                                                aRefreshToken,
+                                                details->second.ClientId(),
+                                                details->second.ClientSecret(),
+                                                kTidalTokenScope);
+    }
+
+
+
+    AutoSocketSsl _(iSocket);
+
+    try
+    {
+        WriteRequestHeaders(Http::kMethodPost, kAuthenticationHost, path, kPort, Connection::Close, iReqBody.Bytes());
+
+        iWriterBuf.Write(iReqBody);
+        iWriterBuf.WriteFlush();
+
+        iReaderResponse.Read();
+
+        iResponseBuffer.SetBytes(0);
+        WriterBuffer responseWriter(iResponseBuffer);
+
+        iReaderEntity.ReadAll(responseWriter,
+                              iHeaderContentLength,
+                              iHeaderTransferEncoding,
+                              ReaderHttpEntity::Mode::Client);
+
+        const TUint code = iReaderResponse.Status()
+                                          .Code();
+
+        JsonParser parser;
+        parser.ParseAndUnescape(iResponseBuffer);
+
+        if (code != 200)
+        {
+            const Brx& error = parser.String(OAuth::kErrorResponseFieldError);
+            const Brx& errorDesc = parser.StringOptional(OAuth::kErrorResponseFieldErrorDescription);
+            const TBool hasDesc = errorDesc != Brx::Empty();
+
+            const Brn noDescMsg("< No description present >");
+
+            LOG_ERROR(kOAuth,
+                      "Tidal::DoTryGetAccessToken() ~ Failed to refresh access token.\n- HttpCode: %u\n- Error: %.*s\n- Message: %.*s\n",
+                      code,
+                      PBUF(error),
+                      PBUF(hasDesc ? errorDesc : noDescMsg));
+
+            return false;
+        }
+
+        const Brx& accessToken = parser.String(OAuth::kTokenResponseFieldAccessToken);
+        const TUint expiry = (TUint)parser.Num(OAuth::kTokenResponseFieldTokenExpiry);
+
+        // Make sure to populate response value
+        aResponse.accessToken.Set(accessToken);
+        aResponse.tokenExpiry = expiry;
+
+        // User information is also contained within our response
+        // which is needed for future API requests.
+        JsonParser parserUser;
+        parserUser.Parse(parser.String("user"));
+
+        const TUint userId = parserUser.Num("userId");
+        const Brx& countryCode = parserUser.String("countryCode");
+        const Brx& username = parserUser.String("username");
+
+        // Store our user info internally for future API calls...
+        TBool didPopulate = false;
+        for(auto& v : iUserInfos)
+        {
+            if (!v.Populated())
+            {
+                v.Populate(aTokenId, userId, username, countryCode);
+                didPopulate = true;
+                break;
+            }
+        }
+
+        //FIX ME: Need to handle JSON exceptions that might be thrown by this...
+
+        // NOTE: We need to check we have actually stored the username details
+        return didPopulate;
+    }
+    catch (HttpError&)
+    {
+        LOG_ERROR(kOAuth, "HttpError in Tidal::DoTryGetAccessToken\n");
+    }
+    catch (ReaderError&)
+    {
+        LOG_ERROR(kOAuth, "ReaderError in Tidal::DoTryGetAccessToken\n");
+    }
+    catch (WriterError&)
+    {
+        LOG_ERROR(kOAuth, "WriterError in Tidal::DoTryGetAccessToken\n");
+    }
+
+    return false;
+}
+
+TBool Tidal::DoInheritToken(const Brx& aAccessTokenIn,
+                            AccessTokenResponse& aResponse)
+{
+    iTimerSocketActivity->Cancel(); //Socket automatically closed by call below
+
+    if (!TryConnect(SocketHost::Auth, kPort))
+    {
+        LOG_ERROR(kOAuth, "Tidal::DoInheritToken() - connection failure.\n");
+        return false;
+    }
+
+    // Write request
+    iReqBody.Replace(Brx::Empty());
+    WriterBuffer writer(iReqBody);
+
+    const Brn path("/v1/oauth2/token");
+
+    // Construt the inherit body...
+    writer.Write(Brn("access_token="));
+    writer.Write(aAccessTokenIn);
+
+    writer.Write('&');
+
+    writer.Write(OAuth::kParameterClientId);
+    writer.Write('=');
+    writer.Write(iClientId);
+
+    if (iClientSecret.Bytes() > 0)
+    {
+        writer.Write('&');
+
+        writer.Write(OAuth::kParameterClientSecret);
+        writer.Write('=');
+        writer.Write(iClientSecret);
+    }
+
+    writer.Write('&');
+
+    writer.Write(OAuth::kParameterGrantType);
+    writer.Write(Brn("=switch_client"));
+
+    writer.Write('&');
+
+    writer.Write(OAuth::kParameterScope);
+    writer.Write('=');
+    writer.Write(kTidalTokenScope);
+
+
+    AutoSocketSsl _(iSocket);
+
+    try
+    {
+        WriteRequestHeaders(Http::kMethodPost, kAuthenticationHost, path, kPort, Connection::Close, iReqBody.Bytes());
+
+        iWriterBuf.Write(iReqBody);
+        iWriterBuf.WriteFlush();
+
+        iReaderResponse.Read();
+
+        iResponseBuffer.SetBytes(0);
+        WriterBuffer responseWriter(iResponseBuffer);
+
+        iReaderEntity.ReadAll(responseWriter,
+                              iHeaderContentLength,
+                              iHeaderTransferEncoding,
+                              ReaderHttpEntity::Mode::Client);
+
+        const TUint code = iReaderResponse.Status()
+                                          .Code();
+
+        JsonParser parser;
+        parser.ParseAndUnescape(iResponseBuffer);
+
+        if (code != 200)
+        {
+            const Brx& error = parser.String(OAuth::kErrorResponseFieldError);
+            const Brx& errorDesc = parser.StringOptional(OAuth::kErrorResponseFieldErrorDescription);
+            const TBool hasDesc = errorDesc != Brx::Empty();
+
+            const Brn noDescMsg("< No description present >");
+
+            LOG_ERROR(kOAuth,
+                      "Tidal::DoInheritToken() ~ Failed to refresh access token.\n- HttpCode: %u\n- Error: %.*s\n- Message: %.*s\n",
+                      code,
+                      PBUF(error),
+                      PBUF(hasDesc ? errorDesc : noDescMsg));
+
+            return false;
+        }
+
+        const Brx& accessToken = parser.String(OAuth::kTokenResponseFieldAccessToken);
+        const TUint expiry = (TUint)parser.Num(OAuth::kTokenResponseFieldTokenExpiry);
+
+        // Make sure to populate response value
+        aResponse.accessToken.Set(accessToken);
+        aResponse.tokenExpiry = expiry;
+
+        LOG_TRACE(kOAuth,
+                  "Tidal::DoInheritToken() - Token successfully inherited. Expires in %d\n",
+                  expiry);
+
+        //FIX ME: Need to handle JSON exceptions that might be thrown by this...
+        return true;
+    }
+    catch (HttpError&)
+    {
+        LOG_ERROR(kOAuth, "HttpError in Tidal::DoInheritToken\n");
+    }
+    catch (ReaderError&)
+    {
+        LOG_ERROR(kOAuth, "ReaderError in Tidal::DoInheritToken\n");
+    }
+    catch (WriterError&)
+    {
+        LOG_ERROR(kOAuth, "WriterError in Tidal::DoInheritToken\n");
+    }
+
+    return false;
 }

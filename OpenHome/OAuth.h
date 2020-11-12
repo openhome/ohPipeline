@@ -11,7 +11,6 @@
 
 #include <list>
 
-EXCEPTION(OAuthTokenInvalid);
 EXCEPTION(OAuthTokenIdNotFound);
 
 
@@ -46,6 +45,8 @@ class OAuth
 
     public:
         static const TUint kMaxTokenBytes = 2048;
+
+        static const Brn kTokenSourceInternal;
 
         // OAuth request parameters
         static const Brn kParameterRefreshToken;
@@ -98,6 +99,27 @@ enum class TokenType : TByte
 {
     UsernamePassword,
     OAuth,
+};
+
+class OAuthAppDetails
+{
+    public:
+        OAuthAppDetails(const Brx& aAppId,
+                        const Brx& aAppClientId,
+                        const Brx& aAppClientSecret)
+            : iAppId(aAppId)
+            , iClientId(aAppClientId)
+            , iClientSecret(aAppClientSecret)
+        { }
+
+        const Brx& AppId() const { return iAppId; }
+        const Brx& ClientId() const { return iClientId; }
+        const Brx& ClientSecret() const { return iClientSecret; }
+
+    private:
+        const Brn iAppId;
+        const Brn iClientId;
+        const Brn iClientSecret;
 };
 
 
@@ -246,6 +268,7 @@ class IOAuthAuthenticator
          * 
          * Subsequent store refreshes will also call this method. */
         virtual TBool TryGetAccessToken(const Brx& aTokenId,
+                                        const Brx& aTokenSource,
                                         const Brx& aRefreshToken,
                                         AccessTokenResponse& aResponse) = 0;
 
@@ -255,6 +278,7 @@ class IOAuthAuthenticator
          * an email address or nickname.
          * This will be called each time a token has successfully updated. */
         virtual TBool TryGetUsernameFromToken(const Brx& aTokenId,
+                                              const Brx& aTokenSource,
                                               const Brx& aAccessToken,
                                               IWriter& aUsername) = 0;
 
@@ -264,6 +288,7 @@ class IOAuthAuthenticator
          * Can be used by services that need to fetch additional information on
          * an change or removal. */
         virtual void OnTokenRemoved(const Brx& aTokenId,
+                                    const Brx& aTokenSource,
                                     const Brx& aAccessToken) = 0;
 };
 
@@ -316,6 +341,9 @@ class OAuthToken
     static const TUint kUsernameGranularity = 64;
 
     public:
+        static const TUint kMaxTokenSourceSize = 5; // in bytes
+
+    public:
         OAuthToken(Environment& aEnv,
                    ITokenObserver& aObserver);
         ~OAuthToken();
@@ -326,6 +354,7 @@ class OAuthToken
         const Brx& AccessToken() const;
         const Brx& RefreshToken() const;
         const Brx& Username() const;
+        const Brx& TokenSource() const;
 
         TBool IsPresent() const;
         TBool IsLongLived() const;
@@ -338,10 +367,12 @@ class OAuthToken
                          const Brx& aUsername);
 
         void Set(const Brx& aId,
+                 const Brx& aTokenSource,
                  const Brx& aRefreshToken,
                  TBool aIsLongLived);
 
         void SetWithAccessToken(const Brx& aId,
+                                const Brx& aTokenSource,
                                 const Brx& aRefreshToken,
                                 TBool aIsLongLived,
                                 const Brx& aAccessToken,
@@ -361,6 +392,7 @@ class OAuthToken
         TByte iRetryCount;
         WriterBwh iId;
         WriterBwh iUsername;
+        Bws<kMaxTokenSourceSize> iTokenSource;
         Bws<OAuth::kMaxTokenBytes> iAccessToken;
         Bws<OAuth::kMaxTokenBytes> iRefreshToken;
         ITokenObserver& iObserver;
@@ -389,6 +421,23 @@ class TokenManager : public ITokenObserver,
             All,
         };
 
+        enum ETokenOrigin
+        {
+            Internal,
+            External,
+        };
+
+        enum EAddTokenResult
+        {
+            Success,
+            SuccessAfterEviction,
+            NoWorkRequired,
+            NoTokenSourceSpecified,
+            TokenSourceTooBig,
+            NoTokenId,
+            TokenInvalid,
+        };
+
     public:
         TokenManager(const Brx& aServiceId,
                      TUint aMaxShortLivedCapacity,
@@ -405,11 +454,12 @@ class TokenManager : public ITokenObserver,
         TUint ShortLivedCapacity() const;
         TUint LongLivedCapacity() const;
 
-        void AddToken(const Brx& aId,
-                      const Brx& aRefreshToken,
-                      TBool aIsLongLived);
+        EAddTokenResult AddToken(const Brx& aTokenIdAndSource,
+                                 ETokenOrigin aTokenOrigin,
+                                 const Brx& aRefreshToken,
+                                 TBool aIsLongLived);
 
-        void RemoveToken(const Brx& aId, ETokenTypeSelection tokenType);
+        void RemoveToken(const Brx& aTokenIdAndSource, ETokenTypeSelection tokenType);
 
         void ClearShortLivedTokens();
         void ClearLongLivedTokens();
@@ -436,6 +486,7 @@ class TokenManager : public ITokenObserver,
         void RefreshTokens();
         TBool CheckSpaceAvailableLocked(TBool aIsLongLoved) const;
         TBool InsertTokenLocked(const Brx& aId,
+                                const Brx& aTokenSource,
                                 TBool aIsLongLived,
                                 const Brx& aRefreshToken,
                                 const Brx& aAccessToken = Brx::Empty(),
@@ -451,6 +502,7 @@ class TokenManager : public ITokenObserver,
         void MoveTokenToEndOfList(OAuthToken*);
 
         TBool ValidateToken(const Brx& aId,
+                            const Brx& aTokenSource,
                             const Brx& aRefreshToken,
                             AccessTokenResponse& aResponse,
                             IWriter& aUsername);
@@ -461,6 +513,7 @@ class TokenManager : public ITokenObserver,
         void LoadStoredTokens(ETokenTypeSelection operation);
         void StoreTokenIdsLocked(ETokenTypeSelection operation);
         void StoreTokenLocked(const Brx& aTokenId,
+                              const Brx& aTokenSource,
                               const Brx& aRefreshToken);
         void RemoveStoredTokenLocked(const Brx& aTokenId);
 
@@ -475,7 +528,7 @@ class TokenManager : public ITokenObserver,
         Environment& iEnv;
         WriterBwh iUsernameBuffer;
         WriterBwh iStoreKeyBuffer;
-        WriterBwh iTokenIdsBuffer;
+        WriterBwh iStoreValueBuffer;
         std::list<OAuthToken*> iShortLivedTokens;
         std::list<OAuthToken*> iLongLivedTokens;
         IThreadPoolHandle* iRefresherHandle;

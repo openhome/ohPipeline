@@ -72,8 +72,9 @@ public:
         const Brx& partnerId;   //Used with Username/Password authentication
         const Brx& clientId;    //Used for OAuth authentication
         const Brx& clientSecret;
+        const std::vector<OAuthAppDetails> appDetails;
 
-        TBool SupportsOAuth() const { return clientId.Bytes() > 0 && clientSecret.Bytes() > 0; }
+        TBool SupportsOAuth() const { return clientId.Bytes() > 0; }
     };
 
 
@@ -111,14 +112,17 @@ public:
 
 public: // IOAuthAuthenticator
      TBool TryGetAccessToken(const Brx& aTokenId,
+                             const Brx& aTokenSource,
                              const Brx& aRefreshToken,
                              AccessTokenResponse& aResponse) override;
 
      TBool TryGetUsernameFromToken(const Brx& aTokenId,
+                                   const Brx& aTokenSource,
                                    const Brx& aAccessToken,
                                    IWriter& aUsername) override;
 
      void OnTokenRemoved(const Brx& aTokenId,
+                         const Brx& aTokenSource,
                          const Brx& aAccessToken) override;
 
 public: // IOAuthTokenPoller
@@ -152,6 +156,8 @@ private:
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
     void SocketInactive();
     void DoPollForToken();
+    TBool DoTryGetAccessToken(const Brx& aTokenId, const Brx& aTokenSource, const Brx& aRefreshToken, AccessTokenResponse& aResponse);
+    TBool DoInheritToken(const Brx& aAccessTokenIn, AccessTokenResponse& aResponse);
 private:
     Mutex iLock;
     Mutex iLockConfig;
@@ -169,6 +175,7 @@ private:
     const Bws<32> iToken;
     const Bws<128> iClientId;
     const Bws<128> iClientSecret;
+    std::map<Brn, OAuthAppDetails, BufferCmp> iAppDetails;
     WriterBwh iUsername;
     WriterBwh iPassword;
     TUint iSoundQuality;

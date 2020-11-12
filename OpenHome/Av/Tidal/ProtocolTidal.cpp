@@ -96,6 +96,7 @@ Protocol* ProtocolFactory::NewTidal(Environment& aEnv,
                                     const Brx& aPartnerId,
                                     const Brx& aClientId,
                                     const Brx& aClientSecret,
+                                    std::vector<OAuthAppDetails>& aAppDetails,
                                     Av::IMediaPlayer& aMediaPlayer)
 { // static
     const TBool hasPartnerId = aPartnerId.Bytes() > 0;
@@ -105,9 +106,10 @@ Protocol* ProtocolFactory::NewTidal(Environment& aEnv,
 
     Tidal::ConfigurationValues config =
     {
-        aPartnerId, // partnerId
-        aClientId, // clientId
-        aClientSecret // clientSecret
+        aPartnerId,
+        aClientId,
+        aClientSecret,
+        aAppDetails
     };
 
     return new ProtocolTidal(aEnv, aSsl, config, aMediaPlayer.CredentialsManager(),

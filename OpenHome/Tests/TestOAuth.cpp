@@ -91,14 +91,18 @@ class InvalidOAuthAuthenticator : public IOAuthAuthenticator
 {
     public: //IOAuthAuthenticator
         TBool TryGetAccessToken(const Brx& /*aTokenId*/,
+                                const Brx& /*aTokenSource*/,
                                 const Brx& /*aRefreshToken*/,
                                 AccessTokenResponse& /*aResponse*/) override { return false; }
 
         TBool TryGetUsernameFromToken(const Brx& /*aTokenId*/,
+                                      const Brx& /*aTokenSource*/,
                                       const Brx& /*aAccessToken*/,
                                       IWriter& /*aUsername*/) override { return false; }
 
-        void OnTokenRemoved(const Brx& /*aTokenId*/, const Brx& /*aAccessToken*/) override { };
+        void OnTokenRemoved(const Brx& /*aTokenId*/,
+                            const Brx& /*aTokenSource*/,
+                            const Brx& /*aAccessToken*/) override { };
 };
 
 class ValidOAuthAuthenticator : public IOAuthAuthenticator
@@ -109,14 +113,18 @@ class ValidOAuthAuthenticator : public IOAuthAuthenticator
 
     public: //IOAuthAuthenticator
         TBool TryGetAccessToken(const Brx& aTokenId,
+                                const Brx& aTokenSource,
                                 const Brx& aRefreshToken,
                                 AccessTokenResponse& aResponse) override;
 
         TBool TryGetUsernameFromToken(const Brx& aTokenId,
+                                      const Brx& aTokenSource,
                                       const Brx& aAccessToken,
                                       IWriter& aUsername) override;
 
-        void OnTokenRemoved(const Brx& /*aTokenId*/, const Brx& /*aAccessToken*/) override { };
+        void OnTokenRemoved(const Brx& /*aTokenId*/,
+                            const Brx& /*aTokenSource*/,
+                            const Brx& /*aAccessToken*/) override { };
 
     private:
         TUint iTokenExpiry;
@@ -133,14 +141,18 @@ class AlternatingValidAuthenticator : public IOAuthAuthenticator
 
     public: // IOAuthAuthenticator
         TBool TryGetAccessToken(const Brx& aTokenId,
+                                const Brx& aTokenSource,
                                 const Brx& aRefreshToken,
                                 AccessTokenResponse& aResponse) override;
 
         TBool TryGetUsernameFromToken(const Brx& aTokenId,
+                                      const Brx& aTokenSource,
                                       const Brx& aAccessToken,
                                       IWriter& aUsername) override;
 
-        void OnTokenRemoved(const Brx& /*aTokenId*/, const Brx& /*aAccessToken*/) override { };
+        void OnTokenRemoved(const Brx& /*aTokenId*/,
+                            const Brx& /*aTokenSource*/,
+                            const Brx& /*aAccessToken*/) override { };
 
     private:
         TUint iCallCount;
@@ -190,6 +202,7 @@ ValidOAuthAuthenticator::ValidOAuthAuthenticator(const Brx& aAccessToken,
 
 
 TBool ValidOAuthAuthenticator::TryGetAccessToken(const Brx& /*aTokenId*/,
+                                                 const Brx& /*aTokenSource*/,
                                                  const Brx& /*aRefreshToken*/,
                                                  AccessTokenResponse& aResponse)
 {
@@ -200,6 +213,7 @@ TBool ValidOAuthAuthenticator::TryGetAccessToken(const Brx& /*aTokenId*/,
 }
 
 TBool ValidOAuthAuthenticator::TryGetUsernameFromToken(const Brx& /*aTokenId*/,
+                                                       const Brx& /*aTokenSource*/,
                                                        const Brx& /*aAccessToken*/,
                                                        IWriter& aUsername)
 {
@@ -223,17 +237,19 @@ AlternatingValidAuthenticator::AlternatingValidAuthenticator(const Brx& aAccessT
 
 
 TBool AlternatingValidAuthenticator::TryGetAccessToken(const Brx& aTokenId,
+                                                       const Brx& aTokenSource,
                                                        const Brx& aRefreshToken,
                                                        AccessTokenResponse& aResponse)
 {
     TBool isOdd = iCallCount & 0b1;
     iCallCount++;
 
-    return isOdd ? iAuthB.TryGetAccessToken(aTokenId, aRefreshToken, aResponse)
-                 : iAuthA.TryGetAccessToken(aTokenId, aRefreshToken, aResponse);
+    return isOdd ? iAuthB.TryGetAccessToken(aTokenId, aTokenSource, aRefreshToken, aResponse)
+                 : iAuthA.TryGetAccessToken(aTokenId, aTokenSource, aRefreshToken, aResponse);
 }
 
 TBool AlternatingValidAuthenticator::TryGetUsernameFromToken(const Brx& aTokenId,
+                                                             const Brx& aTokenSource,
                                                              const Brx& aAccessToken,
                                                              IWriter& aUsername)
 {
@@ -242,8 +258,8 @@ TBool AlternatingValidAuthenticator::TryGetUsernameFromToken(const Brx& aTokenId
     // Don't increment the call count here.
     // TryGetAccessToken / TryGetUsername always called in a pair
 
-    return isOdd ? iAuthB.TryGetUsernameFromToken(aTokenId, aAccessToken, aUsername)
-                 : iAuthA.TryGetUsernameFromToken(aTokenId, aAccessToken, aUsername);
+    return isOdd ? iAuthB.TryGetUsernameFromToken(aTokenId, aTokenSource, aAccessToken, aUsername)
+                 : iAuthA.TryGetUsernameFromToken(aTokenId, aTokenSource, aAccessToken, aUsername);
 }
 
 
@@ -308,7 +324,7 @@ void SuiteTokenManager::TestTokenStorage()
     storeKey.Append('.');
     storeKey.Append("KeyA");
 
-    store.Write(storeKey, Brn("TOKEN"));
+    store.Write(storeKey, Brn("TOKEN:APP"));
 
     // Also add a long-lived token..
     storeKey.Replace(kServiceId);
@@ -321,8 +337,7 @@ void SuiteTokenManager::TestTokenStorage()
     storeKey.Append('.');
     storeKey.Append("KeyC");
 
-    store.Write(storeKey, Brn("TOKEN FOR C"));
-
+    store.Write(storeKey, Brn("TOKEN FOR C:APP"));
 
     TokenManager manager(kServiceId, 5, 1, iEnv, *iThreadPool, auth, store, observer);
 
@@ -332,7 +347,7 @@ void SuiteTokenManager::TestTokenStorage()
     TEST(manager.HasToken(Brn("KeyB")) == false);
     TEST(manager.HasToken(Brn("KeyC")));
 
-    manager.AddToken(Brn("TEST-KEY"), Brn("anotherToken"), false);
+    manager.AddToken(Brn("TEST-KEY:APP"), TokenManager::ETokenOrigin::External, Brn("anotherToken"), false);
 
     TEST(manager.NumberOfStoredTokens() == 3);
 
@@ -342,7 +357,7 @@ void SuiteTokenManager::TestTokenStorage()
     storeKey.Append("TEST-KEY");
 
     store.Read(storeKey, storeBuffer);
-    TEST(storeBuffer == Brn("anotherToken"));
+    TEST(storeBuffer == Brn("anotherToken:APP"));
 
     storeKey.Replace(kServiceId);
     storeKey.Append('.');
@@ -360,14 +375,8 @@ void SuiteTokenManager::TestAddingInvalidToken()
     DummyTokenManagerObserver observer;
     TokenManager manager(kServiceId, 1, 1, iEnv, *iThreadPool, auth, store, observer);
 
-    try
-    {
-        manager.AddToken(Brn("key"), Brn("invalid-token"), true);
-    }
-    catch (OAuthTokenInvalid)
-    {
-        TEST(true);
-    }
+    const auto result = manager.AddToken(Brn("key"), TokenManager::ETokenOrigin::External, Brn("invalid-token"), true);
+    TEST(result == TokenManager::EAddTokenResult::TokenInvalid);
 
     // All other exceptions will throw and fail this test :)
 }
@@ -381,8 +390,8 @@ void SuiteTokenManager::TestContains()
 
     TokenManager manager(kServiceId, 1, 1, iEnv, *iThreadPool, auth, store, observer);
 
-    manager.AddToken(Brn("id"), Brn("refresh-token"), false);
-    manager.AddToken(Brn("id-ll"), Brn("refresh-token"), true);
+    manager.AddToken(Brn("id"), TokenManager::ETokenOrigin::Internal, Brn("refresh-token"), false);
+    manager.AddToken(Brn("id-ll"), TokenManager::ETokenOrigin::Internal, Brn("refresh-token"), true);
 
     TEST(manager.HasToken(Brn("id")));
     TEST(manager.HasToken(Brn("id-ll")));
@@ -404,7 +413,7 @@ void SuiteTokenManager::TestAddRemove()
     ValidOAuthAuthenticator auth(Brn("access-token"), 1);
     TokenManager manager(kServiceId, 1, 1, iEnv, *iThreadPool, auth, store, observer);
 
-    manager.AddToken(idA, refreshToken, false);
+    manager.AddToken(idA, TokenManager::ETokenOrigin::Internal, refreshToken, false);
 
     TEST(manager.HasToken(idA));
     TEST(manager.HasToken(idB) == false);
@@ -455,9 +464,9 @@ void SuiteTokenManager::TestTokenRefreshes(TBool aIsLongLived)
      * to get AccessTokens/Username. If not, then the number
      * of calls here will put the AlternatingValidAuthenticator
      * out of sync and fail the rest of the tests */
-    manager.AddToken(id, refreshToken, aIsLongLived);
-    manager.AddToken(id, refreshToken, aIsLongLived);
-    manager.AddToken(id, refreshToken, aIsLongLived);
+    manager.AddToken(id, TokenManager::ETokenOrigin::Internal, refreshToken, aIsLongLived);
+    manager.AddToken(id, TokenManager::ETokenOrigin::Internal, refreshToken, aIsLongLived);
+    manager.AddToken(id, TokenManager::ETokenOrigin::Internal, refreshToken, aIsLongLived);
 
     TEST(manager.NumberOfStoredTokens() == 1);
 
@@ -493,8 +502,8 @@ void SuiteTokenManager::TestTokenEviction(TBool aIsLongLived)
     ValidOAuthAuthenticator auth(accessToken, 10);
     TokenManager manager(id, 2, 2, iEnv, *iThreadPool, auth, store, observer);
 
-    manager.AddToken(id1, refreshToken, aIsLongLived);
-    manager.AddToken(id2, refreshToken, aIsLongLived);
+    manager.AddToken(id1, TokenManager::ETokenOrigin::Internal, refreshToken, aIsLongLived);
+    manager.AddToken(id2, TokenManager::ETokenOrigin::Internal, refreshToken, aIsLongLived);
 
     TEST(manager.NumberOfStoredTokens() == 2);
 
@@ -503,7 +512,7 @@ void SuiteTokenManager::TestTokenEviction(TBool aIsLongLived)
     manager.TryGetToken(id1, __); //Should put "id1" at the front of token list
 
     // Adding token here should evict the LRU, which in this case is 'id2'
-    manager.AddToken(id3, refreshToken, aIsLongLived);
+    manager.AddToken(id3, TokenManager::ETokenOrigin::Internal, refreshToken, aIsLongLived);
 
     TEST(manager.NumberOfStoredTokens() == 2);
 
@@ -515,7 +524,7 @@ void SuiteTokenManager::TestTokenEviction(TBool aIsLongLived)
     manager.TryGetToken(id3, __); // Should put "id3" at the front of the token list
 
     // Adding token here should evict the LRU, which in this case is 'id1'
-    manager.AddToken(id2, refreshToken, aIsLongLived);
+    manager.AddToken(id2, TokenManager::ETokenOrigin::Internal, refreshToken, aIsLongLived);
 
     TEST(manager.NumberOfStoredTokens() == 2);
 
@@ -536,9 +545,9 @@ void SuiteTokenManager::TestTokenClears()
     ValidOAuthAuthenticator auth(Brn("at"), 10000);
     TokenManager manager(kServiceId, 2, 2, iEnv, *iThreadPool, auth, store, observer);
 
-    manager.AddToken(idA, rt, false);
-    manager.AddToken(idB, rt, false);
-    manager.AddToken(idC, rt, true);
+    manager.AddToken(idA, TokenManager::ETokenOrigin::Internal, rt, false);
+    manager.AddToken(idB, TokenManager::ETokenOrigin::Internal, rt, false);
+    manager.AddToken(idC, TokenManager::ETokenOrigin::Internal, rt, true);
 
     manager.ClearShortLivedTokens();
 
@@ -550,9 +559,9 @@ void SuiteTokenManager::TestTokenClears()
 
     TEST(manager.HasToken(idC) == false);
 
-    manager.AddToken(idA, rt, false);
-    manager.AddToken(idB, rt, false);
-    manager.AddToken(idC, rt, true);
+    manager.AddToken(idA, TokenManager::ETokenOrigin::Internal, rt, false);
+    manager.AddToken(idB, TokenManager::ETokenOrigin::Internal, rt, false);
+    manager.AddToken(idC, TokenManager::ETokenOrigin::Internal, rt, true);
 
     manager.ClearAllTokens();
 
@@ -584,6 +593,7 @@ void SuiteOAuthToken::DoTest(TBool aIsLongLived)
     const Brn accessToken("at");
     const Brn refreshToken("rf");
     const Brn username("uname");
+    const Brn tokenSource("TS");
 
     DummyTokenObserver observer;
     OAuthToken token(iEnv, observer);
@@ -591,11 +601,12 @@ void SuiteOAuthToken::DoTest(TBool aIsLongLived)
 
     TEST(token.IsPresent() == false);
     TEST(token.Id() == Brx::Empty());
+    TEST(token.TokenSource() == Brx::Empty());
     TEST(token.AccessToken() == Brx::Empty());
     TEST(token.RefreshToken() == Brx::Empty());
 
 
-    token.Set(id, refreshToken, aIsLongLived);
+    token.Set(id, tokenSource, refreshToken, aIsLongLived);
 
     TEST(token.IsPresent());
     TEST(token.Id() == id);
@@ -612,11 +623,12 @@ void SuiteOAuthToken::DoTest(TBool aIsLongLived)
     TEST(token.RefreshToken() == Brx::Empty());
 
 
-    token.SetWithAccessToken(id, refreshToken, aIsLongLived, accessToken, 1, username); // Expiries are treated as seconds
+    token.SetWithAccessToken(id, tokenSource, refreshToken, aIsLongLived, accessToken, 1, username); // Expiries are treated as seconds
 
     TEST(token.IsPresent());
 
     TEST(token.Id() == id);
+    TEST(token.TokenSource() == tokenSource);
     TEST(token.Username() == username);
     TEST(token.AccessToken() == accessToken);
     TEST(token.RefreshToken() == refreshToken);
@@ -639,6 +651,7 @@ void SuiteOAuthToken::DoTest(TBool aIsLongLived)
     token.Clear();
 
     TEST(token.Id() == Brx::Empty());
+    TEST(token.TokenSource() == Brx::Empty());
     TEST(token.Username() == Brx::Empty());
     TEST(token.AccessToken() == Brx::Empty());
     TEST(token.RefreshToken() == Brx::Empty());
