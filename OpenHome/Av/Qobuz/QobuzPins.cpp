@@ -397,6 +397,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
             
             if (initPlay && isPlayable) {
                 initPlay = false;
+                Thread::Sleep(300);
                 iCpPlaylist->SyncPlay();
             }
         }

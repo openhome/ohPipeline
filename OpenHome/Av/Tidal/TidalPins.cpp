@@ -445,6 +445,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
 
             if (initPlay && isPlayable) {
                 initPlay = false;
+                Thread::Sleep(300);
                 iCpPlaylist->SyncPlay();
             }
         }
