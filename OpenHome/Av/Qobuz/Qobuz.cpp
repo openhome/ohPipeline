@@ -261,6 +261,7 @@ TBool Qobuz::TryLogin()
 
 QobuzTrack* Qobuz::StreamableTrack(const Brx& aTrackId)
 {
+    iTimerSocketActivity->Cancel();
     AutoMutex _(iLock);
     if (!TryGetFileUrlLocked(aTrackId)) {
         return nullptr;
@@ -275,6 +276,7 @@ QobuzTrack* Qobuz::StreamableTrack(const Brx& aTrackId)
 
 TBool Qobuz::TryUpdateStreamUrl(QobuzTrack& aTrack)
 {
+    iTimerSocketActivity->Cancel();
     AutoMutex _(iLock);
     Bws<Ascii::kMaxUintStringBytes> trackId;
     Ascii::AppendDec(trackId, aTrack.Id());
@@ -289,7 +291,6 @@ TBool Qobuz::TryUpdateStreamUrl(QobuzTrack& aTrack)
 
 TBool Qobuz::TryGetFileUrlLocked(const Brx& aTrackId)
 {
-    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
     TBool success = false;
     if (!TryConnect()) {
         LOG_ERROR(kPipeline, "Qobuz::TryGetStreamUrl - connection failure\n");
