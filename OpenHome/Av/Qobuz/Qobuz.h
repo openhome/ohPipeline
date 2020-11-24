@@ -135,7 +135,7 @@ private:
     void NotifyStreamStarted(QobuzTrack& aTrack);
     void NotifyStreamStopped(QobuzTrack& aTrack);
     TUint WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, Connection aConnection = Connection::Close);
-    TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset, Connection aConnection);
+    TBool TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset, Connection aConnection);
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
     static void AppendMd5(Bwx& aBuffer, const Brx& aToHash);
     void SocketInactive();

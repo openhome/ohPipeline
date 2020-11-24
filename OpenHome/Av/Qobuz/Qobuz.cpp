@@ -355,17 +355,23 @@ TBool Qobuz::TryGetFileUrlLocked(const Brx& aTrackId)
 
 TBool Qobuz::TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType, Connection aConnection)
 {
+    iTimerSocketActivity->Cancel();
+    AutoMutex _(iLock);
+    
     iPathAndQuery.Replace(kVersionAndFormat);
 
     iPathAndQuery.Append(QobuzMetadata::IdTypeToString(aType));
     iPathAndQuery.Append("/search?query=");
     Uri::Escape(iPathAndQuery, aQuery);
 
-    return TryGetResponse(aWriter, kHost, 1, 0, aConnection); // return top hit
+    return TryGetResponseLocked(aWriter, kHost, 1, 0, aConnection); // return top hit
 }
 
 TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aLimitPerResponse, Connection aConnection)
 {
+    iTimerSocketActivity->Cancel();
+    AutoMutex _(iLock);
+
     iPathAndQuery.Replace(kVersionAndFormat);
 
     iPathAndQuery.Append(QobuzMetadata::IdTypeToString(aType));
@@ -388,11 +394,14 @@ TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdTy
         iPathAndQuery.Append(aGenre);
     }
 
-    return TryGetResponse(aWriter, kHost, aLimitPerResponse, 0, aConnection);
+    return TryGetResponseLocked(aWriter, kHost, aLimitPerResponse, 0, aConnection);
 }
 
 TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection)
 {
+    iTimerSocketActivity->Cancel();
+    AutoMutex _(iLock);
+
     iPathAndQuery.Replace(kVersionAndFormat);
 
     iPathAndQuery.Append(QobuzMetadata::IdTypeToString(aType));
@@ -422,33 +431,37 @@ TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::E
         }
     }
 
-    return TryGetResponse(aWriter, kHost, aLimit, aOffset, aConnection);
+    return TryGetResponseLocked(aWriter, kHost, aLimit, aOffset, aConnection);
 }
 
 TBool Qobuz::TryGetGenreList(IWriter& aWriter, Connection aConnection)
 {
+    iTimerSocketActivity->Cancel();
+    AutoMutex _(iLock);
+
     iPathAndQuery.Replace(kVersionAndFormat);
     iPathAndQuery.Append("genre/list?");
 
-    return TryGetResponse(aWriter, kHost, 50, 0, aConnection);
+    return TryGetResponseLocked(aWriter, kHost, 50, 0, aConnection);
 }
 
 TBool Qobuz::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection)
 {
+    iTimerSocketActivity->Cancel();
+    AutoMutex _(iLock);
+
     iUri.SetBytes(0);
     Uri::Unescape(iUri, aRequestUrl);
     iRequest.Replace(iUri);
     iPathAndQuery.Replace(iRequest.PathAndQuery());
-    return TryGetResponse(aWriter, iRequest.Host(), aLimitPerResponse, aOffset, aConnection);
+    return TryGetResponseLocked(aWriter, iRequest.Host(), aLimitPerResponse, aOffset, aConnection);
 }
 
-TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset, Connection aConnection)
+TBool Qobuz::TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset, Connection aConnection)
 {
-    iTimerSocketActivity->Cancel();
-    AutoMutex _(iLock);
     TBool success = false;
     if (!TryConnect()) {
-        LOG_ERROR(kMedia, "Qobuz::TryGetResponse - connection failure\n");
+        LOG_ERROR(kMedia, "Qobuz::TryGetResponseLocked - connection failure\n");
         return false;
     }
     if (!Ascii::Contains(iPathAndQuery, '?')) {
@@ -469,7 +482,7 @@ TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TU
     try {
         const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery, aConnection);
         if (code != 200) {
-            LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetResponse.\n", code);
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetResponseLocked.\n", code);
             LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
             LOG_ERROR(kPipeline, "Some/all of response is:\n");
             Brn buf = iReaderEntity.Read(kReadBufferBytes);
@@ -480,7 +493,7 @@ TBool Qobuz::TryGetResponse(IWriter& aWriter, const Brx& aHost, TUint aLimit, TU
         success = true;
     }
     catch (Exception& ex) {
-        LOG_ERROR(kPipeline, "%s in Qobuz::TryGetResponse\n", ex.Message());
+        LOG_ERROR(kPipeline, "%s in Qobuz::TryGetResponseLocked\n", ex.Message());
     }
     if (aConnection == Connection::Close) {
         CloseConnection();
