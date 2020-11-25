@@ -876,10 +876,6 @@ private:
     RaopRepairableAllocator<kMaxRepairFrames+3,kMaxFrameBytes> iRepairableAllocator;
     RaopResendRangeRequester iResendRangeRequester;
     Repairer<kMaxRepairFrames> iRepairer;
-    //TUint iPacketCount;
-    //TUint iPacketDropCount;
-    //TUint iResendPacketCount;
-    //TUint iResendPacketDropCount;
 };
 
 };  // namespace Av
