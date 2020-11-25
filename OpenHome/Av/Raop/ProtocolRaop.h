@@ -590,7 +590,7 @@ template <TUint MaxFrames> void Repairer<MaxFrames>::DropAudio()
 
 template <TUint MaxFrames> TBool Repairer<MaxFrames>::RepairBegin(IRepairable& aRepairable)
 {
-    LOG(kMedia, "Repairer::RepairBegin BEGIN ON %d\n", aRepairable.Frame());
+    LOG_TRACE(kMedia, "Repairer::RepairBegin BEGIN ON %d\n", aRepairable.Frame());
     iRepairFirst = &aRepairable;
     iTimer->FireIn(iEnv.Random(kInitialRepairTimeoutMs));
     return true;
@@ -620,7 +620,7 @@ template <TUint MaxFrames> TBool Repairer<MaxFrames>::Repair(IRepairable& aRepai
 {
     // get the incoming frame number
     const TUint16 frame = static_cast<TUint16>(aRepairable.Frame());
-    LOG(kMedia, "Repairer::Repair GOT %d\n", frame);
+    LOG_TRACE(kMedia, "Repairer::Repair GOT %d\n", frame);
 
     // get difference between this and the last frame sent down the pipeline
     TInt16 diff = frame - iFrame;
@@ -652,7 +652,7 @@ template <TUint MaxFrames> TBool Repairer<MaxFrames>::Repair(IRepairable& aRepai
             if (iRepairFrames.size() == 0) {
                 // ... no, so we have completed the repair
                 iRepairFirst = nullptr;
-                LOG(kMedia, "END\n");
+                LOG_TRACE(kMedia, "END\n");
                 return false;
             }
             // ... yes, so update the current first waiting frame and continue testing to see if this can also be sent
@@ -741,7 +741,7 @@ template <TUint MaxFrames> void Repairer<MaxFrames>::TimerRepairExpired()
 {
     AutoMutex a(iMutexTransport);
     if (iRepairing) {
-        LOG(kMedia, ">Repairer::TimerRepairExpired REQUEST RESEND");
+        LOG_TRACE(kMedia, ">Repairer::TimerRepairExpired REQUEST RESEND");
 
         TUint rangeCount = 0;
         TUint16 start = iFrame + 1;
@@ -766,14 +766,14 @@ template <TUint MaxFrames> void Repairer<MaxFrames>::TimerRepairExpired()
                 iResend.push_back(range);
                 iResendConst.push_back(range);
 
-                LOG(kMedia, " %d-%d", start, end);
+                LOG_TRACE(kMedia, " %d-%d", start, end);
                 if (++rangeCount == kMaxMissedRanges) {
                     break;
                 }
             }
 
         }
-        LOG(kMedia, "\n");
+        LOG_TRACE(kMedia, "\n");
 
         iResendRequester.RequestResendSequences(iResendConst);
 
@@ -876,6 +876,10 @@ private:
     RaopRepairableAllocator<kMaxRepairFrames+3,kMaxFrameBytes> iRepairableAllocator;
     RaopResendRangeRequester iResendRangeRequester;
     Repairer<kMaxRepairFrames> iRepairer;
+    //TUint iPacketCount;
+    //TUint iPacketDropCount;
+    //TUint iResendPacketCount;
+    //TUint iResendPacketDropCount;
 };
 
 };  // namespace Av

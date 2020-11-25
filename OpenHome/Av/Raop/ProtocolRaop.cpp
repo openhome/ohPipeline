@@ -414,6 +414,10 @@ ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory
     , iSem("PRAS", 0)
     , iResendRangeRequester(iControlServer)
     , iRepairer(aEnv, iResendRangeRequester, *this, aTimerFactory)
+//    , iPacketCount(0)
+//    , iPacketDropCount(0)
+//    , iResendPacketCount(0)
+//    , iResendPacketDropCount(0)
 {
 }
 
@@ -805,8 +809,22 @@ void ProtocolRaop::ProcessPacket(const RaopPacketAudio& aPacket)
         try {
             IRepairable* repairable = iRepairableAllocator.Allocate(aPacket);
             try {
-                iRepairer.OutputAudio(*repairable);
-            }
+//                if (iPacketCount < 30) {
+//                    iPacketCount++;
+                    iRepairer.OutputAudio(*repairable);
+                }
+//                else {
+//                    //Log::Print("## DROP PACKET ##\n");
+//                    if (iPacketDropCount < 20) {
+//                        iPacketDropCount++;
+//                    }
+//                    else {
+//                        iPacketDropCount = 0;
+//                        iPacketCount = 0;
+//                    }
+//                    repairable->Destroy();
+//                }
+//            }
             catch (const RepairerBufferFull&) {
                 LOG(kPipeline, "ProtocolRaop::ProcessPacket(const RaopPacketAudio&) RepairerBufferFull\n");
                 // Set state so that no more audio is output until a MsgDrain followed by a MsgEncodedStream.
@@ -856,8 +874,22 @@ void ProtocolRaop::ProcessPacket(const RaopPacketResendResponse& aPacket)
         try {
             IRepairable* repairable = iRepairableAllocator.Allocate(aPacket);
             try {
-                iRepairer.OutputAudio(*repairable);
-            }
+//                if (iResendPacketCount < 2) {
+//                    iResendPacketCount++;
+                    iRepairer.OutputAudio(*repairable);
+                }
+//                else {
+//                    //Log::Print("## DROP RESEND PACKET ##\n");
+//                    if (iResendPacketDropCount < 4) {
+//                        iResendPacketDropCount++;
+//                    }
+//                    else {
+//                        iResendPacketDropCount = 0;
+//                        iResendPacketCount = 0;
+//                    }
+//                    repairable->Destroy();
+//                }
+//            }
             catch (RepairerBufferFull&) {
                 LOG(kPipeline, "ProtocolRaop::ProcessPacket(const RaopPacketResendResponse&) RepairerBufferFull\n");
                 // Set state so that no more audio is output until a MsgDrain followed by a MsgEncodedStream.
@@ -1285,12 +1317,12 @@ RaopResendRangeRequester::RaopResendRangeRequester(IRaopResendRequester& aResend
 void RaopResendRangeRequester::RequestResendSequences(const std::vector<const IResendRange*> aRanges)
 {
     // Noisy logging - will make dropouts worse.
-    LOG(kPipeline, ">RaopResendRangeRequester::RequestResendSequences\n");
+    LOG_TRACE(kPipeline, ">RaopResendRangeRequester::RequestResendSequences\n");
     for (auto range : aRanges) {
         const TUint start = range->Start();
         const TUint end = range->End();
         const TUint count = (end-start)+1;  // +1 to include start packet.
-        LOG(kPipeline, "\t%d->%d\n", start, end);
+        LOG_TRACE(kPipeline, "\t%d->%d\n", start, end);
         iResendRequester.RequestResend(start, count);
     }
 }
