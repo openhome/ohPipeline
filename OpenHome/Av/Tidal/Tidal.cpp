@@ -916,8 +916,9 @@ void Tidal::WriteRequestHeaders(const Brx& aMethod,
         Http::WriteHeaderConnectionClose(iWriterRequest);
     }
 
-    if (aAccessToken != Brx::Empty())
+    if (aAccessToken.Bytes() > 0)
     {
+        Log::Print("Using AccessToken: %.*s\n", PBUF(aAccessToken));
         OAuth::WriteAccessTokenHeader(iWriterRequest, aAccessToken);
     }
 
@@ -1421,7 +1422,7 @@ TBool Tidal::DoTryGetAccessToken(const Brx& aTokenId,
         {
             const Brx& error = parser.String(OAuth::kErrorResponseFieldError);
             const Brx& errorDesc = parser.StringOptional(OAuth::kErrorResponseFieldErrorDescription);
-            const TBool hasDesc = errorDesc != Brx::Empty();
+            const TBool hasDesc = errorDesc.Bytes() > 0;
 
             const Brn noDescMsg("< No description present >");
 
@@ -1560,7 +1561,7 @@ TBool Tidal::DoInheritToken(const Brx& aAccessTokenIn,
         {
             const Brx& error = parser.String(OAuth::kErrorResponseFieldError);
             const Brx& errorDesc = parser.StringOptional(OAuth::kErrorResponseFieldErrorDescription);
-            const TBool hasDesc = errorDesc != Brx::Empty();
+            const TBool hasDesc = errorDesc.Bytes() > 0;
 
             const Brn noDescMsg("< No description present >");
 
