@@ -34,7 +34,8 @@ private: // from ISsdpMsearchHandler
     void SsdpSearchDeviceType(const Endpoint& aEndpoint, TUint aMx, const Brx& aDomain, const Brx& aType, TUint aVersion);
     void SsdpSearchServiceType(const Endpoint& aEndpoint, TUint aMx, const Brx& aDomain, const Brx& aType, TUint aVersion);
 private:
-    mutable Mutex iLock;
+    Mutex iLockAdapter;
+    mutable Mutex iLockRecentSearchers;
     Environment& iEnv;
     Net::SsdpListenerMulticast* iMulticastListener;
     TInt iMsearchHandlerId;

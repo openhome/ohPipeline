@@ -25,7 +25,8 @@ using namespace OpenHome::Net;
 const TUint MSearchObserver::kMaxAddresses = 10;
 
 MSearchObserver::MSearchObserver(Environment& aEnv)
-    : iLock("MObs")
+    : iLockAdapter("MOb1")
+    , iLockRecentSearchers("MOb2")
     , iEnv(aEnv)
     , iMulticastListener(nullptr)
     , iMulticastAdapter(0)
@@ -47,13 +48,13 @@ MSearchObserver::~MSearchObserver()
 
 std::vector<std::pair<TIpAddress, TUint>> MSearchObserver::RecentSearchers() const
 {
-    AutoMutex _(iLock);
+    AutoMutex _(iLockRecentSearchers);
     return iRecentSearchers;
 }
 
 void MSearchObserver::CurrentAdapterChanged()
 {
-    AutoMutex _(iLock);
+    AutoMutex _(iLockAdapter);
     if (iMulticastListener != nullptr) {
         iMulticastListener->RemoveMsearchHandler(iMsearchHandlerId);
         iEnv.MulticastListenerRelease(iMulticastAdapter);
@@ -73,7 +74,7 @@ void MSearchObserver::CurrentAdapterChanged()
 
 void MSearchObserver::NotifySearch(const Endpoint& aEndpoint)
 {
-    AutoMutex _(iLock);
+    AutoMutex _(iLockRecentSearchers);
     const auto addr = aEndpoint.Address();
     const auto time = Time::Now(iEnv);
 
