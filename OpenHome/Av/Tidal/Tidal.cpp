@@ -1455,17 +1455,25 @@ TBool Tidal::DoTryGetAccessToken(const Brx& aTokenId,
         TBool didPopulate = false;
         for(auto& v : iUserInfos)
         {
-            if (!v.Populated())
+            const TBool isPopulated = v.Populated();
+            const TBool isMatch = isPopulated && v.TokenId() == aTokenId;
+
+            if (isMatch || !isPopulated)
             {
+                LOG_TRACE(kOAuth, "Tidal::DoTryGetAccessToken - Storing user details for token: %.*s (Replace Existing: %d, Populate New: %d)\n", PBUF(aTokenId), isMatch, !isPopulated);
                 v.Populate(aTokenId, userId, username, countryCode);
                 didPopulate = true;
                 break;
             }
         }
 
+        if (!didPopulate)
+        {
+            LOG_ERROR(kOAuth, "Tidal::DoTryGetAccessToken - Unable to store user information related for tokenId: %.s\n", PBUF(aTokenId));
+        }
+
         //FIX ME: Need to handle JSON exceptions that might be thrown by this...
 
-        // NOTE: We need to check we have actually stored the username details
         return didPopulate;
     }
     catch (HttpError&)
