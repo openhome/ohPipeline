@@ -521,8 +521,7 @@ ProtocolStreamResult ProtocolTidal::DoStream()
 
         // Casting the kMaxErrorReadBytes is required as std::min takes references, but constant values
         // are inlined by default which breaks compilation
-        const TUint bytesToRead = std::min(static_cast<TUint>(iTotalBytes),
-                                           static_cast<TUint>(kMaxErrorReadBytes));
+        const TUint bytesToRead = static_cast<TUint>(std::min(iTotalBytes, static_cast<TUint64>(kMaxErrorReadBytes)));
 
         try {
             while(iErrorBuf.Bytes() < bytesToRead) {
