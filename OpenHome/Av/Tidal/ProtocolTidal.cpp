@@ -21,7 +21,6 @@
 namespace OpenHome {
 namespace Av {
 
-
 class ProtocolTidal : public Media::ProtocolNetwork, private IReader
 {
     static const TUint kMaxErrorReadBytes = 1024;
@@ -518,7 +517,11 @@ ProtocolStreamResult ProtocolTidal::DoStream()
 
     if (code != HttpStatus::kPartialContent.Code() && code != HttpStatus::kOk.Code()) {
         iErrorBuf.SetBytes(0);
-        const TUint bytesToRead = std::min(iTotalBytes, static_cast<TUint64>(kMaxErrorReadBytes));
+
+        // Casting the kMaxErrorReadBytes is required as std::min takes references, but constant values
+        // are inlined by default which breaks compilation
+        const TUint bytesToRead = std::min(static_cast<TUint>(iTotalBytes),
+                                           static_cast<TUint>(kMaxErrorReadBytes));
 
         try {
             while(iErrorBuf.Bytes() < bytesToRead) {
