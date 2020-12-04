@@ -15,14 +15,18 @@
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Av/Tidal/TidalPins.h>
 #include <OpenHome/Av/ProviderOAuth.h>
-        
+
+#include <algorithm>
+
 namespace OpenHome {
 namespace Av {
 
 
 class ProtocolTidal : public Media::ProtocolNetwork, private IReader
 {
+    static const TUint kMaxErrorReadBytes = 1024;
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
+
 
     static const TUint kMinSupportedTrackVersion = 1;
     static const TUint kMaxSupportedTrackVersion = 2;
@@ -62,6 +66,7 @@ private:
     ITokenProvider* iTokenProvider;
     Media::SupplyAggregator* iSupply;
     Uri iUri;
+    Bws<kMaxErrorReadBytes> iErrorBuf;
     Bws<12> iTrackId;
     Bws<1024> iStreamUrl;
     Bws<64> iSessionId;
@@ -512,7 +517,26 @@ ProtocolStreamResult ProtocolTidal::DoStream()
     iTotalBytes = iHeaderContentLength.ContentLength();
 
     if (code != HttpStatus::kPartialContent.Code() && code != HttpStatus::kOk.Code()) {
-        LOG_ERROR(kPipeline, "ProtocolTidal::DoStream server returned error %u\n", code);
+        iErrorBuf.SetBytes(0);
+        const TUint bytesToRead = std::min(iTotalBytes, static_cast<TUint64>(kMaxErrorReadBytes));
+
+        try {
+            while(iErrorBuf.Bytes() < bytesToRead) {
+                const TUint bytesLeft = bytesToRead - iErrorBuf.Bytes();
+                iErrorBuf.Append(iReaderUntil.Read(bytesLeft));
+            }
+        }
+        catch (ReaderError&){
+            // If we do't have enough (or any) of additional error information, it's not the end of the world.
+        }
+
+        if (iErrorBuf.Bytes() > 0) {
+            LOG_ERROR(kPipeline, "ProtocolTidal::DoStream server returned error %u\nSome (or all) of the response is:\n%.*s\n", code, PBUF(iErrorBuf))
+        }
+        else {
+            LOG_ERROR(kPipeline, "ProtocolTidal::DoStream server returned error %u\n", code);
+        }
+
         return EProtocolStreamErrorUnrecoverable;
     }
     if (code == HttpStatus::kPartialContent.Code()) {
