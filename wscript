@@ -290,7 +290,7 @@ def build(bld):
                 'OpenHome/SocketHttp.cpp',
                 'OpenHome/SocketSsl.cpp',
             ],
-            use=['ohNetCore', 'OHNET', 'SSL'],
+            use=['SSL', 'ohNetCore', 'OHNET'],
             target='ohPipeline')
 
     # Library
@@ -390,7 +390,7 @@ def build(bld):
                 'OpenHome/Av/Playlist/PinInvokerUpnpServer.cpp',
                 'Generated/CpUpnpOrgContentDirectory1.cpp',
             ],
-            use=['OHNET', 'ohMediaPlayer', 'Podcast'],
+            use=['OHNET', 'ohMediaPlayer', 'Podcast', 'SSL'],
             target='SourcePlaylist')
 
     # Library
@@ -961,7 +961,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestContentProcessorMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourceRadio'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourceRadio', 'SSL'],
             target='TestContentProcessor',
             install_path=None)
     bld.program(
@@ -1031,7 +1031,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestToneGeneratorMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target='TestToneGenerator',
             install_path=None)
     bld.program(
@@ -1171,7 +1171,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestVolumeManagerMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target='TestVolumeManager',
             install_path=None)
     bld.program(

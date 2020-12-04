@@ -2,6 +2,7 @@
 
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Types.h>
+#include <OpenHome/SocketSsl.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Network.h>
@@ -166,10 +167,38 @@ protected:
 protected:
     Srs<kReadBufferBytes> iReaderBuf;
     Sws<kWriteBufferBytes> iWriterBuf;
-    Mutex iLock;
     SocketTcpClient iTcpClient;
+    Mutex iLock;
     TBool iSocketIsOpen;
 };
+
+class ProtocolNetworkSsl : public Protocol
+{
+    protected:
+        static const TUint kReadBufferBytes = 6 * 1024;
+        static const TUint kWriteBufferBytes = 1024;
+        static const TUint kConnectTimeoutMs = 3000;
+
+    protected:
+        ProtocolNetworkSsl(Environment&,
+                           SslContext&);
+        TBool Connect(const Uri& aUri, TUint aDefaultPort, TUint aTimeoutMs = kConnectTimeoutMs);
+
+    protected: // from Protocol
+        void Interrupt(TBool aInterrupt) override;
+
+    protected:
+        void Open();
+        void Close();
+
+    protected:
+        SocketSsl iSocket;
+        Srs<kReadBufferBytes> iReaderBuf;
+        Sws<kWriteBufferBytes> iWriterBuf;
+        Mutex iLock;
+        TBool iSocketIsOpen;
+};
+
 
 class ContentProcessor : protected IReader
 {

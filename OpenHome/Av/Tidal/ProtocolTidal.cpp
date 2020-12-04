@@ -21,7 +21,7 @@
 namespace OpenHome {
 namespace Av {
 
-class ProtocolTidal : public Media::ProtocolNetwork, private IReader
+class ProtocolTidal : public Media::ProtocolNetworkSsl, private IReader
 {
     static const TUint kMaxErrorReadBytes = 1024;
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
@@ -128,7 +128,7 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::Configu
                              IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice,
                              Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack,
                              Optional<IPinsInvocable> aPinsInvocable, IThreadPool& aThreadPool, ProviderOAuth& aOAuthManager)
-    : ProtocolNetwork(aEnv)
+    : ProtocolNetworkSsl(aEnv, aSsl)
     , iTokenProvider(nullptr)
     , iSupply(nullptr)
     , iTokenId(128)
@@ -180,7 +180,8 @@ void ProtocolTidal::Interrupt(TBool aInterrupt)
         if (aInterrupt) {
             iStopped = true;
         }
-        iTcpClient.Interrupt(aInterrupt);
+
+        iSocket.Interrupt(aInterrupt);
         iTidal->Interrupt(aInterrupt);
     }
     iLock.Signal();
@@ -365,7 +366,7 @@ TUint ProtocolTidal::TrySeek(TUint aStreamId, TUint64 aOffset)
     if (!streamIsValid) {
         return MsgFlush::kIdInvalid;
     }
-    iTcpClient.Interrupt(true);
+    iSocket.Interrupt(true);
     return iNextFlushId;
 }
 
@@ -381,7 +382,7 @@ TUint ProtocolTidal::TryStop(TUint aStreamId)
             iNextFlushId = iFlushIdProvider->NextFlushId();
         }
         iStopped = true;
-        iTcpClient.Interrupt(true);
+        iSocket.Interrupt(true);
     }
     iLock.Signal();
     return (stop? iNextFlushId : MsgFlush::kIdInvalid);
@@ -559,7 +560,7 @@ TUint ProtocolTidal::WriteRequest(TUint64 aOffset)
 {
     iReaderUntil.ReadFlush();
     Close();
-    TUint port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+    TUint port = (iUri.Port() == -1? 443 : (TUint)iUri.Port());
     if (!Connect(iUri, port, kTcpConnectTimeoutMs)) {
         LOG_ERROR(kPipeline, "ProtocolTidal::WriteRequest Connection failure\n");
         return 0;
@@ -568,7 +569,7 @@ TUint ProtocolTidal::WriteRequest(TUint64 aOffset)
     try {
         LOG(kMedia, "ProtocolTidal::WriteRequest send request\n");
         iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
-        port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
+        port = (iUri.Port() == -1? 443 : (TUint)iUri.Port());
         Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
         Http::WriteHeaderConnectionClose(iWriterRequest);
         Http::WriteHeaderRangeFirstOnly(iWriterRequest, aOffset);

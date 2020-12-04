@@ -1,6 +1,7 @@
 #include <OpenHome/Media/Protocol/Protocol.h>
 #include <OpenHome/Media/Protocol/ContentAudio.h>
 #include <OpenHome/Exception.h>
+#include <OpenHome/SocketSsl.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Media/Debug.h>
@@ -98,6 +99,7 @@ Protocol::AutoStream::~AutoStream()
 }
 
 
+
 // ProtocolNetwork  
 
 ProtocolNetwork::ProtocolNetwork(Environment& aEnv)
@@ -177,6 +179,94 @@ void ProtocolNetwork::Close()
         iSocketIsOpen = false;
         try {
             iTcpClient.Close();
+        }
+        catch (NetworkError&) {}
+    }
+}
+
+
+// ProtocolNetworkSsl
+ProtocolNetworkSsl::ProtocolNetworkSsl(Environment& aEnv,
+                                       SslContext& aSsl)
+    : Protocol(aEnv)
+    , iSocket(aEnv, aSsl, kReadBufferBytes)
+    , iReaderBuf(iSocket)
+    , iWriterBuf(iSocket)
+    , iLock("PRNWS")
+    , iSocketIsOpen(false)
+{
+}
+
+
+TBool ProtocolNetworkSsl::Connect(const Uri& aUri,
+                                  TUint aDefaultPort,
+                                  TUint aTimeoutMs)
+{
+    LOG(kMedia, ">ProtocolNetworkSsl::Connect\n");
+
+    Endpoint endpoint;
+    try {
+        endpoint.SetAddress(aUri.Host());
+        TInt port = aUri.Port();
+        if (port == -1) {
+            port = (TInt)aDefaultPort;
+        }
+        endpoint.SetPort(port);
+    }
+    catch (NetworkError&) {
+        LOG(kMedia, "<Protocol::Connect error setting address and port\n");
+        return false;
+    }
+
+    try {
+        Open();
+    }
+    catch (NetworkError&) {
+        LOG(kMedia, "<ProtocolNetworkSsl::Connect error opening\n");
+        return false;
+    }
+    try {
+        iSocket.Connect(endpoint, aUri.Host(), aTimeoutMs);
+    }
+    catch (NetworkTimeout&) {
+        Close();
+        LOG(kMedia, "<ProtocolNetworkSsl::Connect error connecting\n");
+        return false;
+    }
+    catch (NetworkError&) {
+        Close();
+        LOG(kMedia, "<ProtocolNetworkSsl::Connect error connecting\n");
+        return false;
+    }
+
+    LOG(kMedia, "<Protocol::Connect\n");
+    return true;
+}
+
+
+void ProtocolNetworkSsl::Interrupt(TBool aInterrupt)
+{
+    iLock.Wait();
+    if (iActive) {
+        iSocket.Interrupt(aInterrupt);
+    }
+    iLock.Signal();
+}
+
+void ProtocolNetworkSsl::Open()
+{
+    LOG(kMedia, "ProtocolNetworkSsl::Open\n");
+    ASSERT(!iSocketIsOpen);
+    iSocketIsOpen = true;
+}
+
+void ProtocolNetworkSsl::Close()
+{
+    if (iSocketIsOpen) {
+        LOG(kMedia, "ProtocolNetworkSsl::Close\n");
+        iSocketIsOpen = false;
+        try {
+            iSocket.Close();
         }
         catch (NetworkError&) {}
     }
