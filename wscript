@@ -241,6 +241,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Attenuator.cpp',
                 'OpenHome/Media/Pipeline/Ramper.cpp',
                 'OpenHome/Media/Pipeline/Reporter.cpp',
+                'OpenHome/Media/Pipeline/AirplayReporter.cpp',
                 'OpenHome/Media/Pipeline/SpotifyReporter.cpp',
                 'OpenHome/Media/Pipeline/RampValidator.cpp',
                 'OpenHome/Media/Pipeline/Rewinder.cpp',
@@ -1225,7 +1226,7 @@ def build(bld):
 # Bundles
 def bundle(ctx):
     print('bundle binaries')
-    header_files = gather_files(ctx, '{top}', ['OpenHome/**/*.h', 'OpenHome/**/*.inl'])
+    header_files = gather_files(ctx, '{top}', ['OpenHome/**/*.h', 'OpenHome/**/*.inl', 'thirdparty/fdk-aac/**/*.h'])
     lib_names = ['ohPipeline',
                  'ohMediaPlayer',
                  'ohMediaPlayerTestUtils',

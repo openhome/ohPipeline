@@ -134,6 +134,7 @@ class Skipper;
 class Waiter;
 class Stopper;
 class Reporter;
+class AirplayReporter;
 class SpotifyReporter;
 class Router;
 class Attenuator;
@@ -146,6 +147,8 @@ class MuterVolume;
 class IVolumeMuterStepped;
 class PreDriver;
 class ITrackObserver;
+class IAirplayReporter;
+class IAirplayTrackObserver;
 class ISpotifyReporter;
 class ISpotifyTrackObserver;
 class IMimeTypeList;
@@ -199,6 +202,8 @@ public:
     void Unblock(); // must be exactly one of these for each call to Block()
     void Seek(TUint aStreamId, TUint aSecondsAbsolute);
     void AddObserver(ITrackObserver& aObserver);
+    IAirplayReporter& AirplayReporter() const;
+    IAirplayTrackObserver& AirplayTrackObserver() const;
     ISpotifyReporter& SpotifyReporter() const;
     ISpotifyTrackObserver& SpotifyTrackObserver() const;
     IClockPuller& GetSongcastPhaseAdjuster();
@@ -297,6 +302,7 @@ private:
     DecodedAudioValidator* iDecodedAudioValidatorStopper;
     Reporter* iReporter;
     Logger* iLoggerReporter;
+    Media::AirplayReporter* iAirplayReporter;
     Media::SpotifyReporter* iSpotifyReporter;
     Logger* iLoggerSpotifyReporter;
     Router* iRouter;
