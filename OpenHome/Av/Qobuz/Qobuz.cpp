@@ -493,9 +493,13 @@ TBool Qobuz::TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, TUint aLim
         iReaderEntity.ReadAll(aWriter);
         success = true;
     }
+    catch (AssertionFailed&) {
+        throw;
+    }
     catch (Exception& ex) {
         LOG_ERROR(kPipeline, "%s in Qobuz::TryGetResponseLocked\n", ex.Message());
     }
+
     if (aConnection == Connection::Close) {
         CloseConnection();
     }
@@ -677,17 +681,12 @@ TBool Qobuz::TryLoginLocked()
 
         ScheduleUpdatePurchasedTracks();
     }
-    catch (HttpError&) {
-        error.Append("Login Error (Http Failure): Please Try Again.");
-        LOG_ERROR(kPipeline, "HttpError in Qobuz::TryLoginLocked\n");
+    catch (AssertionFailed&) {
+        throw;
     }
-    catch (ReaderError&) {
-        error.Append("Login Error (Read Failure): Please Try Again.");
-        LOG_ERROR(kPipeline, "ReaderError in Qobuz::TryLoginLocked\n");
-    }
-    catch (WriterError&) {
-        error.Append("Login Error (Write Failure): Please Try Again.");
-        LOG_ERROR(kPipeline, "WriterError in Qobuz::TryLoginLocked\n");
+    catch (Exception& ex) {
+        error.Append("Login Error. Please Try Again.");
+        LOG_ERROR(kPipeline, "Error in Qobuz::TryLoginLocked (%s)\n", ex.Message());
     }
 
     if (!updatedStatus) {

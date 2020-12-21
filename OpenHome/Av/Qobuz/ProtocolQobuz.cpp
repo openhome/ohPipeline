@@ -424,14 +424,14 @@ TUint ProtocolQobuz::WriteRequest(TUint64 aOffset)
         iReaderResponse.Read();
         //iTcpClient.LogVerbose(false);
     }
-    catch(HttpError&) {
-        LOG_ERROR(kPipeline, "ProtocolQobuz::WriteRequest HttpError\n");
+    catch (AssertionFailed&) {
+        throw;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "ProtocolQobuz::WriteRequest %s\n", ex.Message());
         return 0;
     }
-    catch(ReaderError&) {
-        LOG_ERROR(kPipeline, "ProtocolQobuz::WriteRequest ReaderError\n");
-        return 0;
-    }
+
     const TUint code = iReaderResponse.Status().Code();
     LOG(kMedia, "ProtocolQobuz::WriteRequest response code %d\n", code);
     return code;
