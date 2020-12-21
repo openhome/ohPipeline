@@ -311,15 +311,13 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
             LOG_ERROR(kPipeline, "Unknown manifest type (%.*s) in Tidal::TryGetStreamUrl\n", PBUF(manifestType));
         }
     }
-    catch (HttpError&) {
-        LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetStreamUrl\n");
+    catch (AssertionFailed&) {
+        throw;
     }
-    catch (ReaderError&) {
-        LOG_ERROR(kPipeline, "ReaderError in Tidal::TryGetStreamUrl\n");
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "Tidal::TryGetStreamUrl %s\n", ex.Message());
     }
-    catch (WriterError&) {
-        LOG_ERROR(kPipeline, "WriterError in Tidal::TryGetStreamUrl\n");
-    }
+
     return success;
 }
 
@@ -770,19 +768,12 @@ TBool Tidal::TryLoginLocked()
             updatedStatus = true;
             success = true;
         }
-        catch (HttpError&) {
-            error.Append("Login Error (Http Failure): Please Try Again.");
-            LOG_ERROR(kPipeline, "HttpError in Tidal::TryLogin\n");
+        catch(AssertionFailed&) {
+            throw;
         }
-        catch (ReaderError&) {
-            if (error.Bytes() == 0) {
-                error.Append("Login Error (Read Failure): Please Try Again.");
-            }
-            LOG_ERROR(kPipeline, "ReaderError in Tidal::TryLogin\n");
-        }
-        catch (WriterError&) {
-            error.Append("Login Error (Write Failure): Please Try Again.");
-            LOG_ERROR(kPipeline, "WriterError in Tidal::TryLogin\n");
+        catch (Exception& ex) {
+            error.Append("Login Error. Please Try Again.");
+            LOG_ERROR(kPipeline, "Tidal::TryLogin %s\n", ex.Message());
         }
     }
 
@@ -875,18 +866,14 @@ TBool Tidal::TryGetSubscriptionLocked()
         updateStatus = false;
         success = true;
     }
-    catch (HttpError&) {
-        error.Append("Subscription Error (Http Failure): Please Try Again.");
-        LOG_ERROR(kPipeline, "HttpError in Tidal::TryGetSubscriptionLocked\n");
+    catch (AssertionFailed&) {
+        throw;
     }
-    catch (ReaderError&) {
-        error.Append("Subscription Error (Read Failure): Please Try Again.");
-        LOG_ERROR(kPipeline, "ReaderError in Tidal::TryGetSubscriptionLocked\n");
+    catch (Exception& ex) {
+        error.Append("Subscription Error. Please Try Again.\n");
+        LOG_ERROR(kPipeline, "Tidal::TryGetSubscriptionLocked %s\n", ex.Message());
     }
-    catch (WriterError&) {
-        error.Append("Subscription Error (Write Failure): Please Try Again.");
-        LOG_ERROR(kPipeline, "WriterError in Tidal::TryGetSubscriptionLocked\n");
-    }
+
     if (updateStatus) {
         iCredentialsState.SetState(kId, error, Brx::Empty());
     }
@@ -1045,17 +1032,11 @@ TBool Tidal::TryLogoutSession(const Brx& aToken)
 
         success = true;
     }
-    catch (WriterError&)
-    {
-        LOG_ERROR(kOAuth, "WriterError from Tidal logout\n");
+    catch(AssertionFailed&) {
+        throw;
     }
-    catch (ReaderError&)
-    {
-        LOG_ERROR(kOAuth, "ReaderError from Tidal logout\n");
-    }
-    catch (HttpError&)
-    {
-        LOG_ERROR(kOAuth, "HttpError from Tidal logout\n");
+    catch (Exception& ex) {
+        LOG_ERROR(kOAuth, "Tidal::TryLogoutSession %s\n", ex.Message());
     }
 
     return success;
@@ -1147,19 +1128,11 @@ TBool Tidal::StartLimitedInputFlow(LimitedInputFlowDetails& aDetails)
             return true;
         }
     }
-    catch (ReaderError&)
-    {
-        LOG_ERROR(kOAuth, "Tidal::StartLimitedInputFlow - ReaderError.\n");
-        return false;
+    catch (AssertionFailed&) {
+        throw;
     }
-    catch (WriterError&)
-    {
-        LOG_ERROR(kOAuth, "Tidal::StartLimitedInputFlow - WriterError.\n");
-        return false;
-    }
-    catch (HttpError&)
-    {
-        LOG_ERROR(kOAuth, "Tidal::StartLimitedInputFlow - HttpError.\n");
+    catch (Exception& ex) {
+        LOG_ERROR(kOAuth, "Tidal::StartLimitedInputFlow  %s\n", ex.Message());
         return false;
     }
 }
@@ -1322,22 +1295,13 @@ void Tidal::DoPollForToken()
                 }
             }
         }
-        catch (ReaderError&)
-        {
-            LOG_ERROR(kOAuth, "Tidal::DoPollForToken - Reader error.\n");
+        catch (AssertionFailed&) {
+            throw;
+        }
+        catch (Exception& ex) {
+            LOG_ERROR(kOAuth, "Tidal::DoPollForToken %s\n", ex.Message());
             result.Set(OAuth::PollResult::Failed);
         }
-        catch (WriterError&)
-        {
-            LOG_ERROR(kOAuth, "Tidal::DoPollForToken - Writer error.\n");
-            result.Set(OAuth::PollResult::Failed);
-        }
-        catch (HttpError&)
-        {
-            LOG_ERROR(kOAuth, "Tidal::DoPollForToken - Htt error.\n");
-            result.Set(OAuth::PollResult::Failed);
-        }
-
     }
 
     //NOTE: This should be called outside the lock to allow
@@ -1472,21 +1436,13 @@ TBool Tidal::DoTryGetAccessToken(const Brx& aTokenId,
             LOG_ERROR(kOAuth, "Tidal::DoTryGetAccessToken - Unable to store user information related for tokenId: %.s\n", PBUF(aTokenId));
         }
 
-        //FIX ME: Need to handle JSON exceptions that might be thrown by this...
-
         return didPopulate;
     }
-    catch (HttpError&)
-    {
-        LOG_ERROR(kOAuth, "HttpError in Tidal::DoTryGetAccessToken\n");
+    catch (AssertionFailed&) {
+        throw;
     }
-    catch (ReaderError&)
-    {
-        LOG_ERROR(kOAuth, "ReaderError in Tidal::DoTryGetAccessToken\n");
-    }
-    catch (WriterError&)
-    {
-        LOG_ERROR(kOAuth, "WriterError in Tidal::DoTryGetAccessToken\n");
+    catch (Exception& ex) {
+        LOG_ERROR(kOAuth, "Tidal::DoTryGetAccessToken %s\n", ex.Message());
     }
 
     return false;
@@ -1593,20 +1549,13 @@ TBool Tidal::DoInheritToken(const Brx& aAccessTokenIn,
                   "Tidal::DoInheritToken() - Token successfully inherited. Expires in %d\n",
                   expiry);
 
-        //FIX ME: Need to handle JSON exceptions that might be thrown by this...
         return true;
     }
-    catch (HttpError&)
-    {
-        LOG_ERROR(kOAuth, "HttpError in Tidal::DoInheritToken\n");
+    catch (AssertionFailed&) {
+        throw;
     }
-    catch (ReaderError&)
-    {
-        LOG_ERROR(kOAuth, "ReaderError in Tidal::DoInheritToken\n");
-    }
-    catch (WriterError&)
-    {
-        LOG_ERROR(kOAuth, "WriterError in Tidal::DoInheritToken\n");
+    catch (Exception& ex) {
+        LOG_ERROR(kOAuth, "Tidal::DoInheritToken %s\n", ex.Message());
     }
 
     return false;

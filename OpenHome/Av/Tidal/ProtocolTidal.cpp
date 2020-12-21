@@ -585,14 +585,14 @@ TUint ProtocolTidal::WriteRequest(TUint64 aOffset)
         iReaderResponse.Read();
         //iTcpClient.LogVerbose(false);
     }
-    catch(HttpError&) {
-        LOG_ERROR(kPipeline, "ProtocolTidal::WriteRequest HttpError\n");
+    catch(AssertionFailed&) {
+        throw;
+    }
+    catch(Exception& ex) {
+        LOG_ERROR(kPipeline, "ProtocolTidal::WriteRequest %sr\n", ex.Message());
         return 0;
     }
-    catch(ReaderError&) {
-        LOG_ERROR(kPipeline, "ProtocolTidal::WriteRequest ReaderError\n");
-        return 0;
-    }
+
     const TUint code = iReaderResponse.Status().Code();
     LOG(kMedia, "ProtocolTidal::WriteRequest response code %d\n", code);
     return code;
