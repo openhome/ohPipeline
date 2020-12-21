@@ -491,14 +491,14 @@ TUint ProtocolCalmRadio::WriteRequest(TUint64 aOffset)
         iReaderResponse.Read();
         iTcpClient.LogVerbose(false);
     }
-    catch(HttpError&) {
-        LOG_ERROR(kPipeline, "ProtocolCalmRadio::WriteRequest HttpError\n");
+    catch(AssertionFailed&) {
+        throw;
+    }
+    catch(Exception& ex) {
+        LOG_ERROR(kPipeline, "ProtocolCalmRadio::WriteRequest %s\n", ex.Message());
         return 0;
     }
-    catch(ReaderError&) {
-        LOG_ERROR(kPipeline, "ProtocolCalmRadio::WriteRequest ReaderError\n");
-        return 0;
-    }
+
     const TUint code = iReaderResponse.Status().Code();
     LOG(kMedia, "ProtocolCalmRadio::WriteRequest response code %d\n", code);
     return code;
