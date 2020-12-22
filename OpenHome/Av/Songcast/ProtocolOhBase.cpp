@@ -200,6 +200,7 @@ ProtocolStreamResult ProtocolOhBase::Stream(const Brx& aUri)
     iMetatextMsgDue = false;
     iSeqTrackValid = false;
     iMetatext.Replace(Brx::Empty());
+    iSupply->OutputMetadata(Brx::Empty());
     iSeqTrack = UINT_MAX;
     iLastSampleStart = UINT_MAX;
     iBitDepth = iSampleRate = iNumChannels = 0;
