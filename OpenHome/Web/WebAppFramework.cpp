@@ -2,6 +2,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Web/WebAppFramework.h>
 #include <OpenHome/Private/Network.h>
+#include <OpenHome/Private/TIpAddressUtils.h>
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Fifo.h>
 #include <OpenHome/Private/File.h>
@@ -1045,7 +1046,7 @@ void WebAppFramework::Add(IWebApp* aWebApp, FunctorPresentationUrl aFunctor)
     iWebApps.insert(WebAppPair(&webAppInternal->ResourcePrefix(), webAppInternal));
 
     TIpAddress addr = iServer->Interface();
-    if (addr == 0) {
+    if (TIpAddressUtils::IsZero(addr)) {
         if (iCurrentAdapter != nullptr) {
             addr = iCurrentAdapter->Address();
         }

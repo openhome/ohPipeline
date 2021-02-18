@@ -2,6 +2,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Network.h>
+#include <OpenHome/Private/TIpAddressUtils.h>
 #include <OpenHome/Net/Private/DviServer.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Private/Ascii.h>
@@ -54,8 +55,8 @@ void OdpDevice::Deregister()
 
 TBool OdpDevice::NetworkAdapterAndPortMatch(const NetworkAdapter& aAdapter, TUint aZeroConfPort) const
 {
-    if (aAdapter.Address() == iAdapter.Address()
-        && aAdapter.Subnet() == iAdapter.Subnet()
+    if (TIpAddressUtils::Equal(aAdapter.Address(), iAdapter.Address())
+        && TIpAddressUtils::Equal(aAdapter.Subnet(), iAdapter.Subnet())
         && (strcmp(aAdapter.Name(), iAdapter.Name()) == 0)
         && aZeroConfPort == iEndpoint.Port()) {
         return true;
@@ -69,7 +70,7 @@ void OdpDevice::RegisterLocked()
     iEndpoint.AppendEndpoint(epBuf);
     LOG(kBonjour, "OdpDevice::RegisterLocked iRegistered: %u, iEndpoint: %.*s\n", iRegistered, PBUF(epBuf));
 
-    if (iRegistered || iEndpoint.Address() == 0) {
+    if (iRegistered || TIpAddressUtils::IsZero(iEndpoint.Address())) {
         return;
     }
 
@@ -180,7 +181,7 @@ void DviSessionOdp::WriteEnd()
     iWriteBuffer->WriteFlush();
 }
 
-TIpAddress DviSessionOdp::Adapter() const
+const TIpAddress& DviSessionOdp::Adapter() const
 {
     return iAdapter;
 }
@@ -237,11 +238,11 @@ SocketTcpServer* DviServerOdp::CreateServer(const NetworkAdapter& aNif)
     return server;
 }
 
-void DviServerOdp::NotifyServerDeleted(TIpAddress /*aInterface*/) 
+void DviServerOdp::NotifyServerDeleted(const TIpAddress& /*aInterface*/) 
 { 
 } 
 
-void DviServerOdp::NotifyServerCreated(TIpAddress /*aInterface*/)
+void DviServerOdp::NotifyServerCreated(const TIpAddress& /*aInterface*/)
 {
     if (iServerCreated) {
         iServerCreated();

@@ -25,7 +25,7 @@ public:
     ~DviProtocolOdp();
 private: // from IResourceManager
     void WriteResource(const Brx& aUriTail,
-                       TIpAddress aAdapter,
+                       const TIpAddress& aAdapter,
                        std::vector<char*>& aLanguageList,
                        IResourceWriter& aResourceWriter) override;
 private: // from IDvProtocol

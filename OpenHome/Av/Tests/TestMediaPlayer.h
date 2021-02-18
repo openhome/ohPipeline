@@ -139,7 +139,7 @@ protected:
     virtual void InitialiseLogger();
     void DestroyAppFramework();
 private: // from Net::IResourceManager
-    void WriteResource(const Brx& aUriTail, TIpAddress aInterface, std::vector<char*>& aLanguageList, Net::IResourceWriter& aResourceWriter) override;
+    void WriteResource(const Brx& aUriTail, const TIpAddress& aInterface, std::vector<char*>& aLanguageList, Net::IResourceWriter& aResourceWriter) override;
 private: // from IPowerHandler
     void PowerUp() override;
     void PowerDown() override;

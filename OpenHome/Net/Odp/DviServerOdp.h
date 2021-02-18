@@ -51,7 +51,7 @@ private: // from IOdpSession
     IWriter& WriteLock() override;
     void WriteUnlock() override;
     void WriteEnd() override;
-    TIpAddress Adapter() const override;
+    const TIpAddress& Adapter() const override;
     const Brx& ClientUserAgentDefault() const override;
 private:
     static const TUint kMaxReadBytes = 12 * 1024;
@@ -76,8 +76,8 @@ public: // from DviServer
     void Start() override;
 private: // from DviServer
     SocketTcpServer* CreateServer(const NetworkAdapter& aNif) override;
-    void NotifyServerDeleted(TIpAddress aInterface) override; 
-    void NotifyServerCreated(TIpAddress aInterface) override;
+    void NotifyServerDeleted(const TIpAddress& aInterface) override; 
+    void NotifyServerCreated(const TIpAddress& aInterface) override;
 private:
     const TUint iNumSessions;
     TUint iPort;

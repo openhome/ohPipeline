@@ -6,6 +6,7 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/Network.h>
+#include <OpenHome/Private/TIpAddressUtils.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
 #include <OpenHome/Private/Timer.h>
 #include <OpenHome/Net/Private/Discovery.h>
@@ -29,7 +30,7 @@ MSearchObserver::MSearchObserver(Environment& aEnv)
     , iLockRecentSearchers("MOb2")
     , iEnv(aEnv)
     , iMulticastListener(nullptr)
-    , iMulticastAdapter(0)
+    , iMulticastAdapter(kTIpAddressEmpty)
 {
     iRecentSearchers.reserve(kMaxAddresses);
     iAdapterChangeListenerId = iEnv.NetworkAdapterList().AddCurrentChangeListener(MakeFunctor(*this, &MSearchObserver::CurrentAdapterChanged), "Av::MSearchObserver");
@@ -63,7 +64,7 @@ void MSearchObserver::CurrentAdapterChanged()
     AutoNetworkAdapterRef adRef(iEnv, "Av::MSearchObserver");
     const auto ad = adRef.Adapter();
     if (ad == nullptr) {
-        iMulticastAdapter = 0;
+        iMulticastAdapter = kTIpAddressEmpty;
     }
     else {
         iMulticastAdapter = ad->Address();
@@ -80,7 +81,7 @@ void MSearchObserver::NotifySearch(const Endpoint& aEndpoint)
 
     // is this address alredy stored?  Update it.
     for (auto p : iRecentSearchers) {
-        if (p.first == addr) {
+        if (TIpAddressUtils::Equal(p.first, addr)) {
             p.second = time;
             return;
         }

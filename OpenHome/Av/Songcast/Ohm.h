@@ -15,7 +15,7 @@ class Ohm
 {
 public:
     static const TUint kPort = 51970;
-    static const TUint kMaxUriBytes = 30;
+    static const TUint kMaxUriBytes = 60;
     static const TUint kMaxTrackUriBytes = Media::kTrackUriMaxBytes;
     static const TUint kMaxTrackMetadataBytes = Media::kTrackMetaDataMaxBytes;
     static const TUint kMaxTrackMetatextBytes = Media::MsgMetaText::kMaxBytes;

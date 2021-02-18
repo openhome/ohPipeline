@@ -404,7 +404,7 @@ void ProviderProduct::UpdatePresentationUrlLocked()
 
     AutoNetworkAdapterRef ar(iDvStack.Env(), "Av::Product");
     auto current = ar.Adapter();
-    auto addr = current == nullptr ? 0 : current->Address();
+    auto addr = (current == nullptr) ? kTIpAddressEmpty : current->Address();
     Endpoint::AppendAddress(iPresentationUrl, addr);
 
     iPresentationUrl.Append(presentationUrl);

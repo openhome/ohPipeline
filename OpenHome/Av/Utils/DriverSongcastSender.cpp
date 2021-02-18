@@ -252,7 +252,7 @@ Msg* DriverSongcastSender::ProcessMsg(MsgQuit* aMsg)
     return nullptr;
 }
 
-void DriverSongcastSender::WriteResource(const Brx& aUriTail, TIpAddress /*aInterface*/, std::vector<char*>& /*aLanguageList*/, Net::IResourceWriter& aResourceWriter)
+void DriverSongcastSender::WriteResource(const Brx& aUriTail, const TIpAddress& /*aInterface*/, std::vector<char*>& /*aLanguageList*/, Net::IResourceWriter& aResourceWriter)
 {
     if (aUriTail == kSenderIconFileName) {
         aResourceWriter.WriteResourceBegin(sizeof(kIconDriverSongcastSender), kIconDriverSongcastSenderMimeType);

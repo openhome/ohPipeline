@@ -26,6 +26,7 @@
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
+#include <OpenHome/Private/TIpAddressUtils.h>
 
 namespace OpenHome {
 namespace Media {
@@ -361,7 +362,7 @@ void SourceReceiver::SetSender(const Brx& aUri, const Brx& aMetadata)
             THROW(UriError);
         }
         const Endpoint& tgt = iZoneHandler->MulticastEndpoint();
-        if (ep.Address() != tgt.Address() || ep.Port() != tgt.Port()) {
+        if (!TIpAddressUtils::Equal(ep.Address(), tgt.Address()) || ep.Port() != tgt.Port()) {
             THROW(UriError);
         }
         const Brx& path = iUri.Path();

@@ -87,7 +87,7 @@ class UdpServerManager
 public:
     UdpServerManager(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority);
     ~UdpServerManager();
-    TUint CreateServer(TUint aPort = 0, TIpAddress aInterface = 0); // return ID of server
+    TUint CreateServer(TUint aPort = 0, TIpAddress aInterface = kTIpAddressEmpty); // return ID of server
     SocketUdpServer& Find(TUint aId); // find server by ID
     void CloseAll();
     void OpenAll();

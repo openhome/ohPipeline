@@ -688,7 +688,7 @@ TUint DviOdp::Version() const
     return iServiceVersion;
 }
 
-TIpAddress DviOdp::Adapter() const
+const TIpAddress& DviOdp::Adapter() const
 {
     return iSession.Adapter();
 }

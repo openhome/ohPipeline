@@ -2,6 +2,7 @@
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
 #include <OpenHome/Private/SuiteUnitTest.h>
+#include <OpenHome/Private/TIpAddressUtils.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -61,7 +62,7 @@ void SuiteMsgUdp::TestRead()
 
     Endpoint& ep = iMsg->Endpoint();
     TEST(ep.Port() == iSender->Port());
-    TEST(ep.Address() == iInterface);
+    TEST(TIpAddressUtils::Equal(ep.Address(), iInterface));
     TEST(iMsg->Buffer() == sendBuf);
 }
 

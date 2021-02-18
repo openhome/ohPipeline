@@ -14,6 +14,7 @@
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/OsWrapper.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
+#include <OpenHome/Private/TIpAddressUtils.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -59,7 +60,7 @@ ProtocolOhBase::ProtocolOhBase(Environment& aEnv, IOhmMsgFactory& aFactory, Medi
 
     AutoNetworkAdapterRef ref(iEnv, "Songcast");
     const auto current = ref.Adapter();
-    iAddr = (current == nullptr? 0 : current->Address());
+    iAddr = (current == nullptr? kTIpAddressEmpty : current->Address());
 }
 
 ProtocolOhBase::~ProtocolOhBase()
@@ -185,7 +186,7 @@ ProtocolStreamResult ProtocolOhBase::Stream(const Brx& aUri)
         iMutexTransport.Wait();
         TIpAddress addr = iAddr;
         iMutexTransport.Signal();
-        if (addr == 0) {
+        if (TIpAddressUtils::IsZero(addr)) {
             // no current subnet so no hope of listening to another device
             return EProtocolStreamErrorUnrecoverable;
         }
@@ -237,7 +238,7 @@ void ProtocolOhBase::CurrentSubnetChanged()
     AutoNetworkAdapterRef ref(iEnv, "ProtocolOhBase");
     iMutexTransport.Wait();
     const auto current = ref.Adapter();
-    iAddr = (current == nullptr? 0 : current->Address());
+    iAddr = (current == nullptr? kTIpAddressEmpty : current->Address());
     iMutexTransport.Signal();
     iSocket.ReadInterrupt();
 }

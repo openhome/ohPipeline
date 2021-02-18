@@ -25,7 +25,7 @@ public:
     virtual IWriter& WriteLock() = 0;
     virtual void WriteUnlock() = 0;
     virtual void WriteEnd() = 0;
-    virtual TIpAddress Adapter() const = 0;
+    virtual const TIpAddress& Adapter() const = 0;
     virtual const Brx& ClientUserAgentDefault() const = 0;
     virtual ~IOdpSession() {}
 };
@@ -103,7 +103,7 @@ private:
 private: // from IDviInvocation
     void Invoke() override;
     TUint Version() const override;
-    TIpAddress Adapter() const override;
+    const TIpAddress& Adapter() const override;
     const char* ResourceUriPrefix() const override;
     Endpoint ClientEndpoint() const override;
     const Brx& ClientUserAgent() const override;

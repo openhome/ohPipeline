@@ -18,12 +18,17 @@ void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], N
     Log::Print ("adapter list:\n");
     for (unsigned i=0; i<subnetList->size(); ++i) {
         TIpAddress addr = (*subnetList)[i]->Address();
-        Log::Print ("  %d: %d.%d.%d.%d\n", i, addr&0xff, (addr>>8)&0xff, (addr>>16)&0xff, (addr>>24)&0xff);
+        Bws<TIpAddressUtils::kMaxAddressBytes> addressBuf;
+        TIpAddressUtils::ToString(addr, addressBuf);
+        Log::Print ("  %d: %.*s\n", i, PBUF(addressBuf));
     }
     TIpAddress subnet = (*subnetList)[0]->Subnet();
     Net::Library::DestroySubnetList(subnetList);
     lib->SetCurrentSubnet(subnet);
-    Log::Print("using subnet %d.%d.%d.%d\n", subnet&0xff, (subnet>>8)&0xff, (subnet>>16)&0xff, (subnet>>24)&0xff);
+
+    Bws<TIpAddressUtils::kMaxAddressBytes> addressBuf;
+    TIpAddressUtils::ToString(subnet, addressBuf);
+    Log::Print("using subnet %.*s\n", PBUF(addressBuf));
 
     Net::CpStack* cpStack;
     Net::DvStack* dvStack;

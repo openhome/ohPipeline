@@ -38,7 +38,7 @@ private: // from Media::IMsgProcessor
     Media::Msg* ProcessMsg(Media::MsgPlayable* aMsg) override;
     Media::Msg* ProcessMsg(Media::MsgQuit* aMsg) override;
 private: // from Net::IResourceManager
-    void WriteResource(const Brx& aUriTail, TIpAddress aInterface, std::vector<char*>& aLanguageList, Net::IResourceWriter& aResourceWriter) override;
+    void WriteResource(const Brx& aUriTail, const TIpAddress& aInterface, std::vector<char*>& aLanguageList, Net::IResourceWriter& aResourceWriter) override;
 private:
     Media::IPipelineElementUpstream& iPipeline;
     TUint iMaxMsgSizeJiffies;

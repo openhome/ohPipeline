@@ -13,6 +13,7 @@
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Optional.h>
+#include <OpenHome/Private/TIpAddressUtils.h>
 
 #include <stdio.h>
 
@@ -645,7 +646,7 @@ OhmSender::OhmSender(Environment& aEnv, Net::DvDeviceStandard& aDevice, IOhmSend
     , iZoneHandler(&aZoneHandler)
     , iName(aName)
     , iChannel(aChannel)
-    , iInterface(0)
+    , iInterface(kTIpAddressEmpty)
     , iLatency(aLatency)
     , iMulticast(aMulticast)
     , iEnabled(false)
@@ -822,11 +823,11 @@ void OhmSender::CurrentSubnetChanged()
 
     static const TChar* kNifCookie = "OhmSender";
     NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kNifCookie).Ptr();
-    const TIpAddress addr = (current? current->Address() : 0);
+    const TIpAddress addr = (current? current->Address() : kTIpAddressEmpty);
     if (current != nullptr) {
         current->RemoveRef(kNifCookie);
     }
-    if (iInterface != addr) {
+    if (!TIpAddressUtils::Equal(iInterface, addr)) {
         if (iStarted) {
             Stop();
             iInterface = addr;
@@ -1007,7 +1008,7 @@ void OhmSender::RunMulticast()
                     else if (header.MsgType() == OhmHeader::kMsgTypeAudio) {
                         // Check sender not us
                         Endpoint sender = iSocketOhm.Sender();
-                        if (sender.Address() != iInterface) {
+                        if (!TIpAddressUtils::Equal(sender.Address(), iInterface)) {
                             LOG(kSongcast, "OhmSender::RunMulticast audio received\n");
                             // The following randomisation prevents two senders from both sending,
                             // both seeing each other's audio, both backing off for the same amount of time,
@@ -1309,7 +1310,10 @@ void OhmSender::TimerExpiryExpired()
 void OhmSender::UpdateChannel()
 {
     TUint address = (iChannel & 0xffff) | 0xeffd0000; // 239.253.x.x
-    iMulticastEndpoint.SetAddress(Arch::BigEndian4(address));
+    TIpAddress addr;
+    addr.family = kFamilyV4;
+    addr.v4 = Arch::BigEndian4(address);
+    iMulticastEndpoint.SetAddress(addr);
     iMulticastEndpoint.SetPort(Ohm::kPort);
 }
 

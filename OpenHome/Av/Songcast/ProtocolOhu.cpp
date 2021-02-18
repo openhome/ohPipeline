@@ -5,6 +5,7 @@
 #include <OpenHome/Av/Songcast/OhmSocket.h>
 #include <OpenHome/Av/Songcast/ProtocolOhBase.h>
 #include <OpenHome/Private/Network.h>
+#include <OpenHome/Private/TIpAddressUtils.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Timer.h>
@@ -98,7 +99,7 @@ void ProtocolOhu::Broadcast(OhmMsg* aMsg)
 ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, const Endpoint& aEndpoint)
 {
     LOG(kSongcast, "OHU: Play(%08x, %u, %08x:%u\n", iAddr, aTtl, aEndpoint.Address(), aEndpoint.Port());
-    if (aEndpoint.Address() == 0) {
+    if (TIpAddressUtils::IsZero(aEndpoint.Address())) {
         // ohu null address, return immediately
         return EProtocolStreamStopped;
     }
