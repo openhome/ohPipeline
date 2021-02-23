@@ -30,7 +30,7 @@ MSearchObserver::MSearchObserver(Environment& aEnv)
     , iLockRecentSearchers("MOb2")
     , iEnv(aEnv)
     , iMulticastListener(nullptr)
-    , iMulticastAdapter(kTIpAddressEmpty)
+    , iMulticastAdapter(kIpAddressV4AllAdapters)
 {
     iRecentSearchers.reserve(kMaxAddresses);
     iAdapterChangeListenerId = iEnv.NetworkAdapterList().AddCurrentChangeListener(MakeFunctor(*this, &MSearchObserver::CurrentAdapterChanged), "Av::MSearchObserver");
@@ -64,7 +64,7 @@ void MSearchObserver::CurrentAdapterChanged()
     AutoNetworkAdapterRef adRef(iEnv, "Av::MSearchObserver");
     const auto ad = adRef.Adapter();
     if (ad == nullptr) {
-        iMulticastAdapter = kTIpAddressEmpty;
+        iMulticastAdapter = kIpAddressV4AllAdapters;
     }
     else {
         iMulticastAdapter = ad->Address();
@@ -81,7 +81,7 @@ void MSearchObserver::NotifySearch(const Endpoint& aEndpoint)
 
     // is this address alredy stored?  Update it.
     for (auto p : iRecentSearchers) {
-        if (TIpAddressUtils::Equal(p.first, addr)) {
+        if (TIpAddressUtils::Equals(p.first, addr)) {
             p.second = time;
             return;
         }

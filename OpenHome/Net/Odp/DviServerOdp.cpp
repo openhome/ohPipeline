@@ -55,8 +55,8 @@ void OdpDevice::Deregister()
 
 TBool OdpDevice::NetworkAdapterAndPortMatch(const NetworkAdapter& aAdapter, TUint aZeroConfPort) const
 {
-    if (TIpAddressUtils::Equal(aAdapter.Address(), iAdapter.Address())
-        && TIpAddressUtils::Equal(aAdapter.Subnet(), iAdapter.Subnet())
+    if (TIpAddressUtils::Equals(aAdapter.Address(), iAdapter.Address())
+        && TIpAddressUtils::Equals(aAdapter.Subnet(), iAdapter.Subnet())
         && (strcmp(aAdapter.Name(), iAdapter.Name()) == 0)
         && aZeroConfPort == iEndpoint.Port()) {
         return true;

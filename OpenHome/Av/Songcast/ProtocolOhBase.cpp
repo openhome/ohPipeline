@@ -60,7 +60,7 @@ ProtocolOhBase::ProtocolOhBase(Environment& aEnv, IOhmMsgFactory& aFactory, Medi
 
     AutoNetworkAdapterRef ref(iEnv, "Songcast");
     const auto current = ref.Adapter();
-    iAddr = (current == nullptr? kTIpAddressEmpty : current->Address());
+    iAddr = (current == nullptr? kIpAddressV4AllAdapters : current->Address());
 }
 
 ProtocolOhBase::~ProtocolOhBase()
@@ -238,7 +238,7 @@ void ProtocolOhBase::CurrentSubnetChanged()
     AutoNetworkAdapterRef ref(iEnv, "ProtocolOhBase");
     iMutexTransport.Wait();
     const auto current = ref.Adapter();
-    iAddr = (current == nullptr? kTIpAddressEmpty : current->Address());
+    iAddr = (current == nullptr? kIpAddressV4AllAdapters : current->Address());
     iMutexTransport.Signal();
     iSocket.ReadInterrupt();
 }

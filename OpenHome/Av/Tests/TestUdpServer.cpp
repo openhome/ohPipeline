@@ -62,7 +62,7 @@ void SuiteMsgUdp::TestRead()
 
     Endpoint& ep = iMsg->Endpoint();
     TEST(ep.Port() == iSender->Port());
-    TEST(TIpAddressUtils::Equal(ep.Address(), iInterface));
+    TEST(TIpAddressUtils::Equals(ep.Address(), iInterface));
     TEST(iMsg->Buffer() == sendBuf);
 }
 

@@ -1241,8 +1241,8 @@ TInt RaopDiscovery::InterfaceIndex(const NetworkAdapter& aNif, const std::vector
 
 TBool RaopDiscovery::NifsMatch(const NetworkAdapter& aNif1, const NetworkAdapter& aNif2)
 {
-    if (TIpAddressUtils::Equal(aNif1.Address(), aNif2.Address()) && 
-        TIpAddressUtils::Equal(aNif1.Subnet(), aNif2.Subnet()) &&
+    if (TIpAddressUtils::Equals(aNif1.Address(), aNif2.Address()) && 
+        TIpAddressUtils::Equals(aNif1.Subnet(), aNif2.Subnet()) &&
         strcmp(aNif1.Name(), aNif2.Name()) == 0) {
         return true;
     }
