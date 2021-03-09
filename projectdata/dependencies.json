@@ -23,7 +23,7 @@
         "type": "external",
         "version": "1.9",
         "cross-check": false,
-        "archive-path": "http://core.linn.co.uk/~artifacts/artifacts/testtones/TestTones-${version}.zip",
+        "archive-path": "s3://linn-artifacts-private/testtones/TestTones-${version}.zip",
         "dest": "dependencies/AnyPlatform/TestTones/"
     },
     {   "name": "libplatform",

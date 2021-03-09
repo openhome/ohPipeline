@@ -237,7 +237,14 @@ void SuiteJsonDecode::Test()
     DecodeChar("\\r", '\r');
     DecodeChar("\\t", '\t');
 
-    for (TUint i=0; i<128; i++) {
+    for (TUint i=0; i<128; i++)
+    {
+        // Quotation marks are treated differently
+        // See below...
+        if (i == '\"') { // 34 | 0x22
+            continue;
+        }
+
         Bws<7> enc("\\u00");
         Ascii::AppendHex(enc, (TByte)i);
         DecodeChar(enc.PtrZ(), (TByte)i);
@@ -251,6 +258,19 @@ void SuiteJsonDecode::Test()
     TEST_THROWS(Json::Unescape(buf), JsonInvalid);
     Json::Unescape(buf, Json::Encoding::Utf16);
     TEST(buf == Brn("Dvo\xc5\x99\xc3\xa1k"));
+
+    // Testing that unicode escaped quoaion marks are correctly
+    // escaped to prevent invalid JSON
+    const Brn unicodeExpected("{\"x\":\"\\\"value\\\"\"}"); // "x" : "\"value\""
+    Bws<64> unicodeBuf("{\"x\":\"\\u0022value\\u0022\"}");
+    Bws<64> unicodeAsUtf8(unicodeBuf);
+    Bws<64> unicodeAsUtf16(unicodeAsUtf8);
+
+    Json::Unescape(unicodeAsUtf8); // Default is UTF8
+    Json::Unescape(unicodeAsUtf16);
+
+    TEST(unicodeAsUtf8 == unicodeExpected);
+    TEST(unicodeAsUtf16 == unicodeExpected);
 }
 
 void SuiteJsonDecode::DecodeChar(const TChar* aEncoded, TByte aDecoded)
