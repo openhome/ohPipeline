@@ -81,13 +81,11 @@ private:
     void ConfigPresetChanged(Configuration::KeyValuePair<TInt>& aValue);
 private:
     static TUint FirstChannelToSend(TUint aNumChannels);
-    void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aBytesPerSample);
+    void DoProcessFragment(const Brx& aData, TUint aNumChannels, TUint aBytesPerSample);
     // from IPcmProcessor
     void BeginBlock() override;
-    void ProcessFragment8(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment16(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment24(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment32(const Brx& aData, TUint aNumChannels) override;
+    void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) override;
+    void ProcessSilence(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) override;
     void EndBlock() override;
     void Flush() override;
 private:

@@ -190,12 +190,11 @@ private:
     inline TUint Subsample16(const TByte* aData) const;
     inline TUint Subsample24(const TByte* aData) const;
     inline TUint Subsample32(const TByte* aData) const;
+    TUint Subsample(const TByte* aPtr, TUint aSubsampleBytes);
 private: // from IPcmProcessor
     void BeginBlock() override;
-    void ProcessFragment8(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment16(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment24(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment32(const Brx& aData, TUint aNumChannels) override;
+    void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) override;
+    void ProcessSilence(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) override;
     void EndBlock() override;
     void Flush() override;
 private:
@@ -1018,52 +1017,47 @@ inline TUint PcmProcessorTestPipeline::Subsample32(const TByte* aData) const
     return subsample;
 }
 
-void PcmProcessorTestPipeline::ProcessFragment8(const Brx& aData, TUint aNumChannels)
+TUint PcmProcessorTestPipeline::Subsample(const TByte* aPtr, TUint aSubsampleBytes)
 {
-    const TByte* start = aData.Ptr();
-    const TByte* end = start + aData.Bytes() - 1;
-    if (iSetFirstSubsample) {
-        iFirstSubsample = Subsample8(start);
-        iSetFirstSubsample = false;
+    switch (aSubsampleBytes)
+    {
+    case 1:
+        return Subsample8(aPtr);;
+        break;
+    case 2:
+        return Subsample16(aPtr);;
+        break;
+    case 3:
+        return Subsample24(aPtr);;
+        break;
+    case 4:
+        return Subsample32(aPtr);;
+    default:
+        ASSERTS();
+        return 0;
     }
-    iLastSubsample = Subsample8(end);
-    iSamples += aData.Bytes() / aNumChannels;
 }
 
-void PcmProcessorTestPipeline::ProcessFragment16(const Brx& aData, TUint aNumChannels)
+void PcmProcessorTestPipeline::ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes)
 {
     const TByte* start = aData.Ptr();
-    const TByte* end = start + aData.Bytes() - 2;
+    const TByte* end = start + aData.Bytes() - aSubsampleBytes;
     if (iSetFirstSubsample) {
-        iFirstSubsample = Subsample16(start);
+        iFirstSubsample = Subsample(start, aSubsampleBytes);
         iSetFirstSubsample = false;
     }
-    iLastSubsample = Subsample16(end);
-    iSamples += aData.Bytes() / (aNumChannels * 2);
+    iLastSubsample = Subsample(end, aSubsampleBytes);
+    iSamples += aData.Bytes() / (aNumChannels * aSubsampleBytes);
 }
 
-void PcmProcessorTestPipeline::ProcessFragment24(const Brx& aData, TUint aNumChannels)
+void PcmProcessorTestPipeline::ProcessSilence(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes)
 {
-    const TByte* start = aData.Ptr();
-    const TByte* end = start + aData.Bytes() - 3;
     if (iSetFirstSubsample) {
-        iFirstSubsample = Subsample24(start);
+        iFirstSubsample = 0;
         iSetFirstSubsample = false;
     }
-    iLastSubsample = Subsample24(end);
-    iSamples += aData.Bytes() / (aNumChannels * 3);
-}
-
-void PcmProcessorTestPipeline::ProcessFragment32(const Brx& aData, TUint aNumChannels)
-{
-    const TByte* start = aData.Ptr();
-    const TByte* end = start + aData.Bytes() - 4;
-    if (iSetFirstSubsample) {
-        iFirstSubsample = Subsample32(start);
-        iSetFirstSubsample = false;
-    }
-    iLastSubsample = Subsample32(end);
-    iSamples += aData.Bytes() / (aNumChannels * 4);
+    iLastSubsample = 0;
+    iSamples += aData.Bytes() / (aNumChannels * aSubsampleBytes);
 }
 
 void PcmProcessorTestPipeline::EndBlock()

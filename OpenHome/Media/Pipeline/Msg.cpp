@@ -2793,11 +2793,12 @@ void MsgPlayablePcm::ReadBlock(IPcmProcessor& aProcessor)
 
     const TUint numChannels = iNumChannels;
     const TUint bitDepth = iBitDepth;
+    const TUint subsampleBytes = bitDepth / 8;
     if (iRamp.IsEnabled()) {
         Bws<256> rampedBuf;
         RampApplicator ra(iRamp);
         const TUint numSamples = ra.Start(audioBuf, bitDepth, numChannels);
-        const TUint bytesPerSample = (bitDepth/8) * numChannels;
+        const TUint bytesPerSample = subsampleBytes * numChannels;
         const TUint samplesPerFragment = rampedBuf.MaxBytes() / bytesPerSample;
         TByte* ptr = (TByte*)rampedBuf.Ptr();
         TUint fragmentSamples = 0;
@@ -2808,46 +2809,14 @@ void MsgPlayablePcm::ReadBlock(IPcmProcessor& aProcessor)
             ptr += bytesPerSample;
             if (fragmentSamples == samplesPerFragment || i == numSamples-1) {
                 rampedBuf.SetBytes(fragmentSamples * bytesPerSample);
-                switch (bitDepth)
-                {
-                case 8:
-                    aProcessor.ProcessFragment8(rampedBuf, numChannels);
-                    break;
-                case 16:
-                    aProcessor.ProcessFragment16(rampedBuf, numChannels);
-                    break;
-                case 24:
-                    aProcessor.ProcessFragment24(rampedBuf, numChannels);
-                    break;
-                case 32:
-                    aProcessor.ProcessFragment32(rampedBuf, numChannels);
-                    break;
-                default:
-                    ASSERTS();
-                }
+                aProcessor.ProcessFragment(rampedBuf, numChannels, subsampleBytes);
                 ptr = (TByte*)rampedBuf.Ptr();
                 fragmentSamples = 0;
             }
         }
     }
     else {
-        switch (bitDepth)
-        {
-        case 8:
-            aProcessor.ProcessFragment8(audioBuf, numChannels);
-            break;
-        case 16:
-            aProcessor.ProcessFragment16(audioBuf, numChannels);
-            break;
-        case 24:
-            aProcessor.ProcessFragment24(audioBuf, numChannels);
-            break;
-        case 32:
-            aProcessor.ProcessFragment32(audioBuf, numChannels);
-            break;
-        default:
-            ASSERTS();
-        }
+        aProcessor.ProcessFragment(audioBuf, numChannels, subsampleBytes);
     }
 
 }
@@ -2945,7 +2914,8 @@ void MsgPlayableSilence::ReadBlock(IPcmProcessor& aProcessor)
     static const TByte silence[DecodedAudio::kMaxBytes] = { 0 };
     static const TByte silence6ch[DecodedAudio::kMaxBytes] = { 0, 0, 0, 0x00,  0, 0, 0, 0x10, 0, 0, 0, 0x20,  0, 0, 0, 0x30,  0, 0, 0, 0x40,  0, 0, 0, 0x50, 0, 0, 0, 0x60,  0, 0, 0, 0x70 };
     TUint remainingBytes = iSize;
-    const TUint maxBytes = DecodedAudio::kMaxBytes - (DecodedAudio::kMaxBytes % (iNumChannels * iBitDepth / 8));
+    const TUint subsampleBytes = iBitDepth / 8;
+    const TUint maxBytes = DecodedAudio::kMaxBytes - (DecodedAudio::kMaxBytes % (iNumChannels * subsampleBytes));
     do {
         TUint bytes = (remainingBytes > maxBytes? maxBytes : remainingBytes);
         Brn audioBuf;
@@ -2955,23 +2925,7 @@ void MsgPlayableSilence::ReadBlock(IPcmProcessor& aProcessor)
         else {
             audioBuf.Set(silence, bytes);
         }
-        switch (iBitDepth)
-        {
-        case 8:
-            aProcessor.ProcessFragment8(audioBuf, iNumChannels);
-            break;
-        case 16:
-            aProcessor.ProcessFragment16(audioBuf, iNumChannels);
-            break;
-        case 24:
-            aProcessor.ProcessFragment24(audioBuf, iNumChannels);
-            break;
-        case 32:
-            aProcessor.ProcessFragment32(audioBuf, iNumChannels);
-            break;
-        default:
-            ASSERTS();
-        }
+        aProcessor.ProcessSilence(audioBuf, iNumChannels, subsampleBytes);
         remainingBytes -= bytes;
     } while (remainingBytes > 0);
 }

@@ -147,49 +147,41 @@ inline void FlywheelInput::AppendSubsample32(TByte*& aDest, const TByte*& aSrc)
     *aDest++ = *aSrc++;
 }
 
-void FlywheelInput::ProcessFragment8(const Brx& aData, TUint aNumChannels)
+void FlywheelInput::ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes)
 {
-    const TByte* src = aData.Ptr();
-    const TUint numSamples = aData.Bytes() / aNumChannels;
-    for (TUint i=0; i<numSamples; i++) {
-        for (TUint j=0; j<aNumChannels; j++) {
-            AppendSubsample8(iChannelPtr[j], src);
-        }
-    }
+    DoProcessFragment(aData, aNumChannels, aSubsampleBytes);
 }
 
-void FlywheelInput::ProcessFragment16(const Brx& aData, TUint aNumChannels)
+void FlywheelInput::ProcessSilence(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes)
+{
+    DoProcessFragment(aData, aNumChannels, aSubsampleBytes);
+}
+
+void FlywheelInput::DoProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes)
 {
     const TByte* src = aData.Ptr();
-    const TUint numSubsamples = aData.Bytes() / 2;
+    const TUint numSubsamples = aData.Bytes() / aSubsampleBytes;
     const TUint numSamples = numSubsamples / aNumChannels;
     for (TUint i=0; i<numSamples; i++) {
         for (TUint j=0; j<aNumChannels; j++) {
-            AppendSubsample16(iChannelPtr[j], src);
-        }
-    }
-}
-
-void FlywheelInput::ProcessFragment24(const Brx& aData, TUint aNumChannels)
-{
-    const TByte* src = aData.Ptr();
-    const TUint numSubsamples = aData.Bytes() / 3;
-    const TUint numSamples = numSubsamples / aNumChannels;
-    for (TUint i=0; i<numSamples; i++) {
-        for (TUint j=0; j<aNumChannels; j++) {
-            AppendSubsample24(iChannelPtr[j], src);
-        }
-    }
-}
-
-void FlywheelInput::ProcessFragment32(const Brx& aData, TUint aNumChannels)
-{
-    const TByte* src = aData.Ptr();
-    const TUint numSubsamples = aData.Bytes() / 4;
-    const TUint numSamples = numSubsamples / aNumChannels;
-    for (TUint i=0; i<numSamples; i++) {
-        for (TUint j=0; j<aNumChannels; j++) {
-            AppendSubsample32(iChannelPtr[j], src);
+            switch (aSubsampleBytes)
+            {
+            case 1:
+                AppendSubsample8(iChannelPtr[j], src);
+                break;
+            case 2:
+                AppendSubsample16(iChannelPtr[j], src);
+                break;
+            case 3:
+                AppendSubsample24(iChannelPtr[j], src);
+                break;
+            case 4:
+                AppendSubsample32(iChannelPtr[j], src);
+                break;
+            default:
+                ASSERTS();
+                break;
+            }
         }
     }
 }
@@ -287,25 +279,7 @@ void RampGenerator::BeginBlock()
     iFlywheelAudio->SetBytes(0);
 }
 
-void RampGenerator::ProcessFragment8(const Brx& /*aData*/, TUint /*aNumChannels*/)
-{
-    // FlywheelRamper outputs 32-bit fragments only
-    ASSERTS();
-}
-
-void RampGenerator::ProcessFragment16(const Brx& /*aData*/, TUint /*aNumChannels*/)
-{
-    // FlywheelRamper outputs 32-bit fragments only
-    ASSERTS();
-}
-
-void RampGenerator::ProcessFragment24(const Brx& /*aData*/, TUint /*aNumChannels*/)
-{
-    // FlywheelRamper outputs 32-bit fragments only
-    ASSERTS();
-}
-
-void RampGenerator::ProcessFragment32(const Brx& aData, TUint /*aNumChannels*/)
+void RampGenerator::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/, TUint /*aSubsampleBytes*/)
 {
     const TUint subsamples = aData.Bytes() / 4;
     const TByte* src = aData.Ptr();
@@ -351,7 +325,7 @@ void RampGenerator::ProcessFragment32(const Brx& aData, TUint /*aNumChannels*/)
         break;
     }
     iFlywheelAudio->SetBytes(iFlywheelAudio->Bytes() + (subsamples * (iBitDepth/8)));
-    //Log::Print("++ RampGenerator::ProcessFragment32 numSamples=%u\n", aData.Bytes() / 8);
+    //Log::Print("++ RampGenerator::ProcessFragment numSamples=%u\n", aData.Bytes() / 8);
 #if 0
     if (aNumChannels == 2) {
         const TByte* p = aData.Ptr();
@@ -367,6 +341,12 @@ void RampGenerator::ProcessFragment32(const Brx& aData, TUint /*aNumChannels*/)
         }
     }
 #endif
+}
+
+void RampGenerator::ProcessSilence(const Brx& /*aData*/, TUint /*aNumChannels*/, TUint /*aSubsampleBytes*/)
+{
+    // FlywheelRamper outputs 32-bit fragments only
+    ASSERTS();
 }
 
 void RampGenerator::EndBlock()

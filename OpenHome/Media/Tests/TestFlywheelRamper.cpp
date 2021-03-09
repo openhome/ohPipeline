@@ -60,10 +60,8 @@ public:
     virtual void BeginBlock() {};
     virtual void EndBlock() {};
 
-    virtual void ProcessFragment8(const Brx& /*aData*/, TUint /*aNumChannels*/) {ASSERTS();};
-    virtual void ProcessFragment16(const Brx& /*aData*/, TUint /*aNumChannels*/) {ASSERTS();};
-    virtual void ProcessFragment24(const Brx& /*aData*/, TUint /*aNumChannels*/) {ASSERTS();};
-    virtual void ProcessFragment32(const Brx& aData, TUint aNumChannels);
+    void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) override;
+    void ProcessSilence(const Brx& , TUint , TUint ) override { ASSERTS(); };
     virtual void Flush() {ASSERTS();};
 
 
@@ -718,7 +716,7 @@ PcmProcessorFeedback::PcmProcessorFeedback(Bwx& aBuf)
 
 }
 
-void PcmProcessorFeedback::ProcessFragment32(const Brx& aData, TUint /*aNumChannels*/)
+void PcmProcessorFeedback::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/, TUint /*aSubsampleBytes*/)
 {
     iBuf.Replace(aData);
 }
