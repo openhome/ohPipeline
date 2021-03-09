@@ -57,12 +57,12 @@ public:
     PcmProcessorFeedback(Bwx& aBuf);
 
     // IPcmProcessor
-    virtual void BeginBlock() {};
-    virtual void EndBlock() {};
+    virtual void BeginBlock() override {};
+    virtual void EndBlock() override {};
 
     void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) override;
     void ProcessSilence(const Brx& , TUint , TUint ) override { ASSERTS(); };
-    virtual void Flush() {ASSERTS();};
+    virtual void Flush() override {ASSERTS();};
 
 
 private:
