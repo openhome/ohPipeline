@@ -118,8 +118,20 @@ void Json::Unescape(Bwx& aValue, Encoding aEncoding)
                 Brn hexBuf = aValue.Split(i+1, 4);
                 i += 4;
                 const TUint hex = Ascii::UintHex(hexBuf);
-                if (hex < 0x80) {
-                    aValue[j++] = (TByte)hex;
+                if (hex < 0x80)
+                {
+                    // NOTE: The " character can only be used around keys and string values.
+                    //       Unicode U+0022 is " which when present will be inside a string
+                    //       value and therefore must be escaped.
+                    //       If the " around keys/strings is encoded then this is invalid
+                    //       json and later parsing should throw.
+                    if (hex == '"') { // 0x22
+                        aValue[j++] = '\\';
+                        aValue[j++] = '\"';
+                    }
+                    else {
+                        aValue[j++] = (TByte)hex;
+                    }
                 }
                 else if (aEncoding == Encoding::Utf8) {
                     if (hex > 0xFF) {
