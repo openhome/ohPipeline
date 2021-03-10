@@ -123,7 +123,7 @@ void FlywheelRamperManager::RenderChannels(TUint aSampleCount, TUint aDecFactor,
 
     iOutBuf.SetBytes(outputBytes);
     iOutput.BeginBlock();
-    iOutput.ProcessFragment32(iOutBuf, aChannelCount);
+    iOutput.ProcessFragment(iOutBuf, aChannelCount, 4);
     iOutput.EndBlock();
 
 }

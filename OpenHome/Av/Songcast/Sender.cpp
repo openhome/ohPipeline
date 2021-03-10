@@ -359,7 +359,7 @@ TUint Sender::FirstChannelToSend(TUint aNumChannels)
     return (aNumChannels < 10) ? 0 : 8;
 }
 
-void Sender::ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aBytesPerSubsample)
+void Sender::DoProcessFragment(const Brx& aData, TUint aNumChannels, TUint aBytesPerSubsample)
 {
     const TByte* src = aData.Ptr() + aBytesPerSubsample*iFirstChannelIndex;
     const TUint stride = aBytesPerSubsample * aNumChannels;
@@ -387,24 +387,14 @@ void Sender::BeginBlock()
     ASSERT(iAudioBuf);
 }
 
-void Sender::ProcessFragment8(const Brx& aData, TUint aNumChannels)
+void Sender::ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes)
 {
-    ProcessFragment(aData, aNumChannels, 1);
+    DoProcessFragment(aData, aNumChannels, aSubsampleBytes);
 }
 
-void Sender::ProcessFragment16(const Brx& aData, TUint aNumChannels)
+void Sender::ProcessSilence(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes)
 {
-    ProcessFragment(aData, aNumChannels, 2);
-}
-
-void Sender::ProcessFragment24(const Brx& aData, TUint aNumChannels)
-{
-    ProcessFragment(aData, aNumChannels, 3);
-}
-
-void Sender::ProcessFragment32(const Brx& aData, TUint aNumChannels)
-{
-    ProcessFragment(aData, aNumChannels, 4);
+    DoProcessFragment(aData, aNumChannels, aSubsampleBytes);
 }
 
 void Sender::EndBlock()

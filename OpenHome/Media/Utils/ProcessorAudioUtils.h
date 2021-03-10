@@ -21,38 +21,12 @@ protected:
     void ProcessFragment(const Brx& aData);
 private: // from IPcmProcessor
     void BeginBlock() override;
-    void ProcessFragment8(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment16(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment24(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment32(const Brx& aData, TUint aNumChannels) override;
+    void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) override;
+    void ProcessSilence(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) override;
     void EndBlock() override;
     void Flush() override;
 protected:
     Bwh iBuf;
-};
-
-class ProcessorAggregateUnpacked : public IPcmProcessor, private INonCopyable
-{
-    static const TUint kMaxSampleBytes = 32; // 8 channels unpacked
-public:
-    ProcessorAggregateUnpacked(IPcmProcessor& aDownstream, TUint aNumSamples, TUint aMaxChannels);
-    void Flush(TUint aNumChannels); // output any pending data, padded with zeros (silence) to target sample total
-private:
-    inline void CheckBitDepth(TUint aBitDepth);
-    void ProcessUnpackedSample(const Brx& aData, TUint aNumSamples);
-private: // from IPcmProcessor
-    void BeginBlock() override;
-    void ProcessFragment8(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment16(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment24(const Brx& aData, TUint aNumChannels) override;
-    void ProcessFragment32(const Brx& aData, TUint aNumChannels) override;
-    void EndBlock() override;
-    void Flush() override;
-private:
-    IPcmProcessor& iDownstream;
-    const TUint iNumSamples;
-    Bwh iBuf;
-    TUint iRemainingSamples;
 };
 
 class ProcessorDsdBufTest : public IDsdProcessor // Reads packed data into dynamically allocated buffer.

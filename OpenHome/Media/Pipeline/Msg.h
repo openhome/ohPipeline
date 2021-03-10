@@ -1214,15 +1214,19 @@ public:
     /**
      * Copy a block of audio data.
      *
-     * Bit depth is indicated in function name; number of channels is passed as a parameter.
-     *
-     * @param aData         Packed big endian pcm data.  Will always be a complete number of samples.
-     * @param aNumChannels  Number of channels.
+     * @param aData            Packed big endian pcm data.  Will always be a complete number of samples.
+     * @param aNumChannels     Number of channels.
+     * @param aSubsampleBytes  Number of bytes per sample per channel (1, 2, 3 for 8, 16, 24-bit)
      */
-    virtual void ProcessFragment8(const Brx& aData, TUint aNumChannels) = 0;
-    virtual void ProcessFragment16(const Brx& aData, TUint aNumChannels) = 0;
-    virtual void ProcessFragment24(const Brx& aData, TUint aNumChannels) = 0;
-    virtual void ProcessFragment32(const Brx& aData, TUint aNumChannels) = 0;
+    virtual void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) = 0;
+    /**
+     * Copy a block of (silent) audio data.
+     *
+     * @param aData            Packed big endian pcm data.  Will always be a complete number of samples.
+     * @param aNumChannels     Number of channels.
+     * @param aSubsampleBytes  Number of bytes per sample per channel (1, 2, 3 for 8, 16, 24-bit)
+     */
+    virtual void ProcessSilence(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) = 0;
     /**
      * Called once per call to MsgPlayable::Read.
      *

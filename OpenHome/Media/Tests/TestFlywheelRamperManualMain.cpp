@@ -78,14 +78,12 @@ public:
     PcmProcessorFwrMan(Bwx& aBuf);
 
     // IPcmProcessor
-    virtual void BeginBlock() {};
-    virtual void EndBlock() {};
+    virtual void BeginBlock() override {};
+    virtual void EndBlock() override {};
 
-    virtual void ProcessFragment8(const Brx& /*aData*/, TUint /*aNumChannels*/) {ASSERTS();};
-    virtual void ProcessFragment16(const Brx& /*aData*/, TUint /*aNumChannels*/) {ASSERTS();};
-    virtual void ProcessFragment24(const Brx& /*aData*/, TUint /*aNumChannels*/) {ASSERTS();};
-    virtual void ProcessFragment32(const Brx& aData, TUint aNumChannels);
-    virtual void Flush() {ASSERTS();};
+    void ProcessFragment(const Brx& aData, TUint aNumChannels, TUint aSubsampleBytes) override;
+    void ProcessSilence(const Brx& , TUint , TUint ) override { ASSERTS(); };
+    virtual void Flush() override {ASSERTS();};
 
 private:
     Bwx& iBuf;
@@ -622,7 +620,7 @@ PcmProcessorFwrMan::PcmProcessorFwrMan(Bwx& aBuf)
 }
 
 
-void PcmProcessorFwrMan::ProcessFragment32(const Brx& aData, TUint /*aNumChannels*/)
+void PcmProcessorFwrMan::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/, TUint /*aSubsampleBytes*/)
 {
     iBuf.Append(aData);
     //Log::Print("iBuf.MaxBytes()=%d  iBuf.Bytes()=%d  aData.Bytes()=%d \n", iBuf.MaxBytes(), iBuf.Bytes(), aData.Bytes() );
