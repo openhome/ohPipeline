@@ -519,11 +519,13 @@ void SuiteStarvationRamper::Quit(TBool aRampDown)
 void SuiteStarvationRamper::TestMsgsPassWhenRunning()
 {
     AddPending(iMsgFactory->CreateMsgMode(kMode));
+    AddPending(iMsgFactory->CreateMsgDelay(Jiffies::kPerMs * 20));
     AddPending(iMsgFactory->CreateMsgDrain(Functor()));
     AddPending(CreateDecodedStream());
     AddPending(CreateAudio());
 
     PullNext(EMsgMode);
+    PullNext(EMsgDelay);
     PullNext(EMsgDrain);
     PullNext(EMsgDecodedStream);
     do {
