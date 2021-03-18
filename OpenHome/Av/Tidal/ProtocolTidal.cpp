@@ -524,7 +524,11 @@ ProtocolStreamResult ProtocolTidal::DoStream()
         const TUint bytesToRead = static_cast<TUint>(std::min(iTotalBytes, static_cast<TUint64>(kMaxErrorReadBytes)));
 
         try {
-            while(iErrorBuf.Bytes() < bytesToRead) {
+
+            // We break on 'Stopped' which is set if this is interupted.
+            // This ensures that if we are interupted while processing an error
+            // we don't attempt to read from an interupted socket.
+            while(iErrorBuf.Bytes() < bytesToRead && !iStopped) {
                 const TUint bytesLeft = bytesToRead - iErrorBuf.Bytes();
                 iErrorBuf.Append(iReaderUntil.Read(bytesLeft));
             }
@@ -533,11 +537,16 @@ ProtocolStreamResult ProtocolTidal::DoStream()
             // If we do't have enough (or any) of additional error information, it's not the end of the world.
         }
 
-        if (iErrorBuf.Bytes() > 0) {
-            LOG_ERROR(kPipeline, "ProtocolTidal::DoStream server returned error %u\nSome (or all) of the response is:\n%.*s\n", code, PBUF(iErrorBuf))
-        }
-        else {
-            LOG_ERROR(kPipeline, "ProtocolTidal::DoStream server returned error %u\n", code);
+        // If we have been stopped it's unlikely we want to see any error that occurs as the DS
+        // wil have moved on to something else.
+        if (!iStopped)
+        {
+            if (iErrorBuf.Bytes() > 0) {
+                LOG_ERROR(kPipeline, "ProtocolTidal::DoStream server returned error %u\nSome (or all) of the response is:\n%.*s\n", code, PBUF(iErrorBuf))
+            }
+            else {
+                LOG_ERROR(kPipeline, "ProtocolTidal::DoStream server returned error %u\n", code);
+            }
         }
 
         return EProtocolStreamErrorUnrecoverable;
