@@ -186,7 +186,7 @@ void SongcastPhaseAdjuster::Stop()
 {
 }
 
-MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& aMsgType, MsgAudio* aMsg)
+MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
 {
     if (iState == State::Adjusting) {
         TInt error = iTrackedJiffies - iDelayJiffies;
@@ -307,7 +307,7 @@ void SongcastPhaseAdjuster::ResetPhaseDelay()
     iCurrentRampValue = Ramp::kMin;
 }
 
-void SongcastPhaseAdjuster::PrintStats(const Brx& aMsgType, TUint aJiffies)
+void SongcastPhaseAdjuster::PrintStats(const Brx& /*aMsgType*/, TUint /*aJiffies*/)
 {
     // static const TUint kInitialJiffiesTrackingLimit = 50 * Jiffies::kPerMs;
     // static const TUint kJiffiesStatsInterval = 50 * Jiffies::kPerMs;
