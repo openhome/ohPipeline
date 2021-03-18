@@ -707,12 +707,6 @@ Msg* StarvationRamper::ProcessMsgOut(MsgDrain* aMsg)
     return aMsg;
 }
 
-Msg* StarvationRamper::ProcessMsgOut(MsgDelay* aMsg)
-{
-    aMsg->RemoveRef();
-    return nullptr;
-}
-
 Msg* StarvationRamper::ProcessMsgOut(MsgMetaText* aMsg)
 {
     aMsg->RemoveRef();

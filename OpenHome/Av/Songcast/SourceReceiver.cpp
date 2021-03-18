@@ -5,6 +5,7 @@
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Av/Songcast/ProviderReceiver.h>
 #include <OpenHome/Av/Songcast/ZoneHandler.h>
+#include <OpenHome/Media/ClockPuller.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Media/PipelineManager.h>
@@ -35,6 +36,24 @@ namespace Media {
 }
 namespace Av {
 
+/*
+ * Add() and calls to IClockPuller methods are not threadsafe.
+ *
+ * All clients must be added before any IClockPuller methods are called.
+ */
+class ClockPullerComposite : public Media::IClockPuller
+{
+public:
+    ClockPullerComposite();
+    void Add(Media::IClockPuller& aClockPuller);
+public: // from IClockPuller
+    void Update(TInt aDelta) override;
+    void Start() override;
+    void Stop() override;
+private:
+    std::vector<std::reference_wrapper<Media::IClockPuller>> iClockPullers;
+};
+
 class UriProviderSongcast : public Media::UriProviderSingleTrack
 {
 public:
@@ -42,7 +61,7 @@ public:
 private: // from UriProvider
     Media::ModeClockPullers ClockPullers() override;
 private:
-    Optional<Media::IClockPuller> iClockPuller;
+    ClockPullerComposite iClockPullers;
 };
 
 class SongcastSender;
@@ -168,6 +187,39 @@ const TChar* SourceFactory::kSourceTypeReceiver = "Receiver";
 const Brn SourceFactory::kSourceNameReceiver("Songcast");
 
 
+// ClockPullerComposite
+
+ClockPullerComposite::ClockPullerComposite()
+{
+}
+
+void ClockPullerComposite::Add(Media::IClockPuller& aClockPuller)
+{
+    iClockPullers.push_back(aClockPuller);
+}
+
+void ClockPullerComposite::Update(TInt aDelta)
+{
+    for (auto& p : iClockPullers) {
+        p.get().Update(aDelta);
+    }
+}
+
+void ClockPullerComposite::Start()
+{
+    for (auto& p : iClockPullers) {
+        p.get().Start();
+    }
+}
+
+void ClockPullerComposite::Stop()
+{
+    for (auto& p : iClockPullers) {
+        p.get().Stop();
+    }
+}
+
+
 // UriProviderSongcast
 
 UriProviderSongcast::UriProviderSongcast(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller)
@@ -175,13 +227,17 @@ UriProviderSongcast::UriProviderSongcast(IMediaPlayer& aMediaPlayer, Optional<Me
                              true, /* supports latency */
                              false, /* supports pause */
                              aMediaPlayer.TrackFactory())
-    , iClockPuller(aClockPuller)
 {
+    if (aClockPuller.Ok()) {
+        iClockPullers.Add(aClockPuller.Unwrap());
+    }
+    auto& spa = aMediaPlayer.Pipeline().SongcastPhaseAdjuster();
+    iClockPullers.Add(spa);
 }
 
 ModeClockPullers UriProviderSongcast::ClockPullers()
 {
-    return ModeClockPullers(iClockPuller.Ptr());
+    return ModeClockPullers(&iClockPullers);
 }
 
 

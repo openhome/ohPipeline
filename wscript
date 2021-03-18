@@ -247,6 +247,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Router.cpp',
                 'OpenHome/Media/Pipeline/StreamValidator.cpp',
                 'OpenHome/Media/Pipeline/Seeker.cpp',
+                'OpenHome/Media/Pipeline/SongcastPhaseAdjuster.cpp',
                 'OpenHome/Media/Pipeline/Skipper.cpp',
                 'OpenHome/Media/Pipeline/StarvationRamper.cpp',
                 'OpenHome/Media/Pipeline/Stopper.cpp',
