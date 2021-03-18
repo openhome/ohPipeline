@@ -931,6 +931,7 @@ void SuiteStarvationRamper::TestPruneMsgsNotReqdDownstream()
     AddPending(iMsgFactory->CreateMsgWait());
     AddPending(iMsgFactory->CreateMsgHalt());
 
+    PullNext(EMsgDelay);
     PullNext(EMsgDecodedStream);
     PullNext(EMsgHalt);
 
