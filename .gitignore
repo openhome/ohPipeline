@@ -6,6 +6,7 @@ tags
 /dependencies/
 /waf-*-*
 /.waf-*/
+/.waf*/
 /.lock-*
 /install
 /transmute-output
