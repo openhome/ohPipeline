@@ -184,7 +184,7 @@ void SongcastPhaseAdjuster::Stop()
 {
 }
 
-MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& aMsgType, MsgAudio* aMsg)
+MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
 {
     if (iState == State::Adjusting) {
         if (iDelayJiffies == 0) {
