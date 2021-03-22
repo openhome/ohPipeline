@@ -71,6 +71,7 @@ SongcastPhaseAdjuster::SongcastPhaseAdjuster(
 
 SongcastPhaseAdjuster::~SongcastPhaseAdjuster()
 {
+    ClearDecodedStream();
 }
 
 Msg* SongcastPhaseAdjuster::Pull()
@@ -131,10 +132,7 @@ Msg* SongcastPhaseAdjuster::ProcessMsg(MsgFlush* aMsg)
 
 Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    if (iDecodedStream != nullptr) {
-        iDecodedStream->RemoveRef();
-        iDecodedStream = nullptr;
-    }
+    ClearDecodedStream();
     if (iModeSongcast) {
         aMsg->AddRef();
         iDecodedStream = aMsg;
@@ -186,9 +184,14 @@ void SongcastPhaseAdjuster::Stop()
 {
 }
 
-MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
+MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& aMsgType, MsgAudio* aMsg)
 {
     if (iState == State::Adjusting) {
+        if (iDelayJiffies == 0) {
+            // No MsgDelay (with value > 0) was seen. Switch to running state.
+            iState = State::Running;
+            return aMsg;
+        }
         TInt error = iTrackedJiffies - iDelayJiffies;
         if (error > 0) {
             // Drop audio.
@@ -196,7 +199,10 @@ MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* 
                 error = iDropLimitJiffies - iDroppedJiffies;
             }
             TUint dropped = 0;
-            auto* msg = DropAudio(aMsg, error, dropped);
+            MsgAudio* msg = aMsg;
+            if (error > 0) { // Error may have become 0 in drop limit calc above.
+                msg = DropAudio(aMsg, error, dropped);
+            }
             iDroppedJiffies += dropped;
             error -= dropped;
             if (iDroppedJiffies >= iDropLimitJiffies || error == 0) {
@@ -305,6 +311,14 @@ void SongcastPhaseAdjuster::ResetPhaseDelay()
 
     iRemainingRampSize = iRampJiffies;
     iCurrentRampValue = Ramp::kMin;
+}
+
+void SongcastPhaseAdjuster::ClearDecodedStream()
+{
+    if (iDecodedStream != nullptr) {
+        iDecodedStream->RemoveRef();
+        iDecodedStream = nullptr;
+    }
 }
 
 void SongcastPhaseAdjuster::PrintStats(const Brx& /*aMsgType*/, TUint /*aJiffies*/)
