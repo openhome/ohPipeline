@@ -55,6 +55,7 @@ private:
     MsgAudio* RampUp(MsgAudio* aMsg);
     MsgAudio* StartRampUp(MsgAudio* aMsg);
     void ResetPhaseDelay();
+    void ClearDecodedStream();
     void PrintStats(const Brx& aMsgType, TUint aJiffies);
 private:
     MsgFactory& iMsgFactory;
