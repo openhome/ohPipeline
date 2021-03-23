@@ -323,9 +323,9 @@ MsgAudio* SuiteSongcastPhaseAdjuster::CreateAudio(TUint aJiffies)
     static const TUint kByteDepth = 2;
     const TUint samples = aJiffies / Jiffies::PerSample(kSampleRate);
     const TUint bytes = samples * kNumChannels * kByteDepth;
-    TByte encodedAudioData[bytes];
-    (void)memset(encodedAudioData, 0x7f, bytes);
-    Brn encodedAudioBuf(encodedAudioData, bytes);
+    Bwh encodedAudioBuf(bytes);
+    encodedAudioBuf.SetBytes(encodedAudioBuf.MaxBytes());
+    encodedAudioBuf.Fill(0x7f);
     MsgAudioPcm* audio = iMsgFactory->CreateMsgAudioPcm(encodedAudioBuf, kNumChannels, kSampleRate, 16, AudioDataEndian::Little, iTrackOffset);
     audio->SetObserver(*this);
     iAudioMsgSizeJiffies = audio->Jiffies();
