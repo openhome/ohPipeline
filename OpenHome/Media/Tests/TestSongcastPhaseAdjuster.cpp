@@ -377,7 +377,7 @@ Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
+Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgDelay* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
