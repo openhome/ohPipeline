@@ -295,7 +295,7 @@ MsgAudio* SongcastPhaseAdjuster::StartRampUp(MsgAudio* aMsg)
     ASSERT(iDecodedStream != nullptr);
     const auto& info = iDecodedStream->StreamInfo();
     const TUint droppedSamples = iDroppedJiffies / Jiffies::PerSample(info.SampleRate());
-    const TUint sampleStart = info.SampleStart() + droppedSamples;
+    const TUint64 sampleStart = info.SampleStart() + droppedSamples;
     auto* msgDecodedStream = iMsgFactory.CreateMsgDecodedStream(
         info.StreamId(),
         info.BitRate(),
