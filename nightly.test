@@ -59,6 +59,9 @@ tests = '''
     #TestConfigUi
     TestFlywheelRamper
     TestFriendlyNameManager
+    TestOAuth
+    TestAESHelpers
+    TestSongcastPhaseAdjuster
     '''
 w = StaticWebServer(os.path.join('dependencies', 'AnyPlatform', 'TestTones'))
 w.start()

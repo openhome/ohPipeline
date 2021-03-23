@@ -812,6 +812,7 @@ def build(bld):
                 'OpenHome/Media/Tests/TestMuteManager.cpp',
                 'OpenHome/Media/Tests/TestRewinder.cpp',
                 'OpenHome/Media/Tests/TestShell.cpp',
+                'OpenHome/Media/Tests/TestSongcastPhaseAdjuster.cpp',
                 'OpenHome/Media/Tests/TestUriProviderRepeater.cpp',
                 'OpenHome/Av/Tests/TestFriendlyNameManager.cpp',
                 'OpenHome/Av/Tests/TestUdpServer.cpp',
@@ -1065,6 +1066,11 @@ def build(bld):
     #        use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
     #        target='TestPlaylist',
     #        install_path=None)
+    bld.program(
+            source='OpenHome/Media/Tests/TestSongcastPhaseAdjusterMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestSongcastPhaseAdjuster',
+            install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestUriProviderRepeaterMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourceUpnpAv'],

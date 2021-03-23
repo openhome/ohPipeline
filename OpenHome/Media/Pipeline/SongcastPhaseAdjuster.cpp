@@ -71,6 +71,7 @@ SongcastPhaseAdjuster::SongcastPhaseAdjuster(
 
 SongcastPhaseAdjuster::~SongcastPhaseAdjuster()
 {
+    iQueue.Clear();
     ClearDecodedStream();
 }
 
