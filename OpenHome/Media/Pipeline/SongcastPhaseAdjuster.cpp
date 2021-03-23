@@ -271,7 +271,7 @@ MsgAudio* SongcastPhaseAdjuster::RampUp(MsgAudio* aMsg)
     if (aMsg->Jiffies() > iRemainingRampSize && iRemainingRampSize > 0) {
         split = aMsg->Split(iRemainingRampSize);
         if (split != nullptr) {
-            iQueue.EnqueueAtHead(split);
+            iQueue.Enqueue(split);
         }
     }
     split = nullptr;
@@ -279,7 +279,7 @@ MsgAudio* SongcastPhaseAdjuster::RampUp(MsgAudio* aMsg)
         iCurrentRampValue = aMsg->SetRamp(iCurrentRampValue, iRemainingRampSize, Ramp::EUp, split);
     }
     if (split != nullptr) {
-        iQueue.EnqueueAtHead(split);
+        iQueue.Enqueue(split);
     }
     if (iRemainingRampSize == 0) {
         iState = State::Running;
@@ -291,10 +291,41 @@ MsgAudio* SongcastPhaseAdjuster::StartRampUp(MsgAudio* aMsg)
 {
     iState = State::RampingUp;
     iRemainingRampSize = iRampJiffies;
+
+    ASSERT(iDecodedStream != nullptr);
+    const auto& info = iDecodedStream->StreamInfo();
+    const TUint droppedSamples = iDroppedJiffies / Jiffies::PerSample(info.SampleRate());
+    const TUint sampleStart = info.SampleStart() + droppedSamples;
+    auto* msgDecodedStream = iMsgFactory.CreateMsgDecodedStream(
+        info.StreamId(),
+        info.BitRate(),
+        info.BitDepth(),
+        info.SampleRate(),
+        info.NumChannels(),
+        info.CodecName(),
+        info.TrackLength(),
+        sampleStart,
+        info.Lossless(),
+        info.Seekable(),
+        info.Live(),
+        info.AnalogBypass(),
+        info.Format(),
+        info.Multiroom(),
+        info.Profile(),
+        info.StreamHandler(),
+        info.Ramp()
+    );
+
+    // No way to pass MsgDecodedStream up through chain of calls that get here.
+    // So, queue up MsgDecodedStream and MsgAudio.
+    iQueue.Enqueue(msgDecodedStream);
+
     if (aMsg != nullptr) {
-        return RampUp(aMsg);
+        auto* msgAudio = RampUp(aMsg);
+        // MsgDecodedStream has been queued up, so must queue audio up behind it rather than returning from here.
+        iQueue.Enqueue(msgAudio);
     }
-    return aMsg;
+    return nullptr;
 }
 
 void SongcastPhaseAdjuster::ResetPhaseDelay()
