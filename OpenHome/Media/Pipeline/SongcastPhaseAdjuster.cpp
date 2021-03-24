@@ -187,7 +187,22 @@ void SongcastPhaseAdjuster::Stop()
 
 MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
 {
-    if (iState == State::Adjusting) {
+    if (iState == State::Starting) {
+        // log intention to discard audio once (function may be called many times with
+        // State::Adjusting while we discard and we can't afford to log all these times).
+        const TUint trackedJiffies = static_cast<TUint>(iTrackedJiffies);
+        LOG(kPipeline, "SongcastPhaseAdjuster: tracked=%u (%ums), delay=%u (%ums)\n",
+                       trackedJiffies, Jiffies::ToMs(trackedJiffies), iDelayJiffies, Jiffies::ToMs(iDelayJiffies));
+        iState = State::Adjusting;
+    }
+
+    if (iState == State::Running) {
+        return aMsg;
+    }
+    else if (iState == State::RampingUp) {
+        return RampUp(aMsg);
+    }
+    else { // iState == State::Adjusting
         if (iDelayJiffies == 0) {
             // No MsgDelay (with value > 0) was seen. Switch to running state.
             iState = State::Running;
@@ -227,12 +242,6 @@ MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* 
             }
             return aMsg;
         }
-    }
-    else if (iState == State::RampingUp) {
-        return RampUp(aMsg);
-    }
-    else {
-        return aMsg;
     }
 }
 
@@ -331,7 +340,7 @@ MsgAudio* SongcastPhaseAdjuster::StartRampUp(MsgAudio* aMsg)
 
 void SongcastPhaseAdjuster::ResetPhaseDelay()
 {
-    iState = State::Adjusting;
+    iState = State::Starting;
 
     iMsgSilenceJiffies = 0;
     iMsgAudioJiffies = 0;

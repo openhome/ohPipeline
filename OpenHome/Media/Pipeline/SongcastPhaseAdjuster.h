@@ -27,6 +27,7 @@ private:
     static const Brn kModeSongcast;
     enum class State
     {
+        Starting,
         Running,
         Adjusting,
         RampingUp
