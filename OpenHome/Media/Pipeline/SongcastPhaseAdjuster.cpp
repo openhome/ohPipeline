@@ -336,8 +336,6 @@ void SongcastPhaseAdjuster::ResetPhaseDelay()
     iMsgSilenceJiffies = 0;
     iMsgAudioJiffies = 0;
 
-    iDelayJiffies = 0;
-    iDropLimitJiffies = 0;
     iDroppedJiffies = 0;
     iInjectedJiffies = 0;
 
