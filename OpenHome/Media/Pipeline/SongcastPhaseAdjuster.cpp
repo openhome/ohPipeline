@@ -81,9 +81,11 @@ Msg* SongcastPhaseAdjuster::Pull()
     do {
         if (!iQueue.IsEmpty()) {
             msg = iQueue.Dequeue();
+            iMsgIsFromUpstream = false;
         }
         else {
             msg = iUpstreamElement.Pull();
+            iMsgIsFromUpstream = true;
         }
         msg = msg->Process(*this);
     } while (msg == nullptr);
@@ -135,6 +137,11 @@ Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
 {
     ClearDecodedStream();
     if (iModeSongcast) {
+        if (iMsgIsFromUpstream) {
+            // ResetPhaseDelay (indirectly, via StartRampUp) prompts creation of a local DecondedStream
+            ResetPhaseDelay();
+        }
+
         aMsg->AddRef();
         iDecodedStream = aMsg;
     }
