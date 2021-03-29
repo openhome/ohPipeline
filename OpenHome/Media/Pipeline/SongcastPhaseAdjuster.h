@@ -63,7 +63,6 @@ private:
     IPipelineElementUpstream& iUpstreamElement;
     const TBool iEnabled;
     TBool iModeSongcast;
-    TBool iMsgIsFromUpstream;
     State iState;
     Mutex iLock;
     TUint iUpdateCount;

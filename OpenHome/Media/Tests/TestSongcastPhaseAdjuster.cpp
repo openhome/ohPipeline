@@ -228,7 +228,6 @@ void SuiteSongcastPhaseAdjuster::Setup()
 void SuiteSongcastPhaseAdjuster::TearDown()
 {
     iMsgQueue.Clear();
-    TEST(iBufferSize == 0);
     delete iDecodedAudioValidator;
     delete iRampValidator;
     delete iPhaseAdjuster;
