@@ -1025,11 +1025,8 @@ void SuiteSongcastPhaseAdjuster::TestAnimatorDelayConsidered()
     TEST(iJiffies == kDelayJiffies);
 
     QueueAudio(kDelayJiffies);
-    const auto offset = iTrackOffset;
-    const auto bufferedAudio = iBufferSize;
-    iJiffies = 0;
-
     TEST(PullPostDropDecodedStream());
+
     TUint pos = iAnimatorDelayJiffies;
     Jiffies::RoundDown(pos, 44100);
     TEST(iLastPulledStreamPos == pos);
