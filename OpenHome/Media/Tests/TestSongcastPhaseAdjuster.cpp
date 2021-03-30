@@ -75,10 +75,10 @@ private: // from IClockPuller
     void Start() override;
     void Stop() override;
 private: // from IPipelineAnimator
-    TUint PipelineAnimatorBufferJiffies() const;
-    TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const;
-    TUint PipelineAnimatorDsdBlockSizeWords() const;
-    TUint PipelineAnimatorMaxBitDepth() const;
+    TUint PipelineAnimatorBufferJiffies() const override;
+    TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
+    TUint PipelineAnimatorDsdBlockSizeWords() const override;
+    TUint PipelineAnimatorMaxBitDepth() const override;
 private:
     enum EMsgType
     {
