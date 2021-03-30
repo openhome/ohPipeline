@@ -661,7 +661,7 @@ void StarvationRamper::ProcessMsgIn(MsgTrack* /*aMsg*/)
 
 void StarvationRamper::ProcessMsgIn(MsgDelay* aMsg)
 {
-    iMaxJiffies = aMsg->DelayJiffies();
+    iMaxJiffies = aMsg->RemainingJiffies();
 }
 
 void StarvationRamper::ProcessMsgIn(MsgHalt* /*aMsg*/)

@@ -47,6 +47,7 @@ SongcastPhaseAdjuster::SongcastPhaseAdjuster(
     : PipelineElement(kSupportedMsgTypes)
     , iMsgFactory(aMsgFactory)
     , iUpstreamElement(aUpstreamElement)
+    , iAnimator(nullptr)
     , iEnabled(aEnabled)
     , iModeSongcast(false)
     , iState(State::Running)
@@ -73,6 +74,11 @@ SongcastPhaseAdjuster::~SongcastPhaseAdjuster()
 {
     iQueue.Clear();
     ClearDecodedStream();
+}
+
+void SongcastPhaseAdjuster::SetAnimator(IPipelineAnimator& aAnimator)
+{
+    iAnimator = &aAnimator;
 }
 
 Msg* SongcastPhaseAdjuster::Pull()
@@ -117,7 +123,11 @@ Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
 Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
 {
     if (iModeSongcast) {
-        iDelayJiffies = aMsg->DelayJiffies();
+        ASSERT(iAnimator != nullptr);
+        const auto& stream = iDecodedStream->StreamInfo();
+        const auto animatorDelayJiffies = iAnimator->PipelineAnimatorDelayJiffies(
+            stream.Format(), stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
+        iDelayJiffies = aMsg->TotalJiffies() - animatorDelayJiffies;
         if (iDelayJiffies > kDropLimitDelayOffsetJiffies) {
             iDropLimitJiffies = iDelayJiffies - kDropLimitDelayOffsetJiffies;
         }

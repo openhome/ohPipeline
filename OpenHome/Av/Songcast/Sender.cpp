@@ -155,7 +155,7 @@ Msg* Sender::ProcessMsg(MsgDrain* aMsg)
 Msg* Sender::ProcessMsg(MsgDelay* aMsg)
 {
     SendPendingAudio();
-    const TUint latencyMs = Jiffies::ToMs(aMsg->DelayJiffies());
+    const TUint latencyMs = Jiffies::ToMs(aMsg->RemainingJiffies());
     iOhmSender->SetLatency(std::max(latencyMs, iMinLatencyMs));
     aMsg->RemoveRef();
     return nullptr;

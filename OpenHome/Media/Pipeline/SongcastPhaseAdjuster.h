@@ -35,6 +35,7 @@ private:
 public:
     SongcastPhaseAdjuster(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, TUint aRampJiffiesLong, TUint aRampJiffiesShort, TBool aEnabled);
     ~SongcastPhaseAdjuster();
+    void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // from PipelineElement (IMsgProcessor)
@@ -61,6 +62,7 @@ private:
 private:
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstreamElement;
+    IPipelineAnimator* iAnimator;
     const TBool iEnabled;
     TBool iModeSongcast;
     State iState;

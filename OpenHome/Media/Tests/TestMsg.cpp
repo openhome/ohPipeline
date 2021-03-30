@@ -2315,14 +2315,25 @@ void SuiteDelay::Test()
 {
     const TUint kDelayJiffies = Jiffies::kPerMs * 100;
     MsgDelay* msg = iMsgFactory->CreateMsgDelay(kDelayJiffies);
-    TEST(msg->DelayJiffies() == kDelayJiffies);
+    TEST(msg->RemainingJiffies() == kDelayJiffies);
+    TEST(msg->TotalJiffies() == kDelayJiffies);
     msg->RemoveRef();
-    TEST(msg->DelayJiffies() != kDelayJiffies);
+    TEST(msg->RemainingJiffies() != kDelayJiffies);
+    TEST(msg->TotalJiffies() != kDelayJiffies);
 
     msg = iMsgFactory->CreateMsgDelay(0);
-    TEST(msg->DelayJiffies() == 0);
+    TEST(msg->RemainingJiffies() == 0);
+    TEST(msg->TotalJiffies() == 0);
     msg->RemoveRef();
-    TEST(msg->DelayJiffies() != 0);
+    TEST(msg->RemainingJiffies() != 0);
+    TEST(msg->TotalJiffies() != 0);
+
+    msg = iMsgFactory->CreateMsgDelay(kDelayJiffies/2, kDelayJiffies);
+    TEST(msg->RemainingJiffies() == kDelayJiffies/2);
+    TEST(msg->TotalJiffies() == kDelayJiffies);
+    msg->RemoveRef();
+    TEST(msg->RemainingJiffies() != kDelayJiffies/2);
+    TEST(msg->TotalJiffies() != kDelayJiffies);
 }
 
 

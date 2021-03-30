@@ -271,7 +271,7 @@ Msg* SuiteSupplyAggregator::ProcessMsg(MsgDrain* aMsg)
 Msg* SuiteSupplyAggregator::ProcessMsg(MsgDelay* aMsg)
 {
     iLastMsg = EMsgDelay;
-    TEST(aMsg->DelayJiffies() == kDelayJiffies);
+    TEST(aMsg->TotalJiffies() == kDelayJiffies);
     return aMsg;
 }
 

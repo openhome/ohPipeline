@@ -599,9 +599,9 @@ void VariableDelayLeft::SetObserver(IVariableDelayObserver& aObserver)
 
 Msg* VariableDelayLeft::ProcessMsg(MsgDelay* aMsg)
 {
-    const TUint msgDelayJiffies = aMsg->DelayJiffies();
+    const TUint msgDelayJiffies = aMsg->TotalJiffies();
     aMsg->RemoveRef();
-    auto msg = iMsgFactory.CreateMsgDelay(std::min(iDownstreamDelay, msgDelayJiffies));
+    auto msg = iMsgFactory.CreateMsgDelay(std::min(iDownstreamDelay, msgDelayJiffies), msgDelayJiffies);
     TUint delayJiffies = (iDownstreamDelay >= msgDelayJiffies? 0 : msgDelayJiffies - iDownstreamDelay);
     LOG(kMedia, "VariableDelayLeft::ProcessMsg(MsgDelay(%u): delay=%u(%u), prev=%u(%u), iStatus=%s\n",
                 msgDelayJiffies,
@@ -656,7 +656,8 @@ Msg* VariableDelayRight::ProcessMsg(MsgMode* aMsg)
 
 Msg* VariableDelayRight::ProcessMsg(MsgDelay* aMsg)
 {
-    const TUint msgDelayJiffies = aMsg->DelayJiffies();
+    const TUint msgDelayJiffies = aMsg->RemainingJiffies();
+    const TUint msgDelayTotalJiffies = aMsg->TotalJiffies();
     TUint delayJiffies = std::max(msgDelayJiffies, iMinDelay);
     iDelayJiffiesTotal = delayJiffies;
     aMsg->RemoveRef();
@@ -671,7 +672,7 @@ Msg* VariableDelayRight::ProcessMsg(MsgDelay* aMsg)
 
     HandleDelayChange(delayJiffies);
 
-    return iMsgFactory.CreateMsgDelay(delayJiffies);
+    return iMsgFactory.CreateMsgDelay(delayJiffies, std::max(msgDelayTotalJiffies, iMinDelay));
 }
 
 Msg* VariableDelayRight::ProcessMsg(MsgDecodedStream* aMsg)

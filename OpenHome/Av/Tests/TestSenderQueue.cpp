@@ -195,7 +195,7 @@ Msg* SuiteSenderQueue::ProcessMsg(MsgDrain* aMsg)
 Msg* SuiteSenderQueue::ProcessMsg(MsgDelay* aMsg)
 {
     iLastPulledMsg = EMsgDelay;
-    iLastDelayJiffies = aMsg->DelayJiffies();
+    iLastDelayJiffies = aMsg->RemainingJiffies();
     return aMsg;
 }
 

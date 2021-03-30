@@ -384,7 +384,7 @@ Msg* DummySupply::ProcessMsg(MsgDrain* aMsg)
 
 Msg* DummySupply::ProcessMsg(MsgDelay* aMsg)
 {
-    iLastDelayJiffies = aMsg->DelayJiffies();
+    iLastDelayJiffies = aMsg->TotalJiffies();
     return aMsg;
 }
 

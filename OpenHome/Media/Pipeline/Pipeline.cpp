@@ -940,6 +940,7 @@ void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
     iStreamValidator->SetAnimator(aAnimator);
     iVariableDelay1->SetAnimator(aAnimator);
     iVariableDelay2->SetAnimator(aAnimator);
+    iSongcastPhaseAdjuster->SetAnimator(aAnimator);
     if (iMuterSamples != nullptr) {
         iMuterSamples->SetAnimator(aAnimator);
     }

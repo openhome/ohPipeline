@@ -458,7 +458,7 @@ Msg* MockMsgProcessor::ProcessMsg(MsgDelay* aMsg)
     Bws<kMaxMsgBytes> buf("MMP::ProcessMsg MsgDelay ");
     WriterBuffer writerBuffer(buf);
     WriterAscii writerAscii(writerBuffer);
-    writerAscii.WriteUint(aMsg->DelayJiffies());
+    writerAscii.WriteUint(aMsg->RemainingJiffies());
     iTestPipe.Write(buf);
     return aMsg;
 }

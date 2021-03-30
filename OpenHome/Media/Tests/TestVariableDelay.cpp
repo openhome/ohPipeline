@@ -339,7 +339,7 @@ Msg* SuiteVariableDelay::ProcessMsg(MsgDrain* aMsg)
 Msg* SuiteVariableDelay::ProcessMsg(MsgDelay* aMsg)
 {
     iLastMsg = EMsgDelay;
-    iLastPulledDelay = aMsg->DelayJiffies();
+    iLastPulledDelay = aMsg->RemainingJiffies();
     return aMsg;
 }
 

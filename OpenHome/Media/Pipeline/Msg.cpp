@@ -1153,19 +1153,30 @@ MsgDelay::MsgDelay(AllocatorBase& aAllocator)
 {
 }
 
-TUint MsgDelay::DelayJiffies() const
+TUint MsgDelay::RemainingJiffies() const
 {
-    return iDelayJiffies;
+    return iRemainingJiffies;
 }
 
-void MsgDelay::Initialise(TUint aDelayJiffies)
+TUint MsgDelay::TotalJiffies() const
 {
-    iDelayJiffies = aDelayJiffies;
+    return iTotalJiffies;
+}
+
+void MsgDelay::Initialise(TUint aTotalJiffies)
+{
+    Initialise(aTotalJiffies, aTotalJiffies);
+}
+
+void MsgDelay::Initialise(TUint aRemainingJiffies, TUint aTotalJiffies)
+{
+    iRemainingJiffies = aRemainingJiffies;
+    iTotalJiffies = aTotalJiffies;
 }
 
 void MsgDelay::Clear()
 {
-    iDelayJiffies = UINT_MAX;
+    iRemainingJiffies = iTotalJiffies  = UINT_MAX;
 }
 
 Msg* MsgDelay::Process(IMsgProcessor& aProcessor)
@@ -3877,10 +3888,17 @@ MsgDrain* MsgFactory::CreateMsgDrain(Functor aCallback)
     return msg;
 }
 
-MsgDelay* MsgFactory::CreateMsgDelay(TUint aDelayJiffies)
+MsgDelay* MsgFactory::CreateMsgDelay(TUint aTotalJiffies)
 {
     MsgDelay* msg = iAllocatorMsgDelay.Allocate();
-    msg->Initialise(aDelayJiffies);
+    msg->Initialise(aTotalJiffies);
+    return msg;
+}
+
+MsgDelay* MsgFactory::CreateMsgDelay(TUint aRemainingJiffies, TUint aTotalJiffies)
+{
+    MsgDelay* msg = iAllocatorMsgDelay.Allocate();
+    msg->Initialise(aRemainingJiffies, aTotalJiffies);
     return msg;
 }
 
