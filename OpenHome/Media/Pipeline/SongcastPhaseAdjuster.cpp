@@ -123,6 +123,7 @@ Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
 Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
 {
     if (iModeSongcast) {
+        ASSERT(iDecodedStream != nullptr);
         ASSERT(iAnimator != nullptr);
         const auto& stream = iDecodedStream->StreamInfo();
         const auto animatorDelayJiffies = iAnimator->PipelineAnimatorDelayJiffies(
