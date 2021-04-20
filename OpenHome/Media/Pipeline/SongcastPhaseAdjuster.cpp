@@ -142,8 +142,6 @@ Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
 {
     ClearDecodedStream();
     if (iModeSongcast) {
-        ResetPhaseDelay();
-
         aMsg->AddRef();
         iDecodedStream = aMsg;
     }
