@@ -72,6 +72,7 @@ class IPinsManager;
 class PinsManager;
 class ProviderPins;
 class TransportPins;
+class DeviceAnnouncerMdns;
 
 class IMediaPlayer
 {
@@ -238,6 +239,7 @@ private:
     PinsManager* iPinsManager;
     ProviderPins* iProviderPins;
     Av::TransportPins* iTransportPins;
+    DeviceAnnouncerMdns* iDeviceAnnouncerMdns;
 };
 
 } // namespace Av
