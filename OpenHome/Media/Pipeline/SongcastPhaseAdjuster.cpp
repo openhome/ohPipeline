@@ -129,7 +129,10 @@ Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
         const auto& stream = iDecodedStream->StreamInfo();
         const auto animatorDelayJiffies = iAnimator->PipelineAnimatorDelayJiffies(
             stream.Format(), stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
-        iDelayJiffies = aMsg->TotalJiffies() - animatorDelayJiffies;
+        iDelayJiffies = 0;
+        if (aMsg->TotalJiffies() > animatorDelayJiffies) {
+            iDelayJiffies = aMsg->TotalJiffies() - animatorDelayJiffies;
+        }
         if (iDelayJiffies > kDropLimitDelayOffsetJiffies) {
             iDropLimitJiffies = iDelayJiffies - kDropLimitDelayOffsetJiffies;
         }
