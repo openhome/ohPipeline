@@ -29,6 +29,7 @@
 #include <OpenHome/Av/Pins/ProviderPins.h>
 #include <OpenHome/Av/Pins/TransportPins.h>
 #include <OpenHome/SocketSsl.h>
+#include <OpenHome/Av/DeviceAnnouncerMdns.h>
 
 #include <memory>
 
@@ -238,6 +239,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
         iTransportPins = new TransportPins(aDevice, aCpStack);
         iPinsManager->Add(iTransportPins);
     }
+
+    iDeviceAnnouncerMdns = new DeviceAnnouncerMdns(aDvStack, aDevice, *iFriendlyNameManager);
 }
 
 MediaPlayer::~MediaPlayer()
@@ -250,6 +253,7 @@ MediaPlayer::~MediaPlayer()
     delete iProviderOAuth;
 
     delete iCredentials;
+    delete iDeviceAnnouncerMdns;
     /**
      * Circular dependency between ConfigStartupSource and Product on certain ConfigValues.
      * Force ConfigStartupSource to de-register its source name listeners.
