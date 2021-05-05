@@ -323,6 +323,7 @@ def build(bld):
                 'OpenHome/Av/Source.cpp',
                 'OpenHome/Av/MediaPlayer.cpp',
                 'OpenHome/Av/Logger.cpp',
+                'OpenHome/Av/DeviceAnnouncerMdns.cpp',
                 'Generated/DvAvOpenhomeOrgConfig2.cpp',
                 'OpenHome/AESHelpers.cpp',
                 'OpenHome/Json.cpp',

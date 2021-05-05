@@ -129,8 +129,13 @@ Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
         const auto& stream = iDecodedStream->StreamInfo();
         const auto animatorDelayJiffies = iAnimator->PipelineAnimatorDelayJiffies(
             stream.Format(), stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
-        iDelayJiffies = aMsg->TotalJiffies() - animatorDelayJiffies;
+        iDelayJiffies = 0;
+        if (aMsg->TotalJiffies() > animatorDelayJiffies) {
+            iDelayJiffies = aMsg->TotalJiffies() - animatorDelayJiffies;
+        }
+        iDropLimitJiffies = 0;
         if (iDelayJiffies > kDropLimitDelayOffsetJiffies) {
+            // There is more than kDropLimitDelayOffsetJiffies jiffies of delay, so set drop limit above 0.
             iDropLimitJiffies = iDelayJiffies - kDropLimitDelayOffsetJiffies;
         }
     }
@@ -219,7 +224,10 @@ MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* 
         if (error > 0) {
             // Drop audio.
             if (iDroppedJiffies + error > iDropLimitJiffies) {
-                error = iDropLimitJiffies - iDroppedJiffies;
+                error = 0;
+                if (iDropLimitJiffies > iDroppedJiffies) {
+                    error = iDropLimitJiffies - iDroppedJiffies;;
+                }
             }
             TUint dropped = 0;
             MsgAudio* msg = aMsg;
