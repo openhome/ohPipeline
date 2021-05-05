@@ -104,7 +104,7 @@ Protocol* ProtocolFactory::NewTidal(Environment& aEnv,
                                     Av::IMediaPlayer& aMediaPlayer)
 { // static
     const TBool hasPartnerId = aPartnerId.Bytes() > 0;
-    const TBool hasIdSecretCombo = aClientId.Bytes() > 0 && aClientSecret.Bytes() > 0;
+    const TBool hasIdSecretCombo = aClientId.Bytes() > 0; //NOTE - secret is optional, depending on the OAuth flow used.
 
     ASSERT(hasPartnerId || hasIdSecretCombo);
 
