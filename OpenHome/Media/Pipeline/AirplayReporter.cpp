@@ -29,9 +29,9 @@ void AirplayDidlLiteWriter::Write(IWriter& aWriter, TUint aBitDepth, TUint aChan
     Converter::ToXmlEscaped(writer, iMetadata.Track());
     writer.Write(Brn("</dc:title>"));
 
-    writer.Write(Brn("<dc:creator>"));
+    writer.Write(Brn("<upnp:artist>"));
     Converter::ToXmlEscaped(writer, iMetadata.Artist());
-    writer.Write(Brn("</dc:creator>"));
+    writer.Write(Brn("</upnp:artist>"));
 
     writer.Write(Brn("<upnp:album>"));
     Converter::ToXmlEscaped(writer, iMetadata.Album());
