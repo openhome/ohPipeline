@@ -28,7 +28,17 @@ TBool ContentAudio::Recognise(const Brx& /*aUri*/, const Brx& /*aMimeType*/, con
 
 ProtocolStreamResult ContentAudio::Stream(IReader& aReader, TUint64 aTotalBytes)
 {
+    static const TUint kBlocksPerYield = 12; /* Pipeline threads will take priority over
+                                                most other activities in a real-time system.
+                                                This is necessary but can result in many
+                                                seconds where evented updates are blocked
+                                                when a high-res track starts.
+                                                Mitigate the effects of this by yielding
+                                                for a brief period every so often.  The
+                                                value chosen is intended to allow ~5 yields
+                                                per second for 192/24 stereo FLAC. */
     ProtocolStreamResult res = EProtocolStreamSuccess;
+    TUint blocksUntilYield = kBlocksPerYield;
     try {
         for (;;) {
             Brn buf = aReader.Read(kMaxReadBytes);
@@ -44,6 +54,10 @@ ProtocolStreamResult ContentAudio::Stream(IReader& aReader, TUint64 aTotalBytes)
                         break;
                     }
                 }
+            }
+            if (--blocksUntilYield == 0) {
+                Thread::Sleep(5);
+                blocksUntilYield = kBlocksPerYield;
             }
         }
     }
