@@ -14,17 +14,16 @@ namespace OpenHome {
 namespace Media {
 
 /*
-Element which minimises initial phase delay in Songcast streams.
+Element which minimises initial phase delay in streams supporting latency.
 Aims to minimise variances in initial phase delay between senders and receivers which could be caused by differences in hardware, audio pipeline, logging and network differences, among other things.
 If receiver audio is lagging behind sender at start of stream, this class will drop audio packets, replacing them with silence, until phase delay is minimised.
 If receiver audio is ahead of sender at start of stream, this class will delay outputting receiver audio, replacing with silence, until phase delay is minimised.
 */
-class SongcastPhaseAdjuster : public PipelineElement, public IPipelineElementUpstream, public IClockPuller
+class PhaseAdjuster : public PipelineElement, public IPipelineElementUpstream, public IClockPuller
 {
 private:
     static const TUint kSupportedMsgTypes;
     static const TUint kDropLimitDelayOffsetJiffies = 56448 * 10; // 10 ms. Allow dropping up to "initial_delay - kDropLimitDelayOffsetJiffies" jiffies, or 0, whichever is greater.
-    static const Brn kModeSongcast;
     enum class State
     {
         Starting,
@@ -33,8 +32,8 @@ private:
         RampingUp
     };
 public:
-    SongcastPhaseAdjuster(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, TUint aRampJiffiesLong, TUint aRampJiffiesShort, TBool aEnabled);
-    ~SongcastPhaseAdjuster();
+    PhaseAdjuster(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, TUint aRampJiffiesLong, TUint aRampJiffiesShort, TBool aEnabled);
+    ~PhaseAdjuster();
     void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
@@ -63,7 +62,7 @@ private:
     IPipelineElementUpstream& iUpstreamElement;
     IPipelineAnimator* iAnimator;
     const TBool iEnabled;
-    TBool iModeSongcast;
+    TBool iModeLatency;
     State iState;
     Mutex iLock;
     TUint iUpdateCount;
