@@ -1067,7 +1067,7 @@ void TestCodec(Environment& aEnv, CreateTestCodecPipelineFunc aFunc, GetTestFile
     else {
         loopback = Environment::ELoopbackExclude;
     }
-    std::vector<NetworkAdapter*>* ifs = Os::NetworkListAdapters(aEnv, loopback, "TestCodec");
+    std::vector<NetworkAdapter*>* ifs = Os::NetworkListAdapters(aEnv, loopback, false/*no ipv6*/, "TestCodec");
     ASSERT(ifs->size() > 0);
     TIpAddress addr = (*ifs)[0]->Address(); // assume we are only on one subnet (or using loopback)
     for (TUint i=0; i<ifs->size(); i++) {

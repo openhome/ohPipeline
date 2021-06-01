@@ -196,7 +196,7 @@ ProtocolStreamResult ProtocolOhBase::Stream(const Brx& aUri)
     iMutexTransport.Wait();
     RepairReset();
     iFrame = 0;
-    iTrackMsgDue = false;
+    iTrackMsgDue = true;
     iStreamMsgDue = true;
     iMetatextMsgDue = false;
     iSeqTrackValid = false;
@@ -207,6 +207,8 @@ ProtocolStreamResult ProtocolOhBase::Stream(const Brx& aUri)
     iBitDepth = iSampleRate = iNumChannels = 0;
     iLatency = 0;
     iStreamId = IPipelineIdProvider::kStreamIdInvalid;
+    iTrackUri.Replace(Brx::Empty());
+    iTrackMetadata.Replace(Brx::Empty());
     iMutexTransport.Signal();
 
     return res;
