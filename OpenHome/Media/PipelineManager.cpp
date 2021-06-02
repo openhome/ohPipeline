@@ -173,9 +173,9 @@ ISpotifyTrackObserver& PipelineManager::SpotifyTrackObserver() const
     return iPipeline->SpotifyTrackObserver();
 }
 
-IClockPuller& PipelineManager::PhaseAdjuster()
+IClockPuller& PipelineManager::SongcastPhaseAdjuster()
 {
-    return iPipeline->GetPhaseAdjuster();
+    return iPipeline->GetSongcastPhaseAdjuster();
 }
 
 MsgFactory& PipelineManager::Factory()
