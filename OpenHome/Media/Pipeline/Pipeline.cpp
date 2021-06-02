@@ -27,7 +27,7 @@
 #include <OpenHome/Media/Pipeline/Drainer.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
 #include <OpenHome/Media/Pipeline/Logger.h>
-#include <OpenHome/Media/Pipeline/SongcastPhaseAdjuster.h>
+#include <OpenHome/Media/Pipeline/PhaseAdjuster.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Media/Pipeline/Muter.h>
 #include <OpenHome/Media/Pipeline/VolumeRamper.h>
@@ -62,7 +62,7 @@ PipelineInitParams::PipelineInitParams()
     , iSupportElements(EPipelineSupportElementsAll)
     , iMuter(kMuterDefault)
     , iDsdMaxSampleRate(kDsdMaxSampleRateDefault)
-    , iSongcastPhaseAdjuster(kSongcastPhaseAdjuster)
+    , iPhaseAdjuster(kPhaseAdjusterDefault)
 {
     SetThreadPriorityMax(kThreadPriorityMax);
 }
@@ -150,9 +150,9 @@ void PipelineInitParams::SetDsdMaxSampleRate(TUint aMaxSampleRate)
     iDsdMaxSampleRate = aMaxSampleRate;
 }
 
-void PipelineInitParams::SetSongcastPhaseAdjuster(TBool aEnabled)
+void PipelineInitParams::SetPhaseAdjuster(TBool aEnabled)
 {
-    iSongcastPhaseAdjuster = aEnabled;
+    iPhaseAdjuster = aEnabled;
 }
 
 TUint PipelineInitParams::EncodedReservoirBytes() const
@@ -235,9 +235,9 @@ TUint OpenHome::Media::PipelineInitParams::DsdMaxSampleRate() const
     return iDsdMaxSampleRate;
 }
 
-TBool PipelineInitParams::SongcastPhaseAdjuster() const
+TBool PipelineInitParams::PhaseAdjuster() const
 {
-    return iSongcastPhaseAdjuster;
+    return iPhaseAdjuster;
 }
 
 
@@ -516,12 +516,12 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
 
 
-    ATTACH_ELEMENT(iSongcastPhaseAdjuster, new SongcastPhaseAdjuster(*iMsgFactory, *upstream,
-                                                                     aInitParams->RampLongJiffies(),
-                                                                     aInitParams->RampShortJiffies(),
-                                                                     aInitParams->SongcastPhaseAdjuster()),
+    ATTACH_ELEMENT(iPhaseAdjuster, new PhaseAdjuster(*iMsgFactory, *upstream,
+                                                     aInitParams->RampLongJiffies(),
+                                                     aInitParams->RampShortJiffies(),
+                                                     aInitParams->PhaseAdjuster()),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerSongcastPhaseAdjuster, new Logger(*iSongcastPhaseAdjuster, "SongcastPhaseAdjuster"),
+    ATTACH_ELEMENT(iLoggerPhaseAdjuster, new Logger(*iPhaseAdjuster, "PhaseAdjuster"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
 
 
@@ -650,8 +650,8 @@ Pipeline::~Pipeline()
     delete iLoggerAttenuator;
     delete iAttenuator;
     delete iDecodedAudioValidatorDelay2;
-    delete iLoggerSongcastPhaseAdjuster;
-    delete iSongcastPhaseAdjuster;
+    delete iLoggerPhaseAdjuster;
+    delete iPhaseAdjuster;
     delete iRampValidatorDelay2;
     delete iLoggerVariableDelay2;
     delete iVariableDelay2;
@@ -895,9 +895,9 @@ ISpotifyTrackObserver& Pipeline::SpotifyTrackObserver() const
     return *iSpotifyReporter;
 }
 
-IClockPuller& Pipeline::GetSongcastPhaseAdjuster()
+IClockPuller& Pipeline::GetPhaseAdjuster()
 {
-    return *iSongcastPhaseAdjuster;
+    return *iPhaseAdjuster;
 }
 
 IPipelineElementUpstream& Pipeline::InsertElements(IPipelineElementUpstream& aTail)
@@ -954,7 +954,7 @@ void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
     iStreamValidator->SetAnimator(aAnimator);
     iVariableDelay1->SetAnimator(aAnimator);
     iVariableDelay2->SetAnimator(aAnimator);
-    iSongcastPhaseAdjuster->SetAnimator(aAnimator);
+    iPhaseAdjuster->SetAnimator(aAnimator);
     if (iMuterSamples != nullptr) {
         iMuterSamples->SetAnimator(aAnimator);
     }

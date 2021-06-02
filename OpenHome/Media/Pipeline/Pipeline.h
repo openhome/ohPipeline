@@ -54,7 +54,7 @@ public:
     void SetSupportElements(TUint aElements); // EPipelineSupportElements members OR'd together
     void SetMuter(MuterImpl aMuter);
     void SetDsdMaxSampleRate(TUint aMaxSampleRate);
-    void SetSongcastPhaseAdjuster(TBool aEnabled);
+    void SetPhaseAdjuster(TBool aEnabled);
     // getters
     TUint EncodedReservoirBytes() const;
     TUint DecodedReservoirJiffies() const;
@@ -72,7 +72,7 @@ public:
     TUint SupportElements() const;
     MuterImpl Muter() const;
     TUint DsdMaxSampleRate() const;
-    TBool SongcastPhaseAdjuster() const;
+    TBool PhaseAdjuster() const;
 private:
     PipelineInitParams();
 private:
@@ -92,7 +92,7 @@ private:
     TUint iSupportElements;
     MuterImpl iMuter;
     TUint iDsdMaxSampleRate;
-    TBool iSongcastPhaseAdjuster;
+    TBool iPhaseAdjuster;
 private:
     static const TUint kEncodedReservoirSizeBytes       = 1536 * 1024;
     static const TUint kDecodedReservoirSize            = Jiffies::kPerMs * 2000;
@@ -107,7 +107,7 @@ private:
     static const TUint kMaxLatencyDefault               = Jiffies::kPerMs * 2000;
     static const MuterImpl kMuterDefault                = MuterImpl::eRampSamples;
     static const TUint kDsdMaxSampleRateDefault         = 0;
-    static const TBool kSongcastPhaseAdjuster           = true;
+    static const TBool kPhaseAdjusterDefault            = true;
 };
 
 namespace Codec {
@@ -140,7 +140,7 @@ class Router;
 class Attenuator;
 class DrainerRight;
 class VariableDelayRight;
-class SongcastPhaseAdjuster;
+class PhaseAdjuster;
 class StarvationRamper;
 class Muter;
 class MuterVolume;
@@ -206,7 +206,7 @@ public:
     IAirplayTrackObserver& AirplayTrackObserver() const;
     ISpotifyReporter& SpotifyReporter() const;
     ISpotifyTrackObserver& SpotifyTrackObserver() const;
-    IClockPuller& GetSongcastPhaseAdjuster();
+    IClockPuller& GetPhaseAdjuster();
     IPipelineElementUpstream& InsertElements(IPipelineElementUpstream& aTail);
     TUint SenderMinLatencyMs() const;
     void GetThreadPriorityRange(TUint& aMin, TUint& aMax) const;
@@ -315,8 +315,8 @@ private:
     VariableDelayRight* iVariableDelay2;
     Logger* iLoggerVariableDelay2;
     RampValidator* iRampValidatorDelay2;
-    SongcastPhaseAdjuster* iSongcastPhaseAdjuster;
-    Logger* iLoggerSongcastPhaseAdjuster;
+    PhaseAdjuster* iPhaseAdjuster;
+    Logger* iLoggerPhaseAdjuster;
     DecodedAudioValidator* iDecodedAudioValidatorDelay2;
     StarvationRamper* iStarvationRamper;
     Logger* iLoggerStarvationRamper;

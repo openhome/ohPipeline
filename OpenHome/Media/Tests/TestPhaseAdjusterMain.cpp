@@ -1,10 +1,10 @@
 #include <OpenHome/Private/TestFramework.h>
-extern void TestSongcastPhaseAdjuster();
+extern void TestPhaseAdjuster();
 
 void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], Net::InitialisationParams* aInitParams)
 {
     Net::UpnpLibrary::InitialiseMinimal(aInitParams);
-    TestSongcastPhaseAdjuster();
+    TestPhaseAdjuster();
     delete aInitParams;
     Net::UpnpLibrary::Close();
 }

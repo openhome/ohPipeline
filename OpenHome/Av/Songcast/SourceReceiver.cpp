@@ -231,7 +231,7 @@ UriProviderSongcast::UriProviderSongcast(IMediaPlayer& aMediaPlayer, Optional<Me
     if (aClockPuller.Ok()) {
         iClockPullers.Add(aClockPuller.Unwrap());
     }
-    auto& spa = aMediaPlayer.Pipeline().SongcastPhaseAdjuster();
+    auto& spa = aMediaPlayer.Pipeline().PhaseAdjuster();
     iClockPullers.Add(spa);
 }
 
