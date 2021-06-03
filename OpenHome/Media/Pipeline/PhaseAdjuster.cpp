@@ -9,7 +9,6 @@
 #include <OpenHome/Private/Standard.h>
 
 #include <algorithm>
-#include <limits>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
@@ -133,15 +132,11 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
         if (aMsg->TotalJiffies() > animatorDelayJiffies) {
             iDelayJiffies = aMsg->TotalJiffies() - animatorDelayJiffies;
         }
-
-        // Essentially no drop limit. This can be refactored into an if-else with the commented-out block below if we want a bounded upper limit for certain sources.
-        iDropLimitJiffies = std::numeric_limits<TUint>::max();
-
-        // iDropLimitJiffies = 0;
-        // if (iDelayJiffies > kDropLimitDelayOffsetJiffies) {
-        //     // There is more than kDropLimitDelayOffsetJiffies jiffies of delay, so set drop limit above 0.
-        //     iDropLimitJiffies = iDelayJiffies - kDropLimitDelayOffsetJiffies;
-        // }
+        iDropLimitJiffies = 0;
+        if (iDelayJiffies > kDropLimitDelayOffsetJiffies) {
+            // There is more than kDropLimitDelayOffsetJiffies jiffies of delay, so set drop limit above 0.
+            iDropLimitJiffies = iDelayJiffies - kDropLimitDelayOffsetJiffies;
+        }
     }
     aMsg->RemoveRef();
     return nullptr;
