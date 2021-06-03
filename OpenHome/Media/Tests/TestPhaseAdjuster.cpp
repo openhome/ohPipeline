@@ -186,8 +186,8 @@ SuitePhaseAdjuster::SuitePhaseAdjuster()
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestLatencyReceiverBehindMsgNonBoundary), "TestLatencyReceiverBehindMsgNonBoundary");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestLatencyReceiverBehindMsgsBoundary), "TestLatencyReceiverBehindMsgsBoundary");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestLatencyReceiverBehindMsgsNonBoundary), "TestLatencyReceiverBehindMsgsNonBoundary");
-    // AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestLatencyReceiverBehindOnLimit), "TestLatencyReceiverBehindOnLimit");
-    // AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestLatencyReceiverBehindOverLimit), "TestLatencyReceiverBehindOverLimit");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestLatencyReceiverBehindOnLimit), "TestLatencyReceiverBehindOnLimit");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestLatencyReceiverBehindOverLimit), "TestLatencyReceiverBehindOverLimit");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestLatencyReceiverAhead), "TestLatencyReceiverAhead");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestLatencyDrain), "TestLatencyDrain");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestAnimatorDelayConsidered), "TestAnimatorDelayConsidered");
