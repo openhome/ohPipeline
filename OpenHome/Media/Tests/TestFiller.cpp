@@ -4,6 +4,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/Supply.h>
+#include <OpenHome/Media/ClockPuller.h>
 
 #include <limits.h>
 #include <vector>
@@ -143,6 +144,7 @@ private:
     DummyUriStreamer* iUriStreamer;
     DummySupply* iDummySupply;
     DummyIdManager iDummyIdManager;
+    ClockPullerMock iClockPuller;
     TUint iTrackId;
     TUint iStreamId;
     TBool iPlayNow;
@@ -488,7 +490,9 @@ SuiteFiller::SuiteFiller()
     MsgFactoryInitParams init;
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iDummySupply = new DummySupply();
-    iFiller = new Filler(*iDummySupply, *this, iDummyIdManager, *this, *iMsgFactory, *iTrackFactory, *this, *this, kPriorityNormal, kDefaultLatency);
+    iFiller = new Filler(
+        *iDummySupply, *this, iDummyIdManager, *this, *iMsgFactory, *iTrackFactory,
+        *this, *this, iClockPuller, kPriorityNormal, kDefaultLatency);
     iUriProvider = new DummyUriProvider(*iTrackFactory);
     iUriStreamer = new DummyUriStreamer(*iMsgFactory, *iFiller, iTrackAddedSem, iTrackCompleteSem);
     iFiller->Add(*iUriProvider);

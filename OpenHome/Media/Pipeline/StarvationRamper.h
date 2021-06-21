@@ -23,6 +23,13 @@ public:
     virtual ~IPipelineDrainer() {}
 };
 
+class IStarvationRamper
+{
+public:
+    virtual ~IStarvationRamper() {}
+    virtual void WaitForOccupancy(TUint aJiffies) = 0;
+};
+
 class FlywheelInput : public IPcmProcessor
 {
     static const TUint kMaxSampleRate = 192000;
@@ -93,6 +100,7 @@ class IPipelineElementObserverThread;
 class StarvationRamper : public MsgReservoir
                        , public IPipelineElementUpstream
                        , public IPipelineDrainer
+                       , public IStarvationRamper
 {
     friend class SuiteStarvationRamper;
     static const TUint kTrainingJiffies;
@@ -140,6 +148,8 @@ private: // from MsgReservoir
     Msg* ProcessMsgOut(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsgOut(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsgOut(MsgSilence* aMsg) override;
+private: // from IStarvationRamper
+    void WaitForOccupancy(TUint aJiffies) override;
 private:
     enum class State {
         Starting,
@@ -169,11 +179,11 @@ private:
     TUint iRecentAudioJiffies;
     IStreamHandler* iStreamHandler;
     State iState;
-    TBool iRunning;
     TBool iStarving;
     TBool iExit;
     std::atomic<TBool> iStartDrain;
     std::atomic<TBool> iDraining;
+    std::atomic<TBool> iStreamStarted;
     BwsMode iMode;
     TUint iStreamId;
     TUint iSampleRate;
@@ -187,8 +197,11 @@ private:
     TUint iEventId;
     std::atomic<TUint> iTrackStreamCount;
     std::atomic<TUint> iHaltCount;
+    std::atomic<TUint> iStartOccupancyJiffies; // Pull will block once until this level is reached
+    Semaphore iSemStartOccupancy;
     std::atomic<bool> iEventBuffering;
     TBool iLastEventBuffering;
+    TUint iAudioOutSinceLastStartOccupancy;
 };
 
 } //namespace Media

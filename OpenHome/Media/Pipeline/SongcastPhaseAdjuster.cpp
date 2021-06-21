@@ -40,6 +40,7 @@ const Brn SongcastPhaseAdjuster::kModeSongcast("Receiver"); // Av::SourceFactory
 SongcastPhaseAdjuster::SongcastPhaseAdjuster(
     MsgFactory& aMsgFactory,
     IPipelineElementUpstream& aUpstreamElement,
+    IStarvationRamper& aStarvationRamper,
     TUint aRampJiffiesLong,
     TUint aRampJiffiesShort,
     TBool aEnabled
@@ -47,6 +48,7 @@ SongcastPhaseAdjuster::SongcastPhaseAdjuster(
     : PipelineElement(kSupportedMsgTypes)
     , iMsgFactory(aMsgFactory)
     , iUpstreamElement(aUpstreamElement)
+    , iStarvationRamper(aStarvationRamper)
     , iAnimator(nullptr)
     , iEnabled(aEnabled)
     , iModeSongcast(false)
@@ -60,13 +62,13 @@ SongcastPhaseAdjuster::SongcastPhaseAdjuster(
     , iMsgSilenceJiffies(0)
     , iMsgAudioJiffies(0)
     , iDelayJiffies(0)
-    , iDropLimitJiffies(0)
     , iDroppedJiffies(0)
     , iRampJiffiesLong(aRampJiffiesLong)
     , iRampJiffiesShort(aRampJiffiesShort)
     , iRampJiffies(iRampJiffiesLong)
     , iRemainingRampSize(0)
     , iCurrentRampValue(Ramp::kMin)
+    , iConfirmOccupancy(false)
 {
 }
 
@@ -91,6 +93,10 @@ Msg* SongcastPhaseAdjuster::Pull()
         else {
             msg = iUpstreamElement.Pull();
             msg = msg->Process(*this);
+            if (iConfirmOccupancy) {
+                iStarvationRamper.WaitForOccupancy(iAnimator->PipelineAnimatorBufferJiffies());
+                iConfirmOccupancy = false;
+            }
         }
     } while (msg == nullptr);
     return msg;
@@ -98,7 +104,7 @@ Msg* SongcastPhaseAdjuster::Pull()
 
 Msg* SongcastPhaseAdjuster::ProcessMsg(MsgMode* aMsg)
 {
-    if (aMsg->Mode() == kModeSongcast) {
+    if (aMsg->Info().SupportsLatency()) {
         iModeSongcast = true;
         iRampJiffies = aMsg->Info().RampPauseResumeLong()?
                         iRampJiffiesLong : iRampJiffiesShort;
@@ -132,11 +138,6 @@ Msg* SongcastPhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
         iDelayJiffies = 0;
         if (aMsg->TotalJiffies() > animatorDelayJiffies) {
             iDelayJiffies = aMsg->TotalJiffies() - animatorDelayJiffies;
-        }
-        iDropLimitJiffies = 0;
-        if (iDelayJiffies > kDropLimitDelayOffsetJiffies) {
-            // There is more than kDropLimitDelayOffsetJiffies jiffies of delay, so set drop limit above 0.
-            iDropLimitJiffies = iDelayJiffies - kDropLimitDelayOffsetJiffies;
         }
     }
     aMsg->RemoveRef();
@@ -223,20 +224,15 @@ MsgAudio* SongcastPhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* 
         TInt error = iTrackedJiffies - iDelayJiffies;
         if (error > 0) {
             // Drop audio.
-            if (iDroppedJiffies + error > iDropLimitJiffies) {
-                error = 0;
-                if (iDropLimitJiffies > iDroppedJiffies) {
-                    error = iDropLimitJiffies - iDroppedJiffies;;
-                }
-            }
             TUint dropped = 0;
             MsgAudio* msg = aMsg;
             if (error > 0) { // Error may have become 0 in drop limit calc above.
                 msg = DropAudio(aMsg, error, dropped);
+                iStarvationRamper.WaitForOccupancy(iAnimator->PipelineAnimatorBufferJiffies());
             }
             iDroppedJiffies += dropped;
             error -= dropped;
-            if (iDroppedJiffies >= iDropLimitJiffies || error == 0) {
+            if (error == 0) {
                 // Have dropped audio so must now ramp up.
                 return StartRampUp(msg);
             }
@@ -316,6 +312,12 @@ MsgAudio* SongcastPhaseAdjuster::StartRampUp(MsgAudio* aMsg)
 {
     iState = State::RampingUp;
     iRemainingRampSize = iRampJiffies;
+    iConfirmOccupancy = true; /* We've discarded some audio.  There may now be no audio in
+                                 StarvationRamper but plenty upstream of it.  Instruct
+                                 StarvationRamper to wait for some of this audio to reach
+                                 it before we try Pull()ing.  (Since audio is already in
+                                 the pipeline, this will take a tiny amount of time if we
+                                 yield from our higher priority thread.) */
 
     ASSERT(iDecodedStream != nullptr);
     const auto& info = iDecodedStream->StreamInfo();

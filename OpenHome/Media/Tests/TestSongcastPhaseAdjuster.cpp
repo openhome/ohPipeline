@@ -7,6 +7,7 @@
 #include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/Pipeline/RampValidator.h>
 #include <OpenHome/Media/Pipeline/DecodedAudioValidator.h>
+#include <OpenHome/Media/Pipeline/StarvationRamper.h>
 
 using namespace OpenHome;
 using namespace OpenHome::TestFramework;
@@ -21,6 +22,7 @@ class SuiteSongcastPhaseAdjuster
     , private IMsgProcessor
     , private IClockPuller
     , private IPipelineAnimator
+    , private IStarvationRamper
 {
 private:
     static const TUint kDecodedAudioCount   = 16;
@@ -79,6 +81,8 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
     TUint PipelineAnimatorMaxBitDepth() const override;
+private: // from IStarvationRamper
+    void WaitForOccupancy(TUint aJiffies) override;
 private:
     enum EMsgType
     {
@@ -123,8 +127,6 @@ private:
     void TestSongcastReceiverBehindMsgsBoundary();
     void TestSongcastReceiverBehindMsgsNonBoundary();
 
-    void TestSongcastReceiverBehindOnLimit();
-    void TestSongcastReceiverBehindOverLimit();
     void TestSongcastReceiverAhead();
 
     void TestSongcastDrain(); // Results in new delay being sent down. Applies where clock family changes.
@@ -189,8 +191,6 @@ SuiteSongcastPhaseAdjuster::SuiteSongcastPhaseAdjuster()
     AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgNonBoundary), "TestSongcastReceiverBehindMsgNonBoundary");
     AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgsBoundary), "TestSongcastReceiverBehindMsgsBoundary");
     AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgsNonBoundary), "TestSongcastReceiverBehindMsgsNonBoundary");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindOnLimit), "TestSongcastReceiverBehindOnLimit");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindOverLimit), "TestSongcastReceiverBehindOverLimit");
     AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverAhead), "TestSongcastReceiverAhead");
     AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastDrain), "TestSongcastDrain");
     AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestAnimatorDelayConsidered), "TestAnimatorDelayConsidered");
@@ -213,7 +213,7 @@ void SuiteSongcastPhaseAdjuster::Setup()
     init.SetMsgDelayCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
-    iPhaseAdjuster = new SongcastPhaseAdjuster(*iMsgFactory, *this, kRampDurationMin, kRampDurationMax, true);
+    iPhaseAdjuster = new SongcastPhaseAdjuster(*iMsgFactory, *this, *this, kRampDurationMin, kRampDurationMax, true);
     iPhaseAdjuster->SetAnimator(*this);
     iRampValidator = new RampValidator(*iPhaseAdjuster, "RampValidator");
     iDecodedAudioValidator = new DecodedAudioValidator(*iRampValidator, "DecodedAudioValidator");
@@ -536,8 +536,7 @@ void SuiteSongcastPhaseAdjuster::Stop()
 
 TUint SuiteSongcastPhaseAdjuster::PipelineAnimatorBufferJiffies() const
 {
-    ASSERTS();
-    return 0;
+    return Jiffies::kPerMs;
 }
 
 TUint SuiteSongcastPhaseAdjuster::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const
@@ -555,6 +554,11 @@ TUint SuiteSongcastPhaseAdjuster::PipelineAnimatorMaxBitDepth() const
 {
     ASSERTS();
     return 24;
+}
+
+void SuiteSongcastPhaseAdjuster::WaitForOccupancy(TUint /*aJiffies*/)
+{
+    // FIXME - add tests for this being called
 }
 
 void SuiteSongcastPhaseAdjuster::PullNext()
@@ -808,89 +812,6 @@ void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgsNonBoundary()
     TEST(iTrackOffset == offset); // Should have create 3 MsgAudioPcm, but first 2.5 should have been dropped by phase adjuster.
     TEST(iBufferSize == bufferedAudio - 2 * static_cast<TInt>(kDefaultAudioJiffies)); // Pulling through next MsgAudioPcm should have resulted in 2 msgs worth of audio being released (1.5 msgs dropped, 0.5 msg remainder returned).
 
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    TEST(iRampStatus == ERampStatus::ERampComplete);
-}
-
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindOnLimit()
-{
-    iNextModeClockPuller = nullptr;
-
-    PullNext(EMsgModeSongcast);
-    PullNext(EMsgTrack);
-    PullNext(EMsgDecodedStream);
-    TEST(iLastPulledStreamPos == 0);
-    iNextGeneratedMsg = EMsgDelay;
-    iNextDelayAbsoluteJiffies = kDelayJiffies;
-    iJiffies = 0;
-    PullNext(); // Phase adjuster consumes delay.
-
-    while (iJiffies < kDelayJiffies) {
-        PullNext(EMsgSilence);
-    }
-    TEST(iJiffies == kDelayJiffies);
-
-    QueueAudio(kDelayJiffies);
-    static const TUint kDropLimitJiffies = kDelayJiffies - 56448 * 10;
-    QueueAudio(kDropLimitJiffies);
-    const auto offset = iTrackOffset;
-    const auto bufferedAudio = iBufferSize;
-    iJiffies = 0;
-
-    TEST(PullPostDropDecodedStream());
-    TEST(iLastPulledStreamPos == kDropLimitJiffies);
-    iRampStatus = ERampStatus::ERampingUp;
-    iLastRampPos = 0;
-    PullNext(EMsgAudioPcm);
-    TEST(iJiffies == 318720);
-    TEST(iTrackOffset == offset);
-    TEST(iBufferSize == bufferedAudio - static_cast<TInt>(kDropLimitJiffies) - 318720); // Should have pulled through drop limit jiffies + remainder of last msg that was split.
-
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    TEST(iRampStatus == ERampStatus::ERampComplete);
-}
-
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindOverLimit()
-{
-    iNextModeClockPuller = nullptr;
-
-    PullNext(EMsgModeSongcast);
-    PullNext(EMsgTrack);
-    PullNext(EMsgDecodedStream);
-    TEST(iLastPulledStreamPos == 0);
-    iNextGeneratedMsg = EMsgDelay;
-    iNextDelayAbsoluteJiffies = kDelayJiffies;
-    iJiffies = 0;
-    PullNext(); // Phase adjuster consumes delay.
-
-    while (iJiffies < kDelayJiffies) {
-        PullNext(EMsgSilence);
-    }
-    TEST(iJiffies == kDelayJiffies);
-
-    QueueAudio(kDelayJiffies);
-    static const TUint kDropLimitJiffies = kDelayJiffies - 56448 * 10;
-    static const TUint kBufferedJiffies = kDropLimitJiffies + 1280; // Need to have at least 1 full sample's worth of jiffies for the given sample rate, as MsgAudio can't have a boundary on a partial sample (e.g., only 1 jiffy).
-    QueueAudio(kBufferedJiffies);
-    const auto offset = iTrackOffset;
-    const auto bufferedAudio = iBufferSize;
-    iJiffies = 0;
-
-    TEST(PullPostDropDecodedStream());
-    TEST(iLastPulledStreamPos == kDropLimitJiffies);
-    iRampStatus = ERampStatus::ERampingUp;
-    iLastRampPos = 0;
-    PullNext(EMsgAudioPcm);
-    TEST(iJiffies == 318720);
-    TEST(iTrackOffset == offset);
-    TEST(iBufferSize == bufferedAudio - static_cast<TInt>(kDropLimitJiffies) - 318720); // Should have pulled through drop limit jiffies + remainder of last msg that was split.
-
-    PullNext(EMsgAudioPcm);
     PullNext(EMsgAudioPcm);
     PullNext(EMsgAudioPcm);
     PullNext(EMsgAudioPcm);

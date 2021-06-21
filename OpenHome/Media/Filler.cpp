@@ -103,7 +103,8 @@ UriProvider::~UriProvider()
 Filler::Filler(IPipelineElementDownstream& aPipeline, IPipelineIdTracker& aIdTracker,
                IPipelineIdManager& aPipelineIdManager, IFlushIdProvider& aFlushIdProvider,
                MsgFactory& aMsgFactory, TrackFactory& aTrackFactory, IStreamPlayObserver& aStreamPlayObserver,
-               IPipelineIdProvider& aIdProvider, TUint aThreadPriority, TUint aDefaultDelay)
+               IPipelineIdProvider& aIdProvider, IClockPuller& aClockPullerPipeline,
+               TUint aThreadPriority, TUint aDefaultDelay)
     : Thread("Filler", aThreadPriority)
     , iLock("FIL1")
     , iPipeline(aPipeline)
@@ -111,6 +112,7 @@ Filler::Filler(IPipelineElementDownstream& aPipeline, IPipelineIdTracker& aIdTra
     , iPipelineIdManager(aPipelineIdManager)
     , iFlushIdProvider(aFlushIdProvider)
     , iMsgFactory(aMsgFactory)
+    , iClockPullerLatency(aClockPullerPipeline)
     , iLockUriProvider("FIL2")
     , iActiveUriProvider(nullptr)
     , iUriStreamer(nullptr)
@@ -372,9 +374,15 @@ void Filler::Run()
             iPrefetchTrackId = kPrefetchTrackIdInvalid;
             if (iChangedMode) {
                 const auto& modeInfo = iActiveUriProvider->ModeInfo();
+                IClockPuller* clockPuller = iActiveUriProvider->ClockPullers().PipelineBuffer();
+                if (modeInfo.SupportsLatency()) {
+                    iClockPullerLatency.SetClockPullerMode(clockPuller);
+                    clockPuller = &iClockPullerLatency;
+                }
+                ModeClockPullers mcp(clockPuller);
                 iPipeline.Push(iMsgFactory.CreateMsgMode(iActiveUriProvider->Mode(),
                                                          modeInfo,
-                                                         iActiveUriProvider->ClockPullers(),
+                                                         mcp,
                                                          iActiveUriProvider->ModeTransportControls()));
                 if (!modeInfo.SupportsLatency()) {
                     iPipeline.Push(iMsgFactory.CreateMsgDelay(iDefaultDelay));

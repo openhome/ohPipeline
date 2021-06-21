@@ -4,6 +4,7 @@
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Media/ClockPuller.h>
 
 #include <atomic>
@@ -12,6 +13,13 @@
 
 namespace OpenHome {
 namespace Media {
+
+class IPhaseAdjusterObserver
+{
+public:
+    virtual ~IPhaseAdjusterObserver() {}
+    virtual void PhaseAdjustComplete() = 0;
+};
 
 /*
 Element which minimises initial phase delay in Songcast streams.
@@ -33,7 +41,9 @@ private:
         RampingUp
     };
 public:
-    SongcastPhaseAdjuster(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, TUint aRampJiffiesLong, TUint aRampJiffiesShort, TBool aEnabled);
+    SongcastPhaseAdjuster(
+        MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, IStarvationRamper& aStarvationRamper,
+        TUint aRampJiffiesLong, TUint aRampJiffiesShort, TBool aEnabled);
     ~SongcastPhaseAdjuster();
     void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IPipelineElementUpstream
@@ -61,6 +71,7 @@ private:
 private:
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstreamElement;
+    IStarvationRamper& iStarvationRamper;
     IPipelineAnimator* iAnimator;
     const TBool iEnabled;
     TBool iModeSongcast;
@@ -82,6 +93,7 @@ private:
     TUint iRampJiffies;
     TUint iRemainingRampSize;
     TUint iCurrentRampValue;
+    TBool iConfirmOccupancy;
     MsgQueueLite iQueue; // Empty unless we have to split a msg during a ramp.
 };
 

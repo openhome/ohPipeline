@@ -516,7 +516,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
 
 
-    ATTACH_ELEMENT(iSongcastPhaseAdjuster, new SongcastPhaseAdjuster(*iMsgFactory, *upstream,
+    ATTACH_ELEMENT(iSongcastPhaseAdjuster, new SongcastPhaseAdjuster(*iMsgFactory, *upstream, *iStarvationRamper,
                                                                      aInitParams->RampLongJiffies(),
                                                                      aInitParams->RampShortJiffies(),
                                                                      aInitParams->SongcastPhaseAdjuster()),

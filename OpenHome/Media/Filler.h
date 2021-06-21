@@ -6,6 +6,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Protocol/Protocol.h>
+#include <OpenHome/Media/ClockPuller.h>
 
 #include <limits.h>
 #include <vector>
@@ -73,7 +74,8 @@ public:
     Filler(IPipelineElementDownstream& aPipeline, IPipelineIdTracker& aPipelineIdTracker,
            IPipelineIdManager& aPipelineIdManager, IFlushIdProvider& aFlushIdProvider,
            MsgFactory& aMsgFactory, TrackFactory& aTrackFactory, IStreamPlayObserver& aStreamPlayObserver,
-           IPipelineIdProvider& aIdProvider, TUint aThreadPriority, TUint aDefaultDelay);
+           IPipelineIdProvider& aIdProvider, IClockPuller& aClockPullerPipeline, TUint aThreadPriority,
+           TUint aDefaultDelay);
     ~Filler();
     void Add(UriProvider& aUriProvider);
     void Start(IUriStreamer& aUriStreamer);
@@ -139,6 +141,7 @@ private:
     IPipelineIdManager& iPipelineIdManager;
     IFlushIdProvider& iFlushIdProvider;
     MsgFactory& iMsgFactory;
+    ClockPullerPipeline iClockPullerLatency;
     std::vector<UriProvider*> iUriProviders;
     Mutex iLockUriProvider;
     UriProvider* iActiveUriProvider;

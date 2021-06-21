@@ -34,5 +34,27 @@ public:
     virtual TUint MaxPull() const = 0;
 };
 
+class ClockPullerPipeline : public IClockPuller
+{
+public:
+    ClockPullerPipeline(IClockPuller& aClockPullerPipeline);
+    void SetClockPullerMode(Optional<IClockPuller> aClockPuller);
+private: // from IClockPuller
+    void Update(TInt aDelta) override;
+    void Start() override;
+    void Stop() override;
+private:
+    IClockPuller& iPipeline;
+    IClockPuller* iMode;
+};
+
+class ClockPullerMock : public IClockPuller
+{
+private: // from IClockPuller
+    void Update(TInt aDelta) override;
+    void Start() override;
+    void Stop() override;
+};
+
 } // namespace Media
 } // namespace OpenHome
