@@ -81,10 +81,7 @@ private:
     std::atomic<TUint> iAudioIn;
     std::atomic<TUint> iAudioOut;
     MsgDecodedStream* iDecodedStream;
-    TUint iMsgSilenceJiffies;
-    TUint iMsgAudioJiffies;
     TUint iDelayJiffies;
-    TUint iDropLimitJiffies;
     TUint iDroppedJiffies;
     TUint iInjectedJiffies;
     const TUint iRampJiffiesLong;

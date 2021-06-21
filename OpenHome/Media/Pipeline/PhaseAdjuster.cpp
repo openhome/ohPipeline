@@ -57,8 +57,6 @@ PhaseAdjuster::PhaseAdjuster(
     , iAudioIn(0)
     , iAudioOut(0)
     , iDecodedStream(nullptr)
-    , iMsgSilenceJiffies(0)
-    , iMsgAudioJiffies(0)
     , iDelayJiffies(0)
     , iDroppedJiffies(0)
     , iRampJiffiesLong(aRampJiffiesLong)
@@ -155,8 +153,6 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
 Msg* PhaseAdjuster::ProcessMsg(MsgAudioPcm* aMsg)
 {
     if (iModeSongcast) {
-        iMsgAudioJiffies += aMsg->Jiffies();
-        PrintStats(Brn("audio"), iMsgAudioJiffies);
         return AdjustAudio(Brn("audio"), aMsg);
     }
     return aMsg;
@@ -164,14 +160,10 @@ Msg* PhaseAdjuster::ProcessMsg(MsgAudioPcm* aMsg)
 
 Msg* PhaseAdjuster::ProcessMsg(MsgSilence* aMsg)
 {
-    if (iModeSongcast) {
-        // Delay will increase and/or gain accuracy the more silence is allowed to pass through the pipeline.
-        // Therefore, easiest to allow all MsgSilence to pass to get a snapshot of delay when first MsgAudio seen, and only drop from the start of MsgAudio.
-        // Otherwise, if start dropping too early in MsgSilence, can end up dropping so many MsgSilence that we don't get a reasonable estimate of accumulated error and quickly bring the error close to 0 and stop dropping early on in MsgAudio.
-        iMsgSilenceJiffies += aMsg->Jiffies();
-        PrintStats(Brn("silence"), iMsgSilenceJiffies);
-        // return AdjustAudio(Brn("silence"), aMsg);
-    }
+    // Delay will increase and/or gain accuracy the more silence is allowed to pass through the pipeline.
+    // Therefore, easiest to allow all MsgSilence to pass to get a snapshot of delay when first MsgAudio seen, and only drop from the start of MsgAudio.
+    // Otherwise, if start dropping too early in MsgSilence, can end up dropping so many MsgSilence that we don't get a reasonable estimate of accumulated error and quickly bring the error close to 0 and stop dropping early on in MsgAudio.
+
     return aMsg;
 }
 
@@ -360,9 +352,6 @@ MsgAudio* PhaseAdjuster::StartRampUp(MsgAudio* aMsg)
 void PhaseAdjuster::ResetPhaseDelay()
 {
     iState = State::Starting;
-
-    iMsgSilenceJiffies = 0;
-    iMsgAudioJiffies = 0;
 
     iDroppedJiffies = 0;
     iInjectedJiffies = 0;
