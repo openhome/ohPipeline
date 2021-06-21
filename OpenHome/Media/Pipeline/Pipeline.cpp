@@ -62,7 +62,6 @@ PipelineInitParams::PipelineInitParams()
     , iSupportElements(EPipelineSupportElementsAll)
     , iMuter(kMuterDefault)
     , iDsdMaxSampleRate(kDsdMaxSampleRateDefault)
-    , iPhaseAdjuster(kPhaseAdjuster)
 {
     SetThreadPriorityMax(kThreadPriorityMax);
 }
@@ -150,11 +149,6 @@ void PipelineInitParams::SetDsdMaxSampleRate(TUint aMaxSampleRate)
     iDsdMaxSampleRate = aMaxSampleRate;
 }
 
-void PipelineInitParams::SetPhaseAdjuster(TBool aEnabled)
-{
-    iPhaseAdjuster = aEnabled;
-}
-
 TUint PipelineInitParams::EncodedReservoirBytes() const
 {
     return iEncodedReservoirBytes;
@@ -233,11 +227,6 @@ PipelineInitParams::MuterImpl PipelineInitParams::Muter() const
 TUint OpenHome::Media::PipelineInitParams::DsdMaxSampleRate() const
 {
     return iDsdMaxSampleRate;
-}
-
-TBool PipelineInitParams::PhaseAdjuster() const
-{
-    return iPhaseAdjuster;
 }
 
 
@@ -518,8 +507,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
 
     ATTACH_ELEMENT(iPhaseAdjuster, new PhaseAdjuster(*iMsgFactory, *upstream, *iStarvationRamper,
                                                      aInitParams->RampLongJiffies(),
-                                                     aInitParams->RampShortJiffies(),
-                                                     aInitParams->PhaseAdjuster()),
+                                                     aInitParams->RampShortJiffies()),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerPhaseAdjuster, new Logger(*iPhaseAdjuster, "PhaseAdjuster"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);

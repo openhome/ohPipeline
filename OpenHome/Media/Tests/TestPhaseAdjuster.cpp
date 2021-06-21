@@ -213,7 +213,7 @@ void SuitePhaseAdjuster::Setup()
     init.SetMsgDelayCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
-    iPhaseAdjuster = new PhaseAdjuster(*iMsgFactory, *this, *this, kRampDurationMin, kRampDurationMax, true);
+    iPhaseAdjuster = new PhaseAdjuster(*iMsgFactory, *this, *this, kRampDurationMin, kRampDurationMax);
     iPhaseAdjuster->SetAnimator(*this);
     iRampValidator = new RampValidator(*iPhaseAdjuster, "RampValidator");
     iDecodedAudioValidator = new DecodedAudioValidator(*iRampValidator, "DecodedAudioValidator");

@@ -43,7 +43,7 @@ private:
 public:
     PhaseAdjuster(
         MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, IStarvationRamper& aStarvationRamper,
-        TUint aRampJiffiesLong, TUint aRampJiffiesShort, TBool aEnabled);
+        TUint aRampJiffiesLong, TUint aRampJiffiesShort);
     ~PhaseAdjuster();
     void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IPipelineElementUpstream
@@ -73,7 +73,6 @@ private:
     IPipelineElementUpstream& iUpstreamElement;
     IStarvationRamper& iStarvationRamper;
     IPipelineAnimator* iAnimator;
-    const TBool iEnabled;
     TBool iModeSongcast;
     State iState;
     Mutex iLock;

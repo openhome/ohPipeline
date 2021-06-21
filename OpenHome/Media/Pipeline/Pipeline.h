@@ -54,7 +54,6 @@ public:
     void SetSupportElements(TUint aElements); // EPipelineSupportElements members OR'd together
     void SetMuter(MuterImpl aMuter);
     void SetDsdMaxSampleRate(TUint aMaxSampleRate);
-    void SetPhaseAdjuster(TBool aEnabled);
     // getters
     TUint EncodedReservoirBytes() const;
     TUint DecodedReservoirJiffies() const;
@@ -72,7 +71,6 @@ public:
     TUint SupportElements() const;
     MuterImpl Muter() const;
     TUint DsdMaxSampleRate() const;
-    TBool PhaseAdjuster() const;
 private:
     PipelineInitParams();
 private:
@@ -92,7 +90,6 @@ private:
     TUint iSupportElements;
     MuterImpl iMuter;
     TUint iDsdMaxSampleRate;
-    TBool iPhaseAdjuster;
 private:
     static const TUint kEncodedReservoirSizeBytes       = 1536 * 1024;
     static const TUint kDecodedReservoirSize            = Jiffies::kPerMs * 2000;
@@ -107,7 +104,6 @@ private:
     static const TUint kMaxLatencyDefault               = Jiffies::kPerMs * 2000;
     static const MuterImpl kMuterDefault                = MuterImpl::eRampSamples;
     static const TUint kDsdMaxSampleRateDefault         = 0;
-    static const TBool kPhaseAdjuster                   = true;
 };
 
 namespace Codec {
