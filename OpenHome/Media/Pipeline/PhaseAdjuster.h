@@ -27,7 +27,7 @@ Aims to minimise variances in initial phase delay between senders and receivers 
 If receiver audio is lagging behind sender at start of stream, this class will drop audio packets, replacing them with silence, until phase delay is minimised.
 If receiver audio is ahead of sender at start of stream, this class will delay outputting receiver audio, replacing with silence, until phase delay is minimised.
 */
-class SongcastPhaseAdjuster : public PipelineElement, public IPipelineElementUpstream, public IClockPuller
+class PhaseAdjuster : public PipelineElement, public IPipelineElementUpstream, public IClockPuller
 {
 private:
     static const TUint kSupportedMsgTypes;
@@ -41,10 +41,10 @@ private:
         RampingUp
     };
 public:
-    SongcastPhaseAdjuster(
+    PhaseAdjuster(
         MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, IStarvationRamper& aStarvationRamper,
         TUint aRampJiffiesLong, TUint aRampJiffiesShort, TBool aEnabled);
-    ~SongcastPhaseAdjuster();
+    ~PhaseAdjuster();
     void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IPipelineElementUpstream
     Msg* Pull() override;

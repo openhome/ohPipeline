@@ -62,7 +62,7 @@ tests = '''
     TestFlywheelRamper
     TestOAuth
     TestAESHelpers
-    TestSongcastPhaseAdjuster
+    TestPhaseAdjuster
     '''
 w = StaticWebServer(os.path.join('dependencies', 'AnyPlatform', 'TestTones'))
 w.start()

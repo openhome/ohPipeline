@@ -248,7 +248,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Router.cpp',
                 'OpenHome/Media/Pipeline/StreamValidator.cpp',
                 'OpenHome/Media/Pipeline/Seeker.cpp',
-                'OpenHome/Media/Pipeline/SongcastPhaseAdjuster.cpp',
+                'OpenHome/Media/Pipeline/PhaseAdjuster.cpp',
                 'OpenHome/Media/Pipeline/Skipper.cpp',
                 'OpenHome/Media/Pipeline/StarvationRamper.cpp',
                 'OpenHome/Media/Pipeline/Stopper.cpp',
@@ -815,7 +815,7 @@ def build(bld):
                 'OpenHome/Media/Tests/TestMuteManager.cpp',
                 'OpenHome/Media/Tests/TestRewinder.cpp',
                 'OpenHome/Media/Tests/TestShell.cpp',
-                'OpenHome/Media/Tests/TestSongcastPhaseAdjuster.cpp',
+                'OpenHome/Media/Tests/TestPhaseAdjuster.cpp',
                 'OpenHome/Media/Tests/TestUriProviderRepeater.cpp',
                 'OpenHome/Av/Tests/TestFriendlyNameManager.cpp',
                 'OpenHome/Av/Tests/TestUdpServer.cpp',
@@ -1070,9 +1070,9 @@ def build(bld):
     #        target='TestPlaylist',
     #        install_path=None)
     bld.program(
-            source='OpenHome/Media/Tests/TestSongcastPhaseAdjusterMain.cpp',
+            source='OpenHome/Media/Tests/TestPhaseAdjusterMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-            target='TestSongcastPhaseAdjuster',
+            target='TestPhaseAdjuster',
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestUriProviderRepeaterMain.cpp',
