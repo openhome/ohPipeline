@@ -912,12 +912,15 @@ void ProtocolRaop::ProcessStreamStartOrResume()
      * Not necessarily desirable when pausing or seeking.
      */
     if (!started) {
-        iSupply->OutputDelay(Delay(latency));
         iSupply->OutputTrack(*track, !resumePending);
         track->RemoveRef();
     }
     // Always output a new stream ID on start or resume pending (to avoid CodecStreamCorrupt exceptions).
     iSupply->OutputStream(uri.AbsoluteUri(), 0, 0, false /* seekable */, true /* live */, Multiroom::Allowed, *this, streamId);
+    if (!started) {
+        // Stream has been output, so now safe to output delay.
+        iSupply->OutputDelay(Delay(latency));
+    }
     OutputContainer(iDiscovery.Fmtp());
 }
 
@@ -1096,7 +1099,7 @@ void RaopControlServer::Close()
     if (iOpen) {
         iServer.Close();
         iOpen = false;
-        
+
         // Clear any unread packet, which is now invalid.
         iBuf.SetBytes(0);
         iPacket.Clear();
@@ -1168,22 +1171,22 @@ void RaopControlServer::Run()
                     RtpPacketRaop packet(iBuf);
                     if (packet.Header().Type() == ESync) {
                         RaopPacketSync syncPacket(packet);
-    
+
                         // Extension bit set on sync packet signifies stream (re-)starting.
                         // However, by it's nature, UDP is unreliable, so can't rely on this for detecting (re-)start.
                         //LOG(kMedia, "RaopControlServer::Run packet.Extension(): %u\n", packet.Header().Extension());
-    
+
                         AutoMutex a(iLock);
                         const TUint latency = iLatency;
                         iLatency = syncPacket.RtpTimestamp()-syncPacket.RtpTimestampMinusLatency();
-    
+
                         if (iLatency != latency) {
                             LOG(kMedia, "RaopControlServer::Run Old latency: %u; New latency: %u\n", latency, iLatency);
                         }
-    
+
                         //LOG(kMedia, "RaopControlServer::Run RtpTimestampMinusLatency: %u, NtpTimestampSecs: %u, NtpTimestampFract: %u, RtpTimestamp: %u, iLatency: %u\n", syncPacket.RtpTimestampMinusLatency(), syncPacket.NtpTimestampSecs(), syncPacket.NtpTimestampFract(), syncPacket.RtpTimestamp(), iLatency);
-    
-    
+
+
                         // FIXME - should notify latency observer.
 
 
@@ -1438,7 +1441,7 @@ void RaopAudioServer::Run()
                     iSem.Signal();
                     continue;
                 }
-                
+
                 AutoMutex _(iLock);
                 iAwaitingConsumer = true;
                 iConsumer.AudioPacketReceived();
