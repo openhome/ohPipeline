@@ -73,7 +73,7 @@ private:
     IPipelineElementUpstream& iUpstreamElement;
     IStarvationRamper& iStarvationRamper;
     IPipelineAnimator* iAnimator;
-    TBool iModeSongcast;
+    TBool iEnabled;
     State iState;
     Mutex iLock;
     TUint iUpdateCount;
