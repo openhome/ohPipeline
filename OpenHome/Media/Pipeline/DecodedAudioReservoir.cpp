@@ -132,7 +132,7 @@ void DecodedAudioReservoir::ProcessMsgIn(MsgMode* aMsg)
         if (iClockPuller != nullptr) {
             iClockPuller->Stop();
         }
-        iClockPuller = aMsg->ClockPullers().PipelineBuffer();
+        iClockPuller = aMsg->ClockPuller().Ptr();
 
         iStartOfMode = true;
     }

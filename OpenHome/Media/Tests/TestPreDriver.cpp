@@ -3,6 +3,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
+#include <OpenHome/Media/ClockPuller.h>
 
 #include <string.h>
 #include <vector>
@@ -73,6 +74,7 @@ private:
     TrackFactory* iTrackFactory;
     AllocatorInfoLogger iInfoAggregator;
     PreDriver* iPreDriver;
+    ClockPullerMock iClockPuller;
     EMsgType iNextGeneratedMsg;
     EMsgType iLastMsg;
     TUint64 iTrackOffset;
@@ -219,7 +221,8 @@ Msg* SuitePreDriver::Pull()
     {
         ModeInfo info;
         ModeTransportControls transportControls;
-        return iMsgFactory->CreateMsgMode(Brn("dummyMode"), info, ModeClockPullers(iNextModePullable), transportControls);
+        IClockPuller* puller = iNextModePullable ? &iClockPuller : nullptr;
+        return iMsgFactory->CreateMsgMode(Brn("dummyMode"), info, puller, transportControls);
     }
     case EMsgDrain:
         return iMsgFactory->CreateMsgDrain(Functor());

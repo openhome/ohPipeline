@@ -36,7 +36,7 @@ public:
     void SetTransportPrev(Functor aPrev);
     void SetTransportSeek(FunctorGeneric<TUint> aSeek); // Absolute seek position in seconds.
 
-    virtual ModeClockPullers ClockPullers();
+    virtual Optional<IClockPuller> ClockPuller();
     virtual TBool IsValid(TUint aTrackId) const;
     virtual void Begin(TUint aTrackId) = 0;
     virtual void BeginLater(TUint aTrackId) = 0; // Queue a track but return ePlayLater when OkToPlay() is called

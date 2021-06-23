@@ -2267,7 +2267,7 @@ void SuiteMode::Test()
     mi.SetSupportsNextPrev(true, false);
     mi.SetSupportsRepeatRandom(true, false);
     ModeTransportControls transportControls;
-    MsgMode* msg = iMsgFactory->CreateMsgMode(mode, mi, ModeClockPullers(), transportControls);
+    MsgMode* msg = iMsgFactory->CreateMsgMode(mode, mi, nullptr, transportControls);
     TEST(msg->Mode() == mode);
     const ModeInfo& info = msg->Info();
     TEST( info.SupportsLatency());
@@ -2283,7 +2283,7 @@ void SuiteMode::Test()
     mi2.SetSupportsLatency(false);
     mi2.SetSupportsNextPrev(false, true);
     mi2.SetSupportsRepeatRandom(false, true);
-    msg = iMsgFactory->CreateMsgMode(mode2, mi2, ModeClockPullers(), transportControls);
+    msg = iMsgFactory->CreateMsgMode(mode2, mi2, nullptr, transportControls);
     const ModeInfo& info2 = msg->Info();
     TEST(msg->Mode() == mode2);
     TEST(!info2.SupportsLatency());

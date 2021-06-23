@@ -389,7 +389,7 @@ Msg* VariableDelayBase::ProcessMsg(MsgMode* aMsg)
     if (iClockPuller != nullptr) {
         iClockPuller->Stop();
     }
-    iClockPuller = aMsg->ClockPullers().PipelineBuffer();
+    iClockPuller = aMsg->ClockPuller().Ptr();
     iDelayJiffies = 0;
     iLock.Signal();
     iDelayAdjustment = 0;

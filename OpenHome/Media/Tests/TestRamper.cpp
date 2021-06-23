@@ -333,9 +333,8 @@ Msg* SuiteRamper::CreateMode(TBool aLongRamp)
     ModeInfo info;
     info.SetRampDurations(aLongRamp, false);
     iExpectedRampJiffies = aLongRamp? kRampDurationLong : kRampDurationShort;
-    ModeClockPullers clockPullers;
     ModeTransportControls transportControls;
-    return iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
+    return iMsgFactory->CreateMsgMode(Brn("Mode"), info, nullptr, transportControls);
 }
 
 Msg* SuiteRamper::CreateTrack()

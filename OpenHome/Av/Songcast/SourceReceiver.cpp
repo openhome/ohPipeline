@@ -41,7 +41,7 @@ class UriProviderSongcast : public Media::UriProviderSingleTrack
 public:
     UriProviderSongcast(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller);
 private: // from UriProvider
-    Media::ModeClockPullers ClockPullers() override;
+    Optional<Media::IClockPuller> ClockPuller() override;
 private:
     Media::IClockPuller* iClockPuller;
 };
@@ -180,9 +180,9 @@ UriProviderSongcast::UriProviderSongcast(IMediaPlayer& aMediaPlayer, Optional<Me
 {
 }
 
-ModeClockPullers UriProviderSongcast::ClockPullers()
+Optional<IClockPuller> UriProviderSongcast::ClockPuller()
 {
-    return ModeClockPullers(iClockPuller);
+    return iClockPuller;
 }
 
 

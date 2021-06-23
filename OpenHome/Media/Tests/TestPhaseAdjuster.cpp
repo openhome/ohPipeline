@@ -284,14 +284,14 @@ Msg* SuitePhaseAdjuster::Pull()
         ModeInfo info;
         info.SetSupportsLatency(iNextModeSupportsLatency);
         ModeTransportControls transportControls;
-        return iMsgFactory->CreateMsgMode(kMode, info, ModeClockPullers(iNextModeClockPuller), transportControls);
+        return iMsgFactory->CreateMsgMode(kMode, info, iNextModeClockPuller, transportControls);
     }
     case EMsgModeSongcast:
     {
         ModeInfo info;
         info.SetSupportsLatency(iNextModeSupportsLatency);
         ModeTransportControls transportControls;
-        return iMsgFactory->CreateMsgMode(kModeSongcast, info, ModeClockPullers(iNextModeClockPuller), transportControls);
+        return iMsgFactory->CreateMsgMode(kModeSongcast, info, iNextModeClockPuller, transportControls);
     }
     case EMsgTrack:
     {

@@ -58,9 +58,9 @@ void UriProvider::SetTransportSeek(FunctorGeneric<TUint> aSeek)
     iTransportControls.SetSeek(aSeek);
 }
 
-ModeClockPullers UriProvider::ClockPullers()
+Optional<IClockPuller> UriProvider::ClockPuller()
 {
-    return ModeClockPullers();
+    return nullptr;
 }
 
 TBool UriProvider::IsValid(TUint /*aTrackId*/) const
@@ -374,15 +374,14 @@ void Filler::Run()
             iPrefetchTrackId = kPrefetchTrackIdInvalid;
             if (iChangedMode) {
                 const auto& modeInfo = iActiveUriProvider->ModeInfo();
-                IClockPuller* clockPuller = iActiveUriProvider->ClockPullers().PipelineBuffer();
+                auto clockPuller = iActiveUriProvider->ClockPuller();
                 if (modeInfo.SupportsLatency()) {
                     iClockPullerLatency.SetClockPullerMode(clockPuller);
                     clockPuller = &iClockPullerLatency;
                 }
-                ModeClockPullers mcp(clockPuller);
                 iPipeline.Push(iMsgFactory.CreateMsgMode(iActiveUriProvider->Mode(),
                                                          modeInfo,
-                                                         mcp,
+                                                         clockPuller,
                                                          iActiveUriProvider->ModeTransportControls()));
                 if (!modeInfo.SupportsLatency()) {
                     iPipeline.Push(iMsgFactory.CreateMsgDelay(iDefaultDelay));
