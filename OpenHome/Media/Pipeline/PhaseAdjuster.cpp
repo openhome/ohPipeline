@@ -100,7 +100,7 @@ Msg* PhaseAdjuster::Pull()
 
 Msg* PhaseAdjuster::ProcessMsg(MsgMode* aMsg)
 {
-    if (aMsg->Mode() == kModeSongcast) {
+    if (aMsg->Info().SupportsLatency()) {
         iEnabled = true;
         iRampJiffies = aMsg->Info().RampPauseResumeLong()?
                         iRampJiffiesLong : iRampJiffiesShort;
