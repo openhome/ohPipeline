@@ -42,7 +42,8 @@ PhaseAdjuster::PhaseAdjuster(
     IPipelineElementUpstream& aUpstreamElement,
     IStarvationRamper& aStarvationRamper,
     TUint aRampJiffiesLong,
-    TUint aRampJiffiesShort
+    TUint aRampJiffiesShort,
+    TUint aMinDelayJiffies
 )
     : PipelineElement(kSupportedMsgTypes)
     , iMsgFactory(aMsgFactory)
@@ -61,6 +62,7 @@ PhaseAdjuster::PhaseAdjuster(
     , iDroppedJiffies(0)
     , iRampJiffiesLong(aRampJiffiesLong)
     , iRampJiffiesShort(aRampJiffiesShort)
+    , iMinDelayJiffies(aMinDelayJiffies)
     , iRampJiffies(iRampJiffiesLong)
     , iRemainingRampSize(0)
     , iCurrentRampValue(Ramp::kMin)
@@ -134,6 +136,7 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
         iDelayJiffies = 0;
         if (aMsg->TotalJiffies() > animatorDelayJiffies) {
             iDelayJiffies = aMsg->TotalJiffies() - animatorDelayJiffies;
+            iDelayJiffies = std::max(iDelayJiffies, iMinDelayJiffies);
         }
     }
     aMsg->RemoveRef();

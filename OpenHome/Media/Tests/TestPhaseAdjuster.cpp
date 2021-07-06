@@ -37,6 +37,7 @@ private:
     static const TUint kRampDurationMin     = Jiffies::kPerMs * 50;
     static const TUint kRampDurationMax     = Jiffies::kPerMs * 500;
     static const TUint kRampDefault         = kRampDurationMax;
+    static const TUint kMinDelay            = Jiffies::kPerMs * 10;
 
     static const TUint kDelayJiffies        = 8110080;
     static const TUint kDefaultAudioJiffies = 983040;
@@ -131,6 +132,7 @@ private:
 
     void TestSongcastDrain(); // Results in new delay being sent down. Applies where clock family changes.
     void TestAnimatorDelayConsidered();
+    void TestAdjustmentClampedToMinDelay();
 private:
     MsgFactory* iMsgFactory;
     TrackFactory* iTrackFactory;
@@ -194,6 +196,7 @@ SuitePhaseAdjuster::SuitePhaseAdjuster()
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverAhead), "TestSongcastReceiverAhead");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastDrain), "TestSongcastDrain");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestAnimatorDelayConsidered), "TestAnimatorDelayConsidered");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestAdjustmentClampedToMinDelay), "TestAdjustmentClampedToMinDelay");
 
     // AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::), "");
 }
@@ -213,7 +216,7 @@ void SuitePhaseAdjuster::Setup()
     init.SetMsgDelayCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
-    iPhaseAdjuster = new PhaseAdjuster(*iMsgFactory, *this, *this, kRampDurationMin, kRampDurationMax);
+    iPhaseAdjuster = new PhaseAdjuster(*iMsgFactory, *this, *this, kRampDurationMin, kRampDurationMax, kMinDelay);
     iPhaseAdjuster->SetAnimator(*this);
     iRampValidator = new RampValidator(*iPhaseAdjuster, "RampValidator");
     iDecodedAudioValidator = new DecodedAudioValidator(*iRampValidator, "DecodedAudioValidator");
@@ -949,6 +952,33 @@ void SuitePhaseAdjuster::TestAnimatorDelayConsidered()
     TEST(PullPostDropDecodedStream());
 
     TUint pos = iAnimatorDelayJiffies;
+    Jiffies::RoundDown(pos, 44100);
+    TEST(iLastPulledStreamPos == pos);
+}
+
+void SuitePhaseAdjuster::TestAdjustmentClampedToMinDelay()
+{
+    iNextModeClockPuller = nullptr;
+    iAnimatorDelayJiffies = Jiffies::kPerMs * 5;
+    const TUint excessAudioJiffies = Jiffies::kPerMs * 2;
+
+    PullNext(EMsgModeSongcast);
+    PullNext(EMsgTrack);
+    PullNext(EMsgDecodedStream);
+    TEST(iLastPulledStreamPos == 0);
+    iNextGeneratedMsg = EMsgDelay;
+    iNextDelayAbsoluteJiffies = kMinDelay;
+    iJiffies = 0;
+    PullNext(); // Phase adjuster consumes delay.
+
+    while (iJiffies < kDelayJiffies) {
+        PullNext(EMsgSilence);
+    }
+    TEST(iJiffies == kDelayJiffies);
+
+    QueueAudio(kMinDelay + excessAudioJiffies);
+    TEST(PullPostDropDecodedStream());
+    TUint pos = excessAudioJiffies;
     Jiffies::RoundDown(pos, 44100);
     TEST(iLastPulledStreamPos == pos);
 }

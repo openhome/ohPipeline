@@ -507,7 +507,8 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
 
     ATTACH_ELEMENT(iPhaseAdjuster, new PhaseAdjuster(*iMsgFactory, *upstream, *iStarvationRamper,
                                                      aInitParams->RampLongJiffies(),
-                                                     aInitParams->RampShortJiffies()),
+                                                     aInitParams->RampShortJiffies(),
+                                                     aInitParams->StarvationRamperMinJiffies()),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerPhaseAdjuster, new Logger(*iPhaseAdjuster, "PhaseAdjuster"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);

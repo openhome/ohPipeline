@@ -43,7 +43,7 @@ private:
 public:
     PhaseAdjuster(
         MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, IStarvationRamper& aStarvationRamper,
-        TUint aRampJiffiesLong, TUint aRampJiffiesShort);
+        TUint aRampJiffiesLong, TUint aRampJiffiesShort, TUint aMinDelayJiffies);
     ~PhaseAdjuster();
     void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IPipelineElementUpstream
@@ -86,6 +86,7 @@ private:
     TUint iInjectedJiffies;
     const TUint iRampJiffiesLong;
     const TUint iRampJiffiesShort;
+    const TUint iMinDelayJiffies;
     TUint iRampJiffies;
     TUint iRemainingRampSize;
     TUint iCurrentRampValue;
