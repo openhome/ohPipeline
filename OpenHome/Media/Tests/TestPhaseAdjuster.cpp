@@ -122,6 +122,7 @@ private:
     void TestAllMsgsPass();
     void TestSongcastNoMsgDelay();
     void TestSongcastReceiverInSync();
+    void TestSongcastReceiverInSyncDelayBeforeStream();
 
     void TestSongcastReceiverBehindMsgBoundary();
     void TestSongcastReceiverBehindMsgNonBoundary();
@@ -160,6 +161,7 @@ private:
     ERampStatus iRampStatus;
     TUint iLastRampPos;
     TUint iAnimatorDelayJiffies;
+    TBool iDecodedStreamFollowsDelay;
 };
 
 } // namespace Media
@@ -189,6 +191,7 @@ SuitePhaseAdjuster::SuitePhaseAdjuster()
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestAllMsgsPass), "TestAllMsgsPass");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastNoMsgDelay), "TestSongcastNoMsgDelay");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverInSync), "TestSongcastReceiverInSync");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverInSyncDelayBeforeStream), "TestSongcastReceiverInSyncDelayBeforeStream");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverBehindMsgBoundary), "TestSongcastReceiverBehindMsgBoundary");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverBehindMsgNonBoundary), "TestSongcastReceiverBehindMsgNonBoundary");
     AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverBehindMsgsBoundary), "TestSongcastReceiverBehindMsgsBoundary");
@@ -237,6 +240,7 @@ void SuitePhaseAdjuster::Setup()
     iRampStatus = ERampStatus::ENoRamp;
     iLastRampPos = 0x7f7f;
     iAnimatorDelayJiffies = 0;
+    iDecodedStreamFollowsDelay = false;
 }
 
 void SuitePhaseAdjuster::TearDown()
@@ -306,7 +310,7 @@ Msg* SuitePhaseAdjuster::Pull()
     case EMsgDrain:
         return iMsgFactory->CreateMsgDrain(Functor());
     case EMsgDelay:
-        iNextGeneratedMsg = EMsgSilence;
+        iNextGeneratedMsg = iDecodedStreamFollowsDelay? EMsgDecodedStream : EMsgSilence;
         return iMsgFactory->CreateMsgDelay(iNextDelayAbsoluteJiffies);
     case EMsgEncodedStream:
         return iMsgFactory->CreateMsgEncodedStream(Brn("http://1.2.3.4:5"), Brn("metatext"), 0, 0, 0, false, false, Multiroom::Allowed, nullptr);
@@ -642,6 +646,39 @@ void SuitePhaseAdjuster::TestSongcastReceiverInSync()
     iNextDelayAbsoluteJiffies = kDelayJiffies;
     iJiffies = 0;
     PullNext(); // Phase adjuster consumes delay.
+
+    while (iJiffies < kDelayJiffies) {
+        PullNext(EMsgSilence);
+    }
+    TEST(iJiffies == kDelayJiffies);
+
+    // After all silence has been output want exactly the same amount of audio queued up us the delay value.
+    // This would mean the receiver is playing in sync with the sender.
+    QueueAudio(kDelayJiffies);
+    const auto offset = iTrackOffset;
+    const auto bufferedAudio = iBufferSize;
+
+    iJiffies = 0;
+    PullNext(EMsgAudioPcm);
+    TEST(iJiffies == kDefaultAudioJiffies);
+    TEST(iTrackOffset == offset); // No more msgs than those in queue have been created/pulled.
+    TEST(iBufferSize == bufferedAudio - static_cast<TInt>(kDefaultAudioJiffies)); // Should have only released 1 full msg (i.e., phase adjuster shouldn't have dropped any).
+}
+
+void SuitePhaseAdjuster::TestSongcastReceiverInSyncDelayBeforeStream()
+{
+    iNextModeClockPuller = nullptr;
+
+    PullNext(EMsgModeSongcast);
+    PullNext(EMsgTrack);
+    PullNext(EMsgDecodedStream);
+    TEST(iLastPulledStreamPos == 0);
+    iNextGeneratedMsg = EMsgDelay;
+    iDecodedStreamFollowsDelay = true;
+    iNextDelayAbsoluteJiffies = kDelayJiffies;
+    iJiffies = 0;
+    PullNext(); // Phase adjuster consumes delay.
+    TEST(iLastMsg == EMsgDecodedStream);
 
     while (iJiffies < kDelayJiffies) {
         PullNext(EMsgSilence);

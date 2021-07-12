@@ -59,6 +59,7 @@ PhaseAdjuster::PhaseAdjuster(
     , iAudioOut(0)
     , iDecodedStream(nullptr)
     , iDelayJiffies(0)
+    , iDelayTotalJiffies(0)
     , iDroppedJiffies(0)
     , iRampJiffiesLong(aRampJiffiesLong)
     , iRampJiffiesShort(aRampJiffiesShort)
@@ -106,6 +107,7 @@ Msg* PhaseAdjuster::ProcessMsg(MsgMode* aMsg)
         iEnabled = true;
         iRampJiffies = aMsg->Info().RampPauseResumeLong()?
                         iRampJiffiesLong : iRampJiffiesShort;
+        iDelayJiffies = iDelayTotalJiffies = 0;
         ResetPhaseDelay();
     }
     else {
@@ -128,16 +130,8 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
 Msg* PhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
 {
     if (iEnabled) {
-        ASSERT(iDecodedStream != nullptr);
-        ASSERT(iAnimator != nullptr);
-        const auto& stream = iDecodedStream->StreamInfo();
-        const auto animatorDelayJiffies = iAnimator->PipelineAnimatorDelayJiffies(
-            stream.Format(), stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
-        iDelayJiffies = 0;
-        if (aMsg->TotalJiffies() > animatorDelayJiffies) {
-            iDelayJiffies = aMsg->TotalJiffies() - animatorDelayJiffies;
-            iDelayJiffies = std::max(iDelayJiffies, iMinDelayJiffies);
-        }
+        iDelayTotalJiffies = aMsg->TotalJiffies();
+        TryCalculateDelay();
     }
     aMsg->RemoveRef();
     return nullptr;
@@ -149,6 +143,7 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
     if (iEnabled) {
         aMsg->AddRef();
         iDecodedStream = aMsg;
+        TryCalculateDelay();
     }
     return aMsg;
 }
@@ -189,6 +184,25 @@ void PhaseAdjuster::Start()
 
 void PhaseAdjuster::Stop()
 {
+}
+
+void PhaseAdjuster::TryCalculateDelay()
+{
+    iDelayJiffies = 0;
+    if (iDecodedStream == nullptr) {
+        return;
+    }
+    if (iDelayTotalJiffies == 0) {
+        return;
+    }
+    ASSERT(iAnimator != nullptr);
+    const auto& stream = iDecodedStream->StreamInfo();
+    const auto animatorDelayJiffies = iAnimator->PipelineAnimatorDelayJiffies(
+        stream.Format(), stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
+    if (iDelayTotalJiffies > animatorDelayJiffies) {
+        iDelayJiffies = iDelayTotalJiffies - animatorDelayJiffies;
+        iDelayJiffies = std::max(iDelayJiffies, iMinDelayJiffies);
+    }
 }
 
 MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
