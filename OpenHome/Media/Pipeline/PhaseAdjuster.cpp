@@ -248,14 +248,16 @@ MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
         else if (error < 0) {
             // Error is 0 or receiver is in front of sender. Highly unlikely receiver would get in front of sender. Any error would likely be minimal. Do nothing.
             // If error < 0, could inject MsgSilence to pull the error in towards 0.
+            LOG(kPipeline, "PhaseAdjuster: latency is now too low (error=%d)\n", error);
+            iState = State::Running;
             return aMsg;
         }
-        else {
-            // error == 0.
+        else { // error == 0
             if (iDroppedJiffies > 0) {
                 return StartRampUp(aMsg);
             }
             else {
+                LOG(kPipeline, "PhaseAdjuster: completed adjustment, dropped 0 jiffies\n");
                 iState = State::Running;
             }
             return aMsg;
@@ -317,6 +319,8 @@ MsgAudio* PhaseAdjuster::RampUp(MsgAudio* aMsg)
 
 MsgAudio* PhaseAdjuster::StartRampUp(MsgAudio* aMsg)
 {
+    LOG(kPipeline, "PhaseAdjuster::StartRampUp dropped %u jiffies (%ums)\n",
+                   iDroppedJiffies, Jiffies::ToMs(iDroppedJiffies));
     iState = State::RampingUp;
     iRemainingRampSize = iRampJiffies;
     iConfirmOccupancy = true; /* We've discarded some audio.  There may now be no audio in
