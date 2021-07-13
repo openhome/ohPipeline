@@ -750,9 +750,8 @@ void SuiteStopper::TestRampDurationTakenFromMode()
     ModeInfo info;
     info.SetRampDurations(true, false);
     TUint expectedRampJiffies = kRampDurationLong;
-    ModeClockPullers clockPullers;
     ModeTransportControls transportControls;
-    auto mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
+    auto mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, nullptr, transportControls);
 
     iStopper->Play();
     iPendingMsgs.push_back(mode);
@@ -776,7 +775,7 @@ void SuiteStopper::TestRampDurationTakenFromMode()
 
     info.SetRampDurations(false, false);
     expectedRampJiffies = kRampDurationShort;
-    mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
+    mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, nullptr, transportControls);
 
     iMuted = true; // bodge to fool audio processor into accepting any audio fragment left after completing the ramp
     iStopper->Play();

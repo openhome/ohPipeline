@@ -175,9 +175,9 @@ public:
      * Retrieve Songcast phase adjuster.
      *
      * @return  IClockPuller that can be notified of pipeline occupancy to allow
-     *          it to adjust the initial phase delay of a Songcast stream.
+     *          it to adjust the initial phase delay of streams that require lip syncing.
      */
-    IClockPuller& SongcastPhaseAdjuster();
+    IClockPuller& PhaseAdjuster();
     /**
      * Instruct the pipeline what should be streamed next.
      *

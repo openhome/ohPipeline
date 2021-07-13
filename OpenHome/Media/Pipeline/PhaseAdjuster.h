@@ -4,6 +4,7 @@
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Media/ClockPuller.h>
 
 #include <atomic>
@@ -13,13 +14,20 @@
 namespace OpenHome {
 namespace Media {
 
+class IPhaseAdjusterObserver
+{
+public:
+    virtual ~IPhaseAdjusterObserver() {}
+    virtual void PhaseAdjustComplete() = 0;
+};
+
 /*
 Element which minimises initial phase delay in Songcast streams.
 Aims to minimise variances in initial phase delay between senders and receivers which could be caused by differences in hardware, audio pipeline, logging and network differences, among other things.
 If receiver audio is lagging behind sender at start of stream, this class will drop audio packets, replacing them with silence, until phase delay is minimised.
 If receiver audio is ahead of sender at start of stream, this class will delay outputting receiver audio, replacing with silence, until phase delay is minimised.
 */
-class SongcastPhaseAdjuster : public PipelineElement, public IPipelineElementUpstream, public IClockPuller
+class PhaseAdjuster : public PipelineElement, public IPipelineElementUpstream, public IClockPuller
 {
 private:
     static const TUint kSupportedMsgTypes;
@@ -33,8 +41,10 @@ private:
         RampingUp
     };
 public:
-    SongcastPhaseAdjuster(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, TUint aRampJiffiesLong, TUint aRampJiffiesShort, TBool aEnabled);
-    ~SongcastPhaseAdjuster();
+    PhaseAdjuster(
+        MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, IStarvationRamper& aStarvationRamper,
+        TUint aRampJiffiesLong, TUint aRampJiffiesShort, TUint aMinDelayJiffies);
+    ~PhaseAdjuster();
     void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
@@ -50,6 +60,7 @@ public: // from IClockPuller
     void Start() override;
     void Stop() override;
 private:
+    void TryCalculateDelay();
     MsgAudio* AdjustAudio(const Brx& aMsgType, MsgAudio* aMsg);
     static MsgAudio* DropAudio(MsgAudio* aMsg, TUint aJiffies, TUint& aDroppedJiffies);
     MsgSilence* InjectSilence(TUint aJiffies);
@@ -61,9 +72,9 @@ private:
 private:
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstreamElement;
+    IStarvationRamper& iStarvationRamper;
     IPipelineAnimator* iAnimator;
-    const TBool iEnabled;
-    TBool iModeSongcast;
+    TBool iEnabled;
     State iState;
     Mutex iLock;
     TUint iUpdateCount;
@@ -71,17 +82,17 @@ private:
     std::atomic<TUint> iAudioIn;
     std::atomic<TUint> iAudioOut;
     MsgDecodedStream* iDecodedStream;
-    TUint iMsgSilenceJiffies;
-    TUint iMsgAudioJiffies;
     TUint iDelayJiffies;
-    TUint iDropLimitJiffies;
+    TUint iDelayTotalJiffies;
     TUint iDroppedJiffies;
     TUint iInjectedJiffies;
     const TUint iRampJiffiesLong;
     const TUint iRampJiffiesShort;
+    const TUint iMinDelayJiffies;
     TUint iRampJiffies;
     TUint iRemainingRampSize;
     TUint iCurrentRampValue;
+    TBool iConfirmOccupancy;
     MsgQueueLite iQueue; // Empty unless we have to split a msg during a ramp.
 };
 

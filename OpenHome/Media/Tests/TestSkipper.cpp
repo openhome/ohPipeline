@@ -508,9 +508,8 @@ void SuiteSkipper::TestRampDurationTakenFromMode()
     ModeInfo info;
     info.SetRampDurations(true, false);
     TUint expectedRampJiffies = kRampDurationLong;
-    ModeClockPullers clockPullers;
     ModeTransportControls transportControls;
-    auto mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
+    auto mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, nullptr, transportControls);
     iPendingMsgs.push_back(mode);
     iPendingMsgs.push_back(CreateTrack());
     iPendingMsgs.push_back(CreateEncodedStream());
@@ -532,7 +531,7 @@ void SuiteSkipper::TestRampDurationTakenFromMode()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(kExpectedFlushId)); // should be consumed by Skipper
     info.SetRampDurations(false, false);
     expectedRampJiffies = kRampDurationShort;
-    mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, clockPullers, transportControls);
+    mode = iMsgFactory->CreateMsgMode(Brn("Mode"), info, nullptr, transportControls);
     iPendingMsgs.push_back(mode);
     PullNext(EMsgHalt);
     PullNext(EMsgFlush);

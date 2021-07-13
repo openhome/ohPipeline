@@ -369,19 +369,6 @@ private:
 
 class IClockPuller;
 
-class ModeClockPullers
-{
-public:
-    ModeClockPullers();
-    ModeClockPullers(TBool aEnabled);
-    ModeClockPullers(IClockPuller* aPipelineBuffer);
-    TBool Enabled() const;
-    IClockPuller* PipelineBuffer() const;
-private:
-    TBool iEnabled;
-    IClockPuller* iPipelineBuffer;
-};
-
 class ModeTransportControls
 {
     friend class MsgMode;
@@ -417,11 +404,11 @@ public:
     MsgMode(AllocatorBase& aAllocator);
     const Brx& Mode() const;
     const ModeInfo& Info() const;
-    const ModeClockPullers& ClockPullers() const;
+    Optional<IClockPuller> ClockPuller() const;
     const ModeTransportControls& TransportControls() const;
 private:
     void Initialise(const Brx& aMode, const ModeInfo& aInfo,
-                    ModeClockPullers aClockPullers,
+                    Optional<IClockPuller> aClockPuller,
                     const ModeTransportControls& aTransportControls);
 private: // from Msg
     void Clear() override;
@@ -429,7 +416,7 @@ private: // from Msg
 private:
     BwsMode iMode;
     ModeInfo iInfo;
-    ModeClockPullers iClockPullers;
+    Optional<IClockPuller> iClockPuller;
     ModeTransportControls iTransportControls;
 };
 
@@ -1989,7 +1976,7 @@ class MsgFactory
 public:
     MsgFactory(IInfoAggregator& aInfoAggregator, const MsgFactoryInitParams& aInitParams);
 
-    MsgMode* CreateMsgMode(const Brx& aMode, const ModeInfo& aInfo, ModeClockPullers aClockPullers, const ModeTransportControls& aTransportControls);
+    MsgMode* CreateMsgMode(const Brx& aMode, const ModeInfo& aInfo, Optional<IClockPuller> aClockPuller, const ModeTransportControls& aTransportControls);
     MsgMode* CreateMsgMode(const Brx& aMode);
     MsgTrack* CreateMsgTrack(Media::Track& aTrack, TBool aStartOfStream = true);
     MsgDrain* CreateMsgDrain(Functor aCallback);

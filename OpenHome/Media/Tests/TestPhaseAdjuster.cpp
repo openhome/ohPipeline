@@ -1,12 +1,13 @@
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Private/SuiteUnitTest.h>
-#include <OpenHome/Media/Pipeline/SongcastPhaseAdjuster.h>
+#include <OpenHome/Media/Pipeline/PhaseAdjuster.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/ClockPuller.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Media/Pipeline/RampValidator.h>
 #include <OpenHome/Media/Pipeline/DecodedAudioValidator.h>
+#include <OpenHome/Media/Pipeline/StarvationRamper.h>
 
 using namespace OpenHome;
 using namespace OpenHome::TestFramework;
@@ -15,12 +16,13 @@ using namespace OpenHome::Media;
 namespace OpenHome {
 namespace Media {
 
-class SuiteSongcastPhaseAdjuster
+class SuitePhaseAdjuster
     : public SuiteUnitTest
     , private IPipelineElementUpstream
     , private IMsgProcessor
     , private IClockPuller
     , private IPipelineAnimator
+    , private IStarvationRamper
 {
 private:
     static const TUint kDecodedAudioCount   = 16;
@@ -35,6 +37,7 @@ private:
     static const TUint kRampDurationMin     = Jiffies::kPerMs * 50;
     static const TUint kRampDurationMax     = Jiffies::kPerMs * 500;
     static const TUint kRampDefault         = kRampDurationMax;
+    static const TUint kMinDelay            = Jiffies::kPerMs * 10;
 
     static const TUint kDelayJiffies        = 8110080;
     static const TUint kDefaultAudioJiffies = 983040;
@@ -43,8 +46,8 @@ private:
     static const Brn kMode;
     static const Brn kModeSongcast;
 public:
-    SuiteSongcastPhaseAdjuster();
-    ~SuiteSongcastPhaseAdjuster();
+    SuitePhaseAdjuster();
+    ~SuitePhaseAdjuster();
 private: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
@@ -79,6 +82,8 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
     TUint PipelineAnimatorMaxBitDepth() const override;
+private: // from IStarvationRamper
+    void WaitForOccupancy(TUint aJiffies) override;
 private:
     enum EMsgType
     {
@@ -117,22 +122,22 @@ private:
     void TestAllMsgsPass();
     void TestSongcastNoMsgDelay();
     void TestSongcastReceiverInSync();
+    void TestSongcastReceiverInSyncDelayBeforeStream();
 
     void TestSongcastReceiverBehindMsgBoundary();
     void TestSongcastReceiverBehindMsgNonBoundary();
     void TestSongcastReceiverBehindMsgsBoundary();
     void TestSongcastReceiverBehindMsgsNonBoundary();
 
-    void TestSongcastReceiverBehindOnLimit();
-    void TestSongcastReceiverBehindOverLimit();
     void TestSongcastReceiverAhead();
 
     void TestSongcastDrain(); // Results in new delay being sent down. Applies where clock family changes.
     void TestAnimatorDelayConsidered();
+    void TestAdjustmentClampedToMinDelay();
 private:
     MsgFactory* iMsgFactory;
     TrackFactory* iTrackFactory;
-    SongcastPhaseAdjuster* iPhaseAdjuster;
+    PhaseAdjuster* iPhaseAdjuster;
     AllocatorInfoLogger iInfoAggregator;
     RampValidator* iRampValidator;
     DecodedAudioValidator* iDecodedAudioValidator;
@@ -156,53 +161,54 @@ private:
     ERampStatus iRampStatus;
     TUint iLastRampPos;
     TUint iAnimatorDelayJiffies;
+    TBool iDecodedStreamFollowsDelay;
 };
 
 } // namespace Media
 } // namespace OpenHome
 
 
-// SuiteSongcastPhaseAdjuster
+// SuitePhaseAdjuster
 
-const TUint SuiteSongcastPhaseAdjuster::kDecodedAudioCount;
-const TUint SuiteSongcastPhaseAdjuster::kMsgAudioPcmCount;
-const TUint SuiteSongcastPhaseAdjuster::kMsgSilenceCount;
-const TUint SuiteSongcastPhaseAdjuster::kMsgSilenceSize;
-const TUint SuiteSongcastPhaseAdjuster::kSampleRate;
-const TUint SuiteSongcastPhaseAdjuster::kNumChannels;
-const TUint SuiteSongcastPhaseAdjuster::kRampDurationMin;
-const TUint SuiteSongcastPhaseAdjuster::kRampDurationMax;
-const TUint SuiteSongcastPhaseAdjuster::kDelayJiffies;
-const TUint SuiteSongcastPhaseAdjuster::kDefaultAudioJiffies;
+const TUint SuitePhaseAdjuster::kDecodedAudioCount;
+const TUint SuitePhaseAdjuster::kMsgAudioPcmCount;
+const TUint SuitePhaseAdjuster::kMsgSilenceCount;
+const TUint SuitePhaseAdjuster::kMsgSilenceSize;
+const TUint SuitePhaseAdjuster::kSampleRate;
+const TUint SuitePhaseAdjuster::kNumChannels;
+const TUint SuitePhaseAdjuster::kRampDurationMin;
+const TUint SuitePhaseAdjuster::kRampDurationMax;
+const TUint SuitePhaseAdjuster::kDelayJiffies;
+const TUint SuitePhaseAdjuster::kDefaultAudioJiffies;
 
-const SpeakerProfile SuiteSongcastPhaseAdjuster::kProfile(2);
-const Brn SuiteSongcastPhaseAdjuster::kMode("TestMode");
-const Brn SuiteSongcastPhaseAdjuster::kModeSongcast("Receiver");
+const SpeakerProfile SuitePhaseAdjuster::kProfile(2);
+const Brn SuitePhaseAdjuster::kMode("TestMode");
+const Brn SuitePhaseAdjuster::kModeSongcast("Receiver");
 
-SuiteSongcastPhaseAdjuster::SuiteSongcastPhaseAdjuster()
-    : SuiteUnitTest("SuiteSongcastPhaseAdjuster")
+SuitePhaseAdjuster::SuitePhaseAdjuster()
+    : SuiteUnitTest("SuitePhaseAdjuster")
 {
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestAllMsgsPass), "TestAllMsgsPass");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastNoMsgDelay), "TestSongcastNoMsgDelay");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverInSync), "TestSongcastReceiverInSync");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgBoundary), "TestSongcastReceiverBehindMsgBoundary");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgNonBoundary), "TestSongcastReceiverBehindMsgNonBoundary");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgsBoundary), "TestSongcastReceiverBehindMsgsBoundary");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgsNonBoundary), "TestSongcastReceiverBehindMsgsNonBoundary");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindOnLimit), "TestSongcastReceiverBehindOnLimit");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindOverLimit), "TestSongcastReceiverBehindOverLimit");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastReceiverAhead), "TestSongcastReceiverAhead");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestSongcastDrain), "TestSongcastDrain");
-    AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::TestAnimatorDelayConsidered), "TestAnimatorDelayConsidered");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestAllMsgsPass), "TestAllMsgsPass");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastNoMsgDelay), "TestSongcastNoMsgDelay");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverInSync), "TestSongcastReceiverInSync");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverInSyncDelayBeforeStream), "TestSongcastReceiverInSyncDelayBeforeStream");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverBehindMsgBoundary), "TestSongcastReceiverBehindMsgBoundary");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverBehindMsgNonBoundary), "TestSongcastReceiverBehindMsgNonBoundary");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverBehindMsgsBoundary), "TestSongcastReceiverBehindMsgsBoundary");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverBehindMsgsNonBoundary), "TestSongcastReceiverBehindMsgsNonBoundary");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastReceiverAhead), "TestSongcastReceiverAhead");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestSongcastDrain), "TestSongcastDrain");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestAnimatorDelayConsidered), "TestAnimatorDelayConsidered");
+    AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::TestAdjustmentClampedToMinDelay), "TestAdjustmentClampedToMinDelay");
 
-    // AddTest(MakeFunctor(*this, &SuiteSongcastPhaseAdjuster::), "");
+    // AddTest(MakeFunctor(*this, &SuitePhaseAdjuster::), "");
 }
 
-SuiteSongcastPhaseAdjuster::~SuiteSongcastPhaseAdjuster()
+SuitePhaseAdjuster::~SuitePhaseAdjuster()
 {
 }
 
-void SuiteSongcastPhaseAdjuster::Setup()
+void SuitePhaseAdjuster::Setup()
 {
     MsgFactoryInitParams init;
     init.SetMsgAudioPcmCount(kMsgAudioPcmCount, kDecodedAudioCount);
@@ -213,7 +219,7 @@ void SuiteSongcastPhaseAdjuster::Setup()
     init.SetMsgDelayCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
-    iPhaseAdjuster = new SongcastPhaseAdjuster(*iMsgFactory, *this, kRampDurationMin, kRampDurationMax, true);
+    iPhaseAdjuster = new PhaseAdjuster(*iMsgFactory, *this, *this, kRampDurationMin, kRampDurationMax, kMinDelay);
     iPhaseAdjuster->SetAnimator(*this);
     iRampValidator = new RampValidator(*iPhaseAdjuster, "RampValidator");
     iDecodedAudioValidator = new DecodedAudioValidator(*iRampValidator, "DecodedAudioValidator");
@@ -234,9 +240,10 @@ void SuiteSongcastPhaseAdjuster::Setup()
     iRampStatus = ERampStatus::ENoRamp;
     iLastRampPos = 0x7f7f;
     iAnimatorDelayJiffies = 0;
+    iDecodedStreamFollowsDelay = false;
 }
 
-void SuiteSongcastPhaseAdjuster::TearDown()
+void SuitePhaseAdjuster::TearDown()
 {
     iMsgQueue.Clear();
     delete iDecodedAudioValidator;
@@ -246,7 +253,7 @@ void SuiteSongcastPhaseAdjuster::TearDown()
     delete iTrackFactory;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::Pull()
+Msg* SuitePhaseAdjuster::Pull()
 {
     iNumMsgsGenerated++;
     switch (iNextGeneratedMsg)
@@ -284,14 +291,14 @@ Msg* SuiteSongcastPhaseAdjuster::Pull()
         ModeInfo info;
         info.SetSupportsLatency(iNextModeSupportsLatency);
         ModeTransportControls transportControls;
-        return iMsgFactory->CreateMsgMode(kMode, info, ModeClockPullers(iNextModeClockPuller), transportControls);
+        return iMsgFactory->CreateMsgMode(kMode, info, iNextModeClockPuller, transportControls);
     }
     case EMsgModeSongcast:
     {
         ModeInfo info;
         info.SetSupportsLatency(iNextModeSupportsLatency);
         ModeTransportControls transportControls;
-        return iMsgFactory->CreateMsgMode(kModeSongcast, info, ModeClockPullers(iNextModeClockPuller), transportControls);
+        return iMsgFactory->CreateMsgMode(kModeSongcast, info, iNextModeClockPuller, transportControls);
     }
     case EMsgTrack:
     {
@@ -303,7 +310,7 @@ Msg* SuiteSongcastPhaseAdjuster::Pull()
     case EMsgDrain:
         return iMsgFactory->CreateMsgDrain(Functor());
     case EMsgDelay:
-        iNextGeneratedMsg = EMsgSilence;
+        iNextGeneratedMsg = iDecodedStreamFollowsDelay? EMsgDecodedStream : EMsgSilence;
         return iMsgFactory->CreateMsgDelay(iNextDelayAbsoluteJiffies);
     case EMsgEncodedStream:
         return iMsgFactory->CreateMsgEncodedStream(Brn("http://1.2.3.4:5"), Brn("metatext"), 0, 0, 0, false, false, Multiroom::Allowed, nullptr);
@@ -328,7 +335,7 @@ Msg* SuiteSongcastPhaseAdjuster::Pull()
     }
 }
 
-MsgAudio* SuiteSongcastPhaseAdjuster::CreateAudio(TUint aJiffies)
+MsgAudio* SuitePhaseAdjuster::CreateAudio(TUint aJiffies)
 {
     static const TUint kByteDepth = 2;
     const TUint samples = aJiffies / Jiffies::PerSample(kSampleRate);
@@ -343,7 +350,7 @@ MsgAudio* SuiteSongcastPhaseAdjuster::CreateAudio(TUint aJiffies)
     return audio;
 }
 
-void SuiteSongcastPhaseAdjuster::QueueAudio(TUint aJiffies)
+void SuitePhaseAdjuster::QueueAudio(TUint aJiffies)
 {
     TUint remaining = aJiffies;
     while (remaining > 0) {
@@ -357,14 +364,14 @@ void SuiteSongcastPhaseAdjuster::QueueAudio(TUint aJiffies)
     }
 }
 
-TBool SuiteSongcastPhaseAdjuster::PullPostDropDecodedStream()
+TBool SuitePhaseAdjuster::PullPostDropDecodedStream()
 {
     iNextGeneratedMsg = EMsgAudioPcm;
     PullNext();
     return iLastMsg == EMsgDecodedStream;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgMode* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgMode* aMsg)
 {
     if (aMsg->Mode() == Brn("Receiver")) {
         iLastMsg = EMsgModeSongcast;
@@ -375,73 +382,73 @@ Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgMode* aMsg)
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgTrack* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgTrack* aMsg)
 {
     iLastMsg = EMsgTrack;
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
 {
     iLastMsg = EMsgDrain;
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgDelay* /*aMsg*/)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgDelay* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgEncodedStream* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgEncodedStream* aMsg)
 {
     iLastMsg = EMsgEncodedStream;
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgStreamSegment* /*aMsg*/)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgStreamSegment* /*aMsg*/)
 {
     ASSERTS(); /* only expect to deal with decoded audio at this stage of the pipeline */
     return nullptr;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgAudioEncoded* /*aMsg*/)
 {
     ASSERTS(); /* only expect to deal with decoded audio at this stage of the pipeline */
     return nullptr;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgMetaText* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgMetaText* aMsg)
 {
     iLastMsg = EMsgMetaText;
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgStreamInterrupted* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgStreamInterrupted* aMsg)
 {
     iLastMsg = EMsgStreamInterrupted;
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgHalt* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgHalt* aMsg)
 {
     iLastMsg = EMsgHalt;
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgFlush* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgFlush* aMsg)
 {
     iLastMsg = EMsgFlush;
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgWait* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgWait* aMsg)
 {
     iLastMsg = EMsgWait;
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
 {
     iLastMsg = EMsgDecodedStream;
     const auto info = aMsg->StreamInfo();
@@ -450,13 +457,13 @@ Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgBitRate* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgBitRate* aMsg)
 {
     iLastMsg = EMsgBitRate;
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgAudioPcm* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iLastMsg = EMsgAudioPcm;
     TUint jiffies = aMsg->Jiffies();
@@ -492,72 +499,76 @@ Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgAudioPcm* aMsg)
     return nullptr;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgAudioDsd* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgAudioDsd* aMsg)
 {
     iLastMsg = EMsgAudioDsd;
     iJiffies += aMsg->Jiffies();
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgSilence* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgSilence* aMsg)
 {
     iLastMsg = EMsgSilence;
     iJiffies += aMsg->Jiffies();
     return aMsg;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgPlayable* /*aMsg*/)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgPlayable* /*aMsg*/)
 {
     ASSERTS(); // MsgPlayable not expected at this stage of the pipeline
     return nullptr;
 }
 
-Msg* SuiteSongcastPhaseAdjuster::ProcessMsg(MsgQuit* aMsg)
+Msg* SuitePhaseAdjuster::ProcessMsg(MsgQuit* aMsg)
 {
     iLastMsg = EMsgQuit;
     return aMsg;
 }
 
-void SuiteSongcastPhaseAdjuster::Update(TInt aDelta)
+void SuitePhaseAdjuster::Update(TInt aDelta)
 {
     iBufferSize += aDelta;
     iPhaseAdjuster->Update(aDelta);
 }
 
-void SuiteSongcastPhaseAdjuster::Start()
+void SuitePhaseAdjuster::Start()
 {
     ASSERTS();
 }
 
-void SuiteSongcastPhaseAdjuster::Stop()
+void SuitePhaseAdjuster::Stop()
 {
     ASSERTS();
 }
 
-TUint SuiteSongcastPhaseAdjuster::PipelineAnimatorBufferJiffies() const
+TUint SuitePhaseAdjuster::PipelineAnimatorBufferJiffies() const
 {
-    ASSERTS();
-    return 0;
+    return Jiffies::kPerMs;
 }
 
-TUint SuiteSongcastPhaseAdjuster::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const
+TUint SuitePhaseAdjuster::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const
 {
     return iAnimatorDelayJiffies;
 }
 
-TUint SuiteSongcastPhaseAdjuster::PipelineAnimatorDsdBlockSizeWords() const
+TUint SuitePhaseAdjuster::PipelineAnimatorDsdBlockSizeWords() const
 {
     ASSERTS();
     return 4;
 }
 
-TUint SuiteSongcastPhaseAdjuster::PipelineAnimatorMaxBitDepth() const
+TUint SuitePhaseAdjuster::PipelineAnimatorMaxBitDepth() const
 {
     ASSERTS();
     return 24;
 }
 
-void SuiteSongcastPhaseAdjuster::PullNext()
+void SuitePhaseAdjuster::WaitForOccupancy(TUint /*aJiffies*/)
+{
+    // FIXME - add tests for this being called
+}
+
+void SuitePhaseAdjuster::PullNext()
 {
     Msg* msg = iDecodedAudioValidator->Pull();
     msg = msg->Process(*this);
@@ -566,7 +577,7 @@ void SuiteSongcastPhaseAdjuster::PullNext()
     }
 }
 
-void SuiteSongcastPhaseAdjuster::PullNext(EMsgType aExpectedMsg)
+void SuitePhaseAdjuster::PullNext(EMsgType aExpectedMsg)
 {
     iNextGeneratedMsg = aExpectedMsg;
     PullNext();
@@ -594,9 +605,9 @@ void SuiteSongcastPhaseAdjuster::PullNext(EMsgType aExpectedMsg)
     }
 }
 
-void SuiteSongcastPhaseAdjuster::TestAllMsgsPass()
+void SuitePhaseAdjuster::TestAllMsgsPass()
 {
-    /* 'AllMsgs' excludes encoded & playable audio - SongcastPhaseAdjuster is
+    /* 'AllMsgs' excludes encoded & playable audio - PhaseAdjuster is
        assumed only useful to the portion of the pipeline that deals in decoded
        audio */
     static const EMsgType msgs[] = { EMsgMode, EMsgTrack, EMsgDrain, EMsgEncodedStream,
@@ -608,7 +619,7 @@ void SuiteSongcastPhaseAdjuster::TestAllMsgsPass()
     }
 }
 
-void SuiteSongcastPhaseAdjuster::TestSongcastNoMsgDelay()
+void SuitePhaseAdjuster::TestSongcastNoMsgDelay()
 {
     iNextModeClockPuller = nullptr;
 
@@ -623,7 +634,7 @@ void SuiteSongcastPhaseAdjuster::TestSongcastNoMsgDelay()
     TEST(iJiffies == kDefaultAudioJiffies);
 }
 
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverInSync()
+void SuitePhaseAdjuster::TestSongcastReceiverInSync()
 {
     iNextModeClockPuller = nullptr;
 
@@ -654,7 +665,40 @@ void SuiteSongcastPhaseAdjuster::TestSongcastReceiverInSync()
     TEST(iBufferSize == bufferedAudio - static_cast<TInt>(kDefaultAudioJiffies)); // Should have only released 1 full msg (i.e., phase adjuster shouldn't have dropped any).
 }
 
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgBoundary()
+void SuitePhaseAdjuster::TestSongcastReceiverInSyncDelayBeforeStream()
+{
+    iNextModeClockPuller = nullptr;
+
+    PullNext(EMsgModeSongcast);
+    PullNext(EMsgTrack);
+    PullNext(EMsgDecodedStream);
+    TEST(iLastPulledStreamPos == 0);
+    iNextGeneratedMsg = EMsgDelay;
+    iDecodedStreamFollowsDelay = true;
+    iNextDelayAbsoluteJiffies = kDelayJiffies;
+    iJiffies = 0;
+    PullNext(); // Phase adjuster consumes delay.
+    TEST(iLastMsg == EMsgDecodedStream);
+
+    while (iJiffies < kDelayJiffies) {
+        PullNext(EMsgSilence);
+    }
+    TEST(iJiffies == kDelayJiffies);
+
+    // After all silence has been output want exactly the same amount of audio queued up us the delay value.
+    // This would mean the receiver is playing in sync with the sender.
+    QueueAudio(kDelayJiffies);
+    const auto offset = iTrackOffset;
+    const auto bufferedAudio = iBufferSize;
+
+    iJiffies = 0;
+    PullNext(EMsgAudioPcm);
+    TEST(iJiffies == kDefaultAudioJiffies);
+    TEST(iTrackOffset == offset); // No more msgs than those in queue have been created/pulled.
+    TEST(iBufferSize == bufferedAudio - static_cast<TInt>(kDefaultAudioJiffies)); // Should have only released 1 full msg (i.e., phase adjuster shouldn't have dropped any).
+}
+
+void SuitePhaseAdjuster::TestSongcastReceiverBehindMsgBoundary()
 {
     iNextModeClockPuller = nullptr;
 
@@ -694,7 +738,7 @@ void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgBoundary()
     TEST(iRampStatus == ERampStatus::ERampComplete);
 }
 
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgNonBoundary()
+void SuitePhaseAdjuster::TestSongcastReceiverBehindMsgNonBoundary()
 {
     iNextModeClockPuller = nullptr;
 
@@ -734,7 +778,7 @@ void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgNonBoundary()
     TEST(iRampStatus == ERampStatus::ERampComplete);
 }
 
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgsBoundary()
+void SuitePhaseAdjuster::TestSongcastReceiverBehindMsgsBoundary()
 {
     iNextModeClockPuller = nullptr;
 
@@ -774,7 +818,7 @@ void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgsBoundary()
     TEST(iRampStatus == ERampStatus::ERampComplete);
 }
 
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgsNonBoundary()
+void SuitePhaseAdjuster::TestSongcastReceiverBehindMsgsNonBoundary()
 {
     iNextModeClockPuller = nullptr;
 
@@ -814,90 +858,7 @@ void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindMsgsNonBoundary()
     TEST(iRampStatus == ERampStatus::ERampComplete);
 }
 
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindOnLimit()
-{
-    iNextModeClockPuller = nullptr;
-
-    PullNext(EMsgModeSongcast);
-    PullNext(EMsgTrack);
-    PullNext(EMsgDecodedStream);
-    TEST(iLastPulledStreamPos == 0);
-    iNextGeneratedMsg = EMsgDelay;
-    iNextDelayAbsoluteJiffies = kDelayJiffies;
-    iJiffies = 0;
-    PullNext(); // Phase adjuster consumes delay.
-
-    while (iJiffies < kDelayJiffies) {
-        PullNext(EMsgSilence);
-    }
-    TEST(iJiffies == kDelayJiffies);
-
-    QueueAudio(kDelayJiffies);
-    static const TUint kDropLimitJiffies = kDelayJiffies - 56448 * 10;
-    QueueAudio(kDropLimitJiffies);
-    const auto offset = iTrackOffset;
-    const auto bufferedAudio = iBufferSize;
-    iJiffies = 0;
-
-    TEST(PullPostDropDecodedStream());
-    TEST(iLastPulledStreamPos == kDropLimitJiffies);
-    iRampStatus = ERampStatus::ERampingUp;
-    iLastRampPos = 0;
-    PullNext(EMsgAudioPcm);
-    TEST(iJiffies == 318720);
-    TEST(iTrackOffset == offset);
-    TEST(iBufferSize == bufferedAudio - static_cast<TInt>(kDropLimitJiffies) - 318720); // Should have pulled through drop limit jiffies + remainder of last msg that was split.
-
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    TEST(iRampStatus == ERampStatus::ERampComplete);
-}
-
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverBehindOverLimit()
-{
-    iNextModeClockPuller = nullptr;
-
-    PullNext(EMsgModeSongcast);
-    PullNext(EMsgTrack);
-    PullNext(EMsgDecodedStream);
-    TEST(iLastPulledStreamPos == 0);
-    iNextGeneratedMsg = EMsgDelay;
-    iNextDelayAbsoluteJiffies = kDelayJiffies;
-    iJiffies = 0;
-    PullNext(); // Phase adjuster consumes delay.
-
-    while (iJiffies < kDelayJiffies) {
-        PullNext(EMsgSilence);
-    }
-    TEST(iJiffies == kDelayJiffies);
-
-    QueueAudio(kDelayJiffies);
-    static const TUint kDropLimitJiffies = kDelayJiffies - 56448 * 10;
-    static const TUint kBufferedJiffies = kDropLimitJiffies + 1280; // Need to have at least 1 full sample's worth of jiffies for the given sample rate, as MsgAudio can't have a boundary on a partial sample (e.g., only 1 jiffy).
-    QueueAudio(kBufferedJiffies);
-    const auto offset = iTrackOffset;
-    const auto bufferedAudio = iBufferSize;
-    iJiffies = 0;
-
-    TEST(PullPostDropDecodedStream());
-    TEST(iLastPulledStreamPos == kDropLimitJiffies);
-    iRampStatus = ERampStatus::ERampingUp;
-    iLastRampPos = 0;
-    PullNext(EMsgAudioPcm);
-    TEST(iJiffies == 318720);
-    TEST(iTrackOffset == offset);
-    TEST(iBufferSize == bufferedAudio - static_cast<TInt>(kDropLimitJiffies) - 318720); // Should have pulled through drop limit jiffies + remainder of last msg that was split.
-
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    PullNext(EMsgAudioPcm);
-    TEST(iRampStatus == ERampStatus::ERampComplete);
-}
-
-void SuiteSongcastPhaseAdjuster::TestSongcastReceiverAhead()
+void SuitePhaseAdjuster::TestSongcastReceiverAhead()
 {
     iNextModeClockPuller = nullptr;
 
@@ -928,7 +889,7 @@ void SuiteSongcastPhaseAdjuster::TestSongcastReceiverAhead()
     TEST(iBufferSize == bufferedAudio - static_cast<TInt>(kDefaultAudioJiffies)); // Should have only released 1 full msg (i.e., phase adjuster shouldn't have dropped any).
 }
 
-void SuiteSongcastPhaseAdjuster::TestSongcastDrain()
+void SuitePhaseAdjuster::TestSongcastDrain()
 {
     iNextModeClockPuller = nullptr;
 
@@ -1005,7 +966,7 @@ void SuiteSongcastPhaseAdjuster::TestSongcastDrain()
     TEST(iRampStatus == ERampStatus::ERampComplete);
 }
 
-void SuiteSongcastPhaseAdjuster::TestAnimatorDelayConsidered()
+void SuitePhaseAdjuster::TestAnimatorDelayConsidered()
 {
     iNextModeClockPuller = nullptr;
     iAnimatorDelayJiffies = Jiffies::kPerMs;
@@ -1032,11 +993,38 @@ void SuiteSongcastPhaseAdjuster::TestAnimatorDelayConsidered()
     TEST(iLastPulledStreamPos == pos);
 }
 
+void SuitePhaseAdjuster::TestAdjustmentClampedToMinDelay()
+{
+    iNextModeClockPuller = nullptr;
+    iAnimatorDelayJiffies = Jiffies::kPerMs * 5;
+    const TUint excessAudioJiffies = Jiffies::kPerMs * 2;
+
+    PullNext(EMsgModeSongcast);
+    PullNext(EMsgTrack);
+    PullNext(EMsgDecodedStream);
+    TEST(iLastPulledStreamPos == 0);
+    iNextGeneratedMsg = EMsgDelay;
+    iNextDelayAbsoluteJiffies = kMinDelay;
+    iJiffies = 0;
+    PullNext(); // Phase adjuster consumes delay.
+
+    while (iJiffies < kDelayJiffies) {
+        PullNext(EMsgSilence);
+    }
+    TEST(iJiffies == kDelayJiffies);
+
+    QueueAudio(kMinDelay + excessAudioJiffies);
+    TEST(PullPostDropDecodedStream());
+    TUint pos = excessAudioJiffies;
+    Jiffies::RoundDown(pos, 44100);
+    TEST(iLastPulledStreamPos == pos);
+}
 
 
-void TestSongcastPhaseAdjuster()
+
+void TestPhaseAdjuster()
 {
     Runner runner("Songcast phase adjuster tests\n");
-    runner.Add(new SuiteSongcastPhaseAdjuster());
+    runner.Add(new SuitePhaseAdjuster());
     runner.Run();
 }

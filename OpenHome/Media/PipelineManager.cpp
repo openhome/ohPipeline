@@ -59,7 +59,8 @@ PipelineManager::PipelineManager(PipelineInitParams* aInitParams, IInfoAggregato
     iFillerPriority = min-1;
     iFiller = new Filler(*iPipeline, *iIdManager, *iIdManager, *iPipeline,
                          iPipeline->Factory(), aTrackFactory, *iPrefetchObserver,
-                         *iIdManager, iFillerPriority, iPipeline->SenderMinLatencyMs() * Jiffies::kPerMs);
+                         *iIdManager, PhaseAdjuster(), iFillerPriority,
+                         iPipeline->SenderMinLatencyMs() * Jiffies::kPerMs);
     iProtocolManager = new ProtocolManager(*iFiller, iPipeline->Factory(), *iIdManager, *iPipeline);
     iFiller->Start(*iProtocolManager);
 }
@@ -173,9 +174,9 @@ ISpotifyTrackObserver& PipelineManager::SpotifyTrackObserver() const
     return iPipeline->SpotifyTrackObserver();
 }
 
-IClockPuller& PipelineManager::SongcastPhaseAdjuster()
+IClockPuller& PipelineManager::PhaseAdjuster()
 {
-    return iPipeline->GetSongcastPhaseAdjuster();
+    return iPipeline->GetPhaseAdjuster();
 }
 
 MsgFactory& PipelineManager::Factory()

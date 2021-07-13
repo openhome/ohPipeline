@@ -410,6 +410,8 @@ StarvationRamper::StarvationRamper(MsgFactory& aMsgFactory, IPipelineElementUpst
     , iLastPulledAudioRampValue(Ramp::kMax)
     , iTrackStreamCount(0)
     , iHaltCount(0)
+    , iStartOccupancyJiffies(0)
+    , iSemStartOccupancy("SRM3", 0)
     , iLastEventBuffering(false)
 {
     ASSERT(iEventBuffering.is_lock_free());
@@ -474,7 +476,12 @@ void StarvationRamper::PullerThread()
         if (isFull) {
             iSem.Clear();
         }
+        const auto startOccupancy = iStartOccupancyJiffies.load();
+        const auto triggerStart = startOccupancy > 0 && Jiffies() >= startOccupancy;
         iLock.Signal();
+        if (triggerStart) {
+            iSemStartOccupancy.Signal();
+        }
         if (isFull) {
             iSem.Wait();
         }
@@ -614,6 +621,17 @@ void StarvationRamper::EventCallback()
 
 Msg* StarvationRamper::Pull()
 {
+    {
+        const auto startOccupancy = iStartOccupancyJiffies.load();
+        if (startOccupancy > 0) {
+            if (Jiffies() < startOccupancy) {
+                iSemStartOccupancy.Wait();
+            }
+            iStartOccupancyJiffies.store(0);
+            iAudioOutSinceLastStartOccupancy = 0;
+        }
+    }
+
     if (IsEmpty() || iStartDrain.load()) {
         SetBuffering(true);
         if (iStartDrain.load()) {
@@ -621,8 +639,7 @@ Msg* StarvationRamper::Pull()
             iDraining.store(true);
         }
         if ((iState == State::Running ||
-            (iState == State::RampingUp && iCurrentRampValue != Ramp::kMin))
-            && !iExit) {
+            (iState == State::RampingUp && iCurrentRampValue != Ramp::kMin)) && !iExit) {
             StartFlywheelRamp();
         }
     }
@@ -661,7 +678,7 @@ void StarvationRamper::ProcessMsgIn(MsgTrack* /*aMsg*/)
 
 void StarvationRamper::ProcessMsgIn(MsgDelay* aMsg)
 {
-    iMaxJiffies = aMsg->RemainingJiffies();
+    iMaxJiffies = std::max(aMsg->RemainingJiffies(), 140 * Jiffies::kPerMs);
 }
 
 void StarvationRamper::ProcessMsgIn(MsgHalt* /*aMsg*/)
@@ -770,6 +787,7 @@ Msg* StarvationRamper::ProcessMsgOut(MsgBitRate* aMsg)
 
 Msg* StarvationRamper::ProcessMsgOut(MsgAudioPcm* aMsg)
 {
+    ++iAudioOutSinceLastStartOccupancy;
     if (iDraining.load()) {
         aMsg->RemoveRef();
         return nullptr;
@@ -883,4 +901,10 @@ Msg* StarvationRamper::ProcessMsgOut(MsgSilence* aMsg)
     }
     ProcessAudioOut(aMsg);
     return aMsg;
+}
+
+void StarvationRamper::WaitForOccupancy(TUint aJiffies)
+{
+    (void)iSemStartOccupancy.Clear();
+    iStartOccupancyJiffies.store(aJiffies);
 }

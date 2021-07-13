@@ -70,7 +70,7 @@ Msg* PreDriver::ProcessMsg(MsgMode* aMsg)
            playing at a skewed clock rate set by the previous clock puller. */
         iSampleRate = iBitDepth = iNumChannels = 0;
     }
-    iModeHasPullableClock = aMsg->ClockPullers().Enabled();
+    iModeHasPullableClock = aMsg->ClockPuller().Ok();
     return aMsg;
 }
 

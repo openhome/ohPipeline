@@ -968,37 +968,6 @@ void ModeInfo::Clear()
 }
 
 
-// ModeClockPullers
-
-ModeClockPullers::ModeClockPullers()
-    : iEnabled(false)
-    , iPipelineBuffer(nullptr)
-{
-}
-
-ModeClockPullers::ModeClockPullers(TBool aEnabled)
-    : iEnabled(aEnabled)
-    , iPipelineBuffer(nullptr)
-{
-}
-
-ModeClockPullers::ModeClockPullers(IClockPuller* aPipelineBuffer)
-    : iEnabled(aPipelineBuffer != nullptr)
-    , iPipelineBuffer(aPipelineBuffer)
-{
-}
-
-TBool ModeClockPullers::Enabled() const
-{
-    return iEnabled;
-}
-
-IClockPuller* ModeClockPullers::PipelineBuffer() const
-{
-    return iPipelineBuffer;
-}
-
-
 // ModeTransportControls
 
 ModeTransportControls::ModeTransportControls()
@@ -1033,9 +1002,9 @@ const ModeInfo& MsgMode::Info() const
     return iInfo;
 }
 
-const ModeClockPullers& MsgMode::ClockPullers() const
+Optional<IClockPuller> MsgMode::ClockPuller() const
 {
-    return iClockPullers;
+    return iClockPuller;
 }
 
 const ModeTransportControls& MsgMode::TransportControls() const
@@ -1044,12 +1013,12 @@ const ModeTransportControls& MsgMode::TransportControls() const
 }
 
 void MsgMode::Initialise(const Brx& aMode, const ModeInfo& aInfo,
-                         ModeClockPullers aClockPullers,
+                         Optional<IClockPuller> aClockPuller,
                          const ModeTransportControls& aTransportControls)
 {
     iMode.Replace(aMode);
     iInfo = aInfo;
-    iClockPullers = aClockPullers;
+    iClockPuller = aClockPuller;
     iTransportControls = aTransportControls;
 }
 
@@ -1057,7 +1026,7 @@ void MsgMode::Clear()
 {
     iMode.Replace(Brx::Empty());
     iInfo.Clear();
-    iClockPullers = ModeClockPullers();
+    iClockPuller = nullptr;
     iTransportControls.Clear();
 }
 
@@ -3858,20 +3827,19 @@ MsgFactory::MsgFactory(IInfoAggregator& aInfoAggregator, const MsgFactoryInitPar
 }
 
 MsgMode* MsgFactory::CreateMsgMode(const Brx& aMode, const ModeInfo& aInfo,
-                                   ModeClockPullers aClockPullers,
+                                   Optional<IClockPuller> aClockPuller,
                                    const ModeTransportControls& aTransportControls)
 {
     MsgMode* msg = iAllocatorMsgMode.Allocate();
-    msg->Initialise(aMode, aInfo, aClockPullers, aTransportControls);
+    msg->Initialise(aMode, aInfo, aClockPuller, aTransportControls);
     return msg;
 }
 
 MsgMode* MsgFactory::CreateMsgMode(const Brx& aMode)
 {
     ModeInfo info;
-    ModeClockPullers clockPullers;
     ModeTransportControls transportControls;
-    return CreateMsgMode(aMode, info, clockPullers, transportControls);
+    return CreateMsgMode(aMode, info, nullptr, transportControls);
 }
 
 MsgTrack* MsgFactory::CreateMsgTrack(Media::Track& aTrack, TBool aStartOfStream)

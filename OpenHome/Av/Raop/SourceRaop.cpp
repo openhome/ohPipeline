@@ -28,7 +28,7 @@ class UriProviderRaop : public Media::UriProviderRepeater
 public:
     UriProviderRaop(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller);
 private: // from UriProvider
-    Media::ModeClockPullers ClockPullers() override;
+    Optional<Media::IClockPuller> ClockPuller() override;
 private:
     Optional<Media::IClockPuller> iClockPuller;
 };
@@ -65,9 +65,9 @@ UriProviderRaop::UriProviderRaop(IMediaPlayer& aMediaPlayer, Optional<Media::ICl
 {
 }
 
-ModeClockPullers UriProviderRaop::ClockPullers()
+Optional<IClockPuller> UriProviderRaop::ClockPuller()
 {
-    return ModeClockPullers(iClockPuller.Ptr());
+    return iClockPuller;
 }
 
 

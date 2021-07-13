@@ -269,7 +269,7 @@ Msg* SuiteVariableDelay::Pull()
         ModeInfo info;
         info.SetSupportsLatency(iNextModeSupportsLatency);
         ModeTransportControls transportControls;
-        return iMsgFactory->CreateMsgMode(kMode, info, ModeClockPullers(iNextModeClockPuller), transportControls);
+        return iMsgFactory->CreateMsgMode(kMode, info, iNextModeClockPuller, transportControls);
     }
     case EMsgTrack:
     {
