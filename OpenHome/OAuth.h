@@ -148,7 +148,7 @@ public:
     const Brx& UserUrl() const { return iUserUrl; }
     const Brx& AuthCode() const { return iAuthCode; }
     const Brx& DeviceCode() const { return iDeviceCode; }
-    const TUint SuggestedPollingInterval() const { return iSuggestedPollingInterval; }
+    TUint SuggestedPollingInterval() const { return iSuggestedPollingInterval; }
 
     void Set(const Brx& aUserUrl,
              const Brx& aAuthCode,
@@ -359,7 +359,7 @@ class OAuthToken
         TBool IsPresent() const;
         TBool IsLongLived() const;
         TBool HasExpired() const;
-        const TByte RetryCount() const;
+        TByte RetryCount() const;
         TBool CanRefresh(TUint aMaxRetryCount) const;
 
         void UpdateToken(const Brx& aNewAccessToken,

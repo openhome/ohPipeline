@@ -222,7 +222,7 @@ TBool OAuthToken::IsLongLived() const
     return iIsLongLived;
 }
 
-const TByte OAuthToken::RetryCount() const
+TByte OAuthToken::RetryCount() const
 {
     return iRetryCount;
 }
