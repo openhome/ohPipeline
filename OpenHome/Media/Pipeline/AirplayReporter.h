@@ -12,7 +12,9 @@ class IAirplayReporter
 {
 public:
     virtual TUint64 Samples() const = 0;
-    virtual void Flush(TUint aFlushId) = 0; // Do not increment subsample count until aFlushId passes.
+    virtual void ReportSamples(TUint aAddtionalSamples) = 0;
+    virtual void ResetSampleCount() = 0;
+    virtual void Flush(TUint aFlushId) = 0; // Notify of a pending flush, reset sample count and maintain 0 until MsgFlush is received
     virtual ~IAirplayReporter() {}
 };
 
@@ -103,6 +105,8 @@ public: // from IPipelineElementUpstream
     Msg* Pull() override;
 public: // from IAirplayReporter
     TUint64 Samples() const override;
+    void ReportSamples(TUint aAdditionalSamples) override;
+    void ResetSampleCount() override;
     void Flush(TUint aFlushId) override;
 public: // from IAirplayTrackObserver
     void MetadataChanged(Media::IAirplayMetadataAllocated* aMetadata) override;
