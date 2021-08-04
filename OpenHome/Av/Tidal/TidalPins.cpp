@@ -332,6 +332,13 @@ TBool TidalPins::LoadContainers(const Brx& aPath,
             try {
                 for (TUint i = 0; i < kItemLimitPerRequest; i++) {
                     parserItem.Parse(parserItems.NextObject());
+
+                    // Some TIDAL responses are nested in a wrapper object
+                    // featuring a 'created' date/time
+                    if (parserItem.HasKey("item")) {
+                        parserItem.Parse(parserItem.String("item"));
+                    }
+
                     containerIds[i].ReplaceThrow(parserItem.String(kIdString)); // parse response from Tidal
                     idCount++;
                     if (containerIds[i].Bytes() == 0) {
