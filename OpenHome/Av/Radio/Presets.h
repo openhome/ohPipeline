@@ -107,7 +107,7 @@ public:
     ~RadioPresets();
     void Start();
 private: // from IRadioPresets
-    void AddProvider(IRadioPresetProvider* aProvider);
+    void AddProvider(IRadioPresetProvider* aProvider) override;
 private:
     void Refresh();
     void ProviderChanged(Configuration::KeyValuePair<const Brx&>& aKvp);
