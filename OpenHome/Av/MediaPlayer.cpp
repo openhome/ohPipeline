@@ -177,6 +177,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     , iPinsManager(nullptr)
     , iProviderPins(nullptr)
     , iTransportPins(nullptr)
+    , iRadioPresets(nullptr)
 {
     iUnixTimestamp = new OpenHome::UnixTimestamp(iDvStack.Env());
     iKvpStore = new KvpStore(aStaticDataSource);
@@ -486,4 +487,14 @@ Optional<IPinsManager> MediaPlayer::PinManager()
 Optional<RingBufferLogger> MediaPlayer::LogBuffer()
 {
     return iLoggerBuffered ? &iLoggerBuffered->LogBuffer() : nullptr;
+}
+
+Optional<IRadioPresets> MediaPlayer::RadioPresets()
+{
+    return Optional<IRadioPresets>(iRadioPresets);
+}
+
+void MediaPlayer::SetRadioPresets(IRadioPresets& aPresets)
+{
+    iRadioPresets = &aPresets;
 }

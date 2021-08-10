@@ -143,11 +143,14 @@ TBool PresetDatabase::TryGetPresetByMetaData(const Brx& aMetaData, TUint& aId) c
 
 void PresetDatabase::SetPreset(TUint aIndex, const Brx& aUri, const Brx& aMetaData, TUint& aId)
 {
-    iLock.Wait();
+    if (aIndex >= kMaxPresets) {
+        THROW(PresetIndexOutOfRange);
+    }
+    AutoMutex _(iLock);
     Preset& preset = iPresets[aIndex];
     aId = preset.Id();
-    if (preset.MetaData() != aMetaData) {
-        if (aMetaData == Brx::Empty()) {
+    if (preset.Uri() != aUri || preset.MetaData() != aMetaData) {
+        if (aUri == Brx::Empty()) {
             aId = kPresetIdNone;
         }
         else {
@@ -157,7 +160,6 @@ void PresetDatabase::SetPreset(TUint aIndex, const Brx& aUri, const Brx& aMetaDa
         iSeq++;
         iUpdated = true;
     }
-    iLock.Signal();
 }
 
 TUint PresetDatabase::MaxNumPresets() const

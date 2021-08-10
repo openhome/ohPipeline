@@ -5,8 +5,8 @@
 #include <OpenHome/Private/Network.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Http.h>
-#include <OpenHome/Private/Timer.h>
 #include <OpenHome/Private/Uri.h>
+#include <OpenHome/Av/Radio/Presets.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Configuration/ConfigManager.h>
@@ -18,9 +18,6 @@
 
 namespace OpenHome {
     class Environment;
-    class IThreadPool;
-    class IThreadPoolHandle;
-    class Parser;
 namespace Configuration {
     class IConfigInitialiser;
     class ConfigText;
@@ -43,45 +40,7 @@ public:
     static const Brn kTuneInItemId;
 };
 
-class RefreshTimer
-{
-private:
-    static const TUint kRefreshRateMs;// = 5 * 60 * 1000; // 5 minutes
-    static const std::vector<TUint> kRetryDelaysMs;
-public:
-    RefreshTimer(OpenHome::ITimer& aTimer);
-    /*
-     * Move to next retry back-off. If all retries have been exhausted, default to normal refresh rate.
-     */
-    void BackOffRetry();
-    /*
-     * Trigger refresh at standard rate.
-     */
-    void StandardRefresh();
-    void Reset();
-private:
-    OpenHome::ITimer& iTimer;
-    std::atomic<TUint> iNextDelayIdx;
-};
-
-/*
- * Helper class to use as a local variable to ensure timer is always triggered.
- *
- * If a call to BackOffRetry()/StandardRefresh() is not made, the destructor of this class performs a call to StandardRefresh().
- */
-class AutoRefreshTimer
-{
-public:
-    AutoRefreshTimer(RefreshTimer& aTimer);
-    ~AutoRefreshTimer();
-    void BackOffRetry();
-    void StandardRefresh();
-private:
-    RefreshTimer& iTimer;
-    std::atomic<TBool> iTriggered;
-};
-
-class RadioPresetsTuneIn
+class RadioPresetsTuneIn : public IRadioPresetProvider
 {
 private:
     static const TUint kReadBufBytes = Media::kTrackMetaDataMaxBytes + 1024;
@@ -90,31 +49,33 @@ private:
     static const TUint kMaxUserNameBytes = 64;
     static const TUint kMaxPartnerIdBytes = 64;
     static const TUint kReadResponseTimeoutMs = 30 * 1000; // 30 seconds
-    static const TUint kRefreshRateMs = 5 * 60 * 1000; // 5 minutes
     static const TUint kMaxPresetTitleBytes = 256;
     static const Brn kConfigKeyUsername;
     static const Brn kConfigUsernameDefault;
+    static const Brn kDisplayName;
 public:
-    RadioPresetsTuneIn(Environment& aEnv, const Brx& aPartnerId,
-                       IPresetDatabaseWriter& aDbWriter, Configuration::IConfigInitialiser& aConfigInit,
-                       Credentials& aCredentialsManager, IThreadPool& aThreadPool,
-                       Media::MimeTypeList& aMimeTypeList);
+    RadioPresetsTuneIn(
+        Environment& aEnv,
+        const Brx& aPartnerId,
+        Configuration::IConfigInitialiser& aConfigInit,
+        Credentials& aCredentialsManager,
+        Media::MimeTypeList& aMimeTypeList);
     ~RadioPresetsTuneIn();
-    void Refresh();
+private: // from IRadioPresetProvider
+    const Brx& DisplayName() const override;
+    void Activate(IRadioPresetWriter& aWriter) override;
+    void Deactivate() override;
+    void RefreshPresets() override;
 private:
     void UpdateUsername(const Brx& aUsername);
     void UsernameChanged(Configuration::KeyValuePair<const Brx&>& aKvp);
-    void CurrentAdapterChanged();
-    void DnsChanged();
-    void TimerCallback();
-    void DoRefresh();
     TBool ReadElement(Parser& aParser, const TChar* aKey, Bwx& aValue);
     TBool ValidateKey(Parser& aParser, const TChar* aKey, TBool aLogErrors);
     TBool ReadValue(Parser& aParser, const TChar* aKey, Bwx& aValue);
 private:
     Mutex iLock;
     Environment& iEnv;
-    IPresetDatabaseWriter& iDbWriter;
+    IRadioPresetWriter* iPresetWriter;
     SocketTcpClient iSocket;
     Uri iRequestUri;
     Sws<kWriteBufBytes> iWriteBuffer;
@@ -123,9 +84,6 @@ private:
     ReaderUntilS<kReadBufBytes> iReaderUntil;
     ReaderHttpResponse iReaderResponse;
     HttpHeaderContentLength iHeaderContentLength;
-    Timer* iRefreshTimer;
-    std::unique_ptr<RefreshTimer> iRefreshTimerWrapper;
-    IThreadPoolHandle* iThreadPoolHandle;
     Bws<40> iSupportedFormats;
     // Following members provide temp storage used while converting OPML elements to Didl-Lite
     Bws<Media::kTrackMetaDataMaxBytes> iDidlLite;
@@ -135,12 +93,7 @@ private:
     Bws<kMaxPresetTitleBytes> iPresetTitle;
     Configuration::ConfigText* iConfigUsername;
     TUint iListenerId;
-    std::vector<TUint> iAllocatedPresets;
-    Media::BwsTrackUri iDbUri; // only required in a single function but too large for the stack
-    Bws<2*1024> iDbMetaData;
     const Bws<kMaxPartnerIdBytes> iPartnerId;
-    TUint iNacnId;
-    TUint iDnsId;
 };
 
 class CredentialsTuneIn : public ICredentialConsumer, private INonCopyable
