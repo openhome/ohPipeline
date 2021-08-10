@@ -276,9 +276,9 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
 
                 if (responseParser.HasKey("subStatus"))
                 {
-                    TInt code = responseParser.Num("subStatus");
+                    TInt tidalErrCode = responseParser.Num("subStatus");
 
-                    switch(code)
+                    switch(tidalErrCode)
                     {
                         case 4005: {
                             LOG_ERROR(kPipeline, "Tidal::GetStreamUrl - TIDAL error 4005. 'For some reaon' the asset can't be played.\n");
