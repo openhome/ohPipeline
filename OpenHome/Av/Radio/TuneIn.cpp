@@ -126,6 +126,7 @@ void RadioPresetsTuneIn::Deactivate()
 void RadioPresetsTuneIn::RefreshPresets()
 {
     iSocket.Open(iEnv);
+    iSocket.LogVerbose(true);
     AutoSocket _(iSocket);
     AutoSocket autoSocket(iSocket); // Ensure socket is closed before any path out of this block.
     Endpoint ep(80, iRequestUri.Host());
@@ -182,8 +183,12 @@ void RadioPresetsTuneIn::RefreshPresets()
         static const Brn kAttrDefault("is_default=\"true\"");
         while (parser.Remaining().Bytes() > 0) {
             attr.Set(parser.Next());
-            if (attr == kAttrDefault) {
+            if (attr.BeginsWith(kAttrDefault)) {
                 foundDefault = true;
+                if (attr[attr.Bytes()-1] == '/') {
+                    LOG_INFO(kSources, "No presets for query %.*s\n", PBUF(iRequestUri.PathAndQuery()));
+                    return;
+                }
                 break;
             }
         }
