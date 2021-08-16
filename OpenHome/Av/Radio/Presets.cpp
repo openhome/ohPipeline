@@ -241,7 +241,7 @@ void RadioPresets::DoRefresh()
     }
     catch (PresetIndexOutOfRange&) {}
     catch (Exception& ex) {
-        Log::Print("%s from %s::d\n", ex.Message(), ex.File(), ex.Line());
+        Log::Print("%s from %s:%d\n", ex.Message(), ex.File(), ex.Line());
         refreshTimer.BackOffRetry();
     }
     iDbWriter.EndSetPresets();
