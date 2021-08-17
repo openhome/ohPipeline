@@ -269,8 +269,6 @@ void RadioPresets::ScheduleRefresh()
 
 void RadioPresets::SetPreset(TUint aIndex, const Brx& aStreamUri, const Brx& aTitle, const Brx& aImageUri, TUint aByterate)
 {
-    iAllocatedPresets[aIndex] = 1;
-
     iDidlLite.SetBytes(0);
     iDidlLite.Append("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
     iDidlLite.Append("<item id=\"\" parentID=\"\" restricted=\"True\">");
@@ -294,4 +292,5 @@ void RadioPresets::SetPreset(TUint aIndex, const Brx& aStreamUri, const Brx& aTi
 
     //Log::Print("++ Add preset #%u: %.*s\n", presetIndex, PBUF(iPresetUrl));
     iDbWriter.SetPreset(aIndex, aStreamUri, iDidlLite);
+    iAllocatedPresets[aIndex] = 1; // must come after iDbWriter.SetPreset in case that throws
 }
