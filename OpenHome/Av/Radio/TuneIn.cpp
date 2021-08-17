@@ -126,7 +126,6 @@ void RadioPresetsTuneIn::Deactivate()
 void RadioPresetsTuneIn::RefreshPresets()
 {
     iSocket.Open(iEnv);
-    iSocket.LogVerbose(true);
     AutoSocket _(iSocket);
     AutoSocket autoSocket(iSocket); // Ensure socket is closed before any path out of this block.
     Endpoint ep(80, iRequestUri.Host());
