@@ -124,7 +124,7 @@ RadioPresets::RadioPresets(
         aConfigInit,
         Brn("Radio.PresetProvider"),
         *this,
-        1 /*aMinLength*/,
+        defaultName.Bytes() > 0 ? 1 : 0 /*aMinLength*/,
         32 /*aMaxLength*/,
         defaultName);
 }
