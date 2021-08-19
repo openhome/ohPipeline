@@ -679,6 +679,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, T
         initParams->SetUseLoopbackNetworkAdapter();
     }
     initParams->SetEnableShell(0);
+    initParams->SetIPv6Supported(false);
 #ifdef LPEC_ENABLE
     initParams->SetDvNumLpecThreads(4);
     initParams->SetDvLpecServerPort(2324);
