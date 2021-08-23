@@ -24,11 +24,11 @@ class ProtocolQobuz : public Media::ProtocolNetwork, private IReader
 {
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
 public:
-    ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
-                  Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser,
-                  IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
-                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, 
-                  IThreadPool& aThreadPool, Media::IPipelineObservable& aPipelineObservable);
+    ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret,
+                   Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser,
+                   IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice,
+                   Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable,
+                   IThreadPool& aThreadPool, Media::IPipelineObservable& aPipelineObservable);
     ~ProtocolQobuz();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -99,7 +99,7 @@ using namespace OpenHome::Configuration;
 
 Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av::IMediaPlayer& aMediaPlayer)
 { // static
-    return new ProtocolQobuz(aMediaPlayer.Env(), aAppId, aAppSecret,
+    return new ProtocolQobuz(aMediaPlayer.Env(), aMediaPlayer.Ssl(), aAppId, aAppSecret,
                              aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(),
                              aMediaPlayer.UnixTimestamp(), aMediaPlayer.Device(), 
                              aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable(), 
@@ -109,7 +109,7 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
 
 // ProtocolQobuz
 
-ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret,
+ProtocolQobuz::ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret,
                              Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser,
                              IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
                              Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, 
@@ -128,7 +128,7 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, const Brx& aAppId, const Brx& aA
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
 
-    iQobuz = new Qobuz(aEnv, aAppId, aAppSecret, aDevice.Udn(), aCredentialsManager,
+    iQobuz = new Qobuz(aEnv, aSsl, aAppId, aAppSecret, aDevice.Udn(), aCredentialsManager,
                        aConfigInitialiser, aUnixTimestamp, aThreadPool, aPipelineObservable);
     aCredentialsManager.Add(iQobuz);
 

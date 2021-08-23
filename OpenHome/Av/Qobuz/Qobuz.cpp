@@ -1,5 +1,6 @@
 #include <OpenHome/Av/Qobuz/Qobuz.h>
 #include <OpenHome/Av/Credentials.h>
+#include <OpenHome/SocketSsl.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Debug.h>
@@ -195,7 +196,7 @@ const Brn Qobuz::kTagFileUrl("url");
 
 static const TUint kQualityValues[] ={ 5, 6, 7, 27 };
 
-Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret, const Brx& aDeviceId,
+Qobuz::Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aDeviceId,
              ICredentialsState& aCredentialsState, IConfigInitialiser& aConfigInitialiser,
              IUnixTimestamp& aUnixTimestamp, IThreadPool& aThreadPool,
              Media::IPipelineObservable& aPipelineObservable)
@@ -205,6 +206,7 @@ Qobuz::Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret, const 
     , iCredentialsState(aCredentialsState)
     , iUnixTimestamp(aUnixTimestamp)
     , iPipelineObservable(aPipelineObservable)
+    , iSocket(aEnv, aSsl, kReadBufferBytes)
     , iReaderBuf(iSocket)
     , iReaderUntil(iReaderBuf)
     , iWriteBuffer(iSocket)
@@ -591,11 +593,9 @@ TBool Qobuz::TryConnect()
     }
     Endpoint ep;
     try {
-        iSocket.Open(iEnv);
         ep.SetAddress(kHost);
         ep.SetPort(kPort);
-        iSocket.Connect(ep, kConnectTimeoutMs);
-        //iSocket.LogVerbose(true);
+        iSocket.Connect(ep, kHost, kConnectTimeoutMs);
         iConnected = true;
     }
     catch (NetworkTimeout&) {

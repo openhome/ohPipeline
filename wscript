@@ -1157,7 +1157,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Qobuz/TestQobuz.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
+            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
             target='TestQobuz',
             install_path=None)
     bld.program(
