@@ -15,7 +15,7 @@ namespace Av {
 class TestQobuz : private ICredentialsState
 {
 public:
-    TestQobuz(Environment& aEnv, const Brx& aId, const Brx& aSecret, const Brx& aDeviceId);
+    TestQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aId, const Brx& aSecret, const Brx& aDeviceId);
     virtual ~TestQobuz();
     void Start(const Brx& aUsername, const Brx& aPassword);
     void Test();
@@ -37,13 +37,13 @@ using namespace OpenHome;
 using namespace OpenHome::TestFramework;
 using namespace OpenHome::Av;
 
-TestQobuz::TestQobuz(Environment& aEnv, const Brx& aId, const Brx& aSecret, const Brx& aDeviceId)
+TestQobuz::TestQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aId, const Brx& aSecret, const Brx& aDeviceId)
 {
     iStore = new Configuration::ConfigRamStore();
     iConfigManager = new Configuration::ConfigManager(*iStore);
     iUnixTimestamp = new UnixTimestamp(aEnv);
     iThreadPool = new ThreadPool(1, 1, 1);
-    iQobuz = new Qobuz(aEnv, aId, aSecret, aDeviceId, *this, *iConfigManager,
+    iQobuz = new Qobuz(aEnv, aSsl, aId, aSecret, aDeviceId, *this, *iConfigManager,
                        *iUnixTimestamp, *iThreadPool, iPipelineObservable);
 }
 
@@ -109,9 +109,13 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
 
     Debug::SetLevel(Debug::kApplication6);
     Debug::SetSeverity(Debug::kSeverityError);
-    TestQobuz* qobuz = new TestQobuz(*env, optionId.Value(), optionSecret.Value(), Brn("12345"));
+
+    SslContext* ssl = new SslContext();
+
+    TestQobuz* qobuz = new TestQobuz(*env, *ssl, optionId.Value(), optionSecret.Value(), Brn("12345"));
     qobuz->Start(optionUsername.Value(), optionPassword.Value());
     qobuz->Test();
     delete qobuz;
+    delete ssl;
     Net::UpnpLibrary::Close();
 }

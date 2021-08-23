@@ -2,6 +2,7 @@
 
 #include <OpenHome/Av/Credentials.h>
 #include <OpenHome/Types.h>
+#include <OpenHome/SocketSsl.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Private/Network.h>
@@ -87,7 +88,7 @@ class Qobuz : public ICredentialConsumer, private IQobuzTrackObserver
     static const TUint kWriteBufferBytes = 1024;
     static const TUint kConnectTimeoutMs = 10000; // FIXME - should read this + ProtocolNetwork's equivalent from a single client-changable location
     static const Brn kHost;
-    static const TUint kPort = 80;
+    static const TUint kPort = 443;
     static const TUint kGranularityUsername = 128;
     static const TUint kGranularityPassword = 128;
     static const Brn kId;
@@ -105,10 +106,10 @@ public:
         Close
     };
 public:
-    Qobuz(Environment& aEnv, const Brx& aAppId, const Brx& aAppSecret, const Brx& aDeviceId,
-          ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser,
-          IUnixTimestamp& aUnixTimestamp, IThreadPool& aThreadPool,
-          Media::IPipelineObservable& aPipelineObservable);
+    Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aDeviceId,
+           ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser,
+           IUnixTimestamp& aUnixTimestamp, IThreadPool& aThreadPool,
+           Media::IPipelineObservable& aPipelineObservable);
     ~Qobuz();
     TBool TryLogin();
     QobuzTrack* StreamableTrack(const Brx& aTrackId);
@@ -151,7 +152,7 @@ private:
     ICredentialsState& iCredentialsState;
     IUnixTimestamp& iUnixTimestamp;
     Media::IPipelineObservable& iPipelineObservable;
-    SocketTcpClient iSocket;
+    SocketSsl iSocket;
     Timer* iTimerSocketActivity;
     Srs<1024> iReaderBuf;
     ReaderUntilS<1024> iReaderUntil;
