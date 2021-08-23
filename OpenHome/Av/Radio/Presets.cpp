@@ -99,11 +99,12 @@ RadioPresets::RadioPresets(
     Environment& aEnv,
     Configuration::IConfigInitialiser& aConfigInit,
     IPresetDatabaseWriter& aDbWriter,
-    IThreadPool& aThreadPool,
-    IRadioPresetProvider* aDefaultProvider)
+    IThreadPool& aThreadPool)
     : iLock("RPre")
     , iEnv(aEnv)
+    , iConfigInit(aConfigInit)
     , iDbWriter(aDbWriter)
+    , iConfigChoiceProvider(nullptr)
     , iListenerProvider(IConfigManager::kSubscriptionIdInvalid)
     , iActiveProvider(nullptr)
 {
@@ -114,19 +115,6 @@ RadioPresets::RadioPresets(
 
     iNacnId = iEnv.NetworkAdapterList().AddCurrentChangeListener(MakeFunctor(*this, &RadioPresets::CurrentAdapterChanged), "TuneIn", false);
     iDnsId = iEnv.DnsChangeNotifier()->Register(MakeFunctor(*this, &RadioPresets::DnsChanged));
-
-    Brn defaultName;
-    if (aDefaultProvider != nullptr) {
-        AddProvider(aDefaultProvider);
-        defaultName.Set(aDefaultProvider->DisplayName());
-    }
-    iConfigChoiceProvider = new Configuration::ConfigTextChoice(
-        aConfigInit,
-        Brn("Radio.PresetProvider"),
-        *this,
-        defaultName.Bytes() > 0 ? 1 : 0 /*aMinLength*/,
-        32 /*aMaxLength*/,
-        defaultName);
 }
 
 RadioPresets::~RadioPresets()
@@ -136,8 +124,10 @@ RadioPresets::~RadioPresets()
     }
     iRefreshTimerWrapper.reset();
     iRefreshTimer->Cancel();
-    iConfigChoiceProvider->Unsubscribe(iListenerProvider);
-    delete iConfigChoiceProvider;
+    if (iConfigChoiceProvider != nullptr) {
+        iConfigChoiceProvider->Unsubscribe(iListenerProvider);
+        delete iConfigChoiceProvider;
+    }
     iThreadPoolHandle->Destroy();
     iEnv.DnsChangeNotifier()->Deregister(iDnsId);
     iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iNacnId);
@@ -149,13 +139,28 @@ RadioPresets::~RadioPresets()
 
 void RadioPresets::Start()
 {
-    iListenerProvider = iConfigChoiceProvider->Subscribe(MakeFunctorConfigText(*this, &RadioPresets::ProviderChanged));
+    if (iConfigChoiceProvider != nullptr) {
+        iListenerProvider = iConfigChoiceProvider->Subscribe(MakeFunctorConfigText(*this, &RadioPresets::ProviderChanged));
+    }
 }
 
 void RadioPresets::AddProvider(IRadioPresetProvider* aProvider)
 {
-    AutoMutex _(iLock);
+    iLock.Wait();
     iProviders.push_back(aProvider);
+    const TBool createConfigVal = iProviders.size() == 2;
+    iLock.Signal();
+    if (createConfigVal) {
+        // we now have a choice of providers; expose a config value that'll list however many are eventually added
+        Brn defaultName(iProviders[0]->DisplayName());
+        iConfigChoiceProvider = new Configuration::ConfigTextChoice(
+            iConfigInit,
+            Brn("Radio.PresetProvider"),
+            *this,
+            1 /*aMinLength*/,
+            32 /*aMaxLength*/,
+            defaultName);
+    }
 }
 
 void RadioPresets::Refresh()

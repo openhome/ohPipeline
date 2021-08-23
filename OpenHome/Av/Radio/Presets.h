@@ -102,11 +102,10 @@ public:
         Environment& aEnv,
         Configuration::IConfigInitialiser& aConfigInit,
         IPresetDatabaseWriter& aDbWriter,
-        IThreadPool& aThreadPool,
-        IRadioPresetProvider* aDefaultProvider);
+        IThreadPool& aThreadPool);
     ~RadioPresets();
     void Start();
-private: // from IRadioPresets
+public: // from IRadioPresets
     void AddProvider(IRadioPresetProvider* aProvider) override;
 private:
     void Refresh();
@@ -125,6 +124,7 @@ private: // from IRadioPresetWriter
 private:
     mutable Mutex iLock;
     Environment& iEnv;
+    Configuration::IConfigInitialiser& iConfigInit;
     IPresetDatabaseWriter& iDbWriter;
     Configuration::ConfigTextChoice* iConfigChoiceProvider;
     TUint iListenerProvider;

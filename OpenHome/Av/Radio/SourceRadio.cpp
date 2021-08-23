@@ -111,8 +111,10 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
         aMediaPlayer.Env(),
         aMediaPlayer.ConfigInitialiser(),
         *iPresetDatabase,
-        aMediaPlayer.ThreadPool(),
-        tuneIn /* transfers ownership */);
+        aMediaPlayer.ThreadPool());
+    if (tuneIn != nullptr) {
+        iPresets->AddProvider(tuneIn); // transfers ownership
+    }
     aMediaPlayer.SetRadioPresets(*iPresets);
     aMediaPlayer.Product().AddObserver(*this);
     
