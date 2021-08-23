@@ -553,8 +553,14 @@ void Qobuz::UpdateStatus()
 void Qobuz::Login(Bwx& aToken)
 {
     AutoMutex _(iLock);
-    if (iAuthToken.Bytes() == 0 && !TryLoginLocked()) {
-        THROW(CredentialsLoginFailed);
+
+    const TBool hasCredentials = (iUsername.Buffer().Bytes() > 0 && iPassword.Buffer().Bytes() > 0);
+    if (iAuthToken.Bytes() == 0)
+    {
+        const TBool loginSuccess = hasCredentials && TryLoginLocked();
+        if (!loginSuccess) {
+            THROW(CredentialsLoginFailed);
+        }
     }
     aToken.Replace(iAuthToken);
 }
