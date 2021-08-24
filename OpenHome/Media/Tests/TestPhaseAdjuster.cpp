@@ -82,6 +82,7 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
     TUint PipelineAnimatorMaxBitDepth() const override;
+    void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const override;
 private: // from IStarvationRamper
     void WaitForOccupancy(TUint aJiffies) override;
 private:
@@ -561,6 +562,12 @@ TUint SuitePhaseAdjuster::PipelineAnimatorMaxBitDepth() const
 {
     ASSERTS();
     return 24;
+}
+
+void SuitePhaseAdjuster::PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const
+{
+    aPcm = 192000;
+    aDsd = 5644800;
 }
 
 void SuitePhaseAdjuster::WaitForOccupancy(TUint /*aJiffies*/)

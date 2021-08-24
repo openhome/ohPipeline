@@ -349,6 +349,11 @@ void PipelineManager::GetThreadPriorities(TUint& aFiller, TUint& aFlywheelRamper
     iPipeline->GetThreadPriorities(aFlywheelRamper, aStarvationRamper, aCodec, aEvent);
 }
 
+void PipelineManager::GetMaxSupportedSampleRates(TUint& aPcm, TUint& aDsd) const
+{
+    iPipeline->GetMaxSupportedSampleRates(aPcm, aDsd);
+}
+
 Msg* PipelineManager::Pull()
 {
     return iPipeline->Pull();

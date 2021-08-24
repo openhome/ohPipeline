@@ -332,6 +332,18 @@ ILoggerSerial& MediaPlayer::BufferLogOutput(TUint aBytes, IShell& aShell, Option
 void MediaPlayer::Start(IRebootHandler& aRebootHandler)
 {
     iConfigManager->Open();
+    TUint pcm, dsd;
+    iPipeline->GetMaxSupportedSampleRates(pcm, dsd);
+    Bws<32> sampleRatesAttr;
+    if (pcm > 0) {
+        sampleRatesAttr.AppendPrintf("PcmMax=%u", pcm);
+        iProduct->AddAttribute(sampleRatesAttr);
+    }
+    if (dsd > 0) {
+        sampleRatesAttr.Replace(Brx::Empty());
+        sampleRatesAttr.AppendPrintf("DsdMax=%u", dsd);
+        iProduct->AddAttribute(sampleRatesAttr);
+    }
     iPipeline->Start(*iVolumeManager, *iVolumeManager);
     iProviderTransport->Start();
     if (iProviderConfigApp != nullptr) {

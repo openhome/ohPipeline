@@ -1892,6 +1892,13 @@ public:
      *
      */
     virtual TUint PipelineAnimatorMaxBitDepth() const = 0;
+    /**
+     * Report the maximum sample rates supported.
+     *
+     * @param[out] aPcm             Max supported rate for PCM audio
+     * @param[out] aDsd             Max supported rate for DSD audio
+     */
+    virtual void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const = 0;
 };
 
 class IPipeline : public IPipelineElementUpstream

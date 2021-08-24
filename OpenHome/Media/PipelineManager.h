@@ -281,6 +281,7 @@ public:
     TUint SenderMinLatencyMs() const;
     void GetThreadPriorityRange(TUint& aMin, TUint& aMax) const;
     void GetThreadPriorities(TUint& aFiller, TUint& aFlywheelRamper, TUint& aStarvationRamper, TUint& aCodec, TUint& aEvent);
+    void GetMaxSupportedSampleRates(TUint& aPcm, TUint& aDsd) const;
 public: // from IPipelineObservable
     void AddObserver(IPipelineObserver& aObserver) override;
     void RemoveObserver(IPipelineObserver& aObserver) override;
