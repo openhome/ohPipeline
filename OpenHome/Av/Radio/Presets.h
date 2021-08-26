@@ -111,6 +111,7 @@ private:
     void Refresh();
     void ProviderChanged(Configuration::KeyValuePair<const Brx&>& aKvp);
     IRadioPresetProvider* Provider(const Brx& aName) const;
+    void UpdateProvider(IRadioPresetProvider* aProvider);
     void CurrentAdapterChanged();
     void DnsChanged();
     void TimerCallback();

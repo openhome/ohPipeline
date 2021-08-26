@@ -142,6 +142,9 @@ void RadioPresets::Start()
     if (iConfigChoiceProvider != nullptr) {
         iListenerProvider = iConfigChoiceProvider->Subscribe(MakeFunctorConfigText(*this, &RadioPresets::ProviderChanged));
     }
+    else if (iProviders.size() == 1) {
+        UpdateProvider(iProviders[0]);
+    }
 }
 
 void RadioPresets::AddProvider(IRadioPresetProvider* aProvider)
@@ -172,15 +175,7 @@ void RadioPresets::ProviderChanged(Configuration::KeyValuePair<const Brx&>& aKvp
 {
     const Brx& name = aKvp.Value();
     auto provider = Provider(name);
-    AutoMutex _(iLock);
-    if (provider != nullptr && provider != iActiveProvider) {
-        if (iActiveProvider != nullptr) {
-            iActiveProvider->Deactivate();
-        }
-        iActiveProvider = provider;
-        iActiveProvider->Activate(*this);
-        Refresh();
-    }
+    UpdateProvider(provider);
 }
 
 IRadioPresetProvider* RadioPresets::Provider(const Brx& aName) const
@@ -192,6 +187,19 @@ IRadioPresetProvider* RadioPresets::Provider(const Brx& aName) const
         }
     }
     return nullptr;
+}
+
+void RadioPresets::UpdateProvider(IRadioPresetProvider* aProvider)
+{
+    AutoMutex _(iLock);
+    if (aProvider != nullptr && aProvider != iActiveProvider) {
+        if (iActiveProvider != nullptr) {
+            iActiveProvider->Deactivate();
+        }
+        iActiveProvider = aProvider;
+        iActiveProvider->Activate(*this);
+        Refresh();
+    }
 }
 
 void RadioPresets::CurrentAdapterChanged()
