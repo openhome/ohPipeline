@@ -28,7 +28,7 @@ UrlPins::UrlPins(DvDeviceStandard& aDevice, CpStack& aCpStack, IThreadPool& aThr
     , iPin(iPinIdProvider)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
-    iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
+    iCpRadio = new CpProxyAvOpenhomeOrgRadio2(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &UrlPins::Invoke),
                                                  "UrlPins", ThreadPoolPriority::Medium);

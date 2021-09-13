@@ -147,6 +147,11 @@ void RadioPresets::Start()
     }
 }
 
+void RadioPresets::Refresh()
+{
+    (void)iThreadPoolHandle->TrySchedule();
+}
+
 void RadioPresets::AddProvider(IRadioPresetProvider* aProvider)
 {
     iLock.Wait();
@@ -164,11 +169,6 @@ void RadioPresets::AddProvider(IRadioPresetProvider* aProvider)
             32 /*aMaxLength*/,
             defaultName);
     }
-}
-
-void RadioPresets::Refresh()
-{
-    (void)iThreadPoolHandle->TrySchedule();
 }
 
 void RadioPresets::ProviderChanged(Configuration::KeyValuePair<const Brx&>& aKvp)

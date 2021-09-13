@@ -5,7 +5,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
-#include <Generated/CpAvOpenhomeOrgRadio1.h>
+#include <Generated/CpAvOpenhomeOrgRadio2.h>
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Av/CalmRadio/CalmRadio.h>
         
@@ -41,7 +41,7 @@ private:
 private:
     Mutex iLock;
     CalmRadio& iCalmRadio;
-    Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
+    Net::CpProxyAvOpenhomeOrgRadio2* iCpRadio;
     IThreadPoolHandle* iThreadPoolHandle;
     Bws<128> iToken;
     Functor iCompleted;

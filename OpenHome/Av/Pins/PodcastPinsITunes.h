@@ -31,7 +31,7 @@ namespace Configuration {
     class ConfigChoice;
 }
 namespace Net {
-    class CpProxyAvOpenhomeOrgRadio1;
+    class CpProxyAvOpenhomeOrgRadio2;
     class CpProxyAvOpenhomeOrgPlaylist1;
 }
 
@@ -219,7 +219,7 @@ private:
     void Invoke();
 private:
     PodcastPinsITunes* iPodcastPins;
-    Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
+    Net::CpProxyAvOpenhomeOrgRadio2* iCpRadio;
     IThreadPoolHandle* iThreadPoolHandle;
     Bws<128> iToken;
     Functor iCompleted;
