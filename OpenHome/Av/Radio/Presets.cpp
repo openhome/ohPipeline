@@ -282,22 +282,22 @@ void RadioPresets::ScheduleRefresh()
 
 void RadioPresets::SetPreset(TUint aIndex, const Brx& aStreamUri, const Brx& aTitle, const Brx& aImageUri, TUint aByterate)
 {
+    WriterBuffer writer(iDidlLite);
     iDidlLite.SetBytes(0);
     iDidlLite.Append("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
     iDidlLite.Append("<item id=\"\" parentID=\"\" restricted=\"True\">");
     iDidlLite.Append("<dc:title>");
-    iDidlLite.Append(aTitle);
+    Converter::ToXmlEscaped(writer, aTitle);
     iDidlLite.Append("</dc:title>");
     iDidlLite.Append("<res protocolInfo=\"*:*:*:*\"");
     if (aByterate != 0) {
         iDidlLite.AppendPrintf(" bitrate=\"%u\"", aByterate);
     }
     iDidlLite.Append('>');
-    WriterBuffer writer(iDidlLite);
     Converter::ToXmlEscaped(writer, aStreamUri);
     iDidlLite.Append("</res>");
     iDidlLite.Append("<upnp:albumArtURI>");
-    iDidlLite.Append(aImageUri);
+    Converter::ToXmlEscaped(writer, aImageUri);
     iDidlLite.Append("</upnp:albumArtURI>");
     iDidlLite.Append("<upnp:class>object.item.audioItem</upnp:class>");
     iDidlLite.Append("</item>");
