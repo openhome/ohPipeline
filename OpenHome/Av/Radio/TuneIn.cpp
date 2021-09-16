@@ -213,6 +213,7 @@ void RadioPresetsTuneIn::RefreshPresets()
             !ReadElement(parser, "URL", iPresetUrl)) {
             continue;
         }
+        Converter::FromXmlEscaped(iPresetTitle);
         Converter::FromXmlEscaped(iPresetUrl);
         if (isAudio) {
             iPresetUri.Replace(iPresetUrl);
@@ -237,6 +238,9 @@ void RadioPresetsTuneIn::RefreshPresets()
         while (key.Bytes() > 0 && !(foundImage && foundPresetNumber)) {
         if (key == imageKeyBuf) {
             foundImage = ReadValue(parser, imageKey, iPresetArtUrl);
+            if (foundImage) {
+                Converter::FromXmlEscaped(iPresetArtUrl);
+            }
         }
         else if (key == presetNumberBuf) {
             Bws<Ascii::kMaxUintStringBytes> presetBuf;
