@@ -177,6 +177,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     , iPinsManager(nullptr)
     , iProviderPins(nullptr)
     , iTransportPins(nullptr)
+    , iDeviceAnnouncerMdns(nullptr)
     , iRadioPresets(nullptr)
 {
     iUnixTimestamp = new OpenHome::UnixTimestamp(iDvStack.Env());
