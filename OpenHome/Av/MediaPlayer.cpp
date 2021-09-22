@@ -241,7 +241,9 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
         iPinsManager->Add(iTransportPins);
     }
 
-    iDeviceAnnouncerMdns = new DeviceAnnouncerMdns(aDvStack, aDevice, *iFriendlyNameManager);
+    if (aDvStack.Env().MdnsProvider() != nullptr) {
+        iDeviceAnnouncerMdns = new DeviceAnnouncerMdns(aDvStack, aDevice, *iFriendlyNameManager);
+    }
 }
 
 MediaPlayer::~MediaPlayer()
@@ -254,7 +256,10 @@ MediaPlayer::~MediaPlayer()
     delete iProviderOAuth;
 
     delete iCredentials;
-    delete iDeviceAnnouncerMdns;
+
+    if (iDeviceAnnouncerMdns != nullptr) {
+        delete iDeviceAnnouncerMdns;
+    }
     /**
      * Circular dependency between ConfigStartupSource and Product on certain ConfigValues.
      * Force ConfigStartupSource to de-register its source name listeners.
