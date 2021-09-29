@@ -836,6 +836,17 @@ void SuiteMsgAudio::Test()
     TEST_THROWS(remaining = msg->Split(msg->Jiffies()), AssertionFailed);
     TEST_THROWS(remaining = msg->Split(msg->Jiffies()+1), AssertionFailed);
 
+    // split pcm msg whose offset is invalid.  Check both parts have invalid offset
+    msg->RemoveRef();
+    msg = iMsgFactory->CreateMsgAudioPcm(data, 2, 44100, 8, AudioDataEndian::Little, MsgAudioDecoded::kTrackOffsetInvalid);
+    TEST(static_cast<MsgAudioDecoded*>(msg)->TrackOffset() == MsgAudioDecoded::kTrackOffsetInvalid);
+    remaining = msg->Split(msg->Jiffies() / 2);
+    TEST(static_cast<MsgAudioDecoded*>(msg)->TrackOffset() == MsgAudioDecoded::kTrackOffsetInvalid);
+    TEST(static_cast<MsgAudioDecoded*>(remaining)->TrackOffset() == MsgAudioDecoded::kTrackOffsetInvalid);
+    remaining->RemoveRef();
+    msg->RemoveRef();
+    msg = iMsgFactory->CreateMsgAudioPcm(data, 2, 44100, 8, AudioDataEndian::Little, Jiffies::kPerSecond);
+
     // Clone pcm msg.  Check lengths of clone & parent match
     MsgAudio* clone = msg->Clone();
     jiffies = clone->Jiffies();

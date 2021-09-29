@@ -2186,7 +2186,12 @@ void MsgAudioDecoded::SplitCompleted(MsgAudio& aRemaining)
     iAudioData->AddRef();
     MsgAudioDecoded& remaining = static_cast<MsgAudioDecoded&>(aRemaining);
     remaining.iAudioData = iAudioData;
-    remaining.iTrackOffset = iTrackOffset + iSize;
+    if (iTrackOffset == kTrackOffsetInvalid) {
+        remaining.iTrackOffset = iTrackOffset;
+    }
+    else {
+        remaining.iTrackOffset = iTrackOffset + iSize;
+    }
     if (iAllocatorPlayableSilence != nullptr) {
         remaining.iAllocatorPlayableSilence = iAllocatorPlayableSilence;
     }
