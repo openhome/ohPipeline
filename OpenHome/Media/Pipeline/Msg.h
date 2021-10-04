@@ -583,6 +583,13 @@ enum class RampType
     Volume
 };
 
+enum class SeekCapability
+{
+    None,
+    SeekCache,  // Seek within pipeline cache, if possible, passing seek upstream towards protocol module otherwise.
+    SeekSource  // Do not attempt to seek within pipeline cache. Seek within source, i.e., have protocol module handle seek.
+};
+
 class MsgEncodedStream : public Msg
 {
     friend class MsgFactory;
@@ -605,6 +612,7 @@ public:
     TUint64 StartPos() const;
     TUint StreamId() const;
     TBool Seekable() const;
+    Media::SeekCapability SeekCapability() const;
     TBool Live() const;
     Media::Multiroom Multiroom() const;
     IStreamHandler* StreamHandler() const;
@@ -613,9 +621,9 @@ public:
     const DsdStreamInfo& DsdStream() const;
     RampType Ramp() const;
 private:
-    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
-    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp = kRampDefault);
-    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);
+    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
+    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp = kRampDefault);
+    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);
 private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
@@ -625,7 +633,7 @@ private:
     TUint64 iTotalBytes;
     TUint64 iStartPos;
     TUint iStreamId;
-    TBool iSeekable;
+    Media::SeekCapability iSeekCapability;
     TBool iLive;
     Format iStreamFormat;
     Media::Multiroom iMultiroom;
@@ -1983,6 +1991,7 @@ public:
     MsgDelay* CreateMsgDelay(TUint aTotalJiffies);
     MsgDelay* CreateMsgDelay(TUint aRemainingJiffies, TUint aTotalJiffies);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
+    MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);

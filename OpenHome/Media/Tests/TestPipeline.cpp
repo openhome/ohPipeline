@@ -10,6 +10,7 @@
 #include <OpenHome/Private/Shell.h>
 #include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <string.h>
 #include <vector>
@@ -138,6 +139,7 @@ private:
     AllocatorInfoLogger iInfoAggregator;
     Supplier* iSupplier;
     PipelineInitParams* iInitParams;
+    ThreadPool* iThreadPool;
     Pipeline* iPipeline;
     TrackFactory* iTrackFactory;
     IPipelineElementUpstream* iPipelineEnd;
@@ -343,7 +345,8 @@ SuitePipeline::SuitePipeline()
     iInitParams = PipelineInitParams::New();
     iInitParams->SetLongRamp(Jiffies::kPerMs * 150); // reduced size to ensure that 1ms chunks of ramped audio show a change
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
-    iPipeline = new Pipeline(iInitParams, iInfoAggregator, *iTrackFactory, *this, *this, *this, *this);
+    iThreadPool = new ThreadPool(1, 1, 1);
+    iPipeline = new Pipeline(iInitParams, iInfoAggregator, *iTrackFactory, *this, *this, *this, *this, *iThreadPool);
     iPipeline->SetAnimator(*this);
     iSupplier = new Supplier(iPipeline->Factory(), *iPipeline, *iTrackFactory);
     iPipeline->AddCodec(new DummyCodec(kNumChannels, kSampleRate, kBitDepth, AudioDataEndian::Little, kProfile));
@@ -363,6 +366,7 @@ SuitePipeline::~SuitePipeline()
     iSemQuit.Wait();
     delete iSupplier;
     delete iPipeline;
+    delete iThreadPool;
     delete iTrackFactory;
     delete th;
 }
@@ -1077,4 +1081,3 @@ void TestPipeline()
     runner.Add(new SuitePipeline());
     runner.Run();
 }
-

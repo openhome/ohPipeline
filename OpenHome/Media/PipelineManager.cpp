@@ -6,6 +6,7 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Debug.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <limits.h>
 
@@ -42,7 +43,7 @@ TUint PriorityArbitratorPipeline::HostRange() const
 
 // PipelineManager
 
-PipelineManager::PipelineManager(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory)
+PipelineManager::PipelineManager(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory, IThreadPool& aThreadPool)
     : iLock("PLM1")
     , iPublicLock("PLM2")
     , iLockObservers("PLM3")
@@ -52,7 +53,7 @@ PipelineManager::PipelineManager(PipelineInitParams* aInitParams, IInfoAggregato
 {
     iPrefetchObserver = new PrefetchObserver();
     iPipeline = new Pipeline(aInitParams, aInfoAggregator, aTrackFactory,
-                             *this, *iPrefetchObserver, *this, *this);
+                             *this, *iPrefetchObserver, *this, *this, aThreadPool);
     iIdManager = new IdManager(*iPipeline);
     TUint min, max;
     iPipeline->GetThreadPriorityRange(min, max);

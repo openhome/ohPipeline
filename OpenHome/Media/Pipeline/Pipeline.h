@@ -15,6 +15,7 @@
 EXCEPTION(PipelineStreamNotPausable)
 
 namespace OpenHome {
+    class IThreadPool;
 namespace Media {
 
 enum EPipelineSupportElements {
@@ -180,7 +181,7 @@ class Pipeline : public IPipelineElementDownstream
     static const TUint kMsgCountDrain           = 5;
 public:
     Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory, IPipelineObserver& aObserver,
-             IStreamPlayObserver& aStreamPlayObserver, ISeekRestreamer& aSeekRestreamer, IUrlBlockWriter& aUrlBlockWriter);
+             IStreamPlayObserver& aStreamPlayObserver, ISeekRestreamer& aSeekRestreamer, IUrlBlockWriter& aUrlBlockWriter, IThreadPool& aThreadPool);
     virtual ~Pipeline();
     void AddContainer(Codec::ContainerBase* aContainer);
     void AddCodec(Codec::CodecBase* aCodec);

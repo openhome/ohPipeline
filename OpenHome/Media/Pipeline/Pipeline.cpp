@@ -1,6 +1,7 @@
 #include <OpenHome/Media/Pipeline/Pipeline.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Media/Pipeline/ElementObserver.h>
 #include <OpenHome/Media/Pipeline/AudioDumper.h>
 #include <OpenHome/Media/Pipeline/EncodedAudioReservoir.h>
@@ -246,7 +247,7 @@ TUint OpenHome::Media::PipelineInitParams::DsdMaxSampleRate() const
 
 static Pipeline* gPipeline = nullptr;
 Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory, IPipelineObserver& aObserver,
-                   IStreamPlayObserver& aStreamPlayObserver, ISeekRestreamer& aSeekRestreamer, IUrlBlockWriter& aUrlBlockWriter)
+                   IStreamPlayObserver& aStreamPlayObserver, ISeekRestreamer& aSeekRestreamer, IUrlBlockWriter& aUrlBlockWriter, IThreadPool& aThreadPool)
     : iInitParams(aInitParams)
     , iLock("PLMG")
     , iState(EStopped)
@@ -461,7 +462,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     ATTACH_ELEMENT(iAirplayReporter, new Media::AirplayReporter(*upstream, *iMsgFactory, aTrackFactory),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iSpotifyReporter, new Media::SpotifyReporter(*upstream, *iMsgFactory, aTrackFactory),
+    ATTACH_ELEMENT(iSpotifyReporter, new Media::SpotifyReporter(*upstream, *iMsgFactory, aTrackFactory, aThreadPool, aInfoAggregator),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerSpotifyReporter, new Logger(*iSpotifyReporter, "SpotifyReporter"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);

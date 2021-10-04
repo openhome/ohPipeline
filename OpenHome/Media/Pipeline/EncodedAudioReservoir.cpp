@@ -25,6 +25,7 @@ EncodedAudioReservoir::EncodedAudioReservoir(MsgFactory& aMsgFactory, IFlushIdPr
     , iSeekPos(0)
     , iPostSeekFlushId(MsgFlush::kIdInvalid)
     , iPostSeekStreamPos(0)
+    , iSeekCapability(SeekCapability::None)
 {
     ASSERT(iMsgCount * AudioData::kMaxBytes < kEncodedBytesInvalid);
 }
@@ -82,6 +83,7 @@ Msg* EncodedAudioReservoir::ProcessMsgOut(MsgEncodedStream* aMsg)
         iStreamHandler.store(aMsg->StreamHandler());
         iStreamId = aMsg->StreamId();
         iStreamPos = aMsg->StartPos();
+        iSeekCapability = aMsg->SeekCapability();
     }
     auto msg = iMsgFactory.CreateMsgEncodedStream(aMsg, this);
     aMsg->RemoveRef();
@@ -138,7 +140,11 @@ TUint EncodedAudioReservoir::TrySeek(TUint aStreamId, TUint64 aOffset)
 {
     AutoMutex _(iLock2);
     const TUint64 lastBufferedPos = iStreamPos + SizeInBytes();
-    if (iStreamId == aStreamId && iStreamPos <= aOffset && lastBufferedPos >= aOffset) {
+    if (iStreamId == aStreamId
+        && iSeekCapability == SeekCapability::SeekCache
+        && iStreamPos <= aOffset
+        && lastBufferedPos >= aOffset)
+    {
         iSeekPos = aOffset;
         if (iNextFlushId == MsgFlush::kIdInvalid) {
             iNextFlushId = iFlushIdProvider.NextFlushId();
