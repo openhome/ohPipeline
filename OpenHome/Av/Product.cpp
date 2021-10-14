@@ -395,8 +395,9 @@ void Product::GetUri(const Brx& aStaticDataKey, Bwx& aUri)
 {
     Brn uri;
     ASSERT(iReadStore.TryReadStoreStaticItem(aStaticDataKey, uri));
+    static const Brn kPrefixHttps("https://");
     static const Brn kPrefixHttp("http://");
-    if (uri.BeginsWith(kPrefixHttp)) {
+    if (uri.BeginsWith(kPrefixHttps) || uri.BeginsWith(kPrefixHttp)) {
         aUri.Replace(uri);
     }
     else {
