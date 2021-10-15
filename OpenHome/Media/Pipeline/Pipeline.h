@@ -208,6 +208,7 @@ public:
     TUint SenderMinLatencyMs() const;
     void GetThreadPriorityRange(TUint& aMin, TUint& aMax) const;
     void GetThreadPriorities(TUint& aFlywheelRamper, TUint& aStarvationRamper, TUint& aCodec, TUint& aEvent);
+    void GetMaxSupportedSampleRates(TUint& aPcm, TUint& aDsd) const;
     void LogBuffers() const;
 public: // from IPipelineElementDownstream
     void Push(Msg* aMsg) override;
@@ -337,6 +338,8 @@ private:
     TBool iWaiting;
     TBool iQuitting;
     TUint iNextFlushId;
+    TUint iMaxSampleRatePcm;
+    TUint iMaxSampleRateDsd;
 };
 
 } // namespace Media

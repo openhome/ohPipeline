@@ -512,29 +512,37 @@ TBool ProtocolTidal::IsCurrentStream(TUint aStreamId) const
 
 ProtocolStreamResult ProtocolTidal::DoStream()
 {
-    TUint code = WriteRequest(0);
+    const TUint code = WriteRequest(0);
     iSeekable = false;
     iTotalBytes = iHeaderContentLength.ContentLength();
 
-    if (code != HttpStatus::kPartialContent.Code() && code != HttpStatus::kOk.Code()) {
-        iErrorBuf.SetBytes(0);
+    const TBool wasSuccessStatusCode = code == HttpStatus::kPartialContent.Code()
+                                        || code == HttpStatus::kOk.Code();
 
-        // Casting the kMaxErrorReadBytes is required as std::min takes references, but constant values
-        // are inlined by default which breaks compilation
-        const TUint bytesToRead = static_cast<TUint>(std::min(iTotalBytes, static_cast<TUint64>(kMaxErrorReadBytes)));
+    if (!wasSuccessStatusCode)
+    {
+        // We should only attempt to read anything if the socket has actually completed a connection
+        if (iSocket.IsConnected())
+        {
+            iErrorBuf.SetBytes(0);
 
-        try {
+            // Casting the kMaxErrorReadBytes is required as std::min takes references, but constant values
+            // are inlined by default which breaks compilation
+            const TUint bytesToRead = static_cast<TUint>(std::min(iTotalBytes, static_cast<TUint64>(kMaxErrorReadBytes)));
 
-            // We break on 'Stopped' which is set if this is interupted.
-            // This ensures that if we are interupted while processing an error
-            // we don't attempt to read from an interupted socket.
-            while(iErrorBuf.Bytes() < bytesToRead && !iStopped) {
-                const TUint bytesLeft = bytesToRead - iErrorBuf.Bytes();
-                iErrorBuf.Append(iReaderUntil.Read(bytesLeft));
+            try {
+
+                // We break on 'Stopped' which is set if this is interupted.
+                // This ensures that if we are interupted while processing an error
+                // we don't attempt to read from an interupted socket.
+                while(iErrorBuf.Bytes() < bytesToRead && !iStopped) {
+                    const TUint bytesLeft = bytesToRead - iErrorBuf.Bytes();
+                    iErrorBuf.Append(iReaderUntil.Read(bytesLeft));
+                }
             }
-        }
-        catch (ReaderError&){
-            // If we do't have enough (or any) of additional error information, it's not the end of the world.
+            catch (ReaderError&){
+                // If we do't have enough (or any) of additional error information, it's not the end of the world.
+            }
         }
 
         // If we have been stopped it's unlikely we want to see any error that occurs as the DS

@@ -36,76 +36,11 @@ const Brn TuneInApi::kFormats("&formats=mp3,wma,aac,wmvideo,ogg,hls");
 const Brn TuneInApi::kTuneInItemId("&id=");
 
 
-// RefreshTimer
-
-const TUint RefreshTimer::kRefreshRateMs = 5 * 60 * 1000; // 5 minutes
-const std::vector<TUint> RefreshTimer::kRetryDelaysMs = { 100, 200, 400, 800, 1600, 3200, 5000, 10000, 20000, 20000, 30000 }; // roughly 90s worth of retries
-
-RefreshTimer::RefreshTimer(ITimer& aTimer)
-    : iTimer(aTimer)
-    , iNextDelayIdx(0)
-{
-}
-
-void RefreshTimer::BackOffRetry()
-{
-    TUint delayMs = kRefreshRateMs;
-    if (iNextDelayIdx < kRetryDelaysMs.size()) {
-        delayMs = kRetryDelaysMs[iNextDelayIdx];
-        iNextDelayIdx++;
-    }
-    else {
-        // Exhausted retry steps. Revert to standard refresh rate.
-        iNextDelayIdx = 0;
-    }
-    iTimer.FireIn(delayMs);
-}
-
-void RefreshTimer::StandardRefresh()
-{
-    iNextDelayIdx = 0;
-    iTimer.FireIn(kRefreshRateMs);
-}
-
-void RefreshTimer::Reset()
-{
-    // Reset retry idx. Don't cancel any pending timer.
-    iNextDelayIdx = 0;
-}
-
-
-// AutoRefreshTimer
-
-AutoRefreshTimer::AutoRefreshTimer(RefreshTimer& aTimer)
-    : iTimer(aTimer)
-    , iTriggered(false)
-{
-}
-
-AutoRefreshTimer::~AutoRefreshTimer()
-{
-    if (!iTriggered) {
-        iTimer.StandardRefresh();
-    }
-}
-
-void AutoRefreshTimer::BackOffRetry()
-{
-    iTriggered = true;
-    iTimer.BackOffRetry();
-}
-
-void AutoRefreshTimer::StandardRefresh()
-{
-    iTriggered = true;
-    iTimer.StandardRefresh();
-}
-
-
 // RadioPresetsTuneIn
 
 const Brn RadioPresetsTuneIn::kConfigKeyUsername("Radio.TuneInUserName");
 const Brn RadioPresetsTuneIn::kConfigUsernameDefault("linnproducts");
+const Brn RadioPresetsTuneIn::kDisplayName("TuneIn");
 
 typedef struct MimeTuneInPair
 {
@@ -115,14 +50,12 @@ typedef struct MimeTuneInPair
 
 RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv,
                                        const Brx& aPartnerId,
-                                       IPresetDatabaseWriter& aDbWriter,
                                        IConfigInitialiser& aConfigInit,
                                        Credentials& aCredentialsManager,
-                                       IThreadPool& aThreadPool,
                                        Media::MimeTypeList& aMimeTypeList)
     : iLock("RPTI")
     , iEnv(aEnv)
-    , iDbWriter(aDbWriter)
+    , iPresetWriter(nullptr)
     , iWriteBuffer(iSocket)
     , iWriterRequest(iWriteBuffer)
     , iReadBuffer(iSocket)
@@ -157,34 +90,191 @@ RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv,
     Log::Print("\n");
 
     iReaderResponse.AddHeader(iHeaderContentLength);
-    iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &RadioPresetsTuneIn::DoRefresh),
-                                                 "TuneInRefresh", ThreadPoolPriority::Low);
-    iRefreshTimer = new Timer(aEnv, MakeFunctor(*this, &RadioPresetsTuneIn::TimerCallback), "RadioPresetsTuneIn");
-    iRefreshTimerWrapper.reset(new RefreshTimer(*iRefreshTimer));
 
     // Get username from store.
     iConfigUsername = new ConfigText(aConfigInit, kConfigKeyUsername, kMinUserNameBytes, kMaxUserNameBytes, kConfigUsernameDefault);
     // Results in initial UsernameChanged() callback, which triggers Refresh().
     iListenerId = iConfigUsername->Subscribe(MakeFunctorConfigText(*this, &RadioPresetsTuneIn::UsernameChanged));
 
-    iNacnId = iEnv.NetworkAdapterList().AddCurrentChangeListener(MakeFunctor(*this, &RadioPresetsTuneIn::CurrentAdapterChanged), "TuneIn", false);
-    iDnsId = iEnv.DnsChangeNotifier()->Register(MakeFunctor(*this, &RadioPresetsTuneIn::DnsChanged));
-
     new CredentialsTuneIn(aCredentialsManager, aPartnerId); // ownership transferred to aCredentialsManager
 }
 
 RadioPresetsTuneIn::~RadioPresetsTuneIn()
 {
-    // FIXME - not remotely threadsafe atm
-    iRefreshTimerWrapper.reset();
     iSocket.Interrupt(true);
-    iRefreshTimer->Cancel();
-    iThreadPoolHandle->Destroy();
     iConfigUsername->Unsubscribe(iListenerId);
-    iEnv.DnsChangeNotifier()->Deregister(iDnsId);
-    iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iNacnId);
     delete iConfigUsername;
-    delete iRefreshTimer;
+}
+
+const Brx& RadioPresetsTuneIn::DisplayName() const
+{
+    return kDisplayName;
+}
+
+void RadioPresetsTuneIn::Activate(IRadioPresetWriter& aWriter)
+{
+    AutoMutex _(iLock);
+    iPresetWriter = &aWriter;
+}
+
+void RadioPresetsTuneIn::Deactivate()
+{
+    AutoMutex _(iLock);
+    iPresetWriter = nullptr;
+}
+
+void RadioPresetsTuneIn::RefreshPresets()
+{
+    iSocket.Open(iEnv);
+    AutoSocket _(iSocket);
+    AutoSocket autoSocket(iSocket); // Ensure socket is closed before any path out of this block.
+    Endpoint ep(80, iRequestUri.Host());
+    iSocket.Connect(ep, 20 * 1000); // hard-coded timeout.  Ignores .InitParams().TcpConnectTimeoutMs() on the assumption that is set for lan connections
+
+    // FIXME - try sending If-Modified-Since header with request. See rfc2616 14.25
+    // ... this may require that we use http 1.1 in the request, so cope with a chunked response
+    iWriterRequest.WriteMethod(Http::kMethodGet, iRequestUri.PathAndQuery(), Http::eHttp10);
+    const TUint port = (iRequestUri.Port() == -1? 80 : (TUint)iRequestUri.Port());
+    Http::WriteHeaderHostAndPort(iWriterRequest, iRequestUri.Host(), port);
+    Http::WriteHeaderConnectionClose(iWriterRequest);
+    iWriterRequest.WriteFlush();
+
+    iReaderResponse.Read(kReadResponseTimeoutMs);
+    const HttpStatus& status = iReaderResponse.Status();
+    if (status != HttpStatus::kOk) {
+        LOG_ERROR(kSources, "Error fetching TuneIn xml - status=%u\n", status.Code());
+        THROW(HttpError);
+    }
+
+    Brn buf;
+    for (;;) {
+        iReaderUntil.ReadUntil('<');
+        buf.Set(iReaderUntil.ReadUntil('>'));
+        if (buf.BeginsWith(Brn("opml version="))) {
+            break;
+        }
+    }
+    for (;;) {
+        iReaderUntil.ReadUntil('<');
+        buf.Set(iReaderUntil.ReadUntil('>'));
+        if (buf == Brn("status")) {
+            break;
+        }
+    }
+    buf.Set(iReaderUntil.ReadUntil('<'));
+    const TUint statusCode = Ascii::Uint(buf);
+    if (statusCode != 200) {
+        LOG_ERROR(kSources, "Error in TuneIn xml - statusCode=%u\n", statusCode);
+        return;
+    }
+
+    // Find the default container (there may be multiple containers if TuneIn folders are used)
+    TBool foundDefault = false;
+    for (; !foundDefault;) {
+        iReaderUntil.ReadUntil('<');
+        buf.Set(iReaderUntil.ReadUntil('>'));
+        const TBool isContainer = buf.BeginsWith(Brn("outline type=\"container\""));
+        if (!isContainer) {
+            continue;
+        }
+        Parser parser(buf);
+        Brn attr;
+        static const Brn kAttrDefault("is_default=\"true\"");
+        while (parser.Remaining().Bytes() > 0) {
+            attr.Set(parser.Next());
+            if (attr.BeginsWith(kAttrDefault)) {
+                foundDefault = true;
+                if (attr[attr.Bytes()-1] == '/') {
+                    LOG_INFO(kSources, "No presets for query %.*s\n", PBUF(iRequestUri.PathAndQuery()));
+                    return;
+                }
+                break;
+            }
+        }
+    }
+    // Read presets for the current container only
+    for (;;) {
+        iReaderUntil.ReadUntil('<');
+        buf.Set(iReaderUntil.ReadUntil('>'));
+        if (buf == Brn("/outline")) {
+            break;
+        }
+        const TBool isAudio = buf.BeginsWith(Brn("outline type=\"audio\""));
+        const TBool isLink = buf.BeginsWith(Brn("outline type=\"link\""));
+        if (!(isAudio || isLink)) {
+            continue;
+        }
+        Parser parser(buf);
+        (void)parser.Next('='); // outline type="audio" - ignore
+        (void)parser.Next('\"');
+        (void)parser.Next('\"');
+
+        if (!ReadElement(parser, "text", iPresetTitle) ||
+            !ReadElement(parser, "URL", iPresetUrl)) {
+            continue;
+        }
+        Converter::FromXmlEscaped(iPresetTitle);
+        Converter::FromXmlEscaped(iPresetUrl);
+        if (isAudio) {
+            iPresetUri.Replace(iPresetUrl);
+            if (iPresetUri.Query().Bytes() > 0) {
+                iPresetUrl.Append(Brn("&c=ebrowse")); // ensure best quality stream is selected
+            }
+        }
+        TUint byteRate = 0;
+        if (ValidateKey(parser, "bitrate", false)) {
+            (void)parser.Next('\"');
+            Brn value = parser.Next('\"');
+            byteRate = Ascii::Uint(value);
+            byteRate *= 125; // convert from kbits/sec to bytes/sec
+        }
+        const TChar* imageKey = "image";
+        Brn imageKeyBuf(imageKey);
+        const TChar* presetNumberKey = "preset_number";
+        Brn presetNumberBuf(presetNumberKey);
+        Brn key = parser.Next('=');
+        TBool foundImage = false, foundPresetNumber = false;
+        TUint presetNumber = UINT_MAX;
+        while (key.Bytes() > 0 && !(foundImage && foundPresetNumber)) {
+            if (key == imageKeyBuf) {
+                foundImage = ReadValue(parser, imageKey, iPresetArtUrl);
+                if (foundImage) {
+                    Converter::FromXmlEscaped(iPresetArtUrl);
+                }
+            }
+            else if (key == presetNumberBuf) {
+                Bws<Ascii::kMaxUintStringBytes> presetBuf;
+                if (ReadValue(parser, presetNumberKey, presetBuf)) {
+                    try {
+                        presetNumber = Ascii::Uint(presetBuf);
+                        foundPresetNumber = true;
+                    }
+                    catch (AsciiError&) {}
+                }
+            }
+            else {
+                (void)parser.Next('\"');
+                (void)parser.Next('\"');
+            }
+            key.Set(parser.Next('='));
+        }
+        if (!foundPresetNumber) {
+            LOG_ERROR(kSources, "No preset_id for TuneIn preset %.*s\n", PBUF(iPresetTitle));
+            continue;
+        }
+        {
+            AutoMutex __(iLock);
+            if (iPresetWriter == nullptr) {
+                THROW(WriterError);
+            }
+            try {
+                iPresetWriter->SetPreset(presetNumber - 1, iPresetUrl, iPresetTitle, iPresetArtUrl, byteRate);
+            }
+            catch (PresetIndexOutOfRange&) {
+                LOG_ERROR(kSources, "Ignoring preset number %u (index too high)\n", presetNumber);
+            }
+        }
+    }
 }
 
 void RadioPresetsTuneIn::UpdateUsername(const Brx& aUsername)
@@ -202,266 +292,9 @@ void RadioPresetsTuneIn::UpdateUsername(const Brx& aUsername)
 void RadioPresetsTuneIn::UsernameChanged(KeyValuePair<const Brx&>& aKvp)
 {
     UpdateUsername(aKvp.Value());
-    iRefreshTimerWrapper->Reset();
-    Refresh();
-}
-
-void RadioPresetsTuneIn::Refresh()
-{
-    (void)iThreadPoolHandle->TrySchedule();
-}
-
-void RadioPresetsTuneIn::CurrentAdapterChanged()
-{
-    iRefreshTimerWrapper->Reset();
-    Refresh();
-}
-
-void RadioPresetsTuneIn::DnsChanged()
-{
-    iRefreshTimerWrapper->Reset();
-    Refresh();
-}
-
-void RadioPresetsTuneIn::TimerCallback()
-{
-    Refresh();
-}
-
-void RadioPresetsTuneIn::DoRefresh()
-{
-    // Auto class to set timer to fire at normal refresh rate if this method returns without having set timer.
-    AutoRefreshTimer refreshTimer(*iRefreshTimerWrapper);
-
-    TBool socketOpened = false;
-    TBool startedUpdates = false;
-    try {
-        iSocket.Open(iEnv);
-        socketOpened = true;
-        AutoSocket autoSocket(iSocket); // Ensure socket is closed before any path out of this block.
-        Endpoint ep(80, iRequestUri.Host());
-        iSocket.Connect(ep, 20 * 1000); // hard-coded timeout.  Ignores .InitParams().TcpConnectTimeoutMs() on the assumption that is set for lan connections
-
-        // FIXME - try sending If-Modified-Since header with request. See rfc2616 14.25
-        // ... this may require that we use http 1.1 in the request, so cope with a chunked response
-        iWriterRequest.WriteMethod(Http::kMethodGet, iRequestUri.PathAndQuery(), Http::eHttp10);
-        const TUint port = (iRequestUri.Port() == -1? 80 : (TUint)iRequestUri.Port());
-        Http::WriteHeaderHostAndPort(iWriterRequest, iRequestUri.Host(), port);
-        Http::WriteHeaderConnectionClose(iWriterRequest);
-        iWriterRequest.WriteFlush();
-
-        iReaderResponse.Read(kReadResponseTimeoutMs);
-        const HttpStatus& status = iReaderResponse.Status();
-        if (status != HttpStatus::kOk) {
-            LOG_ERROR(kSources, "Error fetching TuneIn xml - status=%u\n", status.Code());
-            THROW(HttpError);
-        }
-
-        Brn buf;
-        for (;;) {
-            iReaderUntil.ReadUntil('<');
-            buf.Set(iReaderUntil.ReadUntil('>'));
-            if (buf.BeginsWith(Brn("opml version="))) {
-                break;
-            }
-        }
-        for (;;) {
-            iReaderUntil.ReadUntil('<');
-            buf.Set(iReaderUntil.ReadUntil('>'));
-            if (buf == Brn("status")) {
-                break;
-            }
-        }
-        buf.Set(iReaderUntil.ReadUntil('<'));
-        const TUint statusCode = Ascii::Uint(buf);
-        if (statusCode != 200) {
-            LOG_ERROR(kSources, "Error in TuneIn xml - statusCode=%u\n", statusCode);
-            return;
-        }
-
-        iDbWriter.BeginSetPresets();
-        startedUpdates = true;
-        const TUint maxPresets = iDbWriter.MaxNumPresets();
-        if (iAllocatedPresets.size() == 0) {
-            iAllocatedPresets.reserve(maxPresets);
-            for (TUint i=0; i<maxPresets; i++) {
-                iAllocatedPresets.push_back(0);
-            }
-        }
-        else {
-            std::fill(iAllocatedPresets.begin(), iAllocatedPresets.end(), 0);
-        }
-        try {
-            // Find the default container (there may be multiple containers if TuneIn folders are used)
-            TBool foundDefault = false;
-            for (; !foundDefault;) {
-                iReaderUntil.ReadUntil('<');
-                buf.Set(iReaderUntil.ReadUntil('>'));
-                const TBool isContainer = buf.BeginsWith(Brn("outline type=\"container\""));
-                if (!isContainer) {
-                    continue;
-                }
-                Parser parser(buf);
-                Brn attr;
-                static const Brn kAttrDefault("is_default=\"true\"");
-                while (parser.Remaining().Bytes() > 0) {
-                    attr.Set(parser.Next());
-                    if (attr == kAttrDefault) {
-                        foundDefault = true;
-                        break;
-                    }
-                }
-            }
-            // Read presets for the current container only
-            for (;;) {
-                try {
-                    iReaderUntil.ReadUntil('<');
-                    buf.Set(iReaderUntil.ReadUntil('>'));
-                    if (buf == Brn("/outline")) {
-                        break;
-                    }
-                    const TBool isAudio = buf.BeginsWith(Brn("outline type=\"audio\""));
-                    const TBool isLink = buf.BeginsWith(Brn("outline type=\"link\""));
-                    if (!(isAudio || isLink)) {
-                        continue;
-                    }
-                    Parser parser(buf);
-                    (void)parser.Next('='); // outline type="audio" - ignore
-                    (void)parser.Next('\"');
-                    (void)parser.Next('\"');
-
-                    if (!ReadElement(parser, "text", iPresetTitle) ||
-                        !ReadElement(parser, "URL", iPresetUrl)) {
-                        continue;
-                    }
-                    Converter::FromXmlEscaped(iPresetUrl);
-                    if (isAudio) {
-                        iPresetUri.Replace(iPresetUrl);
-                        if (iPresetUri.Query().Bytes() > 0) {
-                            iPresetUrl.Append(Brn("&c=ebrowse")); // ensure best quality stream is selected
-                        }
-                    }
-                    Bws<Ascii::kMaxUintStringBytes> byteRateBuf;
-                    if (ValidateKey(parser, "bitrate", false)) {
-                        (void)parser.Next('\"');
-                        Brn value = parser.Next('\"');
-                        TUint byteRate = Ascii::Uint(value);
-                        byteRate *= 125; // convert from kbits/sec to bytes/sec
-                        Ascii::AppendDec(byteRateBuf, byteRate);
-                    }
-                    const TChar* imageKey = "image";
-                    Brn imageKeyBuf(imageKey);
-                    const TChar* presetNumberKey = "preset_number";
-                    Brn presetNumberBuf(presetNumberKey);
-                    Brn key = parser.Next('=');
-                    TBool foundImage = false, foundPresetNumber = false;
-                    TUint presetNumber = UINT_MAX;
-                    while (key.Bytes() > 0 && !(foundImage && foundPresetNumber)) {
-                        if (key == imageKeyBuf) {
-                            foundImage = ReadValue(parser, imageKey, iPresetArtUrl);
-                        }
-                        else if (key == presetNumberBuf) {
-                            Bws<Ascii::kMaxUintStringBytes> presetBuf;
-                            if (ReadValue(parser, presetNumberKey, presetBuf)) {
-                                try {
-                                    presetNumber = Ascii::Uint(presetBuf);
-                                    foundPresetNumber = true;
-                                }
-                                catch (AsciiError&) {}
-                            }
-                        }
-                        else {
-                            (void)parser.Next('\"');
-                            (void)parser.Next('\"');
-                        }
-                        key.Set(parser.Next('='));
-                    }
-                    if (!foundPresetNumber) {
-                        LOG_ERROR(kSources, "No preset_id for TuneIn preset %.*s\n", PBUF(iPresetTitle));
-                        continue;
-                    }
-                    if (presetNumber > maxPresets) {
-                        LOG_ERROR(kSources, "Ignoring preset number %u (index too high)\n", presetNumber);
-                        continue;
-                    }
-                    const TUint presetIndex = presetNumber - 1;
-                    iAllocatedPresets[presetIndex] = 1;
-
-                    /* Only report changes if url has changed.
-                       Changes in metadata only - e.g. . 'Station ABC (Genre 1)' -> 'Station ABC (Genre 2)' - are
-                       deliberately suppressed.  These result in the preset id changing, likely causing control
-                       points (certainly Kinsky/Kazoo) to reset their view.  The small benefit in having preset
-                       titles updated is therefore outweighed by the cost of control points not coping well when
-                       a station changes its preset id. */
-                    iDbWriter.ReadPreset(presetIndex, iDbUri, iDbMetaData);
-                    if (iDbUri == iPresetUrl) {
-                        continue;
-                    }
-
-                    iDidlLite.SetBytes(0);
-                    //iDidlLite.Append("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-                    iDidlLite.Append("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-                    iDidlLite.Append("<item id=\"\" parentID=\"\" restricted=\"True\">");
-                    iDidlLite.Append("<dc:title>");
-                    iDidlLite.Append(iPresetTitle);
-                    iDidlLite.Append("</dc:title>");
-                    iDidlLite.Append("<res protocolInfo=\"*:*:*:*\"");
-                    if (byteRateBuf.Bytes() > 0) {
-                        iDidlLite.Append(" bitrate=\"");
-                        iDidlLite.Append(byteRateBuf);
-                        iDidlLite.Append('\"');
-                    }
-                    iDidlLite.Append('>');
-                    WriterBuffer writer(iDidlLite);
-                    Converter::ToXmlEscaped(writer, iPresetUrl);
-                    iDidlLite.Append("</res>");
-                    //iDidlLite.Append("<upnp:albumArtURI xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\">");
-                    iDidlLite.Append("<upnp:albumArtURI>");
-                    iDidlLite.Append(iPresetArtUrl);
-                    iDidlLite.Append("</upnp:albumArtURI>");
-                    //iDidlLite.Append("<upnp:class xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\">object.item.audioItem</upnp:class>");
-                    iDidlLite.Append("<upnp:class>object.item.audioItem</upnp:class>");
-                    iDidlLite.Append("</item>");
-                    iDidlLite.Append("</DIDL-Lite>");
-
-                    //Log::Print("++ Add preset #%u: %.*s\n", presetIndex, PBUF(iPresetUrl));
-                    iDbWriter.SetPreset(presetIndex, iPresetUrl, iDidlLite);
-                }
-                catch (AssertionFailed&) {
-                    throw;
-                }
-                catch (ReaderError&) {
-                    throw;
-                }
-                catch (Exception& ex) {
-                    Log::Print("Exception - %s - parsing fragment from TuneIn favourites - %.*s\n", ex.Message(), PBUF(buf));
-                }
-            }
-        }
-        catch (ReaderError&) {
-            refreshTimer.BackOffRetry();
-        }
-        for (TUint i=0; i<maxPresets; i++) {
-            if (iAllocatedPresets[i] == 0) {
-                iDbWriter.ClearPreset(i);
-            }
-        }
-    }
-    catch (AssertionFailed&) {
-        throw;
-    }
-    catch (Exception&) {
-        // NOTE: AutoSocket may have already closed the socket. That would turn the below Close() call into a no-op.
-        if (socketOpened) {
-            try {
-                iSocket.Close();
-            }
-            catch (Exception&) {}
-        }
-        refreshTimer.BackOffRetry();
-    }
-    if (startedUpdates) {
-        iDbWriter.EndSetPresets();
+    AutoMutex _(iLock);
+    if (iPresetWriter != nullptr) {
+        iPresetWriter->ScheduleRefresh();
     }
 }
 

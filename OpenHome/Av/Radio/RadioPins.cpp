@@ -27,7 +27,7 @@ RadioPins::RadioPins(DvDeviceStandard& aDevice, CpStack& aCpStack)
     , iCpStack(aCpStack)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, aDevice);
-    iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
+    iCpRadio = new CpProxyAvOpenhomeOrgRadio2(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
 }
 

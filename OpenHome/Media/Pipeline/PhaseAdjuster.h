@@ -60,6 +60,7 @@ public: // from IClockPuller
     void Start() override;
     void Stop() override;
 private:
+    void TryCalculateDelay();
     MsgAudio* AdjustAudio(const Brx& aMsgType, MsgAudio* aMsg);
     static MsgAudio* DropAudio(MsgAudio* aMsg, TUint aJiffies, TUint& aDroppedJiffies);
     MsgSilence* InjectSilence(TUint aJiffies);
@@ -82,6 +83,7 @@ private:
     std::atomic<TUint> iAudioOut;
     MsgDecodedStream* iDecodedStream;
     TUint iDelayJiffies;
+    TUint iDelayTotalJiffies;
     TUint iDroppedJiffies;
     TUint iInjectedJiffies;
     const TUint iRampJiffiesLong;

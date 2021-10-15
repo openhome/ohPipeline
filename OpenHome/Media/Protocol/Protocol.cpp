@@ -140,13 +140,13 @@ TBool ProtocolNetwork::Connect(const Uri& aUri, TUint aDefaultPort, TUint aTimeo
         iTcpClient.Connect(endpoint, aTimeoutMs);
     }
     catch (NetworkTimeout&) {
+        LOG(kMedia, "<ProtocolNetwork::Connect error connecting (Timeout)\n");
         Close();
-        LOG(kMedia, "<ProtocolNetwork::Connect error connecting\n");
         return false;
     }
     catch (NetworkError&) {
-        Close();
         LOG(kMedia, "<ProtocolNetwork::Connect error connecting\n");
+        Close();
         return false;
     }
 
@@ -229,13 +229,13 @@ TBool ProtocolNetworkSsl::Connect(const Uri& aUri,
         iSocket.Connect(endpoint, aUri.Host(), aTimeoutMs);
     }
     catch (NetworkTimeout&) {
+        LOG(kMedia, "<ProtocolNetworkSsl::Connect error connecting (Timeout)\n");
         Close();
-        LOG(kMedia, "<ProtocolNetworkSsl::Connect error connecting\n");
         return false;
     }
     catch (NetworkError&) {
-        Close();
         LOG(kMedia, "<ProtocolNetworkSsl::Connect error connecting\n");
+        Close();
         return false;
     }
 

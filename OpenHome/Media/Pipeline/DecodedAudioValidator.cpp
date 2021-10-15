@@ -134,7 +134,7 @@ void DecodedAudioValidator::ProcessAudio(MsgAudioDecoded* aMsg)
         }
         else if (iStreamPos > streamPos) {
             Log::Print("WARNING: discontinuity in audio (%s): moved backwards %llu (%ums)\n",
-                iId, iStreamPos - streamPos, (iStreamPos - streamPos) / Jiffies::kPerMs);
+                iId, iStreamPos - streamPos, (static_cast<TUint>(iStreamPos - streamPos)) / Jiffies::kPerMs);
         }
         iStreamPos = streamPos + aMsg->Jiffies();
     }

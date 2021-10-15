@@ -6,6 +6,7 @@
 #include <OpenHome/Av/Radio/PresetDatabase.h>
 #include <OpenHome/Av/Radio/UriProviderRadio.h>
 #include <OpenHome/Av/Radio/ProviderRadio.h>
+#include <OpenHome/Av/Radio/Presets.h>
 #include <OpenHome/Av/Radio/TuneIn.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Av/Radio/ContentProcessorFactory.h>
@@ -98,25 +99,30 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
 
     iProviderRadio = new ProviderRadio(aMediaPlayer.Device(), *this, *iPresetDatabase);
     mimeTypes.AddUpnpProtocolInfoObserver(MakeFunctorGeneric(*iProviderRadio, &ProviderRadio::NotifyProtocolInfo));
-    if (aTuneInPartnerId.Bytes() == 0) {
-        iTuneIn = nullptr;
-    }
-    else {
-        iTuneIn = new RadioPresetsTuneIn(aMediaPlayer.Env(),
+    RadioPresetsTuneIn* tuneIn = nullptr;
+    if (aTuneInPartnerId.Bytes() > 0) {
+        tuneIn = new RadioPresetsTuneIn(aMediaPlayer.Env(),
                                          aTuneInPartnerId,
-                                         *iPresetDatabase,
                                          aMediaPlayer.ConfigInitialiser(),
                                          aMediaPlayer.CredentialsManager(),
-                                         aMediaPlayer.ThreadPool(),
                                          mimeTypes);
     }
-
+    iPresets = new RadioPresets(
+        aMediaPlayer.Env(),
+        aMediaPlayer.ConfigInitialiser(),
+        *iPresetDatabase,
+        aMediaPlayer.ThreadPool());
+    if (tuneIn != nullptr) {
+        iPresets->AddProvider(tuneIn); // transfers ownership
+    }
+    aMediaPlayer.SetRadioPresets(*iPresets);
+    aMediaPlayer.Product().AddObserver(*this);
     
     if (aMediaPlayer.PinsInvocable().Ok()) {
         auto podcastPinsITunes = new PodcastPinsLatestEpisodeITunes(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore(), aMediaPlayer.ThreadPool());
         aMediaPlayer.PinsInvocable().Unwrap().Add(podcastPinsITunes);
 
-        if (iTuneIn != nullptr) {
+        if (tuneIn != nullptr) {
             auto tuneInPins = new TuneInPins(aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ReadWriteStore(), aMediaPlayer.ThreadPool(), aTuneInPartnerId);
             aMediaPlayer.PinsInvocable().Unwrap().Add(tuneInPins);
             auto radioPins = new RadioPins(aMediaPlayer.Device(), aMediaPlayer.CpStack());
@@ -129,7 +135,7 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
 
 SourceRadio::~SourceRadio()
 {
-    delete iTuneIn;
+    delete iPresets;
     delete iPresetDatabase;
     delete iStorePresetNumber;
     delete iProviderRadio;
@@ -141,9 +147,7 @@ SourceRadio::~SourceRadio()
 void SourceRadio::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
     SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
-    if (iTuneIn != nullptr) {
-        iTuneIn->Refresh();
-    }
+    iPresets->Refresh();
     iTrackPosSeconds = 0;
     iActive = true;
     iAutoPlay = aAutoPlay;
@@ -355,6 +359,11 @@ void SourceRadio::SeekRelative(TInt aSeconds)
     SeekAbsolute(abs);
 }
 
+void SourceRadio::RefreshPresets()
+{
+    iPresets->Refresh();
+}
+
 void SourceRadio::NotifyPipelineState(EPipelineState aState)
 {
     if (IsActive()) {
@@ -422,4 +431,21 @@ void SourceRadio::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
     iStreamId = aStreamInfo.StreamId();
     iLive = aStreamInfo.Live();
     iLock.Signal();
+}
+
+void SourceRadio::Started()
+{
+    iPresets->Start();
+}
+
+void SourceRadio::SourceIndexChanged()
+{
+}
+
+void SourceRadio::SourceXmlChanged()
+{
+}
+
+void SourceRadio::ProductUrisChanged()
+{
 }

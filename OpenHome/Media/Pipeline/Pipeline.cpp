@@ -256,6 +256,8 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     , iWaiting(false)
     , iQuitting(false)
     , iNextFlushId(MsgFlush::kIdInvalid + 1)
+    , iMaxSampleRatePcm(0)
+    , iMaxSampleRateDsd(0)
 {
     const TUint perStreamMsgCount = aInitParams->MaxStreamsPerReservoir() * kReservoirCount;
     TUint encodedAudioCount = ((aInitParams->EncodedReservoirBytes() + EncodedAudio::kMaxBytes - 1) / EncodedAudio::kMaxBytes); // this may only be required on platforms that don't guarantee priority based thread scheduling
@@ -914,6 +916,12 @@ void Pipeline::GetThreadPriorities(TUint& aFlywheelRamper, TUint& aStarvationRam
     aEvent = iInitParams->ThreadPriorityEvent();
 }
 
+void Pipeline::GetMaxSupportedSampleRates(TUint& aPcm, TUint& aDsd) const
+{
+    aPcm = iMaxSampleRatePcm;
+    aDsd = iMaxSampleRateDsd;
+}
+
 void PipelineLogBuffers()
 {
     gPipeline->LogBuffers();
@@ -948,6 +956,7 @@ void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
     if (iMuterSamples != nullptr) {
         iMuterSamples->SetAnimator(aAnimator);
     }
+    aAnimator.PipelineAnimatorGetMaxSampleRates(iMaxSampleRatePcm, iMaxSampleRateDsd);
 }
 
 void Pipeline::PipelinePaused()

@@ -8,6 +8,8 @@
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/Private/Converter.h>
+#include <OpenHome/Private/DnsChangeNotifier.h>
+#include <OpenHome/Private/NetworkAdapterList.h>
 
 #include <algorithm>
 #include <limits>
@@ -222,7 +224,7 @@ TBool OAuthToken::IsLongLived() const
     return iIsLongLived;
 }
 
-const TByte OAuthToken::RetryCount() const
+TByte OAuthToken::RetryCount() const
 {
     return iRetryCount;
 }
@@ -315,6 +317,11 @@ void OAuthToken::NotifyFailedRefresh()
     ++iRetryCount;
 }
 
+void OAuthToken::ResetRetryCount()
+{
+    iRetryCount = 0;
+}
+
 
 void OAuthToken::ToJson(WriterJsonObject& aWriter)
 {
@@ -357,6 +364,14 @@ TokenManager::TokenManager(const Brx& aServiceId,
 {
     iRefresherHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &TokenManager::RefreshTokens), "OAuthTokenRefresher", ThreadPoolPriority::Medium);
 
+    // Register for network changes so we can refresh tokens.
+    // This should ensure we don't expire tokens before WiFi
+    // connects when device is first booted.
+    auto stateFunctor = MakeFunctor(*this, &TokenManager::OnNetworkStateChanged);
+
+    iAdapterChangeListenerHandle = aEnv.NetworkAdapterList().AddCurrentChangeListener(stateFunctor, "TokenManager");
+    iDnsChangeListenerHandle = aEnv.DnsChangeNotifier()->Register(stateFunctor);
+
     ASSERT_VA(aMaxShortLivedCapacity <= kMaxShortLivedTokens,
               "Exceeded maximum number of stored tokens supported (Short lived). (Requested %u, Max: %u)",
               iMaxShortLivedCapacity,
@@ -387,6 +402,9 @@ TokenManager::TokenManager(const Brx& aServiceId,
 TokenManager::~TokenManager()
 {
     iRefresherHandle->Destroy();
+
+    iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iAdapterChangeListenerHandle);
+    iEnv.DnsChangeNotifier()->Deregister(iDnsChangeListenerHandle);
 
     for(auto val : iShortLivedTokens)
     {
@@ -699,6 +717,32 @@ void TokenManager::DoClearTokens(ETokenTypeSelection operation)
 
 void TokenManager::TokenExpired(const Brx& /*aId*/)
 {
+    iRefresherHandle->TrySchedule();
+}
+
+// Could be a DNS or Adapter change
+// Ensure all tokens can be refreshed before scheduling them
+// all to be refreshed with the new network configuration
+void TokenManager::OnNetworkStateChanged()
+{
+    AutoMutex m(iLock);
+
+    for(auto val : iShortLivedTokens)
+    {
+        if (val->IsPresent() && val->HasExpired())
+        {
+            val->ResetRetryCount();
+        }
+    }
+
+    for(auto val : iLongLivedTokens)
+    {
+        if (val->IsPresent() && val->HasExpired())
+        {
+            val->ResetRetryCount();
+        }
+    }
+
     iRefresherHandle->TrySchedule();
 }
 

@@ -30,7 +30,7 @@ namespace Configuration {
     class ConfigChoice;
 }
 namespace Net {
-    class CpProxyAvOpenhomeOrgRadio1;
+    class CpProxyAvOpenhomeOrgRadio2;
     class CpProxyAvOpenhomeOrgPlaylist1;
 }
 
@@ -200,7 +200,7 @@ private:  // from IPodcastTransportHandler
     virtual TBool SingleShot() override;
 private:
     PodcastPinsTuneIn* iPodcastPins;
-    Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
+    Net::CpProxyAvOpenhomeOrgRadio2* iCpRadio;
 };
 
 class PodcastPinsEpisodeListTuneIn

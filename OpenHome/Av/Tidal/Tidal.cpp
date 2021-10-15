@@ -260,25 +260,62 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
                               iHeaderTransferEncoding,
                               ReaderHttpEntity::Mode::Client);
 
+        JsonParser responseParser;
+
         if (code != 200) 
         {
             LOG_ERROR(kPipeline, 
                       "Http error - %d - in response to Tidal GetStreamUrl.  Some/all of response is:\n%.*s\n", 
                       code,
                       PBUF(iResponseBuffer));
+
+            // Attetmpt to parse some of the response to give slightly better error messages in logs
+            try
+            {
+                responseParser.ParseAndUnescape(iResponseBuffer);
+
+                if (responseParser.HasKey("subStatus"))
+                {
+                    TInt tidalErrCode = responseParser.Num("subStatus");
+
+                    switch(tidalErrCode)
+                    {
+                        case 4005: {
+                            LOG_ERROR(kPipeline, "Tidal::GetStreamUrl - TIDAL error 4005. 'For some reaon' the asset can't be played.\n");
+                            break;
+                        }
+                        case 4006: {
+                            LOG_ERROR(kPipeline, "Tidal::GetStreamUrl - TIDAL error 4006. User is streaming on more than one device. \n");
+                            break;
+                        }
+                        case 4007: {
+                            LOG_ERROR(kPipeline, "Tidal::GetStreamUrl - TIDAL error 4007. Track isn't available in user's region. \n");
+                            break;
+                        }
+                        default:
+                            break; // No additional info for the other errors
+                    }
+                }
+            }
+            catch (...) {
+                // Failed to try and parse anything. Already logged out enough information
+                // so can ignore this and move on
+            }
+
+
             THROW(ReaderError);
         }
 
-        JsonParser playbackInfoParser;
-        playbackInfoParser.ParseAndUnescape(iResponseBuffer);
+
+        responseParser.ParseAndUnescape(iResponseBuffer);
 
         LOG_TRACE(kPipeline,
                   "Tidal::TryGetStreamUrl - Requested TrackId: %.*s, received: %.*s (Quality: %.*s)\n",
                   PBUF(aTrackId),
-                  PBUF(playbackInfoParser.String("trackId")),
-                  PBUF(playbackInfoParser.String("audioQuality")));
+                  PBUF(responseParser.String("trackId")),
+                  PBUF(responseParser.String("audioQuality")));
 
-        Brn manifestType = playbackInfoParser.String("manifestMimeType");
+        Brn manifestType = responseParser.String("manifestMimeType");
 
         /* 4 types of manifest:
          * - EMU: Link that points to the actual manifest (Not Implemented)
@@ -288,7 +325,7 @@ TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
         {
             LOG_TRACE(kPipeline, "Tidal::TryGetStreamUrl - Manifest type is 'Basic (BTS)'\n");
 
-            Brn manifest = playbackInfoParser.String("manifest");
+            Brn manifest = responseParser.String("manifest");
             Bwn manifestW(manifest.Ptr(), manifest.Bytes(), manifest.Bytes());  // We can reuse the underlying buffer provided by iResponseBuffer
             Converter::FromBase64(manifestW);
 

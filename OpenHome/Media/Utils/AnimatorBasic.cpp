@@ -282,3 +282,9 @@ TUint AnimatorBasic::PipelineAnimatorMaxBitDepth() const
 {
     return 32;
 }
+
+void AnimatorBasic::PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const
+{
+    aPcm = 384000;
+    aDsd = 11289600;
+}

@@ -5,7 +5,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
-#include <Generated/CpAvOpenhomeOrgRadio1.h>
+#include <Generated/CpAvOpenhomeOrgRadio2.h>
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Av/Pins/PodcastPinsTuneIn.h>
         
@@ -39,7 +39,7 @@ private:
     TBool LoadStream(const Brx& aStream, const IPin& aPin);
 private:
     Mutex iLock;
-    Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
+    Net::CpProxyAvOpenhomeOrgRadio2* iCpRadio;
     IThreadPoolHandle* iThreadPoolHandle;
     Bws<128> iToken;
     Functor iCompleted;

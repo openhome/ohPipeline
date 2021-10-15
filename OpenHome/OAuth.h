@@ -148,7 +148,7 @@ public:
     const Brx& UserUrl() const { return iUserUrl; }
     const Brx& AuthCode() const { return iAuthCode; }
     const Brx& DeviceCode() const { return iDeviceCode; }
-    const TUint SuggestedPollingInterval() const { return iSuggestedPollingInterval; }
+    TUint SuggestedPollingInterval() const { return iSuggestedPollingInterval; }
 
     void Set(const Brx& aUserUrl,
              const Brx& aAuthCode,
@@ -359,7 +359,7 @@ class OAuthToken
         TBool IsPresent() const;
         TBool IsLongLived() const;
         TBool HasExpired() const;
-        const TByte RetryCount() const;
+        TByte RetryCount() const;
         TBool CanRefresh(TUint aMaxRetryCount) const;
 
         void UpdateToken(const Brx& aNewAccessToken,
@@ -384,6 +384,7 @@ class OAuthToken
 
     private:
         void OnTokenExpired();
+        void ResetRetryCount();
         void ToJson(WriterJsonObject& aWriter);
 
     private:
@@ -484,6 +485,7 @@ class TokenManager : public ITokenObserver,
 
     private:
         void RefreshTokens();
+        void OnNetworkStateChanged();
         TBool CheckSpaceAvailableLocked(TBool aIsLongLoved) const;
         TBool InsertTokenLocked(const Brx& aId,
                                 const Brx& aTokenSource,
@@ -525,6 +527,8 @@ class TokenManager : public ITokenObserver,
         const TUint iMaxShortLivedCapacity;
         const TUint iMaxLongLivedCapacity;
         mutable Mutex iLock;
+        TUint iAdapterChangeListenerHandle;
+        TUint iDnsChangeListenerHandle;
         Environment& iEnv;
         WriterBwh iUsernameBuffer;
         WriterBwh iStoreKeyBuffer;

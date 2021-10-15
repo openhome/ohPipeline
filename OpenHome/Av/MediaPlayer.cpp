@@ -177,6 +177,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     , iPinsManager(nullptr)
     , iProviderPins(nullptr)
     , iTransportPins(nullptr)
+    , iDeviceAnnouncerMdns(nullptr)
+    , iRadioPresets(nullptr)
 {
     iUnixTimestamp = new OpenHome::UnixTimestamp(iDvStack.Env());
     iKvpStore = new KvpStore(aStaticDataSource);
@@ -240,7 +242,9 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
         iPinsManager->Add(iTransportPins);
     }
 
-    iDeviceAnnouncerMdns = new DeviceAnnouncerMdns(aDvStack, aDevice, *iFriendlyNameManager);
+    if (aDvStack.Env().MdnsProvider() != nullptr) {
+        iDeviceAnnouncerMdns = new DeviceAnnouncerMdns(aDvStack, aDevice, *iFriendlyNameManager);
+    }
 }
 
 MediaPlayer::~MediaPlayer()
@@ -253,7 +257,10 @@ MediaPlayer::~MediaPlayer()
     delete iProviderOAuth;
 
     delete iCredentials;
-    delete iDeviceAnnouncerMdns;
+
+    if (iDeviceAnnouncerMdns != nullptr) {
+        delete iDeviceAnnouncerMdns;
+    }
     /**
      * Circular dependency between ConfigStartupSource and Product on certain ConfigValues.
      * Force ConfigStartupSource to de-register its source name listeners.
@@ -331,6 +338,18 @@ ILoggerSerial& MediaPlayer::BufferLogOutput(TUint aBytes, IShell& aShell, Option
 void MediaPlayer::Start(IRebootHandler& aRebootHandler)
 {
     iConfigManager->Open();
+    TUint pcm, dsd;
+    iPipeline->GetMaxSupportedSampleRates(pcm, dsd);
+    Bws<32> sampleRatesAttr;
+    if (pcm > 0) {
+        sampleRatesAttr.AppendPrintf("PcmMax=%u", pcm);
+        iProduct->AddAttribute(sampleRatesAttr);
+    }
+    if (dsd > 0) {
+        sampleRatesAttr.Replace(Brx::Empty());
+        sampleRatesAttr.AppendPrintf("DsdMax=%u", dsd);
+        iProduct->AddAttribute(sampleRatesAttr);
+    }
     iPipeline->Start(*iVolumeManager, *iVolumeManager);
     iProviderTransport->Start();
     if (iProviderConfigApp != nullptr) {
@@ -486,4 +505,14 @@ Optional<IPinsManager> MediaPlayer::PinManager()
 Optional<RingBufferLogger> MediaPlayer::LogBuffer()
 {
     return iLoggerBuffered ? &iLoggerBuffered->LogBuffer() : nullptr;
+}
+
+Optional<IRadioPresets> MediaPlayer::RadioPresets()
+{
+    return Optional<IRadioPresets>(iRadioPresets);
+}
+
+void MediaPlayer::SetRadioPresets(IRadioPresets& aPresets)
+{
+    iRadioPresets = &aPresets;
 }

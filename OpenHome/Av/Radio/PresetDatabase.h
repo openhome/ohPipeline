@@ -2,10 +2,13 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Exception.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
 #include <array>
+
+EXCEPTION(PresetIndexOutOfRange)
 
 namespace OpenHome {
 class Environment;

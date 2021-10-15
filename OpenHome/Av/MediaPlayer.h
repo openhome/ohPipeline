@@ -73,6 +73,7 @@ class PinsManager;
 class ProviderPins;
 class TransportPins;
 class DeviceAnnouncerMdns;
+class IRadioPresets;
 
 class IMediaPlayer
 {
@@ -112,6 +113,8 @@ public:
     virtual Optional<IPinSetObservable> PinSetObservable() = 0;
     virtual Optional<IPinsManager> PinManager() = 0;
     virtual Optional<RingBufferLogger> LogBuffer() = 0;
+    virtual Optional<IRadioPresets> RadioPresets() = 0;
+    virtual void SetRadioPresets(IRadioPresets& aPresets) = 0; // internal use only
 };
 
 
@@ -204,6 +207,8 @@ public: // from IMediaPlayer
     Optional<IPinSetObservable> PinSetObservable() override;
     Optional<IPinsManager> PinManager() override;
     Optional<RingBufferLogger> LogBuffer() override;
+    Optional<IRadioPresets> RadioPresets() override;
+    void SetRadioPresets(IRadioPresets& aPresets) override;
 private:
     Net::DvStack& iDvStack;
     Net::CpStack& iCpStack;
@@ -240,6 +245,7 @@ private:
     ProviderPins* iProviderPins;
     Av::TransportPins* iTransportPins;
     DeviceAnnouncerMdns* iDeviceAnnouncerMdns;
+    IRadioPresets* iRadioPresets;
 };
 
 } // namespace Av

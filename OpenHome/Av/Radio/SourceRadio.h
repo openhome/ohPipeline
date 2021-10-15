@@ -3,6 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Av/Source.h>
+#include <OpenHome/Av/Product.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
@@ -34,17 +35,19 @@ public:
     virtual void Prev() = 0;
     virtual void SeekAbsolute(TUint aSeconds) = 0;
     virtual void SeekRelative(TInt aSeconds) = 0;
+    virtual void RefreshPresets() = 0;
 };
 
 class ProviderRadio;
-class RadioPresetsTuneIn;
 class IMediaPlayer;
 class UriProviderRadio;
+class RadioPresets;
 
 class SourceRadio : public Source
                   , private ISourceRadio
                   , private Media::IPipelineObserver
                   , private IPresetDatabaseObserver
+                  , private IProductObserver
 {
 public:
     SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId);
@@ -65,6 +68,7 @@ private: // from ISourceRadio
     void Prev() override;
     void SeekAbsolute(TUint aSeconds) override;
     void SeekRelative(TInt aSeconds) override;
+    void RefreshPresets() override;
 private: // from IPresetDatabaseObserver
     void PresetDatabaseChanged() override;
 private:
@@ -78,6 +82,11 @@ private: // from IPipelineObserver
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
+private: // from IProductObserver
+    void Started() override;
+    void SourceIndexChanged() override;
+    void SourceXmlChanged() override;
+    void ProductUrisChanged() override;
 private:
     Mutex iLock;
     UriProviderRadio* iUriProviderPresets;
@@ -85,7 +94,7 @@ private:
     Brn iCurrentMode;
     ProviderRadio* iProviderRadio;
     PresetDatabase* iPresetDatabase;
-    RadioPresetsTuneIn* iTuneIn;
+    RadioPresets* iPresets;
     Media::Track* iTrack;
     TUint iTrackPosSeconds;
     TUint iStreamId;

@@ -169,6 +169,7 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
     TUint PipelineAnimatorMaxBitDepth() const override;
+    void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const override;
 private:
     void TestDelayShorterThanMinimum();
     void TestAnimatorCalledOnStreamChange();
@@ -963,6 +964,12 @@ TUint SuiteVariableDelayRight::PipelineAnimatorDsdBlockSizeWords() const
 TUint SuiteVariableDelayRight::PipelineAnimatorMaxBitDepth() const
 {
     return 24;
+}
+
+void SuiteVariableDelayRight::PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const
+{
+    aPcm = 192000;
+    aDsd = 5644800;
 }
 
 void SuiteVariableDelayRight::TestDelayShorterThanMinimum()

@@ -31,7 +31,7 @@ CalmRadioPins::CalmRadioPins(CalmRadio& aCalmRadio, DvDeviceStandard& aDevice, C
     , iPin(iPinIdProvider)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
-    iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
+    iCpRadio = new CpProxyAvOpenhomeOrgRadio2(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &CalmRadioPins::Invoke),
                                                  "CalmRadioPins", ThreadPoolPriority::Medium);
