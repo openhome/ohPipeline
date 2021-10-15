@@ -1408,8 +1408,8 @@ TUint MsgEncodedStream::StreamId() const
 
 TBool MsgEncodedStream::Seekable() const
 {
-    return iSeekCapability == SeekCapability::SeekCache
-        || iSeekCapability == SeekCapability::SeekSource;
+    return iSeekCapability == Media::SeekCapability::SeekCache
+        || iSeekCapability == Media::SeekCapability::SeekSource;
 }
 
 SeekCapability MsgEncodedStream::SeekCapability() const
