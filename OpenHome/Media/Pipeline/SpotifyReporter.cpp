@@ -632,6 +632,7 @@ SpotifyReporter::SpotifyReporter(
     , iMsgDecodedStreamPending(false)
     , iDecodedStream(nullptr)
     , iSubSamples(0)
+    , iSubSamplesTrack(0)
     , iStreamId(kStreamIdInvalid)
     , iTrackDurationMsDecodedStream(0)
     , iInterceptMode(false)
@@ -670,6 +671,7 @@ Msg* SpotifyReporter::Pull()
                 AutoMutex amx(iLock);
                 iMsgDecodedStreamPending = true;
                 iSubSamples = 0;
+                iSubSamplesTrack = 0;
                 iStreamId = kStreamIdInvalid;
                 iTrackDurationMsDecodedStream = 0;
             }
@@ -844,6 +846,7 @@ Msg* SpotifyReporter::ProcessMsg(MsgMode* aMsg)
         if (iInterceptMode) {
             iMsgDecodedStreamPending = true;
             iSubSamples = 0;
+            iSubSamplesTrack = 0;
             iTrackDurationMsDecodedStream = 0;
             iStreamId = kStreamIdInvalid;
         }
@@ -908,10 +911,11 @@ Msg* SpotifyReporter::ProcessMsg(MsgDecodedStream* aMsg)
     iMsgDecodedStreamPending = true;    // Set flag so that a MsgDecodedStream with updated attributes is output in place of this.
     // Don't attempt to notify observers that stream started following this - that is handled while processing MsgTrack. Pipeline codecs may output multiple MsgDecodedStreams that do not correlate with Spotify streams.
 
-    // Get start sample and update iSubSamples to reflect it.
+    // Get start sample and update iSubSamplesTrack to reflect it, for track-based subsample tracking.
+    // Do not do this for iSubSamples which tracks continuous PCM streams, as track offsets are tracked in a different way.
     const auto sampleStart = info.SampleStart();
     const auto subSampleStart = sampleStart * info.NumChannels();
-    iSubSamples = subSampleStart;
+    iSubSamplesTrack = subSampleStart;
 
     const auto samplesTotal = info.TrackLength() / Jiffies::PerSample(info.SampleRate());
     const auto msTotal = static_cast<TUint>((samplesTotal * 1000) / info.SampleRate());
@@ -946,8 +950,11 @@ Msg* SpotifyReporter::ProcessMsg(MsgAudioPcm* aMsg)
         // iLock held in ::Pull() method to protect iSubSamples.
         TUint64 subSamplesPrev = iSubSamples;
         iSubSamples += samples*info.NumChannels();
-
         ASSERT(iSubSamples >= subSamplesPrev); // Overflow not handled.
+
+        TUint64 subSamplesTrackPrev = iSubSamplesTrack;
+        iSubSamplesTrack += samples*info.NumChannels();
+        ASSERT(iSubSamplesTrack >= subSamplesTrackPrev); // Overflow not handled.
     }
     return aMsg;
 }
@@ -1007,9 +1014,10 @@ MsgDecodedStream* SpotifyReporter::CreateMsgDecodedStreamLocked() const
 
 TUint SpotifyReporter::GetPlaybackPosMsLocked() const
 {
+    // Reports playback position for track-based (non-PCM) streams.
     if (iDecodedStream != nullptr) {
         const auto& info = iDecodedStream->StreamInfo();
-        const auto samples = iSubSamples / info.NumChannels();
+        const auto samples = iSubSamplesTrack / info.NumChannels();
         const auto samplesScaled = samples * 1000;
         const auto ms = static_cast<TUint>(samplesScaled / info.SampleRate());
         // Log::Print("SpotifyReporter::GetPlaybackPosMsLocked iStreamId: %u, ms: %u (%u:%02u)\n", iStreamId, ms, (ms / 1000) / 60, (ms / 1000) % 60);

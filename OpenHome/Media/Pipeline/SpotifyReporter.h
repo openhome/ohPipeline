@@ -348,6 +348,7 @@ private:
     TBool iMsgDecodedStreamPending;
     MsgDecodedStream* iDecodedStream;
     TUint64 iSubSamples;
+    TUint64 iSubSamplesTrack;
     TUint iStreamId;
     TUint iTrackDurationMsDecodedStream; // Track duration reported in-band via MsgDecodedStream.
     TBool iInterceptMode;
