@@ -514,6 +514,11 @@ EventProcessor::EventProcessor(
 EventProcessor::~EventProcessor()
 {
     iTpHandle->Destroy();
+    // Empty queue of remaining events without processing them.
+    while (iQueue.SlotsUsed() > 0) {
+        auto* event = iQueue.Read();
+        event->RemoveRef();
+    }
 }
 
 void EventProcessor::AddObserver(ISpotifyPlaybackObserver& aObserver)
@@ -541,6 +546,7 @@ void EventProcessor::QueueTrackError(TUint aStreamId, TUint aErrorPosMs, const B
     }
     iTpHandle->TrySchedule();
 }
+
 void EventProcessor::QueuePlaybackStarted(TUint aStreamId)
 {
     {
