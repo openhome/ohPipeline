@@ -1515,7 +1515,7 @@ void MsgEncodedStream::Clear()
     iMetaText.SetBytes(0);
     iTotalBytes = UINT_MAX;
     iStreamId = UINT_MAX;
-    iSeekCapability = SeekCapability::None;
+    iSeekCapability = Media::SeekCapability::None;
     iLive = false;
     iStreamFormat = Format::Encoded;
     iStreamHandler = nullptr;
