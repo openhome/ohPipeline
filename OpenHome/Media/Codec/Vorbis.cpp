@@ -65,7 +65,7 @@ private:
     Bws<DecodedAudio::kMaxBytes> iInBuf;
     Bws<DecodedAudio::kMaxBytes> iOutBuf;
     Bws<2*kSearchChunkSize> iSeekBuf;   // can store 2 read chunks, to check for sync word across read boundaries
- 
+
     TUint iSampleRate;
     TUint iBytesPerSec;
     TUint iBitrateAverage;
@@ -75,7 +75,6 @@ private:
     TUint64 iTotalSamplesOutput;
     TUint64 iTrackLengthJiffies;
     TUint64 iTrackOffset;
-    TUint64 iReadOffset;
     TInt iBitstream;
     Bws<kIcyMetadataBytes> iIcyMetadata;
     Bws<kIcyMetadataBytes> iNewIcyMetadata;
@@ -111,25 +110,8 @@ size_t CodecVorbis::ReadCallback(void *ptr, size_t size, size_t nmemb)
     TUint bytes = size * nmemb;
     //LOG(kCodec,"CodecVorbis::CallbackRead: attempt to read %u bytes\n", bytes);
     Bwn buf((TByte *)ptr, bytes);
+
     try{
-        if (iReadOffset > iController->StreamPos()) {
-            // Have already read some data (during Recognise()) which is now
-            // being replayed by Rewinder. Skip it.
-            TUint64 remaining = iReadOffset-iController->StreamPos();
-            LOG(kCodec, "CodecVorbis::ReadCallback iReadOffset: %llu, iController->StreamPos(): %llu, remaining: %llu\n", iReadOffset, iController->StreamPos(), remaining);
-            while (remaining > 0) {
-                bytes = buf.MaxBytes();
-                if (remaining < bytes) {
-                    // Safe cast.
-                    // Only enter here if remaining < buf.MaxBytes() (which is a TUint).
-                    bytes = static_cast<TUint>(remaining);
-                }
-                iController->Read(buf, bytes);
-                ASSERT(buf.Bytes() != 0); // Managed to read to this pos previously during Recognise().
-                remaining -= buf.Bytes();
-                buf.SetBytes(0);
-            }
-        }
         if (!iController->StreamLength() || (iController->StreamPos() < iController->StreamLength())) {
             // Tremor pulls more data after stream exhaustion, as it is looking
             // for 0 bytes to signal EOF. However, controller signals EOF by outputting fewer
@@ -139,7 +121,6 @@ size_t CodecVorbis::ReadCallback(void *ptr, size_t size, size_t nmemb)
             // if not, we'll do another read; otherwise we won't do anything and Tremor
             // will get its EOF identifier.
             iController->Read(buf, bytes);
-            iReadOffset = iController->StreamPos();
         }
     }
     catch(CodecStreamEnded&) {
@@ -152,9 +133,8 @@ size_t CodecVorbis::ReadCallback(void *ptr, size_t size, size_t nmemb)
 
 int CodecVorbis::SeekCallback(ogg_int64_t offset, int whence)
 {
-    LOG(kCodec,"CodecVorbis::SeekCallback offset %lld, whence %d, iSamplesTotal %llu, iController->StreamLength() %llu\n", offset, whence, iSamplesTotal, iController->StreamLength());
-    // want Vorbis to handle this as a non-seekable stream
-    return -1;  // non-seekable
+    LOG(kCodec, "CodecVorbis::SeekCallback offset %lld, whence %d, iSamplesTotal %llu, iController->StreamLength() %llu\n", offset, whence, iSamplesTotal, iController->StreamLength());
+    return -1; // Non-seekable. Stops the decoder merrily dancing around in the stream during initialisation. Means we have to implement our own approach for user-initiated seeks.
 }
 
 int CodecVorbis::CloseCallback()
@@ -165,17 +145,12 @@ int CodecVorbis::CloseCallback()
 
 long CodecVorbis::TellCallback()
 {
-    TUint64 tell;
-    tell = iController->StreamPos();
-    LOG(kCodec,"CodecVorbis::Tell %llu\n", tell);
-
-    return (long)tell;
+    // If seeking is unsupported, this should always return -1 (or tell callback func in callbacks struct should be set to null).
+    return -1;
 }
 
 size_t ReadCallback(void *ptr, size_t size, size_t nmemb, void *datasource)
 {
-  LOG(kCodec,"CallbackRead\n");
-
     return ((CodecVorbis *)datasource)->ReadCallback(ptr, size, nmemb);
 }
 
@@ -215,15 +190,12 @@ CodecVorbis::~CodecVorbis()
 
 TBool CodecVorbis::Recognise(const EncodedStreamInfo& aStreamInfo)
 {
-    LOG(kCodec, "CodecVorbis::Recognise\n");
-
     if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
-    iReadOffset = 0;
     iSamplesTotal = 0;
-    TBool isVorbis = (ov_test_callbacks(iDataSource, &iVf, nullptr, 0, iCallbacks) == 0);
-
+    const auto testRet = ov_test_callbacks(iDataSource, &iVf, nullptr, 0, iCallbacks);
+    const TBool isVorbis = (testRet == 0);
     return isVorbis;
 }
 
@@ -315,7 +287,8 @@ TBool CodecVorbis::TrySeek(TUint aStreamId, TUint64 aSample)
     }
 
     TBool canSeek = iController->TrySeekTo(aStreamId, bytes);
-    LOG(kCodec, "CodecVorbis::Seek to sample: %lld, byte: %llu returned %u\n", aSample, bytes, canSeek);
+    LOG(kCodec, "CodecVorbis::TrySeek to sample: %lld, byte: %llu returned %u\n", aSample, bytes, canSeek);
+
     if (canSeek) {
         iTotalSamplesOutput = aSample;
         iTrackOffset = (aSample * Jiffies::kPerSecond) / iSampleRate;
@@ -428,8 +401,6 @@ void CodecVorbis::BigEndian(TInt16* aDst, TInt16* aSrc, TUint aSamples)
 
 void CodecVorbis::Process()
 {
-    LOG(kCodec, "\n CodecVorbis::Process\n");
-
     TInt bitstream = 0;
     TUint iPrevBytes = iOutBuf.Bytes();
 
@@ -527,7 +498,7 @@ void CodecVorbis::Process()
 
 // flush any remaining samples from the decoded buffer
 void CodecVorbis::FlushOutput()
-{    
+{
     LOG(kCodec, "CodecVorbis::FlushOutput\n");
 
     if (iStreamEnded || iNewStreamStarted) {
