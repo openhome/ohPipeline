@@ -299,11 +299,11 @@ static int _fetch_headers(OggVorbis_File *vf,vorbis_info *vi,vorbis_comment *vc,
     if(serialno_list){
       if(_lookup_page_serialno(og_ptr,*serialno_list,*serialno_n)){
         /* a dupe serialnumber in an initial header packet set == invalid stream */
-        if(*serialno_list)_ogg_free(*serialno_list);
-        *serialno_list=0;
-        *serialno_n=0;
-        ret=OV_EBADHEADER;
-        goto bail_header;
+        // if(*serialno_list)_ogg_free(*serialno_list);
+        // *serialno_list=0;
+        // *serialno_n=0;
+        // ret=OV_EBADHEADER;
+        // goto bail_header;
       }
 
       _add_serialno(og_ptr,serialno_list,serialno_n);
