@@ -9,7 +9,6 @@
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Net/Core/DvDevice.h>
-#include <OpenHome/Configuration/BufferPtrCmp.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Av/Source.h>
@@ -207,7 +206,7 @@ private:
     TUint iAdapterChangeListenerId;
     Brh iUriPrefix;
     mutable Mutex iObserverLock;
-    std::map<const Brx*, std::unique_ptr<Bwh>, Configuration::BufferPtrCmp> iAttributesMap;
+    std::map<const Brx*, std::unique_ptr<Bwh>, BufferPtrCmp> iAttributesMap;
 };
 
 class IFriendlyNameObservable

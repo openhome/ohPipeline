@@ -287,7 +287,6 @@ def build(bld):
                 'OpenHome/Media/FlywheelRamper.cpp',
                 'OpenHome/Media/MimeTypeList.cpp',
                 'OpenHome/Media/Utils/AllocatorInfoLogger.cpp', # needed here by MediaPlayer.  Should move back to tests lib
-                'OpenHome/Configuration/BufferPtrCmp.cpp',
                 'OpenHome/Configuration/ConfigManager.cpp',
                 'OpenHome/Media/Utils/Silencer.cpp',
                 'OpenHome/SocketHttp.cpp',

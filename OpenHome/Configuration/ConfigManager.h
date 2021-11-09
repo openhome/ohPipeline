@@ -7,7 +7,6 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
-#include <OpenHome/Configuration/BufferPtrCmp.h>
 #include <OpenHome/Configuration/IStore.h>
 
 #include <map>
