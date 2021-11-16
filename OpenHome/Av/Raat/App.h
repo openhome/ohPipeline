@@ -3,18 +3,43 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Thread.h>
 
+#include <raat_device.h> 
+#include <raat_info.h> 
+
 namespace OpenHome {
+    class Environment;
 namespace Av {
 
-class RattApp
+    class IMediaPlayer;
+    class ISourceRaat;
+    class IRaatReader;
+    class RaatOutput;
+    class RaatVolume;
+    
+class RaatApp
 {
 public:
-    RattApp();
-    ~RattApp();
+    RaatApp(
+        Environment& aEnv,
+        IMediaPlayer& aMediaPlayer,
+        ISourceRaat& aSourceRaat,
+        const Brx& aSerialNumber,
+        const Brx& aSoftwareVersion);
+    ~RaatApp();
+    IRaatReader& Reader();
 private:
     void RaatThread();
+    void FriendlyNameChanged(const Brx& aName);
 private:
-    ThreadFunctor iThread;
+    IMediaPlayer& iMediaPlayer;
+    ThreadFunctor* iThread;
+    RAAT__Device* iDevice;
+    RAAT__Info* iInfo;
+    RaatOutput* iOutput;
+    RaatVolume* iVolume;
+    TUint iFriendlyNameId;
+    Bwh iSerialNumber;
+    Bwh iSoftwareVersion;
 };
 
 }

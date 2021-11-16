@@ -214,6 +214,7 @@ class IFriendlyNameObservable
 {
 public:
     static const TUint kMaxFriendlyNameBytes = Product::kMaxRoomBytes + 1 + Product::kMaxNameBytes;
+    static const TUint kIdInvalid = 0;
 public:
     virtual TUint RegisterFriendlyNameObserver(FunctorGeneric<const Brx&> aObserver) = 0;
     virtual void DeregisterFriendlyNameObserver(TUint aId) = 0;

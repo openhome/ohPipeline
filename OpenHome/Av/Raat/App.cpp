@@ -3,28 +3,66 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Functor.h>
+#include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/Raat/Output.h>
+#include <OpenHome/Av/Raat/Volume.h>
 
 #include <raat_device.h> 
+#include <raat_info.h> 
 #include <rc_guid.h>
 #include <raat_base.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
 
-RattApp::RattApp()
-    : iThread("Raat", MakeFunctor(*this, &RattApp::RaatThread))
+RaatApp::RaatApp(
+    Environment& aEnv,
+    IMediaPlayer& aMediaPlayer,
+    ISourceRaat& aSourceRaat,
+    const Brx& aSerialNumber,
+    const Brx& aSoftwareVersion)
+    : iMediaPlayer(aMediaPlayer)
+    , iDevice(nullptr)
+    , iInfo(nullptr)
+    , iFriendlyNameId(IFriendlyNameObservable::kIdInvalid)
+    , iSerialNumber(aSerialNumber)
+    , iSoftwareVersion(aSoftwareVersion)
 {
+    iThread = new ThreadFunctor("Raat", MakeFunctor(*this, &RaatApp::RaatThread));
+    iOutput = new RaatOutput(aEnv, aMediaPlayer.Pipeline(), aSourceRaat);
+    iVolume = new RaatVolume(aMediaPlayer);
+    iThread->Start();
 }
 
-RattApp::~RattApp()
+RaatApp::~RaatApp()
 {
+    if (iDevice != nullptr) {
+        RAAT__device_stop(iDevice);
+    }
+    iMediaPlayer.FriendlyNameObservable().DeregisterFriendlyNameObserver(iFriendlyNameId);
+    delete iThread;
+    RAAT__device_delete(iDevice);
+    delete iVolume;
+    delete iOutput;
+}
+
+IRaatReader& RaatApp::Reader()
+{
+    return *iOutput;
 }
 
 static void Raat_Log(RAAT__LogEntry* entry, void* /*userdata*/) {
-    Log::Print("[%07d] %lld %s\n", entry->seq, entry->time, entry->message);
+    Log::Print("RAAT: [%07d] %lld %s\n", entry->seq, entry->time, entry->message);
 }
 
-void RattApp::RaatThread()
+static void SetInfo(RAAT__Info* aInfo, const char* aKey, const Brx& aValue)
+{
+    Bws<RAAT__INFO_MAX_VALUE_LEN> val(aValue);
+    auto status = RAAT__info_set(aInfo, aKey, val.PtrZ());
+    ASSERT(RC__STATUS_IS_SUCCESS(status));
+}
+
+void RaatApp::RaatThread()
 {
     RAAT__static_init();
     RAAT__Log    *log;
@@ -32,34 +70,47 @@ void RattApp::RaatThread()
     ASSERT(RC__STATUS_IS_SUCCESS(status));
     RAAT__log_add_callback(log, Raat_Log, NULL); // FIXME - redirect as per Log::Print
 
-    RAAT__Device *device;
-    status = RAAT__device_new(RC__ALLOCATOR_DEFAULT, log, &device);
+    status = RAAT__device_new(RC__ALLOCATOR_DEFAULT, log, &iDevice);
     ASSERT(RC__STATUS_IS_SUCCESS(status));
 
-    RAAT__Info   *info;
-    info = RAAT__device_get_info(device);
+    iInfo = RAAT__device_get_info(iDevice);
 
+    SetInfo(iInfo, RAAT__INFO_KEY_UNIQUE_ID, iMediaPlayer.Device().Udn());
+    Brn name;
+    Brn info;
+    Bws<Product::kMaxUriBytes> url;
+    Bws<Product::kMaxUriBytes> imageUrl;
+    auto& product = iMediaPlayer.Product();
+    product.GetManufacturerDetails(name, info, url, imageUrl);
+    SetInfo(iInfo, RAAT__INFO_KEY_VENDOR, name);
+    product.GetModelDetails(name, info, url, imageUrl);
+    SetInfo(iInfo, RAAT__INFO_KEY_VENDOR_MODEL, name);
+    SetInfo(iInfo, RAAT__INFO_KEY_MODEL, name); // FIXME - MODEL and VENDOR_MODEL are presumably intended to be different
+
+    status = RAAT__info_set(iInfo, RAAT__INFO_KEY_OUTPUT_NAME, "output_name"); // FIXME - what is this? Brand name for DAC?
+    ASSERT(RC__STATUS_IS_SUCCESS(status));
+
+    // register observer whose callback allows us to set RAAT__INFO_KEY_AUTO_NAME
+    iFriendlyNameId = iMediaPlayer.FriendlyNameObservable().RegisterFriendlyNameObserver(
+        MakeFunctorGeneric<const Brx&>(*this, &RaatApp::FriendlyNameChanged)
+    );
+
+    SetInfo(iInfo, RAAT__INFO_KEY_SERIAL, iSerialNumber);
+    SetInfo(iInfo, RAAT__INFO_KEY_VERSION, iSoftwareVersion);
+    
     // FIXME - following info is all stubbed out
-    status = RAAT__info_set(info, RAAT__INFO_KEY_UNIQUE_ID, "unique_id");
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
-    status = RAAT__info_set(info, RAAT__INFO_KEY_VENDOR, "vendor");
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
-    status = RAAT__info_set(info, RAAT__INFO_KEY_VENDOR_MODEL, "vendor_model");
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
-    status = RAAT__info_set(info, RAAT__INFO_KEY_OUTPUT_NAME, "output_name");
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
-    status = RAAT__info_set(info, RAAT__INFO_KEY_SERIAL, "serial_number");
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
-    status = RAAT__info_set(info, RAAT__INFO_KEY_AUTO_NAME, "auto_name");
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
-    status = RAAT__info_set(info, RAAT__INFO_KEY_MODEL, "model");
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
-    status = RAAT__info_set(info, RAAT__INFO_KEY_VERSION, "version");
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
+    // RAAT__INFO_KEY_CONFIG_URL
 
-    status = RAAT__device_run(device);
+    RAAT__device_set_output_plugin(iDevice, iOutput->Plugin());
+    RAAT__device_set_volume_plugin(iDevice, iVolume->Plugin());
+
+    status = RAAT__device_run(iDevice);
     if (!RC__STATUS_IS_SUCCESS(status)) {
         Log::Print("RAAT server exited with error\n");
     }
+}
 
+void RaatApp::FriendlyNameChanged(const Brx& aName)
+{
+    SetInfo(iInfo, RAAT__INFO_KEY_AUTO_NAME, aName);
 }

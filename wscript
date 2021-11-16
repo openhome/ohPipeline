@@ -66,7 +66,7 @@ def configure(conf):
     conf.env.testharness_dir = os.path.abspath(conf.options.testharness_dir)
 
     if conf.options.dest_platform.startswith('Windows'):
-        conf.env.LIB_OHNET=['ws2_32', 'iphlpapi', 'dbghelp']
+        conf.env.LIB_OHNET=['ws2_32', 'iphlpapi', 'dbghelp', 'psapi', 'userenv']
     conf.env.STLIB_OHNET=['TestFramework', 'ohNetCore']
 
     if is_core_platform(conf):
@@ -486,7 +486,10 @@ def build(bld):
     bld.stlib(
             source=[
                 'OpenHome/Av/Raat/App.cpp',
-                #'OpenHome/Av/Raat/Output.cpp'
+                'OpenHome/Av/Raat/Output.cpp',
+                'OpenHome/Av/Raat/Volume.cpp',
+                'OpenHome/Av/Raat/ProtocolRaat.cpp',
+                'OpenHome/Av/Raat/SourceRaat.cpp'
             ],
             use=['OHNET', 'ohMediaPlayer', 'RAAT'],
             target='SourceRaat')
@@ -1093,7 +1096,22 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestMediaPlayerMain.cpp',
-            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
+            use=[
+                'OHNET',
+                'SSL',
+                'ohMediaPlayer',
+                'ohMediaPlayerTestUtils',
+                'SourcePlaylist',
+                'SourceRadio',
+                'SourceSongcast',
+                'SourceScd',
+                'SourceRaop',
+                'SourceUpnpAv',
+                'RAAT',
+                'SourceRaat', # FIXME - not available on all platforms
+                'WebAppFramework',
+                'ConfigUi'
+                ],
             target='TestMediaPlayer',
             install_path=os.path.join(bld.path.abspath(), 'install', 'bin'))
     bld.program(
@@ -1183,7 +1201,25 @@ def build(bld):
             install_path=None)
     bld.program(
             source=['OpenHome/Web/ConfigUi/Tests/TestConfigUiMain.cpp'],
-            use=['OHNET', 'PLATFORM', 'SSL', 'ConfigUiTestUtils', 'WebAppFrameworkTestUtils', 'ConfigUi', 'WebAppFramework', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'ohMediaPlayer'],
+            use=[
+                'OHNET',
+                'PLATFORM',
+                'SSL',
+                'ConfigUiTestUtils',
+                'WebAppFrameworkTestUtils',
+                'ConfigUi',
+                'WebAppFramework',
+                'ohMediaPlayerTestUtils',
+                'SourcePlaylist',
+                'SourceRadio',
+                'SourceSongcast',
+                'SourceScd',
+                'SourceRaop',
+                'RAAT', # FIXME - not available on all platforms
+                'SourceRaat',
+                'SourceUpnpAv',
+                'ohMediaPlayer'
+                ],
             target='TestConfigUi',
             install_path=None)
     bld.program(
