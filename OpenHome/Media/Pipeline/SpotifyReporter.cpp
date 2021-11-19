@@ -217,9 +217,7 @@ const Brn SpotifyReporter::kInterceptMode("Spotify");
 SpotifyReporter::SpotifyReporter(
     IPipelineElementUpstream& aUpstreamElement,
     MsgFactory& aMsgFactory,
-    TrackFactory& aTrackFactory,
-    IThreadPool& aThreadPool,
-    IInfoAggregator& aInfoAggregator
+    TrackFactory& aTrackFactory
 )
     : PipelineElement(kSupportedMsgTypes)
     , iUpstreamElement(aUpstreamElement)

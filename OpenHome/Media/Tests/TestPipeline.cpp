@@ -140,7 +140,6 @@ private:
     AllocatorInfoLogger iInfoAggregator;
     Supplier* iSupplier;
     PipelineInitParams* iInitParams;
-    ThreadPool* iThreadPool;
     Pipeline* iPipeline;
     TrackFactory* iTrackFactory;
     IPipelineElementUpstream* iPipelineEnd;
@@ -346,8 +345,7 @@ SuitePipeline::SuitePipeline()
     iInitParams = PipelineInitParams::New();
     iInitParams->SetLongRamp(Jiffies::kPerMs * 150); // reduced size to ensure that 1ms chunks of ramped audio show a change
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
-    iThreadPool = new ThreadPool(1, 1, 1);
-    iPipeline = new Pipeline(iInitParams, iInfoAggregator, *iTrackFactory, *this, *this, *this, *this, *iThreadPool);
+    iPipeline = new Pipeline(iInitParams, iInfoAggregator, *iTrackFactory, *this, *this, *this, *this);
     iPipeline->SetAnimator(*this);
     iSupplier = new Supplier(iPipeline->Factory(), *iPipeline, *iTrackFactory);
     iPipeline->AddCodec(new DummyCodec(kNumChannels, kSampleRate, kBitDepth, AudioDataEndian::Little, kProfile));
@@ -367,7 +365,6 @@ SuitePipeline::~SuitePipeline()
     iSemQuit.Wait();
     delete iSupplier;
     delete iPipeline;
-    delete iThreadPool;
     delete iTrackFactory;
     delete th;
 }

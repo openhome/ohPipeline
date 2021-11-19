@@ -182,7 +182,6 @@ private:
     TrackFactory* iTrackFactory;
     AllocatorInfoLogger iInfoAggregator;
     MockSpotifyMetadataAllocator* iMetadataAllocator;
-    ThreadPool* iThreadPool;
     SpotifyReporter* iReporter;
 };
 
@@ -680,9 +679,8 @@ void SuiteSpotifyReporter::Setup()
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 2);   // Require at least 2 Tracks for SpotifyReporter, as it will cache one.
     iMetadataAllocator = new MockSpotifyMetadataAllocator();
-    iThreadPool = new ThreadPool(1, 1, 1);
 
-    iReporter = new SpotifyReporter(*iUpstream, *iMsgFactory, *iTrackFactory, *iThreadPool, iInfoAggregator);
+    iReporter = new SpotifyReporter(*iUpstream, *iMsgFactory, *iTrackFactory);
 
     TEST(iTestPipe->ExpectEmpty());
 }
@@ -690,7 +688,6 @@ void SuiteSpotifyReporter::Setup()
 void SuiteSpotifyReporter::TearDown()
 {
     delete iReporter;
-    delete iThreadPool;
     delete iMetadataAllocator;
     delete iTrackFactory;
     delete iMsgFactory;

@@ -132,9 +132,7 @@ public:
     SpotifyReporter(
         IPipelineElementUpstream& aUpstreamElement,
         MsgFactory& aMsgFactory,
-        TrackFactory& aTrackFactory,
-        IThreadPool& aThreadPool,
-        IInfoAggregator& aInfoAggregator
+        TrackFactory& aTrackFactory
     );
     ~SpotifyReporter();
 public: // from IPipelineElementUpstream

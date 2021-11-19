@@ -91,7 +91,6 @@ private:
     MsgFactory* iMsgFactory;
     NullPipelineObserver iPipelineObserver;
     EMsgType iLastPulledMsg;
-    ThreadPool *iThreadPool;
     VolumeRamperStub iVolumeRamper;
 
 };
@@ -106,12 +105,10 @@ SuitePipelineConfig::SuitePipelineConfig()
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
     MsgFactoryInitParams init;
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
-    iThreadPool = new ThreadPool(1, 1, 1);
 }
 
 SuitePipelineConfig::~SuitePipelineConfig()
 {
-    delete iThreadPool;
     delete iMsgFactory;
     delete iTrackFactory;
 }
@@ -144,7 +141,7 @@ void SuitePipelineConfig::Test()
 
 void SuitePipelineConfig::RunTest(PipelineInitParams* aInitParams)
 {
-    Pipeline* pipeline = new Pipeline(aInitParams, iInfoAggregator, *iTrackFactory, iPipelineObserver, *this, *this, *this, *iThreadPool);
+    Pipeline* pipeline = new Pipeline(aInitParams, iInfoAggregator, *iTrackFactory, iPipelineObserver, *this, *this, *this);
     pipeline->Start(*this, iVolumeRamper);
     pipeline->Push(iMsgFactory->CreateMsgQuit());
     Msg* msg = pipeline->Pull();
