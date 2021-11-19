@@ -193,403 +193,6 @@ TUint StartOffset::AbsoluteDiff(TUint aOffsetMs) const
 }
 
 
-// EventProcessor::Event
-
-const TUint EventProcessor::Event::kStreamIdInvalid;
-
-EventProcessor::Event::Event(AllocatorBase& aAllocator)
-    : Allocated(aAllocator)
-{
-}
-
-
-// EventProcessor::EventTrackLength
-
-EventProcessor::EventTrackLength::EventTrackLength(AllocatorBase& aAllocator)
-    : Event(aAllocator)
-    , iStreamId(kStreamIdInvalid)
-    , iLengthMs(0)
-{
-}
-
-TUint EventProcessor::EventTrackLength::StreamId() const
-{
-    return iStreamId;
-}
-
-TUint EventProcessor::EventTrackLength::LengthMs() const
-{
-    return iLengthMs;
-}
-
-void EventProcessor::EventTrackLength::Initialise(TUint aStreamId, TUint aLengthMs)
-{
-    iStreamId = aStreamId;
-    iLengthMs = aLengthMs;
-}
-
-void EventProcessor::EventTrackLength::Clear()
-{
-    iStreamId = kStreamIdInvalid;
-    iLengthMs = 0;
-}
-
-EventProcessor::Event* EventProcessor::EventTrackLength::Process(IEventProcessor& aProcessor)
-{
-    return aProcessor.ProcessEvent(this);
-}
-
-
-// EventProcessor::EventTrackError
-
-const TUint EventProcessor::EventTrackError::kMaxReasonBytes;
-
-EventProcessor::EventTrackError::EventTrackError(AllocatorBase& aAllocator)
-    : Event(aAllocator)
-    , iStreamId(kStreamIdInvalid)
-    , iErrorPosMs(0)
-{
-}
-
-TUint EventProcessor::EventTrackError::StreamId() const
-{
-    return iStreamId;
-}
-
-TUint EventProcessor::EventTrackError::ErrorPosMs() const
-{
-    return iErrorPosMs;
-}
-
-const Brx& EventProcessor::EventTrackError::Reason() const
-{
-    return iReason;
-}
-
-void EventProcessor::EventTrackError::Initialise(TUint aStreamId, TUint aErrorPosMs, const Brx& aReason)
-{
-    iStreamId = aStreamId;
-    iErrorPosMs = aErrorPosMs;
-    if (aReason.Bytes() > iReason.MaxBytes()) {
-        iReason.Replace(aReason.Split(0, iReason.MaxBytes()));
-    }
-    else {
-        iReason.Replace(aReason);
-    }
-}
-
-void EventProcessor::EventTrackError::Clear()
-{
-    iStreamId = kStreamIdInvalid;
-    iErrorPosMs = 0;
-    iReason.SetBytes(0);
-}
-
-EventProcessor::Event* EventProcessor::EventTrackError::Process(IEventProcessor& aProcessor)
-{
-    return aProcessor.ProcessEvent(this);
-}
-
-
-// EventProcessor::EventPlaybackStarted
-
-EventProcessor::EventPlaybackStarted::EventPlaybackStarted(AllocatorBase& aAllocator)
-    : Event(aAllocator)
-    , iStreamId(kStreamIdInvalid)
-{
-}
-
-TUint EventProcessor::EventPlaybackStarted::StreamId() const
-{
-    return iStreamId;
-}
-
-void EventProcessor::EventPlaybackStarted::Initialise(TUint aStreamId)
-{
-    iStreamId = aStreamId;
-}
-
-void EventProcessor::EventPlaybackStarted::Clear()
-{
-    iStreamId = kStreamIdInvalid;
-}
-
-EventProcessor::Event* EventProcessor::EventPlaybackStarted::Process(IEventProcessor& aProcessor)
-{
-    return aProcessor.ProcessEvent(this);
-}
-
-
-// EventProcessor::EventPlaybackContinued
-
-EventProcessor::EventPlaybackContinued::EventPlaybackContinued(AllocatorBase& aAllocator)
-    : Event(aAllocator)
-    , iStreamId(kStreamIdInvalid)
-{
-}
-
-TUint EventProcessor::EventPlaybackContinued::StreamId() const
-{
-    return iStreamId;
-}
-
-void EventProcessor::EventPlaybackContinued::Initialise(TUint aStreamId)
-{
-    iStreamId = aStreamId;
-}
-
-void EventProcessor::EventPlaybackContinued::Clear()
-{
-    iStreamId = kStreamIdInvalid;
-}
-
-EventProcessor::Event* EventProcessor::EventPlaybackContinued::Process(IEventProcessor& aProcessor)
-{
-    return aProcessor.ProcessEvent(this);
-}
-
-
-// EventProcessor::EventPlaybackFinished
-
-EventProcessor::EventPlaybackFinished::EventPlaybackFinished(AllocatorBase& aAllocator)
-    : Event(aAllocator)
-    , iStreamId(kStreamIdInvalid)
-    , iLastPosMs(0)
-{
-}
-
-TUint EventProcessor::EventPlaybackFinished::StreamId() const
-{
-    return iStreamId;
-}
-
-TUint EventProcessor::EventPlaybackFinished::LastPosMs() const
-{
-    return iLastPosMs;
-}
-
-void EventProcessor::EventPlaybackFinished::Initialise(TUint aStreamId, TUint aLastPosMs)
-{
-    iStreamId = aStreamId;
-    iLastPosMs = aLastPosMs;
-}
-
-void EventProcessor::EventPlaybackFinished::Clear()
-{
-    iStreamId = kStreamIdInvalid;
-    iLastPosMs = 0;
-}
-
-EventProcessor::Event* EventProcessor::EventPlaybackFinished::Process(IEventProcessor& aProcessor)
-{
-    return aProcessor.ProcessEvent(this);
-}
-
-
-// EventProcessor::EventObserverNotifier
-
-void EventProcessor::EventObserverNotifier::AddObserver(ISpotifyPlaybackObserver& aObserver)
-{
-    iObservers.push_back(aObserver);
-}
-
-EventProcessor::Event* EventProcessor::EventObserverNotifier::ProcessEvent(EventTrackLength* aEvent)
-{
-    for (auto& o : iObservers) {
-        o.get().NotifyTrackLength(aEvent->StreamId(), aEvent->LengthMs());
-    }
-    return aEvent;
-}
-
-EventProcessor::Event* EventProcessor::EventObserverNotifier::ProcessEvent(EventTrackError* aEvent)
-{
-    for (auto& o : iObservers) {
-        o.get().NotifyTrackError(aEvent->StreamId(), aEvent->ErrorPosMs(), aEvent->Reason());
-    }
-    return aEvent;
-}
-
-EventProcessor::Event* EventProcessor::EventObserverNotifier::ProcessEvent(EventPlaybackStarted* aEvent)
-{
-    for (auto& o : iObservers) {
-        o.get().NotifyPlaybackStarted(aEvent->StreamId());
-    }
-    return aEvent;
-}
-
-EventProcessor::Event* EventProcessor::EventObserverNotifier::ProcessEvent(EventPlaybackContinued* aEvent)
-{
-    for (auto& o : iObservers) {
-        o.get().NotifyPlaybackContinued(aEvent->StreamId());
-    }
-    return aEvent;
-}
-
-EventProcessor::Event* EventProcessor::EventObserverNotifier::ProcessEvent(EventPlaybackFinished* aEvent)
-{
-    for (auto& o : iObservers) {
-        o.get().NotifyPlaybackFinishedNaturally(aEvent->StreamId(), aEvent->LastPosMs());
-    }
-    return aEvent;
-}
-
-
-// EventProcessor::EventFactory
-
-EventProcessor::EventFactory::EventFactory(
-    IInfoAggregator& aInfoAggregator,
-    TUint aTrackLengthCount,
-    TUint aTrackErrorCount,
-    TUint aPlaybackStartedCount,
-    TUint aPlaybackContinuedCount,
-    TUint aPlaybackFinishedCount
-)
-    : iAllocatorTrackLength("EventTrackLength", aTrackLengthCount, aInfoAggregator)
-    , iAllocatorTrackError("EventTrackError", aTrackErrorCount, aInfoAggregator)
-    , iAllocatorPlaybackStarted("EventPlaybackStarted", aPlaybackStartedCount, aInfoAggregator)
-    , iAllocatorPlaybackContinued("EventPlaybackContinued", aPlaybackContinuedCount, aInfoAggregator)
-    , iAllocatorPlaybackFinished("EventPlaybackFinished", aPlaybackFinishedCount, aInfoAggregator)
-{
-}
-
-EventProcessor::EventTrackLength* EventProcessor::EventFactory::CreateTrackLength(TUint aStreamId, TUint aLengthMs)
-{
-    auto* event = iAllocatorTrackLength.Allocate();
-    event->Initialise(aStreamId, aLengthMs);
-    return event;
-}
-
-EventProcessor::EventTrackError* EventProcessor::EventFactory::CreateTrackError(TUint aStreamId, TUint aLengthMs, const Brx& aReason)
-{
-    auto* event = iAllocatorTrackError.Allocate();
-    event->Initialise(aStreamId, aLengthMs, aReason);
-    return event;
-}
-
-EventProcessor::EventPlaybackStarted* EventProcessor::EventFactory::CreatePlaybackStarted(TUint aStreamId)
-{
-    auto* event = iAllocatorPlaybackStarted.Allocate();
-    event->Initialise(aStreamId);
-    return event;
-}
-
-EventProcessor::EventPlaybackContinued* EventProcessor::EventFactory::CreatePlaybackContinued(TUint aStreamId)
-{
-    auto* event = iAllocatorPlaybackContinued.Allocate();
-    event->Initialise(aStreamId);
-    return event;
-}
-
-EventProcessor::EventPlaybackFinished* EventProcessor::EventFactory::CreatePlaybackFinished(TUint aStreamId, TUint aLastPosMs)
-{
-    auto* event = iAllocatorPlaybackFinished.Allocate();
-    event->Initialise(aStreamId, aLastPosMs);
-    return event;
-}
-
-
-// EventProcessor
-
-EventProcessor::EventProcessor(
-    IThreadPool& aThreadPool,
-    ThreadPoolPriority aPriority,
-    IInfoAggregator& aInfoAggregator,
-    TUint aTrackLengthCount,
-    TUint aTrackErrorCount,
-    TUint aPlaybackStartedCount,
-    TUint aPlaybackContinuedCount,
-    TUint aPlaybackFinishedCount
-)
-    : iFactory(aInfoAggregator, aTrackLengthCount, aTrackErrorCount, aPlaybackStartedCount, aPlaybackContinuedCount, aPlaybackFinishedCount)
-    , iQueue(aTrackLengthCount
-           + aTrackErrorCount
-           + aPlaybackStartedCount
-           + aPlaybackContinuedCount
-           + aPlaybackFinishedCount)
-    , iLock("SPEV")
-{
-    iTpHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &EventProcessor::Process), "SpotifyEventProcessor", aPriority);
-}
-
-EventProcessor::~EventProcessor()
-{
-    iTpHandle->Destroy();
-    // Empty queue of remaining events without processing them.
-    while (iQueue.SlotsUsed() > 0) {
-        auto* event = iQueue.Read();
-        event->RemoveRef();
-    }
-}
-
-void EventProcessor::AddObserver(ISpotifyPlaybackObserver& aObserver)
-{
-    AutoMutex amx(iLock);
-    iNotifier.AddObserver(aObserver);
-}
-
-void EventProcessor::QueueTrackLength(TUint aStreamId, TUint aLengthMs)
-{
-    {
-        AutoMutex amx(iLock);
-        auto* event = iFactory.CreateTrackLength(aStreamId, aLengthMs);
-        iQueue.Write(event);
-    }
-    iTpHandle->TrySchedule();
-}
-
-void EventProcessor::QueueTrackError(TUint aStreamId, TUint aErrorPosMs, const Brx& aReason)
-{
-    {
-        AutoMutex amx(iLock);
-        auto* event = iFactory.CreateTrackError(aStreamId, aErrorPosMs, aReason);
-        iQueue.Write(event);
-    }
-    iTpHandle->TrySchedule();
-}
-
-void EventProcessor::QueuePlaybackStarted(TUint aStreamId)
-{
-    {
-        AutoMutex amx(iLock);
-        auto* event = iFactory.CreatePlaybackStarted(aStreamId);
-        iQueue.Write(event);
-    }
-    iTpHandle->TrySchedule();
-}
-
-void EventProcessor::QueuePlaybackContinued(TUint aStreamId)
-{
-    {
-        AutoMutex amx(iLock);
-        auto* event = iFactory.CreatePlaybackStarted(aStreamId);
-        iQueue.Write(event);
-    }
-    iTpHandle->TrySchedule();
-}
-
-void EventProcessor::QueuePlaybackFinished(TUint aStreamId, TUint aLastPosMs)
-{
-    {
-        AutoMutex amx(iLock);
-        auto* event = iFactory.CreatePlaybackFinished(aStreamId, aLastPosMs);
-        iQueue.Write(event);
-    }
-    iTpHandle->TrySchedule();
-}
-
-void EventProcessor::Process()
-{
-    AutoMutex amx(iLock);
-    while (iQueue.SlotsUsed() > 0) {
-        auto* event = iQueue.Read();
-        event = event->Process(iNotifier);
-        if (event != nullptr) {
-            event->RemoveRef();
-        }
-    }
-}
-
-
 // SpotifyReporter
 
 const TUint SpotifyReporter::kSupportedMsgTypes =   eMode
@@ -609,11 +212,6 @@ const TUint SpotifyReporter::kSupportedMsgTypes =   eMode
                                                   | eQuit;
 
 const TUint SpotifyReporter::kTrackOffsetChangeThresholdMs;
-const TUint SpotifyReporter::kTrackLengthCount;
-const TUint SpotifyReporter::kTrackErrorCount;
-const TUint SpotifyReporter::kPlaybackStartedCount;
-const TUint SpotifyReporter::kPlaybackContinuedCount;
-const TUint SpotifyReporter::kPlaybackFinishedCount;
 const Brn SpotifyReporter::kInterceptMode("Spotify");
 
 SpotifyReporter::SpotifyReporter(
@@ -639,7 +237,6 @@ SpotifyReporter::SpotifyReporter(
     , iPipelineTrackSeen(false)
     , iGeneratedTrackPending(false)
     , iPendingFlushId(MsgFlush::kIdInvalid)
-    , iEventProcessor(aThreadPool, ThreadPoolPriority::High, aInfoAggregator, kTrackLengthCount, kTrackErrorCount, kPlaybackStartedCount, kPlaybackContinuedCount, kPlaybackFinishedCount)
     , iPlaybackStartPending(false)
     , iPlaybackContinuePending(false)
     , iLock("SARL")
@@ -763,7 +360,8 @@ Msg* SpotifyReporter::Pull()
 
 void SpotifyReporter::AddSpotifyPlaybackObserver(ISpotifyPlaybackObserver& aObserver)
 {
-    iEventProcessor.AddObserver(aObserver);
+    AutoMutex amx(iLock);
+    iPlaybackObservers.push_back(aObserver);
 }
 
 TUint64 SpotifyReporter::SubSamples() const
@@ -880,7 +478,11 @@ Msg* SpotifyReporter::ProcessMsg(MsgTrack* aMsg)
         // iStreamId == kStreamIdInvalid immediately after seeing Spotify MsgMode, so won't report playback finished on first MsgTrack seen after Spotify MsgMode.
         if (iStreamId != kStreamIdInvalid) {
             const auto pos = GetPlaybackPosMsLocked();
-            iEventProcessor.QueuePlaybackFinished(iStreamId, pos); // Notify for previous valid stream ID.
+
+            // iLock already held.
+            for (auto& o : iPlaybackObservers) {
+                o.get().NotifyPlaybackFinishedNaturally(iStreamId, pos); // Notify for previous valid stream ID.
+            }
         }
         iStreamId = streamId;
     }
@@ -920,7 +522,12 @@ Msg* SpotifyReporter::ProcessMsg(MsgDecodedStream* aMsg)
     const auto samplesTotal = info.TrackLength() / Jiffies::PerSample(info.SampleRate());
     const auto msTotal = static_cast<TUint>((samplesTotal * 1000) / info.SampleRate());
     iTrackDurationMsDecodedStream = msTotal;
-    iEventProcessor.QueueTrackLength(iStreamId, iTrackDurationMsDecodedStream);
+
+    // iLock already held.
+    for (auto& o : iPlaybackObservers) {
+        o.get().NotifyTrackLength(iStreamId, iTrackDurationMsDecodedStream);
+    }
+
     return nullptr;
 }
 
@@ -934,12 +541,20 @@ Msg* SpotifyReporter::ProcessMsg(MsgAudioPcm* aMsg)
         // Start of audio from this stream (whether before or after a flush).
         iPlaybackStartPending = false;
         iPlaybackContinuePending = false; // We should never output audio for a track before iPlaybackStartPending flag is set, so ignore any seeks that happened prior to it.
-        iEventProcessor.QueuePlaybackStarted(iStreamId);
+
+        // iLock already held.
+        for (auto& o : iPlaybackObservers) {
+            o.get().NotifyPlaybackStarted(iStreamId);
+        }
     }
     if (iPlaybackContinuePending) {
         // Audio other than the very start of stream after flush.
         iPlaybackContinuePending = false;
-        iEventProcessor.QueuePlaybackContinued(iStreamId);
+
+        // iLock already held.
+        for (auto& o : iPlaybackObservers) {
+            o.get().NotifyPlaybackContinued(iStreamId);
+        }
     }
 
     ASSERT(iDecodedStream != nullptr);  // Can't receive audio until MsgDecodedStream seen.
