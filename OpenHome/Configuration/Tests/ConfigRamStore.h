@@ -1,6 +1,5 @@
 #pragma once
 
-#include <OpenHome/Configuration/BufferPtrCmp.h>
 #include <OpenHome/Configuration/IStore.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/File.h>
