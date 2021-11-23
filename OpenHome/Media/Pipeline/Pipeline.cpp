@@ -506,22 +506,23 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                                         upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerStarvationRamper, new Logger(*iStarvationRamper, "StarvationRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-
-
-    ATTACH_ELEMENT(iPhaseAdjuster, new PhaseAdjuster(*iMsgFactory, *upstream, *iStarvationRamper,
-                                                     aInitParams->RampLongJiffies(),
-                                                     aInitParams->RampShortJiffies(),
-                                                     aInitParams->StarvationRamperMinJiffies()),
-                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerPhaseAdjuster, new Logger(*iPhaseAdjuster, "PhaseAdjuster"),
-                   upstream, elementsSupported, EPipelineSupportElementsLogger);
-
-
     ATTACH_ELEMENT(iRampValidatorStarvationRamper, new RampValidator(*upstream, "StarvationRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator | EPipelineSupportElementsValidatorMinimal);
     ATTACH_ELEMENT(iDecodedAudioValidatorStarvationRamper,
                    new DecodedAudioValidator(*upstream, "StarvationRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    ATTACH_ELEMENT(iPhaseAdjuster, new PhaseAdjuster(*iMsgFactory, *upstream, *iStarvationRamper,
+        aInitParams->RampLongJiffies(),
+        aInitParams->RampShortJiffies(),
+        aInitParams->StarvationRamperMinJiffies()),
+        upstream, elementsSupported, EPipelineSupportElementsMandatory);
+    ATTACH_ELEMENT(iLoggerPhaseAdjuster, new Logger(*iPhaseAdjuster, "PhaseAdjuster"),
+        upstream, elementsSupported, EPipelineSupportElementsLogger);
+    ATTACH_ELEMENT(iRampValidatorPhaseAdjuster, new RampValidator(*upstream, "PhaseAdjuster"),
+        upstream, elementsSupported, EPipelineSupportElementsRampValidator | EPipelineSupportElementsValidatorMinimal);
+    ATTACH_ELEMENT(iDecodedAudioValidatorPhaseAdjuster,
+        new DecodedAudioValidator(*upstream, "PhaseAdjuster"),
+        upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     IMute* muter = nullptr;
     if (aInitParams->Muter() == PipelineInitParams::MuterImpl::eRampSamples) {
         ATTACH_ELEMENT(iMuterSamples, new Muter(*iMsgFactory, *upstream, aInitParams->RampLongJiffies()),
@@ -635,6 +636,10 @@ Pipeline::~Pipeline()
     delete iLoggerMuter;
     delete iMuterVolume;
     delete iMuterSamples;
+    delete iDecodedAudioValidatorPhaseAdjuster;
+    delete iRampValidatorPhaseAdjuster;
+    delete iLoggerPhaseAdjuster;
+    delete iPhaseAdjuster;
     delete iDecodedAudioValidatorStarvationRamper;
     delete iRampValidatorStarvationRamper;
     delete iLoggerStarvationRamper;
@@ -642,8 +647,6 @@ Pipeline::~Pipeline()
     delete iLoggerAttenuator;
     delete iAttenuator;
     delete iDecodedAudioValidatorDelay2;
-    delete iLoggerPhaseAdjuster;
-    delete iPhaseAdjuster;
     delete iRampValidatorDelay2;
     delete iLoggerVariableDelay2;
     delete iVariableDelay2;
