@@ -704,7 +704,7 @@ TBool Tidal::TryGetAccessToken(const Brx& aTokenId,
     if (DoTryGetAccessToken(aTokenId, aTokenSource, aRefreshToken, aResponse))
     {
         return aTokenSource == OAuth::kTokenSourceInternal ? true
-                                                           : DoInheritToken(aResponse.accessToken, aResponse);
+                                                           : DoInheritToken(aResponse.AccessToken(), aResponse);
     }
     else
     {
@@ -1118,11 +1118,14 @@ TBool Tidal::DoTryGetAccessToken(const Brx& aTokenId,
         }
 
         const Brx& accessToken = parser.String(OAuth::kTokenResponseFieldAccessToken);
+        const Brx& refreshToken = parser.StringOptional(OAuth::kTokenResponseFieldRefreshToken);
         const TUint expiry = (TUint)parser.Num(OAuth::kTokenResponseFieldTokenExpiry);
 
         // Make sure to populate response value
-        aResponse.accessToken.Set(accessToken);
-        aResponse.tokenExpiry = expiry;
+        aResponse.Set(accessToken,
+                      refreshToken,
+                      expiry);
+;
 
         // User information is also contained within our response
         // which is needed for future API requests.
@@ -1257,11 +1260,13 @@ TBool Tidal::DoInheritToken(const Brx& aAccessTokenIn,
         }
 
         const Brx& accessToken = parser.String(OAuth::kTokenResponseFieldAccessToken);
+        const Brx& refreshToken = parser.StringOptional(OAuth::kTokenResponseFieldRefreshToken);
         const TUint expiry = (TUint)parser.Num(OAuth::kTokenResponseFieldTokenExpiry);
 
         // Make sure to populate response value
-        aResponse.accessToken.Set(accessToken);
-        aResponse.tokenExpiry = expiry;
+        aResponse.Set(accessToken,
+                      refreshToken,
+                      expiry);
 
         LOG_TRACE(kOAuth,
                   "Tidal::DoInheritToken() - Token successfully inherited. Expires in %d\n",

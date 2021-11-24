@@ -162,6 +162,39 @@ void OAuth::WriteTokenPollRequestBody(IWriter& aWriter,
 }
 
 
+// AccessTokenResponse
+AccessTokenResponse::AccessTokenResponse(Bwx& aAccessToken,
+                                         Bwx& aRefreshToken)
+    : iTokenExpiry(0)
+    , iAccessToken(aAccessToken)
+    , iRefreshToken(aRefreshToken)
+{ }
+
+TUint AccessTokenResponse::TokenExpiry() const
+{
+    return iTokenExpiry;
+}
+
+const Brx& AccessTokenResponse::AccessToken() const
+{
+    return iAccessToken;
+}
+
+const Brx& AccessTokenResponse::RefreshToken() const
+{
+    return iRefreshToken;
+}
+
+void AccessTokenResponse::Set(const Brx& aAccessToken,
+                              const Brx& aRefreshToken,
+                              TUint aExpiry)
+{
+    iAccessToken.ReplaceThrow(aAccessToken);
+    iRefreshToken.ReplaceThrow(aRefreshToken);
+    iTokenExpiry = aExpiry;
+}
+
+
 /* ************
  * OAuth Token
  * ************ */
@@ -518,8 +551,11 @@ TokenManager::EAddTokenResult TokenManager::AddToken(const Brx& aTokenIdAndSourc
     }
 
     /* Validate the new token to make sure it's usable! */
-    AccessTokenResponse response;
     iUsernameBuffer.Reset();
+    iAccessTokenBuf.SetBytes(0);
+    iRefreshTokenBuf.SetBytes(0);
+
+    AccessTokenResponse response(iAccessTokenBuf, iRefreshTokenBuf);
 
     TBool tokenValid = ValidateToken(tokenId,
                                      tokenSource,
@@ -540,8 +576,8 @@ TokenManager::EAddTokenResult TokenManager::AddToken(const Brx& aTokenIdAndSourc
                                           tokenSource,
                                           aRefreshToken,
                                           aIsLongLived,
-                                          response.accessToken,
-                                          response.tokenExpiry,
+                                          response.AccessToken(),
+                                          response.TokenExpiry(),
                                           iUsernameBuffer.Buffer());
 
         StoreTokenLocked(existingToken->Id(), tokenSource, aRefreshToken);
@@ -574,14 +610,14 @@ TokenManager::EAddTokenResult TokenManager::AddToken(const Brx& aTokenIdAndSourc
                                          tokenSource,
                                          aRefreshToken,
                                          aIsLongLived,
-                                         response.accessToken,
-                                         response.tokenExpiry,
+                                         response.AccessToken(),
+                                         response.TokenExpiry(),
                                          iUsernameBuffer.Buffer());
 
         LOG(kOAuth,
             "TokenManager::AddToken (by eviction) - Added token '%.*s', expires in %us.\n",
             PBUF(tokenToEvict->Id()),
-            response.tokenExpiry);
+            response.TokenExpiry());
 
         // Since we have just added a token, then we should put it at the head of the list
         // as it's now the most recently used!
@@ -595,8 +631,8 @@ TokenManager::EAddTokenResult TokenManager::AddToken(const Brx& aTokenIdAndSourc
                                                tokenSource,
                                                aIsLongLived,
                                                aRefreshToken,
-                                               response.accessToken,
-                                               response.tokenExpiry,
+                                               response.AccessToken(),
+                                               response.TokenExpiry(),
                                                iUsernameBuffer.Buffer());
 
         ASSERT_VA(didAdd == true, "Assumed that token storage had space, but wasn't able to find a space to add OAuth token.\n", 0);
@@ -783,9 +819,12 @@ void TokenManager::RefreshTokens()
             return;
         }
 
-        AccessTokenResponse response;
-
         iUsernameBuffer.Reset();
+        iAccessTokenBuf.SetBytes(0);
+        iRefreshTokenBuf.SetBytes(0);
+
+        AccessTokenResponse response(iAccessTokenBuf, iRefreshTokenBuf);
+
         TBool success = ValidateToken(token->Id(),
                                       token->TokenSource(),
                                       token->RefreshToken(),
@@ -798,10 +837,10 @@ void TokenManager::RefreshTokens()
                 "TokenManager(%.*s) - Refreshed token '%.*s', expires in %us\n",
                 PBUF(iServiceId),
                 PBUF(token->Id()),
-                response.tokenExpiry);
+                response.TokenExpiry());
 
-            token->UpdateToken(response.accessToken,
-                               response.tokenExpiry,
+            token->UpdateToken(response.AccessToken(),
+                               response.TokenExpiry(),
                                iUsernameBuffer.Buffer());
 
             notifyObserver = true;
@@ -870,17 +909,19 @@ TBool TokenManager::EnsureTokenIsValid(const Brx& aId)
 
     if (token->HasExpired())
     {
-        AccessTokenResponse response;
-
         iUsernameBuffer.Reset();
+        iAccessTokenBuf.SetBytes(0);
+        iRefreshTokenBuf.SetBytes(0);
+        AccessTokenResponse response(iAccessTokenBuf, iRefreshTokenBuf);
+
         if (ValidateToken(token->Id(),
                           token->TokenSource(),
                           token->RefreshToken(),
                           response,
                           iUsernameBuffer))
         {
-            token->UpdateToken(response.accessToken,
-                               response.tokenExpiry,
+            token->UpdateToken(response.AccessToken(),
+                               response.TokenExpiry(),
                                iUsernameBuffer.Buffer());
 
             return true;
@@ -1297,7 +1338,7 @@ TBool TokenManager::ValidateToken(const Brx& aTokenId,
          * refreshToken is invalid */
         return iAuthenticator.TryGetUsernameFromToken(aTokenId,
                                                       aTokenSource,
-                                                      aResponse.accessToken,
+                                                      aResponse.AccessToken(),
                                                       aUsername);
     }
 
