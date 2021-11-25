@@ -232,14 +232,11 @@ MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
         if (error > 0) {
             // Drop audio.
             TUint dropped = 0;
-            MsgAudio* msg = aMsg;
-            if (error > 0) { // Error may have become 0 in drop limit calc above.
-                msg = DropAudio(aMsg, error, dropped);
-                iStarvationRamper.WaitForOccupancy(iAnimator->PipelineAnimatorBufferJiffies());
-            }
+            MsgAudio* msg = DropAudio(aMsg, error, dropped);
+            iStarvationRamper.WaitForOccupancy(iAnimator->PipelineAnimatorBufferJiffies());
             iDroppedJiffies += dropped;
             error -= dropped;
-            if (error == 0) {
+            if (msg != nullptr) {
                 // Have dropped audio so must now ramp up.
                 return StartRampUp(msg);
             }
