@@ -488,13 +488,15 @@ void SuiteConfigNum::TestInvalidValueFromStore()
     WriterBinary writerBin(writerBuf);
     writerBin.WriteUint32Be(storeVal);
     iStore->Write(key, valBuf);
-    TEST_THROWS(ConfigNum num(*iConfigManager, key, kMin, kMax, kVal), AssertionFailed);
-
-    // Before assertion was thrown, default value should have been written to store.
-    TEST(IntFromStore(key) == kVal);
-
-    // Attempt to create value again. Should be fine this time.
     ConfigNum num(*iConfigManager, key, kMin, kMax, kVal);
+
+    // default value should be reported to subscribers
+    const TUint id = iConfigVal->Subscribe(MakeFunctorConfigNum(*this, &SuiteConfigNum::NotifyChanged));
+    TEST(iLastChangeVal == kVal);
+    iConfigVal->Unsubscribe(id);
+
+    // Invalid value should remain in store
+    TEST(IntFromStore(key) == storeVal);
 }
 
 void SuiteConfigNum::TestInvalidDefaultValue()

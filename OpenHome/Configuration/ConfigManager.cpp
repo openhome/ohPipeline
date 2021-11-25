@@ -34,12 +34,11 @@ ConfigNum::ConfigNum(IConfigInitialiser& aManager, const Brx& aKey,
     TInt initialVal = Converter::BeUint32At(initialBuf, 0);
 
     if (!IsValid(initialVal)) {
-        // Bad value. Write default to store (so that there is no assertion in
-        // future) and ASSERT() here to highlight programmer error.
-        KvpNum kvp(iKey, iDefault);
-        Write(kvp);
-        Log::Print("ConfigNum::ConfigNum invalid initial value: %d\n", initialVal);
-        ASSERTS();
+        // Stored value is no longer valid.  Report the default value to subscribers but leave the stored value unchanged.
+        // If a future release reinstates previous limits, the stored value will be picked up again.
+        Log::Print("ConfigNum(%.*s) stored value (%d) is no longer valid, using default (%d) instead\n",
+            PBUF(aKey), initialVal, iDefault);
+        initialVal = iDefault;
     }
 
     iVal = initialVal;
