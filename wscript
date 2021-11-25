@@ -1135,11 +1135,6 @@ def build(bld):
     #        target='TestHttpsBsd',
     #        install_path=None)
     bld.program(
-            source='OpenHome/Av/Tidal/TestTidal.cpp',
-            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
-            target='TestTidal',
-            install_path=None)
-    bld.program(
             source='OpenHome/Tests/TestJsonMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestJson',

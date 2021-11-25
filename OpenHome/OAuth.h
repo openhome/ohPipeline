@@ -126,11 +126,25 @@ class OAuthAppDetails
 /* Response fields used when requesting an access token.
  * RefreshToken field may not be populated if the service 
  * doesn't provide one. */
-struct AccessTokenResponse
+class AccessTokenResponse
 {
-    TUint tokenExpiry;
-    Brn  accessToken;
-    Brn  refreshToken;
+    public:
+        AccessTokenResponse(Bwx& aAccessToken, Bwx& aRefreshToken);
+
+
+    public:
+        TUint TokenExpiry() const;
+        const Brx& AccessToken() const;
+        const Brx& RefreshToken() const;
+
+        void Set(const Brx& aAccessToken,
+                 const Brx& aRefreshToken,
+                 TUint aTokenExpiry);
+
+    private:
+        TUint iTokenExpiry;
+        Bwx& iAccessToken;
+        Bwx& iRefreshToken;
 };
 
 
@@ -533,6 +547,8 @@ class TokenManager : public ITokenObserver,
         WriterBwh iUsernameBuffer;
         WriterBwh iStoreKeyBuffer;
         WriterBwh iStoreValueBuffer;
+        Bws<OAuth::kMaxTokenBytes> iAccessTokenBuf;
+        Bws<OAuth::kMaxTokenBytes> iRefreshTokenBuf;
         std::list<OAuthToken*> iShortLivedTokens;
         std::list<OAuthToken*> iLongLivedTokens;
         IThreadPoolHandle* iRefresherHandle;
