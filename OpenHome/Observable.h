@@ -84,7 +84,9 @@ template<typename TObserver>
 class ThreadSafeObservable : Observable<TObserver>
 {
     public:
-        ThreadSafeObservable() { }
+        ThreadSafeObservable()
+            : iLock("TSOB")
+        { }
         ~ThreadSafeObservable() { }
 
     public: // NOTE: These methods 'hide' the base Observable<TObserver> methods.
