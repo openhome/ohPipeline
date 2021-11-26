@@ -51,6 +51,7 @@ tests = '''
     TestWaiter
     TestUriProviderRepeater
     TestJson
+    TestObservable
     TestThreadPool
     TestPins
     TestSenderQueue
