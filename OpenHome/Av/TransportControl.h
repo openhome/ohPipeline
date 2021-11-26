@@ -2,6 +2,7 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Observable.h>
 #include <OpenHome/Private/Thread.h>
 
 #include <vector>
@@ -46,7 +47,7 @@ private:
     Mutex iLock;
     TBool iRepeat;
     TBool iRandom;
-    std::vector<ITransportRepeatRandomObserver*> iObservers;
+    Observable<ITransportRepeatRandomObserver> iObservable;
 };
 
 } // namespace Av
