@@ -9,6 +9,15 @@
 
 namespace OpenHome {
 
+template<typename TObserver>
+class IObservable
+{
+public:
+    virtual ~IObservable() { }
+
+    virtual void AddObserver(TObserver&) = 0;
+    virtual void RemoveObserver(TObserver&) = 0;
+};
 
 /* Helper class to aid in implementing the observable pattern with multiple observers.
  * Class is designed to be used either as an owned component or can be inherited from
@@ -43,7 +52,7 @@ namespace OpenHome {
  *  }
  */
 template<typename TObserver>
-class Observable
+class Observable : public IObservable<TObserver>
 {
     public:
         Observable() { }
@@ -53,12 +62,12 @@ class Observable
         }
 
     public:
-        void AddObserver(TObserver& aObserver)
+        void AddObserver(TObserver& aObserver) override
         {
             iObservers.push_back(aObserver);
         }
 
-        void RemoveObserver(TObserver& aObserver)
+        void RemoveObserver(TObserver& aObserver) override
         {
             for (auto it = iObservers.begin(); it != iObservers.end(); ++it) {
                 auto& o = (*it).get();
@@ -90,13 +99,13 @@ class ThreadSafeObservable : Observable<TObserver>
         ~ThreadSafeObservable() { }
 
     public: // NOTE: These methods 'hide' the base Observable<TObserver> methods.
-        void AddObserver(TObserver& aObserver)
+        void AddObserver(TObserver& aObserver) override
         {
             AutoMutex m(iLock);
             Observable<TObserver>::AddObserver(aObserver);
         }
 
-        void RemoveObserver(TObserver& aObserver)
+        void RemoveObserver(TObserver& aObserver) override
         {
             AutoMutex m(iLock);
             Observable<TObserver>::RemoveObserver(aObserver);
