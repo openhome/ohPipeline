@@ -534,7 +534,7 @@ TBool Tidal::TryGetResponseLocked(IWriter& aWriter,
         return false;
     }
 
-    aPathAndQuery.Append(Ascii::Contains(aPathAndQuery, '?') ? "limit="
+    aPathAndQuery.Append(Ascii::Contains(aPathAndQuery, '?') ? "&limit="
                                                              : "?limit=");
     Ascii::AppendDec(aPathAndQuery, aLimit);
     aPathAndQuery.Append("&offset=");

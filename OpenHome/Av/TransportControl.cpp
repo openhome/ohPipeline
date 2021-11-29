@@ -23,9 +23,10 @@ void TransportRepeatRandom::SetRepeat(TBool aRepeat)
         return;
     }
     iRepeat = aRepeat;
-    for (auto obs: iObservers) {
-        obs->TransportRepeatChanged(iRepeat);
-    }
+
+    iObservable.NotifyAll([aRepeat](ITransportRepeatRandomObserver& o) {
+        o.TransportRepeatChanged(aRepeat);
+    });
 }
 
 void TransportRepeatRandom::SetRandom(TBool aRandom)
@@ -35,15 +36,17 @@ void TransportRepeatRandom::SetRandom(TBool aRandom)
         return;
     }
     iRandom = aRandom;
-    for (auto obs: iObservers) {
-        obs->TransportRandomChanged(iRandom);
-    }
+
+    iObservable.NotifyAll([aRandom] (ITransportRepeatRandomObserver& o) {
+        o.TransportRandomChanged(aRandom);
+    });
 }
 
 void TransportRepeatRandom::AddObserver(ITransportRepeatRandomObserver& aObserver)
 {
     AutoMutex _(iLock);
-    iObservers.push_back(&aObserver);
+    iObservable.AddObserver(aObserver);
+
     aObserver.TransportRepeatChanged(iRepeat);
     aObserver.TransportRandomChanged(iRandom);
 }
@@ -51,10 +54,5 @@ void TransportRepeatRandom::AddObserver(ITransportRepeatRandomObserver& aObserve
 void TransportRepeatRandom::RemoveObserver(ITransportRepeatRandomObserver& aObserver)
 {
     AutoMutex _(iLock);
-    for (auto it=iObservers.begin(); it!=iObservers.end(); ++it) {
-        if (*it == &aObserver) {
-            iObservers.erase(it);
-            return;
-        }
-    }
+    iObservable.RemoveObserver(aObserver);
 }
