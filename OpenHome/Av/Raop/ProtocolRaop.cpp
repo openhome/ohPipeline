@@ -758,7 +758,13 @@ void ProtocolRaop::OutputDiscontinuity()
     LOG(kMedia, "ProtocolRaop::OutputDiscontinuity before OutputDrain()\n");
     iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal)); // FIXME - what if doing this while waiter is flushing?
     LOG(kMedia, "ProtocolRaop::OutputDiscontinuity after OutputDrain()\n");
-    sem.Wait();
+    try {
+        sem.Wait(ISupply::kMaxDrainMs);
+    }
+    catch (Timeout&) {
+        LOG(kPipeline, "WARNING: ProtocolRaop: timeout draining pipeline\n");
+        ASSERTS();
+    }
     LOG(kMedia, "ProtocolRaop::OutputDiscontinuity after sem.Wait()\n");
 
     // Only reopen audio server if a TryStop() hasn't come in.
@@ -775,7 +781,13 @@ void ProtocolRaop::WaitForDrain()
 {
     Semaphore sem("WFDS", 0);
     iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal));
-    sem.Wait();
+    try {
+        sem.Wait(ISupply::kMaxDrainMs);
+    }
+    catch (Timeout&) {
+        LOG(kPipeline, "WARNING: ProtocolRaop: timeout draining pipeline\n");
+        ASSERTS();
+    }
 }
 
 void ProtocolRaop::ProcessPacket(const RaopPacketAudio& aPacket)

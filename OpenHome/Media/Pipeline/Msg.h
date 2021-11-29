@@ -1545,6 +1545,8 @@ private:
 class ISupply
 {
 public:
+    static const TUint kMaxDrainMs;
+public:
     virtual ~ISupply() {}
     /**
      * Inform the pipeline that a new track is starting.

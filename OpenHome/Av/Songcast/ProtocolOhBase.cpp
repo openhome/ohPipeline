@@ -6,6 +6,7 @@
 #include <OpenHome/Av/Songcast/Ohm.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Av/Debug.h>
+#include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Timer.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Private/Ascii.h>
@@ -147,7 +148,13 @@ void ProtocolOhBase::WaitForPipelineToEmpty()
 {
     LOG(kSongcast, "> ProtocolOhBase::WaitForPipelineToEmpty()\n");
     iSupply->OutputDrain(MakeFunctor(iPipelineEmpty, &Semaphore::Signal));
-    iPipelineEmpty.Wait();
+    try {
+        iPipelineEmpty.Wait(ISupply::kMaxDrainMs);
+    }
+    catch (Timeout&) {
+        LOG(kPipeline, "WARNING: ProtocolOhBase: timeout draining pipeline\n");
+        ASSERTS();
+    }
     {
         AutoMutex _(iMutexTransport);
         RepairReset(); // allow for clean restart of stream following a drain

@@ -3780,6 +3780,11 @@ AutoAllocatedRef::~AutoAllocatedRef()
 }
 
 
+// ISupply
+
+const TUint ISupply::kMaxDrainMs = 5000;
+
+
 // TrackFactory
 
 TrackFactory::TrackFactory(IInfoAggregator& aInfoAggregator, TUint aTrackCount)
