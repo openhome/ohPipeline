@@ -78,7 +78,7 @@ ProviderTransport::ProviderTransport(Environment& aEnv,
 
     iPipeline.AddObserver(*static_cast<Media::IPipelineObserver*>(this));
     iPipeline.AddObserver(*static_cast<Media::IModeObserver*>(this));
-    iTransportRepeatRandom.AddObserver(*this);
+    iTransportRepeatRandom.AddObserver(*this, "ProviderTransport");
 
     (void)SetPropertyCanSkipNext(false);
     (void)SetPropertyCanSkipPrevious(false);
@@ -93,6 +93,7 @@ ProviderTransport::ProviderTransport(Environment& aEnv,
 
 ProviderTransport::~ProviderTransport()
 {
+    iTransportRepeatRandom.RemoveObserver(*this);
     delete iBufferingModerator;
 }
 

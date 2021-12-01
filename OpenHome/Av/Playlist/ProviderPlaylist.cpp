@@ -83,7 +83,7 @@ ProviderPlaylist::ProviderPlaylist(DvDevice& aDevice,
     EnableActionIdArrayChanged();
     EnableActionProtocolInfo();
 
-    iTransportRepeatRandom.AddObserver(*this);
+    iTransportRepeatRandom.AddObserver(*this, "ProviderPlaylist");
     NotifyPipelineState(Media::EPipelineStopped);
     NotifyTrack(ITrackDatabase::kTrackIdNone);
     UpdateIdArrayProperty();
@@ -92,6 +92,7 @@ ProviderPlaylist::ProviderPlaylist(DvDevice& aDevice,
 
 ProviderPlaylist::~ProviderPlaylist()
 {
+    iTransportRepeatRandom.RemoveObserver(*this);
     delete iTimer;
 }
 

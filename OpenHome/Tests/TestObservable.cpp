@@ -82,8 +82,8 @@ void SuiteObservable::Test()
         o.Notify();
     };
 
-    subject.AddObserver(observerA);
-    subject.AddObserver(observerB);
+    subject.AddObserver(observerA, "foo");
+    subject.AddObserver(observerB, "bar");
     subject.NotifyAll(notifyFunc);
 
     TEST(observerA.CallCount() == 1);
@@ -91,7 +91,7 @@ void SuiteObservable::Test()
     TEST(observerC.CallCount() == 0);
 
 
-    subject.AddObserver(observerC);
+    subject.AddObserver(observerC, "foobar");
     subject.NotifyAll(notifyFunc);
 
     TEST(observerA.CallCount() == 2);

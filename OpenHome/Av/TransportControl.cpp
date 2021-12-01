@@ -42,10 +42,10 @@ void TransportRepeatRandom::SetRandom(TBool aRandom)
     });
 }
 
-void TransportRepeatRandom::AddObserver(ITransportRepeatRandomObserver& aObserver)
+void TransportRepeatRandom::AddObserver(ITransportRepeatRandomObserver& aObserver, const TChar* aId)
 {
     AutoMutex _(iLock);
-    iObservable.AddObserver(aObserver);
+    iObservable.AddObserver(aObserver, aId);
 
     aObserver.TransportRepeatChanged(iRepeat);
     aObserver.TransportRandomChanged(iRandom);

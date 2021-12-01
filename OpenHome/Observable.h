@@ -2,6 +2,7 @@
 
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Standard.h>
+#include <OpenHome/Private/Printer.h>
 
 #include <vector>
 #include <algorithm>
@@ -15,8 +16,8 @@ class IObservable
 public:
     virtual ~IObservable() { }
 
-    virtual void AddObserver(TObserver&) = 0;
-    virtual void RemoveObserver(TObserver&) = 0;
+    virtual void AddObserver(TObserver& aObserver, const TChar* aId) = 0;
+    virtual void RemoveObserver(TObserver& aObserver) = 0;
 };
 
 /* Helper class to aid in implementing the observable pattern with multiple observers.
@@ -58,19 +59,25 @@ class Observable : public IObservable<TObserver>
         Observable() { }
         ~Observable()
         {
-            ASSERT_VA(iObservers.size() == 0, "%s\n", "Observers are still present.");
+            if (iObservers.size() > 0) {
+                Log::Print("ERROR: %u Observable observers leaked:\n", (TUint)iObservers.size());
+                for (auto p : iObservers) {
+                    Log::Print("\t%s\n", p.second);
+                }
+                ASSERTS();
+            }
         }
 
     public:
-        void AddObserver(TObserver& aObserver) override
+        void AddObserver(TObserver& aObserver, const TChar* aId) override
         {
-            iObservers.push_back(aObserver);
+            iObservers.push_back(std::pair<std::reference_wrapper<TObserver>, const TChar*>(aObserver, aId));
         }
 
         void RemoveObserver(TObserver& aObserver) override
         {
             for (auto it = iObservers.begin(); it != iObservers.end(); ++it) {
-                auto& o = (*it).get();
+                auto& o = (*it).first.get();
                 if (&o == &aObserver) {
                     iObservers.erase(it);
                     return;
@@ -80,11 +87,14 @@ class Observable : public IObservable<TObserver>
 
         void NotifyAll(std::function<void (TObserver&)> aNotifyFunc)
         {
-            std::for_each(iObservers.cbegin(), iObservers.cend(), aNotifyFunc);
+            for (auto it = iObservers.cbegin(); it != iObservers.cend(); ++it) {
+                aNotifyFunc(it->first.get());
+            }
+            //std::for_each(iObservers.cbegin(), iObservers.cend(), aNotifyFunc);
         }
 
     protected:
-        std::vector<std::reference_wrapper<TObserver>> iObservers;
+        std::vector<std::pair<std::reference_wrapper<TObserver>, const TChar*>> iObservers;
 };
 
 /* Class that provides a mutex lock around Observable class methods.
@@ -99,10 +109,10 @@ class ThreadSafeObservable : Observable<TObserver>
         ~ThreadSafeObservable() { }
 
     public: // NOTE: These methods 'hide' the base Observable<TObserver> methods.
-        void AddObserver(TObserver& aObserver) override
+        void AddObserver(TObserver& aObserver, const TChar* aId) override
         {
             AutoMutex m(iLock);
-            Observable<TObserver>::AddObserver(aObserver);
+            Observable<TObserver>::AddObserver(aObserver, aId);
         }
 
         void RemoveObserver(TObserver& aObserver) override
@@ -122,4 +132,3 @@ class ThreadSafeObservable : Observable<TObserver>
 };
 
 } // namespace OpenHome
-
