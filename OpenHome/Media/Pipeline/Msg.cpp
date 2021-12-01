@@ -1045,6 +1045,7 @@ MsgDrain::MsgDrain(AllocatorBase& aAllocator)
 
 void MsgDrain::ReportDrained()
 {
+    LOG(kMedia, "MsgDrain::ReportDrained - id=%u, callbackPending=%u\n", iId, iCallbackPending);
     if (iCallback) {
         iCallback();
         iCallbackPending = false;
@@ -1061,6 +1062,7 @@ void MsgDrain::Initialise(TUint aId, Functor aCallback)
     iId = aId;
     iCallback = aCallback;
     iCallbackPending = iCallback? true : false;
+    LOG(kMedia, "MsgDrain::Initialise - id=%u, callbackPending=%u\n", iId, iCallbackPending);
 }
 
 void MsgDrain::Clear()
@@ -1068,8 +1070,6 @@ void MsgDrain::Clear()
     ASSERT(!iCallbackPending);
     iCallback = Functor();
 }
-
-
 
 Msg* MsgDrain::Process(IMsgProcessor& aProcessor)
 {

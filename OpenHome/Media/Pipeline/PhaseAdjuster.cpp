@@ -314,10 +314,12 @@ MsgAudio* PhaseAdjuster::RampUp(MsgAudio* aMsg)
     return aMsg;
 }
 
+extern void PipelineLogBuffers();
 MsgAudio* PhaseAdjuster::StartRampUp(MsgAudio* aMsg)
 {
     LOG(kPipeline, "PhaseAdjuster::StartRampUp dropped %u jiffies (%ums)\n",
                    iDroppedJiffies, Jiffies::ToMs(iDroppedJiffies));
+    PipelineLogBuffers();
     iState = State::RampingUp;
     iRemainingRampSize = iRampJiffies;
     iConfirmOccupancy = true; /* We've discarded some audio.  There may now be no audio in

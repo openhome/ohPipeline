@@ -927,7 +927,9 @@ void Pipeline::GetMaxSupportedSampleRates(TUint& aPcm, TUint& aDsd) const
 
 void PipelineLogBuffers()
 {
-    gPipeline->LogBuffers();
+    if (gPipeline != nullptr) {
+        gPipeline->LogBuffers();
+    }
 }
 
 void Pipeline::LogBuffers() const
