@@ -273,6 +273,8 @@ QobuzTrack* Qobuz::StreamableTrack(const Brx& aTrackId)
     const TUint trackId = (TUint)parser.Num("track_id");
     const Brn url = parser.String(kTagFileUrl);
     const TUint formatId = (TUint)(TUint)parser.Num("format_id");
+
+    LOG(kMedia, "Qobuz::StreamableTrack TrackUrl: %.*s\n", PBUF(url));
     return new QobuzTrack(iUnixTimestamp, iPipelineObservable, *this, trackId, url, formatId);
 }
 
@@ -287,7 +289,11 @@ TBool Qobuz::TryUpdateStreamUrl(QobuzTrack& aTrack)
     }
     JsonParser parser;
     parser.Parse(iResponseBody.Buffer());
-    aTrack.UpdateUrl(parser.String(kTagFileUrl));
+
+    const Brn url = parser.String(kTagFileUrl);
+    aTrack.UpdateUrl(url);
+
+    LOG(kMedia, "Qobuz::TryUpdateStreamUrl New TrackUrl: %.*s\n", PBUF(url));
     return true;
 }
 
