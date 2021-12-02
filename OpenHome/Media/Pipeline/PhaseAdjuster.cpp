@@ -61,6 +61,7 @@ PhaseAdjuster::PhaseAdjuster(
     , iDelayJiffies(0)
     , iDelayTotalJiffies(0)
     , iDroppedJiffies(0)
+    , iStarvationRamperTargetOccupancyJiffies(0)
     , iRampJiffiesLong(aRampJiffiesLong)
     , iRampJiffiesShort(aRampJiffiesShort)
     , iMinDelayJiffies(aMinDelayJiffies)
@@ -107,7 +108,7 @@ Msg* PhaseAdjuster::ProcessMsg(MsgMode* aMsg)
         iEnabled = true;
         iRampJiffies = aMsg->Info().RampPauseResumeLong()?
                         iRampJiffiesLong : iRampJiffiesShort;
-        iDelayJiffies = iDelayTotalJiffies = 0;
+        iDelayJiffies = iDelayTotalJiffies = iStarvationRamperTargetOccupancyJiffies = 0;
         ResetPhaseDelay();
     }
     else {
@@ -203,6 +204,7 @@ void PhaseAdjuster::TryCalculateDelay()
         iDelayJiffies = iDelayTotalJiffies - animatorDelayJiffies;
         iDelayJiffies = std::max(iDelayJiffies, iMinDelayJiffies);
     }
+    iStarvationRamperTargetOccupancyJiffies = iDelayJiffies - Jiffies::kPerMs;
 }
 
 MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
