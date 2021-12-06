@@ -53,10 +53,7 @@ PhaseAdjuster::PhaseAdjuster(
     , iEnabled(false)
     , iState(State::Running)
     , iLock("SPAL")
-    , iUpdateCount(0)
     , iTrackedJiffies(0)
-    , iAudioIn(0)
-    , iAudioOut(0)
     , iDecodedStream(nullptr)
     , iDelayJiffies(0)
     , iDelayTotalJiffies(0)
@@ -168,14 +165,6 @@ Msg* PhaseAdjuster::ProcessMsg(MsgSilence* aMsg)
 void PhaseAdjuster::Update(TInt aDelta)
 {
     iTrackedJiffies += aDelta;
-    iUpdateCount++;
-
-    if (aDelta < 0) {
-        iAudioOut -= aDelta;
-    }
-    else {
-        iAudioIn += aDelta;
-    }
 }
 
 void PhaseAdjuster::Start()
@@ -283,16 +272,6 @@ MsgAudio* PhaseAdjuster::DropAudio(MsgAudio* aMsg, TUint aJiffies, TUint& aDropp
     return aMsg;
 }
 
-MsgSilence* PhaseAdjuster::InjectSilence(TUint aJiffies)
-{
-    ASSERT(iDecodedStream != nullptr);
-    const auto& stream = iDecodedStream->StreamInfo();
-    TUint jiffies = aJiffies;
-    auto* msg = iMsgFactory.CreateMsgSilence(jiffies, stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
-    iInjectedJiffies += jiffies;
-    return msg;
-}
-
 MsgAudio* PhaseAdjuster::RampUp(MsgAudio* aMsg)
 {
     ASSERT(aMsg != nullptr);
@@ -375,7 +354,6 @@ void PhaseAdjuster::ResetPhaseDelay()
     iState = State::Starting;
 
     iDroppedJiffies = 0;
-    iInjectedJiffies = 0;
 
     iRemainingRampSize = iRampJiffies;
     iCurrentRampValue = Ramp::kMin;
@@ -387,19 +365,4 @@ void PhaseAdjuster::ClearDecodedStream()
         iDecodedStream->RemoveRef();
         iDecodedStream = nullptr;
     }
-}
-
-void PhaseAdjuster::PrintStats(const Brx& /*aMsgType*/, TUint /*aJiffies*/)
-{
-    // static const TUint kInitialJiffiesTrackingLimit = 50 * Jiffies::kPerMs;
-    // static const TUint kJiffiesStatsInterval = 50 * Jiffies::kPerMs;
-    // static const TUint kJiffiesStatsLimit = 500 * Jiffies::kPerMs;
-    // if ((aJiffies < kInitialJiffiesTrackingLimit || aJiffies % kJiffiesStatsInterval == 0) && aJiffies <= kJiffiesStatsLimit) {
-    //     const TInt tj = iTrackedJiffies;
-    //     const TInt err = tj - iDelayJiffies;
-    //     const TUint in = iAudioIn;
-    //     const TUint out = iAudioOut;
-    //
-    //     Log::Print("PhaseAdjuster::PrintStats aMsgType: %.*s, aJiffies: %u (%u ms), tracked jiffies: %d (%u ms), err: %d (%u ms), in: %u (%u ms), out: %u (%u ms)\n", PBUF(aMsgType), aJiffies, Jiffies::ToMs(aJiffies), tj, Jiffies::ToMs((TUint)tj), err, Jiffies::ToMs((TUint)err), in, Jiffies::ToMs(in), out, Jiffies::ToMs(out));
-    // }
 }
