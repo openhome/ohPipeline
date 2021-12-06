@@ -61,7 +61,6 @@ PhaseAdjuster::PhaseAdjuster(
     , iDelayJiffies(0)
     , iDelayTotalJiffies(0)
     , iDroppedJiffies(0)
-    , iStarvationRamperTargetOccupancyJiffies(0)
     , iRampJiffiesLong(aRampJiffiesLong)
     , iRampJiffiesShort(aRampJiffiesShort)
     , iMinDelayJiffies(aMinDelayJiffies)
@@ -108,7 +107,7 @@ Msg* PhaseAdjuster::ProcessMsg(MsgMode* aMsg)
         iEnabled = true;
         iRampJiffies = aMsg->Info().RampPauseResumeLong()?
                         iRampJiffiesLong : iRampJiffiesShort;
-        iDelayJiffies = iDelayTotalJiffies = iStarvationRamperTargetOccupancyJiffies = 0;
+        iDelayJiffies = iDelayTotalJiffies = 0;
         ResetPhaseDelay();
     }
     else {
@@ -204,9 +203,9 @@ void PhaseAdjuster::TryCalculateDelay()
         iDelayJiffies = iDelayTotalJiffies - animatorDelayJiffies;
         iDelayJiffies = std::max(iDelayJiffies, iMinDelayJiffies);
     }
-    iStarvationRamperTargetOccupancyJiffies = iDelayJiffies - Jiffies::kPerMs;
 }
 
+extern void PipelineLogBuffers();
 MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
 {
     if (iState == State::Starting) {
@@ -215,6 +214,7 @@ MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
         const TUint trackedJiffies = static_cast<TUint>(iTrackedJiffies);
         LOG(kPipeline, "PhaseAdjuster: tracked=%u (%ums), delay=%u (%ums)\n",
                        trackedJiffies, Jiffies::ToMs(trackedJiffies), iDelayJiffies, Jiffies::ToMs(iDelayJiffies));
+        PipelineLogBuffers();
         iState = State::Adjusting;
     }
 
@@ -318,8 +318,9 @@ MsgAudio* PhaseAdjuster::RampUp(MsgAudio* aMsg)
 
 MsgAudio* PhaseAdjuster::StartRampUp(MsgAudio* aMsg)
 {
-    LOG(kPipeline, "PhaseAdjuster::StartRampUp dropped %u jiffies (%ums)\n",
-                   iDroppedJiffies, Jiffies::ToMs(iDroppedJiffies));
+    LOG(kPipeline, "PhaseAdjuster::StartRampUp dropped %u jiffies (%ums), queue size = %u\n",
+                   iDroppedJiffies, Jiffies::ToMs(iDroppedJiffies), iQueue.NumMsgs());
+    PipelineLogBuffers();
     iState = State::RampingUp;
     iRemainingRampSize = iRampJiffies;
     iConfirmOccupancy = true; /* We've discarded some audio.  There may now be no audio in

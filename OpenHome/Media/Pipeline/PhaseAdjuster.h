@@ -86,7 +86,6 @@ private:
     TUint iDelayTotalJiffies;
     TUint iDroppedJiffies;
     TUint iInjectedJiffies;
-    TUint iStarvationRamperTargetOccupancyJiffies;
     const TUint iRampJiffiesLong;
     const TUint iRampJiffiesShort;
     const TUint iMinDelayJiffies;
