@@ -201,8 +201,12 @@ MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
         // log intention to discard audio once (function may be called many times with
         // State::Adjusting while we discard and we can't afford to log all these times).
         const TUint trackedJiffies = static_cast<TUint>(iTrackedJiffies);
-        LOG(kPipeline, "PhaseAdjuster: tracked=%u (%ums), delay=%u (%ums)\n",
-                       trackedJiffies, Jiffies::ToMs(trackedJiffies), iDelayJiffies, Jiffies::ToMs(iDelayJiffies));
+        LOG(kPipeline, "PhaseAdjuster: tracked=%u (%ums), delay=%u (%ums), audioPcmCount=%u\n",
+            trackedJiffies,
+            Jiffies::ToMs(trackedJiffies),
+            iDelayJiffies,
+            Jiffies::ToMs(iDelayJiffies),
+            iMsgFactory.AllocatorAudioPcmCount());
         PipelineLogBuffers();
         iState = State::Adjusting;
     }
@@ -297,8 +301,11 @@ MsgAudio* PhaseAdjuster::RampUp(MsgAudio* aMsg)
 
 MsgAudio* PhaseAdjuster::StartRampUp(MsgAudio* aMsg)
 {
-    LOG(kPipeline, "PhaseAdjuster::StartRampUp dropped %u jiffies (%ums), queue size = %u\n",
-                   iDroppedJiffies, Jiffies::ToMs(iDroppedJiffies), iQueue.NumMsgs());
+    LOG(kPipeline, "PhaseAdjuster::StartRampUp dropped %u jiffies (%ums), queue size = %u, , audioPcmCount=%u\n",
+        iDroppedJiffies,
+        Jiffies::ToMs(iDroppedJiffies),
+        iQueue.NumMsgs(),
+        iMsgFactory.AllocatorAudioPcmCount());
     PipelineLogBuffers();
     iState = State::RampingUp;
     iRemainingRampSize = iRampJiffies;

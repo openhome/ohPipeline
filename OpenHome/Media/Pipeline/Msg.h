@@ -2025,6 +2025,30 @@ public:
     MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords);
     MsgQuit* CreateMsgQuit();
     DecodedAudio* CreateDecodedAudio();
+public:
+    inline TUint AllocatorModeCount() const;
+    inline TUint AllocatorTrackCount() const;
+    inline TUint AllocatorDrainCount() const;
+    inline TUint AllocatorDelayCount() const;
+    inline TUint AllocatorEncodedStreamCount() const;
+    inline TUint AllocatorStreamSegmentCount() const;
+    inline TUint AllocatorAudioDataCount() const;
+    inline TUint AllocatorAudioEncodedCount() const;
+    inline TUint AllocatorMetaTextCount() const;
+    inline TUint AllocatorStreamInterruptedCount() const;
+    inline TUint AllocatorHaltCount() const;
+    inline TUint AllocatorFlushCount() const;
+    inline TUint AllocatorWaitCount() const;
+    inline TUint AllocatorDecodedStreamCount() const;
+    inline TUint AllocatorBitRateCount() const;
+    inline TUint AllocatorAudioPcmCount() const;
+    inline TUint AllocatorAudioDsdCount() const;
+    inline TUint AllocatorSilenceCount() const;
+    inline TUint AllocatorPlayablePcmCount() const;
+    inline TUint AllocatorPlayableDsdCount() const;
+    inline TUint AllocatorPlayableSilenceCount() const;
+    inline TUint AllocatorPlayableSilenceDsdCount() const;
+    inline TUint AllocatorQuitCount() const;
 private:
     EncodedAudio* CreateEncodedAudio(const Brx& aData);
     DecodedAudio* CreateDecodedAudio(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
