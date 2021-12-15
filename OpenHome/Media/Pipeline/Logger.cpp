@@ -19,6 +19,10 @@ Logger::Logger(IPipelineElementUpstream& aUpstreamElement, const TChar* aId)
     , iEnabled(false)
     , iFilter(EMsgNone)
     , iShutdownSem("PDSD", 0)
+    , iJiffiesPcm(0)
+    , iJiffiesDsd(0)
+    , iJiffiesSilence(0)
+    , iJiffiesPlayable(0)
 {
 }
 
@@ -29,6 +33,10 @@ Logger::Logger(const TChar* aId, IPipelineElementDownstream& aDownstreamElement)
     , iEnabled(false)
     , iFilter(EMsgNone)
     , iShutdownSem("PDSD", 0)
+    , iJiffiesPcm(0)
+    , iJiffiesDsd(0)
+    , iJiffiesSilence(0)
+    , iJiffiesPlayable(0)
 {
 }
 
@@ -72,6 +80,20 @@ inline TBool Logger::IsEnabled(EMsgType aType) const
         return true;
     }
     return false;
+}
+
+inline TUint64 JiffiesToMs(TUint64 aJiffies)
+{
+    return aJiffies / Jiffies::kPerMs;
+}
+
+void Logger::LogAudio()
+{
+    Log::Print("Logger (%s): pcm=%llu (%llums), dsd=%llu(%llums), silence=%llu (%llums), playable=%llu (%llums)\n",
+        iId, iJiffiesPcm, JiffiesToMs(iJiffiesPcm),
+        iJiffiesDsd, JiffiesToMs(iJiffiesDsd),
+        iJiffiesSilence, JiffiesToMs(iJiffiesSilence),
+        iJiffiesPlayable, JiffiesToMs(iJiffiesPlayable));
 }
 
 Msg* Logger::ProcessMsg(MsgMode* aMsg)
@@ -229,6 +251,7 @@ Msg* Logger::ProcessMsg(MsgBitRate* aMsg)
 
 Msg* Logger::ProcessMsg(MsgAudioPcm* aMsg)
 {
+    iJiffiesPcm += aMsg->Jiffies();
     if (IsEnabled(EMsgAudioPcm) ||
         (IsEnabled(EMsgAudioRamped) && aMsg->Ramp().IsEnabled())) {
         LogAudioDecoded(*aMsg, "audioPcm");
@@ -238,6 +261,7 @@ Msg* Logger::ProcessMsg(MsgAudioPcm* aMsg)
 
 Msg* Logger::ProcessMsg(MsgAudioDsd* aMsg)
 {
+    iJiffiesDsd += aMsg->Jiffies();
     if (IsEnabled(EMsgAudioDsd) ||
         (IsEnabled(EMsgAudioRamped) && aMsg->Ramp().IsEnabled())) {
         LogAudioDecoded(*aMsg, "audioDsd");
@@ -247,6 +271,7 @@ Msg* Logger::ProcessMsg(MsgAudioDsd* aMsg)
 
 Msg* Logger::ProcessMsg(MsgSilence* aMsg)
 {
+    iJiffiesSilence += aMsg->Jiffies();
     if (IsEnabled(EMsgSilence) ||
         (IsEnabled(EMsgAudioRamped) && aMsg->Ramp().IsEnabled())) {
         iBuf.SetBytes(0);
@@ -260,6 +285,7 @@ Msg* Logger::ProcessMsg(MsgSilence* aMsg)
 
 Msg* Logger::ProcessMsg(MsgPlayable* aMsg)
 {
+    iJiffiesPlayable += aMsg->Jiffies();
     if (IsEnabled(EMsgPlayable) ||
         (IsEnabled(EMsgAudioRamped) && aMsg->Ramp().IsEnabled())) {
         iBuf.SetBytes(0);

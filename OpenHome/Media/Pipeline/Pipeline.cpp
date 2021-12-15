@@ -332,7 +332,8 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     iEventThread = new PipelineElementObserverThread(aInitParams->ThreadPriorityEvent());
     IPipelineElementDownstream* downstream = nullptr;
     IPipelineElementUpstream* upstream = nullptr;
-    const auto elementsSupported = aInitParams->SupportElements();
+    auto elementsSupported = aInitParams->SupportElements();
+    elementsSupported |= EPipelineSupportElementsLogger; // FIXME - temporary logging
 
     // disable "conditional expression is constant" warnings from ATTACH_ELEMENT
 #ifdef _WIN32
@@ -564,29 +565,29 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
 
     //iAudioDumper->SetEnabled(true);
 
-    //iLoggerEncodedAudioReservoir->SetEnabled(true);
-    //iLoggerContainer->SetEnabled(true);
-    //iLoggerCodecController->SetEnabled(true);
-    //iLoggerStreamValidator->SetEnabled(true);
-    //iLoggerDecodedAudioAggregator->SetEnabled(true);
-    //iLoggerDecodedAudioReservoir->SetEnabled(true);
-    //iLoggerRamper->SetEnabled(true);
-    //iLoggerSeeker->SetEnabled(true);
-    //iLoggerDrainer1->SetEnabled(true);
-    //iLoggerVariableDelay1->SetEnabled(true);
-    //iLoggerSkipper->SetEnabled(true);
-    //iLoggerTrackInspector->SetEnabled(true);
-    //iLoggerWaiter->SetEnabled(true);
-    //iLoggerStopper->SetEnabled(true);
-    //iLoggerSpotifyReporter->SetEnabled(true);
-    //iLoggerReporter->SetEnabled(true);
-    //iLoggerRouter->SetEnabled(true);
-    //iLoggerAttenuator->SetEnabled(true);
-    //iLoggerDrainer2->SetEnabled(true);
-    //iLoggerVariableDelay2->SetEnabled(true);
-    //iLoggerStarvationRamper->SetEnabled(true);
-    //iLoggerMuter->SetEnabled(true);
-    //iLoggerVolumeRamper->SetEnabled(true);
+    iLoggerEncodedAudioReservoir->SetEnabled(true);
+    iLoggerContainer->SetEnabled(true);
+    iLoggerCodecController->SetEnabled(true);
+    iLoggerStreamValidator->SetEnabled(true);
+    iLoggerDecodedAudioAggregator->SetEnabled(true);
+    iLoggerDecodedAudioReservoir->SetEnabled(true);
+    iLoggerRamper->SetEnabled(true);
+    iLoggerSeeker->SetEnabled(true);
+    iLoggerDrainer1->SetEnabled(true);
+    iLoggerVariableDelay1->SetEnabled(true);
+    iLoggerSkipper->SetEnabled(true);
+    iLoggerTrackInspector->SetEnabled(true);
+    iLoggerWaiter->SetEnabled(true);
+    iLoggerStopper->SetEnabled(true);
+    iLoggerSpotifyReporter->SetEnabled(true);
+    iLoggerReporter->SetEnabled(true);
+    iLoggerRouter->SetEnabled(true);
+    iLoggerAttenuator->SetEnabled(true);
+    iLoggerDrainer2->SetEnabled(true);
+    iLoggerVariableDelay2->SetEnabled(true);
+    iLoggerStarvationRamper->SetEnabled(true);
+    iLoggerMuter->SetEnabled(true);
+    iLoggerVolumeRamper->SetEnabled(true);
 
     // A logger that is enabled will block waiting for MsgQuit in its dtor
     // ~Pipeline (below) relies on this to synchronise its destruction
@@ -932,6 +933,12 @@ void PipelineLogBuffers()
     }
 }
 
+static void LogComponentAudioThroughput(Logger* aLogger) {
+    if (aLogger != nullptr) {
+        aLogger->LogAudio();
+    }
+}
+
 void Pipeline::LogBuffers() const
 {
     const TUint encodedBytes = iEncodedAudioReservoir->SizeInBytes();
@@ -939,6 +946,29 @@ void Pipeline::LogBuffers() const
     const TUint starvationMs = Jiffies::ToMs(iStarvationRamper->SizeInJiffies());
     Log::Print("Pipeline utilisation: encodedBytes=%u, decodedMs=%u, starvationRamper=%u\n",
                encodedBytes, decodedMs, starvationMs);
+
+    LogComponentAudioThroughput(iLoggerCodecController);
+    LogComponentAudioThroughput(iLoggerStreamValidator);
+    LogComponentAudioThroughput(iLoggerDecodedAudioAggregator);
+    LogComponentAudioThroughput(iLoggerDecodedAudioReservoir);
+    LogComponentAudioThroughput(iLoggerRamper);
+    LogComponentAudioThroughput(iLoggerSeeker);
+    LogComponentAudioThroughput(iLoggerDrainer1);
+    LogComponentAudioThroughput(iLoggerVariableDelay1);
+    LogComponentAudioThroughput(iLoggerSkipper);
+    LogComponentAudioThroughput(iLoggerTrackInspector);
+    LogComponentAudioThroughput(iLoggerWaiter);
+    LogComponentAudioThroughput(iLoggerStopper);
+    LogComponentAudioThroughput(iLoggerSpotifyReporter);
+    LogComponentAudioThroughput(iLoggerReporter);
+    LogComponentAudioThroughput(iLoggerRouter);
+    LogComponentAudioThroughput(iLoggerAttenuator);
+    LogComponentAudioThroughput(iLoggerDrainer2);
+    LogComponentAudioThroughput(iLoggerVariableDelay2);
+    LogComponentAudioThroughput(iLoggerStarvationRamper);
+    LogComponentAudioThroughput(iLoggerMuter);
+    LogComponentAudioThroughput(iLoggerVolumeRamper);
+    LogComponentAudioThroughput(iLoggerPreDriver);
 }
 
 void Pipeline::Push(Msg* aMsg)
