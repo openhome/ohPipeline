@@ -1069,7 +1069,6 @@ protected:
     TUint iBitDepth;
     TUint iNumChannels;
     TUint iOffset; // Bytes
-    TUint iSizeTotalJiffies;
     Media::Ramp iRamp;
     IPipelineBufferObserver* iPipelineBufferObserver;
     // TUint iSampleBlockWords;
