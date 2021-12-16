@@ -60,7 +60,7 @@ void Logger::SetFilter(TUint aMsgTypes)
 Msg* Logger::Pull()
 {
     Msg* msg = iUpstreamElement->Pull();
-    if (iEnabled) {
+    if (iEnabled && msg != nullptr) {
         (void)msg->Process(*this);
     }
     return msg;
