@@ -2649,7 +2649,9 @@ TUint MsgPlayable::Jiffies() const
 
 TUint MsgPlayable::MsgJiffies() const
 {
-    const TUint numSamples = iSize / ((iBitDepth/8) * iNumChannels);
+    const TUint numSamples = iBitDepth == 1 ?
+        (iSize * 8) / iNumChannels :
+        iSize / ((iBitDepth / 8) * iNumChannels);
     return numSamples * Jiffies::PerSample(iSampleRate);
 }
 
