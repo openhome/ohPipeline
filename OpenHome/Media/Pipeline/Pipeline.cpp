@@ -586,6 +586,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     iLoggerDrainer2->SetEnabled(true);
     iLoggerVariableDelay2->SetEnabled(true);
     iLoggerStarvationRamper->SetEnabled(true);
+    iLoggerPhaseAdjuster->SetEnabled(true);
     iLoggerMuter->SetEnabled(true);
     iLoggerVolumeRamper->SetEnabled(true);
 
@@ -615,6 +616,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerDrainer2->SetFilter(Logger::EMsgAll);
     //iLoggerVariableDelay2->SetFilter(Logger::EMsgAll);
     //iLoggerStarvationRamper->SetFilter(Logger::EMsgAll);
+    //iLoggerPhaseAdjuster->SetFilter(Logger::EMsgAll);
     //iLoggerMuter->SetFilter(Logger::EMsgAll);
     //iLoggerVolumeRamper->SetFilter(Logger::EMsgAll);
     //iLoggerPreDriver->SetFilter(Logger::EMsgAll);
@@ -966,6 +968,7 @@ void Pipeline::LogBuffers() const
     LogComponentAudioThroughput(iLoggerDrainer2);
     LogComponentAudioThroughput(iLoggerVariableDelay2);
     LogComponentAudioThroughput(iLoggerStarvationRamper);
+    LogComponentAudioThroughput(iLoggerPhaseAdjuster);
     LogComponentAudioThroughput(iLoggerMuter);
     LogComponentAudioThroughput(iLoggerVolumeRamper);
     LogComponentAudioThroughput(iLoggerPreDriver);
