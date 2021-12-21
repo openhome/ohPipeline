@@ -1307,14 +1307,6 @@ void SuiteMsgPlayable::Test()
     ValidateSilence(playable);
     remainingPlayable->RemoveRef();
 
-    // check we can read from a chained PlayablePcm -> PlayableSilence
-    audioPcm = iMsgFactory->CreateMsgAudioPcm(data, 2, 44100, 8, AudioDataEndian::Little, 0);
-    playable = audioPcm->CreatePlayable();
-    silence = iMsgFactory->CreateMsgSilence(size, 44100, 8, 1);
-    playable->Add(silence->CreatePlayable());
-    playable->Read(pcmProcessor);
-    playable->RemoveRef();
-
     // IPipelineBufferObserver
     BufferObserver bufferObserver;
     const auto msgSize = 2 * Jiffies::kPerMs;

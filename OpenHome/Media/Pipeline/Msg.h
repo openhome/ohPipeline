@@ -1031,7 +1031,6 @@ class MsgPlayable : public Msg
 {
 public:
     MsgPlayable* Split(TUint aBytes); // returns block after aBytes
-    void Add(MsgPlayable* aMsg); // combines MsgPlayable instances so they report longer durations etc
     TUint Bytes() const;
     TUint Jiffies() const;
     const Media::Ramp& Ramp() const;
@@ -1063,7 +1062,6 @@ private:
     virtual void ReadBlock(IPcmProcessor& aProcessor);
     virtual void ReadBlock(IDsdProcessor& aProcessor);
 protected:
-    MsgPlayable* iNextPlayable;
     TUint iSize; // Bytes
     TUint iSampleRate;
     TUint iBitDepth;

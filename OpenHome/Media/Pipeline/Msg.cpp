@@ -2584,18 +2584,12 @@ void MsgSilence::InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChanne
 
 MsgPlayable* MsgPlayable::Split(TUint aBytes)
 {
-    if (aBytes > iSize) {
-        ASSERT(iNextPlayable != nullptr);
-        return iNextPlayable->Split(aBytes - iSize);
-    }
+    ASSERT(aBytes <= iSize);
     ASSERT(aBytes != 0);
     if (aBytes == iSize) {
-        MsgPlayable* remaining = iNextPlayable;
-        iNextPlayable = nullptr;
-        return remaining;
+        return nullptr;
     }
     MsgPlayable* remaining = Allocate();
-    remaining->iNextPlayable = iNextPlayable;
     remaining->iOffset = iOffset + aBytes;
     remaining->iSize = iSize - aBytes;
     remaining->iSampleRate = iSampleRate;
@@ -2609,42 +2603,18 @@ MsgPlayable* MsgPlayable::Split(TUint aBytes)
     }
     remaining->iPipelineBufferObserver = iPipelineBufferObserver;
     iSize = aBytes;
-    iNextPlayable = nullptr;
     SplitCompleted(*remaining);
     return remaining;
 }
 
-void MsgPlayable::Add(MsgPlayable* aMsg)
-{
-    MsgPlayable* end = this;
-    MsgPlayable* next = iNextPlayable;
-    while (next != nullptr) {
-        end = next;
-        next = next->iNextPlayable;
-    }
-    end->iNextPlayable = aMsg;
-}
-
 TUint MsgPlayable::Bytes() const
 {
-    TUint bytes = iSize;
-    MsgPlayable* next = iNextPlayable;
-    while (next != nullptr) {
-        bytes += next->iSize;
-        next = next->iNextPlayable;
-    }
-    return bytes;
+    return iSize;
 }
 
 TUint MsgPlayable::Jiffies() const
 {
-    TUint jiffies = MsgJiffies();
-    MsgPlayable* next = iNextPlayable;
-    while (next != nullptr) {
-        jiffies += next->MsgJiffies();
-        next = next->iNextPlayable;
-    }
-    return jiffies;
+    return MsgJiffies();
 }
 
 TUint MsgPlayable::MsgJiffies() const
@@ -2663,12 +2633,8 @@ const Media::Ramp& MsgPlayable::Ramp() const
 void MsgPlayable::Read(IPcmProcessor& aProcessor)
 {
     aProcessor.BeginBlock();
-    MsgPlayable* playable = this;
-    while (playable != nullptr) {
-        if (iSize > 0) {
-            playable->ReadBlock(aProcessor);
-        }
-        playable = playable->iNextPlayable;
+    if (iSize > 0) {
+        ReadBlock(aProcessor);
     }
     aProcessor.EndBlock();
 }
@@ -2676,11 +2642,7 @@ void MsgPlayable::Read(IPcmProcessor& aProcessor)
 void MsgPlayable::Read(IDsdProcessor& aProcessor)
 {
     aProcessor.BeginBlock();
-    MsgPlayable* playable = this;
-    while (playable != nullptr) {
-        playable->ReadBlock(aProcessor);
-        playable = playable->iNextPlayable;
-    }
+    ReadBlock(aProcessor);
     aProcessor.EndBlock();
 }
 
@@ -2698,7 +2660,6 @@ void MsgPlayable::Initialise(TUint aSizeBytes, TUint aSampleRate, TUint aBitDept
                              TUint aNumChannels, TUint aOffsetBytes, const Media::Ramp& aRamp,
                              Optional<IPipelineBufferObserver> aPipelineBufferObserver)
 {
-    iNextPlayable = nullptr;
     iSize = aSizeBytes;
     iSampleRate = aSampleRate;
     iBitDepth = aBitDepth;
@@ -2719,10 +2680,6 @@ void MsgPlayable::Clear()
         TInt jiffies = MsgJiffies();
         iPipelineBufferObserver->Update(-jiffies);
         iPipelineBufferObserver = nullptr;
-    }
-    if (iNextPlayable != nullptr) {
-        iNextPlayable->RemoveRef();
-        iNextPlayable = nullptr;
     }
     iSize = iSampleRate = iBitDepth = iNumChannels = iOffset = 0;
     iRamp.Reset();
