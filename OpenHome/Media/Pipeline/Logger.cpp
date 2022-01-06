@@ -251,7 +251,9 @@ Msg* Logger::ProcessMsg(MsgBitRate* aMsg)
 
 Msg* Logger::ProcessMsg(MsgAudioPcm* aMsg)
 {
-    iJiffiesPcm += aMsg->Jiffies();
+    if (aMsg->HasBufferObserver()) {
+        iJiffiesPcm += aMsg->Jiffies();
+    }
     if (IsEnabled(EMsgAudioPcm) ||
         (IsEnabled(EMsgAudioRamped) && aMsg->Ramp().IsEnabled())) {
         LogAudioDecoded(*aMsg, "audioPcm");

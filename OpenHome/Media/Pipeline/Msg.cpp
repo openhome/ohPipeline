@@ -2083,6 +2083,11 @@ TUint MsgAudio::MedianRampMultiplier()
     return mult;
 }
 
+TBool MsgAudio::HasBufferObserver() const
+{
+    return iPipelineBufferObserver != nullptr;
+}
+
 MsgAudio::MsgAudio(AllocatorBase& aAllocator)
     : Msg(aAllocator)
     , iPipelineBufferObserver(nullptr)

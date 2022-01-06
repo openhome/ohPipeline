@@ -875,6 +875,7 @@ public:
     void SetMuted(); // should only be used with msgs immediately following a ramp down
     const Media::Ramp& Ramp() const;
     TUint MedianRampMultiplier(); // 1<<31 => full level.  Note - clears any existing ramp
+    TBool HasBufferObserver() const;
 protected:
     MsgAudio(AllocatorBase& aAllocator);
     void Initialise(TUint aSampleRate, TUint aBitDepth, TUint aChannels);
