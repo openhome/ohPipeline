@@ -2635,6 +2635,11 @@ const Media::Ramp& MsgPlayable::Ramp() const
     return iRamp;
 }
 
+TBool MsgPlayable::HasBufferObserver() const
+{
+    return iPipelineBufferObserver != nullptr;
+}
+
 void MsgPlayable::Read(IPcmProcessor& aProcessor)
 {
     aProcessor.BeginBlock();

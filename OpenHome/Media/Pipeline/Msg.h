@@ -1035,6 +1035,7 @@ public:
     TUint Bytes() const;
     TUint Jiffies() const;
     const Media::Ramp& Ramp() const;
+    TBool HasBufferObserver() const;
     /**
      * Extract pcm data from this msg.
      *
