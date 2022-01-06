@@ -279,16 +279,16 @@ MsgAudio* PhaseAdjuster::DropAudio(MsgAudio* aMsg, TUint aJiffies, TUint& aDropp
 MsgAudio* PhaseAdjuster::RampUp(MsgAudio* aMsg)
 {
     ASSERT(aMsg != nullptr);
-    MsgAudio* split;
+    MsgAudio* split = nullptr;
     if (aMsg->Jiffies() > iRemainingRampSize && iRemainingRampSize > 0) {
         split = aMsg->Split(iRemainingRampSize);
-        if (split != nullptr) {
-            iQueue.Enqueue(split);
-        }
     }
-    split = nullptr;
     if (iRemainingRampSize > 0) {
-        iCurrentRampValue = aMsg->SetRamp(iCurrentRampValue, iRemainingRampSize, Ramp::EUp, split);
+        MsgAudio* split2 = nullptr;
+        iCurrentRampValue = aMsg->SetRamp(iCurrentRampValue, iRemainingRampSize, Ramp::EUp, split2);
+        if (split2 != nullptr) {
+            iQueue.Enqueue(split2);
+        }
     }
     if (split != nullptr) {
         iQueue.Enqueue(split);
