@@ -753,10 +753,13 @@ void SuiteMsgAudioEncoded::Test()
 
     // validate ref counting of chained msgs (see #5167)
     msg = iMsgFactory->CreateMsgAudioEncoded(buf);
+    TEST(msg->RefCount() == 1);
     msg->AddRef();
+    TEST(msg->RefCount() == 2);
     msg2 = iMsgFactory->CreateMsgAudioEncoded(buf);
     msg->Add(msg2);
     msg->RemoveRef();
+    TEST(msg->RefCount() == 1);
     msg->RemoveRef();
 
     // clean shutdown implies no leaked msgs

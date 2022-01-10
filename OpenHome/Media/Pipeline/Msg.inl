@@ -6,6 +6,13 @@ inline const TChar* AllocatorBase::Name() const
 }
 
 
+// Allocated
+
+inline TUint Allocated::RefCount() const
+{
+    return iRefCount.load();
+}
+
 // Jiffies
 
 inline TUint Jiffies::ToMs(TUint aJiffies)

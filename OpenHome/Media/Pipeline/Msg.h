@@ -91,6 +91,7 @@ class Allocated
 public:
     void AddRef();
     void RemoveRef();
+    inline TUint RefCount() const;
 protected:
     Allocated(AllocatorBase& aAllocator);
 protected:
