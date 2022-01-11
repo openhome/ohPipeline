@@ -100,7 +100,7 @@ class Observable : public IObservable<TObserver>
 /* Class that provides a mutex lock around Observable class methods.
  * See Observable<TObserver> for intended usage. */
 template<typename TObserver>
-class ThreadSafeObservable : Observable<TObserver>
+class ThreadSafeObservable : public Observable<TObserver>
 {
     public:
         ThreadSafeObservable()
