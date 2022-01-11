@@ -4,8 +4,10 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/Raat/Output.h>
 #include <OpenHome/Av/Raat/Volume.h>
+#include <OpenHome/Av/Raat/SourceSelection.h>
 
 #include <raat_device.h> 
 #include <raat_info.h> 
@@ -31,6 +33,7 @@ RaatApp::RaatApp(
     iThread = new ThreadFunctor("Raat", MakeFunctor(*this, &RaatApp::RaatThread));
     iOutput = new RaatOutput(aEnv, aMediaPlayer.Pipeline(), aSourceRaat);
     iVolume = new RaatVolume(aMediaPlayer);
+    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat);
     iThread->Start();
 }
 
@@ -42,6 +45,7 @@ RaatApp::~RaatApp()
     iMediaPlayer.FriendlyNameObservable().DeregisterFriendlyNameObserver(iFriendlyNameId);
     delete iThread;
     RAAT__device_delete(iDevice);
+    delete iSourceSelection;
     delete iVolume;
     delete iOutput;
 }
