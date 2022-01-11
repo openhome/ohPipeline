@@ -109,6 +109,7 @@ Msg* PreDriver::ProcessMsg(MsgDecodedStream* aMsg)
 Msg* PreDriver::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iSilenceSinceAudio = false;
+    ASSERT_VA(aMsg->RefCount() == 1, "PreDriver::ProcessMsg(MsgAudioPcm* ) refCount==%u\n", aMsg->RefCount());
     return aMsg->CreatePlayable();
 }
 

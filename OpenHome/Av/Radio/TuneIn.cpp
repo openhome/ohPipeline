@@ -213,6 +213,7 @@ void RadioPresetsTuneIn::RefreshPresets()
             !ReadElement(parser, "URL", iPresetUrl)) {
             continue;
         }
+        Converter::FromXmlEscaped(iPresetTitle);
         Converter::FromXmlEscaped(iPresetUrl);
         if (isAudio) {
             iPresetUri.Replace(iPresetUrl);
@@ -235,41 +236,44 @@ void RadioPresetsTuneIn::RefreshPresets()
         TBool foundImage = false, foundPresetNumber = false;
         TUint presetNumber = UINT_MAX;
         while (key.Bytes() > 0 && !(foundImage && foundPresetNumber)) {
-        if (key == imageKeyBuf) {
-            foundImage = ReadValue(parser, imageKey, iPresetArtUrl);
-        }
-        else if (key == presetNumberBuf) {
-            Bws<Ascii::kMaxUintStringBytes> presetBuf;
-            if (ReadValue(parser, presetNumberKey, presetBuf)) {
-                try {
-                    presetNumber = Ascii::Uint(presetBuf);
-                    foundPresetNumber = true;
+            if (key == imageKeyBuf) {
+                foundImage = ReadValue(parser, imageKey, iPresetArtUrl);
+                if (foundImage) {
+                    Converter::FromXmlEscaped(iPresetArtUrl);
                 }
-                catch (AsciiError&) {}
+            }
+            else if (key == presetNumberBuf) {
+                Bws<Ascii::kMaxUintStringBytes> presetBuf;
+                if (ReadValue(parser, presetNumberKey, presetBuf)) {
+                    try {
+                        presetNumber = Ascii::Uint(presetBuf);
+                        foundPresetNumber = true;
+                    }
+                    catch (AsciiError&) {}
+                }
+            }
+            else {
+                (void)parser.Next('\"');
+                (void)parser.Next('\"');
+            }
+            key.Set(parser.Next('='));
+        }
+        if (!foundPresetNumber) {
+            LOG_ERROR(kSources, "No preset_id for TuneIn preset %.*s\n", PBUF(iPresetTitle));
+            continue;
+        }
+        {
+            AutoMutex __(iLock);
+            if (iPresetWriter == nullptr) {
+                THROW(WriterError);
+            }
+            try {
+                iPresetWriter->SetPreset(presetNumber - 1, iPresetUrl, iPresetTitle, iPresetArtUrl, byteRate);
+            }
+            catch (PresetIndexOutOfRange&) {
+                LOG_ERROR(kSources, "Ignoring preset number %u (index too high)\n", presetNumber);
             }
         }
-        else {
-            (void)parser.Next('\"');
-            (void)parser.Next('\"');
-        }
-        key.Set(parser.Next('='));
-    }
-    if (!foundPresetNumber) {
-        LOG_ERROR(kSources, "No preset_id for TuneIn preset %.*s\n", PBUF(iPresetTitle));
-        continue;
-    }
-    {
-        AutoMutex __(iLock);
-        if (iPresetWriter == nullptr) {
-            THROW(WriterError);
-        }
-        try {
-            iPresetWriter->SetPreset(presetNumber - 1, iPresetUrl, iPresetTitle, iPresetArtUrl, byteRate);
-        }
-        catch (PresetIndexOutOfRange&) {
-            LOG_ERROR(kSources, "Ignoring preset number %u (index too high)\n", presetNumber);
-        }
-    }
     }
 }
 

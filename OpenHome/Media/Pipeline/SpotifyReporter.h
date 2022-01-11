@@ -1,19 +1,38 @@
 #pragma once
 
 #include <OpenHome/Types.h>
+#include <OpenHome/Private/Fifo.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/AudioReservoir.h>
 #include <OpenHome/Media/Pipeline/Reporter.h>
 
 namespace OpenHome {
+    class IThreadPool;
+    class IThreadPoolHandle;
+    enum class ThreadPoolPriority;
 namespace Media {
+
+class ISpotifyPlaybackObserver
+{
+public:
+    virtual ~ISpotifyPlaybackObserver() {}
+    virtual void NotifyTrackLength(TUint aStreamId, TUint aLengthMs) = 0;
+    virtual void NotifyTrackError(TUint aStreamId, TUint aErrorPosMs, const Brx& aReason) = 0;
+    virtual void NotifyPlaybackStarted(TUint aStreamId) = 0;
+    virtual void NotifyPlaybackContinued(TUint aStreamId) = 0;
+    virtual void NotifyPlaybackFinishedNaturally(TUint aStreamId, TUint aLastPosMs) = 0;
+};
 
 class ISpotifyReporter
 {
 public:
-    virtual TUint64 SubSamples() const = 0;
-    virtual void Flush(TUint aFlushId) = 0; // Do not increment subsample count until aFlushId passes.
+    static const TUint kStreamIdInvalid = 0;
+public:
     virtual ~ISpotifyReporter() {}
+    virtual void AddSpotifyPlaybackObserver(ISpotifyPlaybackObserver& aObserver) = 0;
+    virtual TUint64 SubSamples() const = 0;
+    virtual void GetPlaybackPosMs(TUint& aStreamId, TUint& aPos) = 0; // Get stream ID and playback pos in an atomic manner.
+    virtual void Flush(TUint aFlushId) = 0; // Do not increment subsample count until aFlushId passes.
 };
 
 class ISpotifyMetadata
@@ -107,15 +126,21 @@ class SpotifyReporter : public PipelineElement, public IPipelineElementUpstream,
 {
 private:
     static const TUint kSupportedMsgTypes;
-    static const TUint kTrackOffsetChangeThresholdMs;
+    static const TUint kTrackOffsetChangeThresholdMs = 2000;
     static const Brn kInterceptMode;
 public:
-    SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, MsgFactory& aMsgFactory, TrackFactory& aTrackFactory);
+    SpotifyReporter(
+        IPipelineElementUpstream& aUpstreamElement,
+        MsgFactory& aMsgFactory,
+        TrackFactory& aTrackFactory
+    );
     ~SpotifyReporter();
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 public: // from ISpotifyReporter
+    void AddSpotifyPlaybackObserver(ISpotifyPlaybackObserver& aObserver) override;
     TUint64 SubSamples() const override;
+    void GetPlaybackPosMs(TUint& aStreamId, TUint& aPos) override;
     void Flush(TUint aFlushId) override;
 public: // from ISpotifyTrackObserver
     void MetadataChanged(Media::ISpotifyMetadataAllocated* aMetadata) override;
@@ -133,21 +158,28 @@ private:
     void UpdateDecodedStream(MsgDecodedStream& aMsg);
     TUint64 TrackLengthJiffiesLocked() const;
     MsgDecodedStream* CreateMsgDecodedStreamLocked() const;
+    TUint GetPlaybackPosMsLocked() const;
 private:
     IPipelineElementUpstream& iUpstreamElement;
     MsgFactory& iMsgFactory;
     TrackFactory& iTrackFactory;
     StartOffset iStartOffset;
-    TUint iTrackDurationMs;
+    TUint iTrackDurationMs; // Track duration reported via out-of-band metadata messages.
     BwsTrackUri iTrackUri;
     ISpotifyMetadataAllocated* iMetadata;
     TBool iMsgDecodedStreamPending;
     MsgDecodedStream* iDecodedStream;
     TUint64 iSubSamples;
+    TUint64 iSubSamplesTrack;
+    TUint iStreamId;
+    TUint iTrackDurationMsDecodedStream; // Track duration reported in-band via MsgDecodedStream.
     TBool iInterceptMode;
     TBool iPipelineTrackSeen;
     TBool iGeneratedTrackPending;
     TUint iPendingFlushId;
+    TBool iPlaybackStartPending;
+    TBool iPlaybackContinuePending;
+    std::vector<std::reference_wrapper<ISpotifyPlaybackObserver>> iPlaybackObservers;
     mutable Mutex iLock;
 };
 

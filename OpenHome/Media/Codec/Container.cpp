@@ -692,11 +692,6 @@ Msg* ContainerController::ProcessMsg(MsgTrack* aMsg)
 
 Msg* ContainerController::ProcessMsg(MsgDrain* aMsg)
 {
-    if (iRecognising) {
-        iStreamEnded = true;
-        aMsg->RemoveRef();
-        return nullptr;
-    }
     return aMsg;
 }
 

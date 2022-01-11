@@ -513,7 +513,6 @@ Msg* Rewinder::ProcessMsg(MsgTrack* aMsg)
 
 Msg* Rewinder::ProcessMsg(MsgDrain* aMsg)
 {
-    TryBuffer(aMsg);
     return aMsg;
 }
 

@@ -753,10 +753,13 @@ void SuiteMsgAudioEncoded::Test()
 
     // validate ref counting of chained msgs (see #5167)
     msg = iMsgFactory->CreateMsgAudioEncoded(buf);
+    TEST(msg->RefCount() == 1);
     msg->AddRef();
+    TEST(msg->RefCount() == 2);
     msg2 = iMsgFactory->CreateMsgAudioEncoded(buf);
     msg->Add(msg2);
     msg->RemoveRef();
+    TEST(msg->RefCount() == 1);
     msg->RemoveRef();
 
     // clean shutdown implies no leaked msgs
@@ -835,6 +838,17 @@ void SuiteMsgAudio::Test()
     TEST_THROWS(remaining = msg->Split(0), AssertionFailed);
     TEST_THROWS(remaining = msg->Split(msg->Jiffies()), AssertionFailed);
     TEST_THROWS(remaining = msg->Split(msg->Jiffies()+1), AssertionFailed);
+
+    // split pcm msg whose offset is invalid.  Check both parts have invalid offset
+    msg->RemoveRef();
+    msg = iMsgFactory->CreateMsgAudioPcm(data, 2, 44100, 8, AudioDataEndian::Little, MsgAudioDecoded::kTrackOffsetInvalid);
+    TEST(static_cast<MsgAudioDecoded*>(msg)->TrackOffset() == MsgAudioDecoded::kTrackOffsetInvalid);
+    remaining = msg->Split(msg->Jiffies() / 2);
+    TEST(static_cast<MsgAudioDecoded*>(msg)->TrackOffset() == MsgAudioDecoded::kTrackOffsetInvalid);
+    TEST(static_cast<MsgAudioDecoded*>(remaining)->TrackOffset() == MsgAudioDecoded::kTrackOffsetInvalid);
+    remaining->RemoveRef();
+    msg->RemoveRef();
+    msg = iMsgFactory->CreateMsgAudioPcm(data, 2, 44100, 8, AudioDataEndian::Little, Jiffies::kPerSecond);
 
     // Clone pcm msg.  Check lengths of clone & parent match
     MsgAudio* clone = msg->Clone();
@@ -1295,14 +1309,6 @@ void SuiteMsgPlayable::Test()
     TEST(remainingPlayable->Bytes() == bytes);
     ValidateSilence(playable);
     remainingPlayable->RemoveRef();
-
-    // check we can read from a chained PlayablePcm -> PlayableSilence
-    audioPcm = iMsgFactory->CreateMsgAudioPcm(data, 2, 44100, 8, AudioDataEndian::Little, 0);
-    playable = audioPcm->CreatePlayable();
-    silence = iMsgFactory->CreateMsgSilence(size, 44100, 8, 1);
-    playable->Add(silence->CreatePlayable());
-    playable->Read(pcmProcessor);
-    playable->RemoveRef();
 
     // IPipelineBufferObserver
     BufferObserver bufferObserver;

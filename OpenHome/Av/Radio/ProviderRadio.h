@@ -4,7 +4,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Thread.h>
-#include <Generated/DvAvOpenhomeOrgRadio1.h>
+#include <Generated/DvAvOpenhomeOrgRadio2.h>
 #include <OpenHome/Net/Core/DvInvocationResponse.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
@@ -16,7 +16,7 @@ namespace Av {
 
 class IPresetDatabaseReader;
 
-class ProviderRadio : public Net::DvProviderAvOpenhomeOrgRadio1, private IPresetDatabaseObserver
+class ProviderRadio : public Net::DvProviderAvOpenhomeOrgRadio2, private IPresetDatabaseObserver
 {
 public:
     ProviderRadio(Net::DvDevice& aDevice, ISourceRadio& aSource, IPresetDatabaseReader& aDbReader);
@@ -42,6 +42,7 @@ private: // from Net::DvProviderAvOpenhomeOrgRadio1
     void IdArray(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseUint& aToken, Net::IDvInvocationResponseBinary& aArray) override;
     void IdArrayChanged(Net::IDvInvocation& aInvocation, TUint aToken, Net::IDvInvocationResponseBool& aValue) override;
     void ChannelsMax(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseUint& aValue) override;
+    void RefreshPresets(Net::IDvInvocation& aInvocation) override;
     void ProtocolInfo(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aValue) override;
 private:
     void SetChannel(TUint aPresetId, const Brx& aUri, const Brx& aMetadata);

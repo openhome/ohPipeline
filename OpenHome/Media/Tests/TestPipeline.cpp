@@ -10,6 +10,7 @@
 #include <OpenHome/Private/Shell.h>
 #include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <string.h>
 #include <vector>
@@ -1084,4 +1085,3 @@ void TestPipeline()
     runner.Add(new SuitePipeline());
     runner.Run();
 }
-

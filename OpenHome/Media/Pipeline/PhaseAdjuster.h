@@ -63,12 +63,10 @@ private:
     void TryCalculateDelay();
     MsgAudio* AdjustAudio(const Brx& aMsgType, MsgAudio* aMsg);
     static MsgAudio* DropAudio(MsgAudio* aMsg, TUint aJiffies, TUint& aDroppedJiffies);
-    MsgSilence* InjectSilence(TUint aJiffies);
     MsgAudio* RampUp(MsgAudio* aMsg);
     MsgAudio* StartRampUp(MsgAudio* aMsg);
     void ResetPhaseDelay();
     void ClearDecodedStream();
-    void PrintStats(const Brx& aMsgType, TUint aJiffies);
 private:
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstreamElement;
@@ -77,15 +75,11 @@ private:
     TBool iEnabled;
     State iState;
     Mutex iLock;
-    TUint iUpdateCount;
     std::atomic<TInt> iTrackedJiffies;
-    std::atomic<TUint> iAudioIn;
-    std::atomic<TUint> iAudioOut;
     MsgDecodedStream* iDecodedStream;
     TUint iDelayJiffies;
     TUint iDelayTotalJiffies;
     TUint iDroppedJiffies;
-    TUint iInjectedJiffies;
     const TUint iRampJiffiesLong;
     const TUint iRampJiffiesShort;
     const TUint iMinDelayJiffies;

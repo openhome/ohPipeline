@@ -6,6 +6,7 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Debug.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <limits.h>
 

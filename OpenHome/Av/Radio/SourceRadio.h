@@ -35,6 +35,7 @@ public:
     virtual void Prev() = 0;
     virtual void SeekAbsolute(TUint aSeconds) = 0;
     virtual void SeekRelative(TInt aSeconds) = 0;
+    virtual void RefreshPresets() = 0;
 };
 
 class ProviderRadio;
@@ -67,6 +68,7 @@ private: // from ISourceRadio
     void Prev() override;
     void SeekAbsolute(TUint aSeconds) override;
     void SeekRelative(TInt aSeconds) override;
+    void RefreshPresets() override;
 private: // from IPresetDatabaseObserver
     void PresetDatabaseChanged() override;
 private:

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <OpenHome/Av/Credentials.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/SocketSsl.h>
 #include <OpenHome/Configuration/ConfigManager.h>
@@ -12,6 +11,7 @@
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Tidal/TidalMetadata.h>
 #include <OpenHome/ThreadPool.h>
+#include <OpenHome/OAuth.h>
         
 #include <vector>
 #include <deque>
@@ -25,8 +25,7 @@ namespace Configuration {
 }
 namespace Av {
 
-class Tidal : public ICredentialConsumer
-            , public IOAuthAuthenticator
+class Tidal : public IOAuthAuthenticator
             , public IOAuthTokenPoller
 {
     friend class TestTidal;
@@ -49,14 +48,12 @@ private:
     static const Brn kAuthenticationHost;
 
     static const TUint kPort = 443;
-    static const TUint kGranularityUsername = 128;
-    static const TUint kGranularityPassword = 128;
-
 
     static const TUint kMaxStatusBytes = 512;
     static const TUint kMaxPathAndQueryBytes = 512;
     static const TUint kSocketKeepAliveMs = 5000; // close socket after 5s inactivity
 
+    static const Brn kConfigKeyEnabled;
     static const Brn kConfigKeySoundQuality;
 
 public:
@@ -69,12 +66,9 @@ public:
 
     struct ConfigurationValues
     {
-        const Brx& partnerId;   //Used with Username/Password authentication
-        const Brx& clientId;    //Used for OAuth authentication
+        const Brx& clientId;        //Used for OAuth authentication, directly by the DS
         const Brx& clientSecret;
-        const std::vector<OAuthAppDetails> appDetails;
-
-        TBool SupportsOAuth() const { return clientId.Bytes() > 0; }
+        const std::vector<OAuthAppDetails> appDetails;  // All other supported CPs
     };
 
 
@@ -97,12 +91,9 @@ private:
     class UserInfo;
 
 public:
-    Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues&, ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser, IThreadPool& aThreadPool);
+    Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues&, Configuration::IConfigInitialiser& aConfigInitialiser, IThreadPool& aThreadPool);
     ~Tidal();
-    TBool TryLogin(Bwx& aSessionId);
-    TBool TryReLogin(const Brx& aCurrentToken, Bwx& aNewToken);
     TBool TryGetStreamUrl(const Brx& aTrackId, const Brx& aTokenId, Bwx& aStreamUrl);
-    TBool TryLogout(const Brx& aSessionId);
     TBool TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
     TBool TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
     TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl,TUint aLimitPerResponse, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
@@ -131,21 +122,10 @@ public: // IOAuthTokenPoller
      TBool StartLimitedInputFlow(LimitedInputFlowDetails& aDetails) override;
      TBool RequestPollForToken(OAuthPollRequest& aRequest) override;
 
-private: // from ICredentialConsumer
-    const Brx& Id() const override;
-    void CredentialsChanged(const Brx& aUsername, const Brx& aPassword) override;
-    void UpdateStatus() override;
-    void Login(Bwx& aToken) override;
-    void ReLogin(const Brx& aCurrentToken, Bwx& aNewToken) override;
-
 private:
     TBool TryConnect(SocketHost aHost, TUint aPort);
-    TBool TryLoginLocked();
-    TBool TryLoginLocked(Bwx& aSessionId);
-    TBool TryLogoutSession(const Brx& aToken);
-    TBool TryLogoutLocked(const Brx& aSessionId);
-    TBool TryGetSubscriptionLocked();
-    TBool TryGetResponse(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection);
+    TBool TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, const UserInfo& aAuthConfig, Connection aConnection);
+    const UserInfo* SelectSuitableToken(const AuthenticationConfig& aAuthConfig) const;
     void WriteRequestHeaders(const Brx& aMethod,
                              const Brx& aHost,
                              const Brx& aPathAndQuery,
@@ -161,7 +141,6 @@ private:
 private:
     Mutex iLock;
     Mutex iLockConfig;
-    ICredentialsState& iCredentialsState;
     SocketSsl iSocket;
     Timer* iTimerSocketActivity;
     Srs<1024> iReaderBuf;
@@ -172,18 +151,13 @@ private:
     ReaderHttpEntity iReaderEntity;
     HttpHeaderContentLength iHeaderContentLength;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
-    const Bws<32> iToken;
     const Bws<128> iClientId;
     const Bws<128> iClientSecret;
     std::map<Brn, OAuthAppDetails, BufferCmp> iAppDetails;
-    WriterBwh iUsername;
-    WriterBwh iPassword;
     TUint iSoundQuality;
     TUint iMaxSoundQuality;
-    Bws<16> iUserId;
-    Bws<64> iSessionId;
-    Bws<8> iCountryCode;
     Bws<1024> iStreamUrl;
+    Configuration::ConfigChoice* iConfigEnable;
     Configuration::ConfigChoice* iConfigQuality;
     TUint iSubscriberIdQuality;
     Bwh iUri;

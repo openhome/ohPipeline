@@ -7,6 +7,7 @@
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
+#include <OpenHome/ThreadPool.h>
 
 using namespace OpenHome;
 using namespace OpenHome::TestFramework;
@@ -91,6 +92,7 @@ private:
     NullPipelineObserver iPipelineObserver;
     EMsgType iLastPulledMsg;
     VolumeRamperStub iVolumeRamper;
+
 };
 
 } // namespace Media

@@ -13,6 +13,7 @@
 
 namespace OpenHome {
     class IInfoAggregator;
+    class IThreadPool;
 namespace Media {
     namespace Codec {
         class ContainerBase;

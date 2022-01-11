@@ -147,6 +147,7 @@ SourceRadio::~SourceRadio()
 void SourceRadio::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
     SourceBase::Activate(aAutoPlay, aPrefetchAllowed);
+    iPresets->Refresh();
     iTrackPosSeconds = 0;
     iActive = true;
     iAutoPlay = aAutoPlay;
@@ -356,6 +357,11 @@ void SourceRadio::SeekRelative(TInt aSeconds)
         abs = aSeconds + iTrackPosSeconds;
     }
     SeekAbsolute(abs);
+}
+
+void SourceRadio::RefreshPresets()
+{
+    iPresets->Refresh();
 }
 
 void SourceRadio::NotifyPipelineState(EPipelineState aState)

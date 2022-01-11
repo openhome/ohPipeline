@@ -2,6 +2,7 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Observable.h>
 #include <OpenHome/Private/Thread.h>
 
 #include <vector>
@@ -29,7 +30,7 @@ class ITransportRepeatRandom
 public:
     virtual void SetRepeat(TBool aRepeat) = 0;
     virtual void SetRandom(TBool aRandom) = 0;
-    virtual void AddObserver(ITransportRepeatRandomObserver& aObserver) = 0;
+    virtual void AddObserver(ITransportRepeatRandomObserver& aObserver, const TChar* aId) = 0;
     virtual void RemoveObserver(ITransportRepeatRandomObserver& aObserver) = 0;
 };
 
@@ -40,13 +41,13 @@ public:
 public: // from ITransportRepeatRandom
     void SetRepeat(TBool aRepeat) override;
     void SetRandom(TBool aRandom) override;
-    void AddObserver(ITransportRepeatRandomObserver& aObserver) override;
+    void AddObserver(ITransportRepeatRandomObserver& aObserver, const TChar* aId) override;
     void RemoveObserver(ITransportRepeatRandomObserver& aObserver) override;
 private:
     Mutex iLock;
     TBool iRepeat;
     TBool iRandom;
-    std::vector<ITransportRepeatRandomObserver*> iObservers;
+    Observable<ITransportRepeatRandomObserver> iObservable;
 };
 
 } // namespace Av

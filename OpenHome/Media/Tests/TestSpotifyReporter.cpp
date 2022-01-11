@@ -4,6 +4,7 @@
 #include <OpenHome/Media/Pipeline/Reporter.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Tests/TestPipe.h>
 

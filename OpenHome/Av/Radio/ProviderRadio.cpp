@@ -1,7 +1,7 @@
 #include <OpenHome/Av/Radio/ProviderRadio.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <Generated/DvAvOpenhomeOrgRadio1.h>
+#include <Generated/DvAvOpenhomeOrgRadio2.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/PipelineObserver.h>
@@ -26,7 +26,7 @@ static const TUint kInvalidChannelCode = 803;
 static const Brn kInvalidChannelMsg("Selected channel is invalid");
 
 ProviderRadio::ProviderRadio(Net::DvDevice& aDevice, ISourceRadio& aSource, IPresetDatabaseReader& aDbReader)
-    : DvProviderAvOpenhomeOrgRadio1(aDevice)
+    : DvProviderAvOpenhomeOrgRadio2(aDevice)
     , iLock("PRD1")
     , iActionLock("PRD2")
     , iSource(aSource)
@@ -42,6 +42,7 @@ ProviderRadio::ProviderRadio(Net::DvDevice& aDevice, ISourceRadio& aSource, IPre
     EnablePropertyId();
     EnablePropertyIdArray();
     EnablePropertyChannelsMax();
+    EnableActionRefreshPresets();
     EnablePropertyProtocolInfo();
 
     EnableActionPlay();
@@ -278,6 +279,13 @@ void ProviderRadio::ChannelsMax(IDvInvocation& aInvocation, IDvInvocationRespons
 {
     aInvocation.StartResponse();
     aValue.Write(IPresetDatabaseReader::kMaxPresets);
+    aInvocation.EndResponse();
+}
+
+void ProviderRadio::RefreshPresets(IDvInvocation& aInvocation)
+{
+    iSource.RefreshPresets();
+    aInvocation.StartResponse();
     aInvocation.EndResponse();
 }
 

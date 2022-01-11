@@ -2,6 +2,11 @@
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Converter.h>
+#include <OpenHome/Private/Parser.h>
+#include <OpenHome/Private/Printer.h>
+#include <OpenHome/Private/Uri.h>
+#include <OpenHome/Media/Debug.h>
+#include <OpenHome/ThreadPool.h>
 
 #include <limits>
 
@@ -206,10 +211,14 @@ const TUint SpotifyReporter::kSupportedMsgTypes =   eMode
                                                   | eSilence
                                                   | eQuit;
 
-const TUint SpotifyReporter::kTrackOffsetChangeThresholdMs = 2000;
+const TUint SpotifyReporter::kTrackOffsetChangeThresholdMs;
 const Brn SpotifyReporter::kInterceptMode("Spotify");
 
-SpotifyReporter::SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, MsgFactory& aMsgFactory, TrackFactory& aTrackFactory)
+SpotifyReporter::SpotifyReporter(
+    IPipelineElementUpstream& aUpstreamElement,
+    MsgFactory& aMsgFactory,
+    TrackFactory& aTrackFactory
+)
     : PipelineElement(kSupportedMsgTypes)
     , iUpstreamElement(aUpstreamElement)
     , iMsgFactory(aMsgFactory)
@@ -219,10 +228,15 @@ SpotifyReporter::SpotifyReporter(IPipelineElementUpstream& aUpstreamElement, Msg
     , iMsgDecodedStreamPending(false)
     , iDecodedStream(nullptr)
     , iSubSamples(0)
+    , iSubSamplesTrack(0)
+    , iStreamId(kStreamIdInvalid)
+    , iTrackDurationMsDecodedStream(0)
     , iInterceptMode(false)
     , iPipelineTrackSeen(false)
     , iGeneratedTrackPending(false)
     , iPendingFlushId(MsgFlush::kIdInvalid)
+    , iPlaybackStartPending(false)
+    , iPlaybackContinuePending(false)
     , iLock("SARL")
 {
 }
@@ -249,9 +263,12 @@ Msg* SpotifyReporter::Pull()
             if (iInterceptMode) {
                 // Mode changed. Need to set up some variables that are
                 // accessed from different threads, so need to acquire iLock.
-                AutoMutex _(iLock);
+                AutoMutex amx(iLock);
                 iMsgDecodedStreamPending = true;
                 iSubSamples = 0;
+                iSubSamplesTrack = 0;
+                iStreamId = kStreamIdInvalid;
+                iTrackDurationMsDecodedStream = 0;
             }
         }
         else {
@@ -339,21 +356,35 @@ Msg* SpotifyReporter::Pull()
     return msg;
 }
 
+void SpotifyReporter::AddSpotifyPlaybackObserver(ISpotifyPlaybackObserver& aObserver)
+{
+    AutoMutex amx(iLock);
+    iPlaybackObservers.push_back(aObserver);
+}
+
 TUint64 SpotifyReporter::SubSamples() const
 {
-    AutoMutex _(iLock);
+    AutoMutex amx(iLock);
     return iSubSamples;
+}
+
+void SpotifyReporter::GetPlaybackPosMs(TUint& aStreamId, TUint& aPos)
+{
+    AutoMutex amx(iLock);
+    aStreamId = iStreamId;
+    aPos = GetPlaybackPosMsLocked();
 }
 
 void SpotifyReporter::Flush(TUint aFlushId)
 {
-    AutoMutex _(iLock);
+    AutoMutex amx(iLock);
     iPendingFlushId = aFlushId;
+    iPlaybackContinuePending = true; // Notify observers on seeing subsequent audio that playback has continued (e.g., if this flush followed a seek). This will be overridden if a new stream starts (e.g., if this flush followed a next/prev call).
 }
 
 void SpotifyReporter::MetadataChanged(Media::ISpotifyMetadataAllocated* aMetadata)
 {
-    AutoMutex _(iLock);
+    AutoMutex amx(iLock);
     // If there is already pending metadata, it's now invalid.
     if (iMetadata != nullptr) {
         iMetadata->RemoveReference();
@@ -411,6 +442,9 @@ Msg* SpotifyReporter::ProcessMsg(MsgMode* aMsg)
         if (iInterceptMode) {
             iMsgDecodedStreamPending = true;
             iSubSamples = 0;
+            iSubSamplesTrack = 0;
+            iTrackDurationMsDecodedStream = 0;
+            iStreamId = kStreamIdInvalid;
         }
 
         iInterceptMode = true;
@@ -430,9 +464,34 @@ Msg* SpotifyReporter::ProcessMsg(MsgTrack* aMsg)
     if (!iInterceptMode) {
         return aMsg;
     }
+    // iLock already held in ::Pull() method.
     iTrackUri.Replace(aMsg->Track().Uri()); // Cache URI for reuse in out-of-band MsgTracks.
-    iPipelineTrackSeen = true;              // Only matters when in iInterceptMode. Ensures in-band MsgTrack is output before any are generated from out-of-band notifications.
+
+    Parser p(iTrackUri);
+    (void)p.Next(':');
+    const auto streamIdBuf = p.Remaining();
+
+    try {
+        const auto streamId = Ascii::Uint(streamIdBuf);
+        // iStreamId == kStreamIdInvalid immediately after seeing Spotify MsgMode, so won't report playback finished on first MsgTrack seen after Spotify MsgMode.
+        if (iStreamId != kStreamIdInvalid) {
+            const auto pos = GetPlaybackPosMsLocked();
+
+            // iLock already held.
+            for (auto& o : iPlaybackObservers) {
+                o.get().NotifyPlaybackFinishedNaturally(iStreamId, pos); // Notify for previous valid stream ID.
+            }
+        }
+        iStreamId = streamId;
+    }
+    catch (AsciiError&) {
+        LOG_ERROR(kPipeline, "SpotifyReporter::ProcessMsg(MsgTrack*) Unable to parse stream ID from URI: %.*s\n", PBUF(iTrackUri));
+    }
+
+    iPipelineTrackSeen = true; // Only matters when in iInterceptMode. Ensures in-band MsgTrack is output before any are generated from out-of-band notifications.
     iGeneratedTrackPending = true;
+    iPlaybackStartPending = true; // Spotify stream ID has almost certainly changed on every call to this.
+
     return aMsg;
 }
 
@@ -450,6 +509,23 @@ Msg* SpotifyReporter::ProcessMsg(MsgDecodedStream* aMsg)
 
     aMsg->RemoveRef();  // UpdateDecodedStream() adds its own reference.
     iMsgDecodedStreamPending = true;    // Set flag so that a MsgDecodedStream with updated attributes is output in place of this.
+    // Don't attempt to notify observers that stream started following this - that is handled while processing MsgTrack. Pipeline codecs may output multiple MsgDecodedStreams that do not correlate with Spotify streams.
+
+    // Get start sample and update iSubSamplesTrack to reflect it, for track-based subsample tracking.
+    // Do not do this for iSubSamples which tracks continuous PCM streams, as track offsets are tracked in a different way.
+    const auto sampleStart = info.SampleStart();
+    const auto subSampleStart = sampleStart * info.NumChannels();
+    iSubSamplesTrack = subSampleStart;
+
+    const auto samplesTotal = info.TrackLength() / Jiffies::PerSample(info.SampleRate());
+    const auto msTotal = static_cast<TUint>((samplesTotal * 1000) / info.SampleRate());
+    iTrackDurationMsDecodedStream = msTotal;
+
+    // iLock already held.
+    for (auto& o : iPlaybackObservers) {
+        o.get().NotifyTrackLength(iStreamId, iTrackDurationMsDecodedStream);
+    }
+
     return nullptr;
 }
 
@@ -457,6 +533,26 @@ Msg* SpotifyReporter::ProcessMsg(MsgAudioPcm* aMsg)
 {
     if (!iInterceptMode) {
         return aMsg;
+    }
+
+    if (iPlaybackStartPending) {
+        // Start of audio from this stream (whether before or after a flush).
+        iPlaybackStartPending = false;
+        iPlaybackContinuePending = false; // We should never output audio for a track before iPlaybackStartPending flag is set, so ignore any seeks that happened prior to it.
+
+        // iLock already held.
+        for (auto& o : iPlaybackObservers) {
+            o.get().NotifyPlaybackStarted(iStreamId);
+        }
+    }
+    if (iPlaybackContinuePending) {
+        // Audio other than the very start of stream after flush.
+        iPlaybackContinuePending = false;
+
+        // iLock already held.
+        for (auto& o : iPlaybackObservers) {
+            o.get().NotifyPlaybackContinued(iStreamId);
+        }
     }
 
     ASSERT(iDecodedStream != nullptr);  // Can't receive audio until MsgDecodedStream seen.
@@ -467,8 +563,11 @@ Msg* SpotifyReporter::ProcessMsg(MsgAudioPcm* aMsg)
         // iLock held in ::Pull() method to protect iSubSamples.
         TUint64 subSamplesPrev = iSubSamples;
         iSubSamples += samples*info.NumChannels();
-
         ASSERT(iSubSamples >= subSamplesPrev); // Overflow not handled.
+
+        TUint64 subSamplesTrackPrev = iSubSamplesTrack;
+        iSubSamplesTrack += samples*info.NumChannels();
+        ASSERT(iSubSamplesTrack >= subSamplesTrackPrev); // Overflow not handled.
     }
     return aMsg;
 }
@@ -524,4 +623,18 @@ MsgDecodedStream* SpotifyReporter::CreateMsgDecodedStreamLocked() const
                                            info.Format(), info.Multiroom(), info.Profile(), info.StreamHandler(),
                                            info.Ramp());
     return msg;
+}
+
+TUint SpotifyReporter::GetPlaybackPosMsLocked() const
+{
+    // Reports playback position for track-based (non-PCM) streams.
+    if (iDecodedStream != nullptr) {
+        const auto& info = iDecodedStream->StreamInfo();
+        const auto samples = iSubSamplesTrack / info.NumChannels();
+        const auto samplesScaled = samples * 1000;
+        const auto ms = static_cast<TUint>(samplesScaled / info.SampleRate());
+        // Log::Print("SpotifyReporter::GetPlaybackPosMsLocked iStreamId: %u, ms: %u (%u:%02u)\n", iStreamId, ms, (ms / 1000) / 60, (ms / 1000) % 60);
+        return ms;
+    }
+    return 0;
 }

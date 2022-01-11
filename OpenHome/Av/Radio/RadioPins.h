@@ -5,7 +5,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
-#include <Generated/CpAvOpenhomeOrgRadio1.h>
+#include <Generated/CpAvOpenhomeOrgRadio2.h>
 #include <OpenHome/Av/Pins/Pins.h>
         
 namespace OpenHome {
@@ -36,7 +36,7 @@ private:
     TBool LoadPreset(const Brx& aPreset);
 private:
     Mutex iLock;
-    Net::CpProxyAvOpenhomeOrgRadio1* iCpRadio;
+    Net::CpProxyAvOpenhomeOrgRadio2* iCpRadio;
     Net::CpStack& iCpStack;
 };
 

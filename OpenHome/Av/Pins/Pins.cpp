@@ -940,7 +940,6 @@ void PinMetadata::GetDidlLite(const IPin& aPin, Bwx& aDidlLite)
     TryAppend(aDidlLite, "<item id=\"");
     Ascii::AppendDec(aDidlLite, aPin.Id());;
     TryAppend(aDidlLite, "\" parentID=\"-1\" restricted=\"1\">");
-    TryAppend(aDidlLite, ">");
     TryAddTag(aDidlLite, Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), aPin.ArtworkUri());
     TryAddTag(aDidlLite, Brn("upnp:class"), kNsUpnp, Brx::Empty(), Brn("object.item.audioItem.musicTrack"));
     TryAddTag(aDidlLite, Brn("dc:title"), kNsDc, Brx::Empty(), aPin.Title());

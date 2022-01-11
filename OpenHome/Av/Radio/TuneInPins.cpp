@@ -32,7 +32,7 @@ TuneInPins::TuneInPins(DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFac
     , iPin(iPinIdProvider)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
-    iCpRadio = new CpProxyAvOpenhomeOrgRadio1(*cpDevice);
+    iCpRadio = new CpProxyAvOpenhomeOrgRadio2(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
     iPodcastPinsEpisode = new PodcastPinsLatestEpisodeTuneIn(aDevice, aTrackFactory, aCpStack, aStore, aPartnerId);
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &TuneInPins::Invoke),

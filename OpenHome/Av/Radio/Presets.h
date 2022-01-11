@@ -105,10 +105,10 @@ public:
         IThreadPool& aThreadPool);
     ~RadioPresets();
     void Start();
+    void Refresh();
 public: // from IRadioPresets
     void AddProvider(IRadioPresetProvider* aProvider) override;
 private:
-    void Refresh();
     void ProviderChanged(Configuration::KeyValuePair<const Brx&>& aKvp);
     IRadioPresetProvider* Provider(const Brx& aName) const;
     void UpdateProvider(IRadioPresetProvider* aProvider);

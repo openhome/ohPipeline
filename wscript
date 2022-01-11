@@ -167,7 +167,7 @@ upnp_services = [
         GeneratedFile('OpenHome/Av/ServiceXml/Upnp/RenderingControl1.xml',  'upnp.org',        'RenderingControl',  '1', 'UpnpOrgRenderingControl1'),
         GeneratedFile('OpenHome/Av/ServiceXml/Upnp/ContentDirectory1.xml',  'upnp.org',        'ContentDirectory',  '1', 'UpnpOrgContentDirectory1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Product3.xml',       'av.openhome.org', 'Product',           '3', 'AvOpenhomeOrgProduct3'),
-        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Radio1.xml',         'av.openhome.org', 'Radio',             '1', 'AvOpenhomeOrgRadio1'),
+        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Radio2.xml',         'av.openhome.org', 'Radio',             '2', 'AvOpenhomeOrgRadio2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Sender2.xml',        'av.openhome.org', 'Sender',            '2', 'AvOpenhomeOrgSender2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Playlist1.xml',      'av.openhome.org', 'Playlist',          '1', 'AvOpenhomeOrgPlaylist1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Receiver1.xml',      'av.openhome.org', 'Receiver',          '1', 'AvOpenhomeOrgReceiver1'),
@@ -289,7 +289,6 @@ def build(bld):
                 'OpenHome/Media/FlywheelRamper.cpp',
                 'OpenHome/Media/MimeTypeList.cpp',
                 'OpenHome/Media/Utils/AllocatorInfoLogger.cpp', # needed here by MediaPlayer.  Should move back to tests lib
-                'OpenHome/Configuration/BufferPtrCmp.cpp',
                 'OpenHome/Configuration/ConfigManager.cpp',
                 'OpenHome/Media/Utils/Silencer.cpp',
                 'OpenHome/SocketHttp.cpp',
@@ -321,7 +320,7 @@ def build(bld):
                 'OpenHome/Av/Radio/RadioPins.cpp',
                 'OpenHome/Av/Pins/UrlPins.cpp',
                 'OpenHome/Av/CalmRadio/CalmRadioPins.cpp',
-                'Generated/CpAvOpenhomeOrgRadio1.cpp',
+                'Generated/CpAvOpenhomeOrgRadio2.cpp',
                 'Generated/DvAvOpenhomeOrgVolume4.cpp',
                 'OpenHome/Av/ProviderVolume.cpp',
                 'OpenHome/Av/Source.cpp',
@@ -414,7 +413,7 @@ def build(bld):
                 'OpenHome/Av/Radio/ContentM3uX.cpp',
                 'OpenHome/Av/Radio/ContentOpml.cpp',
                 'OpenHome/Av/Radio/ContentPls.cpp',
-                'Generated/DvAvOpenhomeOrgRadio1.cpp',
+                'Generated/DvAvOpenhomeOrgRadio2.cpp',
                 'OpenHome/Av/Radio/ProviderRadio.cpp',
             ],
             use=['OHNET', 'ohMediaPlayer', 'Podcast'],
@@ -853,6 +852,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestCredentials.cpp',
                 'Generated/CpAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Tests/TestJson.cpp',
+                'OpenHome/Tests/TestObservable.cpp',
                 'OpenHome/Tests/TestAESHelpers.cpp',
                 'OpenHome/Tests/TestThreadPool.cpp',
                 'OpenHome/Av/Tests/TestRaop.cpp',
@@ -1166,9 +1166,9 @@ def build(bld):
     #        target='TestHttpsBsd',
     #        install_path=None)
     bld.program(
-            source='OpenHome/Av/Tidal/TestTidal.cpp',
-            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
-            target='TestTidal',
+            source='OpenHome/Tests/TestObservableMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestObservable',
             install_path=None)
     bld.program(
             source='OpenHome/Tests/TestJsonMain.cpp',

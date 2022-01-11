@@ -51,8 +51,8 @@ private:
     TUint64 iSeekPos;
     TUint iPostSeekFlushId;
     TUint64 iPostSeekStreamPos;
+    SeekCapability iSeekCapability;
 };
 
 } // namespace Media
 } // namespace OpenHome
-

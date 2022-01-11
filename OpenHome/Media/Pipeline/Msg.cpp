@@ -1045,6 +1045,7 @@ MsgDrain::MsgDrain(AllocatorBase& aAllocator)
 
 void MsgDrain::ReportDrained()
 {
+    LOG(kMedia, "MsgDrain::ReportDrained - id=%u, callbackPending=%u\n", iId, iCallbackPending);
     if (iCallback) {
         iCallback();
         iCallbackPending = false;
@@ -1061,6 +1062,7 @@ void MsgDrain::Initialise(TUint aId, Functor aCallback)
     iId = aId;
     iCallback = aCallback;
     iCallbackPending = iCallback? true : false;
+    LOG(kMedia, "MsgDrain::Initialise - id=%u, callbackPending=%u\n", iId, iCallbackPending);
 }
 
 void MsgDrain::Clear()
@@ -1068,8 +1070,6 @@ void MsgDrain::Clear()
     ASSERT(!iCallbackPending);
     iCallback = Functor();
 }
-
-
 
 Msg* MsgDrain::Process(IMsgProcessor& aProcessor)
 {
@@ -1408,7 +1408,13 @@ TUint MsgEncodedStream::StreamId() const
 
 TBool MsgEncodedStream::Seekable() const
 {
-    return iSeekable;
+    return iSeekCapability == Media::SeekCapability::SeekCache
+        || iSeekCapability == Media::SeekCapability::SeekSource;
+}
+
+SeekCapability MsgEncodedStream::SeekCapability() const
+{
+    return iSeekCapability;
 }
 
 TBool MsgEncodedStream::Live() const
@@ -1448,14 +1454,14 @@ RampType MsgEncodedStream::Ramp() const
     return iRamp;
 }
 
-void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler)
+void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler)
 {
     iUri.Replace(aUri);
     iMetaText.Replace(aMetaText);
     iTotalBytes = aTotalBytes;
     iStartPos= aStartPos;
     iStreamId = aStreamId;
-    iSeekable = aSeekable;
+    iSeekCapability = aSeek;
     iLive = aLive;
     iMultiroom = aMultiroom;
     iStreamHandler = aStreamHandler;
@@ -1465,14 +1471,14 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iRamp = kRampDefault;
 }
 
-void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp)
+void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp)
 {
     iUri.Replace(aUri);
     iMetaText.Replace(aMetaText);
     iTotalBytes = aTotalBytes;
     iStartPos= aStartPos;
     iStreamId = aStreamId;
-    iSeekable = aSeekable;
+    iSeekCapability = aSeek;
     iLive = aLive;
     iMultiroom = aMultiroom;
     iStreamHandler = aStreamHandler;
@@ -1483,7 +1489,7 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
 }
 
 void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes,
-                                  TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive,
+                                  TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive,
                                   Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler,
                                   const DsdStreamInfo& aDsdStream)
 {
@@ -1492,7 +1498,7 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iTotalBytes = aTotalBytes;
     iStartPos = aStartPos;
     iStreamId = aStreamId;
-    iSeekable = aSeekable;
+    iSeekCapability = aSeek;
     iLive = aLive;
     iMultiroom = aMultiroom;
     iStreamHandler = aStreamHandler;
@@ -1509,7 +1515,7 @@ void MsgEncodedStream::Clear()
     iMetaText.SetBytes(0);
     iTotalBytes = UINT_MAX;
     iStreamId = UINT_MAX;
-    iSeekable = false;
+    iSeekCapability = Media::SeekCapability::None;
     iLive = false;
     iStreamFormat = Format::Encoded;
     iStreamHandler = nullptr;
@@ -2077,6 +2083,11 @@ TUint MsgAudio::MedianRampMultiplier()
     return mult;
 }
 
+TBool MsgAudio::HasBufferObserver() const
+{
+    return iPipelineBufferObserver != nullptr;
+}
+
 MsgAudio::MsgAudio(AllocatorBase& aAllocator)
     : Msg(aAllocator)
     , iPipelineBufferObserver(nullptr)
@@ -2186,7 +2197,12 @@ void MsgAudioDecoded::SplitCompleted(MsgAudio& aRemaining)
     iAudioData->AddRef();
     MsgAudioDecoded& remaining = static_cast<MsgAudioDecoded&>(aRemaining);
     remaining.iAudioData = iAudioData;
-    remaining.iTrackOffset = iTrackOffset + iSize;
+    if (iTrackOffset == kTrackOffsetInvalid) {
+        remaining.iTrackOffset = iTrackOffset;
+    }
+    else {
+        remaining.iTrackOffset = iTrackOffset + iSize;
+    }
     if (iAllocatorPlayableSilence != nullptr) {
         remaining.iAllocatorPlayableSilence = iAllocatorPlayableSilence;
     }
@@ -2573,18 +2589,12 @@ void MsgSilence::InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChanne
 
 MsgPlayable* MsgPlayable::Split(TUint aBytes)
 {
-    if (aBytes > iSize) {
-        ASSERT(iNextPlayable != nullptr);
-        return iNextPlayable->Split(aBytes - iSize);
-    }
+    ASSERT(aBytes <= iSize);
     ASSERT(aBytes != 0);
     if (aBytes == iSize) {
-        MsgPlayable* remaining = iNextPlayable;
-        iNextPlayable = nullptr;
-        return remaining;
+        return nullptr;
     }
     MsgPlayable* remaining = Allocate();
-    remaining->iNextPlayable = iNextPlayable;
     remaining->iOffset = iOffset + aBytes;
     remaining->iSize = iSize - aBytes;
     remaining->iSampleRate = iSampleRate;
@@ -2598,47 +2608,25 @@ MsgPlayable* MsgPlayable::Split(TUint aBytes)
     }
     remaining->iPipelineBufferObserver = iPipelineBufferObserver;
     iSize = aBytes;
-    iNextPlayable = nullptr;
     SplitCompleted(*remaining);
     return remaining;
 }
 
-void MsgPlayable::Add(MsgPlayable* aMsg)
-{
-    MsgPlayable* end = this;
-    MsgPlayable* next = iNextPlayable;
-    while (next != nullptr) {
-        end = next;
-        next = next->iNextPlayable;
-    }
-    end->iNextPlayable = aMsg;
-}
-
 TUint MsgPlayable::Bytes() const
 {
-    TUint bytes = iSize;
-    MsgPlayable* next = iNextPlayable;
-    while (next != nullptr) {
-        bytes += next->iSize;
-        next = next->iNextPlayable;
-    }
-    return bytes;
+    return iSize;
 }
 
 TUint MsgPlayable::Jiffies() const
 {
-    TUint jiffies = MsgJiffies();
-    MsgPlayable* next = iNextPlayable;
-    while (next != nullptr) {
-        jiffies += next->MsgJiffies();
-        next = next->iNextPlayable;
-    }
-    return jiffies;
+    return MsgJiffies();
 }
 
 TUint MsgPlayable::MsgJiffies() const
 {
-    const TUint numSamples = iSize / ((iBitDepth/8) * iNumChannels);
+    const TUint numSamples = iBitDepth == 1 ?
+        (iSize * 8) / iNumChannels :
+        iSize / ((iBitDepth / 8) * iNumChannels);
     return numSamples * Jiffies::PerSample(iSampleRate);
 }
 
@@ -2647,15 +2635,16 @@ const Media::Ramp& MsgPlayable::Ramp() const
     return iRamp;
 }
 
+TBool MsgPlayable::HasBufferObserver() const
+{
+    return iPipelineBufferObserver != nullptr;
+}
+
 void MsgPlayable::Read(IPcmProcessor& aProcessor)
 {
     aProcessor.BeginBlock();
-    MsgPlayable* playable = this;
-    while (playable != nullptr) {
-        if (iSize > 0) {
-            playable->ReadBlock(aProcessor);
-        }
-        playable = playable->iNextPlayable;
+    if (iSize > 0) {
+        ReadBlock(aProcessor);
     }
     aProcessor.EndBlock();
 }
@@ -2663,11 +2652,7 @@ void MsgPlayable::Read(IPcmProcessor& aProcessor)
 void MsgPlayable::Read(IDsdProcessor& aProcessor)
 {
     aProcessor.BeginBlock();
-    MsgPlayable* playable = this;
-    while (playable != nullptr) {
-        playable->ReadBlock(aProcessor);
-        playable = playable->iNextPlayable;
-    }
+    ReadBlock(aProcessor);
     aProcessor.EndBlock();
 }
 
@@ -2685,7 +2670,6 @@ void MsgPlayable::Initialise(TUint aSizeBytes, TUint aSampleRate, TUint aBitDept
                              TUint aNumChannels, TUint aOffsetBytes, const Media::Ramp& aRamp,
                              Optional<IPipelineBufferObserver> aPipelineBufferObserver)
 {
-    iNextPlayable = nullptr;
     iSize = aSizeBytes;
     iSampleRate = aSampleRate;
     iBitDepth = aBitDepth;
@@ -2706,10 +2690,6 @@ void MsgPlayable::Clear()
         TInt jiffies = MsgJiffies();
         iPipelineBufferObserver->Update(-jiffies);
         iPipelineBufferObserver = nullptr;
-    }
-    if (iNextPlayable != nullptr) {
-        iNextPlayable->RemoveRef();
-        iNextPlayable = nullptr;
     }
     iSize = iSampleRate = iBitDepth = iNumChannels = iOffset = 0;
     iRamp.Reset();
@@ -3769,6 +3749,11 @@ AutoAllocatedRef::~AutoAllocatedRef()
 }
 
 
+// ISupply
+
+const TUint ISupply::kMaxDrainMs = 5000;
+
+
 // TrackFactory
 
 TrackFactory::TrackFactory(IInfoAggregator& aInfoAggregator, TUint aTrackCount)
@@ -3872,29 +3857,40 @@ MsgDelay* MsgFactory::CreateMsgDelay(TUint aRemainingJiffies, TUint aTotalJiffie
 
 MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler)
 {
+    const auto seek = aSeekable ? SeekCapability::SeekCache : SeekCapability::None;
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
-    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, aStreamHandler);
+    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, seek, aLive, aMultiroom, aStreamHandler);
+    return msg;
+}
+
+MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler)
+{
+    MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
+    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeek, aLive, aMultiroom, aStreamHandler);
     return msg;
 }
 
 MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream)
 {
+    const auto seek = aSeekable ? SeekCapability::SeekCache : SeekCapability::None;
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
-    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, aStreamHandler, aPcmStream);
+    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, seek, aLive, aMultiroom, aStreamHandler, aPcmStream);
     return msg;
 }
 
 MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp)
 {
+    const auto seek = aSeekable ? SeekCapability::SeekCache : SeekCapability::None;
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
-    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, aStreamHandler, aPcmStream, aRamp);
+    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, seek, aLive, aMultiroom, aStreamHandler, aPcmStream, aRamp);
     return msg;
 }
 
 MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream)
 {
+    const auto seek = aSeekable ? SeekCapability::SeekCache : SeekCapability::None;
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
-    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeekable, false/*live*/,
+    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, seek, false/*live*/,
         Multiroom::Forbidden, aStreamHandler, aDsdStream);
     return msg;
 }
@@ -3903,13 +3899,13 @@ MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(MsgEncodedStream* aMsg, ISt
 {
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
     if (aMsg->StreamFormat() == MsgEncodedStream::Format::Pcm) {
-        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->PcmStream(), aMsg->Ramp());
+        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->SeekCapability(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->PcmStream(), aMsg->Ramp());
     }
     else if (aMsg->StreamFormat() == MsgEncodedStream::Format::Dsd) {
-        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->DsdStream());
+        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->SeekCapability(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->DsdStream());
     }
     else {
-        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler);
+        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->SeekCapability(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler);
     }
     return msg;
 }

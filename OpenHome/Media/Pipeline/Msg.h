@@ -91,6 +91,7 @@ class Allocated
 public:
     void AddRef();
     void RemoveRef();
+    inline TUint RefCount() const;
 protected:
     Allocated(AllocatorBase& aAllocator);
 protected:
@@ -583,6 +584,13 @@ enum class RampType
     Volume
 };
 
+enum class SeekCapability
+{
+    None,
+    SeekCache,  // Seek within pipeline cache, if possible, passing seek upstream towards protocol module otherwise.
+    SeekSource  // Do not attempt to seek within pipeline cache. Seek within source, i.e., have protocol module handle seek.
+};
+
 class MsgEncodedStream : public Msg
 {
     friend class MsgFactory;
@@ -605,6 +613,7 @@ public:
     TUint64 StartPos() const;
     TUint StreamId() const;
     TBool Seekable() const;
+    Media::SeekCapability SeekCapability() const;
     TBool Live() const;
     Media::Multiroom Multiroom() const;
     IStreamHandler* StreamHandler() const;
@@ -613,9 +622,9 @@ public:
     const DsdStreamInfo& DsdStream() const;
     RampType Ramp() const;
 private:
-    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
-    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp = kRampDefault);
-    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);
+    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
+    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp = kRampDefault);
+    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);
 private: // from Msg
     void Clear() override;
     Msg* Process(IMsgProcessor& aProcessor) override;
@@ -625,7 +634,7 @@ private:
     TUint64 iTotalBytes;
     TUint64 iStartPos;
     TUint iStreamId;
-    TBool iSeekable;
+    Media::SeekCapability iSeekCapability;
     TBool iLive;
     Format iStreamFormat;
     Media::Multiroom iMultiroom;
@@ -867,6 +876,7 @@ public:
     void SetMuted(); // should only be used with msgs immediately following a ramp down
     const Media::Ramp& Ramp() const;
     TUint MedianRampMultiplier(); // 1<<31 => full level.  Note - clears any existing ramp
+    TBool HasBufferObserver() const;
 protected:
     MsgAudio(AllocatorBase& aAllocator);
     void Initialise(TUint aSampleRate, TUint aBitDepth, TUint aChannels);
@@ -1023,10 +1033,10 @@ class MsgPlayable : public Msg
 {
 public:
     MsgPlayable* Split(TUint aBytes); // returns block after aBytes
-    void Add(MsgPlayable* aMsg); // combines MsgPlayable instances so they report longer durations etc
     TUint Bytes() const;
     TUint Jiffies() const;
     const Media::Ramp& Ramp() const;
+    TBool HasBufferObserver() const;
     /**
      * Extract pcm data from this msg.
      *
@@ -1055,13 +1065,11 @@ private:
     virtual void ReadBlock(IPcmProcessor& aProcessor);
     virtual void ReadBlock(IDsdProcessor& aProcessor);
 protected:
-    MsgPlayable* iNextPlayable;
     TUint iSize; // Bytes
     TUint iSampleRate;
     TUint iBitDepth;
     TUint iNumChannels;
     TUint iOffset; // Bytes
-    TUint iSizeTotalJiffies;
     Media::Ramp iRamp;
     IPipelineBufferObserver* iPipelineBufferObserver;
     // TUint iSampleBlockWords;
@@ -1537,6 +1545,8 @@ private:
 class ISupply
 {
 public:
+    static const TUint kMaxDrainMs;
+public:
     virtual ~ISupply() {}
     /**
      * Inform the pipeline that a new track is starting.
@@ -1990,6 +2000,7 @@ public:
     MsgDelay* CreateMsgDelay(TUint aTotalJiffies);
     MsgDelay* CreateMsgDelay(TUint aRemainingJiffies, TUint aTotalJiffies);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
+    MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);
@@ -2014,6 +2025,30 @@ public:
     MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords);
     MsgQuit* CreateMsgQuit();
     DecodedAudio* CreateDecodedAudio();
+public:
+    inline TUint AllocatorModeCount() const;
+    inline TUint AllocatorTrackCount() const;
+    inline TUint AllocatorDrainCount() const;
+    inline TUint AllocatorDelayCount() const;
+    inline TUint AllocatorEncodedStreamCount() const;
+    inline TUint AllocatorStreamSegmentCount() const;
+    inline TUint AllocatorAudioDataCount() const;
+    inline TUint AllocatorAudioEncodedCount() const;
+    inline TUint AllocatorMetaTextCount() const;
+    inline TUint AllocatorStreamInterruptedCount() const;
+    inline TUint AllocatorHaltCount() const;
+    inline TUint AllocatorFlushCount() const;
+    inline TUint AllocatorWaitCount() const;
+    inline TUint AllocatorDecodedStreamCount() const;
+    inline TUint AllocatorBitRateCount() const;
+    inline TUint AllocatorAudioPcmCount() const;
+    inline TUint AllocatorAudioDsdCount() const;
+    inline TUint AllocatorSilenceCount() const;
+    inline TUint AllocatorPlayablePcmCount() const;
+    inline TUint AllocatorPlayableDsdCount() const;
+    inline TUint AllocatorPlayableSilenceCount() const;
+    inline TUint AllocatorPlayableSilenceDsdCount() const;
+    inline TUint AllocatorQuitCount() const;
 private:
     EncodedAudio* CreateEncodedAudio(const Brx& aData);
     DecodedAudio* CreateDecodedAudio(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);
