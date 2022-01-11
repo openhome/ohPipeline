@@ -47,6 +47,7 @@ public:
     virtual ~Logger();
     void SetEnabled(TBool aEnabled);
     void SetFilter(TUint aMsgTypes);
+    void LogAudio();
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 public: // from IPipelineElementDownstream
@@ -83,6 +84,10 @@ private:
     TInt iFilter;
     Semaphore iShutdownSem;
     Bws<kMaxLogBytes> iBuf;
+    TUint64 iJiffiesPcm;
+    TUint64 iJiffiesDsd;
+    TUint64 iJiffiesSilence;
+    TUint64 iJiffiesPlayable;
 };
 
 } // namespace Media

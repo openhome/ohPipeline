@@ -6,6 +6,13 @@ inline const TChar* AllocatorBase::Name() const
 }
 
 
+// Allocated
+
+inline TUint Allocated::RefCount() const
+{
+    return iRefCount.load();
+}
+
 // Jiffies
 
 inline TUint Jiffies::ToMs(TUint aJiffies)
@@ -394,4 +401,100 @@ inline void MsgFactoryInitParams::SetMsgPlayableCount(TUint aPcmCount, TUint aDs
 inline void MsgFactoryInitParams::SetMsgQuitCount(TUint aCount)
 {
     iMsgQuitCount = aCount;
+}
+
+
+// MsgFactory
+
+inline TUint MsgFactory::AllocatorModeCount() const
+{
+    return iAllocatorMsgMode.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorTrackCount() const
+{
+    return iAllocatorMsgTrack.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorDrainCount() const
+{
+    return iAllocatorMsgDrain.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorDelayCount() const
+{
+    return iAllocatorMsgDelay.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorEncodedStreamCount() const
+{
+    return iAllocatorMsgEncodedStream.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorStreamSegmentCount() const
+{
+    return iAllocatorMsgStreamSegment.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorAudioDataCount() const
+{
+    return iAllocatorAudioData.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorAudioEncodedCount() const
+{
+    return iAllocatorMsgAudioEncoded.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorMetaTextCount() const
+{
+    return iAllocatorMsgMetaText.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorStreamInterruptedCount() const
+{
+    return iAllocatorMsgStreamInterrupted.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorHaltCount() const
+{
+    return iAllocatorMsgHalt.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorFlushCount() const
+{
+    return iAllocatorMsgFlush.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorWaitCount() const
+{
+    return iAllocatorMsgWait.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorDecodedStreamCount() const
+{
+    return iAllocatorMsgDecodedStream.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorBitRateCount() const
+{
+    return iAllocatorMsgBitRate.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorAudioPcmCount() const
+{
+    return iAllocatorMsgAudioPcm.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorAudioDsdCount() const
+{
+    return iAllocatorMsgAudioDsd.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorSilenceCount() const
+{
+    return iAllocatorMsgSilence.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorPlayablePcmCount() const
+{
+    return iAllocatorMsgPlayablePcm.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorPlayableDsdCount() const
+{
+    return iAllocatorMsgPlayableDsd.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorPlayableSilenceCount() const
+{
+    return iAllocatorMsgPlayableSilence.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorPlayableSilenceDsdCount() const
+{
+    return iAllocatorMsgPlayableSilenceDsd.CellsUsed();
+}
+inline TUint MsgFactory::AllocatorQuitCount() const
+{
+    return iAllocatorMsgQuit.CellsUsed();
 }
