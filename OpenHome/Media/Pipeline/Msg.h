@@ -1130,7 +1130,6 @@ private:
                     Optional<IPipelineBufferObserver> aPipelineBufferObserver);
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
-    void SplitCompleted(MsgPlayable& aRemaining) override;
     void ReadBlock(IPcmProcessor& aProcessor) override;
 };
 
@@ -1146,7 +1145,6 @@ private:
                     Optional<IPipelineBufferObserver> aPipelineBufferObserver);
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
-    void SplitCompleted(MsgPlayable& aRemaining) override;
     void ReadBlock(IDsdProcessor& aProcessor) override;
 private:
     TUint iSampleBlockWords;

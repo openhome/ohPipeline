@@ -2865,8 +2865,6 @@ void MsgPlayableSilence::Initialise(TUint aSizeBytes, TUint aSampleRate, TUint a
 {
     MsgPlayable::Initialise(aSizeBytes, aSampleRate, aBitDepth,
                             aNumChannels, 0, aRamp, aPipelineBufferObserver);
-    iBitDepth = aBitDepth;
-    iNumChannels = aNumChannels;
 }
 
 void MsgPlayableSilence::ReadBlock(IPcmProcessor& aProcessor)
@@ -2895,13 +2893,6 @@ MsgPlayable* MsgPlayableSilence::Allocate()
     return static_cast<Allocator<MsgPlayableSilence>&>(iAllocator).Allocate();
 }
 
-void MsgPlayableSilence::SplitCompleted(MsgPlayable& aRemaining)
-{
-    MsgPlayableSilence& remaining = static_cast<MsgPlayableSilence&>(aRemaining);
-    remaining.iBitDepth = iBitDepth;
-    remaining.iNumChannels = iNumChannels;
-}
-
 // MsgPlayableSilenceDsd
 
 MsgPlayableSilenceDsd::MsgPlayableSilenceDsd(AllocatorBase& aAllocator)
@@ -2915,8 +2906,6 @@ void MsgPlayableSilenceDsd::Initialise(TUint aSizeBytes, TUint aSampleRate, TUin
 {
     MsgPlayable::Initialise(aSizeBytes, aSampleRate, aBitDepth,
                             aNumChannels, 0, aRamp, aPipelineBufferObserver);
-    iBitDepth = aBitDepth;
-    iNumChannels = aNumChannels;
     iSampleBlockWords = aSampleBlockWords;
 }
 
@@ -2937,13 +2926,6 @@ void MsgPlayableSilenceDsd::ReadBlock(IDsdProcessor& aProcessor)
 MsgPlayable* MsgPlayableSilenceDsd::Allocate()
 {
     return static_cast<Allocator<MsgPlayableSilenceDsd>&>(iAllocator).Allocate();
-}
-
-void MsgPlayableSilenceDsd::SplitCompleted(MsgPlayable& aRemaining)
-{
-    MsgPlayableSilenceDsd& remaining = static_cast<MsgPlayableSilenceDsd&>(aRemaining);
-    remaining.iBitDepth = iBitDepth;
-    remaining.iNumChannels = iNumChannels;
 }
 
 
