@@ -168,11 +168,20 @@ Msg* PhaseAdjuster::ProcessMsg(MsgSilence* aMsg)
 
 void PhaseAdjuster::Update(TInt aDelta)
 {
-    AutoMutex _(iLockClockPuller);
-    iTrackedJiffies += aDelta;
-    iTrackedJiffies = std::max(0, iTrackedJiffies); /* see #7730 - pipeline occupancy going negative would
-                                                       imply we've been too aggressive when we zeroed tracked
-                                                       jiffies on a drain */
+    TInt jiffies = 0;
+    {
+        AutoMutex _(iLockClockPuller);
+        iTrackedJiffies += aDelta;
+        if (iTrackedJiffies < 0) { /* see #7730 - pipeline occupancy going negative would
+                                      imply we've been too aggressive when we zeroed tracked
+                                      jiffies on a drain */
+            jiffies = iTrackedJiffies;
+            iTrackedJiffies = 0;
+        }
+    }
+    if (jiffies < 0) {
+        LOG(kMedia, "PhaseAdjuster error when trackedJiffies was reset - count went to %d (%dms)\n", jiffies, jiffies / Jiffies::kPerMs);
+    }
 }
 
 void PhaseAdjuster::Start()
@@ -231,7 +240,11 @@ MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
             iState = State::Running;
             return aMsg;
         }
-        TInt error = iTrackedJiffies - iDelayJiffies;
+        TInt error;
+        {
+            AutoMutex _(iLockClockPuller);
+            error = iTrackedJiffies - iDelayJiffies;
+        }
         if (error > 0) {
             // Drop audio.
             TUint dropped = 0;
