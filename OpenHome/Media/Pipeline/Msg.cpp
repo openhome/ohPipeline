@@ -2692,7 +2692,7 @@ void MsgPlayable::Clear()
         iPipelineBufferObserver->Update(-jiffies);
         iPipelineBufferObserver = nullptr;
     }
-    iSize = iSampleRate = iBitDepth = iNumChannels = iOffset = 0;
+    iSize = iJiffies = iSampleRate = iBitDepth = iNumChannels = iOffset = 0;
     iRamp.Reset();
 }
 
