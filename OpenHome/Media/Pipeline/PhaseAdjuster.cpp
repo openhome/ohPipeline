@@ -46,6 +46,7 @@ PhaseAdjuster::PhaseAdjuster(
     TUint aMinDelayJiffies
 )
     : PipelineElement(kSupportedMsgTypes)
+    , iLockClockPuller("PAdj")
     , iMsgFactory(aMsgFactory)
     , iUpstreamElement(aUpstreamElement)
     , iStarvationRamper(aStarvationRamper)
@@ -55,6 +56,7 @@ PhaseAdjuster::PhaseAdjuster(
     , iLock("SPAL")
     , iTrackedJiffies(0)
     , iDecodedStream(nullptr)
+    , iDrain(nullptr)
     , iDelayJiffies(0)
     , iDelayTotalJiffies(0)
     , iDroppedJiffies(0)
@@ -72,6 +74,7 @@ PhaseAdjuster::~PhaseAdjuster()
 {
     iQueue.Clear();
     ClearDecodedStream();
+    ClearDrain();
 }
 
 void PhaseAdjuster::SetAnimator(IPipelineAnimator& aAnimator)
@@ -120,8 +123,9 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
     if (iEnabled) {
         ResetPhaseDelay();
     }
-
-    return aMsg;
+    ASSERT(iDrain == nullptr);
+    iDrain = aMsg;
+    return iMsgFactory.CreateMsgDrain(MakeFunctor(*this, &PhaseAdjuster::PipelineDrained));
 }
 
 Msg* PhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
@@ -164,7 +168,11 @@ Msg* PhaseAdjuster::ProcessMsg(MsgSilence* aMsg)
 
 void PhaseAdjuster::Update(TInt aDelta)
 {
+    AutoMutex _(iLockClockPuller);
     iTrackedJiffies += aDelta;
+    iTrackedJiffies = std::max(0, iTrackedJiffies); /* see #7730 - pipeline occupancy going negative would
+                                                       imply we've been too aggressive when we zeroed tracked
+                                                       jiffies on a drain */
 }
 
 void PhaseAdjuster::Start()
@@ -372,4 +380,23 @@ void PhaseAdjuster::ClearDecodedStream()
         iDecodedStream->RemoveRef();
         iDecodedStream = nullptr;
     }
+}
+
+void PhaseAdjuster::ClearDrain()
+{
+    if (iDrain != nullptr) {
+        iDrain->ReportDrained();
+        iDrain->RemoveRef();
+        iDrain = nullptr;
+    }
+}
+
+void PhaseAdjuster::PipelineDrained()
+{
+    {
+        AutoMutex _(iLockClockPuller);
+        iTrackedJiffies = 0; // see #7730 - clear any error that has accumulated in the clock puller
+    }
+    ASSERT(iDrain != nullptr);
+    ClearDrain();
 }

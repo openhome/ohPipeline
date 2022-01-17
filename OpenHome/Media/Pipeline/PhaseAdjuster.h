@@ -67,7 +67,10 @@ private:
     MsgAudio* StartRampUp(MsgAudio* aMsg);
     void ResetPhaseDelay();
     void ClearDecodedStream();
+    void ClearDrain();
+    void PipelineDrained();
 private:
+    Mutex iLockClockPuller;
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstreamElement;
     IStarvationRamper& iStarvationRamper;
@@ -75,8 +78,9 @@ private:
     TBool iEnabled;
     State iState;
     Mutex iLock;
-    std::atomic<TInt> iTrackedJiffies;
+    TInt iTrackedJiffies;
     MsgDecodedStream* iDecodedStream;
+    MsgDrain* iDrain;
     TUint iDelayJiffies;
     TUint iDelayTotalJiffies;
     TUint iDroppedJiffies;
