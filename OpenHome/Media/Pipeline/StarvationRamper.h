@@ -132,6 +132,7 @@ private: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // from MsgReservoir
     void ProcessMsgIn(MsgTrack* aMsg) override;
+    void ProcessMsgIn(MsgDrain* aMsg) override;
     void ProcessMsgIn(MsgDelay* aMsg) override;
     void ProcessMsgIn(MsgHalt* aMsg) override;
     void ProcessMsgIn(MsgDecodedStream* aMsg) override;
@@ -196,6 +197,7 @@ private:
     TUint iLastPulledAudioRampValue;
     TUint iEventId;
     std::atomic<TUint> iTrackStreamCount;
+    std::atomic<TUint> iDrainCount;
     std::atomic<TUint> iHaltCount;
     std::atomic<TUint> iStartOccupancyJiffies; // Pull will block once until this level is reached
     Semaphore iSemStartOccupancy;
