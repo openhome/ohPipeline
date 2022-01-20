@@ -1,6 +1,6 @@
-#include <OpenHome/Media/Codec/CodecController.h>
-#include <OpenHome/Media/Codec/Container.h>
+#include <OpenHome/Media/Codec/Vorbis.h>
 #include <OpenHome/Media/Codec/CodecFactory.h>
+#include <OpenHome/Media/Codec/Container.h>
 #include <OpenHome/Private/Arch.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Converter.h>
@@ -10,82 +10,11 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Media/MimeTypeList.h>
 
-extern "C" {
-#include <ivorbisfile.h>
-#include <ivorbiscodec.h>
-}
-
 #include <limits>
 
-namespace OpenHome {
-namespace Media {
-namespace Codec {
-
-class CodecVorbis : public CodecBase, public IWriter
-{
-private:
-    static const TUint kHeaderBytesReq = 14; // granule pos is byte 6:13 inclusive
-    static const TUint kSearchChunkSize = 1024;
-    static const TInt kInvalidBitstream;
-    static const TUint kIcyMetadataBytes = 255 * 16;
-    static const TUint kBitDepth = 16;  // Bit depth always 16 for Vorbis.
-public:
-    static const Brn kCodecVorbis;
-public:
-    CodecVorbis(IMimeTypeList& aMimeTypeList);
-    ~CodecVorbis();
-private: // from CodecBase
-    TBool Recognise(const EncodedStreamInfo& aStreamInfo);
-    void StreamInitialise();
-    void Process();
-    TBool TrySeek(TUint aStreamId, TUint64 aSample);
-    void StreamCompleted();
-private: // from IWriter
-    void Write(TByte aValue);
-    void Write(const Brx& aBuffer);
-    void WriteFlush();
-public:
-    size_t ReadCallback(void *ptr, size_t size, size_t nmemb);
-    int SeekCallback(ogg_int64_t offset, int whence);
-    int CloseCallback();
-    long TellCallback();
-private:
-    TBool FindSync();
-    TUint64 GetTotalSamples();
-    void BigEndian(TInt16* aDst, TInt16* aSrc, TUint aSamples);
-    void FlushOutput();
-    TBool StreamInfoChanged(TUint aChannels, TUint aSampleRate) const;
-    void OutputMetaData();
-private:
-    ov_callbacks iCallbacks;
-
-    void *iDataSource; // dummy stream identifier
-    OggVorbis_File iVf;
-
-    Bws<DecodedAudio::kMaxBytes> iInBuf;
-    Bws<DecodedAudio::kMaxBytes> iOutBuf;
-    Bws<2*kSearchChunkSize> iSeekBuf;   // can store 2 read chunks, to check for sync word across read boundaries
-
-    TUint iSampleRate;
-    TUint iBytesPerSec;
-    TUint iBitrateAverage;
-    TUint iChannels;
-    TUint iBytesPerSample;
-    TUint64 iSamplesTotal;
-    TUint64 iTotalSamplesOutput;
-    TUint64 iTrackLengthJiffies;
-    TUint64 iTrackOffset;
-    TInt iBitstream;
-    Bws<kIcyMetadataBytes> iIcyMetadata;
-    Bws<kIcyMetadataBytes> iNewIcyMetadata;
-
-    TBool iStreamEnded;
-    TBool iNewStreamStarted;
-};
-
-} //namespace Codec
-} //namespace Media
-} //namespace OpenHome
+extern "C" {
+#include <ivorbisfile.h>
+}
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
@@ -97,6 +26,10 @@ CodecBase* CodecFactory::NewVorbis(IMimeTypeList& aMimeTypeList)
 }
 
 
+const TUint CodecVorbis::kHeaderBytesReq;
+const TUint CodecVorbis::kSearchChunkSize;
+const TUint CodecVorbis::kIcyMetadataBytes;
+const TUint CodecVorbis::kBitDepth;
 const TInt CodecVorbis::kInvalidBitstream = std::numeric_limits<TInt>::max();
 const Brn CodecVorbis::kCodecVorbis("VORBIS");
 
@@ -105,12 +38,8 @@ int SeekCallback(void *datasource, ogg_int64_t offset, int whence);
 int CloseCallback(void *datasource);
 long TellCallback(void *datasource);
 
-size_t CodecVorbis::ReadCallback(void *ptr, size_t size, size_t nmemb)
+void CodecVorbis::ReadCallback(Bwx& aBuf)
 {
-    TUint bytes = size * nmemb;
-    //LOG(kCodec,"CodecVorbis::CallbackRead: attempt to read %u bytes\n", bytes);
-    Bwn buf((TByte *)ptr, bytes);
-
     try{
         if (!iController->StreamLength() || (iController->StreamPos() < iController->StreamLength())) {
             // Tremor pulls more data after stream exhaustion, as it is looking
@@ -120,30 +49,29 @@ size_t CodecVorbis::ReadCallback(void *ptr, size_t size, size_t nmemb)
             // Account for this by checking if stream has already been exhausted;
             // if not, we'll do another read; otherwise we won't do anything and Tremor
             // will get its EOF identifier.
-            iController->Read(buf, bytes);
+            iController->Read(aBuf, aBuf.MaxBytes());
         }
     }
     catch(CodecStreamEnded&) {
-        buf.SetBytes(0);
+        aBuf.SetBytes(0);
     }
 
-    //LOG(kCodec,"CodecVorbis::CallbackRead: read %u bytes\n", buf.Bytes());
-    return buf.Bytes();
+    //LOG(kCodec,"CodecVorbis::CallbackRead: read %u bytes\n", aBuf.Bytes());
 }
 
-int CodecVorbis::SeekCallback(ogg_int64_t offset, int whence)
+TInt CodecVorbis::SeekCallback(TInt64 aOffset, TInt aWhence)
 {
-    LOG(kCodec, "CodecVorbis::SeekCallback offset %lld, whence %d, iSamplesTotal %llu, iController->StreamLength() %llu\n", offset, whence, iSamplesTotal, iController->StreamLength());
+    LOG(kCodec, "CodecVorbis::SeekCallback offset %lld, whence %d, iSamplesTotal %llu, iController->StreamLength() %llu\n", aOffset, aWhence, iSamplesTotal, iController->StreamLength());
     return -1; // Non-seekable. Stops the decoder merrily dancing around in the stream during initialisation. Means we have to implement our own approach for user-initiated seeks.
 }
 
-int CodecVorbis::CloseCallback()
+TInt CodecVorbis::CloseCallback()
 {
     LOG(kCodec,"CodecVorbis::CLOSE\n");
     return 0;
 }
 
-long CodecVorbis::TellCallback()
+TInt64 CodecVorbis::TellCallback()
 {
     // If seeking is unsupported, this should always return -1 (or tell callback func in callbacks struct should be set to null).
     return -1;
@@ -151,7 +79,10 @@ long CodecVorbis::TellCallback()
 
 size_t ReadCallback(void *ptr, size_t size, size_t nmemb, void *datasource)
 {
-    return ((CodecVorbis *)datasource)->ReadCallback(ptr, size, nmemb);
+    const TUint bytes = size * nmemb;
+    Bwn buf((TByte *)ptr, bytes);
+    ((CodecVorbis *)datasource)->ReadCallback(buf);
+    return buf.Bytes();
 }
 
 int SeekCallback(void *datasource, ogg_int64_t offset, int whence)
@@ -170,14 +101,35 @@ long TellCallback(void *datasource)
 }
 
 
+// CodecVorbis::Pimpl
+
+// Hide third-party codec structs from header. Useful for classes deriving from CodecVorbis, as they do not need to supply third-party codec headers.
+class CodecVorbis::Pimpl
+{
+public:
+    Pimpl();
+public:
+    ov_callbacks iCallbacks;
+    void *iDataSource; // dummy stream identifier
+    OggVorbis_File iVf;
+};
+
+CodecVorbis::Pimpl::Pimpl()
+{
+}
+
+
+// CodecVorbis
+
 CodecVorbis::CodecVorbis(IMimeTypeList& aMimeTypeList)
     : CodecBase("Vorbis", kCostHigh)
+    , iPimpl(new Pimpl())
 {
-    iDataSource = this;
-    iCallbacks.read_func = ::ReadCallback;
-    iCallbacks.seek_func = ::SeekCallback;
-    iCallbacks.close_func = ::CloseCallback;
-    iCallbacks.tell_func = ::TellCallback;
+    iPimpl->iDataSource = this;
+    iPimpl->iCallbacks.read_func = ::ReadCallback;
+    iPimpl->iCallbacks.seek_func = ::SeekCallback;
+    iPimpl->iCallbacks.close_func = ::CloseCallback;
+    iPimpl->iCallbacks.tell_func = ::TellCallback;
     aMimeTypeList.Add("audio/ogg");
     aMimeTypeList.Add("audio/x-ogg");
     aMimeTypeList.Add("application/ogg");
@@ -193,39 +145,17 @@ TBool CodecVorbis::Recognise(const EncodedStreamInfo& aStreamInfo)
     if (aStreamInfo.StreamFormat() != EncodedStreamInfo::Format::Encoded) {
         return false;
     }
-    iSamplesTotal = 0;
-    const auto testRet = ov_test_callbacks(iDataSource, &iVf, nullptr, 0, iCallbacks);
+    const auto testRet = ov_test_callbacks(iPimpl->iDataSource, &iPimpl->iVf, nullptr, 0, iPimpl->iCallbacks);
     const TBool isVorbis = (testRet == 0);
     return isVorbis;
 }
 
-void CodecVorbis::StreamInitialise()
+void CodecVorbis::ParseOgg()
 {
-    LOG(kCodec, "CodecVorbis::StreamInitialise\n");
-    iBitstream = kInvalidBitstream;
-    iStreamEnded = false;
-    iNewStreamStarted = false;
+}
 
-    const TInt opened = ov_test_open(&iVf);
-    if (opened < 0) {
-        THROW(CodecStreamCorrupt);
-    }
-
-    vorbis_info* info = ov_info(&iVf, -1);
-    iChannels = info->channels;
-    iBitrateAverage = info->bitrate_nominal;
-    iSampleRate = info->rate;
-
-    iTotalSamplesOutput = 0;
-    iInBuf.SetBytes(0);
-    iOutBuf.SetBytes(0);
-
-    iBytesPerSample = iChannels*kBitDepth/8;
-    iBytesPerSec = iBitrateAverage/8; // bitrate of raw data rather than the output bitrate
-    iTrackLengthJiffies = 0;
-    iTrackOffset = 0;
-    iIcyMetadata.Replace(Brx::Empty());
-
+TUint64 CodecVorbis::GetSamplesTotal()
+{
     if (iController->StreamLength() > 0) {
         // Try do an out-of-band read and parse the final Ogg page ourselves to
         // get the granule pos field. When Vorbis is contained within an Ogg,
@@ -238,18 +168,51 @@ void CodecVorbis::StreamInitialise()
 
         if (FindSync()) {
             try {
-                iSamplesTotal = GetTotalSamples();
+                return GetTotalSamples();
             }
             catch (CodecStreamCorrupt&)
             {}
         }
 
+        // Didn't manage to parse last Ogg page; fall back to estimation from average bitrate and file size.
+        return iSampleRate * iController->StreamLength() / iBytesPerSec;
+    }
+    return 0;
+}
 
-        if (iSamplesTotal == 0) { // didn't manage to parse last Ogg page; fall back to estimation
-            iSamplesTotal = iSampleRate * iController->StreamLength() / iBytesPerSec; // estimate from average bitrate and file size
-        }
+void CodecVorbis::StreamInitialise()
+{
+    // LOG(kCodec, "CodecVorbis::StreamInitialise\n");
+    iBitstream = kInvalidBitstream;
+    iStreamEnded = false;
+    iNewStreamStarted = false;
+    iTotalSamplesOutput = 0;
+    iInBuf.SetBytes(0);
+    iOutBuf.SetBytes(0);
+    iSamplesTotal = 0;
+    iTrackLengthJiffies = 0;
+    iTrackOffset = 0;
+    iIcyMetadata.Replace(Brx::Empty());
 
-        iTrackLengthJiffies = (iSamplesTotal * Jiffies::kPerSecond) / iSampleRate;
+    ParseOgg();
+
+    const TInt opened = ov_test_open(&iPimpl->iVf);
+    if (opened < 0) {
+        THROW(CodecStreamCorrupt);
+    }
+
+    vorbis_info* info = ov_info(&iPimpl->iVf, -1);
+    iChannels = info->channels;
+    iBitrateAverage = info->bitrate_nominal;
+    iSampleRate = info->rate;
+    iBytesPerSample = iChannels*kBitDepth/8;
+    iBytesPerSec = iBitrateAverage/8; // bitrate of raw data rather than the output bitrate
+
+    iSamplesTotal = GetSamplesTotal();
+
+    if (iSamplesTotal > 0) {
+        // Add iSampleRate / 2 before division to round up if above half-values.
+        iTrackLengthJiffies = (iSamplesTotal * Jiffies::kPerSecond /*+ iSampleRate / 2*/) / iSampleRate;
     }
 
     LOG(kCodec, "CodecVorbis::StreamInitialise iBitrateAverage %u, kBitDepth %u, iSampleRate %u, iChannels %u, iTrackLengthJiffies %llu\n", iBitrateAverage, kBitDepth, iSampleRate, iChannels, iTrackLengthJiffies);
@@ -259,7 +222,7 @@ void CodecVorbis::StreamInitialise()
 void CodecVorbis::StreamCompleted()
 {
     LOG(kCodec, "CodecVorbis::StreamCompleted\n");
-    ov_clear(&iVf);
+    ov_clear(&iPimpl->iVf);
 }
 
 void CodecVorbis::Write(TByte aValue)
@@ -276,18 +239,10 @@ void CodecVorbis::WriteFlush()
 {
 }
 
-TBool CodecVorbis::TrySeek(TUint aStreamId, TUint64 aSample)
+TBool CodecVorbis::TrySeekBytes(TUint aStreamId, TUint64 aSample, TUint64 aBytePos)
 {
-    LOG(kCodec, "CodecVorbis::TrySeek(%u, %llu)\n", aStreamId, aSample);
-
-    // Convert to approximate byte position in file.
-    TUint64 bytes = aSample * iController->StreamLength()/iSamplesTotal;
-    if (bytes >= iController->StreamLength()) {
-        bytes = iController->StreamLength() - 1;
-    }
-
-    TBool canSeek = iController->TrySeekTo(aStreamId, bytes);
-    LOG(kCodec, "CodecVorbis::TrySeek to sample: %lld, byte: %llu returned %u\n", aSample, bytes, canSeek);
+    TBool canSeek = iController->TrySeekTo(aStreamId, aBytePos);
+    LOG(kCodec, "CodecVorbis::TrySeekBytes to byte: %llu returned %u\n", aBytePos, canSeek);
 
     if (canSeek) {
         iTotalSamplesOutput = aSample;
@@ -297,6 +252,18 @@ TBool CodecVorbis::TrySeek(TUint aStreamId, TUint64 aSample)
         iController->OutputDecodedStream(0, kBitDepth, iSampleRate, iChannels, kCodecVorbis, iTrackLengthJiffies, aSample, false, DeriveProfile(iChannels));
     }
     return canSeek;
+}
+
+TBool CodecVorbis::TrySeek(TUint aStreamId, TUint64 aSample)
+{
+    LOG(kCodec, "CodecVorbis::TrySeek(%u, %llu)\n", aStreamId, aSample);
+
+    auto bytes = aSample * iController->StreamLength() / iSamplesTotal;
+    if (bytes >= iController->StreamLength()) {
+        bytes = iController->StreamLength() - 1;
+    }
+
+    return TrySeekBytes(aStreamId, aSample, bytes);
 }
 
 TBool CodecVorbis::FindSync()
@@ -412,7 +379,7 @@ void CodecVorbis::Process()
             ASSERT((TInt)iInBuf.MaxBytes() >= request);
 
             TInt bytes = 0;
-            bytes = ov_read(&iVf, pcm, request, (int*)&bitstream);
+            bytes = ov_read(&iPimpl->iVf, pcm, request, (int*)&bitstream);
 
             if (bytes == 0) {
                 THROW(CodecStreamEnded);
@@ -445,7 +412,7 @@ void CodecVorbis::Process()
                 // "However, when reading audio back, the application must be aware that multiple bitstream sections do not necessarily use the same number of channels or sampling rate."
 
                 // Call ov_info() and send a MsgDecodedStream to notify of channel count and/or sample rate changes, send a new MsgMetaText, then continue decoding as normal.
-                vorbis_info* info = ov_info(&iVf, -1);
+                vorbis_info* info = ov_info(&iPimpl->iVf, -1);
                 const TBool infoChanged = StreamInfoChanged(info->channels, info->rate);
 
                 iChannels = info->channels;
@@ -521,7 +488,7 @@ TBool CodecVorbis::StreamInfoChanged(TUint aChannels, TUint aSampleRate) const
 
 void CodecVorbis::OutputMetaData()
 {
-    vorbis_comment* vc = ov_comment(&iVf, -1);
+    vorbis_comment* vc = ov_comment(&iPimpl->iVf, -1);
     Brn artist = Brx::Empty();
     Brn title = Brx::Empty();
 
