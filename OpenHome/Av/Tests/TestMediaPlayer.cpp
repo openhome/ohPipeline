@@ -413,6 +413,11 @@ TUint TestMediaPlayer::DsdPadBytesPerChunk()
     return kDsdPadBytesPerChunk;
 }
 
+void TestMediaPlayer::TryRegisterVorbis()
+{
+    iMediaPlayer->Add(Codec::CodecFactory::NewVorbis(iMediaPlayer->MimeTypes()));
+}
+
 void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 {
     // Add containers
@@ -432,7 +437,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(Codec::CodecFactory::NewDsdDff(iMediaPlayer->MimeTypes(), kDsdSampleBlockWords, kDsdPadBytesPerChunk));
     iMediaPlayer->Add(Codec::CodecFactory::NewPcm());
     iMediaPlayer->Add(Codec::CodecFactory::NewDsdRaw(kDsdSampleBlockWords, kDsdPadBytesPerChunk));
-    iMediaPlayer->Add(Codec::CodecFactory::NewVorbis(iMediaPlayer->MimeTypes()));
+    TryRegisterVorbis();
     // RAOP source must be added towards end of source list.
     // However, must add RAOP codec before MP3 codec to avoid false-positives.
     iMediaPlayer->Add(Codec::CodecFactory::NewRaop());
