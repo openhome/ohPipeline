@@ -71,7 +71,7 @@ TInt CodecVorbis::CloseCallback()
     return 0;
 }
 
-TInt64 CodecVorbis::TellCallback()
+TInt CodecVorbis::TellCallback()
 {
     // If seeking is unsupported, this should always return -1 (or tell callback func in callbacks struct should be set to null).
     return -1;

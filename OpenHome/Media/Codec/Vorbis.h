@@ -38,7 +38,7 @@ public:
     virtual void ReadCallback(Bwx& aBuf);
     TInt SeekCallback(TInt64 aOffset, TInt aWhence);
     TInt CloseCallback();
-    TInt64 TellCallback();
+    TInt TellCallback();
 private:
     TBool FindSync();
     TUint64 GetTotalSamples();
