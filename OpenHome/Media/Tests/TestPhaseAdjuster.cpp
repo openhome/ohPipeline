@@ -217,6 +217,7 @@ void SuitePhaseAdjuster::Setup()
     init.SetMsgEncodedStreamCount(2);
     init.SetMsgDecodedStreamCount(2);
     init.SetMsgModeCount(2);
+    init.SetMsgDrainCount(2);
     init.SetMsgDelayCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
@@ -392,6 +393,7 @@ Msg* SuitePhaseAdjuster::ProcessMsg(MsgTrack* aMsg)
 Msg* SuitePhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
 {
     iLastMsg = EMsgDrain;
+    aMsg->ReportDrained();
     return aMsg;
 }
 
@@ -434,6 +436,7 @@ Msg* SuitePhaseAdjuster::ProcessMsg(MsgStreamInterrupted* aMsg)
 Msg* SuitePhaseAdjuster::ProcessMsg(MsgHalt* aMsg)
 {
     iLastMsg = EMsgHalt;
+    aMsg->ReportHalted();
     return aMsg;
 }
 

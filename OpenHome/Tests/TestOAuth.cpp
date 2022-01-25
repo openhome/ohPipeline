@@ -164,8 +164,8 @@ class AlternatingValidAuthenticator : public IOAuthAuthenticator
 class DummyTokenObserver : public ITokenObserver
 {
     public:
-        const TBool HasCalledBack() const { return iCallbackCount > 0; }
-        const TUint CallbackCount() const { return iCallbackCount; }
+        TBool HasCalledBack() const { return iCallbackCount > 0; }
+        TUint CallbackCount() const { return iCallbackCount; }
 
     public: //ITokenObserver
         void TokenExpired(const Brx& /*aId*/) override { iCallbackCount++; }
@@ -206,9 +206,9 @@ TBool ValidOAuthAuthenticator::TryGetAccessToken(const Brx& /*aTokenId*/,
                                                  const Brx& /*aRefreshToken*/,
                                                  AccessTokenResponse& aResponse)
 {
-    aResponse.accessToken.Set(iAccessToken);
-    aResponse.tokenExpiry = iTokenExpiry;
-
+    aResponse.Set(iAccessToken,
+                  Brx::Empty(),
+                  iTokenExpiry);
     return true;
 }
 

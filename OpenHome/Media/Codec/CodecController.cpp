@@ -990,13 +990,7 @@ Msg* CodecController::ProcessMsg(MsgTrack* aMsg)
 
 Msg* CodecController::ProcessMsg(MsgDrain* aMsg)
 {
-    if (iRecognising) {
-        iStreamEnded = true;
-        aMsg->RemoveRef();
-        return nullptr;
-    }
-    Queue(aMsg);
-    return nullptr;
+    return aMsg;
 }
 
 Msg* CodecController::ProcessMsg(MsgDelay* aMsg)

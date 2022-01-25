@@ -753,10 +753,13 @@ void SuiteMsgAudioEncoded::Test()
 
     // validate ref counting of chained msgs (see #5167)
     msg = iMsgFactory->CreateMsgAudioEncoded(buf);
+    TEST(msg->RefCount() == 1);
     msg->AddRef();
+    TEST(msg->RefCount() == 2);
     msg2 = iMsgFactory->CreateMsgAudioEncoded(buf);
     msg->Add(msg2);
     msg->RemoveRef();
+    TEST(msg->RefCount() == 1);
     msg->RemoveRef();
 
     // clean shutdown implies no leaked msgs
@@ -1306,14 +1309,6 @@ void SuiteMsgPlayable::Test()
     TEST(remainingPlayable->Bytes() == bytes);
     ValidateSilence(playable);
     remainingPlayable->RemoveRef();
-
-    // check we can read from a chained PlayablePcm -> PlayableSilence
-    audioPcm = iMsgFactory->CreateMsgAudioPcm(data, 2, 44100, 8, AudioDataEndian::Little, 0);
-    playable = audioPcm->CreatePlayable();
-    silence = iMsgFactory->CreateMsgSilence(size, 44100, 8, 1);
-    playable->Add(silence->CreatePlayable());
-    playable->Read(pcmProcessor);
-    playable->RemoveRef();
 
     // IPipelineBufferObserver
     BufferObserver bufferObserver;

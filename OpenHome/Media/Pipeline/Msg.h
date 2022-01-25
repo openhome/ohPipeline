@@ -91,6 +91,7 @@ class Allocated
 public:
     void AddRef();
     void RemoveRef();
+    inline TUint RefCount() const;
 protected:
     Allocated(AllocatorBase& aAllocator);
 protected:
@@ -883,6 +884,7 @@ public:
     void SetMuted(); // should only be used with msgs immediately following a ramp down
     const Media::Ramp& Ramp() const;
     TUint MedianRampMultiplier(); // 1<<31 => full level.  Note - clears any existing ramp
+    TBool HasBufferObserver() const;
 protected:
     MsgAudio(AllocatorBase& aAllocator);
     void Initialise(TUint aSampleRate, TUint aBitDepth, TUint aChannels);
@@ -1039,10 +1041,10 @@ class MsgPlayable : public Msg
 {
 public:
     MsgPlayable* Split(TUint aBytes); // returns block after aBytes
-    void Add(MsgPlayable* aMsg); // combines MsgPlayable instances so they report longer durations etc
     TUint Bytes() const;
     TUint Jiffies() const;
     const Media::Ramp& Ramp() const;
+    TBool HasBufferObserver() const;
     /**
      * Extract pcm data from this msg.
      *
@@ -1058,26 +1060,25 @@ public:
     virtual TBool TryLogTimestamps();
 protected:
     MsgPlayable(AllocatorBase& aAllocator);
-    void Initialise(TUint aSizeBytes, TUint aSampleRate, TUint aBitDepth,
-                    TUint aNumChannels, TUint aOffsetBytes, const Media::Ramp& aRamp,
+    void Initialise(TUint aSizeBytes, TUint aJiffies,
+                    TUint aSampleRate, TUint aBitDepth, TUint aNumChannels,
+                    TUint aOffsetBytes, const Media::Ramp& aRamp,
                     Optional<IPipelineBufferObserver> aPipelineBufferObserver);
 protected: // from Msg
     Msg* Process(IMsgProcessor& aProcessor) override;
     void Clear() override;
 private:
-    TUint MsgJiffies() const;
     virtual MsgPlayable* Allocate() = 0;
     virtual void SplitCompleted(MsgPlayable& aRemaining);
     virtual void ReadBlock(IPcmProcessor& aProcessor);
     virtual void ReadBlock(IDsdProcessor& aProcessor);
 protected:
-    MsgPlayable* iNextPlayable;
     TUint iSize; // Bytes
+    TUint iJiffies;
     TUint iSampleRate;
     TUint iBitDepth;
     TUint iNumChannels;
     TUint iOffset; // Bytes
-    TUint iSizeTotalJiffies;
     Media::Ramp iRamp;
     IPipelineBufferObserver* iPipelineBufferObserver;
     // TUint iSampleBlockWords;
@@ -1089,8 +1090,9 @@ class MsgPlayablePcm : public MsgPlayable
 public:
     MsgPlayablePcm(AllocatorBase& aAllocator);
 private:
-    void Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, TUint aSampleRate, TUint aBitDepth,
-                    TUint aNumChannels, TUint aOffsetBytes, TUint aAttenuation, const Media::Ramp& aRamp,
+    void Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, TUint aJiffies,
+                    TUint aSampleRate, TUint aBitDepth, TUint aNumChannels, TUint aOffsetBytes,
+                    TUint aAttenuation, const Media::Ramp& aRamp,
                     Optional<IPipelineBufferObserver> aPipelineBufferObserver);
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
@@ -1112,8 +1114,8 @@ class MsgPlayableDsd : public MsgPlayable
 public:
     MsgPlayableDsd(AllocatorBase& aAllocator);
 private:
-    void Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, TUint aSampleRate,
-                    TUint aNumChannels, TUint aSampleBlockBits, TUint aOffsetBytes,
+    void Initialise(DecodedAudio* aDecodedAudio, TUint aSizeBytes, TUint aJiffies,
+                    TUint aSampleRate, TUint aNumChannels, TUint aSampleBlockBits, TUint aOffsetBytes,
                     const Media::Ramp& aRamp, Optional<IPipelineBufferObserver> aPipelineBufferObserver);
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
@@ -1133,12 +1135,12 @@ class MsgPlayableSilence : public MsgPlayable
 public:
     MsgPlayableSilence(AllocatorBase& aAllocator);
 private:
-    void Initialise(TUint aSizeBytes, TUint aSampleRate, TUint aBitDepth,
+    void Initialise(TUint aSizeBytes, TUint aJiffies,
+                    TUint aSampleRate, TUint aBitDepth,
                     TUint aNumChannels, const Media::Ramp& aRamp,
                     Optional<IPipelineBufferObserver> aPipelineBufferObserver);
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
-    void SplitCompleted(MsgPlayable& aRemaining) override;
     void ReadBlock(IPcmProcessor& aProcessor) override;
 };
 
@@ -1149,12 +1151,11 @@ class MsgPlayableSilenceDsd : public MsgPlayable
 public:
     MsgPlayableSilenceDsd(AllocatorBase& aAllocator);
 private:
-    void Initialise(TUint aSizeBytes, TUint aSampleRate, TUint aBitDepth,
+    void Initialise(TUint aSizeBytes, TUint aJiffies, TUint aSampleRate, TUint aBitDepth,
                     TUint aNumChannels, TUint aSampleBlockWords, const Media::Ramp& aRamp,
                     Optional<IPipelineBufferObserver> aPipelineBufferObserver);
 private: // from MsgPlayable
     MsgPlayable* Allocate() override;
-    void SplitCompleted(MsgPlayable& aRemaining) override;
     void ReadBlock(IDsdProcessor& aProcessor) override;
 private:
     TUint iSampleBlockWords;
@@ -1552,6 +1553,8 @@ private:
  */
 class ISupply
 {
+public:
+    static const TUint kMaxDrainMs;
 public:
     virtual ~ISupply() {}
     /**
@@ -2032,6 +2035,30 @@ public:
     MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords);
     MsgQuit* CreateMsgQuit();
     DecodedAudio* CreateDecodedAudio();
+public:
+    inline TUint AllocatorModeCount() const;
+    inline TUint AllocatorTrackCount() const;
+    inline TUint AllocatorDrainCount() const;
+    inline TUint AllocatorDelayCount() const;
+    inline TUint AllocatorEncodedStreamCount() const;
+    inline TUint AllocatorStreamSegmentCount() const;
+    inline TUint AllocatorAudioDataCount() const;
+    inline TUint AllocatorAudioEncodedCount() const;
+    inline TUint AllocatorMetaTextCount() const;
+    inline TUint AllocatorStreamInterruptedCount() const;
+    inline TUint AllocatorHaltCount() const;
+    inline TUint AllocatorFlushCount() const;
+    inline TUint AllocatorWaitCount() const;
+    inline TUint AllocatorDecodedStreamCount() const;
+    inline TUint AllocatorBitRateCount() const;
+    inline TUint AllocatorAudioPcmCount() const;
+    inline TUint AllocatorAudioDsdCount() const;
+    inline TUint AllocatorSilenceCount() const;
+    inline TUint AllocatorPlayablePcmCount() const;
+    inline TUint AllocatorPlayableDsdCount() const;
+    inline TUint AllocatorPlayableSilenceCount() const;
+    inline TUint AllocatorPlayableSilenceDsdCount() const;
+    inline TUint AllocatorQuitCount() const;
 private:
     EncodedAudio* CreateEncodedAudio(const Brx& aData);
     DecodedAudio* CreateDecodedAudio(const Brx& aData, TUint aBitDepth, AudioDataEndian aEndian);

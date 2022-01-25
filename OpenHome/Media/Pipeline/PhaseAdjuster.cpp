@@ -46,6 +46,7 @@ PhaseAdjuster::PhaseAdjuster(
     TUint aMinDelayJiffies
 )
     : PipelineElement(kSupportedMsgTypes)
+    , iLockClockPuller("PAdj")
     , iMsgFactory(aMsgFactory)
     , iUpstreamElement(aUpstreamElement)
     , iStarvationRamper(aStarvationRamper)
@@ -53,11 +54,9 @@ PhaseAdjuster::PhaseAdjuster(
     , iEnabled(false)
     , iState(State::Running)
     , iLock("SPAL")
-    , iUpdateCount(0)
     , iTrackedJiffies(0)
-    , iAudioIn(0)
-    , iAudioOut(0)
     , iDecodedStream(nullptr)
+    , iDrain(nullptr)
     , iDelayJiffies(0)
     , iDelayTotalJiffies(0)
     , iDroppedJiffies(0)
@@ -75,6 +74,7 @@ PhaseAdjuster::~PhaseAdjuster()
 {
     iQueue.Clear();
     ClearDecodedStream();
+    ClearDrain();
 }
 
 void PhaseAdjuster::SetAnimator(IPipelineAnimator& aAnimator)
@@ -123,8 +123,9 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
     if (iEnabled) {
         ResetPhaseDelay();
     }
-
-    return aMsg;
+    ASSERT(iDrain == nullptr);
+    iDrain = aMsg;
+    return iMsgFactory.CreateMsgDrain(MakeFunctor(*this, &PhaseAdjuster::PipelineDrained));
 }
 
 Msg* PhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
@@ -167,14 +168,19 @@ Msg* PhaseAdjuster::ProcessMsg(MsgSilence* aMsg)
 
 void PhaseAdjuster::Update(TInt aDelta)
 {
-    iTrackedJiffies += aDelta;
-    iUpdateCount++;
-
-    if (aDelta < 0) {
-        iAudioOut -= aDelta;
+    TInt jiffies = 0;
+    {
+        AutoMutex _(iLockClockPuller);
+        iTrackedJiffies += aDelta;
+        if (iTrackedJiffies < 0) { /* see #7730 - pipeline occupancy going negative would
+                                      imply we've been too aggressive when we zeroed tracked
+                                      jiffies on a drain */
+            jiffies = iTrackedJiffies;
+            iTrackedJiffies = 0;
+        }
     }
-    else {
-        iAudioIn += aDelta;
+    if (jiffies < 0) {
+        LOG(kMedia, "PhaseAdjuster error when trackedJiffies was reset - count went to %d (%dms)\n", jiffies, jiffies / Jiffies::kPerMs);
     }
 }
 
@@ -205,14 +211,20 @@ void PhaseAdjuster::TryCalculateDelay()
     }
 }
 
+extern void PipelineLogBuffers();
 MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
 {
     if (iState == State::Starting) {
         // log intention to discard audio once (function may be called many times with
         // State::Adjusting while we discard and we can't afford to log all these times).
         const TUint trackedJiffies = static_cast<TUint>(iTrackedJiffies);
-        LOG(kPipeline, "PhaseAdjuster: tracked=%u (%ums), delay=%u (%ums)\n",
-                       trackedJiffies, Jiffies::ToMs(trackedJiffies), iDelayJiffies, Jiffies::ToMs(iDelayJiffies));
+        LOG(kPipeline, "PhaseAdjuster: tracked=%u (%ums), delay=%u (%ums), audioPcmCount=%u\n",
+            trackedJiffies,
+            Jiffies::ToMs(trackedJiffies),
+            iDelayJiffies,
+            Jiffies::ToMs(iDelayJiffies),
+            iMsgFactory.AllocatorAudioPcmCount());
+        PipelineLogBuffers();
         iState = State::Adjusting;
     }
 
@@ -228,18 +240,19 @@ MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
             iState = State::Running;
             return aMsg;
         }
-        TInt error = iTrackedJiffies - iDelayJiffies;
+        TInt error;
+        {
+            AutoMutex _(iLockClockPuller);
+            error = iTrackedJiffies - iDelayJiffies;
+        }
         if (error > 0) {
             // Drop audio.
             TUint dropped = 0;
-            MsgAudio* msg = aMsg;
-            if (error > 0) { // Error may have become 0 in drop limit calc above.
-                msg = DropAudio(aMsg, error, dropped);
-                iStarvationRamper.WaitForOccupancy(iAnimator->PipelineAnimatorBufferJiffies());
-            }
+            MsgAudio* msg = DropAudio(aMsg, error, dropped);
+            iStarvationRamper.WaitForOccupancy(iAnimator->PipelineAnimatorBufferJiffies());
             iDroppedJiffies += dropped;
             error -= dropped;
-            if (error == 0) {
+            if (msg != nullptr) {
                 // Have dropped audio so must now ramp up.
                 return StartRampUp(msg);
             }
@@ -284,29 +297,19 @@ MsgAudio* PhaseAdjuster::DropAudio(MsgAudio* aMsg, TUint aJiffies, TUint& aDropp
     return aMsg;
 }
 
-MsgSilence* PhaseAdjuster::InjectSilence(TUint aJiffies)
-{
-    ASSERT(iDecodedStream != nullptr);
-    const auto& stream = iDecodedStream->StreamInfo();
-    TUint jiffies = aJiffies;
-    auto* msg = iMsgFactory.CreateMsgSilence(jiffies, stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
-    iInjectedJiffies += jiffies;
-    return msg;
-}
-
 MsgAudio* PhaseAdjuster::RampUp(MsgAudio* aMsg)
 {
     ASSERT(aMsg != nullptr);
-    MsgAudio* split;
+    MsgAudio* split = nullptr;
     if (aMsg->Jiffies() > iRemainingRampSize && iRemainingRampSize > 0) {
         split = aMsg->Split(iRemainingRampSize);
-        if (split != nullptr) {
-            iQueue.Enqueue(split);
-        }
     }
-    split = nullptr;
     if (iRemainingRampSize > 0) {
-        iCurrentRampValue = aMsg->SetRamp(iCurrentRampValue, iRemainingRampSize, Ramp::EUp, split);
+        MsgAudio* split2 = nullptr;
+        iCurrentRampValue = aMsg->SetRamp(iCurrentRampValue, iRemainingRampSize, Ramp::EUp, split2);
+        if (split2 != nullptr) {
+            iQueue.Enqueue(split2);
+        }
     }
     if (split != nullptr) {
         iQueue.Enqueue(split);
@@ -319,8 +322,12 @@ MsgAudio* PhaseAdjuster::RampUp(MsgAudio* aMsg)
 
 MsgAudio* PhaseAdjuster::StartRampUp(MsgAudio* aMsg)
 {
-    LOG(kPipeline, "PhaseAdjuster::StartRampUp dropped %u jiffies (%ums)\n",
-                   iDroppedJiffies, Jiffies::ToMs(iDroppedJiffies));
+    LOG(kPipeline, "PhaseAdjuster::StartRampUp dropped %u jiffies (%ums), queue size = %u, , audioPcmCount=%u\n",
+        iDroppedJiffies,
+        Jiffies::ToMs(iDroppedJiffies),
+        iQueue.NumMsgs(),
+        iMsgFactory.AllocatorAudioPcmCount());
+    PipelineLogBuffers();
     iState = State::RampingUp;
     iRemainingRampSize = iRampJiffies;
     iConfirmOccupancy = true; /* We've discarded some audio.  There may now be no audio in
@@ -375,7 +382,6 @@ void PhaseAdjuster::ResetPhaseDelay()
     iState = State::Starting;
 
     iDroppedJiffies = 0;
-    iInjectedJiffies = 0;
 
     iRemainingRampSize = iRampJiffies;
     iCurrentRampValue = Ramp::kMin;
@@ -389,17 +395,21 @@ void PhaseAdjuster::ClearDecodedStream()
     }
 }
 
-void PhaseAdjuster::PrintStats(const Brx& /*aMsgType*/, TUint /*aJiffies*/)
+void PhaseAdjuster::ClearDrain()
 {
-    // static const TUint kInitialJiffiesTrackingLimit = 50 * Jiffies::kPerMs;
-    // static const TUint kJiffiesStatsInterval = 50 * Jiffies::kPerMs;
-    // static const TUint kJiffiesStatsLimit = 500 * Jiffies::kPerMs;
-    // if ((aJiffies < kInitialJiffiesTrackingLimit || aJiffies % kJiffiesStatsInterval == 0) && aJiffies <= kJiffiesStatsLimit) {
-    //     const TInt tj = iTrackedJiffies;
-    //     const TInt err = tj - iDelayJiffies;
-    //     const TUint in = iAudioIn;
-    //     const TUint out = iAudioOut;
-    //
-    //     Log::Print("PhaseAdjuster::PrintStats aMsgType: %.*s, aJiffies: %u (%u ms), tracked jiffies: %d (%u ms), err: %d (%u ms), in: %u (%u ms), out: %u (%u ms)\n", PBUF(aMsgType), aJiffies, Jiffies::ToMs(aJiffies), tj, Jiffies::ToMs((TUint)tj), err, Jiffies::ToMs((TUint)err), in, Jiffies::ToMs(in), out, Jiffies::ToMs(out));
-    // }
+    if (iDrain != nullptr) {
+        iDrain->ReportDrained();
+        iDrain->RemoveRef();
+        iDrain = nullptr;
+    }
+}
+
+void PhaseAdjuster::PipelineDrained()
+{
+    {
+        AutoMutex _(iLockClockPuller);
+        iTrackedJiffies = 0; // see #7730 - clear any error that has accumulated in the clock puller
+    }
+    ASSERT(iDrain != nullptr);
+    ClearDrain();
 }

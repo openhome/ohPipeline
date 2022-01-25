@@ -36,7 +36,7 @@ public:
     static Protocol* NewFile(Environment& aEnv);
     static Protocol* NewTone(Environment& aEnv);
     static Protocol* NewRtsp(Environment& aEnv, const Brx& aGuid);
-    static Protocol* NewTidal(Environment& aEnv, SslContext& aSsl, const Brx& aPartnerId, const Brx& aClientId, const Brx& aClientSecret, std::vector<OAuthAppDetails>& aAppDetails, Av::IMediaPlayer& aMediaPlayer);
+    static Protocol* NewTidal(Environment& aEnv, SslContext& aSsl, const Brx& aClientId, const Brx& aClientSecret, std::vector<OAuthAppDetails>& aAppDetails, Av::IMediaPlayer& aMediaPlayer);
     static Protocol* NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av::IMediaPlayer& aMediaPlayer);
     static Protocol* NewCalmRadio(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, Av::IMediaPlayer& aMediaPlayer); // UA is optional so can be empty
 };

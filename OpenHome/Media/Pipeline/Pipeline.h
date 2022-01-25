@@ -313,13 +313,15 @@ private:
     VariableDelayRight* iVariableDelay2;
     Logger* iLoggerVariableDelay2;
     RampValidator* iRampValidatorDelay2;
-    PhaseAdjuster* iPhaseAdjuster;
-    Logger* iLoggerPhaseAdjuster;
     DecodedAudioValidator* iDecodedAudioValidatorDelay2;
     StarvationRamper* iStarvationRamper;
     Logger* iLoggerStarvationRamper;
     RampValidator* iRampValidatorStarvationRamper;
     DecodedAudioValidator* iDecodedAudioValidatorStarvationRamper;
+    PhaseAdjuster* iPhaseAdjuster;
+    Logger* iLoggerPhaseAdjuster;
+    RampValidator* iRampValidatorPhaseAdjuster;
+    DecodedAudioValidator* iDecodedAudioValidatorPhaseAdjuster;
     Muter* iMuterSamples;      // only one of iMuter or iMuterVolume will be instantiated
     MuterVolume* iMuterVolume; // only one of iMuter or iMuterVolume will be instantiated
     IMute* iMuter;

@@ -506,22 +506,23 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
                                         upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerStarvationRamper, new Logger(*iStarvationRamper, "StarvationRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-
-
-    ATTACH_ELEMENT(iPhaseAdjuster, new PhaseAdjuster(*iMsgFactory, *upstream, *iStarvationRamper,
-                                                     aInitParams->RampLongJiffies(),
-                                                     aInitParams->RampShortJiffies(),
-                                                     aInitParams->StarvationRamperMinJiffies()),
-                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerPhaseAdjuster, new Logger(*iPhaseAdjuster, "PhaseAdjuster"),
-                   upstream, elementsSupported, EPipelineSupportElementsLogger);
-
-
     ATTACH_ELEMENT(iRampValidatorStarvationRamper, new RampValidator(*upstream, "StarvationRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator | EPipelineSupportElementsValidatorMinimal);
     ATTACH_ELEMENT(iDecodedAudioValidatorStarvationRamper,
                    new DecodedAudioValidator(*upstream, "StarvationRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    ATTACH_ELEMENT(iPhaseAdjuster, new PhaseAdjuster(*iMsgFactory, *upstream, *iStarvationRamper,
+        aInitParams->RampLongJiffies(),
+        aInitParams->RampShortJiffies(),
+        aInitParams->StarvationRamperMinJiffies()),
+        upstream, elementsSupported, EPipelineSupportElementsMandatory);
+    ATTACH_ELEMENT(iLoggerPhaseAdjuster, new Logger(*iPhaseAdjuster, "PhaseAdjuster"),
+        upstream, elementsSupported, EPipelineSupportElementsLogger);
+    ATTACH_ELEMENT(iRampValidatorPhaseAdjuster, new RampValidator(*upstream, "PhaseAdjuster"),
+        upstream, elementsSupported, EPipelineSupportElementsRampValidator | EPipelineSupportElementsValidatorMinimal);
+    ATTACH_ELEMENT(iDecodedAudioValidatorPhaseAdjuster,
+        new DecodedAudioValidator(*upstream, "PhaseAdjuster"),
+        upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     IMute* muter = nullptr;
     if (aInitParams->Muter() == PipelineInitParams::MuterImpl::eRampSamples) {
         ATTACH_ELEMENT(iMuterSamples, new Muter(*iMsgFactory, *upstream, aInitParams->RampLongJiffies()),
@@ -584,6 +585,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerDrainer2->SetEnabled(true);
     //iLoggerVariableDelay2->SetEnabled(true);
     //iLoggerStarvationRamper->SetEnabled(true);
+    //iLoggerPhaseAdjuster->SetEnabled(true);
     //iLoggerMuter->SetEnabled(true);
     //iLoggerVolumeRamper->SetEnabled(true);
 
@@ -613,6 +615,7 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     //iLoggerDrainer2->SetFilter(Logger::EMsgAll);
     //iLoggerVariableDelay2->SetFilter(Logger::EMsgAll);
     //iLoggerStarvationRamper->SetFilter(Logger::EMsgAll);
+    //iLoggerPhaseAdjuster->SetFilter(Logger::EMsgAll);
     //iLoggerMuter->SetFilter(Logger::EMsgAll);
     //iLoggerVolumeRamper->SetFilter(Logger::EMsgAll);
     //iLoggerPreDriver->SetFilter(Logger::EMsgAll);
@@ -635,6 +638,10 @@ Pipeline::~Pipeline()
     delete iLoggerMuter;
     delete iMuterVolume;
     delete iMuterSamples;
+    delete iDecodedAudioValidatorPhaseAdjuster;
+    delete iRampValidatorPhaseAdjuster;
+    delete iLoggerPhaseAdjuster;
+    delete iPhaseAdjuster;
     delete iDecodedAudioValidatorStarvationRamper;
     delete iRampValidatorStarvationRamper;
     delete iLoggerStarvationRamper;
@@ -642,8 +649,6 @@ Pipeline::~Pipeline()
     delete iLoggerAttenuator;
     delete iAttenuator;
     delete iDecodedAudioValidatorDelay2;
-    delete iLoggerPhaseAdjuster;
-    delete iPhaseAdjuster;
     delete iRampValidatorDelay2;
     delete iLoggerVariableDelay2;
     delete iVariableDelay2;
@@ -924,8 +929,18 @@ void Pipeline::GetMaxSupportedSampleRates(TUint& aPcm, TUint& aDsd) const
 
 void PipelineLogBuffers()
 {
-    gPipeline->LogBuffers();
+    if (gPipeline != nullptr) {
+        gPipeline->LogBuffers();
+    }
 }
+
+#ifdef PIPELINE_LOG_AUDIO_THROUGHPUT
+static void LogComponentAudioThroughput(Logger* aLogger) {
+    if (aLogger != nullptr) {
+        aLogger->LogAudio();
+    }
+}
+#endif // PIPELINE_LOG_AUDIO_THROUGHPUT
 
 void Pipeline::LogBuffers() const
 {
@@ -934,6 +949,31 @@ void Pipeline::LogBuffers() const
     const TUint starvationMs = Jiffies::ToMs(iStarvationRamper->SizeInJiffies());
     Log::Print("Pipeline utilisation: encodedBytes=%u, decodedMs=%u, starvationRamper=%u\n",
                encodedBytes, decodedMs, starvationMs);
+#ifdef PIPELINE_LOG_AUDIO_THROUGHPUT
+    LogComponentAudioThroughput(iLoggerCodecController);
+    LogComponentAudioThroughput(iLoggerStreamValidator);
+    LogComponentAudioThroughput(iLoggerDecodedAudioAggregator);
+    LogComponentAudioThroughput(iLoggerDecodedAudioReservoir);
+    LogComponentAudioThroughput(iLoggerRamper);
+    LogComponentAudioThroughput(iLoggerSeeker);
+    LogComponentAudioThroughput(iLoggerDrainer1);
+    LogComponentAudioThroughput(iLoggerVariableDelay1);
+    LogComponentAudioThroughput(iLoggerSkipper);
+    LogComponentAudioThroughput(iLoggerTrackInspector);
+    LogComponentAudioThroughput(iLoggerWaiter);
+    LogComponentAudioThroughput(iLoggerStopper);
+    LogComponentAudioThroughput(iLoggerSpotifyReporter);
+    LogComponentAudioThroughput(iLoggerReporter);
+    LogComponentAudioThroughput(iLoggerRouter);
+    LogComponentAudioThroughput(iLoggerAttenuator);
+    LogComponentAudioThroughput(iLoggerDrainer2);
+    LogComponentAudioThroughput(iLoggerVariableDelay2);
+    LogComponentAudioThroughput(iLoggerStarvationRamper);
+    LogComponentAudioThroughput(iLoggerPhaseAdjuster);
+    LogComponentAudioThroughput(iLoggerMuter);
+    LogComponentAudioThroughput(iLoggerVolumeRamper);
+    LogComponentAudioThroughput(iLoggerPreDriver);
+#endif // PIPELINE_LOG_AUDIO_THROUGHPUT
 }
 
 void Pipeline::Push(Msg* aMsg)

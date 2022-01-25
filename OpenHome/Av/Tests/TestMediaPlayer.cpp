@@ -456,7 +456,6 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     // only add Tidal if we have a token to use with login
     if (iTidalValues.Bytes() > 0) {
         Parser p(iTidalValues);
-        Brn partnerId(p.Next(':'));
         Brn clientId(p.Next(':'));
         Brn clientSecret(p.Next(':'));
         std::vector<OAuthAppDetails> apps;
@@ -470,13 +469,13 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
             apps.push_back(OAuthAppDetails(appId, appClientId, appClientSecret));
         }
 
-        Log::Print("TIDAL: partnerId = %.*s, clientId = %.*s, clientSecret = %.*s\n", PBUF(partnerId), PBUF(clientId), PBUF(clientSecret));
+        Log::Print("TIDAL: clientId = %.*s, clientSecret = %.*s\n", PBUF(clientId), PBUF(clientSecret));
         for(const auto& v : apps)
         {
             Log::Print("    App: ID: %.*s - ClientId = %.*s, Secret = %.*s\n", PBUF(v.AppId()), PBUF(v.ClientId()), PBUF(v.ClientSecret()));
         }
 
-        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, ssl, partnerId, clientId, clientSecret, apps, *iMediaPlayer));
+        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, ssl, clientId, clientSecret, apps, *iMediaPlayer));
     }
     // ...likewise, only add Qobuz if we have ids for login
     if (iQobuzIdSecret.Bytes() > 0) {

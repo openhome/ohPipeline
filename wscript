@@ -837,6 +837,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestCredentials.cpp',
                 'Generated/CpAvOpenhomeOrgCredentials1.cpp',
                 'OpenHome/Tests/TestJson.cpp',
+                'OpenHome/Tests/TestObservable.cpp',
                 'OpenHome/Tests/TestAESHelpers.cpp',
                 'OpenHome/Tests/TestThreadPool.cpp',
                 'OpenHome/Av/Tests/TestRaop.cpp',
@@ -1135,9 +1136,9 @@ def build(bld):
     #        target='TestHttpsBsd',
     #        install_path=None)
     bld.program(
-            source='OpenHome/Av/Tidal/TestTidal.cpp',
-            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist'],
-            target='TestTidal',
+            source='OpenHome/Tests/TestObservableMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestObservable',
             install_path=None)
     bld.program(
             source='OpenHome/Tests/TestJsonMain.cpp',

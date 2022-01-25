@@ -409,6 +409,7 @@ StarvationRamper::StarvationRamper(MsgFactory& aMsgFactory, IPipelineElementUpst
     , iTargetFlushId(MsgFlush::kIdInvalid)
     , iLastPulledAudioRampValue(Ramp::kMax)
     , iTrackStreamCount(0)
+    , iDrainCount(0)
     , iHaltCount(0)
     , iStartOccupancyJiffies(0)
     , iSemStartOccupancy("SRM3", 0)
@@ -623,7 +624,8 @@ Msg* StarvationRamper::Pull()
 {
     {
         const auto startOccupancy = iStartOccupancyJiffies.load();
-        if (startOccupancy > 0) {
+        if (startOccupancy > 0 &&
+            iDrainCount.load() == 0 && iHaltCount.load() == 0) {
             if (Jiffies() < startOccupancy) {
                 iSemStartOccupancy.Wait();
             }
@@ -676,6 +678,12 @@ void StarvationRamper::ProcessMsgIn(MsgTrack* /*aMsg*/)
     iTrackStreamCount++;
 }
 
+void StarvationRamper::ProcessMsgIn(MsgDrain* /*aMsg*/)
+{
+    iDrainCount++;
+    iSemStartOccupancy.Signal();
+}
+
 void StarvationRamper::ProcessMsgIn(MsgDelay* aMsg)
 {
     iMaxJiffies = std::max(aMsg->RemainingJiffies(), 140 * Jiffies::kPerMs);
@@ -713,6 +721,7 @@ Msg* StarvationRamper::ProcessMsgOut(MsgTrack* aMsg)
 
 Msg* StarvationRamper::ProcessMsgOut(MsgDrain* aMsg)
 {
+    iDrainCount--;
     iDraining.store(false);
     if (iState == State::Running ||
         (iState == State::RampingUp && iCurrentRampValue != Ramp::kMin)) {
@@ -905,6 +914,9 @@ Msg* StarvationRamper::ProcessMsgOut(MsgSilence* aMsg)
 
 void StarvationRamper::WaitForOccupancy(TUint aJiffies)
 {
+    if (iDrainCount.load() > 0 || iHaltCount.load() > 0) {
+        return;
+    }
     (void)iSemStartOccupancy.Clear();
     iStartOccupancyJiffies.store(aJiffies);
 }
