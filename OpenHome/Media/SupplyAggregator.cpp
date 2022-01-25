@@ -121,10 +121,10 @@ void SupplyAggregatorBytes::SetMaxBytes(TUint aMaxBytes)
     iDataMaxBytes = aMaxBytes;
 }
 
-void SupplyAggregatorBytes::OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId)
+void SupplyAggregatorBytes::OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId, TUint aSeekPosMs)
 {
     // FIXME - no metatext available
-    MsgEncodedStream* msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, &aStreamHandler);
+    MsgEncodedStream* msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, &aStreamHandler, aSeekPosMs);
     Output(msg);
 }
 
@@ -169,7 +169,7 @@ SupplyAggregatorJiffies::SupplyAggregatorJiffies(MsgFactory& aMsgFactory, IPipel
 {
 }
 
-void SupplyAggregatorJiffies::OutputStream(const Brx& /*aUri*/, TUint64 /*aTotalBytes*/, TUint64 /*aStartPos*/, TBool /*aSeekable*/, TBool /*aLive*/, Media::Multiroom /*aMultiroom*/, IStreamHandler& /*aStreamHandler*/, TUint /*aStreamId*/)
+void SupplyAggregatorJiffies::OutputStream(const Brx& /*aUri*/, TUint64 /*aTotalBytes*/, TUint64 /*aStartPos*/, TBool /*aSeekable*/, TBool /*aLive*/, Media::Multiroom /*aMultiroom*/, IStreamHandler& /*aStreamHandler*/, TUint /*aStreamId*/, TUint /*aSeekPosMs*/)
 {
     ASSERTS(); // can only aggregate by jiffies for PCM streams
 }

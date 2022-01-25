@@ -38,10 +38,10 @@ void Supply::OutputDelay(TUint aJiffies)
     iDownStreamElement.Push(msg);
 }
 
-void Supply::OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId)
+void Supply::OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId, TUint aSeekPosMs)
 {
     // FIXME - no metatext available
-    MsgEncodedStream* msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, &aStreamHandler);
+    MsgEncodedStream* msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes, aStartPos, aStreamId, aSeekable, aLive, aMultiroom, &aStreamHandler, aSeekPosMs);
     iDownStreamElement.Push(msg);
 }
 

@@ -362,6 +362,12 @@ private:
 
 class CodecController : public ISeeker, private ICodecController, private IMsgProcessor, private IStreamHandler, private INonCopyable
 {
+private:
+    class InitialSeekObserver : public ISeekObserver
+    {
+    private: // from ISeekObserver
+        void NotifySeekComplete(TUint aHandle, TUint aFlushId) override;
+    };
 public:
     CodecController(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, IPipelineElementDownstream& aDownstreamElement,
                     IUrlBlockWriter& aUrlBlockWriter, TUint aMaxOutputJiffies, TUint aThreadPriority, TBool aLogger);
@@ -483,6 +489,8 @@ private:
     DecodedAudio* iAudioDecoded;
     TUint iAudioDecodedBytes;
     RampType iRamp;
+    TUint iInitialSeekPos;
+    InitialSeekObserver iInitialSeekObserver;
 };
 
 class CodecBufferedReader : public IReader, private INonCopyable

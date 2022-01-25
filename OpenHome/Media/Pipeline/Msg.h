@@ -609,6 +609,9 @@ public:
     const Brx& Uri() const;
     const Brx& MetaText() const;
     TUint64 TotalBytes() const;
+    /*
+     * Stream start position, in bytes.
+     */
     TUint64 StartPos() const;
     TUint StreamId() const;
     TBool Seekable() const;
@@ -620,8 +623,12 @@ public:
     const PcmStreamInfo& PcmStream() const;
     const DsdStreamInfo& DsdStream() const;
     RampType Ramp() const;
+    /*
+     * Desired start position for stream. Appropriate handler must seek to this position in stream, if necessary. May not align with StartPos() bytes.
+     */
+    TUint SeekPosMs() const;
 private:
-    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
+    void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, TUint aSeekPosMs);
     void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp = kRampDefault);
     void Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);
 private: // from Msg
@@ -641,6 +648,7 @@ private:
     PcmStreamInfo iPcmStreamInfo;
     DsdStreamInfo iDsdStreamInfo;
     RampType iRamp;
+    TUint iSeekPos;
 };
 
 class MsgStreamSegment : public Msg
@@ -1579,8 +1587,9 @@ public:
      * @param[in] aMultiroom       Whether the current stream is allowed to be broadcast to other music players.
      * @param[in] aStreamHandler   Stream handler.  Used to allow pipeline elements to communicate upstream.
      * @param[in] aStreamId        Identifier for the pending stream.  Unique within a single track only.
+     * @param[in] aSeekPosMs       Desired start position for stream. Appropriate handler must seek to this position in stream if non-zero. May not align with StartPos() bytes.
      */
-    virtual void OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId) = 0;
+    virtual void OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler& aStreamHandler, TUint aStreamId, TUint aSeekPosMs = 0) = 0;
     /**
      * Inform the pipeline that a new (raw PCM) audio stream is starting
      *
@@ -1997,8 +2006,8 @@ public:
     MsgDrain* CreateMsgDrain(Functor aCallback);
     MsgDelay* CreateMsgDelay(TUint aTotalJiffies);
     MsgDelay* CreateMsgDelay(TUint aRemainingJiffies, TUint aTotalJiffies);
-    MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
-    MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler);
+    MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, TUint aSeekPosMs = 0);
+    MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, TUint aSeekPosMs);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp);
     MsgEncodedStream* CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aOffset, TUint aStreamId, TBool aSeekable, IStreamHandler* aStreamHandler, const DsdStreamInfo& aDsdStream);

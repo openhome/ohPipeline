@@ -166,7 +166,8 @@ void SupplyScd::OutputDelay(TUint /*aJiffies*/)
 void SupplyScd::OutputStream(const Brx& /*aUri*/,
                              TUint64 /*aTotalBytes*/, TUint64 /*aStartPos*/,
                              TBool /*aSeekable*/, TBool /*aLive*/, Multiroom /*aMultiroom*/,
-                             IStreamHandler& /*aStreamHandler*/, TUint /*aStreamId*/)
+                             IStreamHandler& /*aStreamHandler*/, TUint /*aStreamId*/,
+                             TUint /*aSeekPosMs*/)
 {
     ASSERTS(); // only expect to receive PCM streams
 }

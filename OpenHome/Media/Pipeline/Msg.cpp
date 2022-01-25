@@ -1454,7 +1454,12 @@ RampType MsgEncodedStream::Ramp() const
     return iRamp;
 }
 
-void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler)
+TUint MsgEncodedStream::SeekPosMs() const
+{
+    return iSeekPos;
+}
+
+void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, TUint aSeekPosMs)
 {
     iUri.Replace(aUri);
     iMetaText.Replace(aMetaText);
@@ -1469,6 +1474,7 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iPcmStreamInfo.Clear();
     iDsdStreamInfo.Clear();
     iRamp = kRampDefault;
+    iSeekPos = aSeekPosMs;
 }
 
 void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, const PcmStreamInfo& aPcmStream, RampType aRamp)
@@ -1486,6 +1492,7 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iPcmStreamInfo = aPcmStream;
     iDsdStreamInfo.Clear();
     iRamp = aRamp;
+    iSeekPos = 0;
 }
 
 void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes,
@@ -1506,6 +1513,7 @@ void MsgEncodedStream::Initialise(const Brx& aUri, const Brx& aMetaText, TUint64
     iPcmStreamInfo.Clear();
     iDsdStreamInfo = aDsdStream;
     iRamp = kRampDsd;
+    iSeekPos = 0;
 }
 
 void MsgEncodedStream::Clear()
@@ -1521,6 +1529,7 @@ void MsgEncodedStream::Clear()
     iStreamHandler = nullptr;
     iPcmStreamInfo.Clear();
     iRamp = kRampDefault;
+    iSeekPos = 0;
 #endif
 }
 
@@ -3881,18 +3890,18 @@ MsgDelay* MsgFactory::CreateMsgDelay(TUint aRemainingJiffies, TUint aTotalJiffie
     return msg;
 }
 
-MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler)
+MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, TUint aSeekPosMs)
 {
     const auto seek = aSeekable ? SeekCapability::SeekCache : SeekCapability::None;
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
-    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, seek, aLive, aMultiroom, aStreamHandler);
+    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, seek, aLive, aMultiroom, aStreamHandler, aSeekPosMs);
     return msg;
 }
 
-MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler)
+MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(const Brx& aUri, const Brx& aMetaText, TUint64 aTotalBytes, TUint64 aStartPos, TUint aStreamId, Media::SeekCapability aSeek, TBool aLive, Media::Multiroom aMultiroom, IStreamHandler* aStreamHandler, TUint aSeekPosMs)
 {
     MsgEncodedStream* msg = iAllocatorMsgEncodedStream.Allocate();
-    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeek, aLive, aMultiroom, aStreamHandler);
+    msg->Initialise(aUri, aMetaText, aTotalBytes, aStartPos, aStreamId, aSeek, aLive, aMultiroom, aStreamHandler, aSeekPosMs);
     return msg;
 }
 
@@ -3931,7 +3940,7 @@ MsgEncodedStream* MsgFactory::CreateMsgEncodedStream(MsgEncodedStream* aMsg, ISt
         msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->SeekCapability(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->DsdStream());
     }
     else {
-        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->SeekCapability(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler);
+        msg->Initialise(aMsg->Uri(), aMsg->MetaText(), aMsg->TotalBytes(), aMsg->StartPos(), aMsg->StreamId(), aMsg->SeekCapability(), aMsg->Live(), aMsg->Multiroom(), aStreamHandler, aMsg->SeekPosMs());
     }
     return msg;
 }

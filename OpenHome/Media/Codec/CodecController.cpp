@@ -159,6 +159,14 @@ SpeakerProfile CodecBase::DeriveProfile(TUint aChannels)
 }
 
 
+// CodecController::InitialSeekObserver
+
+void CodecController::InitialSeekObserver::NotifySeekComplete(TUint aHandle, TUint aFlushId)
+{
+    LOG(kPipeline, "CodecController::InitialSeekObserver::NotifySeekComplete(%u, %u))\n", aHandle, aFlushId);
+}
+
+
 // CodecController
 
 CodecController::CodecController(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstreamElement, IPipelineElementDownstream& aDownstreamElement,
@@ -197,6 +205,7 @@ CodecController::CodecController(MsgFactory& aMsgFactory, IPipelineElementUpstre
     , iAudioDecoded(nullptr)
     , iAudioDecodedBytes(0)
     , iRamp(RampType::Sample)
+    , iInitialSeekPos(0)
 {
     iDecoderThread = new ThreadFunctor("CodecController", MakeFunctor(*this, &CodecController::CodecThread), aThreadPriority);
     if (aLogger) {
@@ -397,6 +406,18 @@ void CodecController::CodecThread()
             // (blocks until end of stream or a flush)
             try {
                 iActiveCodec->StreamInitialise();
+
+                // If initial seek required to move to start position, set up seek here.
+                // Actual seek will be performed when loop below is entered.
+                if (iInitialSeekPos != 0) {
+                    LOG_INFO(kPipeline, "CodecController initial seek. iStreamId=%u, iInitialSeekPos (ms)=%u\n", iStreamId, iInitialSeekPos);
+                    auto seekHandle = ISeeker::kHandleError; // Don't care about tracking seek handle.
+                    StartSeek(iStreamId, iInitialSeekPos / 1000, iInitialSeekObserver, seekHandle);
+                    if (iSeekHandle == ISeeker::kHandleError) {
+                        LOG_ERROR(kPipeline, "CodecController initial seek failed. iStreamId=%u, iInitialSeekPos=%u\n", iStreamId, iInitialSeekPos)
+                    }
+                }
+
                 for (;;) {
                     iLock.Wait();
                     const TBool seek = iSeek;
@@ -1023,6 +1044,7 @@ Msg* CodecController::ProcessMsg(MsgEncodedStream* aMsg)
         iDsdStream = aMsg->DsdStream();
     }
     iRamp = aMsg->Ramp();
+    iInitialSeekPos = aMsg->SeekPosMs();
     aMsg->RemoveRef();
     return msg;
 }
