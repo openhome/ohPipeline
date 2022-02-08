@@ -474,7 +474,6 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
     }
 
     Reset();
-    WaitForDrain();
     RepairReset();
 
     // FIXME - clear iSem here and purge iControlServer/iAudioServer of any audio they still hold? (Will probably need to reconstruct socket to purge audio in low-level network queue too.)
@@ -535,7 +534,6 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
             if (stopped) {
                 iSupply->Flush();
                 // There may not have been a pending flush for this, as this may have been triggered by ::Interrupt(true).
-                WaitForDrain();
                 iDiscovery.Close();
                 StopServers();
                 LOG(kMedia, "<ProtocolRaop::Stream stopped. Returning EProtocolStreamStopped\n");
@@ -574,7 +572,6 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
             if (flushId != MsgFlush::kIdInvalid) {
                 iSupply->OutputFlush(flushId);
             }
-            WaitForDrain();
             RepairReset();
             iDiscovery.Close();
             StopServers();
@@ -775,19 +772,6 @@ void ProtocolRaop::OutputDiscontinuity()
 
     // FIXME - if doing lots of skips, don't seem to return from this. See #4348.
     LOG(kMedia, "<ProtocolRaop::OutputDiscontinuity\n");
-}
-
-void ProtocolRaop::WaitForDrain()
-{
-    Semaphore sem("WFDS", 0);
-    iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal));
-    try {
-        sem.Wait(ISupply::kMaxDrainMs);
-    }
-    catch (Timeout&) {
-        LOG(kPipeline, "WARNING: ProtocolRaop: timeout draining pipeline\n");
-        ASSERTS();
-    }
 }
 
 void ProtocolRaop::ProcessPacket(const RaopPacketAudio& aPacket)

@@ -830,7 +830,6 @@ private:
     void OutputDiscontinuity();
     void OutputContainer(const Brx& aFmtp);
     void RepairReset();
-    void WaitForDrain();
     void ProcessPacket(const RaopPacketAudio& aPacket);
     void ProcessPacket(const RaopPacketResendResponse& aPacket);
     void ProcessStreamStartOrResume();
@@ -880,4 +879,3 @@ private:
 
 };  // namespace Av
 };  // namespace OpenHome
-
