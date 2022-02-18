@@ -20,16 +20,16 @@ public:
 public:
     CodecVorbis(IMimeTypeList& aMimeTypeList);
     ~CodecVorbis();
+protected: // from CodecBase
+    TBool Recognise(const EncodedStreamInfo& aStreamInfo) override;
+    void StreamInitialise() override;
+    void Process() override;
+    TBool TrySeek(TUint aStreamId, TUint64 aSample) override;
+    void StreamCompleted() override;
 protected:
     virtual void ParseOgg();
     virtual TUint64 GetSamplesTotal();
-    void StreamInitialise() override;
     TBool TrySeekBytes(TUint aStreamId, TUint64 aSample, TUint64 aBytePos);
-    TBool TrySeek(TUint aStreamId, TUint64 aSample) override;
-private: // from CodecBase
-    TBool Recognise(const EncodedStreamInfo& aStreamInfo) override;
-    void Process() override;
-    void StreamCompleted() override;
 private: // from IWriter
     void Write(TByte aValue) override;
     void Write(const Brx& aBuffer) override;
