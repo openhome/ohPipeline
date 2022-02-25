@@ -412,6 +412,7 @@ ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory
     , iStopped(true)
     , iLockRaop("PRAL")
     , iSem("PRAS", 0)
+    , iSemDrain("PRSM", 0)
     , iResendRangeRequester(iControlServer)
     , iRepairer(aEnv, iResendRangeRequester, *this, aTimerFactory)
 {
@@ -440,6 +441,7 @@ void ProtocolRaop::Interrupt(TBool aInterrupt)
             iStopped = true;
             DoInterrupt(aInterrupt);
             iSem.Signal();
+            iSemDrain.Signal(); // Interrupt any pending drain.
         }
         else {
             DoInterrupt(aInterrupt);
@@ -539,19 +541,29 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
                 LOG(kMedia, "<ProtocolRaop::Stream stopped. Returning EProtocolStreamStopped\n");
                 return EProtocolStreamStopped;
             }
-            else if (waiting) {
-                LOG(kMedia, "ProtocolRaop::Stream waiting.\n");
-                OutputDiscontinuity();
-                RepairReset();
-                // Resume normal operation.
-                LOG(kMedia, "ProtocolRaop::Stream signalled end of wait.\n");
-            }
 
-            if (discontinuity) {
+            if (waiting || discontinuity) {
                 LOG(kMedia, "ProtocolRaop::Stream discontinuity.\n");
                 OutputDiscontinuity();
                 RepairReset();
-                LOG(kMedia, "ProtocolRaop::Stream signalled end of starvation.\n");
+                LOG(kMedia, "ProtocolRaop::Stream signalled end of discontinuity. waiting: %u, discontinuity: %u\n", waiting, discontinuity);
+
+                // Stream may have gone stopped during OutputDiscontinuity() call above, in which case draining may have been interrupted.
+                // If that is the case, ensure we exit Stream() here and do not attempt to output further audio.
+                TBool stoppedDiscontinuity = false;
+                {
+                    AutoMutex amx(iLockRaop);
+                    stoppedDiscontinuity = iStopped;
+                }
+                if (stoppedDiscontinuity) {
+                    iSupply->Flush();
+                    iDiscovery.Close();
+                    StopServers();
+                    LOG(kMedia, "<ProtocolRaop::Stream stopped after discontinuity. Returning EProtocolStreamStopped\n");
+                    return EProtocolStreamStopped;
+                }
+
+                // Continue and resume normal operation.
             }
         }
 
@@ -638,6 +650,7 @@ void ProtocolRaop::Reset()
     iAudioServer.Reset();
     iControlServer.Reset(ctrlPort);
 
+    iSupply->Discard();
     iSessionId = 0;
     iStreamId = IPipelineIdProvider::kStreamIdInvalid;
     iLatency = iControlServer.Latency();    // Get last known (or default) latency.
@@ -650,6 +663,8 @@ void ProtocolRaop::Reset()
     iStopped = false;
     iDiscontinuity = false;
     iStarving = false;
+    // Clear any pending signals on drain semaphore, just to be safe, as won't be waiting on a drain when entering ::Stream() method.
+    iSemDrain.Clear();
 }
 
 void ProtocolRaop::UpdateSessionId(TUint aSessionId)
@@ -749,14 +764,13 @@ void ProtocolRaop::OutputDiscontinuity()
         iResumePending = true;
     }
 
-    Semaphore sem("PRWS", 0);
-
+    iSemDrain.Clear();
     iSupply->Flush();
     LOG(kMedia, "ProtocolRaop::OutputDiscontinuity before OutputDrain()\n");
-    iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal)); // FIXME - what if doing this while waiter is flushing?
+    iSupply->OutputDrain(MakeFunctor(iSemDrain, &Semaphore::Signal)); // FIXME - what if doing this while waiter is flushing?
     LOG(kMedia, "ProtocolRaop::OutputDiscontinuity after OutputDrain()\n");
     try {
-        sem.Wait(ISupply::kMaxDrainMs);
+        iSemDrain.Wait(ISupply::kMaxDrainMs);
     }
     catch (Timeout&) {
         LOG(kPipeline, "WARNING: ProtocolRaop: timeout draining pipeline\n");
