@@ -870,6 +870,7 @@ private:
     TBool iStarving;
     mutable Mutex iLockRaop;
     Semaphore iSem;
+    Semaphore iSemDrain;
 
     // +3 as must be able to cause repairer to overflow (which requires kMaxRepairFrames+2), plus could be sending from normal audio channel and control channel simultaneously.
     RaopRepairableAllocator<kMaxRepairFrames+3,kMaxFrameBytes> iRepairableAllocator;
