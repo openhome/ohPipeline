@@ -113,6 +113,7 @@ Msg* PhaseAdjuster::ProcessMsg(MsgMode* aMsg)
     else {
         iEnabled = false;
         iState = State::Running;
+        ClearDecodedStream();
     }
     return aMsg;
 }
@@ -140,8 +141,20 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
 
 Msg* PhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    ClearDecodedStream();
     if (iEnabled) {
+        if (iDecodedStream == nullptr) {
+            ResetPhaseDelay();
+        }
+        else {
+            auto& infoOld = iDecodedStream->StreamInfo();
+            auto& infoNew = aMsg->StreamInfo();
+            if (infoOld.SampleRate() != infoNew.SampleRate() ||
+                infoOld.NumChannels() != infoNew.NumChannels() ||
+                infoOld.BitDepth() != infoNew.BitDepth()) {
+                ResetPhaseDelay();
+            }
+        }
+        ClearDecodedStream();
         aMsg->AddRef();
         iDecodedStream = aMsg;
         TryCalculateDelay();
