@@ -88,6 +88,7 @@ private:
     Msg* CreateDecodedStream();
     Msg* CreateAudio();
     Msg* CreateAudioDsd();
+    void Halted();
 private:
     void TestMsgsPassWhenRunning();
     void TestMuteImmediateWhenHalted();
@@ -98,6 +99,7 @@ private:
     void TestMuteWhileRampingUp();
     void TestMuteWhileHalting();
     void TestUnmuteWhileHalting();
+    void TestHaltNotifiedUpstream();
 private:
     AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
@@ -110,6 +112,7 @@ private:
     TBool iMuted;
     TBool iMuteCompleted;
     TBool iDeferHaltAcknowledgement;
+    TBool iNotifiedHalted;
     TUint iStreamId;
     TUint64 iTrackOffset;
     TUint64 iJiffies;
@@ -138,6 +141,7 @@ SuiteMuter::SuiteMuter()
     AddTest(MakeFunctor(*this, &SuiteMuter::TestMuteWhileRampingUp), "TestMuteWhileRampingUp");
     AddTest(MakeFunctor(*this, &SuiteMuter::TestMuteWhileHalting), "TestMuteWhileHalting");
     AddTest(MakeFunctor(*this, &SuiteMuter::TestUnmuteWhileHalting), "TestUnmuteWhileHalting");
+    AddTest(MakeFunctor(*this, &SuiteMuter::TestHaltNotifiedUpstream), "TestHaltNotifiedUpstream");
 }
 
 SuiteMuter::~SuiteMuter()
@@ -157,6 +161,7 @@ void SuiteMuter::Setup()
     init.SetMsgHaltCount(2);
     init.SetMsgFlushCount(2);
     init.SetMsgModeCount(2);
+    init.SetMsgDrainCount(2);
     init.SetMsgWaitCount(2);
     init.SetMsgDelayCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
@@ -170,6 +175,7 @@ void SuiteMuter::Setup()
     iRampingUp = iRampingDown = iMuted = false;
     iMuteCompleted = false;
     iDeferHaltAcknowledgement = false;
+    iNotifiedHalted = false;
     iLastSubsample = 0xffffff;
     iNextStreamId = 1;
     iLastHaltId = MsgHalt::kIdInvalid;
@@ -214,6 +220,7 @@ Msg* SuiteMuter::ProcessMsg(MsgTrack* aMsg)
 Msg* SuiteMuter::ProcessMsg(MsgDrain* aMsg)
 {
     iLastPulledMsg = EMsgDrain;
+    aMsg->ReportDrained();
     return aMsg;
 }
 
@@ -478,6 +485,11 @@ Msg* SuiteMuter::CreateAudioDsd()
     return audio;
 }
 
+void SuiteMuter::Halted()
+{
+    iNotifiedHalted = true;
+}
+
 void SuiteMuter::TestMsgsPassWhenRunning()
 {
     iPendingMsgs.push_back(iMsgFactory->CreateMsgMode(Brx::Empty()));
@@ -661,6 +673,22 @@ void SuiteMuter::TestUnmuteWhileHalting()
     iLastHaltMsg->ReportHalted();
     iLastHaltMsg->RemoveRef();
     iLastHaltMsg = nullptr;
+}
+
+void SuiteMuter::TestHaltNotifiedUpstream()
+{
+    iPendingMsgs.push_back(CreateAudio());
+    PullNext(EMsgAudioPcm);
+    BeginMute();
+    iRampingDown = true;
+    TEST(iMuter->iState == Muter::eRampingDown);
+    iPendingMsgs.push_back(CreateAudio());
+    PullNext(EMsgAudioPcm);
+    iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt(42, MakeFunctor(*this, &SuiteMuter::Halted)));
+    TEST(!iNotifiedHalted);
+    PullNext(EMsgHalt);
+    TEST(iNotifiedHalted);
+    TEST(iMuter->iState == Muter::eMuted);
 }
 
 

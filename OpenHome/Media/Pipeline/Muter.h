@@ -25,6 +25,7 @@ class Muter : public PipelineElement, public IPipelineElementUpstream, public IM
     static const TUint kSupportedMsgTypes;
 public:
     Muter(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream, TUint aRampDuration);
+    ~Muter();
     void SetAnimator(IPipelineAnimator& aPipelineAnimator);
 public: // from IMute
     void Mute() override;
@@ -32,13 +33,17 @@ public: // from IMute
 private: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // IMsgProcessor
+    Msg* ProcessMsg(MsgDrain* aMsg) override;
     Msg* ProcessMsg(MsgHalt* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
 private:
     Msg* ProcessAudio(MsgAudioDecoded* aMsg);
+    void BeginHalting();
+    void Halted();
     void PipelineHalted();
+    void PipelineDrained();
 private:
     enum EState
     {
@@ -60,6 +65,8 @@ private:
     TUint iCurrentRampValue;
     TUint iJiffiesUntilMute;
     MsgQueueLite iQueue; // empty unless we have to split a msg during a ramp
+    MsgHalt* iMsgHalt;
+    MsgDrain* iMsgDrain;
     TBool iHalting;
     TBool iHalted;
 };
