@@ -297,12 +297,10 @@ void Muter::PipelineHalted()
 void Muter::PipelineDrained()
 {
     AutoMutex _(iLock);
-    if (iHalting) {
-        iHalted = true;
-    }
-    iJiffiesUntilMute = 0;
-    iSemMuted.Signal();
-    if (iState == eMuting) {
-        iState = eMuted;
+    Halted();
+    if (iMsgDrain != nullptr) {
+        iMsgDrain->ReportDrained();
+        iMsgDrain->RemoveRef();
+        iMsgDrain = nullptr;
     }
 }
