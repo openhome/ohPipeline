@@ -35,9 +35,21 @@ Muter::Muter(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream, TUint
     , iRampDuration(aRampDuration)
     , iRemainingRampSize(0)
     , iCurrentRampValue(Ramp::kMax)
+    , iMsgHalt(nullptr)
+    , iMsgDrain(nullptr)
     , iHalting(false)
     , iHalted(true)
 {
+}
+
+Muter::~Muter()
+{
+    if (iMsgHalt != nullptr) {
+        iMsgHalt->RemoveRef();
+    }
+    if (iMsgDrain != nullptr) {
+        iMsgDrain->RemoveRef();
+    }
 }
 
 void Muter::SetAnimator(IPipelineAnimator& aPipelineAnimator)
@@ -145,17 +157,22 @@ Msg* Muter::Pull()
     return msg;
 }
 
+Msg* Muter::ProcessMsg(MsgDrain* aMsg)
+{
+    ASSERT(iMsgDrain == nullptr);
+    iMsgDrain = aMsg;
+    BeginHalting();
+    return iMsgFactory.CreateMsgDrain(MakeFunctor(*this, &Muter::PipelineDrained));
+}
+
 Msg* Muter::ProcessMsg(MsgHalt* aMsg)
 {
-    auto msg = iMsgFactory.CreateMsgHalt(aMsg->Id(), MakeFunctor(*this, &Muter::PipelineHalted));
-    aMsg->RemoveRef();
-    iHalting = true;
-    if (iState == eRampingDown) {
-        iState = eMuting;
-        iRemainingRampSize = 0;
-        iCurrentRampValue = Ramp::kMin;
+    if (iMsgHalt != nullptr) {
+        return aMsg;
     }
-    return msg;
+    iMsgHalt = aMsg;
+    BeginHalting();
+    return iMsgFactory.CreateMsgHalt(aMsg->Id(), MakeFunctor(*this, &Muter::PipelineHalted));
 }
 
 Msg* Muter::ProcessMsg(MsgAudioPcm* aMsg)
@@ -244,9 +261,18 @@ Msg* Muter::ProcessAudio(MsgAudioDecoded* aMsg)
     return msg;
 }
 
-void Muter::PipelineHalted()
+void Muter::BeginHalting()
 {
-    AutoMutex _(iLock);
+    iHalting = true;
+    if (iState == eRampingDown) {
+        iState = eMuting;
+        iRemainingRampSize = 0;
+        iCurrentRampValue = Ramp::kMin;
+    }
+}
+
+void Muter::Halted()
+{
     if (iHalting) {
         iHalted = true;
     }
@@ -254,5 +280,27 @@ void Muter::PipelineHalted()
     iSemMuted.Signal();
     if (iState == eMuting) {
         iState = eMuted;
+    }
+}
+
+void Muter::PipelineHalted()
+{
+    AutoMutex _(iLock);
+    Halted();
+    if (iMsgHalt != nullptr) {
+        iMsgHalt->ReportHalted();
+        iMsgHalt->RemoveRef();
+        iMsgHalt = nullptr;
+    }
+}
+
+void Muter::PipelineDrained()
+{
+    AutoMutex _(iLock);
+    Halted();
+    if (iMsgDrain != nullptr) {
+        iMsgDrain->ReportDrained();
+        iMsgDrain->RemoveRef();
+        iMsgDrain = nullptr;
     }
 }

@@ -711,8 +711,23 @@ void ConfigManager::Add(IConfigObserver& aObserver)
     AutoMutex _(iLock);
     ASSERT(iObserver == nullptr); // don't support multiple observers (no obvious need for it)
     iObserver = &aObserver;
-    // assume that observer is registered before any config values are created
-    // so... no need to notify about existing values
+
+    for (auto it = iMapNum.Begin(); it != iMapNum.End(); ++it) {
+        aObserver.Added(*(it->second));
+    }
+    for (auto it = iMapChoice.Begin(); it != iMapChoice.End(); ++it) {
+        aObserver.Added(*(it->second));
+    }
+    for (auto it = iMapText.Begin(); it != iMapText.End(); ++it) {
+        aObserver.Added(*(it->second));
+    }
+    for (auto it = iMapTextChoice.Begin(); it != iMapTextChoice.End(); ++it) {
+        aObserver.Added(*(it->second));
+    }
+
+    if (iOpen) {
+        aObserver.AddsComplete();
+    }
 }
 
 void ConfigManager::Remove(IConfigObserver& aObserver)

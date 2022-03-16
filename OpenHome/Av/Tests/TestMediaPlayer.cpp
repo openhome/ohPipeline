@@ -235,6 +235,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
                                                                      // platforms with slightly unpredictable thread scheduling
     pipelineInit->SetGorgerDuration(pipelineInit->DecodedReservoirJiffies());
     pipelineInit->SetDsdMaxSampleRate(kDsdMaxSampleRate);
+    pipelineInit->SetSupportElements(Media::EPipelineSupportElementsValidatorMinimal | Media::EPipelineSupportElementsDecodedAudioValidator | Media::EPipelineSupportElementsRampValidator);
     const Brn kFriendlyNamePrefix("OpenHome ");
     auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName), kFriendlyNamePrefix);
     mpInit->EnableConfigApp();
@@ -347,8 +348,7 @@ void TestMediaPlayer::Run()
     iOdpZeroConf->SetZeroConfEnabled(true);
 
     iMediaPlayer->PowerManager().StandbyDisable(StandbyDisableReason::Boot);
-    iDevice->SetEnabled();
-    iDeviceUpnpAv->SetEnabled();
+    EnableDevices();
     iFsFlushPeriodic->Start();
 
     StorePrinter storePrinter(*iConfigRamStore);
@@ -380,8 +380,7 @@ void TestMediaPlayer::RunWithSemaphore()
     configManager.DumpToStore();
 
     iAppFramework->Start();
-    iDevice->SetEnabled();
-    iDeviceUpnpAv->SetEnabled();
+    EnableDevices();
 
     StorePrinter storePrinter(*iConfigRamStore);
     storePrinter.Print();
@@ -523,6 +522,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
                                                  Optional<IOhmMsgProcessor>()));
 
     iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
+    //iMediaPlayer->Add(SourceFactory::NewRaat(*iMediaPlayer)); // FIXME - not available on all platforms
 }
 
 void TestMediaPlayer::InitialiseSubsystems()
@@ -541,6 +541,12 @@ IWebApp* TestMediaPlayer::CreateConfigApp(const std::vector<const Brx*>& aSource
 void TestMediaPlayer::InitialiseLogger()
 {
     (void)iMediaPlayer->BufferLogOutput(128 * 1024, *(iMediaPlayer->Env().Shell()), Optional<ILogPoster>(nullptr));
+}
+
+void TestMediaPlayer::EnableDevices()
+{
+    iDevice->SetEnabled();
+    iDeviceUpnpAv->SetEnabled();
 }
 
 void TestMediaPlayer::DestroyAppFramework()
