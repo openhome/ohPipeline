@@ -1095,19 +1095,20 @@ void RaopDiscovery::PowerUp()
     AutoNetworkAdapterRef ref(iEnv, "RaopDiscovery ctor");
     NetworkAdapter* current = ref.Adapter();
 
-    iServersLock.Wait();
-    if (current != nullptr) {
-        // Single interface selected. Register only on this interface.
-        AddAdapter(*current);
-    }
-    else {
-        // No interface selected. Advertise on all interfaces.
-        for (TUint i=0; i<subnetList->size(); i++) {
-            NetworkAdapter* subnet = (*subnetList)[i];
-            AddAdapter(*subnet);
+    {
+        AutoMutex _(iServersLock);
+        if (current != nullptr) {
+            // Single interface selected. Register only on this interface.
+            AddAdapter(*current);
+        }
+        else {
+            // No interface selected. Advertise on all interfaces.
+            for (TUint i = 0; i < subnetList->size(); i++) {
+                NetworkAdapter* subnet = (*subnetList)[i];
+                AddAdapter(*subnet);
+            }
         }
     }
-    iServersLock.Signal();
     NetworkAdapterList::DestroySubnetList(subnetList);
 }
 
