@@ -338,22 +338,11 @@ TUint64 AirplayReporter::Samples() const
     return iSamples;
 }
 
-void AirplayReporter::ReportSamples(TUint aAdditionalSamples)
-{
-    AutoMutex _(iLock);
-    iSamples += aAdditionalSamples;
-}
-
-void AirplayReporter::ResetSampleCount()
-{
-    AutoMutex _(iLock);
-    iSamples = 0;
-}
-
 void AirplayReporter::Flush(TUint aFlushId)
 {
     AutoMutex _(iLock);
     iPendingFlushId = aFlushId;
+    iSamples = 0;
 }
 
 void AirplayReporter::MetadataChanged(Media::IAirplayMetadataAllocated* aMetadata)
