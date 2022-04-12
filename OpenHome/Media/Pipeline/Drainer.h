@@ -52,6 +52,11 @@ public:
     DrainerRight(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
 private: // from PipelineElement
     Msg* ProcessMsg(MsgHalt* aMsg) override;
+    Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
+private:
+    TUint iSampleRate;
+    TUint iBitDepth;
+    TUint iNumChannels;
 };
 
 } // namespace Media

@@ -55,13 +55,13 @@ Msg* DrainerBase::Pull()
         iSem.Wait();
         iWaitForDrained = false; // no synchronisation required - is only accessed in this function
     }
-    {
-        if (iGenerateDrainMsg.load()) {
-            iGenerateDrainMsg.store(false);
-            iWaitForDrained = true;
-            return iMsgFactory.CreateMsgDrain(MakeFunctor(iSem, &Semaphore::Signal));
-        }
+
+    if (iGenerateDrainMsg.load()) {
+        iGenerateDrainMsg.store(false);
+        iWaitForDrained = true;
+        return iMsgFactory.CreateMsgDrain(MakeFunctor(iSem, &Semaphore::Signal));
     }
+
     Msg* msg;
     if (iPending == nullptr) {
         msg = iUpstream.Pull();
@@ -139,6 +139,9 @@ void DrainerLeft::NotifyStarving(const Brx& aMode, TUint aStreamId, TBool aStarv
 
 DrainerRight::DrainerRight(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream)
     : DrainerBase(aMsgFactory, aUpstream)
+    , iSampleRate(0)
+    , iBitDepth(0)
+    , iNumChannels(0)
 {
 }
 
@@ -146,5 +149,21 @@ Msg* DrainerRight::ProcessMsg(MsgHalt* aMsg)
 {
     LOG(kPipeline, "DrainerRight enabled (MsgHalt)\n");
     iGenerateDrainMsg.store(true);
+    return aMsg;
+}
+
+Msg* DrainerRight::ProcessMsg(MsgDecodedStream* aMsg)
+{
+    auto stream = aMsg->StreamInfo();
+    if (stream.SampleRate() != iSampleRate ||
+        stream.BitDepth() != iBitDepth ||
+        stream.NumChannels() != iNumChannels) {
+        LOG(kPipeline, "DrainerRight enabled (MsgDecodedStream)\n");
+        iSampleRate = stream.SampleRate();
+        iBitDepth = stream.BitDepth();
+        iNumChannels = stream.NumChannels();
+        iGenerateDrainMsg.store(true);
+    }
+
     return aMsg;
 }
