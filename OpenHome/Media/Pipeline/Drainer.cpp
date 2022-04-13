@@ -91,6 +91,9 @@ Msg* DrainerBase::Pull()
 DrainerLeft::DrainerLeft(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream)
     : DrainerBase(aMsgFactory, aUpstream)
     , iStreamHandler(nullptr)
+    , iSampleRate(0)
+    , iBitDepth(0)
+    , iNumChannels(0)
 {
 }
 
@@ -100,6 +103,22 @@ Msg* DrainerLeft::ProcessMsg(MsgEncodedStream* aMsg)
     auto msg = iMsgFactory.CreateMsgEncodedStream(aMsg, this);
     aMsg->RemoveRef();
     return msg;
+}
+
+Msg* DrainerLeft::ProcessMsg(MsgDecodedStream* aMsg)
+{
+    auto stream = aMsg->StreamInfo();
+    if (stream.SampleRate() != iSampleRate ||
+        stream.BitDepth() != iBitDepth ||
+        stream.NumChannels() != iNumChannels) {
+        LOG(kPipeline, "DrainerLeft enabled (MsgDecodedStream)\n");
+        iSampleRate = stream.SampleRate();
+        iBitDepth = stream.BitDepth();
+        iNumChannels = stream.NumChannels();
+        iGenerateDrainMsg.store(true);
+    }
+
+    return aMsg;
 }
 
 EStreamPlay DrainerLeft::OkToPlay(TUint aStreamId)
@@ -139,9 +158,6 @@ void DrainerLeft::NotifyStarving(const Brx& aMode, TUint aStreamId, TBool aStarv
 
 DrainerRight::DrainerRight(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream)
     : DrainerBase(aMsgFactory, aUpstream)
-    , iSampleRate(0)
-    , iBitDepth(0)
-    , iNumChannels(0)
 {
 }
 
@@ -149,21 +165,5 @@ Msg* DrainerRight::ProcessMsg(MsgHalt* aMsg)
 {
     LOG(kPipeline, "DrainerRight enabled (MsgHalt)\n");
     iGenerateDrainMsg.store(true);
-    return aMsg;
-}
-
-Msg* DrainerRight::ProcessMsg(MsgDecodedStream* aMsg)
-{
-    auto stream = aMsg->StreamInfo();
-    if (stream.SampleRate() != iSampleRate ||
-        stream.BitDepth() != iBitDepth ||
-        stream.NumChannels() != iNumChannels) {
-        LOG(kPipeline, "DrainerRight enabled (MsgDecodedStream)\n");
-        iSampleRate = stream.SampleRate();
-        iBitDepth = stream.BitDepth();
-        iNumChannels = stream.NumChannels();
-        iGenerateDrainMsg.store(true);
-    }
-
     return aMsg;
 }

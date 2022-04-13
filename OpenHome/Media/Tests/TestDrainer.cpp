@@ -292,7 +292,7 @@ void SuiteDrainer::TestMsgDrainFollowsHalt()
 
 void SuiteDrainer::TestMsgDrainFollowsStreamFormatChange()
 {
-    iDrainer = new DrainerRight(*iMsgFactory, *this);
+    iDrainer = new DrainerLeft(*iMsgFactory, *this);
     TUint streamId = 5;
     SpeakerProfile sp;
     iPendingMsgs.push_back(iMsgFactory->CreateMsgDecodedStream(streamId++, 42, 16, 44100, 2, Brx::Empty(), 0LL, 0LL, true, false, false, false, AudioFormat::Pcm, Media::Multiroom::Allowed, sp, nullptr, RampType::Sample));
