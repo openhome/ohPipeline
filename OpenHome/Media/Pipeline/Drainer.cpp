@@ -91,9 +91,6 @@ Msg* DrainerBase::Pull()
 DrainerLeft::DrainerLeft(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream)
     : DrainerBase(aMsgFactory, aUpstream)
     , iStreamHandler(nullptr)
-    , iSampleRate(0)
-    , iBitDepth(0)
-    , iNumChannels(0)
 {
 }
 
@@ -103,22 +100,6 @@ Msg* DrainerLeft::ProcessMsg(MsgEncodedStream* aMsg)
     auto msg = iMsgFactory.CreateMsgEncodedStream(aMsg, this);
     aMsg->RemoveRef();
     return msg;
-}
-
-Msg* DrainerLeft::ProcessMsg(MsgDecodedStream* aMsg)
-{
-    auto stream = aMsg->StreamInfo();
-    if (stream.SampleRate() != iSampleRate ||
-        stream.BitDepth() != iBitDepth ||
-        stream.NumChannels() != iNumChannels) {
-        LOG(kPipeline, "DrainerLeft enabled (MsgDecodedStream)\n");
-        iSampleRate = stream.SampleRate();
-        iBitDepth = stream.BitDepth();
-        iNumChannels = stream.NumChannels();
-        iGenerateDrainMsg.store(true);
-    }
-
-    return aMsg;
 }
 
 EStreamPlay DrainerLeft::OkToPlay(TUint aStreamId)

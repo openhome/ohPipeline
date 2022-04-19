@@ -35,7 +35,6 @@ public:
     DrainerLeft(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream);
 private: // from PipelineElement
     Msg* ProcessMsg(MsgEncodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
 private: // from IStreamHandler
     EStreamPlay OkToPlay(TUint aStreamId) override;
     TUint TrySeek(TUint aStreamId, TUint64 aOffset) override;
@@ -44,9 +43,6 @@ private: // from IStreamHandler
     void NotifyStarving(const Brx& aMode, TUint aStreamId, TBool aStarving) override;
 private:
     std::atomic<IStreamHandler*> iStreamHandler;
-    TUint iSampleRate;
-    TUint iBitDepth;
-    TUint iNumChannels;
 };
 
 class DrainerRight : public DrainerBase

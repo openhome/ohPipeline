@@ -74,7 +74,6 @@ private:
     Msg* CreateMsgSilence();
 private:
     void TestMsgDrainFollowsHalt();
-    void TestMsgDrainFollowsStreamFormatChange();
     void TestBlocksWaitingForDrainResponse();
     void TestDrainAfterStarvation();
 private:
@@ -98,7 +97,6 @@ SuiteDrainer::SuiteDrainer(Environment& aEnv)
     , iEnv(aEnv)
 {
     AddTest(MakeFunctor(*this, &SuiteDrainer::TestMsgDrainFollowsHalt), "TestMsgDrainFollowsHalt");
-    AddTest(MakeFunctor(*this, &SuiteDrainer::TestMsgDrainFollowsStreamFormatChange), "TestMsgDrainFollowsStreamFormatChange");
     AddTest(MakeFunctor(*this, &SuiteDrainer::TestBlocksWaitingForDrainResponse), "TestBlocksWaitingForDrainResponse");
     AddTest(MakeFunctor(*this, &SuiteDrainer::TestDrainAfterStarvation), "TestDrainAfterStarvation");
 }
@@ -288,37 +286,6 @@ void SuiteDrainer::TestMsgDrainFollowsHalt()
     PullNext(EMsgSilence);
     PullNext(EMsgHalt);
     PullNext(EMsgDrain);
-}
-
-void SuiteDrainer::TestMsgDrainFollowsStreamFormatChange()
-{
-    iDrainer = new DrainerLeft(*iMsgFactory, *this);
-    TUint streamId = 5;
-    SpeakerProfile sp;
-    iPendingMsgs.push_back(iMsgFactory->CreateMsgDecodedStream(streamId++, 42, 16, 44100, 2, Brx::Empty(), 0LL, 0LL, true, false, false, false, AudioFormat::Pcm, Media::Multiroom::Allowed, sp, nullptr, RampType::Sample));
-    iPendingMsgs.push_back(CreateMsgSilence());
-    PullNext(EMsgDecodedStream);
-    PullNext(EMsgDrain);
-    iMsgDrain->ReportDrained();
-    iMsgDrain->RemoveRef();
-    iMsgDrain = nullptr;
-    PullNext(EMsgSilence);
-
-    // another stream with the same format does not require a drain
-    iPendingMsgs.push_back(iMsgFactory->CreateMsgDecodedStream(streamId++, 42, 16, 44100, 2, Brx::Empty(), 0LL, 0LL, true, false, false, false, AudioFormat::Pcm, Media::Multiroom::Allowed, sp, nullptr, RampType::Sample));
-    iPendingMsgs.push_back(CreateMsgSilence());
-    PullNext(EMsgDecodedStream);
-    PullNext(EMsgSilence);
-
-    // another stream with a different format requires a drain
-    iPendingMsgs.push_back(iMsgFactory->CreateMsgDecodedStream(streamId++, 42, 16, 96000, 2, Brx::Empty(), 0LL, 0LL, true, false, false, false, AudioFormat::Pcm, Media::Multiroom::Allowed, sp, nullptr, RampType::Sample));
-    iPendingMsgs.push_back(CreateMsgSilence());
-    PullNext(EMsgDecodedStream);
-    PullNext(EMsgDrain);
-    iMsgDrain->ReportDrained();
-    iMsgDrain->RemoveRef();
-    iMsgDrain = nullptr;
-    PullNext(EMsgSilence);
 }
 
 void SuiteDrainer::TestBlocksWaitingForDrainResponse()
