@@ -774,7 +774,6 @@ void ProtocolRaop::OutputDiscontinuity()
     }
     catch (Timeout&) {
         LOG(kPipeline, "WARNING: ProtocolRaop: timeout draining pipeline\n");
-        ASSERTS();
     }
     LOG(kMedia, "ProtocolRaop::OutputDiscontinuity after sem.Wait()\n");
 

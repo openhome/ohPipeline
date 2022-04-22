@@ -153,7 +153,6 @@ void ProtocolOhBase::WaitForPipelineToEmpty()
     }
     catch (Timeout&) {
         LOG(kPipeline, "WARNING: ProtocolOhBase: timeout draining pipeline\n");
-        ASSERTS();
     }
     {
         AutoMutex _(iMutexTransport);
@@ -256,7 +255,7 @@ TBool ProtocolOhBase::RepairBegin(OhmMsgAudio& aMsg)
 {
     LOG(kSongcast, "BEGIN ON %d\n", aMsg.Frame());
     iRepairFirst = &aMsg;
-    iTimerRepair->FireIn(iEnv.Random(kInitialRepairTimeoutMs)); 
+    iTimerRepair->FireIn(iEnv.Random(kInitialRepairTimeoutMs));
     return true;
 }
 
