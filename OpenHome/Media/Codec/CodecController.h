@@ -375,6 +375,7 @@ public:
     void AddCodec(CodecBase* aCodec);
     void Start();
     void SetAnimator(IPipelineAnimator& aAnimator);
+    void Flush(TUint aFlushId);
 private:
     void CodecThread();
     void Rewind();

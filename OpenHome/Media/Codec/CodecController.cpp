@@ -266,6 +266,14 @@ void CodecController::SetAnimator(IPipelineAnimator& aAnimator)
     iAnimator = &aAnimator;
 }
 
+void CodecController::Flush(TUint aFlushId)
+{
+    AutoMutex amx(iLock);
+    const TBool valid = aFlushId != MsgFlush::kIdInvalid && (iExpectedFlushId == MsgFlush::kIdInvalid || aFlushId > iExpectedFlushId);
+    ASSERT_VA(valid, "CodecController::Flush invalid flush ID. iExpectedFlushId: %u, aFlushId: %u\n", iExpectedFlushId, aFlushId);
+    iExpectedFlushId = aFlushId;
+}
+
 void CodecController::StartSeek(TUint aStreamId, TUint aSecondsAbsolute, ISeekObserver& aObserver, TUint& aHandle)
 {
     AutoMutex a(iLock);
