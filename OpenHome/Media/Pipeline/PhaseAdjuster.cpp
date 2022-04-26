@@ -46,6 +46,7 @@ PhaseAdjuster::PhaseAdjuster(
     TUint aMinDelayJiffies
 )
     : PipelineElement(kSupportedMsgTypes)
+    , iLockClockPuller("PAdj")
     , iMsgFactory(aMsgFactory)
     , iUpstreamElement(aUpstreamElement)
     , iStarvationRamper(aStarvationRamper)
@@ -55,6 +56,7 @@ PhaseAdjuster::PhaseAdjuster(
     , iLock("SPAL")
     , iTrackedJiffies(0)
     , iDecodedStream(nullptr)
+    , iDrain(nullptr)
     , iDelayJiffies(0)
     , iDelayTotalJiffies(0)
     , iDroppedJiffies(0)
@@ -72,6 +74,7 @@ PhaseAdjuster::~PhaseAdjuster()
 {
     iQueue.Clear();
     ClearDecodedStream();
+    ClearDrain();
 }
 
 void PhaseAdjuster::SetAnimator(IPipelineAnimator& aAnimator)
@@ -110,6 +113,7 @@ Msg* PhaseAdjuster::ProcessMsg(MsgMode* aMsg)
     else {
         iEnabled = false;
         iState = State::Running;
+        ClearDecodedStream();
     }
     return aMsg;
 }
@@ -120,8 +124,9 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
     if (iEnabled) {
         ResetPhaseDelay();
     }
-
-    return aMsg;
+    ASSERT(iDrain == nullptr);
+    iDrain = aMsg;
+    return iMsgFactory.CreateMsgDrain(MakeFunctor(*this, &PhaseAdjuster::PipelineDrained));
 }
 
 Msg* PhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
@@ -136,8 +141,20 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
 
 Msg* PhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    ClearDecodedStream();
     if (iEnabled) {
+        if (iDecodedStream == nullptr) {
+            ResetPhaseDelay();
+        }
+        else {
+            auto& infoOld = iDecodedStream->StreamInfo();
+            auto& infoNew = aMsg->StreamInfo();
+            if (infoOld.SampleRate() != infoNew.SampleRate() ||
+                infoOld.NumChannels() != infoNew.NumChannels() ||
+                infoOld.BitDepth() != infoNew.BitDepth()) {
+                ResetPhaseDelay();
+            }
+        }
+        ClearDecodedStream();
         aMsg->AddRef();
         iDecodedStream = aMsg;
         TryCalculateDelay();
@@ -164,7 +181,20 @@ Msg* PhaseAdjuster::ProcessMsg(MsgSilence* aMsg)
 
 void PhaseAdjuster::Update(TInt aDelta)
 {
-    iTrackedJiffies += aDelta;
+    TInt jiffies = 0;
+    {
+        AutoMutex _(iLockClockPuller);
+        iTrackedJiffies += aDelta;
+        if (iTrackedJiffies < 0) { /* see #7730 - pipeline occupancy going negative would
+                                      imply we've been too aggressive when we zeroed tracked
+                                      jiffies on a drain */
+            jiffies = iTrackedJiffies;
+            iTrackedJiffies = 0;
+        }
+    }
+    if (jiffies < 0) {
+        LOG(kMedia, "PhaseAdjuster error when trackedJiffies was reset - count went to %d (%dms)\n", jiffies, jiffies / Jiffies::kPerMs);
+    }
 }
 
 void PhaseAdjuster::Start()
@@ -223,7 +253,11 @@ MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
             iState = State::Running;
             return aMsg;
         }
-        TInt error = iTrackedJiffies - iDelayJiffies;
+        TInt error;
+        {
+            AutoMutex _(iLockClockPuller);
+            error = iTrackedJiffies - iDelayJiffies;
+        }
         if (error > 0) {
             // Drop audio.
             TUint dropped = 0;
@@ -240,9 +274,19 @@ MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
         else if (error < 0) {
             // Error is 0 or receiver is in front of sender. Highly unlikely receiver would get in front of sender. Any error would likely be minimal. Do nothing.
             // If error < 0, could inject MsgSilence to pull the error in towards 0.
-            LOG(kPipeline, "PhaseAdjuster: latency is now too low (error=%d)\n", error);
+            LOG(kPipeline, "PhaseAdjuster: latency is now too low (error=%d / %dms)\n", error, error/Jiffies::kPerMs);
             iState = State::Running;
-            return aMsg;
+            iQueue.Enqueue(aMsg);
+            static const TUint kMaxMsgSilence = Jiffies::kPerMs * 2;
+            const TUint errAbsolute = (TUint)-error;
+            TUint jiffies = std::min(errAbsolute, kMaxMsgSilence);
+            auto& streamInfo = iDecodedStream->StreamInfo();
+            auto silence = iMsgFactory.CreateMsgSilence(
+                jiffies,
+                streamInfo.SampleRate(),
+                streamInfo.BitDepth(),
+                streamInfo.NumChannels());
+            return silence;
         }
         else { // error == 0
             if (iDroppedJiffies > 0) {
@@ -372,4 +416,23 @@ void PhaseAdjuster::ClearDecodedStream()
         iDecodedStream->RemoveRef();
         iDecodedStream = nullptr;
     }
+}
+
+void PhaseAdjuster::ClearDrain()
+{
+    if (iDrain != nullptr) {
+        iDrain->ReportDrained();
+        iDrain->RemoveRef();
+        iDrain = nullptr;
+    }
+}
+
+void PhaseAdjuster::PipelineDrained()
+{
+    {
+        AutoMutex _(iLockClockPuller);
+        iTrackedJiffies = 0; // see #7730 - clear any error that has accumulated in the clock puller
+    }
+    ASSERT(iDrain != nullptr);
+    ClearDrain();
 }

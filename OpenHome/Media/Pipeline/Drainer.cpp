@@ -55,13 +55,13 @@ Msg* DrainerBase::Pull()
         iSem.Wait();
         iWaitForDrained = false; // no synchronisation required - is only accessed in this function
     }
-    {
-        if (iGenerateDrainMsg.load()) {
-            iGenerateDrainMsg.store(false);
-            iWaitForDrained = true;
-            return iMsgFactory.CreateMsgDrain(MakeFunctor(iSem, &Semaphore::Signal));
-        }
+
+    if (iGenerateDrainMsg.load()) {
+        iGenerateDrainMsg.store(false);
+        iWaitForDrained = true;
+        return iMsgFactory.CreateMsgDrain(MakeFunctor(iSem, &Semaphore::Signal));
     }
+
     Msg* msg;
     if (iPending == nullptr) {
         msg = iUpstream.Pull();

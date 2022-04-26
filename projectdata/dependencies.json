@@ -2,7 +2,7 @@
     {   "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.33.4469",
+        "version": "1.33.4586",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
@@ -28,7 +28,7 @@
     },
     {   "name": "libplatform",
         "type": "internal",
-        "version": "0.79.1052",
+        "version": "0.79.1073",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {

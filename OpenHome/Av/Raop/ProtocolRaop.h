@@ -830,7 +830,6 @@ private:
     void OutputDiscontinuity();
     void OutputContainer(const Brx& aFmtp);
     void RepairReset();
-    void WaitForDrain();
     void ProcessPacket(const RaopPacketAudio& aPacket);
     void ProcessPacket(const RaopPacketResendResponse& aPacket);
     void ProcessStreamStartOrResume();
@@ -871,6 +870,7 @@ private:
     TBool iStarving;
     mutable Mutex iLockRaop;
     Semaphore iSem;
+    Semaphore iSemDrain;
 
     // +3 as must be able to cause repairer to overflow (which requires kMaxRepairFrames+2), plus could be sending from normal audio channel and control channel simultaneously.
     RaopRepairableAllocator<kMaxRepairFrames+3,kMaxFrameBytes> iRepairableAllocator;
@@ -880,4 +880,3 @@ private:
 
 };  // namespace Av
 };  // namespace OpenHome
-

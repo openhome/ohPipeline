@@ -217,6 +217,7 @@ void SuitePhaseAdjuster::Setup()
     init.SetMsgEncodedStreamCount(2);
     init.SetMsgDecodedStreamCount(2);
     init.SetMsgModeCount(2);
+    init.SetMsgDrainCount(2);
     init.SetMsgDelayCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
@@ -392,6 +393,7 @@ Msg* SuitePhaseAdjuster::ProcessMsg(MsgTrack* aMsg)
 Msg* SuitePhaseAdjuster::ProcessMsg(MsgDrain* aMsg)
 {
     iLastMsg = EMsgDrain;
+    aMsg->ReportDrained();
     return aMsg;
 }
 
@@ -434,6 +436,7 @@ Msg* SuitePhaseAdjuster::ProcessMsg(MsgStreamInterrupted* aMsg)
 Msg* SuitePhaseAdjuster::ProcessMsg(MsgHalt* aMsg)
 {
     iLastMsg = EMsgHalt;
+    aMsg->ReportHalted();
     return aMsg;
 }
 
@@ -886,10 +889,18 @@ void SuitePhaseAdjuster::TestSongcastReceiverAhead()
     // After all silence has been output want less audio queued up than the delay value.
     // This would mean the receiver is playing audio ahead of the sender.
     QueueAudio(kDelayJiffies - kDefaultAudioJiffies);
-    const auto offset = iTrackOffset;
-    const auto bufferedAudio = iBufferSize;
     iJiffies = 0;
 
+    PullNext(EMsgSilence);
+    // show that silence will be delivered indefinitely while pipeline occupancy is low
+    for (auto i = 0; i < 100; i++) {
+        PullNext(EMsgSilence);
+    }
+    // add missing audio and things should resume
+    iJiffies = 0;
+    QueueAudio(kDefaultAudioJiffies);
+    const auto offset = iTrackOffset;
+    const auto bufferedAudio = iBufferSize;
     PullNext(EMsgAudioPcm);
     TEST(iJiffies == kDefaultAudioJiffies);
     TEST(iTrackOffset == offset);

@@ -133,10 +133,12 @@ public:
     TUint DsdSampleBlockWords();
     TUint DsdPadBytesPerChunk();
 protected:
+    virtual void TryRegisterVorbis();
     virtual void RegisterPlugins(Environment& aEnv);
     virtual void InitialiseSubsystems();
     virtual Web::IWebApp* CreateConfigApp(const std::vector<const Brx*>& aSources, const Brx& aResourceDir, TUint aMinWebUiResourceThreads, TUint aMaxUiTabs, TUint aMaxSendQueueSize);
     virtual void InitialiseLogger();
+    virtual void EnableDevices();
     void DestroyAppFramework();
 private: // from Net::IResourceManager
     void WriteResource(const Brx& aUriTail, const TIpAddress& aInterface, std::vector<char*>& aLanguageList, Net::IResourceWriter& aResourceWriter) override;

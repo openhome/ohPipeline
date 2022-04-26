@@ -30,7 +30,7 @@ public: // from Media::ISupply
     void OutputTrack(Media::Track& aTrack, TBool aStartOfStream = true) override;
     void OutputDrain(Functor aCallback) override;
     void OutputDelay(TUint aJiffies) override;
-    void OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId) override;
+    void OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId, TUint aSeekPosMs = 0) override;
     void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::PcmStreamInfo& aPcmStream) override;
     void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::PcmStreamInfo& aPcmStream, Media::RampType aRamp) override;
     void OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::DsdStreamInfo& aDsdStream) override;
