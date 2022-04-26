@@ -482,17 +482,17 @@ def build(bld):
             target='SourceUpnpAv')
 
     # Library
-    bld.stlib(
-            source=[
-                'OpenHome/Av/Raat/App.cpp',
-                'OpenHome/Av/Raat/Output.cpp',
-                'OpenHome/Av/Raat/Volume.cpp',
-                'OpenHome/Av/Raat/SourceSelection.cpp',
-                'OpenHome/Av/Raat/ProtocolRaat.cpp',
-                'OpenHome/Av/Raat/SourceRaat.cpp'
-            ],
-            use=['OHNET', 'ohMediaPlayer', 'RAAT'],
-            target='SourceRaat')
+    #bld.stlib(
+    #        source=[
+    #            'OpenHome/Av/Raat/App.cpp',
+    #            'OpenHome/Av/Raat/Output.cpp',
+    #            'OpenHome/Av/Raat/Volume.cpp',
+    #            'OpenHome/Av/Raat/SourceSelection.cpp',
+    #            'OpenHome/Av/Raat/ProtocolRaat.cpp',
+    #            'OpenHome/Av/Raat/SourceRaat.cpp'
+    #        ],
+    #        use=['OHNET', 'ohMediaPlayer', 'RAAT'],
+    #        target='SourceRaat')
 
     # Podcast
     bld.stlib(
@@ -1109,7 +1109,7 @@ def build(bld):
                 'SourceRaop',
                 'SourceUpnpAv',
                 'RAAT',
-                'SourceRaat', # FIXME - not available on all platforms
+                #'SourceRaat',
                 'WebAppFramework',
                 'ConfigUi'
                 ],
@@ -1216,8 +1216,8 @@ def build(bld):
                 'SourceSongcast',
                 'SourceScd',
                 'SourceRaop',
-                'RAAT', # FIXME - not available on all platforms
-                'SourceRaat',
+                #'RAAT',
+                #'SourceRaat',
                 'SourceUpnpAv',
                 'ohMediaPlayer'
                 ],

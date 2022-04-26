@@ -1,93 +1,121 @@
 [
-    {   "name": "ohNet",
+    {
+        "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
         "version": "1.33.4586",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
-            "--ohnet-lib-dir", "${main-dir}/lib",
-            "--ohnet-include-dir", "${main-dir}/include/ohnet"
+            "--ohnet-lib-dir",
+            "${main-dir}/lib",
+            "--ohnet-include-dir",
+            "${main-dir}/include/ohnet"
         ],
         "source-git": "https://github.com/openhome/ohNet.git"
     },
-    {   "name": "ohWafHelpers",
+    {
+        "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.127",
+        "version": "0.2.128",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
     },
-    {   "name": "TestTones",
+    {
+        "name": "TestTones",
         "type": "external",
         "version": "1.9",
         "cross-check": false,
         "archive-path": "s3://linn-artifacts-private/testtones/TestTones-${version}.zip",
         "dest": "dependencies/AnyPlatform/TestTones/"
     },
-    {   "name": "libplatform",
+    {
+        "name": "libplatform",
         "type": "internal",
         "version": "0.79.1073",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
             "Core-ppc32": false,
-            "*": true },
+            "*": true
+        },
         "ignore": "${platform-ignore[$platform]}"
     },
-    {   "name":             "libosa",
-        "type":             "internal",
-        "version":          "0.2.284",
-        "cross-check":      false,
-        "archive-suffix":   "-Release",
+    {
+        "name": "libosa",
+        "type": "internal",
+        "version": "0.2.284",
+        "cross-check": false,
+        "archive-suffix": "-Release",
         "platform-ignore": {
             "Core-ppc32": false,
-            "*": true },
-        "ignore":           "${platform-ignore[$platform]}"
+            "*": true
+        },
+        "ignore": "${platform-ignore[$platform]}"
     },
-    {   "name": "libressl",
+    {
+        "name": "libressl",
         "type": "internal",
         "platform-specific": true,
         "version": "0.1.37",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
     },
-    {   "name":             "testharness",
-        "version":          "0.1.59",
-        "cross-check":      false,
-        "type":             "openhome",
-        "archive-filename": "${name}-${version}.tar.gz",
-        "dest":             "dependencies/AnyPlatform/"
+    {
+        "name": "raat",
+        "type": "openhome",
+        "version": "1.0.32",
+        "archive-suffix": "-${debugmode}",
+        "cross-check": false,
+        "platform-ignore": {
+            "Windows-x86": false,
+            "Linux-x64": false,
+            "*": true
+        },
+        "ignore": "${platform-ignore[$platform]}"
     },
-    {   "name":             "Reprog",
-        "version":          "0.1.70",
-        "cross-check":      false,
-        "type":             "internal",
+    {
+        "name": "testharness",
+        "version": "0.1.59",
+        "cross-check": false,
+        "type": "openhome",
+        "archive-filename": "${name}-${version}.tar.gz",
+        "dest": "dependencies/AnyPlatform/"
+    },
+    {
+        "name": "Reprog",
+        "version": "0.1.70",
+        "cross-check": false,
+        "type": "internal",
         "archive-filename": "${name}-${version}-${host-platform}-Release.tar.gz",
         "platform-ignore": {
             "Core-ppc32": false,
-            "*": true },
-        "ignore":           "${platform-ignore[$platform]}",
-        "dest":             "dependencies/${host-platform}/Reprog/"
+            "*": true
+        },
+        "ignore": "${platform-ignore[$platform]}",
+        "dest": "dependencies/${host-platform}/Reprog/"
     },
     {
-        "name":             "hardware",
-        "version":          "4.855.36595",
+        "name": "hardware",
+        "version": "4.855.36595",
         "cross-check": false,
-        "type":             "internal",
+        "type": "internal",
         "archive-filename": "${name}-Core1-${version}.tar.gz",
-        "dest":             "dependencies/AnyPlatform/${name}/"
+        "dest": "dependencies/AnyPlatform/${name}/"
     },
-    {   "name":             "transmute",
-        "version":          "0.2.48",
-        "cross-check":      false,
-        "type":             "internal",
+    {
+        "name": "transmute",
+        "version": "0.2.48",
+        "cross-check": false,
+        "type": "internal",
         "archive-filename": "${name}-${version}.tar.gz",
         "platform-ignore": {
             "Core-ppc32": false,
-            "*": true },
-        "ignore":           "${platform-ignore[$platform]}",
-        "dest":             "dependencies/AnyPlatform/"
+            "*": true
+        },
+        "ignore": "${platform-ignore[$platform]}",
+        "dest": "dependencies/AnyPlatform/"
     },
     {
         "name": "FunctionalTest",
