@@ -289,6 +289,22 @@ private:
     TestCodecControllerDummyCodecBuffered* iCodec;
 };
 
+class SuiteCodecControllerFlush : public SuiteCodecControllerBase
+{
+private:
+    static const TUint kAudioBytesPerMsg = 1024;
+public:
+    SuiteCodecControllerFlush();
+private: // from SuiteCodecControllerBase
+    void Setup() override;
+    void TearDown() override;
+private:
+    void TestFlush();
+    void TestInvalidFlush();
+private:
+    TestCodecControllerDummyCodec* iCodec;
+};
+
 } // namespace Media
 } // namespace OpenHome
 
@@ -569,12 +585,12 @@ void SuiteCodecControllerBase::PullNext()
 
     msg = msg->Process(*this);
     msg->RemoveRef();
-    //Log::Print("SuiteCodecControllerBase::PullNext iLastReceivedMsg: %u, aExpectedMsg: %u\n", iLastReceivedMsg, aExpectedMsg);
 }
 
 void SuiteCodecControllerBase::PullNext(EMsgType aExpectedMsg)
 {
     PullNext();
+    //Log::Print("SuiteCodecControllerBase::PullNext iLastReceivedMsg: %u, aExpectedMsg: %u\n", iLastReceivedMsg, aExpectedMsg);
     TEST(iLastReceivedMsg == aExpectedMsg);
 }
 
@@ -1527,6 +1543,96 @@ void SuiteCodecControllerUnexpectedFlush::TestUnexpectedFlush()
 }
 
 
+// SuiteCodecControllerFlush
+
+const TUint SuiteCodecControllerFlush::kAudioBytesPerMsg;
+
+SuiteCodecControllerFlush::SuiteCodecControllerFlush()
+    : SuiteCodecControllerBase("SuiteCodecControllerFlush")
+{
+    AddTest(MakeFunctor(*this, &SuiteCodecControllerFlush::TestFlush), "TestFlush");
+    AddTest(MakeFunctor(*this, &SuiteCodecControllerFlush::TestInvalidFlush), "TestInvalidFlush");
+}
+
+void SuiteCodecControllerFlush::Setup()
+{
+    SuiteCodecControllerBase::Setup();
+    iCodec = new TestCodecControllerDummyCodec(kAudioBytesPerMsg);
+    iController->AddCodec(iCodec);  // Takes ownership.
+    iController->Start();
+}
+
+void SuiteCodecControllerFlush::TearDown()
+{
+    SuiteCodecControllerBase::TearDown();
+}
+
+void SuiteCodecControllerFlush::TestFlush()
+{
+    iCodec->SetStreamInfo(kAudioBytesPerMsg, 2, 44100, 16, AudioDataEndian::Little, SpeakerProfile());
+
+    Queue(CreateTrack());
+    PullNext(EMsgTrack);
+    Queue(CreateEncodedStream());
+    PullNext(EMsgEncodedStream);
+
+    // Output some audio.
+    TByte encodedAudioData[kAudioBytesPerMsg];
+    (void)memset(encodedAudioData, 0x7f, kAudioBytesPerMsg);
+    Brn encodedAudioBuf(encodedAudioData, kAudioBytesPerMsg);
+    Queue(iMsgFactory->CreateMsgAudioEncoded(encodedAudioBuf));
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgAudioPcm);
+
+    // Tell pipeline to flush.
+    auto msgFlush = CreateFlush();
+    iController->Flush(msgFlush->Id());
+    // Pull remaining audio that was likely output on CodecController thread before flush.
+    PullNext(EMsgAudioPcm);
+    // Queue some more audio up. This should all be discarded until flush is received.
+    Queue(iMsgFactory->CreateMsgAudioEncoded(encodedAudioBuf));
+    // Push in expected flush.
+    Queue(msgFlush);
+    // Pull next message, which should be flush.
+    PullNext(EMsgFlush);
+
+    // Push a MsgEncodedStream to start new stream, as flush will have terminated previous stream.
+    Queue(CreateEncodedStream());
+    PullNext(EMsgEncodedStream);
+    // Push some audio.
+    Queue(iMsgFactory->CreateMsgAudioEncoded(encodedAudioBuf));
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgAudioPcm);
+
+    // Push a MsgEncodedStream to cause codec to flush its buffer.
+    Queue(CreateEncodedStream());
+    PullNext(EMsgAudioPcm);
+    PullNext(EMsgEncodedStream);
+    PullNext(EMsgDecodedStream);
+}
+
+void SuiteCodecControllerFlush::TestInvalidFlush()
+{
+    iCodec->SetStreamInfo(kAudioBytesPerMsg, 2, 44100, 16, AudioDataEndian::Little, SpeakerProfile());
+
+    Queue(CreateTrack());
+    PullNext(EMsgTrack);
+    Queue(CreateEncodedStream());
+    PullNext(EMsgEncodedStream);
+
+    // Output some audio.
+    TByte encodedAudioData[kAudioBytesPerMsg];
+    (void)memset(encodedAudioData, 0x7f, kAudioBytesPerMsg);
+    Brn encodedAudioBuf(encodedAudioData, kAudioBytesPerMsg);
+    Queue(iMsgFactory->CreateMsgAudioEncoded(encodedAudioBuf));
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgAudioPcm);
+
+    // Tell pipeline to flush with invalid flush ID.
+    TEST_THROWS(iController->Flush(MsgFlush::kIdInvalid), AssertionFailed);
+}
+
+
 
 void TestCodecController()
 {
@@ -1536,6 +1642,7 @@ void TestCodecController()
     runner.Add(new SuiteCodecControllerStopDuringStreamInit());
     runner.Add(new SuiteCodecControllerSeekInvalid());
     runner.Add(new SuiteCodecControllerUnexpectedFlush());
+    runner.Add(new SuiteCodecControllerFlush());
     runner.Run();
 }
 

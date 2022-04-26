@@ -824,6 +824,7 @@ void Pipeline::Wait(TUint aFlushId)
 void Pipeline::FlushQuick(TUint aFlushId)
 {
     Wait(aFlushId);
+    // iCodecController->Flush(aFlushId);
     iStarvationRamper->Flush(aFlushId);
 }
 
