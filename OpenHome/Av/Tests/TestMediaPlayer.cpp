@@ -522,7 +522,9 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
                                                  Optional<IOhmMsgProcessor>()));
 
     iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
-    //iMediaPlayer->Add(SourceFactory::NewRaat(*iMediaPlayer)); // FIXME - not available on all platforms
+#ifdef RAAT_ENABLE
+    iMediaPlayer->Add(SourceFactory::NewRaat(*iMediaPlayer));
+#endif
 }
 
 void TestMediaPlayer::InitialiseSubsystems()
