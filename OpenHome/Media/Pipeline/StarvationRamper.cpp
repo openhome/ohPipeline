@@ -692,6 +692,7 @@ void StarvationRamper::ProcessMsgIn(MsgDelay* aMsg)
 void StarvationRamper::ProcessMsgIn(MsgHalt* /*aMsg*/)
 {
     iHaltCount++;
+    iSemStartOccupancy.Signal();
 }
 
 void StarvationRamper::ProcessMsgIn(MsgDecodedStream* /*aMsg*/)
