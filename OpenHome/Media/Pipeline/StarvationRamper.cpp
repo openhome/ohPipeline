@@ -866,6 +866,10 @@ Msg* StarvationRamper::ProcessMsgOut(MsgAudioDsd* aMsg)
         break;
     case State::RampingDown:
         ApplyRamp(aMsg);
+        if (iState == State::FlywheelRamping) {
+            iStarving = true;
+            iStreamHandler->NotifyStarving(iMode, iStreamId, true);
+        }
         break;
     case State::RampingUp:
         if (Jiffies() <= kRampDownJiffies &&
