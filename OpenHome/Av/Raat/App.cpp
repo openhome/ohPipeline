@@ -5,6 +5,7 @@
 #include <OpenHome/Functor.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Av/SourceFactory.h>
+#include <OpenHome/Av/VolumeManager.h>
 #include <OpenHome/Av/Raat/Output.h>
 #include <OpenHome/Av/Raat/Volume.h>
 #include <OpenHome/Av/Raat/SourceSelection.h>
@@ -32,7 +33,9 @@ RaatApp::RaatApp(
 {
     iThread = new ThreadFunctor("Raat", MakeFunctor(*this, &RaatApp::RaatThread));
     iOutput = new RaatOutput(aEnv, aMediaPlayer.Pipeline(), aSourceRaat);
-    iVolume = new RaatVolume(aMediaPlayer);
+    if (aMediaPlayer.ConfigManager().HasNum(VolumeConfig::kKeyLimit)) {
+        iVolume = RaatVolume::New(aMediaPlayer);
+    }
     iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat);
     iThread->Start();
 }
@@ -106,7 +109,9 @@ void RaatApp::RaatThread()
     // RAAT__INFO_KEY_CONFIG_URL
 
     RAAT__device_set_output_plugin(iDevice, iOutput->Plugin());
-    RAAT__device_set_volume_plugin(iDevice, iVolume->Plugin());
+    if (iVolume != nullptr) {
+        RAAT__device_set_volume_plugin(iDevice, iVolume->Plugin());
+    }
 
     status = RAAT__device_run(iDevice);
     if (!RC__STATUS_IS_SUCCESS(status)) {

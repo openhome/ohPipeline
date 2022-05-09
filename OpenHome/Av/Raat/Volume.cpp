@@ -78,6 +78,15 @@ using namespace OpenHome::Av;
 
 // RaatVolume
 
+RaatVolume* RaatVolume::New(IMediaPlayer& aMediaPlayer)
+{ // static
+    if (!aMediaPlayer.ConfigManager().HasNum(VolumeConfig::kKeyLimit)) {
+        // no Voluem Limit => no volume control => nothing to expose to Roon here
+        return nullptr;
+    }
+    return new RaatVolume(aMediaPlayer);
+}
+
 RaatVolume::RaatVolume(IMediaPlayer& aMediaPlayer)
     : iVolumeManager(aMediaPlayer.VolumeManager())
     , iConfigLimit(aMediaPlayer.ConfigManager().GetNum(VolumeConfig::kKeyLimit))
