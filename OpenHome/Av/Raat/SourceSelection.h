@@ -8,7 +8,7 @@
 namespace OpenHome {
     class Brx;
     class IThreadPoolHandle;
-    namespace  Configuration {
+    namespace Configuration {
         class ConfigNum;
     }
     namespace Net {
