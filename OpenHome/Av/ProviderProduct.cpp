@@ -91,6 +91,10 @@ ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, 
     }
     UpdatePresentationUrlLocked(); // no need for lock yet - observers aren't registered so no other functions will run in other threads
     SetPropertyProductUrl(iPresentationUrl);
+    // Standby / StandbyTransitioning will be updated when PowerManager is started.
+    // It is possible clients will subscribe before this so we need to set a default value
+    SetPropertyStandby(true);
+    SetPropertyStandbyTransitioning(false);
 
     iStandbyObserver = aPowerManager.RegisterStandbyHandler(*this, kStandbyHandlerPriorityLowest, "ProviderProduct");
     iProduct.AddObserver(*this);
