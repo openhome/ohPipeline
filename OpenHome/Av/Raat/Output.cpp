@@ -26,21 +26,21 @@ static inline OpenHome::Av::RaatOutput* Output(void *self)
 }
 
 extern "C"
-static RC__Status Raat_Output_Get_Info(void *self, json_t **out_info)
+RC__Status Raat_Output_Get_Info(void *self, json_t **out_info)
 {
     Output(self)->GetInfo(out_info);
     return RC__STATUS_SUCCESS;
 }
 
 extern "C"
-static RC__Status Raat_Output_Get_Supported_Formats(void *self, RC__Allocator *alloc, size_t *out_nformats, RAAT__StreamFormat **out_formats)
+RC__Status Raat_Output_Get_Supported_Formats(void *self, RC__Allocator *alloc, size_t *out_nformats, RAAT__StreamFormat **out_formats)
 {
     Output(self)->GetSupportedFormats(alloc, out_nformats, out_formats);
     return RC__STATUS_SUCCESS;
 }
 
 extern "C"
-static void Raat_Output_Setup(
+void Raat_Output_Setup(
     void *self,
     RAAT__StreamFormat *format,
     RAAT__OutputSetupCallback cb_setup, void *cb_setup_userdata,
@@ -50,43 +50,43 @@ static void Raat_Output_Setup(
 }
 
 extern "C"
-static RC__Status Raat_Output_Teardown(void *self, int token)
+RC__Status Raat_Output_Teardown(void *self, int token)
 {
     return Output(self)->TeardownStream(token);
 }
 
 extern "C"
-static RC__Status Raat_Output_Start(void *self, int token, int64_t walltime, int64_t streamtime, RAAT__Stream *stream)
+RC__Status Raat_Output_Start(void *self, int token, int64_t walltime, int64_t streamtime, RAAT__Stream *stream)
 {
     return Output(self)->StartStream(token, walltime, streamtime, stream);
 }
 
 extern "C"
-static RC__Status Raat_Output_Get_Local_Time(void *self, int token, int64_t *out_time)
+RC__Status Raat_Output_Get_Local_Time(void *self, int token, int64_t *out_time)
 {
     return Output(self)->GetLocalTime(token, out_time);
 }
 
 extern "C"
-static RC__Status Raat_Output_Set_Remote_Time(void *self, int token, int64_t clock_offset, bool new_source)
+RC__Status Raat_Output_Set_Remote_Time(void *self, int token, int64_t clock_offset, bool new_source)
 {
     return Output(self)->SetRemoteTime(token, clock_offset, new_source);
 }
 
 extern "C"
-static RC__Status Raat_Output_Stop(void *self, int token)
+RC__Status Raat_Output_Stop(void *self, int token)
 {
     return Output(self)->TryStop(token);
 }
 
 extern "C"
-static RC__Status Raat_Output_Force_Teardown(void *self, json_t* /*reason*/)
+RC__Status Raat_Output_Force_Teardown(void *self, json_t* /*reason*/)
 {
     return Output(self)->Stop();
 }
 
 extern "C"
-static RC__Status Raat_Output_Add_Message_Listener(void *self, RAAT__OutputMessageCallback cb, void *cb_userdata)
+RC__Status Raat_Output_Add_Message_Listener(void *self, RAAT__OutputMessageCallback cb, void *cb_userdata)
 {
     return Output(self)->AddListener(cb, cb_userdata);
 }

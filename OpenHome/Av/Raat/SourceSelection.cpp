@@ -4,7 +4,7 @@
 #include <OpenHome/Functor.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
-#include <Generated/CpAvOpenHomeOrgProduct3.h>
+#include <Generated/CpAvOpenhomeOrgProduct3.h>
 
 #include <rc_status.h>
 #include <raat_plugin_source_selection.h>

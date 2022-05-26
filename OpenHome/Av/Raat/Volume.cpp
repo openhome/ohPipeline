@@ -18,7 +18,7 @@ static inline OpenHome::Av::RaatVolume* Volume(void *self)
 }
 
 extern "C"
-static RC__Status Raat_Volume_Get_Info(void * /*self*/, json_t **out_info)
+ RC__Status Raat_Volume_Get_Info(void * /*self*/, json_t **out_info)
 {
     *out_info = nullptr;
     return RC__STATUS_SUCCESS;
