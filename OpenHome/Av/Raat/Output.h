@@ -51,6 +51,8 @@ typedef struct {
     RaatOutput* iSelf;
 } RaatOutputPluginExt;
 
+class IRaatTime;
+
 class RaatOutput : public IRaatReader
 {
     static const TUint kPendingPacketsMax;
@@ -58,7 +60,8 @@ public:
     RaatOutput(
         Environment& aEnv,
         Media::PipelineManager& aPipeline,
-        ISourceRaat& aSourceRaat);
+        ISourceRaat& aSourceRaat,
+        IRaatTime& aRaatTime);
     ~RaatOutput();
     RAAT__OutputPlugin* Plugin();
     void GetInfo(json_t** aInfo);
@@ -79,6 +82,7 @@ private:
     TUint64 GetLocalTime() const;
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);
     static void AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate);
+    void OutputSignalPath();
 private: // from IRaatReader
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;
@@ -111,6 +115,7 @@ private:
     Environment& iEnv;
     Media::PipelineManager& iPipeline;
     ISourceRaat& iSourceRaat;
+    IRaatTime& iRaatTime;
     Mutex iLockStream;
     RAAT__Stream* iStream;
     Semaphore iSemStarted;

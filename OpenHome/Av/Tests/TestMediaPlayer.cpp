@@ -30,6 +30,7 @@
 #include <OpenHome/Net/Odp/DviServerOdp.h>
 #include <OpenHome/Net/Odp/DviProtocolOdp.h>
 #include <OpenHome/Private/Debug.h>
+#include <OpenHome/Av/Raat/Time.h>
 
 #include <vector>
 
@@ -523,7 +524,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 
     iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
 #ifdef RAAT_ENABLE
-    iMediaPlayer->Add(SourceFactory::NewRaat(*iMediaPlayer));
+    iMediaPlayer->Add(SourceFactory::NewRaat(*iMediaPlayer, new RaatTimeCpu(iMediaPlayer->Env())));
 #endif
 }
 

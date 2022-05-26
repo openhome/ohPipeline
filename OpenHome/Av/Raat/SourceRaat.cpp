@@ -9,6 +9,7 @@
 #include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/Raat/App.h>
 #include <OpenHome/Av/Raat/ProtocolRaat.h>
+#include <OpenHome/Av/Raat/Time.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -17,9 +18,9 @@ using namespace OpenHome::Media;
 
 // SourceFactory
 
-ISource* SourceFactory::NewRaat(IMediaPlayer& aMediaPlayer)
+ISource* SourceFactory::NewRaat(IMediaPlayer& aMediaPlayer, IRaatTime* aRaatTime)
 { // static
-    return new SourceRaat(aMediaPlayer);
+    return new SourceRaat(aMediaPlayer, aRaatTime);
 }
 
 
@@ -47,7 +48,7 @@ const Brn SourceFactory::kSourceNameRaat("RAAT");
 
 // SourceRaat
 
-SourceRaat::SourceRaat(IMediaPlayer& aMediaPlayer)
+SourceRaat::SourceRaat(IMediaPlayer& aMediaPlayer, IRaatTime* aRaatTime)
     : Source(
         SourceFactory::kSourceNameRaat,
         SourceFactory::kSourceTypeRaat,
@@ -55,6 +56,7 @@ SourceRaat::SourceRaat(IMediaPlayer& aMediaPlayer)
         false /* not visible by default */)
     , iLock("SRat")
     , iMediaPlayer(aMediaPlayer)
+    , iRaatTime(aRaatTime)
     , iApp(nullptr)
     , iTrack(nullptr)
 {
@@ -78,6 +80,7 @@ SourceRaat::SourceRaat(IMediaPlayer& aMediaPlayer)
 SourceRaat::~SourceRaat()
 {
     delete iApp;
+    delete iRaatTime;
     if (iTrack != nullptr) {
         iTrack->RemoveRef();
     }
@@ -124,6 +127,7 @@ void SourceRaat::Started()
         iMediaPlayer.Env(),
         iMediaPlayer,
         *this,
+        *iRaatTime,
         Brn("12345"),
         Brn("0.0.0"));
     auto protocol = new ProtocolRaat(

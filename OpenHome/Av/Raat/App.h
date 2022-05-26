@@ -13,6 +13,7 @@ namespace Av {
     class IMediaPlayer;
     class ISourceRaat;
     class IRaatReader;
+    class IRaatTime;
     class RaatOutput;
     class RaatVolume;
     class RaatSourceSelection;
@@ -24,6 +25,7 @@ public:
         Environment& aEnv,
         IMediaPlayer& aMediaPlayer,
         ISourceRaat& aSourceRaat,
+        IRaatTime& aRaatTime,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion);
     ~RaatApp();

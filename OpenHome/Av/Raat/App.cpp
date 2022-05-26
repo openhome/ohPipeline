@@ -22,6 +22,7 @@ RaatApp::RaatApp(
     Environment& aEnv,
     IMediaPlayer& aMediaPlayer,
     ISourceRaat& aSourceRaat,
+    IRaatTime& aRaatTime,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion)
     : iMediaPlayer(aMediaPlayer)
@@ -32,7 +33,7 @@ RaatApp::RaatApp(
     , iSoftwareVersion(aSoftwareVersion)
 {
     iThread = new ThreadFunctor("Raat", MakeFunctor(*this, &RaatApp::RaatThread));
-    iOutput = new RaatOutput(aEnv, aMediaPlayer.Pipeline(), aSourceRaat);
+    iOutput = new RaatOutput(aEnv, aMediaPlayer.Pipeline(), aSourceRaat, aRaatTime);
     if (aMediaPlayer.ConfigManager().HasNum(VolumeConfig::kKeyLimit)) {
         iVolume = RaatVolume::New(aMediaPlayer);
     }

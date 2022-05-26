@@ -1,7 +1,6 @@
 #include <OpenHome/Av/Raat/Output.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Types.h>
-#include <OpenHome/OsWrapper.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/Parser.h>
@@ -9,6 +8,7 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Av/Raat/SourceRaat.h>
+#include <OpenHome/Av/Raat/Time.h>
 
 #include <map>
 #include <stdlib.h>
@@ -109,10 +109,12 @@ const TUint RaatOutput::kPendingPacketsMax = 20;
 RaatOutput::RaatOutput(
     Environment& aEnv,
     Media::PipelineManager& aPipeline,
-    ISourceRaat& aSourceRaat)
+    ISourceRaat& aSourceRaat,
+    IRaatTime& aRaatTime)
     : iEnv(aEnv)
     , iPipeline(aPipeline)
     , iSourceRaat(aSourceRaat)
+    , iRaatTime(aRaatTime)
     , iLockStream("RatL")
     , iStream(nullptr)
     , iSemStarted("ROut", 0)
@@ -263,6 +265,8 @@ RC__Status RaatOutput::TeardownStream(int aToken)
 
 RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStreamTime, RAAT__Stream* aStream)
 {
+    OutputSignalPath(); // FIXME - should be prompted by clients informing us of SP changes
+
     if (aToken != iToken) {
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
@@ -296,7 +300,7 @@ RC__Status RaatOutput::GetLocalTime(int aToken, int64_t* aTime)
 
 TUint64 RaatOutput::GetLocalTime() const
 {
-    return Os::TimeInUs(iEnv.OsCtx()) * 1000;
+    return iRaatTime.MclkTimeNs();
 }
 
 RC__Status RaatOutput::SetRemoteTime(int /*aToken*/, int64_t /*aClockOffset*/, bool /*aNewSource*/)
@@ -427,6 +431,22 @@ void RaatOutput::Reset()
     iRunning = false;
     iStreamPos = 0;
     (void)iPendingPackets.clear();
+}
+
+void RaatOutput::OutputSignalPath()
+{
+    json_t *message = json_object();
+    json_t *signal_path = json_array();
+
+    json_t *output = json_object();
+    json_object_set_new(output, "type", json_string("output"));
+    json_object_set_new(output, "method", json_string("digital"));
+    json_object_set_new(output, "quality", json_string("lossless"));
+    json_array_append_new(signal_path, output);
+
+    json_object_set_new(message, "signal_path", signal_path);
+    RAAT__output_message_listeners_invoke(&iListeners, message);
+    json_decref(message);
 }
 
 
