@@ -60,7 +60,7 @@ def configure(conf):
     configure_toolchain(conf)
     guess_ohnet_location(conf)
     guess_ssl_location(conf)
-    #guess_raat_location(conf)
+    guess_raat_location(conf)
 
     conf.env.dest_platform = conf.options.dest_platform
     conf.env.testharness_dir = os.path.abspath(conf.options.testharness_dir)
@@ -490,7 +490,8 @@ def build(bld):
                     'OpenHome/Av/Raat/Volume.cpp',
                     'OpenHome/Av/Raat/SourceSelection.cpp',
                     'OpenHome/Av/Raat/ProtocolRaat.cpp',
-                    'OpenHome/Av/Raat/SourceRaat.cpp'
+                    'OpenHome/Av/Raat/SourceRaat.cpp',
+                    'OpenHome/Av/Raat/Time.cpp'
                 ],
                 use=['OHNET', 'ohMediaPlayer', 'RAAT'],
                 target='SourceRaat')
