@@ -23,6 +23,7 @@ class ProtocolRaat : public Media::Protocol, private IRaatWriter
     static const TUint kMaxStreamUrlSize = 1024;
 public:
     ProtocolRaat(Environment& aEnv, IRaatReader& aRaatReader, Media::TrackFactory& aTrackFactory);
+    ~ProtocolRaat();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
     void Interrupt(TBool aInterrupt) override;

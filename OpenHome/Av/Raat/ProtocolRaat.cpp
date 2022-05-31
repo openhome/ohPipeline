@@ -21,6 +21,11 @@ ProtocolRaat::ProtocolRaat(Environment& aEnv, IRaatReader& aRaatReader, Media::T
 {
 }
 
+ProtocolRaat::~ProtocolRaat()
+{
+    delete iSupply;
+}
+
 void ProtocolRaat::Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream)
 {
     iSupply = new SupplyAggregatorBytes(aMsgFactory, aDownstream);
