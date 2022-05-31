@@ -65,7 +65,7 @@
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.0.34",
+        "version": "1.0.35",
         "archive-suffix": "-${debugmode}",
         "cross-check": false,
         "platform-ignore": {
