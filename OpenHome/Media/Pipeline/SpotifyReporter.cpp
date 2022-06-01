@@ -473,23 +473,21 @@ Msg* SpotifyReporter::ProcessMsg(MsgTrack* aMsg)
 
     if (aMsg->StartOfStream()) {
         ClearDecodedStream();
-        iPipelineTrackSeen = false;
-        iGeneratedTrackPending = false;
-        iPlaybackStartPending = false;
     }
 
     const auto currStreamId = iStreamId;
     try {
         const auto streamId = Ascii::Uint(streamIdBuf);
         iStreamId = streamId;
-        iPipelineTrackSeen = true; // Only matters when in iInterceptMode. Ensures in-band MsgTrack is output before any are generated from out-of-band notifications.
-        iGeneratedTrackPending = true;
-        iPlaybackStartPending = true; // Spotify stream ID has almost certainly changed on every call to this.
     }
     catch (AsciiError&) {
         iStreamId = kStreamIdInvalid;
         LOG_ERROR(kPipeline, "SpotifyReporter::ProcessMsg(MsgTrack*) Unable to parse stream ID from URI: %.*s\n", PBUF(iTrackUri));
     }
+
+    iPipelineTrackSeen = true; // Only matters when in iInterceptMode. Ensures in-band MsgTrack is output before any are generated from out-of-band notifications.
+    iGeneratedTrackPending = true;
+    iPlaybackStartPending = true; // Spotify stream ID has almost certainly changed on every call to this.
 
     // iStreamId == kStreamIdInvalid immediately after seeing Spotify MsgMode, so won't report playback finished on first MsgTrack seen after Spotify MsgMode.
     if (currStreamId != kStreamIdInvalid) {
