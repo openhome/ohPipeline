@@ -689,7 +689,7 @@ FriendlyNameManager::FriendlyNameManager(const Brx& aPrefix, IProductNameObserva
 FriendlyNameManager::FriendlyNameManager(const Brx& aPrefix, IProductNameObservable& aProduct, IThreadPool& aThreadPool, const Brx& aSuffix)
     : iPrefix(aPrefix)
     , iSuffix(aSuffix)
-    , iNextObserverId(1)
+    , iNextObserverId(kIdInvalid + 1)
     , iMutex("FNHM")
     , iStarted(false)   // Prevent initial callbacks in this constructor from being scheduled on thread pool (which may run before or after first observers are registered).
 {

@@ -14,7 +14,7 @@ import os.path, sys
 sys.path[0:0] = [os.path.join('dependencies', 'AnyPlatform', 'ohWafHelpers')]
 
 from filetasks import gather_files, build_tree, copy_task, find_dir_or_fail, create_copy_task
-from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_libplatform_location, guess_libosa_location, is_core_platform
+from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform
 
 def options(opt):
     opt.load('msvs')
@@ -28,6 +28,7 @@ def options(opt):
     opt.add_option('--ssl', action='store', default=None)
     opt.add_option('--libplatform', action='store', default=None)
     opt.add_option('--libosa', action='store', default=None)
+    opt.add_option('--raat', action='store', default=None)
     opt.add_option('--debug', action='store_const', dest="debugmode", const="Debug", default="Release")
     opt.add_option('--release', action='store_const', dest="debugmode",  const="Release", default="Release")
     opt.add_option('--dest-platform', action='store', default=None)
@@ -59,12 +60,13 @@ def configure(conf):
     configure_toolchain(conf)
     guess_ohnet_location(conf)
     guess_ssl_location(conf)
+    guess_raat_location(conf)
 
     conf.env.dest_platform = conf.options.dest_platform
     conf.env.testharness_dir = os.path.abspath(conf.options.testharness_dir)
 
     if conf.options.dest_platform.startswith('Windows'):
-        conf.env.LIB_OHNET=['ws2_32', 'iphlpapi', 'dbghelp']
+        conf.env.LIB_OHNET=['ws2_32', 'iphlpapi', 'dbghelp', 'psapi', 'userenv']
     conf.env.STLIB_OHNET=['TestFramework', 'ohNetCore']
 
     if is_core_platform(conf):
@@ -478,6 +480,21 @@ def build(bld):
             ],
             use=['OHNET', 'ohMediaPlayer'],
             target='SourceUpnpAv')
+
+    # RAAT
+    if 'RAAT_ENABLE' in bld.env.DEFINES:
+        bld.stlib(
+                source=[
+                    'OpenHome/Av/Raat/App.cpp',
+                    'OpenHome/Av/Raat/Output.cpp',
+                    'OpenHome/Av/Raat/Volume.cpp',
+                    'OpenHome/Av/Raat/SourceSelection.cpp',
+                    'OpenHome/Av/Raat/ProtocolRaat.cpp',
+                    'OpenHome/Av/Raat/SourceRaat.cpp',
+                    'OpenHome/Av/Raat/Time.cpp'
+                ],
+                use=['OHNET', 'ohMediaPlayer', 'RAAT'],
+                target='SourceRaat')
 
     # Podcast
     bld.stlib(
@@ -1082,7 +1099,22 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestMediaPlayerMain.cpp',
-            use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'WebAppFramework', 'ConfigUi'],
+            use=[
+                'OHNET',
+                'SSL',
+                'ohMediaPlayer',
+                'ohMediaPlayerTestUtils',
+                'SourcePlaylist',
+                'SourceRadio',
+                'SourceSongcast',
+                'SourceScd',
+                'SourceRaop',
+                'SourceUpnpAv',
+                'RAAT',
+                'SourceRaat',
+                'WebAppFramework',
+                'ConfigUi'
+                ],
             target='TestMediaPlayer',
             install_path=os.path.join(bld.path.abspath(), 'install', 'bin'))
     bld.program(
@@ -1172,7 +1204,25 @@ def build(bld):
             install_path=None)
     bld.program(
             source=['OpenHome/Web/ConfigUi/Tests/TestConfigUiMain.cpp'],
-            use=['OHNET', 'PLATFORM', 'SSL', 'ConfigUiTestUtils', 'WebAppFrameworkTestUtils', 'ConfigUi', 'WebAppFramework', 'ohMediaPlayerTestUtils', 'SourcePlaylist', 'SourceRadio', 'SourceSongcast', 'SourceScd', 'SourceRaop', 'SourceUpnpAv', 'ohMediaPlayer'],
+            use=[
+                'OHNET',
+                'PLATFORM',
+                'SSL',
+                'ConfigUiTestUtils',
+                'WebAppFrameworkTestUtils',
+                'ConfigUi',
+                'WebAppFramework',
+                'ohMediaPlayerTestUtils',
+                'SourcePlaylist',
+                'SourceRadio',
+                'SourceSongcast',
+                'SourceScd',
+                'SourceRaop',
+                'RAAT',
+                'SourceRaat',
+                'SourceUpnpAv',
+                'ohMediaPlayer'
+                ],
             target='TestConfigUi',
             install_path=None)
     bld.program(

@@ -19,6 +19,7 @@ class IMediaPlayer;
 class IPlaylistLoader;
 class IOhmTimestamper;
 class IOhmMsgProcessor;
+class IRaatTime;
 
 class SourceFactory
 {
@@ -34,6 +35,7 @@ public:
                                 Optional<IOhmTimestamper> aRxTimestamper,
                                 Optional<IOhmMsgProcessor> aOhmMsgObserver);
     static ISource* NewScd(IMediaPlayer& aMediaPlayer, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerChunk);
+    static ISource* NewRaat(IMediaPlayer& aMediaPlayer, IRaatTime* aRaatTime);
 
     static const TChar* kSourceTypePlaylist;
     static const TChar* kSourceTypeRadio;
@@ -41,6 +43,7 @@ public:
     static const TChar* kSourceTypeRaop;
     static const TChar* kSourceTypeReceiver;
     static const TChar* kSourceTypeScd;
+    static const TChar* kSourceTypeRaat;
 
     static const Brn kSourceNamePlaylist;
     static const Brn kSourceNameRadio;
@@ -48,6 +51,7 @@ public:
     static const Brn kSourceNameRaop;
     static const Brn kSourceNameReceiver;
     static const Brn kSourceNameScd;
+    static const Brn kSourceNameRaat;
 };
 
 } // namespace Av

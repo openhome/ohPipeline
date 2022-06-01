@@ -26,7 +26,7 @@ class IMediaPlayer;
 class RaatVolume : private IVolumeObserver, private Media::IMuteObserver
 {
 public:
-    RaatVolume(IMediaPlayer& aMediaPlayer);
+    static RaatVolume* New(IMediaPlayer& aMediaPlayer);
     ~RaatVolume();
     RAAT__VolumePlugin* Plugin();
     void AddStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata);
@@ -40,6 +40,7 @@ private: // from IVolumeObserver
 private: // from Media::IMuteObserver
     void MuteChanged(TBool aValue) override;
 private:
+    RaatVolume(IMediaPlayer& aMediaPlayer);
     void LimitChanged(Configuration::ConfigNum::KvpNum& aKvp);
     void NotifyChange();
 private:
