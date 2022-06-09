@@ -1286,6 +1286,7 @@ def bundle(ctx):
                  'SourceRadio',
                  'SourceSongcast',
                  'SourceRaop',
+                 'SourceRaat',
                  'SourceScd',
                  'SourceUpnpAv',
                  'CodecAacFdk',
