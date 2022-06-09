@@ -675,6 +675,7 @@ void SuiteSpotifyReporter::Setup()
     iMsgProcessor = new MockMsgProcessor(*iTestPipe);
 
     MsgFactoryInitParams init;
+    init.SetMsgTrackCount(2);           // Source module may send track down with invalid/missing stream ID prior to protocol module sending out track with valid stream ID.
     init.SetMsgDecodedStreamCount(2);   // SpotifyReporter always caches last seen MsgDecodedStream, so require at least 2 in pipeline.
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iTrackFactory = new TrackFactory(iInfoAggregator, 2);   // Require at least 2 Tracks for SpotifyReporter, as it will cache one.
@@ -715,7 +716,7 @@ void SuiteSpotifyReporter::TestMsgsCauseAssertion()
     // SpotifyReporter is placed.
 
     // MsgEncodedStream
-    MsgEncodedStream* msgEncodedStream = iMsgFactory->CreateMsgEncodedStream(Brn("spotify://"), Brx::Empty(), 1234, 0, 1, true, false, Multiroom::Allowed, nullptr);
+    MsgEncodedStream* msgEncodedStream = iMsgFactory->CreateMsgEncodedStream(Brn("spotify:0"), Brx::Empty(), 1234, 0, 1, true, false, Multiroom::Allowed, nullptr);
     iUpstream->Enqueue(msgEncodedStream);
     TEST_THROWS(iReporter->Pull(), AssertionFailed);
     msgEncodedStream->RemoveRef();   // Avoid memory leaks.
@@ -743,7 +744,7 @@ void SuiteSpotifyReporter::TestMsgsPassedThroughNoSamplesInPipeline()
     // MsgDecodedStream and MsgAudioPcm should change the state of the
     // SpotifyReporter, so test the others.
 
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
 
@@ -763,7 +764,7 @@ void SuiteSpotifyReporter::TestMsgsPassedThroughNoSamplesInPipeline()
         TEST(iReporter->SubSamples() == 0);
     }
 
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDelay 0")));
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMetaText Spotify meta text")));
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgHalt 0")));
@@ -776,7 +777,7 @@ void SuiteSpotifyReporter::TestMsgsPassedThroughSamplesInPipeline()
 {
     // First, put some audio into pipeline.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("null")));
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
@@ -789,7 +790,7 @@ void SuiteSpotifyReporter::TestMsgsPassedThroughSamplesInPipeline()
         msg->RemoveRef();
     }
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode null")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDecodedStream 0 705600 16 44100 2 CODC 3386880000 0 Y N N")));
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgAudioPcm 983040 0")));
 
@@ -807,21 +808,27 @@ void SuiteSpotifyReporter::TestMsgModeResets()
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
     TUint64 trackOffset = 0;
     iUpstream->Enqueue(CreateAudio(2, 44100, trackOffset));
 
-    for (TUint i=0; i<5; i++) {
+    for (TUint i=0; i<6; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode Spotify")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 2 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 3 N")));
     // Track duration is from track message injected into SpotifyReporter.
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDecodedStream 0 705600 16 44100 2 CODC 69656832 0 Y N N")));
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgAudioPcm 983040 0")));
@@ -854,19 +861,25 @@ void SuiteSpotifyReporter::TestSubSamples()
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
-    for (TUint i=0; i<4; i++) {
+    for (TUint i=0; i<5; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode Spotify")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 2 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 3 N")));
     // Track duration is from track message injected into SpotifyReporter.
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDecodedStream 0 705600 16 44100 2 CODC 69656832 0 Y N N")));
 
@@ -899,19 +912,25 @@ void SuiteSpotifyReporter::TestSampleRateChange()
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
-    for (TUint i=0; i<4; i++) {
+    for (TUint i=0; i<5; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode Spotify")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 2 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 3 N")));
     // Track duration is from track message injected into SpotifyReporter.
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDecodedStream 0 705600 16 44100 2 CODC 69656832 0 Y N N")));
 
@@ -934,7 +953,7 @@ void SuiteSpotifyReporter::TestSampleRateChange()
 
 
     // Now, change sample rate and send more audio.
-    Track* track2 = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text 2"));
+    Track* track2 = iTrackFactory->CreateTrack(Brn("spotify:2"), Brn("Spotify track meta text 2"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track2));
     track2->RemoveRef();
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 768000, 16, 48000, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
@@ -943,9 +962,9 @@ void SuiteSpotifyReporter::TestSampleRateChange()
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 3 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:2 4 Y")));
     // Track generated by Spotify reporter, marked as not start of stream.
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 4 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:2 5 N")));
     // Track duration is from track message injected into SpotifyReporter.
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDecodedStream 0 768000 16 48000 2 CODC 69656832 0 Y N N")));
 
@@ -983,19 +1002,25 @@ void SuiteSpotifyReporter::TestNumChannelsChange()
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
-    for (TUint i=0; i<4; i++) {
+    for (TUint i=0; i<5; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode Spotify")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 2 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 3 N")));
     // Track duration is from track message injected into SpotifyReporter.
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDecodedStream 0 705600 16 44100 2 CODC 69656832 0 Y N N")));
 
@@ -1018,7 +1043,7 @@ void SuiteSpotifyReporter::TestNumChannelsChange()
 
 
     // Now, change number of channels and send more audio.
-    Track* track2 = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    Track* track2 = iTrackFactory->CreateTrack(Brn("spotify:2"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track2));
     track2->RemoveRef();
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 1, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(1), nullptr, RampType::Sample));
@@ -1027,9 +1052,9 @@ void SuiteSpotifyReporter::TestNumChannelsChange()
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 3 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:2 4 Y")));
     // Track generated by Spotify reporter, marked as not start of stream.
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 4 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:2 5 N")));
     // Track duration is from track message injected into SpotifyReporter.
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDecodedStream 0 705600 16 44100 1 CODC 69656832 0 Y N N")));
 
@@ -1056,19 +1081,25 @@ void SuiteSpotifyReporter::TestInvalidSampleRate()
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     MsgDecodedStream* decodedStream = iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, sampleRate, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample);
     iUpstream->Enqueue(decodedStream);
 
-    for (TUint i=0; i<2; i++) {
+    for (TUint i=0; i<3; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode Spotify")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
 
     TEST_THROWS(iReporter->Pull(), AssertionFailed);
     decodedStream->RemoveRef(); // Avoid memory leaks.
@@ -1084,19 +1115,25 @@ void SuiteSpotifyReporter::TestInvalidNumChannels()
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     MsgDecodedStream* decodedStream = iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, channels, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, profile, nullptr, RampType::Sample);
     iUpstream->Enqueue(decodedStream);
 
-    for (TUint i=0; i<2; i++) {
+    for (TUint i=0; i<3; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode Spotify")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
 
     TEST_THROWS(iReporter->Pull(), AssertionFailed);
     decodedStream->RemoveRef(); // Avoid memory leaks.
@@ -1105,7 +1142,6 @@ void SuiteSpotifyReporter::TestInvalidNumChannels()
 void SuiteSpotifyReporter::TestPassThroughInjectTrack()
 {
     // This could happen if Spotify source is just starting, but audio has yet to arrive at SpotifyReporter, so track is injected during non-Spotify stream.
-    static const Brn kSpotifyTrackUri("spotify://");
     const TUint kDurationMs = 1234;
 
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), kDurationMs, 320);
@@ -1120,12 +1156,12 @@ void SuiteSpotifyReporter::TestPassThroughInjectTrack()
     msg->RemoveRef();
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode null")));
 
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
     msg->RemoveRef();
     // If in pass-through mode, metadata won't be deallocated until more is passed in, forcing current metadata to be deallocated, or at shutdown (which internal allocator check will catch).
     TEST(iMetadataAllocator->DeallocatedCount() == 0);
@@ -1152,7 +1188,6 @@ void SuiteSpotifyReporter::TestPassThroughInjectTrack()
 void SuiteSpotifyReporter::TestModeSpotifyTrackInjected()
 {
     // Inject a track to simulate real-world condition where out-of-band track notification is reach SpotifyReporter before MsgMode at Spotify initialisation.
-    static const Brn kSpotifyTrackUri("spotify://");
     const TUint kDurationMs = 1234;
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), kDurationMs, 320);
     iReporter->MetadataChanged(metadata);
@@ -1168,20 +1203,29 @@ void SuiteSpotifyReporter::TestModeSpotifyTrackInjected()
 
     // Set track to be next msg down pipeline.
     // Pull again. Should be in-band pipeline MsgTrack.
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     msg->RemoveRef();
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    msg = iReporter->Pull();
+    msg->Process(*iMsgProcessor);
+    msg->RemoveRef();
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
 
     // Queue up MsgDecodedStream and pull again. Should be injected track.
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     msg->RemoveRef();
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 2 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 3 N")));
     TEST(iMetadataAllocator->DeallocatedCount() == 0);  // Metadata should be cached and not deallocated.
 
     // Pull again. Modified MsgDecodedStream should be output.
@@ -1216,7 +1260,7 @@ void SuiteSpotifyReporter::TestModeSpotifyTrackInjected()
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     msg->RemoveRef();
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 3 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 4 N")));
     TEST(iMetadataAllocator->DeallocatedCount() == 1);  // Old metadata should have been deallocated; current metadata should still be cached.
     // Pull again. Should be generated MsgDecodedStream. SampleStart should now be 0, as injected track resets it.
     msg = iReporter->Pull();
@@ -1237,7 +1281,6 @@ void SuiteSpotifyReporter::TestModeSpotifySeek()
 {
     // Pass in a MsgMode followed by a MsgDecodedStream mid-way through stream to simulate a seek.
     // First part of this test is already tested by TestModeSpotifyTrackInjected().
-    static const Brn kSpotifyTrackUri("spotify://");
     const TUint kDuration = 1234;
     MockSpotifyMetadataAllocated* metadata = iMetadataAllocator->Allocate(Brn(kTrackTitle), Brn(kTrackArtist), Brn(kTrackAlbum), Brn(kTrackAlbumArt), kDuration, 320);
     iReporter->MetadataChanged(metadata);
@@ -1253,20 +1296,29 @@ void SuiteSpotifyReporter::TestModeSpotifySeek()
 
     // Set track to be next msg down pipeline.
     // Pull again. Should be in-band pipeline MsgTrack.
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     msg->RemoveRef();
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    msg = iReporter->Pull();
+    msg->Process(*iMsgProcessor);
+    msg->RemoveRef();
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
 
     // Queue up MsgDecodedStream and pull again. Should get injected track.
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     msg->RemoveRef();
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 2 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 3 N")));
     TEST(iMetadataAllocator->DeallocatedCount() == 0);  // Metadata should be cached and not deallocated.
 
     // Pull again. Delayed MsgDecodedStream should be output with modified info.
@@ -1333,19 +1385,25 @@ void SuiteSpotifyReporter::TestModeSpotifySyncLost()
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
-    for (TUint i=0; i<4; i++) {
+    for (TUint i=0; i<5; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode Spotify")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 2 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 3 N")));
     // Track duration is from track message injected into SpotifyReporter.
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDecodedStream 0 705600 16 44100 2 CODC 69656832 0 Y N N")));
 
@@ -1412,19 +1470,25 @@ void SuiteSpotifyReporter::TestModeSpotifyMetadataChanged()
 
     // Send in a Spotify MsgMode.
     iUpstream->Enqueue(iMsgFactory->CreateMsgMode(Brn("Spotify")));
-    Track* track = iTrackFactory->CreateTrack(Brn("spotify://"), Brn("Spotify track meta text"));
+    // Initial Spotify track message, likely sent out by source module, which has invalid (or no) stream ID.
+    Track* track = iTrackFactory->CreateTrack(Brn("spotify:0"), Brn("Spotify track meta text"));
+    iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
+    track->RemoveRef();
+    // Subsequent Spotify track message from protocol module, with valid stream ID.
+    track = iTrackFactory->CreateTrack(Brn("spotify:1"), Brn("Spotify track meta text"));
     iUpstream->Enqueue(iMsgFactory->CreateMsgTrack(*track));
     track->RemoveRef();
     iUpstream->Enqueue(iMsgFactory->CreateMsgDecodedStream(0, 705600, 16, 44100, 2, Brn("CODC"), 3386880000, 0, true, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(2), nullptr, RampType::Sample));
 
-    for (TUint i=0; i<4; i++) {
+    for (TUint i=0; i<5; i++) {
         Msg* msg = iReporter->Pull();
         msg->Process(*iMsgProcessor);
         msg->RemoveRef();
     }
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgMode Spotify")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 1 Y")));
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 2 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:0 1 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 2 Y")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 3 N")));
     // Track duration is from track message injected into SpotifyReporter.
     TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgDecodedStream 0 705600 16 44100 2 CODC 69656832 0 Y N N")));
     TEST(iReporter->SubSamples() == 0);
@@ -1442,7 +1506,7 @@ void SuiteSpotifyReporter::TestModeSpotifyMetadataChanged()
     Msg* msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     msg->RemoveRef();
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 3 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 4 N")));
     TEST(iMetadataAllocator->DeallocatedCount() == 1);  // Should have deallocated old metadata and cached new metadata.
     // Should pull new MsgDecodedStream, but with same start offset as previous, as track position is not reported as changed. Should report new track length.
     msg = iReporter->Pull();
@@ -1458,7 +1522,7 @@ void SuiteSpotifyReporter::TestModeSpotifyMetadataChanged()
     msg = iReporter->Pull();
     msg->Process(*iMsgProcessor);
     msg->RemoveRef();
-    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:// 4 N")));
+    TEST(iTestPipe->Expect(Brn("MMP::ProcessMsg MsgTrack spotify:1 5 N")));
     TEST(iMetadataAllocator->DeallocatedCount() == 2);  // Should have deallocated old metadata and cached new metadata.
     // Should pull new MsgDecodedStream, with new start offset, as track position has been reported as changed through TrackOffsetChanged() call.
     msg = iReporter->Pull();

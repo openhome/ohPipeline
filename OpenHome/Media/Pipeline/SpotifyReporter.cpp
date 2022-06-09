@@ -471,26 +471,33 @@ Msg* SpotifyReporter::ProcessMsg(MsgTrack* aMsg)
     (void)p.Next(':');
     const auto streamIdBuf = p.Remaining();
 
+    if (aMsg->StartOfStream()) {
+        ClearDecodedStream();
+    }
+
+    const auto currStreamId = iStreamId;
     try {
         const auto streamId = Ascii::Uint(streamIdBuf);
-        // iStreamId == kStreamIdInvalid immediately after seeing Spotify MsgMode, so won't report playback finished on first MsgTrack seen after Spotify MsgMode.
-        if (iStreamId != kStreamIdInvalid) {
-            const auto pos = GetPlaybackPosMsLocked();
-
-            // iLock already held.
-            for (auto& o : iPlaybackObservers) {
-                o.get().NotifyPlaybackFinishedNaturally(iStreamId, pos); // Notify for previous valid stream ID.
-            }
-        }
         iStreamId = streamId;
     }
     catch (AsciiError&) {
+        iStreamId = kStreamIdInvalid;
         LOG_ERROR(kPipeline, "SpotifyReporter::ProcessMsg(MsgTrack*) Unable to parse stream ID from URI: %.*s\n", PBUF(iTrackUri));
     }
 
     iPipelineTrackSeen = true; // Only matters when in iInterceptMode. Ensures in-band MsgTrack is output before any are generated from out-of-band notifications.
     iGeneratedTrackPending = true;
     iPlaybackStartPending = true; // Spotify stream ID has almost certainly changed on every call to this.
+
+    // iStreamId == kStreamIdInvalid immediately after seeing Spotify MsgMode, so won't report playback finished on first MsgTrack seen after Spotify MsgMode.
+    if (currStreamId != kStreamIdInvalid) {
+        const auto pos = GetPlaybackPosMsLocked();
+
+        // iLock already held.
+        for (auto& o : iPlaybackObservers) {
+            o.get().NotifyPlaybackFinishedNaturally(currStreamId, pos); // Notify for previous valid stream ID.
+        }
+    }
 
     return aMsg;
 }
