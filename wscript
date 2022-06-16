@@ -1286,7 +1286,6 @@ def bundle(ctx):
                  'SourceRadio',
                  'SourceSongcast',
                  'SourceRaop',
-                 'SourceRaat',
                  'SourceScd',
                  'SourceUpnpAv',
                  'CodecAacFdk',
@@ -1313,6 +1312,8 @@ def bundle(ctx):
                  'Odp',
                  'Podcast'
                 ]
+    if 'RAAT_ENABLE' in ctx.env.DEFINES:
+        lib_names.append('SourceRaat')
 
     lib_files = gather_files(ctx, '{bld}', (ctx.env.cxxstlib_PATTERN % x for x in lib_names))
     res_files = gather_files(ctx, '{top}/OpenHome/Web/ConfigUi/res', ['**/*'])
