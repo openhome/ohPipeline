@@ -178,7 +178,7 @@ class Pipeline : public IPipelineElementDownstream
     static const TUint kMsgCountFlush           = 16;
     static const TUint kMsgCountMode            = 20;
     static const TUint kMsgCountQuit            = 1;
-    static const TUint kMsgCountDrain           = 5;
+    static const TUint kMsgCountDrain           = 10;
 public:
     Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory, IPipelineObserver& aObserver,
              IStreamPlayObserver& aStreamPlayObserver, ISeekRestreamer& aSeekRestreamer, IUrlBlockWriter& aUrlBlockWriter);
