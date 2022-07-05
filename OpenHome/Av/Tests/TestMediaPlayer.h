@@ -20,6 +20,7 @@
 #include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/KvpStore.h>
 #include <OpenHome/Av/Raop/Raop.h>
+#include <OpenHome/Av/Raat/SignalPath.h>
 #include <OpenHome/Av/Songcast/OhmTimestamp.h>
 #include "RamStore.h"
 #include <OpenHome/PowerManager.h>
@@ -100,6 +101,12 @@ class RebootLogger : public IRebootHandler
 {
 public: // from IRebootHandler
     void Reboot(const Brx& aReason) override;
+};
+
+class DummyRaatSignalPath : public IRaatSignalPathObservable
+{
+private: // from IRaatSignalPathObservable
+    void RegisterObserver(IRaatSignalPathObserver& aObserver) override;
 };
 
 class TestMediaPlayer : private Net::IResourceManager, public IPowerHandler/*, public Web::IWebAppFramework*/

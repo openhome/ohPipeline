@@ -5,6 +5,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Av/Raat/SignalPath.h>
 
 #include <vector>
 
@@ -53,7 +54,7 @@ typedef struct {
 
 class IRaatTime;
 
-class RaatOutput : public IRaatReader
+class RaatOutput : public IRaatReader, private IRaatSignalPathObserver
 {
     static const TUint kPendingPacketsMax;
 public:
@@ -61,7 +62,8 @@ public:
         Environment& aEnv,
         Media::PipelineManager& aPipeline,
         ISourceRaat& aSourceRaat,
-        IRaatTime& aRaatTime);
+        IRaatTime& aRaatTime,
+        IRaatSignalPathObservable& aSignalPathObservable);
     ~RaatOutput();
     RAAT__OutputPlugin* Plugin();
     void GetInfo(json_t** aInfo);
@@ -88,6 +90,8 @@ private: // from IRaatReader
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
     void Reset() override;
+private: // from IRaatSignalPathObserver
+    void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
 private:
     class SetupCb
     {
@@ -130,6 +134,7 @@ private:
     TBool iRunning;
     TByte iAudioData[Media::AudioData::kMaxBytes];
     std::vector<RAAT__AudioPacket> iPendingPackets;
+    json_t* iSignalPath;
 };
 
 class RaatUri

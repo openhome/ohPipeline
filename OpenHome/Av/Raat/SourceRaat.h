@@ -33,11 +33,15 @@ public:
 class IMediaPlayer;
 class RaatApp;
 class IRaatTime;
+class IRaatSignalPathObservable;
 
 class SourceRaat : public Source, public ISourceRaat, private IProductObserver
 {
 public:
-    SourceRaat(IMediaPlayer& aMediaPlayer, IRaatTime* aRaatTime);
+    SourceRaat(
+        IMediaPlayer& aMediaPlayer,
+        IRaatTime* aRaatTime,
+        IRaatSignalPathObservable* aSignalPathObservable);
     ~SourceRaat();
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
@@ -58,6 +62,7 @@ private:
     Mutex iLock;
     IMediaPlayer& iMediaPlayer;
     IRaatTime* iRaatTime;
+    IRaatSignalPathObservable* iSignalPathObservable;
     UriProviderRaat* iUriProvider;
     RaatApp* iApp;
     Media::Track* iTrack;

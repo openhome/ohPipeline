@@ -110,7 +110,8 @@ RaatOutput::RaatOutput(
     Environment& aEnv,
     Media::PipelineManager& aPipeline,
     ISourceRaat& aSourceRaat,
-    IRaatTime& aRaatTime)
+    IRaatTime& aRaatTime,
+    IRaatSignalPathObservable& aSignalPathObservable)
     : iEnv(aEnv)
     , iPipeline(aPipeline)
     , iSourceRaat(aSourceRaat)
@@ -142,6 +143,8 @@ RaatOutput::RaatOutput(
 
     RAAT__output_message_listeners_init(&iListeners, RC__allocator_malloc());
     iPendingPackets.reserve(kPendingPacketsMax);
+
+    aSignalPathObservable.RegisterObserver(*this);
 }
 
 RaatOutput::~RaatOutput()
@@ -433,20 +436,67 @@ void RaatOutput::Reset()
     (void)iPendingPackets.clear();
 }
 
+void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)
+{
+    json_t* message = json_object();
+    json_t* signal_path = json_array();
+
+    if (aExakt) {
+        json_t* exakt = json_object();
+        json_object_set_new(exakt, "type", json_string("linn"));
+        json_object_set_new(exakt, "method", json_string("exakt"));
+        json_object_set_new(exakt, "quality", json_string("enhanced"));
+        json_array_append_new(signal_path, exakt);
+    }
+    if (aAmplifier) {
+        json_t* amplifier = json_object();
+        json_object_set_new(amplifier, "type", json_string("amplifier"));
+        json_object_set_new(amplifier, "method", json_string("analog"));
+        json_object_set_new(amplifier, "quality", json_string("lossless"));
+        json_array_append_new(signal_path, amplifier);
+    }
+    if (aSpeaker) {
+        json_t* output = json_object();
+        json_object_set_new(output, "type", json_string("output"));
+        json_object_set_new(output, "method", json_string("speakers"));
+        json_object_set_new(output, "quality", json_string("lossless"));
+        json_array_append_new(signal_path, output);
+    }
+    else {
+        json_t* output = json_object();
+        json_object_set_new(output, "type", json_string("output"));
+        json_object_set_new(output, "method", json_string("analog"));
+        json_object_set_new(output, "quality", json_string("lossless"));
+        json_array_append_new(signal_path, output);
+    }
+
+    json_object_set_new(message, "signal_path", signal_path);
+    RAAT__output_message_listeners_invoke(&iListeners, message);
+    json_decref(message);
+}
+
 void RaatOutput::OutputSignalPath()
 {
-    json_t *message = json_object();
-    json_t *signal_path = json_array();
+#if 0
+    json_t* message = json_object();
+    json_t* signal_path = json_array();
 
-    json_t *output = json_object();
+    json_t* amplifier = json_object();
+    json_object_set_new(amplifier, "type", json_string("amplifier"));
+    json_object_set_new(amplifier, "method", json_string("digital"));
+    json_object_set_new(amplifier, "quality", json_string("lossless"));
+    json_array_append_new(signal_path, amplifier);
+
+    json_t* output = json_object();
     json_object_set_new(output, "type", json_string("output"));
-    json_object_set_new(output, "method", json_string("digital"));
+    json_object_set_new(output, "method", json_string("speakers"));
     json_object_set_new(output, "quality", json_string("lossless"));
     json_array_append_new(signal_path, output);
 
     json_object_set_new(message, "signal_path", signal_path);
     RAAT__output_message_listeners_invoke(&iListeners, message);
     json_decref(message);
+#endif
 }
 
 

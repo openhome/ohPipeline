@@ -20,6 +20,7 @@ class IPlaylistLoader;
 class IOhmTimestamper;
 class IOhmMsgProcessor;
 class IRaatTime;
+class IRaatSignalPathObservable;
 
 class SourceFactory
 {
@@ -35,7 +36,10 @@ public:
                                 Optional<IOhmTimestamper> aRxTimestamper,
                                 Optional<IOhmMsgProcessor> aOhmMsgObserver);
     static ISource* NewScd(IMediaPlayer& aMediaPlayer, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerChunk);
-    static ISource* NewRaat(IMediaPlayer& aMediaPlayer, IRaatTime* aRaatTime);
+    static ISource* NewRaat(
+        IMediaPlayer& aMediaPlayer,
+        IRaatTime* aRaatTime,
+        IRaatSignalPathObservable* aSignalPathObservable);
 
     static const TChar* kSourceTypePlaylist;
     static const TChar* kSourceTypeRadio;

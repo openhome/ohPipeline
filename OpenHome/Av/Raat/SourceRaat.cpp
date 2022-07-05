@@ -18,9 +18,12 @@ using namespace OpenHome::Media;
 
 // SourceFactory
 
-ISource* SourceFactory::NewRaat(IMediaPlayer& aMediaPlayer, IRaatTime* aRaatTime)
+ISource* SourceFactory::NewRaat(
+    IMediaPlayer& aMediaPlayer,
+    IRaatTime* aRaatTime,
+    IRaatSignalPathObservable* aSignalPathObservable)
 { // static
-    return new SourceRaat(aMediaPlayer, aRaatTime);
+    return new SourceRaat(aMediaPlayer, aRaatTime, aSignalPathObservable);
 }
 
 
@@ -48,7 +51,10 @@ const Brn SourceFactory::kSourceNameRaat("RAAT");
 
 // SourceRaat
 
-SourceRaat::SourceRaat(IMediaPlayer& aMediaPlayer, IRaatTime* aRaatTime)
+SourceRaat::SourceRaat(
+    IMediaPlayer& aMediaPlayer,
+    IRaatTime* aRaatTime,
+    IRaatSignalPathObservable* aSignalPathObservable)
     : Source(
         SourceFactory::kSourceNameRaat,
         SourceFactory::kSourceTypeRaat,
@@ -57,6 +63,7 @@ SourceRaat::SourceRaat(IMediaPlayer& aMediaPlayer, IRaatTime* aRaatTime)
     , iLock("SRat")
     , iMediaPlayer(aMediaPlayer)
     , iRaatTime(aRaatTime)
+    , iSignalPathObservable(aSignalPathObservable)
     , iApp(nullptr)
     , iTrack(nullptr)
 {
@@ -79,6 +86,7 @@ SourceRaat::SourceRaat(IMediaPlayer& aMediaPlayer, IRaatTime* aRaatTime)
 
 SourceRaat::~SourceRaat()
 {
+    delete iSignalPathObservable;
     delete iApp;
     delete iRaatTime;
     if (iTrack != nullptr) {
@@ -128,6 +136,7 @@ void SourceRaat::Started()
         iMediaPlayer,
         *this,
         *iRaatTime,
+        *iSignalPathObservable,
         Brn("12345"),
         Brn("0.0.0"));
     auto protocol = new ProtocolRaat(

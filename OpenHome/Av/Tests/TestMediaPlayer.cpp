@@ -134,6 +134,15 @@ void RebootLogger::Reboot(const Brx& aReason)
 }
 
 
+// DummyRaatSignalPath
+
+void DummyRaatSignalPath::RegisterObserver(IRaatSignalPathObserver& aObserver)
+{
+    aObserver.SignalPathChanged(false/*aExakt*/, true/*aAmplifier*/, false/*aSpeaker*/);
+}
+
+
+
 // TestMediaPlayer
 
 const Brn TestMediaPlayer::kSongcastSenderIconFileName("SongcastSenderIcon");
@@ -524,7 +533,10 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 
     iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
 #ifdef RAAT_ENABLE
-    iMediaPlayer->Add(SourceFactory::NewRaat(*iMediaPlayer, new RaatTimeCpu(iMediaPlayer->Env())));
+    iMediaPlayer->Add(SourceFactory::NewRaat(
+        *iMediaPlayer,
+        new RaatTimeCpu(iMediaPlayer->Env()),
+        new DummyRaatSignalPath()));
 #endif
 }
 
