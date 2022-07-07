@@ -38,7 +38,7 @@ class IQobuzTrackObserver
 {
 public:
     virtual void TrackStarted(QobuzTrack& aTrack) = 0;
-    virtual void TrackStopped(QobuzTrack& aTrack) = 0;
+    virtual void TrackStopped(QobuzTrack& aTrack, TUint aPlayedSeconds, TBool aComplete) = 0;
     virtual ~IQobuzTrackObserver() {}
 };
 
@@ -55,7 +55,6 @@ public:
     const Brx& Url() const;
     TUint FormatId() const;
     TUint StartTime() const; // unix time
-    TUint PlayedSeconds() const;
 private: // from IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
@@ -72,7 +71,8 @@ private:
     TUint iTrackId; // from Qobuz
     Bwh iUrl;
     std::atomic<TUint> iStartTime;
-    std::atomic<TUint> iPlayedSeconds;
+    TUint iPlayedSeconds;
+    TUint iLastPlayedSeconds;
     TUint iStreamId; // from pipeline
     TUint iFormatId;
     TBool iCurrentStream;
@@ -128,13 +128,13 @@ private: // from ICredentialConsumer
     void ReLogin(const Brx& aCurrentToken, Bwx& aNewToken) override;
 private: // from IQobuzTrackObserver
     void TrackStarted(QobuzTrack& aTrack) override;
-    void TrackStopped(QobuzTrack& aTrack) override;
+    void TrackStopped(QobuzTrack& aTrack, TUint aPlayedSeconds, TBool aComplete) override;
 private:
     TBool TryConnect();
     TBool TryLoginLocked();
     TBool TryGetFileUrlLocked(const Brx& aTrackId);
     void NotifyStreamStarted(QobuzTrack& aTrack);
-    void NotifyStreamStopped(QobuzTrack& aTrack);
+    void NotifyStreamStopped(QobuzTrack& aTrack, TUint aPlayedSeconds);
     TUint WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, Connection aConnection = Connection::Close);
     TBool TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset, Connection aConnection);
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
@@ -145,6 +145,32 @@ private:
     void UpdatePurchasedTracks();
     void ScheduleUpdatePurchasedTracks();
     TBool IsTrackPurchased(TUint aId) const;
+private:
+    class ActivityReport
+    {
+    public:
+        enum class Type
+        {
+            Start,
+            Stop
+        };
+    public:
+        ActivityReport(
+            ActivityReport::Type aType,
+            QobuzTrack* aTrack,
+            TUint aPlayedSeconds,
+            TBool aCompleted)
+        : iType(aType)
+        , iTrack(aTrack)
+        , iPlayedSeconds(aPlayedSeconds)
+        , iCompleted(aCompleted)
+        {}
+    public:
+        ActivityReport::Type iType;
+        QobuzTrack* iTrack;
+        TUint iPlayedSeconds;
+        TBool iCompleted;
+    };
 private:
     Environment& iEnv;
     Mutex iLock;
@@ -179,8 +205,8 @@ private:
     Uri iRequest;
     TBool iConnected;
     Mutex iLockStreamEvents;
-    std::list<QobuzTrack*> iPendingStarts;
     std::list<QobuzTrack*> iPendingStops;
+    std::list<ActivityReport> iPendingReports;
     WriterBwh iStreamEventBuf;
     IThreadPoolHandle* iSchedulerStreamEvents;
     IThreadPoolHandle* iSchedulerPurchasedTracks;

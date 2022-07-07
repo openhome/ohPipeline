@@ -40,6 +40,7 @@ QobuzTrack::QobuzTrack(IUnixTimestamp& aUnixTimestamp, Media::IPipelineObservabl
     , iTrackId(aTrackId)
     , iStartTime(0)
     , iPlayedSeconds(0)
+    , iLastPlayedSeconds(0)
     , iStreamId(Media::IPipelineIdProvider::kStreamIdInvalid)
     , iFormatId(aFormatId)
     , iCurrentStream(false)
@@ -68,18 +69,19 @@ void QobuzTrack::ProtocolCompleted(TBool aStopped)
     TBool reportStopped = false;
     {
         AutoMutex _(iLock);
-        if (!iStarted) {
-            // prevent NotifyStreamInfo setting iCurrentStream
-            // Note that this would falsely report a track as complete if the pipeline
-            // buffered the entire track before starting to play it.
-            iStreamId = Media::IPipelineIdProvider::kStreamIdInvalid;
-            reportStopped = !aStopped; // no point reporting anything if we hadn't started playing then the pipeline is cleared
+        if (iStarted) {
+            return;
         }
+        // prevent NotifyStreamInfo setting iCurrentStream
+        // Note that this would falsely report a track as complete if the pipeline
+        // buffered the entire track before starting to play it.
+        iStreamId = Media::IPipelineIdProvider::kStreamIdInvalid;
+        reportStopped = !aStopped; // no point reporting anything if we hadn't started playing then the pipeline is cleared
     }
     if (reportStopped) {
-        iObserver.TrackStopped(*this);
+        iObserver.TrackStopped(*this, 0, true);
     }
-    else if (!iStarted) {
+    else {
         delete this;
     }
 }
@@ -115,13 +117,14 @@ TUint QobuzTrack::StartTime() const
     return iStartTime;
 }
 
-TUint QobuzTrack::PlayedSeconds() const
+void QobuzTrack::NotifyPipelineState(Media::EPipelineState aState)
 {
-    return iPlayedSeconds;
-}
-
-void QobuzTrack::NotifyPipelineState(Media::EPipelineState /*aState*/)
-{
+    AutoMutex _(iLock);
+    if (iStarted && aState == Media::EPipelinePaused) {
+        iObserver.TrackStopped(*this, iPlayedSeconds, false);
+        iPlayedSeconds = 0;
+        iStarted = false;
+    }
 }
 
 void QobuzTrack::NotifyMode(const Brx& /*aMode*/, const Media::ModeInfo& /*aInfo*/,
@@ -139,7 +142,7 @@ void QobuzTrack::NotifyTrack(Media::Track& /*aTrack*/, TBool aStartOfStream)
             stopped = true;
         }
         if (stopped) {
-            iObserver.TrackStopped(*this);
+            iObserver.TrackStopped(*this, iPlayedSeconds, true);
         }
     }
 }
@@ -152,9 +155,19 @@ void QobuzTrack::NotifyTime(TUint aSeconds)
 {
     {
         AutoMutex _(iLock);
-        if (iCurrentStream && aSeconds > iPlayedSeconds) {
-            iPlayedSeconds = aSeconds;
+        if (!iCurrentStream) {
+            return;
         }
+        if (aSeconds < iLastPlayedSeconds ||
+            aSeconds - iLastPlayedSeconds > 2) { // >2 allows for missing a tick when device is near maxed out
+            iObserver.TrackStopped(*this, iPlayedSeconds, false);
+            iPlayedSeconds = 0;
+            iStarted = false;
+        }
+        else {
+            ++iPlayedSeconds;
+        }
+        iLastPlayedSeconds = aSeconds;
     }
     if (aSeconds > 0 && !iStarted) {
         iStarted = true;
@@ -181,7 +194,7 @@ void QobuzTrack::NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo)
         }
     }
     if (stopped) {
-        iObserver.TrackStopped(*this);
+        iObserver.TrackStopped(*this, iPlayedSeconds, true);
     }
 }
 
@@ -585,15 +598,15 @@ void Qobuz::ReLogin(const Brx& aCurrentToken, Bwx& aNewToken)
 void Qobuz::TrackStarted(QobuzTrack& aTrack)
 {
     iLockStreamEvents.Wait();
-    iPendingStarts.push_back(&aTrack);
+    iPendingReports.push_back(ActivityReport(ActivityReport::Type::Start, &aTrack, 0, false));
     iLockStreamEvents.Signal();
     (void)iSchedulerStreamEvents->TrySchedule();
 }
 
-void Qobuz::TrackStopped(QobuzTrack& aTrack)
+void Qobuz::TrackStopped(QobuzTrack& aTrack, TUint aPlayedSeconds, TBool aComplete)
 {
     iLockStreamEvents.Wait();
-    iPendingStops.push_back(&aTrack);
+    iPendingReports.push_back(ActivityReport(ActivityReport::Type::Stop, &aTrack, aPlayedSeconds, aComplete));
     iLockStreamEvents.Signal();
     (void)iSchedulerStreamEvents->TrySchedule();
 }
@@ -609,6 +622,7 @@ TBool Qobuz::TryConnect()
         ep.SetPort(kPort);
         iSocket.Connect(ep, kHost, kConnectTimeoutMs);
         iConnected = true;
+        iSocket.LogVerbose(false);
     }
     catch (NetworkTimeout&) {
         CloseConnection();
@@ -760,11 +774,11 @@ void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
     }
 }
 
-void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack)
+void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack, TUint aPlayedSeconds)
 {
     AutoMutex _(iLock);
 
-    if (aTrack.PlayedSeconds() == 0) {
+    if (aPlayedSeconds == 0) {
         // Qobuz don't cope well with being informed that we didn't play anything
         return;
     }
@@ -782,7 +796,7 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack)
     auto writerObject = writerArray.CreateObject();
     writerObject.WriteInt("user_id", iUserId);
     writerObject.WriteUint("date", aTrack.StartTime());
-    writerObject.WriteInt("duration", aTrack.PlayedSeconds());
+    writerObject.WriteInt("duration", aPlayedSeconds);
     writerObject.WriteBool("online", true);
     writerObject.WriteBool("sample", false);
     writerObject.WriteString("device_id", iDeviceId);
@@ -859,19 +873,20 @@ void Qobuz::SocketInactive()
 void Qobuz::ReportStreamEvents()
 {
     iLockStreamEvents.Wait();
-    while (iPendingStarts.size() > 0) {
-        auto track = iPendingStarts.front();
+    while (iPendingReports.size() > 0) {
+        auto report = iPendingReports.front();
+        iPendingReports.pop_front();
         iLockStreamEvents.Signal();
-        NotifyStreamStarted(*track);
-        iLockStreamEvents.Wait();
-        iPendingStarts.pop_front();
-    }
-    while (iPendingStops.size() > 0) {
-        auto track = iPendingStops.front();
-        iPendingStops.pop_front();
-        iLockStreamEvents.Signal();
-        NotifyStreamStopped(*track);
-        delete track;
+        auto track = report.iTrack;
+        if (report.iType == ActivityReport::Type::Start) {
+            NotifyStreamStarted(*track);
+        }
+        else {
+            NotifyStreamStopped(*track, report.iPlayedSeconds);
+            if (report.iCompleted) {
+                delete track;
+            }
+        }
         iLockStreamEvents.Wait();
     }
     iLockStreamEvents.Signal();
@@ -888,7 +903,7 @@ void Qobuz::UpdatePurchasedTracks()
     AutoMutex _(iLock);
 
     if (!TryConnect()) {
-        LOG_ERROR(kMedia, "Qobuz::NotifyStreamStarted - connection failure\n");
+        LOG_ERROR(kMedia, "Qobuz::UpdatePurchasedTracks - connection failure\n");
         return;
     }
     AutoConnectionQobuz __(*this, iReaderEntity);
