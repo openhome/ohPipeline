@@ -799,6 +799,7 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack, TUint aPlayedSeconds)
     writerObject.WriteInt("duration", aPlayedSeconds);
     writerObject.WriteBool("online", true);
     writerObject.WriteBool("sample", false);
+    writerObject.WriteString("intent", "streaming");
     writerObject.WriteString("device_id", iDeviceId);
     const auto trackId = aTrack.Id();
     writerObject.WriteInt("track_id", trackId);
