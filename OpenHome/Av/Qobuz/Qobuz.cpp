@@ -236,10 +236,8 @@ Qobuz::Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& 
     , iConnected(false)
     , iLockStreamEvents("QBZ3")
     , iStreamEventBuf(2048)
-    , iLockPurchasedTracks("QBZ4")
 {
     iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Qobuz::SocketInactive), "Qobuz-Socket");
-    iTimerPurchasedTracks = new Timer(aEnv, MakeFunctor(*this, &Qobuz::ScheduleUpdatePurchasedTracks), "Qobuz-Purchased");
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
 
@@ -254,14 +252,11 @@ Qobuz::Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& 
     iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 3);
     iSubscriberIdQuality = iConfigQuality->Subscribe(MakeFunctorConfigChoice(*this, &Qobuz::QualityChanged));
     iSchedulerStreamEvents = aThreadPool.CreateHandle(MakeFunctor(*this, &Qobuz::ReportStreamEvents), "QobuzStreamEvents", ThreadPoolPriority::Low);
-    iSchedulerPurchasedTracks = aThreadPool.CreateHandle(MakeFunctor(*this, &Qobuz::UpdatePurchasedTracks), "QobuzPurchased", ThreadPoolPriority::Low);
 }
 
 Qobuz::~Qobuz()
 {
-    delete iTimerPurchasedTracks;
     iSchedulerStreamEvents->Destroy();
-    iSchedulerPurchasedTracks->Destroy();
     delete iTimerSocketActivity;
     iConfigQuality->Unsubscribe(iSubscriberIdQuality);
     delete iConfigQuality;
@@ -704,8 +699,6 @@ TBool Qobuz::TryLoginLocked()
         iCredentialsState.SetState(kId, Brx::Empty(), iAppId);
         updatedStatus = true;
         success = true;
-
-        ScheduleUpdatePurchasedTracks();
     }
     catch (AssertionFailed&) {
         throw;
@@ -742,7 +735,6 @@ void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
     writerObject.WriteString("device_id", iDeviceId);
     const auto trackId = aTrack.Id();
     writerObject.WriteUint("track_id", trackId);
-    writerObject.WriteBool("purchase", IsTrackPurchased(trackId));
     writerObject.WriteUint("date", aTrack.StartTime());
     writerObject.WriteUint("duration", 0);
     writerObject.WriteUint("credential_id", iCredentialId);
@@ -803,7 +795,6 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack, TUint aPlayedSeconds)
     writerObject.WriteString("device_id", iDeviceId);
     const auto trackId = aTrack.Id();
     writerObject.WriteInt("track_id", trackId);
-    writerObject.WriteBool("purchase", IsTrackPurchased(trackId));
     writerObject.WriteBool("local", false);
     writerObject.WriteInt("credential_id", iCredentialId);
     writerObject.WriteInt("format_id", aTrack.FormatId());
@@ -891,70 +882,6 @@ void Qobuz::ReportStreamEvents()
         iLockStreamEvents.Wait();
     }
     iLockStreamEvents.Signal();
-}
-
-void Qobuz::UpdatePurchasedTracks()
-{
-    // update this list roughly every couple of hours
-    static const TUint kMinUpdateMs = 1000 * 60 * 60; // 1 hour
-    static const TUint kUpdateVarianceMs= 1000 * 60 * 60 * 2; // 2 hours
-    const TUint nextUpdateMs = kMinUpdateMs + iEnv.Random(kUpdateVarianceMs);
-    iTimerPurchasedTracks->FireIn(nextUpdateMs);
-
-    AutoMutex _(iLock);
-
-    if (!TryConnect()) {
-        LOG_ERROR(kMedia, "Qobuz::UpdatePurchasedTracks - connection failure\n");
-        return;
-    }
-    AutoConnectionQobuz __(*this, iReaderEntity);
-
-    iPathAndQuery.Replace(kVersionAndFormat);
-    iPathAndQuery.Append("purchase/getUserPurchasesIds?app_id=");
-    iPathAndQuery.Append(iAppId);
-    iPathAndQuery.Append("&user_auth_token=");
-    iPathAndQuery.Append(iAuthToken);
-
-    const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery);
-    if (code != 200) {
-        LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz purchase/getUserPurchasesIds.\n", code);
-        THROW(ReaderError);
-    }
-    static const TUint kMaxResponseBytes = 1024 * 1024; // 1Mb
-    if (iHeaderContentLength.Received() && iHeaderContentLength.ContentLength() > kMaxResponseBytes) {
-        LOG_ERROR(kPipeline, "Warning: Qobuz purchases too large to process - %u\n", iHeaderContentLength.ContentLength());
-        THROW(ReaderError);
-    }
-    iResponseBody.Reset();
-    iReaderEntity.ReadAll(iResponseBody);
-    JsonParser parserBody;
-    parserBody.Parse(iResponseBody.Buffer());
-    JsonParser parserTracks;
-    parserTracks.Parse(parserBody.String("tracks"));
-    auto parserArray = JsonParserArray::Create(parserTracks.String("items"));
-    AutoMutex ___(iLockPurchasedTracks);
-    iPurchasedTracks.clear();
-    try {
-        for (;;) {
-            JsonParser parserId;
-            parserId.Parse(parserArray.NextObject());
-            iPurchasedTracks.push_back((TUint)parserId.Num(("id")));
-        }
-    }
-    catch (JsonArrayEnumerationComplete&) {}
-    std::sort(iPurchasedTracks.begin(), iPurchasedTracks.end());
-}
-
-void Qobuz::ScheduleUpdatePurchasedTracks()
-{
-    (void)iSchedulerPurchasedTracks->TrySchedule();
-}
-
-TBool Qobuz::IsTrackPurchased(TUint aId) const
-{
-    AutoMutex ___(iLockPurchasedTracks);
-    auto it = std::lower_bound(iPurchasedTracks.begin(), iPurchasedTracks.end(), aId);
-    return it != iPurchasedTracks.end();
 }
 
 

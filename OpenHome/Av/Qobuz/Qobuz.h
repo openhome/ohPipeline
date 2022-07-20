@@ -142,9 +142,6 @@ private:
     void SocketInactive();
     void CloseConnection();
     void ReportStreamEvents();
-    void UpdatePurchasedTracks();
-    void ScheduleUpdatePurchasedTracks();
-    TBool IsTrackPurchased(TUint aId) const;
 private:
     class ActivityReport
     {
@@ -209,10 +206,6 @@ private:
     std::list<ActivityReport> iPendingReports;
     WriterBwh iStreamEventBuf;
     IThreadPoolHandle* iSchedulerStreamEvents;
-    IThreadPoolHandle* iSchedulerPurchasedTracks;
-    Timer* iTimerPurchasedTracks;
-    mutable Mutex iLockPurchasedTracks;
-    std::vector<TUint> iPurchasedTracks;
 };
 
 class AutoConnectionQobuz
