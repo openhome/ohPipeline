@@ -496,7 +496,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
         Log::Print(", appSecret = ");
         Log::Print(appSecret);
         Log::Print("\n");
-        iMediaPlayer->Add(ProtocolFactory::NewQobuz(appId, appSecret, *iMediaPlayer));
+        iMediaPlayer->Add(ProtocolFactory::NewQobuz(appId, appSecret, *iMediaPlayer, iUserAgent));
     }
     iMediaPlayer->Add(ProtocolFactory::NewCalmRadio(aEnv, ssl, iUserAgent, *iMediaPlayer));
 

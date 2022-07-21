@@ -209,7 +209,7 @@ const Brn Qobuz::kTagFileUrl("url");
 
 static const TUint kQualityValues[] ={ 5, 6, 7, 27 };
 
-Qobuz::Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aDeviceId,
+Qobuz::Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent, const Brx& aDeviceId,
              ICredentialsState& aCredentialsState, IConfigInitialiser& aConfigInitialiser,
              IUnixTimestamp& aUnixTimestamp, IThreadPool& aThreadPool,
              Media::IPipelineObservable& aPipelineObservable)
@@ -228,6 +228,7 @@ Qobuz::Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& 
     , iReaderEntity(iReaderUntil)
     , iAppId(aAppId)
     , iAppSecret(aAppSecret)
+    , iUserAgent(aUserAgent)
     , iDeviceId(aDeviceId)
     , iUsername(kGranularityUsername)
     , iPassword(kGranularityPassword)
@@ -749,6 +750,9 @@ void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
     iPathAndQuery.Append(iAppId);
     iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
     Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
+    if (iUserAgent.Bytes() > 0) {
+        iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);
+    }
     Http::WriteHeaderContentLength(iWriterRequest, iStreamEventBuf.Buffer().Bytes());
     Http::WriteHeaderContentType(iWriterRequest, Brn("application/x-www-form-urlencoded"));
     Http::WriteHeaderConnectionClose(iWriterRequest);
@@ -806,6 +810,9 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack, TUint aPlayedSeconds)
     iPathAndQuery.Append(iAppId);
     iWriterRequest.WriteMethod(Http::kMethodPost, iPathAndQuery, Http::eHttp11);
     Http::WriteHeaderHostAndPort(iWriterRequest, kHost, kPort);
+    if (iUserAgent.Bytes() > 0) {
+        iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);
+    }
     Http::WriteHeaderContentLength(iWriterRequest, iStreamEventBuf.Buffer().Bytes());
     Http::WriteHeaderContentType(iWriterRequest, Brn("application/x-www-form-urlencoded"));
     Http::WriteHeaderConnectionClose(iWriterRequest);
@@ -827,6 +834,9 @@ TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, cons
 {
     iWriterRequest.WriteMethod(aMethod, aPathAndQuery, Http::eHttp11);
     Http::WriteHeaderHostAndPort(iWriterRequest, aHost, kPort);
+    if (iUserAgent.Bytes() > 0) {
+        iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);
+    }
     if (aConnection == Connection::Close) {
         Http::WriteHeaderConnectionClose(iWriterRequest);
     }

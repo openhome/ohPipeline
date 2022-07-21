@@ -24,7 +24,7 @@ class ProtocolQobuz : public Media::ProtocolNetwork, private IReader
 {
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
 public:
-    ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret,
+    ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent,
                    Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser,
                    IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice,
                    Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable,
@@ -59,6 +59,7 @@ private:
     Bws<12> iTrackId;
     QobuzTrack* iQobuzTrack;
     Bws<64> iSessionId;
+    Bws<64> iUserAgent;
     WriterHttpRequest iWriterRequest;
     ReaderUntilS<2048> iReaderUntil;
     ReaderHttpResponse iReaderResponse;
@@ -97,9 +98,9 @@ using namespace OpenHome::Media;
 using namespace OpenHome::Configuration;
 
 
-Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av::IMediaPlayer& aMediaPlayer)
+Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av::IMediaPlayer& aMediaPlayer, const Brx& aUserAgent)
 { // static
-    return new ProtocolQobuz(aMediaPlayer.Env(), aMediaPlayer.Ssl(), aAppId, aAppSecret,
+    return new ProtocolQobuz(aMediaPlayer.Env(), aMediaPlayer.Ssl(), aAppId, aAppSecret, aUserAgent,
                              aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(),
                              aMediaPlayer.UnixTimestamp(), aMediaPlayer.Device(), 
                              aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable(), 
@@ -109,7 +110,7 @@ Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av
 
 // ProtocolQobuz
 
-ProtocolQobuz::ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret,
+ProtocolQobuz::ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent,
                              Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser,
                              IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
                              Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, 
@@ -117,6 +118,7 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAp
     : ProtocolNetwork(aEnv)
     , iSupply(nullptr)
     , iQobuzTrack(nullptr)
+    , iUserAgent(aUserAgent)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
     , iReaderResponse(aEnv, iReaderUntil)
@@ -128,7 +130,7 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAp
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
 
-    iQobuz = new Qobuz(aEnv, aSsl, aAppId, aAppSecret, aDevice.Udn(), aCredentialsManager,
+    iQobuz = new Qobuz(aEnv, aSsl, aAppId, aAppSecret, iUserAgent, aDevice.Udn(), aCredentialsManager,
                        aConfigInitialiser, aUnixTimestamp, aThreadPool, aPipelineObservable);
     aCredentialsManager.Add(iQobuz);
 
@@ -409,6 +411,9 @@ TUint ProtocolQobuz::WriteRequest(TUint64 aOffset)
         iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
         port = (iUri.Port() == -1? 80 : (TUint)iUri.Port());
         Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
+        if (iUserAgent.Bytes() > 0) {
+            iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);
+        }
         Http::WriteHeaderConnectionClose(iWriterRequest);
         Http::WriteHeaderRangeFirstOnly(iWriterRequest, aOffset);
         iWriterRequest.WriteFlush();

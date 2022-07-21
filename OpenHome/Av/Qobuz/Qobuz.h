@@ -106,7 +106,7 @@ public:
         Close
     };
 public:
-    Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aDeviceId,
+    Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent, const Brx& aDeviceId,
            ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser,
            IUnixTimestamp& aUnixTimestamp, IThreadPool& aThreadPool,
            Media::IPipelineObservable& aPipelineObservable);
@@ -187,6 +187,7 @@ private:
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
     const Bws<32> iAppId;
     const Bws<32> iAppSecret;
+    Bws<64> iUserAgent;
     const Brx& iDeviceId;
     WriterBwh iUsername;
     WriterBwh iPassword;
