@@ -221,6 +221,7 @@ ConfigMessage::ConfigMessage(AllocatorBase& aAllocator)
 void ConfigMessage::Set(IConfigUiVal& aUiVal, const Brx& aUpdatedVal, ILanguageResourceManager& aLanguageResourceManager, std::vector<Bws<10>>& aLanguageList)
 {
     ASSERT(iUiVal == nullptr);
+    ASSERT_VA(aUpdatedVal.Bytes() <= iUpdatedVal.MaxBytes(), "ConfigMessage::Set bytes: %u, capacity: %u, msg: %.*s\n", aUpdatedVal.Bytes(), iUpdatedVal.MaxBytes(), PBUF(aUpdatedVal));
     iUiVal = &aUiVal;
     iUpdatedVal.Replace(aUpdatedVal);
     iLanguageResourceManager = &aLanguageResourceManager;
@@ -1592,7 +1593,7 @@ ILanguageResourceReader& ConfigAppBase::CreateLanguageResourceHandler(const Brx&
     AutoMutex a(iLock);
     for (TUint i=0; i<iLanguageResourceHandlers.size(); i++) {
         if (!iLanguageResourceHandlers[i]->Allocated()) {
-            
+
             for (TUint j=0; j<languages.size(); j++) {
                 Bws<Uri::kMaxUriBytes> resource(languages[j]);
                 resource.Append("/");
@@ -1678,7 +1679,7 @@ ConfigAppBasic::ConfigAppBasic(IInfoAggregator& aInfoAggregator, IConfigManager&
                                TUint aMaxTabs, TUint aSendQueueSize,
                                IRebootHandler& aRebootHandler)
     : ConfigAppBase(aInfoAggregator, aConfigManager,
-                    aResourceHandlerFactory, aResourcePrefix, aResourceDir, aResourceHandlersCount, 
+                    aResourceHandlerFactory, aResourcePrefix, aResourceDir, aResourceHandlersCount,
                     aMaxTabs, aSendQueueSize, aRebootHandler)
 {
     AddConfigText(Brn("Product.Name"));

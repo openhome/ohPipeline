@@ -61,6 +61,9 @@ def configure(conf):
     guess_ohnet_location(conf)
     guess_ssl_location(conf)
     guess_raat_location(conf)
+    # Override guess_raat_location and disable RAAT.
+    if 'RAAT_ENABLE' in conf.env.DEFINES:
+        conf.env.DEFINES.remove('RAAT_ENABLE')
 
     conf.env.dest_platform = conf.options.dest_platform
     conf.env.testharness_dir = os.path.abspath(conf.options.testharness_dir)

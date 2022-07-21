@@ -274,7 +274,7 @@ MsgAudio* PhaseAdjuster::AdjustAudio(const Brx& /*aMsgType*/, MsgAudio* aMsg)
         else if (error < 0) {
             // Error is 0 or receiver is in front of sender. Highly unlikely receiver would get in front of sender. Any error would likely be minimal. Do nothing.
             // If error < 0, could inject MsgSilence to pull the error in towards 0.
-            LOG(kPipeline, "PhaseAdjuster: latency is now too low (error=%d / %dms)\n", error, error/Jiffies::kPerMs);
+            LOG(kPipeline, "PhaseAdjuster: latency is now too low (error=%d / %dms)\n", error, error/(TInt)Jiffies::kPerMs);
             iState = State::Running;
             iQueue.Enqueue(aMsg);
             static const TUint kMaxMsgSilence = Jiffies::kPerMs * 2;

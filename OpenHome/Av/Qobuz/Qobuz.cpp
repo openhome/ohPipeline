@@ -549,6 +549,11 @@ void Qobuz::CredentialsChanged(const Brx& aUsername, const Brx& aPassword)
     iUsername.Write(aUsername);
     iPassword.Reset();
     iPassword.Write(aPassword);
+
+    // If there is no username or password, assume the user has logged out and clear our stored auth token.
+    if (aUsername.Bytes() == 0 || aPassword.Bytes() == 0) {
+        iAuthToken.SetBytes(0);
+    }
 }
 
 void Qobuz::UpdateStatus()
