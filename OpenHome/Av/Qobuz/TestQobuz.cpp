@@ -43,7 +43,7 @@ TestQobuz::TestQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aId, const 
     iConfigManager = new Configuration::ConfigManager(*iStore);
     iUnixTimestamp = new UnixTimestamp(aEnv);
     iThreadPool = new ThreadPool(1, 1, 1);
-    iQobuz = new Qobuz(aEnv, aSsl, aId, aSecret, aDeviceId, *this, *iConfigManager,
+    iQobuz = new Qobuz(aEnv, aSsl, aId, aSecret, Brx::Empty(), aDeviceId, *this, *iConfigManager,
                        *iUnixTimestamp, *iThreadPool, iPipelineObservable);
 }
 
