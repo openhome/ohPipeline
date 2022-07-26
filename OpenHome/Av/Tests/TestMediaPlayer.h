@@ -174,6 +174,7 @@ protected:
     Net::DvDeviceStandard* iDevice;
     Net::DvDevice* iDeviceUpnpAv;
     IPlaylistLoader* iPlaylistLoader;
+    IRaatSignalPathObservable* iRaatSignalPathObservable;
 private:
     Semaphore iSemShutdown;
     Semaphore iDisabled;

@@ -293,6 +293,7 @@ TestMediaPlayer::~TestMediaPlayer()
     delete iInfoLogger;
     delete iDevice;
     delete iDeviceUpnpAv;
+    delete iRaatSignalPathObservable;
     delete iRamStore;
     if (iStoreFileWriter != nullptr) {
         // Store writer will not have been created if store file param not specified.
@@ -536,7 +537,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(SourceFactory::NewRaat(
         *iMediaPlayer,
         new RaatTimeCpu(iMediaPlayer->Env()),
-        new DummyRaatSignalPath()));
+        iRaatSignalPathObservable != nullptr? iRaatSignalPathObservable : new DummyRaatSignalPath()));
+    iRaatSignalPathObservable = nullptr;
 #endif
 }
 
