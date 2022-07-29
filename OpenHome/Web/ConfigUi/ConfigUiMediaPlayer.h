@@ -27,6 +27,7 @@ public:
                          const std::vector<const Brx*>& aSources,
                          const Brx& aResourcePrefix, const OpenHome::Brx& aResourceDir,
                          TUint aResourceHandlerCount, TUint aMaxTabs, TUint aSendQueueSize,
+                         TUint aMsgBufCount, TUint aMsgBufBytes,
                          Av::IRebootHandler& aRebootHandler);
 };
 

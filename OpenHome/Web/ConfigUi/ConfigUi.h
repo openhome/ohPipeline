@@ -95,12 +95,14 @@ private:
     const TBool iRebootRequired;
 };
 
+class ConfigValBuf;
 class IConfigUiVal;
 
 class IConfigMessageAllocator
 {
 public:
     virtual ITabMessage* AllocateMessage(IConfigUiVal& aUiVal, const Brx& aUpdatedVal, std::vector<Bws<10>>& aLanguageList) = 0;
+    virtual ConfigValBuf* AllocateBuf(const Brx& aBuf) = 0;
     virtual ~IConfigMessageAllocator() {}
 };
 
@@ -162,36 +164,72 @@ private:
     TBool iFoundKey;
 };
 
+class ConfigValBuf : public Media::Allocated, public IWritable, public INonCopyable
+{
+public:
+    friend class ConfigMessageAllocator;
+public:
+    ConfigValBuf(Media::AllocatorBase& aAllocator);
+    ConfigValBuf(Media::AllocatorBase& aAllocator, TUint aBytes);
+public: // from IWritable
+    void Write(IWriter& aWriter) const override; // Iterate over chained bufs and write out.
+protected: // from Allocated
+    void Clear() override;
+private:
+    void Initialise(const Brx& aBuf);
+    void Append(ConfigValBuf* aBuf);
+private:
+    ConfigValBuf* iNext;
+    Bwh iBuf;
+};
+
 class ConfigMessage : public ConfigMessageBase
 {
     friend class ConfigMessageAllocator;
-private:
-    static const TUint kMaxBytes = Configuration::ConfigText::kMaxBytes;
 public:
     ConfigMessage(Media::AllocatorBase& aAllocator);
 private:
-    void Set(IConfigUiVal& aUiVal, const Brx& aUpdatedVal, ILanguageResourceManager& aLanguageResourceManager, std::vector<Bws<10>>& aLanguageList);
+    void Set(IConfigUiVal& aUiVal, ConfigValBuf* aUpdatedVal, ILanguageResourceManager& aLanguageResourceManager, std::vector<Bws<10>>& aLanguageList);
 private: // from ConfigMessageBase
     void Clear() override;
     void Send(IWriter& aWriter) override;
     void WriteValueJson(IWriter& aWriter) override;
 private:
     IConfigUiVal* iUiVal;
-    Bws<kMaxBytes> iUpdatedVal;
+    ConfigValBuf* iUpdatedVal;
     ILanguageResourceManager* iLanguageResourceManager;
     std::vector<Bws<10>>* iLanguageList;
+};
+
+class AllocatorConfigValBuf : public Media::AllocatorBase
+{
+public:
+    AllocatorConfigValBuf(const TChar* aName, TUint aNumCells, IInfoAggregator& aInfoAggregator, TUint aBufBytes);
+    ConfigValBuf* Allocate();
 };
 
 // FIXME - correct to pass lang resource manager in via constructor, but then pass individual lang vectors in on Allocate()?
 class ConfigMessageAllocator : public IConfigMessageAllocator
 {
 public:
-    ConfigMessageAllocator(IInfoAggregator& aInfoAggregator, TUint aMsgCount, ILanguageResourceManager& aLanguageResourceManager);
+    ConfigMessageAllocator(IInfoAggregator& aInfoAggregator, TUint aMsgCount, TUint aMsgBufCount, TUint aMsgBufBytes, ILanguageResourceManager& aLanguageResourceManager);
 public: // from IConfigMessageAllocator
     ITabMessage* AllocateMessage(IConfigUiVal& aUiVal, const Brx& aUpdatedVal, std::vector<Bws<10>>& aLanguageList) override;
+    ConfigValBuf* AllocateBuf(const Brx& aBuf) override;
 private:
     Media::Allocator<ConfigMessage> iAllocatorMsg;
+    AllocatorConfigValBuf iAllocatorBuf;
     ILanguageResourceManager& iLanguageResourceManager;
+    TUint iMsgBufBytes;
+
+    // TUint iCount0To1Bytes;
+    // TUint iCount2To16Bytes;
+    // TUint iCount17To32Bytes;
+    // TUint iCount33To64Bytes;
+    // TUint iCount65To128Bytes;
+    // TUint iCount129To256Bytes;
+    // TUint iCount257To512Bytes;
+    // TUint iCountGt512Bytes;
 };
 
 class JsonStringParser
@@ -628,7 +666,7 @@ protected:
     ConfigAppBase(IInfoAggregator& aInfoAggregator, Configuration::IConfigManager& aConfigManager,
                   IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
                   const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount,
-                  TUint aMaxTabs, TUint aSendQueueSize,
+                  TUint aMaxTabs, TUint aSendQueueSize, TUint aMsgBufCount, TUint aMsgBufBytes,
                   Av::IRebootHandler& aRebootHandler);
     ~ConfigAppBase();
 public: // from IConfigApp
@@ -673,6 +711,7 @@ public:
                    IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
                    const Brx& aResourcePrefix, const Brx& aResourceDir,
                    TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize,
+                   TUint aMsgBufCount, TUint aMsgBufBytes,
                    Av::IRebootHandler& aRebootHandler);
 };
 
@@ -687,6 +726,7 @@ public:
                      const std::vector<const Brx*>& aSources,
                      const Brx& aResourcePrefix, const Brx& aResourceDir,
                      TUint aResourceHandlersCount, TUint aMaxTabs, TUint aSendQueueSize,
+                     TUint aMsgBufCount, TUint aMsgBufBytes,
                      Av::IRebootHandler& aRebootHandler);
 };
 

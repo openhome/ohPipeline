@@ -208,22 +208,70 @@ TBool ConfigChoiceMapperResourceFile::ProcessLine(const Brx& aLine)
 }
 
 
+// ConfigValBuf
+
+ConfigValBuf::ConfigValBuf(Media::AllocatorBase& aAllocator)
+    : Allocated(aAllocator)
+    , iNext(nullptr)
+    , iBuf(16)
+{
+}
+
+ConfigValBuf::ConfigValBuf(Media::AllocatorBase& aAllocator, TUint aBytes)
+    : Allocated(aAllocator)
+    , iNext(nullptr)
+    , iBuf(aBytes)
+{
+}
+
+void ConfigValBuf::Write(IWriter& aWriter) const
+{
+    aWriter.Write(iBuf);
+    if (iNext != nullptr) {
+        iNext->Write(aWriter);
+    }
+}
+
+void ConfigValBuf::Clear()
+{
+    if (iNext != nullptr) {
+        iNext->RemoveRef();
+    }
+}
+
+void ConfigValBuf::Initialise(const Brx& aBuf)
+{
+    iBuf.Replace(aBuf);
+}
+
+void ConfigValBuf::Append(ConfigValBuf* aBuf)
+{
+    if (iNext == nullptr) {
+        iNext = aBuf;
+    }
+    else {
+        iNext->Append(aBuf);
+    }
+}
+
+
 // ConfigMessage
 
 ConfigMessage::ConfigMessage(AllocatorBase& aAllocator)
     : ConfigMessageBase(aAllocator)
     , iUiVal(nullptr)
+    , iUpdatedVal(nullptr)
     , iLanguageResourceManager(nullptr)
     , iLanguageList(nullptr)
 {
 }
 
-void ConfigMessage::Set(IConfigUiVal& aUiVal, const Brx& aUpdatedVal, ILanguageResourceManager& aLanguageResourceManager, std::vector<Bws<10>>& aLanguageList)
+void ConfigMessage::Set(IConfigUiVal& aUiVal, ConfigValBuf* aUpdatedVal, ILanguageResourceManager& aLanguageResourceManager, std::vector<Bws<10>>& aLanguageList)
 {
     ASSERT(iUiVal == nullptr);
-    ASSERT_VA(aUpdatedVal.Bytes() <= iUpdatedVal.MaxBytes(), "ConfigMessage::Set bytes: %u, capacity: %u, msg: %.*s\n", aUpdatedVal.Bytes(), iUpdatedVal.MaxBytes(), PBUF(aUpdatedVal));
+    ASSERT(aUpdatedVal != nullptr);
     iUiVal = &aUiVal;
-    iUpdatedVal.Replace(aUpdatedVal);
+    iUpdatedVal = aUpdatedVal;
     iLanguageResourceManager = &aLanguageResourceManager;
     iLanguageList = &aLanguageList;
 }
@@ -233,7 +281,7 @@ void ConfigMessage::Clear()
     ConfigMessageBase::Clear();
     ASSERT(iUiVal != nullptr);
     iUiVal = nullptr;
-    iUpdatedVal.SetBytes(0);
+    iUpdatedVal->RemoveRef();
     iLanguageResourceManager = nullptr;
     iLanguageList = nullptr;
 }
@@ -247,22 +295,115 @@ void ConfigMessage::Send(IWriter& aWriter)
 void ConfigMessage::WriteValueJson(IWriter& aWriter)
 {
     ASSERT(iUiVal != nullptr);
-    aWriter.Write(iUpdatedVal);
+    ASSERT(iUpdatedVal != nullptr);
+    iUpdatedVal->Write(aWriter);
+}
+
+
+// AllocatorConfigValBuf
+
+AllocatorConfigValBuf::AllocatorConfigValBuf(const TChar* aName, TUint aNumCells, IInfoAggregator& aInfoAggregator, TUint aBufBytes)
+    : AllocatorBase(aName, aNumCells, sizeof(ConfigValBuf), aInfoAggregator)
+{
+    for (TUint i=0; i<aNumCells; i++) {
+        iFree.Write(new ConfigValBuf(*this, aBufBytes));
+    }
+}
+
+ConfigValBuf* AllocatorConfigValBuf::Allocate()
+{
+    return static_cast<ConfigValBuf*>(DoAllocate());
 }
 
 
 // ConfigMessageAllocator
 
-ConfigMessageAllocator::ConfigMessageAllocator(IInfoAggregator& aInfoAggregator, TUint aMsgCount, ILanguageResourceManager& aLanguageResourceManager)
+ConfigMessageAllocator::ConfigMessageAllocator(IInfoAggregator& aInfoAggregator, TUint aMsgCount, TUint aMsgBufCount, TUint aMsgBufBytes, ILanguageResourceManager& aLanguageResourceManager)
     : iAllocatorMsg("ConfigMessage", aMsgCount, aInfoAggregator)
+    , iAllocatorBuf("ConfigBuf", aMsgBufCount, aInfoAggregator, aMsgBufBytes)
     , iLanguageResourceManager(aLanguageResourceManager)
+    , iMsgBufBytes(aMsgBufBytes)
+    // , iCount0To1Bytes(0)
+    // , iCount2To16Bytes(0)
+    // , iCount17To32Bytes(0)
+    // , iCount33To64Bytes(0)
+    // , iCount65To128Bytes(0)
+    // , iCount129To256Bytes(0)
+    // , iCount257To512Bytes(0)
+    // , iCountGt512Bytes(0)
 {
+    ASSERT(aMsgBufCount >= aMsgCount); // Need at least aMsgCount buffers, to satisfy each message.
 }
 
 ITabMessage* ConfigMessageAllocator::AllocateMessage(IConfigUiVal& aUiVal, const Brx& aUpdatedVal, std::vector<Bws<10>>& aLanguageList)
 {
+    auto* msgBuf = AllocateBuf(aUpdatedVal);
     ConfigMessage* msg = iAllocatorMsg.Allocate();
-    msg->Set(aUiVal, aUpdatedVal, iLanguageResourceManager, aLanguageList);
+
+    // if (aUpdatedVal.Bytes() <= 1) {
+    //     iCount0To1Bytes++;
+    // }
+    // else if (aUpdatedVal.Bytes() > 1 && aUpdatedVal.Bytes() <= 16) {
+    //     iCount2To16Bytes++;
+    // }
+    // else if (aUpdatedVal.Bytes() > 16 && aUpdatedVal.Bytes() <= 32) {
+    //     iCount17To32Bytes++;
+    // }
+    // else if (aUpdatedVal.Bytes() > 32 && aUpdatedVal.Bytes() <= 64) {
+    //     iCount33To64Bytes++;
+    // }
+    // else if (aUpdatedVal.Bytes() > 64 && aUpdatedVal.Bytes() <= 128) {
+    //     iCount65To128Bytes++;
+    // }
+    // else if (aUpdatedVal.Bytes() > 128 && aUpdatedVal.Bytes() <= 256) {
+    //     iCount129To256Bytes++;
+    // }
+    // else if (aUpdatedVal.Bytes() > 256 && aUpdatedVal.Bytes() <= 512) {
+    //     iCount257To512Bytes++;
+    // }
+    // else {
+    //     iCountGt512Bytes++;
+    // }
+    // Log::Print("ConfigMessageAllocator::AllocateMessage bytes: %u, 0..1: %u, 2..16: %u, 17..32: %u, 33..64: %u, 65..128: %u, 129..256: %u, 257..512: %u, 512++: %u, total: %u\n", aUpdatedVal.Bytes(), iCount0To1Bytes, iCount2To16Bytes, iCount17To32Bytes, iCount33To64Bytes, iCount65To128Bytes, iCount129To256Bytes, iCount257To512Bytes, iCountGt512Bytes,
+    //         iCount0To1Bytes +
+    //         iCount2To16Bytes +
+    //         iCount17To32Bytes +
+    //         iCount33To64Bytes +
+    //         iCount65To128Bytes +
+    //         iCount129To256Bytes +
+    //         iCount257To512Bytes +
+    //         iCountGt512Bytes
+    // );
+
+    msg->Set(aUiVal, msgBuf, iLanguageResourceManager, aLanguageList);
+    return msg;
+}
+
+ConfigValBuf* ConfigMessageAllocator::AllocateBuf(const Brx& aBuf)
+{
+    TUint offset = 0;
+    ConfigValBuf* msg = iAllocatorBuf.Allocate();
+    auto msgBytes = aBuf.Bytes() - offset;
+    if (msgBytes > iMsgBufBytes) {
+        msgBytes = iMsgBufBytes;
+    }
+    Brn buf(aBuf.Ptr() + offset, msgBytes);
+    offset += msgBytes;
+    msg->Initialise(buf);
+
+
+    while (offset < aBuf.Bytes()) {
+        auto msgBytes = aBuf.Bytes() - offset;
+        if (msgBytes > iMsgBufBytes) {
+            msgBytes = iMsgBufBytes;
+        }
+        buf.Set(aBuf.Ptr() + offset, msgBytes);
+        offset += msgBytes;
+        ConfigValBuf* msgNext = iAllocatorBuf.Allocate();
+        msgNext->Initialise(buf);
+        msg->Append(msgNext);
+    }
+
     return msg;
 }
 
@@ -1490,7 +1631,7 @@ const Brn ConfigAppBase::kDefaultLanguage("en-gb");
 ConfigAppBase::ConfigAppBase(IInfoAggregator& aInfoAggregator, IConfigManager& aConfigManager,
                              IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
                              const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount,
-                             TUint aMaxTabs, TUint aSendQueueSize,
+                             TUint aMaxTabs, TUint aSendQueueSize, TUint aMsgBufCount, TUint aMsgBufBytes,
                              IRebootHandler& aRebootHandler)
     : iConfigManager(aConfigManager)
     , iRebootRequired(true)
@@ -1510,7 +1651,7 @@ ConfigAppBase::ConfigAppBase(IInfoAggregator& aInfoAggregator, IConfigManager& a
     iLangResourceDir.Append(kLangRoot);
     iLangResourceDir.Append('/');
 
-    iMsgAllocator = new ConfigMessageAllocator(aInfoAggregator, aSendQueueSize, *this);
+    iMsgAllocator = new ConfigMessageAllocator(aInfoAggregator, aSendQueueSize, aMsgBufCount, aMsgBufBytes, *this);
 
     iResourceManager = new BlockingResourceManager(aResourceHandlerFactory, aResourceHandlersCount, aResourceDir);
 
@@ -1676,11 +1817,11 @@ void ConfigAppBase::AddConfigTextConditional(const Brx& aKey)
 ConfigAppBasic::ConfigAppBasic(IInfoAggregator& aInfoAggregator, IConfigManager& aConfigManager,
                                IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
                                const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount,
-                               TUint aMaxTabs, TUint aSendQueueSize,
+                               TUint aMaxTabs, TUint aSendQueueSize, TUint aMsgBufCount, TUint aMsgBufBytes,
                                IRebootHandler& aRebootHandler)
     : ConfigAppBase(aInfoAggregator, aConfigManager,
                     aResourceHandlerFactory, aResourcePrefix, aResourceDir, aResourceHandlersCount,
-                    aMaxTabs, aSendQueueSize, aRebootHandler)
+                    aMaxTabs, aSendQueueSize, aMsgBufCount, aMsgBufBytes, aRebootHandler)
 {
     AddConfigText(Brn("Product.Name"));
     AddConfigText(Brn("Product.Room"));
@@ -1693,11 +1834,11 @@ ConfigAppSources::ConfigAppSources(IInfoAggregator& aInfoAggregator, IConfigMana
                                    IConfigAppResourceHandlerFactory& aResourceHandlerFactory,
                                    const std::vector<const Brx*>& aSources,
                                    const Brx& aResourcePrefix, const Brx& aResourceDir, TUint aResourceHandlersCount,
-                                   TUint aMaxTabs, TUint aSendQueueSize,
+                                   TUint aMaxTabs, TUint aSendQueueSize, TUint aMsgBufCount, TUint aMsgBufBytes,
                                    IRebootHandler& aRebootHandler)
     : ConfigAppBasic(aInfoAggregator, aConfigManager,
                      aResourceHandlerFactory, aResourcePrefix, aResourceDir, aResourceHandlersCount,
-                     aMaxTabs, aSendQueueSize, aRebootHandler)
+                     aMaxTabs, aSendQueueSize, aMsgBufCount, aMsgBufBytes, aRebootHandler)
 {
     // Get all product names.
     for (TUint i=0; i<aSources.size(); i++) {
