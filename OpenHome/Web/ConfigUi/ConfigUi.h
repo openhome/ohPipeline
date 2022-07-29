@@ -220,7 +220,6 @@ private:
     Media::Allocator<ConfigMessage> iAllocatorMsg;
     AllocatorConfigValBuf iAllocatorBuf;
     ILanguageResourceManager& iLanguageResourceManager;
-    TUint iMsgBufBytes;
 };
 
 class JsonStringParser

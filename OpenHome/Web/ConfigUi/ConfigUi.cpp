@@ -325,7 +325,6 @@ ConfigMessageAllocator::ConfigMessageAllocator(IInfoAggregator& aInfoAggregator,
     : iAllocatorMsg("ConfigMessage", aMsgCount, aInfoAggregator)
     , iAllocatorBuf("ConfigBuf", aMsgBufCount, aInfoAggregator, aMsgBufBytes)
     , iLanguageResourceManager(aLanguageResourceManager)
-    , iMsgBufBytes(aMsgBufBytes)
 {
     ASSERT(aMsgBufCount >= aMsgCount); // Need at least aMsgCount buffers, to satisfy each message.
 }
