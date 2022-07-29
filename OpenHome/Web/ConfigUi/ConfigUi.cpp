@@ -210,13 +210,6 @@ TBool ConfigChoiceMapperResourceFile::ProcessLine(const Brx& aLine)
 
 // ConfigValBuf
 
-ConfigValBuf::ConfigValBuf(Media::AllocatorBase& aAllocator)
-    : Allocated(aAllocator)
-    , iNext(nullptr)
-    , iBuf(16)
-{
-}
-
 ConfigValBuf::ConfigValBuf(Media::AllocatorBase& aAllocator, TUint aBytes)
     : Allocated(aAllocator)
     , iNext(nullptr)
@@ -224,16 +217,24 @@ ConfigValBuf::ConfigValBuf(Media::AllocatorBase& aAllocator, TUint aBytes)
 {
 }
 
+TUint ConfigValBuf::MaxBytes() const
+{
+    return iBuf.MaxBytes();
+}
+
 void ConfigValBuf::Write(IWriter& aWriter) const
 {
-    aWriter.Write(iBuf);
-    if (iNext != nullptr) {
-        iNext->Write(aWriter);
+    // Do this iteratively, rather than recursively.
+    auto* next = this;
+    while (next != nullptr) {
+        aWriter.Write(next->iBuf);
+        next = next->iNext;
     }
 }
 
 void ConfigValBuf::Clear()
 {
+    // If iNext->RemoveRef() results in iNext's reference count going to 0 it will call into iNext->Clear(), with potentially further recursion if there are more chained buffers.
     if (iNext != nullptr) {
         iNext->RemoveRef();
     }
@@ -241,17 +242,19 @@ void ConfigValBuf::Clear()
 
 void ConfigValBuf::Initialise(const Brx& aBuf)
 {
+    iNext = nullptr;
     iBuf.Replace(aBuf);
 }
 
 void ConfigValBuf::Append(ConfigValBuf* aBuf)
 {
-    if (iNext == nullptr) {
-        iNext = aBuf;
+    ASSERT(iNext == nullptr); // Ensure append is always happening at tail.
+    // Do this iteratively, rather than recursively.
+    auto* next = this;
+    while (next->iNext != nullptr) {
+        next = next->iNext;
     }
-    else {
-        iNext->Append(aBuf);
-    }
+    next->iNext = aBuf;
 }
 
 
@@ -381,30 +384,29 @@ ITabMessage* ConfigMessageAllocator::AllocateMessage(IConfigUiVal& aUiVal, const
 
 ConfigValBuf* ConfigMessageAllocator::AllocateBuf(const Brx& aBuf)
 {
+    ASSERT(aBuf.Bytes() != 0);
+    ConfigValBuf* head = nullptr;
+    ConfigValBuf* tail = nullptr;
     TUint offset = 0;
-    ConfigValBuf* msg = iAllocatorBuf.Allocate();
-    auto msgBytes = aBuf.Bytes() - offset;
-    if (msgBytes > iMsgBufBytes) {
-        msgBytes = iMsgBufBytes;
-    }
-    Brn buf(aBuf.Ptr() + offset, msgBytes);
-    offset += msgBytes;
-    msg->Initialise(buf);
-
-
     while (offset < aBuf.Bytes()) {
-        auto msgBytes = aBuf.Bytes() - offset;
-        if (msgBytes > iMsgBufBytes) {
-            msgBytes = iMsgBufBytes;
-        }
-        buf.Set(aBuf.Ptr() + offset, msgBytes);
+        auto* next = iAllocatorBuf.Allocate();
+        const auto bytesRemaining = aBuf.Bytes() - offset;
+        const auto msgBytes = bytesRemaining >= next->MaxBytes() ? next->MaxBytes() : bytesRemaining;
+        const Brn buf(aBuf.Ptr() + offset, msgBytes);
         offset += msgBytes;
-        ConfigValBuf* msgNext = iAllocatorBuf.Allocate();
-        msgNext->Initialise(buf);
-        msg->Append(msgNext);
+        next->Initialise(buf);
+
+        if (tail == nullptr) {
+            head = next;
+            tail = head;
+        }
+        else {
+            tail->Append(next);
+            tail = next;
+        }
     }
 
-    return msg;
+    return head;
 }
 
 

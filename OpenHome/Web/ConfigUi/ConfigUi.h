@@ -169,8 +169,8 @@ class ConfigValBuf : public Media::Allocated, public IWritable, public INonCopya
 public:
     friend class ConfigMessageAllocator;
 public:
-    ConfigValBuf(Media::AllocatorBase& aAllocator);
     ConfigValBuf(Media::AllocatorBase& aAllocator, TUint aBytes);
+    TUint MaxBytes() const;
 public: // from IWritable
     void Write(IWriter& aWriter) const override; // Iterate over chained bufs and write out.
 protected: // from Allocated
