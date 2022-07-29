@@ -326,14 +326,6 @@ ConfigMessageAllocator::ConfigMessageAllocator(IInfoAggregator& aInfoAggregator,
     , iAllocatorBuf("ConfigBuf", aMsgBufCount, aInfoAggregator, aMsgBufBytes)
     , iLanguageResourceManager(aLanguageResourceManager)
     , iMsgBufBytes(aMsgBufBytes)
-    // , iCount0To1Bytes(0)
-    // , iCount2To16Bytes(0)
-    // , iCount17To32Bytes(0)
-    // , iCount33To64Bytes(0)
-    // , iCount65To128Bytes(0)
-    // , iCount129To256Bytes(0)
-    // , iCount257To512Bytes(0)
-    // , iCountGt512Bytes(0)
 {
     ASSERT(aMsgBufCount >= aMsgCount); // Need at least aMsgCount buffers, to satisfy each message.
 }
@@ -342,42 +334,6 @@ ITabMessage* ConfigMessageAllocator::AllocateMessage(IConfigUiVal& aUiVal, const
 {
     auto* msgBuf = AllocateBuf(aUpdatedVal);
     ConfigMessage* msg = iAllocatorMsg.Allocate();
-
-    // if (aUpdatedVal.Bytes() <= 1) {
-    //     iCount0To1Bytes++;
-    // }
-    // else if (aUpdatedVal.Bytes() > 1 && aUpdatedVal.Bytes() <= 16) {
-    //     iCount2To16Bytes++;
-    // }
-    // else if (aUpdatedVal.Bytes() > 16 && aUpdatedVal.Bytes() <= 32) {
-    //     iCount17To32Bytes++;
-    // }
-    // else if (aUpdatedVal.Bytes() > 32 && aUpdatedVal.Bytes() <= 64) {
-    //     iCount33To64Bytes++;
-    // }
-    // else if (aUpdatedVal.Bytes() > 64 && aUpdatedVal.Bytes() <= 128) {
-    //     iCount65To128Bytes++;
-    // }
-    // else if (aUpdatedVal.Bytes() > 128 && aUpdatedVal.Bytes() <= 256) {
-    //     iCount129To256Bytes++;
-    // }
-    // else if (aUpdatedVal.Bytes() > 256 && aUpdatedVal.Bytes() <= 512) {
-    //     iCount257To512Bytes++;
-    // }
-    // else {
-    //     iCountGt512Bytes++;
-    // }
-    // Log::Print("ConfigMessageAllocator::AllocateMessage bytes: %u, 0..1: %u, 2..16: %u, 17..32: %u, 33..64: %u, 65..128: %u, 129..256: %u, 257..512: %u, 512++: %u, total: %u\n", aUpdatedVal.Bytes(), iCount0To1Bytes, iCount2To16Bytes, iCount17To32Bytes, iCount33To64Bytes, iCount65To128Bytes, iCount129To256Bytes, iCount257To512Bytes, iCountGt512Bytes,
-    //         iCount0To1Bytes +
-    //         iCount2To16Bytes +
-    //         iCount17To32Bytes +
-    //         iCount33To64Bytes +
-    //         iCount65To128Bytes +
-    //         iCount129To256Bytes +
-    //         iCount257To512Bytes +
-    //         iCountGt512Bytes
-    // );
-
     msg->Set(aUiVal, msgBuf, iLanguageResourceManager, aLanguageList);
     return msg;
 }

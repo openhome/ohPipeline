@@ -221,15 +221,6 @@ private:
     AllocatorConfigValBuf iAllocatorBuf;
     ILanguageResourceManager& iLanguageResourceManager;
     TUint iMsgBufBytes;
-
-    // TUint iCount0To1Bytes;
-    // TUint iCount2To16Bytes;
-    // TUint iCount17To32Bytes;
-    // TUint iCount33To64Bytes;
-    // TUint iCount65To128Bytes;
-    // TUint iCount129To256Bytes;
-    // TUint iCount257To512Bytes;
-    // TUint iCountGt512Bytes;
 };
 
 class JsonStringParser
