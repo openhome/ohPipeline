@@ -118,6 +118,8 @@ private:
     static const TUint kMinWebUiResourceThreads = 4;
     static const TUint kMaxWebUiTabs = 4;
     static const TUint kUiSendQueueSize = 100;
+    static const TUint kUiMsgBufCount = kUiSendQueueSize + ((kUiSendQueueSize + 1) / 2);
+    static const TUint kUiMsgBufBytes = 16;
     static const TUint kMaxPinsDevice = 6;
     static const TUint kFsFlushFreqMs = 60 * 1000; // 1 minute
     static const TUint kDsdMaxSampleRate = 5644800; // DSD128.
@@ -127,7 +129,7 @@ public:
     TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                     const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
                     const TChar* aStoreFile, TUint aOdpPort=0, TUint aWebUiPort=0,
-                    TUint aMinWebUiResourceThreads=kMinWebUiResourceThreads, TUint aMaxWebUiTabs=kMaxWebUiTabs, TUint aUiSendQueueSize=kUiSendQueueSize);
+                    TUint aMinWebUiResourceThreads=kMinWebUiResourceThreads, TUint aMaxWebUiTabs=kMaxWebUiTabs, TUint aUiSendQueueSize=kUiSendQueueSize, TUint aUiMsgBufCount=kUiMsgBufCount, TUint aUiMsgBufBytes=kUiMsgBufBytes);
     virtual ~TestMediaPlayer();
     void SetPullableClock(Media::IPullableClock& aPullableClock);
     void SetSongcastTimestampers(IOhmTimestamper& aTxTimestamper, IOhmTimestamper& aRxTimestamper);
@@ -143,7 +145,7 @@ protected:
     virtual void TryRegisterVorbis();
     virtual void RegisterPlugins(Environment& aEnv);
     virtual void InitialiseSubsystems();
-    virtual Web::IWebApp* CreateConfigApp(const std::vector<const Brx*>& aSources, const Brx& aResourceDir, TUint aMinWebUiResourceThreads, TUint aMaxUiTabs, TUint aMaxSendQueueSize);
+    virtual Web::IWebApp* CreateConfigApp(const std::vector<const Brx*>& aSources, const Brx& aResourceDir, TUint aMinWebUiResourceThreads, TUint aMaxUiTabs, TUint aMaxSendQueueSize, TUint aMsgBufCount, TUint aMsgBufBytes);
     virtual void InitialiseLogger();
     virtual void EnableDevices();
     void DestroyAppFramework();
@@ -201,6 +203,8 @@ private:
     TUint iMinWebUiResourceThreads;
     TUint iMaxWebUiTabs;
     TUint iUiSendQueueSize;
+    TUint iUiMsgBufCount;
+    TUint iUiMsgBufBytes;
 };
 
 class TestMediaPlayerOptions
