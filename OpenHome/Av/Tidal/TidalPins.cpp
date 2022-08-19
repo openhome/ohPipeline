@@ -141,10 +141,6 @@ void TidalPins::Invoke()
             tokenId    //oauthTokenId
         };
 
-
-        TUint theBytes = authConfig.oauthTokenId.Bytes();
-        Brn somethingToPrint = theBytes == 0 ? Brn("None") : tokenId;
-
         Log::Print("Working with:\nfallbackIfNoTokenPresent: %d\noauthTokenId: %.*s\n", 
                    authConfig.fallbackIfTokenNotPresent, 
                    PBUF(authConfig.oauthTokenId.Bytes() == 0 ? Brn("None")
