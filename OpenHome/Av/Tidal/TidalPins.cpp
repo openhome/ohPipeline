@@ -325,24 +325,28 @@ TBool TidalPins::LoadContainers(const Brx& aPath,
             TUint idCount = 0;
             auto parserItems = JsonParserArray::Create(parser.String("items"));
             JsonParser parserItem;
-            try {
-                for (TUint i = 0; i < kItemLimitPerRequest; i++) {
-                    parserItem.Parse(parserItems.NextObject());
 
-                    // Some TIDAL responses are nested in a wrapper object
-                    // featuring a 'created' date/time
-                    if (parserItem.HasKey("item")) {
-                        parserItem.Parse(parserItem.String("item"));
-                    }
+            for (TUint i = 0; i < kItemLimitPerRequest; i++) {
+                Brn obj;
+                if (!parserItems.TryNextObject(obj)) {
+                    break;
+                }
 
-                    containerIds[i].ReplaceThrow(parserItem.String(kIdString)); // parse response from Tidal
-                    idCount++;
-                    if (containerIds[i].Bytes() == 0) {
-                        return false;
-                    }
+                parserItem.Parse(obj);
+
+                // Some TIDAL responses are nested in a wrapper object
+                // featuring a 'created' date/time
+                if (parserItem.HasKey("item")) {
+                    parserItem.Parse(parserItem.String("item"));
+                }
+
+                containerIds[i].ReplaceThrow(parserItem.String(kIdString)); // parse response from Tidal
+                idCount++;
+                if (containerIds[i].Bytes() == 0) {
+                    return false;
                 }
             }
-            catch (JsonArrayEnumerationComplete&) {}
+
             for (TUint j = 0; j < idCount; j++) {
                 try {
                     lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound, aAuthConfig);
@@ -410,29 +414,12 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
 
             parser.Reset();
             parser.Parse(iJsonResponse.Buffer());
-            try {
-                if (parser.HasKey("items")) {
-                    auto parserItems = JsonParserArray::Create(parser.String("items"));
-                    for (;;) {
-                        track = iTidalMetadata.TrackFromJson(parserItems.NextObject(),
-                                                             aAuthConfig.oauthTokenId);
-                        if (track != nullptr) {
-                            aCount++;
-                            iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
-                            track->RemoveRef();
-                            track = nullptr;
-                            currId = newId;
-                            isPlayable = true;
-                            if (aCount >= iMaxPlaylistTracks) {
-                                offset = end; // force exit as we could be part way through a group of tracks
-                                break;
-                            }
-                        }
-                    }
-                }
-                else {
-                    // special case for only one track (no 'items' object)
-                    track = iTidalMetadata.TrackFromJson(iJsonResponse.Buffer(),
+
+            if (parser.HasKey("items")) {
+                auto parserItems = JsonParserArray::Create(parser.String("items"));
+                Brn obj;
+                while(parserItems.TryNextObject(obj)) {
+                    track = iTidalMetadata.TrackFromJson(obj,
                                                          aAuthConfig.oauthTokenId);
                     if (track != nullptr) {
                         aCount++;
@@ -441,10 +428,26 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
                         track = nullptr;
                         currId = newId;
                         isPlayable = true;
+                        if (aCount >= iMaxPlaylistTracks) {
+                            offset = end; // force exit as we could be part way through a group of tracks
+                            break;
+                        }
                     }
                 }
             }
-            catch (JsonArrayEnumerationComplete&) {}
+            else {
+                // special case for only one track (no 'items' object)
+                track = iTidalMetadata.TrackFromJson(iJsonResponse.Buffer(),
+                                                     aAuthConfig.oauthTokenId);
+                if (track != nullptr) {
+                    aCount++;
+                    iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
+                    track->RemoveRef();
+                    track = nullptr;
+                    currId = newId;
+                    isPlayable = true;
+                }
+            }
 
             if (initPlay && isPlayable) {
                 initPlay = false;
