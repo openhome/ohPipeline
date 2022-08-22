@@ -202,6 +202,9 @@ TBool TidalPins::LoadByPath(const Brx& aPath,
     else if (response == Brn(kPinResponsePlaylists)) {
         res = LoadContainers(aPath, TidalMetadata::ePlaylist, aShuffle, aAuthConfig);
     }
+    else if (response == Brn("artists")) {
+        res = LoadContainers(aPath, TidalMetadata::eArtist, aShuffle, aAuthConfig);
+    }
     else {
         THROW(PinUriMissingRequiredParameter);
     }
@@ -294,8 +297,8 @@ TBool TidalPins::LoadContainers(const Brx& aPath,
                                 const Tidal::AuthenticationConfig& aAuthConfig)
 {
     AutoMutex _(iLock);
-    const TChar* kIdString = (aIdType == TidalMetadata::eAlbum) ? "id" : "uuid";
-    const TUint kIdSize = (aIdType == TidalMetadata::eAlbum) ? 20 : 40;
+    const TChar* kIdString = (aIdType == TidalMetadata::ePlaylist) ? "uuid" : "id";
+    const TUint kIdSize = (aIdType == TidalMetadata::ePlaylist) ? 40 : 20;
     JsonParser parser;
     InitPlaylist(aShuffle);
     TUint lastId = 0;
