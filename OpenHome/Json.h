@@ -120,14 +120,22 @@ public:
     Brn NextArray();
     Brn NextObject();
     Brn Next();
+
+    // These methods don't throw an exception when no value is present. Saves constructing a full exception when parsing content
+    // NOTE: NextInt/NextBool/NextNull don't throw JsonArrayEnumerationComplete so don't have a TryXXX() overload
+    TBool TryNextString(Brn& aResult);
+    TBool TryNextStringEscaped(Brn& aResult, Json::Encoding aEncoding = Json::Encoding::Utf8); // array passed to Set must be writable in this case
+    TBool TryNextArray(Brn& aResult);
+    TBool TryNextObject(Brn& aResult);
+    TBool TryNext(Brn& aResult);
 private:
     JsonParserArray(const Brx& aArray);
     void StartParse();
     void StartParseEntry();
     void ReturnType();
     Brn ValueToDelimiter();
-    Brn NextCollection(TChar aStart, TChar aEnd);
-    void EndEnumerationIfNull();
+    TBool NextCollection(TChar aStart, TChar aEnd, Brn& aResult);
+    TBool TryEndEnumerationIfNull();
 private:
     Brn iBuf;
     ValType iType;

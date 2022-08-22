@@ -496,7 +496,9 @@ JsonParserArray::EntryValType JsonParserArray::EntryType() const
 
 TInt JsonParserArray::NextInt()
 {
-    EndEnumerationIfNull();
+    if (TryEndEnumerationIfNull()) {
+        THROW(JsonArrayEnumerationComplete);
+    }
     if (iEntryType != EntryValType::Int) {
         THROW(JsonWrongType);
     }
@@ -511,7 +513,9 @@ TInt JsonParserArray::NextInt()
 
 TBool JsonParserArray::NextBool()
 {
-    EndEnumerationIfNull();
+    if (TryEndEnumerationIfNull()) {
+        THROW(JsonArrayEnumerationComplete);
+    }
     if (iEntryType != EntryValType::Bool) {
         THROW(JsonWrongType);
     }
@@ -527,7 +531,9 @@ TBool JsonParserArray::NextBool()
 
 Brn JsonParserArray::NextNull()
 {
-    EndEnumerationIfNull();
+    if (TryEndEnumerationIfNull()) {
+        THROW(JsonArrayEnumerationComplete);
+    }
     if (iEntryType != EntryValType::NullEntry) {
         THROW(JsonWrongType);
     }
@@ -540,7 +546,21 @@ Brn JsonParserArray::NextNull()
 
 Brn JsonParserArray::NextString()
 {
-    EndEnumerationIfNull();
+    Brn result;
+    if(!TryNextString(result)) {
+        THROW(JsonArrayEnumerationComplete);
+    }
+    else {
+        return result;
+    }
+}
+
+TBool JsonParserArray::TryNextString(Brn& aResult)
+{
+    if (TryEndEnumerationIfNull()) {
+        return false;
+    }
+
     if (iEntryType != EntryValType::String) {
         THROW(JsonWrongType);
     }
@@ -553,7 +573,7 @@ Brn JsonParserArray::NextString()
     const TByte* valStart = iPtr;
     Brn val;
     if (iPtr == iEnd) {
-        THROW(JsonArrayEnumerationComplete);
+        return false;
     }
     if (*(valStart-1) != '\"') {
         THROW(JsonCorrupt);
@@ -576,77 +596,140 @@ Brn JsonParserArray::NextString()
         }
     }
     if (val.Bytes() == 0 && complete) {
-        THROW(JsonArrayEnumerationComplete);
+        return false;
     }
     ReturnType();
-    return val;
+    aResult.Set(val);
+    return true;
 }
 
 Brn JsonParserArray::NextStringEscaped(Json::Encoding aEncoding)
 {
-    Brn val = NextString();
-    Bwn buf(val.Ptr(), val.Bytes(), val.Bytes());
+    Brn result;
+    if (!TryNextStringEscaped(result, aEncoding)) {
+        THROW(JsonArrayEnumerationComplete);
+    }
+    else {
+        return result;
+    }
+}
+
+TBool JsonParserArray::TryNextStringEscaped(Brn& aResult, Json::Encoding aEncoding)
+{
+    if (!TryNextString(aResult)) {
+        return false;
+    }
+    Bwn buf(aResult.Ptr(), aResult.Bytes(), aResult.Bytes());
     Json::Unescape(buf, aEncoding);
-    val.Set(buf.Ptr(), buf.Bytes());
-    return val;
+    aResult.Set(buf.Ptr(), buf.Bytes());
+    return true;
 }
 
 Brn JsonParserArray::NextArray()
 {
-    EndEnumerationIfNull();
+    Brn result;
+    if (!TryNextArray(result)) {
+        THROW(JsonArrayEnumerationComplete);
+    }
+    else {
+        return result;
+    }
+}
+
+TBool JsonParserArray::TryNextArray(Brn& aResult)
+{
+    if (TryEndEnumerationIfNull()) {
+        return false;
+    }
+
     if (iEntryType != EntryValType::Array) {
         THROW(JsonWrongType);
     }
+
+
     while (iPtr < iEnd) {
         if (*iPtr == '[') {
-            auto val = NextCollection('[', ']');
+            if (!NextCollection('[', ']', aResult)) {
+                return false;
+            }
             ReturnType();
-            return val;
+            return true;
         }
         iPtr++;
     }
-    THROW(JsonArrayEnumerationComplete);
+
+    return false;
 }
 
 Brn JsonParserArray::NextObject()
 {
-    EndEnumerationIfNull();
+    Brn result;
+    if (!TryNextObject(result)) {
+        THROW(JsonArrayEnumerationComplete);
+    }
+    else {
+        return result;
+    }
+}
+
+TBool JsonParserArray::TryNextObject(Brn& aResult)
+{
+    if (TryEndEnumerationIfNull()) {
+        return false;
+    }
+
     if (iEntryType != EntryValType::Object) {
         THROW(JsonWrongType);
     }
+
     while (iPtr < iEnd) {
         if (*iPtr == '{') {
-            auto val = NextCollection('{', '}');
+            if (!NextCollection('{', '}', aResult)) {
+                return false;
+            }
             ReturnType();
-            return val;
+            return true;
         }
         iPtr++;
     }
-    THROW(JsonArrayEnumerationComplete);
+    return false;
 }
 
 Brn JsonParserArray::Next()
 {
+    Brn result;
+    if (!TryNext(result)) {
+        THROW(JsonArrayEnumerationComplete);
+    }
+    else {
+        return result;
+    }
+}
+
+TBool JsonParserArray::TryNext(Brn& aResult)
+{
     if (iEntryType == EntryValType::Object) {
-        return NextObject();
+        return TryNextObject(aResult);
     }
     else if (iEntryType == EntryValType::Array) {
-        return NextArray();
+        return TryNextArray(aResult);
     }
     else if (iEntryType == EntryValType::NullEntry) {
-        return NextNull();
+        aResult.Set(NextNull());
+        return true;
     }
     else if (iEntryType == EntryValType::String) {
-        return NextString();
+        return TryNextString(aResult);
     }
     else if (iEntryType == EntryValType::Int || iEntryType == EntryValType::Bool) {
-        return ValueToDelimiter();
+        aResult.Set(ValueToDelimiter());
+        return true;
     }
     else if (iEntryType == EntryValType::Undefined) {
         THROW(JsonCorrupt);
     }
     else {
-        THROW(JsonArrayEnumerationComplete);
+        return false;
     }
 }
 
@@ -761,7 +844,10 @@ void JsonParserArray::ReturnType()
 
 Brn JsonParserArray::ValueToDelimiter()
 {
-    EndEnumerationIfNull();
+    if (TryEndEnumerationIfNull()) {
+        THROW(JsonArrayEnumerationComplete);
+    }
+
     while (iPtr < iEnd) {
         TChar ch = (TChar)*iPtr;
         if (!Ascii::IsWhitespace(ch)) {
@@ -788,9 +874,12 @@ Brn JsonParserArray::ValueToDelimiter()
 }
 
 
-Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
+TBool JsonParserArray::NextCollection(TChar aStart, TChar aEnd, Brn& aResult)
 {
-    EndEnumerationIfNull();
+    if (TryEndEnumerationIfNull()) {
+        return false;
+    }
+
     while (iPtr < iEnd) {
         if (*iPtr == aStart) {
             break;
@@ -798,10 +887,9 @@ Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
         iPtr++;
     }
     if (iPtr == iEnd) {
-        THROW(JsonArrayEnumerationComplete);
+        return false;
     }
     const TByte* valStart = iPtr;
-    Brn val;
 
     TBool escapeChar = false;
     TBool inString = false;
@@ -825,24 +913,27 @@ Brn JsonParserArray::NextCollection(TChar aStart, TChar aEnd)
                 }
                 else if (ch == aEnd) {
                     if (--nestCount == 0) {
-                        val.Set(valStart, iPtr - valStart);
+                        aResult.Set(valStart, iPtr - valStart);
                         break;
                     }
                 }
             }
         }
     }
-    if (val.Bytes() == 0) {
-        THROW(JsonArrayEnumerationComplete);
+    if (aResult.Bytes() == 0) {
+        return false;
     }
-    return val;
+
+    return true;
 }
 
-void JsonParserArray::EndEnumerationIfNull()
+TBool JsonParserArray::TryEndEnumerationIfNull()
 {
     if (iEntryType == EntryValType::Null || iEntryType == EntryValType::End) {
-        THROW(JsonArrayEnumerationComplete);
+        return true;
     }
+
+    return false;
 }
 
 // class WriterJson
