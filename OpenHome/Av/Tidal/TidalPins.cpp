@@ -37,6 +37,7 @@ static const TChar* kPinTypeGenre = "genre";
 static const TChar* kPinTypePlaylist = "playlist";
 static const TChar* kPinTypeTrack = "track";
 static const TChar* kPinTypeContainer = "container";
+static const TChar* kPinTypeMix = "mix";
 
 // Pin params
 static const TChar* kPinKeyTrackId = "trackId";
@@ -159,7 +160,8 @@ void TidalPins::Invoke()
                   type == Brn(kPinTypeContainer) ||
                   type == Brn(kPinTypePlaylist) ||
                   type == Brn(kPinTypeArtist) ||
-                  type == Brn(kPinTypeAlbum)) {
+                  type == Brn(kPinTypeAlbum) ||
+                  type == Brn(kPinTypeMix)) {
             if (pinUri.TryGetValue(kPinKeyPath, val)) {
                 res = LoadByPath(val, pinUri, iPin.Shuffle(), authConfig);
             }
