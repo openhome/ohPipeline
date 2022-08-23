@@ -376,28 +376,6 @@ const Tidal::UserInfo* Tidal::SelectSuitableToken(const AuthenticationConfig& aA
     }
 }
 
-TBool Tidal::TryGetId(IWriter& aWriter,
-                      const Brx& aQuery,
-                      TidalMetadata::EIdType aType,
-                      const AuthenticationConfig& aAuthConfig,
-                      Connection aConnection)
-{
-    AutoMutex m(iLock);
-    const UserInfo* userInfo = SelectSuitableToken(aAuthConfig);
-    if (userInfo == nullptr) {
-        return false;
-    }
-
-    Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
-
-    pathAndQuery.Append("search/?query=");
-    Uri::Escape(pathAndQuery, aQuery);
-    pathAndQuery.Append("&types=");
-    pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
-
-    return TryGetResponseLocked(aWriter, kHost, pathAndQuery, 1, 0, *userInfo, aConnection);
-}
-
 TBool Tidal::TryGetIds(IWriter& aWriter,
                        const Brx& aMood,
                        TidalMetadata::EIdType aType,

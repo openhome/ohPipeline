@@ -109,44 +109,6 @@ Media::Track* TidalMetadata::TrackFromJson(const Brx& aMetadata,
     }
 }
 
-Brn TidalMetadata::FirstIdFromJson(const Brx& aJsonResponse, EIdType aType)
-{
-    try {
-        JsonParser parser;
-        parser.Parse(aJsonResponse);
-        if (parser.HasKey(IdTypeToString(aType)) || aType == eMood || aType == eSmartExclusive || aType == eSavedPlaylist) {
-            if (aType != eMood && aType != eSmartExclusive && aType != eSavedPlaylist) {
-                // mood/exclusive/saved playlist return top level object only (playlist based), all others have a higher level TYPE based response
-                parser.Parse(parser.String(IdTypeToString(aType)));
-            }
-            if (parser.Num(Brn("totalNumberOfItems")) == 0) {
-                THROW(TidalResponseInvalid);
-            }
-            auto parserArray = JsonParserArray::Create(parser.String("items"));
-            if (parserArray.Type() == JsonParserArray::ValType::Null) {
-                THROW(TidalResponseInvalid);
-            }
-            parser.Parse(parserArray.NextObject());
-            if (parser.HasKey(Brn("id"))) {
-                return parser.String(Brn("id"));
-            }
-            else if (parser.HasKey(Brn("uuid"))) {
-                return parser.String(Brn("uuid"));
-            }
-        }
-        else {
-            THROW(TidalResponseInvalid);
-        }
-    }
-    catch (AssertionFailed&) {
-        throw;
-    }
-    catch (Exception&) {
-        throw;
-    }
-    return Brx::Empty();
-}
-
 void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata,
                                        const Brx& aTokenId)
 {

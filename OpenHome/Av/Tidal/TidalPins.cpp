@@ -229,15 +229,8 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery,
         }
         // track/artist/album/playlist/genre search string to id
         else if (!IsValidId(aQuery, aIdType)) {
-            iJsonResponse.Reset();
-            TBool success = iTidal.TryGetId(iJsonResponse, aQuery, aIdType, aAuthConfig); // send request to tidal
-            if (!success) {
-                return false;
-            }
-            inputBuf.ReplaceThrow(TidalMetadata::FirstIdFromJson(iJsonResponse.Buffer(), aIdType)); // parse response from tidal
-            if (inputBuf.Bytes() == 0) {
-                return false;
-            }
+            Log::Print("TidalPins::LoadByStringQuery - Invalid item ID %.*s (Type: %.*s)\n", PBUF(aQuery), PBUF(TidalMetadata::IdTypeToString(aIdType)));
+            return false;
         }
         else {
             inputBuf.ReplaceThrow(aQuery);

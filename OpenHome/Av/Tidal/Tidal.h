@@ -94,7 +94,6 @@ public:
     Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues&, Configuration::IConfigInitialiser& aConfigInitialiser, IThreadPool& aThreadPool);
     ~Tidal();
     TBool TryGetStreamUrl(const Brx& aTrackId, const Brx& aTokenId, Bwx& aStreamUrl);
-    TBool TryGetId(IWriter& aWriter, const Brx& aQuery, TidalMetadata::EIdType aType, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
     TBool TryGetIds(IWriter& aWriter, const Brx& aMood, TidalMetadata::EIdType aType, TUint aLimitPerResponse, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
     TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl,TUint aLimitPerResponse, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
     TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
