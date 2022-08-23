@@ -39,7 +39,6 @@ static const TChar* kPinTypeTrack = "track";
 static const TChar* kPinTypeContainer = "container";
 
 // Pin params
-static const TChar* kPinKeyId = "id";
 static const TChar* kPinKeyTrackId = "trackId";
 static const TChar* kPinKeyPath = "path";
 static const TChar* kPinKeyResponseType = "response";
@@ -164,11 +163,8 @@ void TidalPins::Invoke()
             if (pinUri.TryGetValue(kPinKeyPath, val)) {
                 res = LoadByPath(val, pinUri, iPin.Shuffle(), authConfig);
             }
-            else if (pinUri.TryGetValue(kPinKeyId, val)) {
-                // test only - load by string query as if done by a control point
-                res = LoadByStringQuery(val, TidalMetadata::StringToIdType(pinUri.Type()), iPin.Shuffle(), authConfig);
-            }
             else {
+                // Previous had a 'test only' branch as well, but this is no longer required
                 THROW(PinUriMissingRequiredParameter);
             }
         }
@@ -220,29 +216,30 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery,
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
-    JsonParser parser;
     InitPlaylist(aShuffle);
     Bwh inputBuf(64);
     TUint tracksFound = 0;
 
+    if (aQuery.Bytes() == 0) {
+        return false;
+    }
+
+    if (!IsValidId(aQuery, aIdType)) {
+        Log::Print("TidalPins::LoadByStringQuery - Invalid item ID %.*s (Type: %.*s)\n", PBUF(aQuery), PBUF(TidalMetadata::IdTypeToString(aIdType)));
+        return false;
+    }
+
+    if (aQuery.Bytes() > inputBuf.MaxBytes()) {
+        Log::Print("TidalPins::LoadByStringQuery - ID too long. Space: %u, size needed: %u (Type: %.*s)\n", inputBuf.MaxBytes(), aQuery.Bytes(), PBUF(TidalMetadata::IdTypeToString(aIdType)));
+    }
+
+    inputBuf.Replace(aQuery);
+
     try {
-        if (aQuery.Bytes() == 0) {
-            return false;
-        }
-        // track/artist/album/playlist/genre search string to id
-        else if (!IsValidId(aQuery, aIdType)) {
-            Log::Print("TidalPins::LoadByStringQuery - Invalid item ID %.*s (Type: %.*s)\n", PBUF(aQuery), PBUF(TidalMetadata::IdTypeToString(aIdType)));
-            return false;
-        }
-        else {
-            inputBuf.ReplaceThrow(aQuery);
-        }
-        try {
-            lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound, aAuthConfig);
-        }
-        catch (PinNothingToPlay&) {
-        }
+        lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound, aAuthConfig);
     }   
+    catch (PinNothingToPlay&) { // Do nothing...
+    }
     catch (Exception& ex) {
         LOG_ERROR(kMedia, "%s in TidalPins::LoadByStringQuery\n", ex.Message());
         return false;
@@ -550,25 +547,15 @@ void TidalPins::UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContai
     }
 }
 
-TBool TidalPins::IsValidId(const Brx& aRequest, TidalMetadata::EIdType aIdType) {
-    if (aIdType == TidalMetadata::ePlaylist) {
-        return IsValidUuid(aRequest);
-    }
-    else if (aIdType == TidalMetadata::eGenre) {
-        return true;
-    }
-    // artist/album/track
+TBool TidalPins::IsValidId(const Brx& aRequest, TidalMetadata::EIdType aIdType)
+{
+    // Function is currently only called with items of type 'Track'. All other types currently report invalid.
+   if (aIdType != TidalMetadata::eTrack) {
+       return false;
+   }
+
     for (TUint i = 0; i<aRequest.Bytes(); i++) {
         if (!Ascii::IsDigit(aRequest[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-
-TBool TidalPins::IsValidUuid(const Brx& aRequest) {
-    for (TUint i = 0; i<aRequest.Bytes(); i++) {
-        if (!Ascii::IsDigit(aRequest[i]) && !Ascii::IsHex(aRequest[i]) && aRequest[i] != '-') {
             return false;
         }
     }

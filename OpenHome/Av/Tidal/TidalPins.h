@@ -61,7 +61,6 @@ private: // helpers
     TUint GetTotalItems(JsonParser& aParser, const Brx& aId, TidalMetadata::EIdType aIdType, TBool aIsContainer, TUint& aStartIndex, TUint& aEndIndex, const Tidal::AuthenticationConfig& aAuthConfig);
     void UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TUint& aOffset);
     TBool IsValidId(const Brx& aRequest, TidalMetadata::EIdType aIdType);
-    TBool IsValidUuid(const Brx& aRequest);
     void InitPlaylist(TBool aShuffle);
 private:
     Mutex iLock;
