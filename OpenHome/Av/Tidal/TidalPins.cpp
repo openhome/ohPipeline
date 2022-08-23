@@ -49,6 +49,7 @@ static const TChar* kPinKeyTokenId = "token";
 // Pin response types
 static const TChar* kPinResponseTracks = "tracks";
 static const TChar* kPinResponseAlbums = "albums";
+static const TChar* kPinResponseArtists = "artists";
 static const TChar* kPinResponsePlaylists = "playlists";
 
 
@@ -146,7 +147,8 @@ void TidalPins::Invoke()
                    PBUF(authConfig.oauthTokenId.Bytes() == 0 ? Brn("None")
                                                              : Brn(authConfig.oauthTokenId)));
 
-        if (Brn(pinUri.Type()) == Brn(kPinTypeTrack)) {
+        const Brx& type = Brn(pinUri.Type());
+        if (type == Brn(kPinTypeTrack)) {
             if (pinUri.TryGetValue(kPinKeyTrackId, val)) {
                 res = LoadByStringQuery(val, TidalMetadata::eTrack, iPin.Shuffle(), authConfig);
             }
@@ -154,11 +156,11 @@ void TidalPins::Invoke()
                 THROW(PinUriMissingRequiredParameter);
             }
         }
-        else if (Brn(pinUri.Type()) == Brn(kPinTypeGenre) ||
-                 Brn(pinUri.Type()) == Brn(kPinTypeContainer) ||
-                 Brn(pinUri.Type()) == Brn(kPinTypePlaylist) ||
-                 Brn(pinUri.Type()) == Brn(kPinTypeArtist) ||
-                 Brn(pinUri.Type()) == Brn(kPinTypeAlbum)) {
+        else if ( type == Brn(kPinTypeGenre) ||
+                  type == Brn(kPinTypeContainer) ||
+                  type == Brn(kPinTypePlaylist) ||
+                  type == Brn(kPinTypeArtist) ||
+                  type == Brn(kPinTypeAlbum)) {
             if (pinUri.TryGetValue(kPinKeyPath, val)) {
                 res = LoadByPath(val, pinUri, iPin.Shuffle(), authConfig);
             }
@@ -202,7 +204,7 @@ TBool TidalPins::LoadByPath(const Brx& aPath,
     else if (response == Brn(kPinResponsePlaylists)) {
         res = LoadContainers(aPath, TidalMetadata::ePlaylist, aShuffle, aAuthConfig);
     }
-    else if (response == Brn("artists")) {
+    else if (response == Brn(kPinResponseArtists)) {
         res = LoadContainers(aPath, TidalMetadata::eArtist, aShuffle, aAuthConfig);
     }
     else {
@@ -262,16 +264,15 @@ TBool TidalPins::LoadTracks(const Brx& aPath,
     InitPlaylist(aShuffle);
     TUint tracksFound = 0;
 
+    if (aPath.Bytes() == 0) {
+        return false;
+    }
+
     try {
-        if (aPath.Bytes() == 0) {
-            return false;
-        }
-        try {
-            lastId = LoadTracksById(aPath, TidalMetadata::eNone, lastId, tracksFound, aAuthConfig);
-        }
-        catch (PinNothingToPlay&) {
-        }
+        lastId = LoadTracksById(aPath, TidalMetadata::eNone, lastId, tracksFound, aAuthConfig);
     }   
+    catch (PinNothingToPlay&) { // Do nothing...
+    }
     catch (Exception& ex) {
         LOG_ERROR(kMedia, "%s in TidalPins::LoadTracks\n", ex.Message());
         return false;
