@@ -70,7 +70,6 @@ public:
     TidalMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
     OpenHome::Media::Track* TrackFromJson(const OpenHome::Brx& aMetadata,
                                           const OpenHome::Brx& aTokenId);
-    static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse, EIdType aType);
     static const Brx& IdTypeToString(EIdType aType);
     static EIdType StringToIdType(const Brx& aString);
 private:

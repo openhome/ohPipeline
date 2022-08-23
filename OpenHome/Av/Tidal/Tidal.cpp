@@ -376,53 +376,6 @@ const Tidal::UserInfo* Tidal::SelectSuitableToken(const AuthenticationConfig& aA
     }
 }
 
-TBool Tidal::TryGetIds(IWriter& aWriter,
-                       const Brx& aMood,
-                       TidalMetadata::EIdType aType,
-                       TUint aLimitPerResponse,
-                       const AuthenticationConfig& aAuthConfig,
-                       Connection aConnection)
-{
-    AutoMutex m(iLock);
-    const UserInfo* userInfo = SelectSuitableToken(aAuthConfig);
-    if (userInfo == nullptr) {
-        return false;
-    }
-
-    Bws<kMaxPathAndQueryBytes> pathAndQuery("/v1/");
-    WriterBuffer pathAndQueryWriter(pathAndQuery);
-
-    if (aType == TidalMetadata::eMood) {
-        // will return the most recently updated playlist for the given mood
-        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
-        pathAndQuery.Append("/");
-        pathAndQuery.Append(aMood);
-        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
-    }
-    else if (aType == TidalMetadata::eSavedPlaylist) {
-        // will return the latest saved playlist
-        pathAndQuery.Append(TidalMetadata::kIdTypeUserSpecific);
-        pathAndQuery.Append("/");
-        Ascii::StreamWriteInt(pathAndQueryWriter, userInfo->UserId());
-        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
-    }
-    else if (aType == TidalMetadata::eSmartExclusive) {
-        // will return the latest exclusive playlist
-        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
-        pathAndQuery.Append(Brn("/playlists?&order=DATE&orderDirection=DESC"));
-    }
-    else if (aType == TidalMetadata::eFavorites) {
-        pathAndQuery.Append(TidalMetadata::kIdTypeUserSpecific);
-        pathAndQuery.Append("/");
-        Ascii::StreamWriteInt(pathAndQueryWriter, userInfo->UserId());
-        pathAndQuery.Append("/");
-        pathAndQuery.Append(TidalMetadata::IdTypeToString(aType));
-        pathAndQuery.Append(Brn("/albums?order=NAME&orderDirection=ASC"));
-    }
-
-    return TryGetResponseLocked(aWriter, kHost, pathAndQuery, aLimitPerResponse, 0, *userInfo, aConnection);
-}
-
 TBool Tidal::TryGetTracksById(IWriter& aWriter,
                               const Brx& aId,
                               TidalMetadata::EIdType aType,
