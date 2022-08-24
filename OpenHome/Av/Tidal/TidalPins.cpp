@@ -133,6 +133,7 @@ void TidalPins::Invoke()
 
         const TBool hasVersion = pinUri.TryGetValue(kPinKeyVersion, val);
         const TBool hasTokenId = pinUri.TryGetValue(kPinKeyTokenId, tokenId);
+
         const TBool isV2 = hasVersion && val == Brn("2");
 
         // Needs a version and if V2, needs a tokenId
@@ -373,7 +374,8 @@ TBool TidalPins::LoadContainers(const Brx& aPath,
             LOG_ERROR(kPipeline, "%s in TidalPins::LoadContainers\n", ex.Message());
             return false;
         }
-    } while (offset != end);
+    } while (shuffleLoadOrder ? offset != end
+                              : offset < end);
 
     if (tracksFound == 0) {
         THROW(PinNothingToPlay);
@@ -477,7 +479,8 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
             }
             throw;
         }
-    } while (offset != end);
+    } while (shuffleLoadOrder ? offset != end
+                              : offset < end);
 
     if (!isPlayable) {
         THROW(PinNothingToPlay);
