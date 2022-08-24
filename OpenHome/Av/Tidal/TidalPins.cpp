@@ -45,6 +45,12 @@ static const TChar* kPinKeyPath = "path";
 static const TChar* kPinKeyResponseType = "response";
 static const TChar* kPinKeyVersion = "version";
 static const TChar* kPinKeyTokenId = "token";
+static const TChar* kPinKeyShuffleMode = "shuffleMode";
+
+// Shuffle Modes
+static const Brn kShuffleModeNone("none");
+static const Brn kShuffleModeDefault("default");
+static const Brn kShuffleModeWhenRequired("whenRequired");
 
 // Pin response types
 static const TChar* kPinResponseTracks = "tracks";
@@ -147,10 +153,12 @@ void TidalPins::Invoke()
                    PBUF(authConfig.oauthTokenId.Bytes() == 0 ? Brn("None")
                                                              : Brn(authConfig.oauthTokenId)));
 
+        EShuffleMode shuffleMode = GetShuffleMode(pinUri);
+
         const Brx& type = Brn(pinUri.Type());
         if (type == Brn(kPinTypeTrack)) {
             if (pinUri.TryGetValue(kPinKeyTrackId, val)) {
-                res = LoadByStringQuery(val, TidalMetadata::eTrack, iPin.Shuffle(), authConfig);
+                res = LoadByStringQuery(val, TidalMetadata::eTrack, iPin.Shuffle(), shuffleMode, authConfig);
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -163,7 +171,7 @@ void TidalPins::Invoke()
                   type == Brn(kPinTypeAlbum) ||
                   type == Brn(kPinTypeMix)) {
             if (pinUri.TryGetValue(kPinKeyPath, val)) {
-                res = LoadByPath(val, pinUri, iPin.Shuffle(), authConfig);
+                res = LoadByPath(val, pinUri, iPin.Shuffle(), shuffleMode, authConfig);
             }
             else {
                 // Previous had a 'test only' branch as well, but this is no longer required
@@ -187,23 +195,24 @@ void TidalPins::Invoke()
 
 TBool TidalPins::LoadByPath(const Brx& aPath,
                             const PinUri& aPinUri,
-                            TBool aShuffle,
+                            TBool aPinShuffled,
+                            EShuffleMode aShuffleMode,
                             const Tidal::AuthenticationConfig& aAuthConfig)
 {
     TBool res = false;
     Brn response(Brx::Empty());
     aPinUri.TryGetValue(kPinKeyResponseType, response);
     if (response == Brn(kPinResponseTracks)) {
-        res = LoadTracks(aPath, aShuffle, aAuthConfig);
+        res = LoadTracks(aPath, aPinShuffled, aShuffleMode, aAuthConfig);
     }
     else if (response == Brn(kPinResponseAlbums)) {
-        res = LoadContainers(aPath, TidalMetadata::eAlbum, aShuffle, aAuthConfig);
+        res = LoadContainers(aPath, TidalMetadata::eAlbum, aPinShuffled, aShuffleMode, aAuthConfig);
     }
     else if (response == Brn(kPinResponsePlaylists)) {
-        res = LoadContainers(aPath, TidalMetadata::ePlaylist, aShuffle, aAuthConfig);
+        res = LoadContainers(aPath, TidalMetadata::ePlaylist, aPinShuffled, aShuffleMode, aAuthConfig);
     }
     else if (response == Brn(kPinResponseArtists)) {
-        res = LoadContainers(aPath, TidalMetadata::eArtist, aShuffle, aAuthConfig);
+        res = LoadContainers(aPath, TidalMetadata::eArtist, aPinShuffled, aShuffleMode, aAuthConfig);
     }
     else {
         THROW(PinUriMissingRequiredParameter);
@@ -213,12 +222,13 @@ TBool TidalPins::LoadByPath(const Brx& aPath,
 
 TBool TidalPins::LoadByStringQuery(const Brx& aQuery,
                                    TidalMetadata::EIdType aIdType,
-                                   TBool aShuffle,
+                                   TBool aPinShuffled,
+                                   EShuffleMode aShuffleMode,
                                    const Tidal::AuthenticationConfig& aAuthConfig)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
-    InitPlaylist(aShuffle);
+    InitPlaylist(aPinShuffled);
     Bwh inputBuf(64);
     TUint tracksFound = 0;
 
@@ -238,7 +248,7 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery,
     inputBuf.Replace(aQuery);
 
     try {
-        lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound, aAuthConfig);
+        lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound, aPinShuffled, aShuffleMode, aAuthConfig);
     }   
     catch (PinNothingToPlay&) { // Do nothing...
     }
@@ -255,12 +265,13 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery,
 }
 
 TBool TidalPins::LoadTracks(const Brx& aPath,
-                            TBool aShuffle,
+                            TBool aPinShuffled,
+                            EShuffleMode aShuffleMode,
                             const Tidal::AuthenticationConfig& aAuthConfig)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
-    InitPlaylist(aShuffle);
+    InitPlaylist(aPinShuffled);
     TUint tracksFound = 0;
 
     if (aPath.Bytes() == 0) {
@@ -268,7 +279,7 @@ TBool TidalPins::LoadTracks(const Brx& aPath,
     }
 
     try {
-        lastId = LoadTracksById(aPath, TidalMetadata::eNone, lastId, tracksFound, aAuthConfig);
+        lastId = LoadTracksById(aPath, TidalMetadata::eNone, lastId, tracksFound, aPinShuffled, aShuffleMode, aAuthConfig);
     }   
     catch (PinNothingToPlay&) { // Do nothing...
     }
@@ -286,14 +297,15 @@ TBool TidalPins::LoadTracks(const Brx& aPath,
 
 TBool TidalPins::LoadContainers(const Brx& aPath,
                                 TidalMetadata::EIdType aIdType,
-                                TBool aShuffle,
+                                TBool aPinShuffled,
+                                EShuffleMode aShuffleMode,
                                 const Tidal::AuthenticationConfig& aAuthConfig)
 {
     AutoMutex _(iLock);
     const TChar* kIdString = (aIdType == TidalMetadata::ePlaylist) ? "uuid" : "id";
     const TUint kIdSize = (aIdType == TidalMetadata::ePlaylist) ? 40 : 20;
     JsonParser parser;
-    InitPlaylist(aShuffle);
+    InitPlaylist(aPinShuffled);
     TUint lastId = 0;
     TUint tracksFound = 0;
     TUint containersFound = 0;
@@ -302,8 +314,10 @@ TBool TidalPins::LoadContainers(const Brx& aPath,
         containerIds[i].Grow(kIdSize);
     }
 
+    const TBool shuffleLoadOrder = ShouldShuffleLoadOrder(aPinShuffled, aShuffleMode);
+
     TUint start, end;
-    TUint total = GetTotalItems(parser, aPath, TidalMetadata::eNone, true, start, end, aAuthConfig); // aIdType relevant to tracks, not containers
+    TUint total = GetTotalItems(parser, aPath, TidalMetadata::eNone, true, shuffleLoadOrder, start, end, aAuthConfig); // aIdType relevant to tracks, not containers
     TUint offset = start;
 
     do {
@@ -313,7 +327,7 @@ TBool TidalPins::LoadContainers(const Brx& aPath,
             if (!success) {
                 return false;
             }
-            UpdateOffset(total, end, true, offset);
+            UpdateOffset(total, end, true, shuffleLoadOrder, offset);
             
             // response is list of containers, so need to loop through containers
             parser.Reset();
@@ -345,7 +359,7 @@ TBool TidalPins::LoadContainers(const Brx& aPath,
 
             for (TUint j = 0; j < idCount; j++) {
                 try {
-                    lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound, aAuthConfig);
+                    lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound, aPinShuffled, aShuffleMode, aAuthConfig);
                 }
                 catch (PinNothingToPlay&) {
                 }
@@ -372,6 +386,8 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
                                 TidalMetadata::EIdType aIdType,
                                 TUint aPlaylistId,
                                 TUint& aCount,
+                                TBool aPinShuffled,
+                                EShuffleMode aShuffleMode,
                                 const Tidal::AuthenticationConfig& aAuthConfig)
 {
     if (iInterrupted.load()) {
@@ -386,8 +402,10 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
     JsonParser parser;
     Media::Track* track = nullptr;
 
+    const TBool shuffleLoadOrder = ShouldShuffleLoadOrder(aPinShuffled, aShuffleMode);
+
     TUint start, end;
-    TUint total = GetTotalItems(parser, aId, aIdType, false, start, end, aAuthConfig);
+    TUint total = GetTotalItems(parser, aId, aIdType, false, shuffleLoadOrder, start, end, aAuthConfig);
     TUint offset = start;
 
     // id to list of tracks
@@ -406,7 +424,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
             if (!success) {
                 THROW(PinNothingToPlay);
             }
-            UpdateOffset(total, end, false, offset);
+            UpdateOffset(total, end, false, shuffleLoadOrder, offset);
 
             parser.Reset();
             parser.Parse(iJsonResponse.Buffer());
@@ -472,6 +490,7 @@ TUint TidalPins::GetTotalItems(JsonParser& aParser,
                                const Brx& aId,
                                TidalMetadata::EIdType aIdType,
                                TBool aIsContainer,
+                               TBool aShouldShuffleLoadOrder,
                                TUint& aStartIndex,
                                TUint& aEndIndex,
                                const Tidal::AuthenticationConfig& aAuthConfig)
@@ -508,31 +527,36 @@ TUint TidalPins::GetTotalItems(JsonParser& aParser,
     aStartIndex = 0;
     aEndIndex = total;
 
-    if (aIsContainer) {
-        aStartIndex = iEnv.Random(total);
-        if (aStartIndex > 0) {
-            aEndIndex = aStartIndex;
-        }
-    }
-    else {
-        if (total > iMaxPlaylistTracks) {
+    if (aShouldShuffleLoadOrder) {
+        if (aIsContainer) {
             aStartIndex = iEnv.Random(total);
-            if (iMaxPlaylistTracks > (total - aStartIndex)) {
-                aEndIndex = iMaxPlaylistTracks - (total - aStartIndex); 
+            if (aStartIndex > 0) {
+                aEndIndex = aStartIndex;
             }
-            else {
-                aEndIndex = iMaxPlaylistTracks + aStartIndex;
+        }
+        else {
+            if (total > iMaxPlaylistTracks) {
+                aStartIndex = iEnv.Random(total);
+                if (iMaxPlaylistTracks > (total - aStartIndex)) {
+                    aEndIndex = iMaxPlaylistTracks - (total - aStartIndex);
+                }
+                else {
+                    aEndIndex = iMaxPlaylistTracks + aStartIndex;
+                }
             }
         }
     }
-    aEndIndex--; // 0 indexed
-    
+
     return total;
 }
 
-void TidalPins::UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TUint& aOffset)
+void TidalPins::UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TBool aShouldShuffleLoadOrder, TUint& aOffset)
 {
     aOffset += kItemLimitPerRequest;
+    if (!aShouldShuffleLoadOrder) {
+        return;
+    }
+
     TBool wrap = (aOffset >= aTotalItems);
     if (!aIsContainer) {
         // track responses are only randomised if the track count is > MAX (1000)
@@ -568,4 +592,49 @@ void TidalPins::InitPlaylist(TBool aShuffle)
 {
     iCpPlaylist->SyncDeleteAll();
     iCpPlaylist->SyncSetShuffle(aShuffle);
+}
+
+TidalPins::EShuffleMode TidalPins::GetShuffleMode(PinUri& aPinUri)
+{
+    Brn shuffleMode;
+
+    if (!aPinUri.TryGetValue(kPinKeyShuffleMode, shuffleMode)) {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: Default (Inferred)\n");
+        return EShuffleMode::Default;
+    }
+
+    if (shuffleMode == kShuffleModeNone) {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: None\n");
+        return EShuffleMode::None;
+    }
+    else if (shuffleMode == kShuffleModeDefault) {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: Default\n");
+        return EShuffleMode::Default;
+    }
+    else if (shuffleMode == kShuffleModeWhenRequired) {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: WhenRequired\n");
+        return EShuffleMode::WhenRequired;
+    }
+    else {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Usiing: Default (Unknown mode (%.*s) requested)\n", PBUF(shuffleMode));
+        return EShuffleMode::Default;
+    }
+}
+
+TBool TidalPins::ShouldShuffleLoadOrder(TBool aPinShuffled, EShuffleMode aShuffleMode)
+{
+    switch (aShuffleMode)
+    {
+        case EShuffleMode::None:
+            return false;
+
+        case EShuffleMode::Default:
+            return true;
+
+        case EShuffleMode::WhenRequired:
+            return aPinShuffled;
+
+        default: // Not reached
+            return true;
+    }
 }
