@@ -12,6 +12,18 @@
 namespace OpenHome {
 namespace Av {
 
+class DIDLLite
+{
+public:
+    static const Brn kProtocolHttpGet;
+
+    static const Brn kTagTitle;
+    static const Brn kTagArtist;
+    static const Brn kTagArtwork;
+    static const Brn kTagResource;
+    static const Brn kTagAlbumTitle;
+};
+
 // NOTE: It is not expected that this class be used directly.
 //       Instead it should be accessed via 'WriterDIDLLite' or 'OhMetadata'
 class WriterDIDLXml
@@ -44,9 +56,6 @@ private:
 
 class WriterDIDLLite
 {
-public:
-    static const Brn kProtocolHttpGet;
-
 public:
     WriterDIDLLite(const Brx& aItemId,
                    const Brx& aItemType,

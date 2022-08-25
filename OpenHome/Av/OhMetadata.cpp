@@ -22,7 +22,19 @@ public:
         , iNs(aNs)
         , iRole(OpenHome::Brx::Empty())
     {}
+    Oh2DidlTagMapping(const TChar* aOhKey, const Brx& aDidlTag, const Brx& aNs)
+        : iOhKey(aOhKey)
+        , iDidlTag(aDidlTag)
+        , iNs(aNs)
+        , iRole(OpenHome::Brx::Empty())
+    {}
     Oh2DidlTagMapping(const TChar* aOhKey, const TChar* aDidlTag, const Brx& aNs, const TChar* aRole)
+        : iOhKey(aOhKey)
+        , iDidlTag(aDidlTag)
+        , iNs(aNs)
+        , iRole(aRole)
+    {}
+    Oh2DidlTagMapping(const TChar* aOhKey, const Brx& aDidlTag, const Brx& aNs, const TChar* aRole)
         : iOhKey(aOhKey)
         , iDidlTag(aDidlTag)
         , iNs(aNs)
@@ -41,6 +53,15 @@ public:
 using namespace OpenHome;
 using namespace OpenHome::Scd;
 using namespace OpenHome::Av;
+
+// DIDLLite
+const Brn DIDLLite::kProtocolHttpGet("http-get:*:*:*");
+
+const Brn DIDLLite::kTagTitle("dc:title");
+const Brn DIDLLite::kTagArtist("upnp:artist");
+const Brn DIDLLite::kTagAlbumTitle("upnp:album");
+const Brn DIDLLite::kTagArtwork("upnp:albumArtURI");
+
 
 // WriterDIDLXml
 const Brn WriterDIDLXml::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
@@ -153,8 +174,6 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, Bwx& aTempBuf)
 }
 
 // WriterDIDLLite
-const Brn WriterDIDLLite::kProtocolHttpGet("http-get:*:*:*");
-
 WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, Media::BwsTrackMetaData& aBuffer)
     : WriterDIDLLite(aItemId, aItemType, Brx::Empty(), aBuffer)
 { }
@@ -174,7 +193,7 @@ void WriterDIDLLite::WriteTitle(const Brx& aTitle)
     ASSERT(!iTitleWritten);
     iTitleWritten = true;
 
-    iWriter.TryWriteTag(Brn("dc:title"), WriterDIDLXml::kNsDc, aTitle);
+    iWriter.TryWriteTag(DIDLLite::kTagTitle, WriterDIDLXml::kNsDc, aTitle);
 }
 
 void WriterDIDLLite::WriteAlbum(const Brx& aAlbum)
@@ -182,7 +201,7 @@ void WriterDIDLLite::WriteAlbum(const Brx& aAlbum)
     ASSERT(!iAlbumWritten);
     iAlbumWritten = true;
 
-    iWriter.TryWriteTag(Brn("upnp:album"), WriterDIDLXml::kNsUpnp, aAlbum);
+    iWriter.TryWriteTag(DIDLLite::kTagAlbumTitle, WriterDIDLXml::kNsUpnp, aAlbum);
 }
 
 void WriterDIDLLite::WriteArtist(const Brx& aArtist)
@@ -190,7 +209,7 @@ void WriterDIDLLite::WriteArtist(const Brx& aArtist)
     ASSERT(!iArtistWritten);
     iArtistWritten = true;
 
-    iWriter.TryWriteTag(Brn("upnp:artist"), WriterDIDLXml::kNsUpnp, aArtist);
+    iWriter.TryWriteTag(DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, aArtist);
 }
 
 void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri)
@@ -228,7 +247,7 @@ void WriterDIDLLite::WriteEnd()
 
 void WriterDIDLLite::WriteArtwork(const Brx& aArtwork)
 {
-    iWriter.TryWriteTag(Brn("upnp:albumArtURI"), WriterDIDLXml::kNsUpnp, aArtwork);
+    iWriter.TryWriteTag(DIDLLite::kTagArtwork, WriterDIDLXml::kNsUpnp, aArtwork);
 }
 
 
@@ -280,19 +299,19 @@ OhMetadata::OhMetadata(const OpenHomeMetadataBuf& aMetadata)
 void OhMetadata::Parse()
 {
     static const Oh2DidlTagMapping kOh2Didl[] = {
-        { "artist", "upnp:artist", WriterDIDLXml::kNsUpnp },
-        { "albumArtist", "upnp:artist", WriterDIDLXml::kNsUpnp, "AlbumArtist" },
-        { "composer", "upnp:artist", WriterDIDLXml::kNsUpnp, "composer" },
-        { "conductor", "upnp:artist", WriterDIDLXml::kNsUpnp, "conductor" },
-        { "narrator", "upnp:artist", WriterDIDLXml::kNsUpnp, "narrator" },
-        { "performer", "upnp:artist", WriterDIDLXml::kNsUpnp, "performer" },
+        { "artist", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp },
+        { "albumArtist", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "AlbumArtist" },
+        { "composer", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "composer" },
+        { "conductor", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "conductor" },
+        { "narrator", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "narrator" },
+        { "performer", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "performer" },
         { "genre", "upnp:genre", WriterDIDLXml::kNsUpnp },
         { "albumGenre", "upnp:genre", WriterDIDLXml::kNsUpnp },
         { "author", "dc:author", WriterDIDLXml::kNsDc },
-        { "title", "dc:title", WriterDIDLXml::kNsDc },
+        { "title", DIDLLite::kTagTitle, WriterDIDLXml::kNsDc },
         { "year", "dc:date", WriterDIDLXml::kNsDc },
-        { "albumTitle", "upnp:album", WriterDIDLXml::kNsUpnp },
-        { "albumArtwork", "upnp:albumArtURI", WriterDIDLXml::kNsUpnp },
+        { "albumTitle", DIDLLite::kTagAlbumTitle, WriterDIDLXml::kNsUpnp },
+        { "albumArtwork", DIDLLite::kTagAlbumTitle, WriterDIDLXml::kNsUpnp },
         { "provider", "oh:provider", WriterDIDLXml::kNsOh },
         { "artwork", "oh:artwork", WriterDIDLXml::kNsOh },
         { "track", "upnp:originalTrackNumber", WriterDIDLXml::kNsUpnp },
