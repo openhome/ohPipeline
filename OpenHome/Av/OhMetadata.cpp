@@ -11,34 +11,6 @@
 #include <OpenHome/Av/Debug.h>
 
 namespace OpenHome {
-namespace Av {
-
-class WriterDIDLXml
-{
-public:
-    static const Brn kNsDc;
-    static const Brn kNsUpnp;
-    static const Brn kNsOh;
-
-public:
-    WriterDIDLXml(const Brx& aItemId, Bwx& aBuffer);
-    WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, Bwx& aBuffer);
-
-public:
-    void TryWriteAttribute(const TChar* aDidlAttr, const Brx& aValue);
-    void TryWriteAttribute(const Brx& aDidlAttr, const Brx& aValue);
-    void TryWriteTag(const Brx& aDidlTag, const Brx& aNs, const Brx& aValue);
-    void TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aNs, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue);
-    void TryWrite(const TChar* aStr);
-    void TryWrite(const Brx& aBuf);
-    void TryWriteEnd();
-
-private:
-    Bwx& iBuffer;
-    TBool iEndWritten;
-};
-
-} // namespace Av
 namespace Scd {
 
 class Oh2DidlTagMapping
@@ -132,8 +104,7 @@ void WriterDIDLXml::TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aNs
 
     TryWrite(">");
 
-    WriterBuffer writer(iBuffer);
-    Converter::ToXmlEscaped(writer, aValue);
+    TryWriteEscaped(aValue);
 
     TryWrite("</");
     TryWrite(aDidlTag);
@@ -151,6 +122,12 @@ void WriterDIDLXml::TryWrite(const Brx& aBuf)
     iBuffer.AppendThrow(aBuf);
 }
 
+void WriterDIDLXml::TryWriteEscaped(const Brx& aValue)
+{
+    WriterBuffer w(iBuffer);
+    Converter::ToXmlEscaped(w, aValue);
+}
+
 void WriterDIDLXml::TryWriteEnd()
 {
     ASSERT(!iEndWritten);
@@ -158,6 +135,100 @@ void WriterDIDLXml::TryWriteEnd()
 
     TryWrite("</item>");
     TryWrite("</DIDL-Lite>");
+}
+
+void WriterDIDLXml::FormatDuration(TUint aDuration, Bwx& aTempBuf)
+{
+    if (aDuration == 0) {
+        return;
+    }
+
+    TUint duration = aDuration;
+    const TUint secs = duration % 60;
+    duration /= 60;
+    const TUint mins = duration % 60;
+    const TUint hours = duration / 60;
+
+    aTempBuf.AppendPrintf("%u:%02u:%02u.000", hours, mins, secs);
+}
+
+// WriterDIDLLite
+const Brn WriterDIDLLite::kProtocolHttpGet("http-get:*:*:*");
+
+WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, Media::BwsTrackMetaData& aBuffer)
+    : WriterDIDLLite(aItemId, aItemType, Brx::Empty(), aBuffer)
+{ }
+
+WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const Brx& aParentId, Media::BwsTrackMetaData& aBuffer)
+    : iWriter(aItemId, aParentId, aBuffer)
+    , iTitleWritten(false)
+    , iAlbumWritten(false)
+    , iArtistWritten(false)
+    , iStreamingDetailsWritten(false)
+{
+    iWriter.TryWriteTag(Brn("upnp:class"), WriterDIDLXml::kNsUpnp, aItemType);
+}
+
+void WriterDIDLLite::WriteTitle(const Brx& aTitle)
+{
+    ASSERT(!iTitleWritten);
+    iTitleWritten = true;
+
+    iWriter.TryWriteTag(Brn("dc:title"), WriterDIDLXml::kNsDc, aTitle);
+}
+
+void WriterDIDLLite::WriteAlbum(const Brx& aAlbum)
+{
+    ASSERT(!iAlbumWritten);
+    iAlbumWritten = true;
+
+    iWriter.TryWriteTag(Brn("upnp:album"), WriterDIDLXml::kNsUpnp, aAlbum);
+}
+
+void WriterDIDLLite::WriteArtist(const Brx& aArtist)
+{
+    ASSERT(!iArtistWritten);
+    iArtistWritten = true;
+
+    iWriter.TryWriteTag(Brn("upnp:artist"), WriterDIDLXml::kNsUpnp, aArtist);
+}
+
+void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri)
+{
+    ASSERT(!iStreamingDetailsWritten);
+    iStreamingDetailsWritten = true;
+
+    iWriter.TryWrite("<res");
+
+    if (aProtocol.Bytes() > 0) {
+        iWriter.TryWriteAttribute("protocolInfo", aProtocol);
+    }
+
+    if (aDuration > 0) {
+        Bws<32> formatted;
+        WriterDIDLXml::FormatDuration(aDuration, formatted);
+        iWriter.TryWriteAttribute("duration", formatted);
+    }
+
+    iWriter.TryWrite(">");
+
+    if (aUri.Bytes() > 0) {
+        iWriter.TryWriteEscaped(aUri);
+    }
+
+    iWriter.TryWrite("</res>");
+}
+
+
+void WriterDIDLLite::WriteEnd()
+{
+    // NOTE: Will throw if WriteEnd() is called multiple times on writer
+    iWriter.TryWriteEnd();
+}
+
+void WriterDIDLLite::WriteArtwork(const Brx& aArtwork)
+{
+    iWriter.TryWriteTag(Brn("upnp:albumArtURI"), WriterDIDLXml::kNsUpnp, aArtwork);
 }
 
 
@@ -272,13 +343,8 @@ void OhMetadata::Parse()
     if (TryGetValue("duration", val)) {
         try {
             TUint duration = Ascii::Uint(val);
-            const TUint secs = duration % 60;
-            duration /= 60;
-            const TUint mins = duration % 60;
-            const TUint hours = duration / 60;
             Bws<32> formatted;
-            formatted.AppendPrintf("%u:%02u:%02u.000", hours, mins, secs);
-
+            WriterDIDLXml::FormatDuration(duration, formatted);
             writer.TryWriteAttribute("duration", formatted);
         }
         catch (AsciiError&) {
