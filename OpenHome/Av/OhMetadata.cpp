@@ -11,6 +11,34 @@
 #include <OpenHome/Av/Debug.h>
 
 namespace OpenHome {
+namespace Av {
+
+class WriterDIDLXml
+{
+public:
+    static const Brn kNsDc;
+    static const Brn kNsUpnp;
+    static const Brn kNsOh;
+
+public:
+    WriterDIDLXml(const Brx& aItemId, Bwx& aBuffer);
+    WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, Bwx& aBuffer);
+
+public:
+    void TryWriteAttribute(const TChar* aDidlAttr, const Brx& aValue);
+    void TryWriteAttribute(const Brx& aDidlAttr, const Brx& aValue);
+    void TryWriteTag(const Brx& aDidlTag, const Brx& aNs, const Brx& aValue);
+    void TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aNs, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue);
+    void TryWrite(const TChar* aStr);
+    void TryWrite(const Brx& aBuf);
+    void TryWriteEnd();
+
+private:
+    Bwx& iBuffer;
+    TBool iEndWritten;
+};
+
+} // namespace Av
 namespace Scd {
 
 class Oh2DidlTagMapping
@@ -42,11 +70,98 @@ using namespace OpenHome;
 using namespace OpenHome::Scd;
 using namespace OpenHome::Av;
 
-const Brn OhMetadata::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
-const Brn OhMetadata::kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
-const Brn OhMetadata::kNsOh("oh=\"http://www.openhome.org\"");
+// WriterDIDLXml
+const Brn WriterDIDLXml::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
+const Brn WriterDIDLXml::kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
+const Brn WriterDIDLXml::kNsOh("oh=\"http://www.openhome.org\"");
+
+WriterDIDLXml::WriterDIDLXml(const Brx& aItemId, Bwx& aBuffer)
+    : WriterDIDLXml(aItemId, Brx::Empty(), aBuffer)
+{ }
+
+WriterDIDLXml::WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, Bwx& aBuffer)
+    : iBuffer(aBuffer)
+    , iEndWritten(false)
+{
+    iBuffer.SetBytes(0);
+
+    // Preamble....
+    TryWrite("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+    TryWrite("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
+    TryWrite("<item");
+
+    // Every item *MUST* have an ID.
+    TryWriteAttribute("id", aItemId);
+    TryWriteAttribute("parentID", (aParentId.Bytes() == 0 ? static_cast<const Brx&>(Brn("-1"))
+                                                          : aParentId));
+    TryWriteAttribute("restricted", Brn("1"));
+    TryWrite(">");
+}
 
 
+void WriterDIDLXml::TryWriteAttribute(const TChar* aDidlAttr, const Brx& aValue)
+{
+    Brn attr(aDidlAttr);
+    TryWriteAttribute(attr, aValue);
+}
+
+void WriterDIDLXml::TryWriteAttribute(const Brx& aDidlAttr, const Brx& aValue)
+{
+    TryWrite(" ");
+    TryWrite(aDidlAttr);
+    TryWrite("=\"");
+    TryWrite(aValue);
+    TryWrite("\"");
+}
+
+void WriterDIDLXml::TryWriteTag(const Brx& aDidlTag, const Brx& aNs, const Brx& aValue)
+{
+    TryWriteTagWithAttribute(aDidlTag, aNs, Brx::Empty(), Brx::Empty(), aValue);
+}
+
+void WriterDIDLXml::TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aNs, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue)
+{
+    TryWrite("<");
+    TryWrite(aDidlTag);
+    TryWrite(" xmlns:");
+    TryWrite(aNs);
+
+    if (aAttribute.Bytes() > 0 && aAttributeValue.Bytes() > 0) {
+        TryWriteAttribute(aAttribute, aAttributeValue);
+    }
+
+    TryWrite(">");
+
+    WriterBuffer writer(iBuffer);
+    Converter::ToXmlEscaped(writer, aValue);
+
+    TryWrite("</");
+    TryWrite(aDidlTag);
+    TryWrite(">");
+}
+
+void WriterDIDLXml::TryWrite(const TChar* aStr)
+{
+    Brn val(aStr);
+    TryWrite(val);
+}
+
+void WriterDIDLXml::TryWrite(const Brx& aBuf)
+{
+    iBuffer.AppendThrow(aBuf);
+}
+
+void WriterDIDLXml::TryWriteEnd()
+{
+    ASSERT(!iEndWritten);
+    iEndWritten = true;
+
+    TryWrite("</item>");
+    TryWrite("</DIDL-Lite>");
+}
+
+
+// OhMetadata
 Media::Track* OhMetadata::ToTrack(const OpenHomeMetadataBuf& aMetadata,
                                   Media::TrackFactory& aTrackFactory)
 { // static
@@ -94,38 +209,38 @@ OhMetadata::OhMetadata(const OpenHomeMetadataBuf& aMetadata)
 void OhMetadata::Parse()
 {
     static const Oh2DidlTagMapping kOh2Didl[] = {
-        { "artist", "upnp:artist", kNsUpnp },
-        { "albumArtist", "upnp:artist", kNsUpnp, "AlbumArtist" },
-        { "composer", "upnp:artist", kNsUpnp, "composer" },
-        { "conductor", "upnp:artist", kNsUpnp, "conductor" },
-        { "narrator", "upnp:artist", kNsUpnp, "narrator" },
-        { "performer", "upnp:artist", kNsUpnp, "performer" },
-        { "genre", "upnp:genre", kNsUpnp },
-        { "albumGenre", "upnp:genre", kNsUpnp },
-        { "author", "dc:author", kNsDc },
-        { "title", "dc:title", kNsDc },
-        { "year", "dc:date", kNsDc },
-        { "albumTitle", "upnp:album", kNsUpnp },
-        { "albumArtwork", "upnp:albumArtURI", kNsUpnp },
-        { "provider", "oh:provider", kNsOh },
-        { "artwork", "oh:artwork", kNsOh },
-        { "track", "upnp:originalTrackNumber", kNsUpnp },
-        { "tracks", "oh:originalTrackCount", kNsOh },
-        { "disc", "oh:originalDiscNumber", kNsOh },
-        { "discs", "oh:originalDiscCount", kNsOh },
-        { "work", "oh:work", kNsOh },
-        { "movement", "oh:movement", kNsOh },
-        { "show", "oh:show", kNsOh },
-        { "episode", "oh:episodeNumber", kNsOh },
-        { "episodes", "oh:episodeCount", kNsOh },
-        { "published", "oh:published", kNsOh },
-        { "website", "oh:website", kNsOh },
-        { "location", "oh:location", kNsOh },
-        { "details", "oh:details", kNsOh },
-        { "extensions", "oh:extensions", kNsOh },
-        { "publisher", "dc:publisher", kNsDc },
-        { "description", "dc:description", kNsDc },
-        { "rating", "upnp:rating", kNsUpnp }
+        { "artist", "upnp:artist", WriterDIDLXml::kNsUpnp },
+        { "albumArtist", "upnp:artist", WriterDIDLXml::kNsUpnp, "AlbumArtist" },
+        { "composer", "upnp:artist", WriterDIDLXml::kNsUpnp, "composer" },
+        { "conductor", "upnp:artist", WriterDIDLXml::kNsUpnp, "conductor" },
+        { "narrator", "upnp:artist", WriterDIDLXml::kNsUpnp, "narrator" },
+        { "performer", "upnp:artist", WriterDIDLXml::kNsUpnp, "performer" },
+        { "genre", "upnp:genre", WriterDIDLXml::kNsUpnp },
+        { "albumGenre", "upnp:genre", WriterDIDLXml::kNsUpnp },
+        { "author", "dc:author", WriterDIDLXml::kNsDc },
+        { "title", "dc:title", WriterDIDLXml::kNsDc },
+        { "year", "dc:date", WriterDIDLXml::kNsDc },
+        { "albumTitle", "upnp:album", WriterDIDLXml::kNsUpnp },
+        { "albumArtwork", "upnp:albumArtURI", WriterDIDLXml::kNsUpnp },
+        { "provider", "oh:provider", WriterDIDLXml::kNsOh },
+        { "artwork", "oh:artwork", WriterDIDLXml::kNsOh },
+        { "track", "upnp:originalTrackNumber", WriterDIDLXml::kNsUpnp },
+        { "tracks", "oh:originalTrackCount", WriterDIDLXml::kNsOh },
+        { "disc", "oh:originalDiscNumber", WriterDIDLXml::kNsOh },
+        { "discs", "oh:originalDiscCount", WriterDIDLXml::kNsOh },
+        { "work", "oh:work", WriterDIDLXml::kNsOh },
+        { "movement", "oh:movement", WriterDIDLXml::kNsOh },
+        { "show", "oh:show", WriterDIDLXml::kNsOh },
+        { "episode", "oh:episodeNumber", WriterDIDLXml::kNsOh },
+        { "episodes", "oh:episodeCount", WriterDIDLXml::kNsOh },
+        { "published", "oh:published", WriterDIDLXml::kNsOh },
+        { "website", "oh:website", WriterDIDLXml::kNsOh },
+        { "location", "oh:location", WriterDIDLXml::kNsOh },
+        { "details", "oh:details", WriterDIDLXml::kNsOh },
+        { "extensions", "oh:extensions", WriterDIDLXml::kNsOh },
+        { "publisher", "dc:publisher", WriterDIDLXml::kNsDc },
+        { "description", "dc:description", WriterDIDLXml::kNsDc },
+        { "rating", "upnp:rating", WriterDIDLXml::kNsUpnp }
     };
     static const TUint kNumOh2DidlMappings = sizeof kOh2Didl / sizeof kOh2Didl[0];
 
@@ -137,33 +252,34 @@ void OhMetadata::Parse()
         iUri.Replace(val);
     }
 
-    TryAppend("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-    TryAppend("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-    TryAppend("<item");
-    TryAddAttribute("id", "id");
-    TryAppend(" parentID=\"-1\" restricted=\"1\">");
+    Brn itemId;
+    Brn parentId;
+    TryGetValue("id", itemId);          // Assuming present
+    TryGetValue("parentId", parentId);  // Optionally parent
+    WriterDIDLXml writer(itemId, parentId, iMetaDataDidl);
+
     for (auto kvp : iMetadata) {
         for (TUint i = 0; i < kNumOh2DidlMappings; i++) {
             const auto& mapping = kOh2Didl[i];
             if (kvp.first == mapping.iOhKey) {
-                TryAppendTag(mapping.iDidlTag, mapping.iNs, mapping.iRole, kvp.second);
+                writer.TryWriteTagWithAttribute(mapping.iDidlTag, mapping.iNs, Brn("role"), mapping.iRole, kvp.second);
                 break;
             }
         }
-    }
-    TryAppend("<res");
+    }  
+
+    writer.TryWrite("<res");
     if (TryGetValue("duration", val)) {
         try {
             TUint duration = Ascii::Uint(val);
-            TryAppend(" duration=\"");
             const TUint secs = duration % 60;
             duration /= 60;
             const TUint mins = duration % 60;
             const TUint hours = duration / 60;
             Bws<32> formatted;
             formatted.AppendPrintf("%u:%02u:%02u.000", hours, mins, secs);
-            TryAppend(formatted);
-            TryAppend("\"");
+
+            writer.TryWriteAttribute("duration", formatted);
         }
         catch (AsciiError&) {
             LOG_ERROR(kScd, "OhMetadata - AsciiError parsing duration of %.*s\n", PBUF(val));
@@ -172,32 +288,41 @@ void OhMetadata::Parse()
     if (TryGetValue("bitRate", val)) {
         try {
             TUint bitRate = Ascii::Uint(val);
-            TryAppend(" bitrate=\"");
             bitRate /= 8; // DIDL-Lite bitrate attribute actually refers to a byte rate!
             Bws<Ascii::kMaxUintStringBytes> brBuf;
             (void)Ascii::AppendDec(brBuf, bitRate);
-            TryAppend(brBuf);
-            TryAppend("\"");
+            writer.TryWriteAttribute("bitrate", brBuf);
         }
         catch (AsciiError&) {
             LOG_ERROR(kScd, "OhMetadata - AsciiError parsing bitRate of %.*s\n", PBUF(val));
         }
     }
-    TryAddAttribute("bitDepth", "bitsPerSample");
-    TryAddAttribute("sampleRate", "sampleFrequency");
-    TryAddAttribute("channels", "nrAudioChannels");
-    TryAddAttribute("mimeType", "protocolInfo");
-    TryAppend(">");
+
+    if (TryGetValue("bitDepth", val)) {
+        writer.TryWriteAttribute("bitsPerSample", val);
+    }
+    if (TryGetValue("sampleRate", val)) {
+        writer.TryWriteAttribute("sampleFrequency", val);
+    }
+    if (TryGetValue("channels", val)) {
+        writer.TryWriteAttribute("nrAudioChannels", val);
+    }
+    if (TryGetValue("mimeType", val)) {
+        writer.TryWriteAttribute("protocolInfo", val);
+    }
+    writer.TryWrite(">");
+
     if (iUri.Bytes() > 0) {
         WriterBuffer writer(iMetaDataDidl);
         Converter::ToXmlEscaped(writer, iUri);
     }
-    TryAppend("</res>");
+
+    writer.TryWrite("</res>");
     if (TryGetValue("type", val)) {
-        TryAppendTag(Brn("upnp:class"), kNsUpnp, Brx::Empty(), val);
+        writer.TryWriteTag(Brn("upnp:class"), WriterDIDLXml::kNsUpnp, val);
     }
-    TryAppend("</item>");
-    TryAppend("</DIDL-Lite>");
+
+    writer.TryWriteEnd();
 }
 
 TBool OhMetadata::TryGetValue(const TChar* aKey, Brn& aValue) const
@@ -215,60 +340,4 @@ TBool OhMetadata::TryGetValue(const Brx& aKey, Brn& aValue) const
         }
     }
     return false;
-}
-
-void OhMetadata::TryAddAttribute(const TChar* aOhKey, const TChar* aDidlAttr)
-{
-    Brn key(aOhKey);
-    Brn val;
-    if (TryGetValue(key, val)) {
-        TryAppend(" ");
-        TryAppend(aDidlAttr);
-        TryAppend("=\"");
-        TryAppend(val);
-        TryAppend("\"");
-    }
-}
-
-void OhMetadata::TryAddTag(const Brx& aOhKey, const Brx& aDidlTag,
-                           const Brx& aNs, const Brx& aRole)
-{
-    Brn key(aOhKey);
-    Brn val;
-    if (TryGetValue(key, val)) {
-        TryAppendTag(aDidlTag, aNs, aRole, val);
-    }
-}
-
-void OhMetadata::TryAppendTag(const Brx& aDidlTag, const Brx& aNs,
-                              const Brx& aRole, const Brx& aValue)
-{
-    TryAppend("<");
-    TryAppend(aDidlTag);
-    if (aRole.Bytes() > 0) {
-        TryAppend(" role=\"");
-        TryAppend(aRole);
-        TryAppend("\"");
-    }
-    TryAppend(" xmlns:");
-    TryAppend(aNs);
-    TryAppend(">");
-    WriterBuffer writer(iMetaDataDidl);
-    Converter::ToXmlEscaped(writer, aValue);
-    TryAppend("</");
-    TryAppend(aDidlTag);
-    TryAppend(">");
-}
-
-void OhMetadata::TryAppend(const TChar* aStr)
-{
-    Brn buf(aStr);
-    TryAppend(buf);
-}
-
-void OhMetadata::TryAppend(const Brx& aBuf)
-{
-    if (!iMetaDataDidl.TryAppend(aBuf)) {
-        THROW(BufferOverflow);
-    }
 }

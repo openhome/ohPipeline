@@ -12,14 +12,13 @@
 namespace OpenHome {
 namespace Av {
 
+class WriterDIDLXml;
+
 typedef std::vector<std::pair<std::string, std::string>> OpenHomeMetadata;
 typedef std::vector<std::pair<Brn, Brn>> OpenHomeMetadataBuf;
 
 class OhMetadata : private INonCopyable
 {
-    static const Brn kNsDc;
-    static const Brn kNsUpnp;
-    static const Brn kNsOh;
 public:
     static Media::Track* ToTrack(const OpenHomeMetadataBuf& aMetadata,
                                  Media::TrackFactory& aTrackFactory);
@@ -30,13 +29,6 @@ private:
     void Parse();
     TBool TryGetValue(const TChar* aKey, Brn& aValue) const;
     TBool TryGetValue(const Brx& aKey, Brn& aValue) const;
-    void TryAddAttribute(const TChar* aOhKey, const TChar* aDidlAttr);
-    void TryAddTag(const Brx& aOhKey, const Brx& aDidlTag,
-                   const Brx& aNs, const Brx& aRole);
-    void TryAppendTag(const Brx& aDidlTag, const Brx& aNs,
-                      const Brx& aRole, const Brx& aValue);
-    void TryAppend(const TChar* aStr);
-    void TryAppend(const Brx& aBuf);
 private:
     const OpenHomeMetadataBuf& iMetadata;
     Media::BwsTrackUri iUri;
