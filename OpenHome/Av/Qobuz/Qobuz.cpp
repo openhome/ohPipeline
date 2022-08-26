@@ -442,6 +442,9 @@ TBool Qobuz::TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, TUint aLim
         iPathAndQuery.Append("&user_auth_token=");
         iPathAndQuery.Append(iAuthToken);
     }
+
+    Log::Print("Qobuz::TryGetResponse: Request for 'https://%.*s%.*s'\n", PBUF(aHost), PBUF(iPathAndQuery));
+
     try {
         const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery, aConnection);
         if (code != 200) {
