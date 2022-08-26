@@ -9,41 +9,11 @@
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Av/Pins/Pins.h>
-
-namespace OpenHome {
-namespace Av {
-
-class Qobuz2DidlTagMapping
-{
-public:
-    Qobuz2DidlTagMapping(const TChar* aQobuzKey, const TChar* aDidlTag, const OpenHome::Brx& aNs)
-        : iQobuzKey(aQobuzKey)
-        , iDidlTag(aDidlTag)
-        , iNs(aNs)
-        , iQobuzSubKey(OpenHome::Brx::Empty())
-    {}
-    Qobuz2DidlTagMapping(const TChar* aQobuzKey, const TChar* aDidlTag, const OpenHome::Brx& aNs, const TChar* aSubKey)
-        : iQobuzKey(aQobuzKey)
-        , iDidlTag(aDidlTag)
-        , iNs(aNs)
-        , iQobuzSubKey(aSubKey)
-    {}
-public:
-    OpenHome::Brn iQobuzKey;
-    OpenHome::Brn iDidlTag;
-    OpenHome::Brn iNs;
-    OpenHome::Brn iQobuzSubKey;
-};
-
-} // namespace Av
-} // namespace OpenHome
+#include <OpenHome/Av/OhMetadata.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
 
-const Brn QobuzMetadata::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
-const Brn QobuzMetadata::kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
-const Brn QobuzMetadata::kNsOh("oh=\"http://www.openhome.org\"");
 const Brn QobuzMetadata::kIdTypeArtist("artist");
 const Brn QobuzMetadata::kIdTypeAlbum("album");
 const Brn QobuzMetadata::kIdTypeTrack("track");
@@ -86,287 +56,121 @@ Media::Track* QobuzMetadata::TrackFromJson(const Brx& aJsonResponse, const Brx& 
     }
 }
 
-Brn QobuzMetadata::FirstIdFromJson(const Brx& aJsonResponse, EIdType aType)
-{
-    try {
-        JsonParser parser;
-        parser.Parse(aJsonResponse);
-        Bws<20> pluralKey(IdTypeToString(aType));
-        pluralKey.Append("s");
-        if (parser.HasKey(pluralKey)) {
-            parser.Parse(parser.String(pluralKey));
-            if (parser.Num(Brn("total")) == 0) {
-                THROW(QobuzResponseInvalid);
-            }
-            auto parserArray = JsonParserArray::Create(parser.String("items"));
-            if (parserArray.Type() == JsonParserArray::ValType::Null) {
-                THROW(QobuzResponseInvalid);
-            }
-            parser.Parse(parserArray.NextObject());
-            if (parser.HasKey(Brn("id"))) {
-                return parser.String(Brn("id"));
-            }
-        }
-        else {
-            THROW(QobuzResponseInvalid);
-        }
-    }
-    catch (AssertionFailed&) {
-        throw;
-    }
-    catch (Exception&) {
-        throw;
-    }
-    return Brx::Empty();
-}
-
-Brn QobuzMetadata::GenreIdFromJson(const Brx& aJsonResponse, const Brx& aGenre)
-{
-    try {
-        JsonParser parser;
-        parser.Reset();
-        parser.Parse(aJsonResponse);
-        if (parser.HasKey(Brn("genres"))) { 
-            parser.Parse(parser.String(Brn("genres")));
-            TUint total = parser.Num(Brn("total"));
-            if (total == 0) {
-                THROW(QobuzResponseInvalid);
-            }
-            auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
-            try {
-                for (;;) {
-                    JsonParser parserItem;
-                    parserItem.Parse(parserItems.NextObject());
-                    if (Ascii::Contains(parserItem.String(Brn("name")), aGenre) || Ascii::Contains(parserItem.String(Brn("slug")), aGenre)) {
-                        return parserItem.String(Brn("id"));
-                    }
-                }
-            }
-            catch (JsonArrayEnumerationComplete&) {}
-        }
-        else {
-            THROW(QobuzResponseInvalid);
-        }
-    }
-    catch (AssertionFailed&) {
-        throw;
-    }
-    catch (Exception&) {
-        throw;
-    }
-    return Brx::Empty();
-}
-
 void QobuzMetadata::ParseQobuzMetadata(const Brx& aJsonResponse, const Brx& aTrackObj, EIdType /*aType*/)
 {
-    static const Qobuz2DidlTagMapping kQobuz2Didl[] ={
-        { "title", "dc:title", kNsDc },
-        { "track_number", "upnp:originalTrackNumber", kNsUpnp },
-    };
-    static const TUint kNumQobuz2DidlMappings = sizeof kQobuz2Didl / sizeof kQobuz2Didl[0];
-
-    static const Qobuz2DidlTagMapping kQobuzObj2Didl[] ={
-        { "image", "upnp:albumArtURI", kNsUpnp, "small"},
-        { "image", "upnp:albumArtURI", kNsUpnp, "large"},
-        { "artist", "upnp:artist", kNsUpnp, "name"},
-    };
-    static const TUint kNumQobuzObj2DidlMappings = sizeof kQobuzObj2Didl / sizeof kQobuzObj2Didl[0];
-
     iTrackUri.Replace(Brx::Empty());
     iMetaDataDidl.Replace(Brx::Empty());
-    JsonParser parser;
-    TBool useHighLevelData = false;
+    JsonParser parserContainer;         // Parses the container object - aJsonResponse
+    JsonParser parserTrack;             // Parses the track object - aTrackObj
+    JsonParser nestedParser;            // Parses object properties from the above 2
+    JsonParser nestedLevel2Parser;      // Sometimes there's another level of objects, so we need this parser as well. (Track -> Album -> Images)
 
-    // validate higher level metadata
-    parser.Parse(aJsonResponse);
-    if (parser.HasKey("product_type")) {
-        useHighLevelData = true;
-    }
-    else {
-        parser.Parse(aTrackObj);
-    }
+    // First - parse the track object and ensure we have enough details to continue!
+    parserTrack.Parse(aTrackObj);
 
-    if (parser.HasKey("streamable")) {
-        if (!parser.Bool("streamable")) {
+    if (parserTrack.HasKey("streamable")) {
+        if (!parserTrack.Bool("streamable")) {
             THROW(QobuzResponseInvalid);
         }
     }
 
-    // validate track specific metadata
-    parser.Parse(aTrackObj);
-    if (!parser.HasKey("id")) {
+    if (!parserTrack.HasKey("id")) {
         // track uri based on id, so will be invalid without one
         THROW(QobuzResponseInvalid);
     }
 
-    TryAppend("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-    TryAppend("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-    TryAppend("<item>");
-    TryAddTag(Brn("upnp:class"), kNsUpnp, Brx::Empty(), Brn("object.item.audioItem.musicTrack"));
-    // higher level metadata (qobuz leaves album name, artist, image urls outside of track objects)
-    if (useHighLevelData) {
-        parser.Parse(aJsonResponse);
-    }
-    else {
-        if (parser.HasKey("album")) {
-            parser.Parse(parser.String("album"));
-        }
-    }
-    TryAddTag(parser, Brn("title"), Brn("upnp:album"), kNsUpnp);
-    for (TUint i=0; i<kNumQobuzObj2DidlMappings; i++) {
-        auto& mapping = kQobuzObj2Didl[i];
-        TryAddTagFromObj(parser, mapping.iQobuzKey, mapping.iDidlTag, mapping.iNs, mapping.iQobuzSubKey);
-    }
-
-    // track specific metadata
-    parser.Parse(aTrackObj);
-    for (TUint i=0; i<kNumQobuz2DidlMappings; i++) {
-        auto& mapping = kQobuz2Didl[i];
-        TryAddTag(parser, mapping.iQobuzKey, mapping.iDidlTag, mapping.iNs);
-    }
-
-    TryAppend("<res");
-    TryAddAttribute("http-get:*:*:*", "protocolInfo");
-    if (parser.HasKey("duration")) {
-        TryAppend(" duration=\"");
-        TUint duration = Ascii::Uint(parser.String("duration"));
-        const TUint secs = duration % 60;
-        duration /= 60;
-        const TUint mins = duration % 60;
-        const TUint hours = duration / 60;
-        Bws<32> formatted;
-        formatted.AppendPrintf("%u:%02u:%02u.000", hours, mins, secs);
-        TryAppend(formatted);
-        TryAppend("\"");
-    }
-    TryAppend(">");
+    const Brx& itemId = parserTrack.String("id");
 
     // special linn style Qobuz url (non-streamable, gets converted later)
     iTrackUri.ReplaceThrow(Brn("qobuz://track?version=2&trackId="));
-    iTrackUri.AppendThrow(parser.String("id"));
+    iTrackUri.AppendThrow(itemId);
     if (iTrackUri.Bytes() > 0) {
         WriterBuffer writer(iMetaDataDidl);
         Converter::ToXmlEscaped(writer, iTrackUri);
     }
-    TryAppend("</res>");
 
+    // Parse the parent container, so we can grab what we need.
+    // validate higher level metadata
+    // Qobuz tracks don't have the album/artist details directly so have to reach into the parent container
+    parserContainer.Parse(aJsonResponse);
+    const TBool useHighLevelData = parserContainer.HasKey("product_type");
+
+    Bwn unescapedBuf;
+    auto unescapeVal = [&] (const Brx& aValue) {
+        unescapedBuf.Set(aValue.Ptr(), aValue.Bytes(), aValue.Bytes());
+        Json::Unescape(unescapedBuf);
+    };
+
+    WriterDIDLLite writer(itemId, DIDLLite::kItemTypeTrack, iMetaDataDidl);
+
+    // First - grab metadata from the track object directly.
+    // We can use: Title & track number
+    if (parserTrack.HasKey("title")) {
+        writer.WriteTitle(parserTrack.String("title"));
+    }
+
+    if (parserTrack.HasKey("track_number")) {
+        writer.WriteTrackNumber(parserTrack.String("track_number"));
+    }
+
+    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, parserTrack.Num("duration"), iTrackUri);
+
+    // Then, set ourselves up for where we find the other details for a track - parent or self.
+    JsonParser& detailParser = useHighLevelData ? parserContainer
+                                                : parserTrack;
+
+    // If we're grabbing the metadata from ourselves, then the album title is nested in an 'Album' object
+    // This object will also contain the other details we need later on.
+    if (detailParser.HasKey("album")) {
+        nestedParser.Parse(detailParser.String("album"));
+
+        if (nestedParser.HasKey("title")) {
+            unescapeVal(nestedParser.String("title"));
+            writer.WriteAlbum(unescapedBuf);
+        }
+    }
+    else if (useHighLevelData && detailParser.HasKey("title")) {
+        // Otherwise, the title should just be present as a property
+        unescapeVal(detailParser.String("title"));
+        writer.WriteAlbum(unescapedBuf);
+    }
+
+    // If we're not reaching into the parent, then we want to keep ourselves inside the 'album' object
+    // as this will contain the remaining metadata we need...
+    if (!useHighLevelData) {
+        detailParser = nestedParser;
+    }
+
+    if (detailParser.HasKey("artist")) {
+        nestedLevel2Parser.Parse(detailParser.String("artist"));
+        if (nestedLevel2Parser.HasKey("name")) {
+            unescapeVal(nestedLevel2Parser.String("name"));
+            writer.WriteArtist(unescapedBuf);
+        }
+    }
+
+    if (detailParser.HasKey("image")) {
+        nestedLevel2Parser.Parse(detailParser.String("image"));
+
+        if (nestedLevel2Parser.HasKey("small")) {
+            unescapeVal(nestedLevel2Parser.String("small"));
+            writer.WriteArtwork(unescapedBuf);
+        }
+
+        if (nestedLevel2Parser.HasKey("large")) {
+            unescapeVal(nestedLevel2Parser.String("large"));
+            writer.WriteArtwork(unescapedBuf);
+        }
+    }
+
+    // TODO: Fix this...
+    /*
     if (parser.HasKey("composer")) {
         TryAddTagFromObj(parser, Brn("composer"), Brn("upnp:artist"), kNsUpnp, Brn("name"), Brn("composer"));
     }
+    */
 
-    TryAppend("</item>");
-    TryAppend("</DIDL-Lite>");
-}
-
-void QobuzMetadata::TryAddAttribute(JsonParser& aParser, const TChar* aQobuzKey, const TChar* aDidlAttr)
-{
-    if (aParser.HasKey(aQobuzKey)) {
-        TryAppend(" ");
-        TryAppend(aDidlAttr);
-        TryAppend("=\"");
-        TryAppend(aParser.String(aQobuzKey));
-        TryAppend("\"");
-    }
-}
-
-void QobuzMetadata::TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr)
-{
-    TryAppend(" ");
-    TryAppend(aDidlAttr);
-    TryAppend("=\"");
-    TryAppend(aValue);
-    TryAppend("\"");
-}
-
-void QobuzMetadata::TryAddTagFromObj(JsonParser& aParser,
-    const Brx& aQobuzKey, const Brx& aDidlTag,
-    const Brx& aNs, const Brx& aQobuzSubKey)
-{
-    TryAddTagFromObj(aParser, aQobuzKey, aDidlTag, aNs, aQobuzSubKey, Brx::Empty());
-}
-
-void QobuzMetadata::TryAddTagFromObj(JsonParser& aParser,
-                                     const Brx& aQobuzKey, const Brx& aDidlTag,
-                                     const Brx& aNs, const Brx& aQobuzSubKey, const Brx& aRole)
-{
-    if (!aParser.HasKey(aQobuzKey)) {
-        return;
-    }
-    JsonParser nestedParser;
-    nestedParser.Parse(aParser.String(aQobuzKey));
-    Bwh val(1024);
-    Bwn valEscaped;
-    val.ReplaceThrow(nestedParser.String(aQobuzSubKey));
-    valEscaped.Set(val.Ptr(), val.Bytes(), val.Bytes());
-    Json::Unescape(valEscaped, Json::Encoding::Utf16);
-    TryAddTag(aDidlTag, aNs, aRole, valEscaped);
-}
-
-void QobuzMetadata::TryAddTagsFromArray(JsonParser& aParser,
-                                     const Brx& aQobuzKey, const Brx& aDidlTag,
-                                     const Brx& aNs, const Brx& aRole)
-{
-    if (!aParser.HasKey(aQobuzKey)) {
-        return;
-    }
-    auto parserArray = JsonParserArray::Create(aParser.String(aQobuzKey));
-    if (parserArray.Type() == JsonParserArray::ValType::Null) {
-        return;
-    }
-    try {
-        for (;;) {
-            Brn val = parserArray.NextString();
-            Bwn valEscaped(val.Ptr(), val.Bytes(), val.Bytes());
-            Json::Unescape(valEscaped, Json::Encoding::Utf16);
-            TryAddTag(aDidlTag, aNs, aRole, valEscaped);
-        }
-    }
-    catch (JsonArrayEnumerationComplete&) {}
-}
-
-void QobuzMetadata::TryAddTag(JsonParser& aParser, const Brx& aQobuzKey,
-                           const Brx& aDidlTag, const Brx& aNs)
-{
-    if (!aParser.HasKey(aQobuzKey)) {
-        return;
-    }
-    Brn val = aParser.String(aQobuzKey);
-    Bwn valEscaped(val.Ptr(), val.Bytes(), val.Bytes());
-    Json::Unescape(valEscaped, Json::Encoding::Utf16);
-    TryAddTag(aDidlTag, aNs, Brx::Empty(), valEscaped);
-}
-
-void QobuzMetadata::TryAddTag(const Brx& aDidlTag, const Brx& aNs,
-                           const Brx& aRole, const Brx& aValue)
-{
-    TryAppend("<");
-    TryAppend(aDidlTag);
-    TryAppend(" xmlns:");
-    TryAppend(aNs);
-    if (aRole.Bytes() > 0) {
-        TryAppend(" role=\"");
-        TryAppend(aRole);
-        TryAppend("\"");
-    }
-    TryAppend(">");
-    WriterBuffer writer(iMetaDataDidl);
-    Converter::ToXmlEscaped(writer, aValue);
-    TryAppend("</");
-    TryAppend(aDidlTag);
-    TryAppend(">");
-}
-
-void QobuzMetadata::TryAppend(const TChar* aStr)
-{
-    Brn buf(aStr);
-    TryAppend(buf);
-}
-
-void QobuzMetadata::TryAppend(const Brx& aBuf)
-{
-    if (!iMetaDataDidl.TryAppend(aBuf)) {
-        THROW(BufferOverflow);
-    }
+    writer.WriteEnd();
 }
 
 const Brx& QobuzMetadata::IdTypeToString(EIdType aType)

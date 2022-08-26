@@ -61,30 +61,10 @@ public:
 public:
     QobuzMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
     OpenHome::Media::Track* TrackFromJson(const OpenHome::Brx& aJsonResponse, const OpenHome::Brx& aTrackObj, EIdType aType);
-    static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse, EIdType aType);
-    static Brn GenreIdFromJson(const OpenHome::Brx& aJsonResponse, const OpenHome::Brx& aGenre);
     static const Brx& IdTypeToString(EIdType aType);
     static EIdType StringToIdType(const Brx& aString);
 private:
     void ParseQobuzMetadata(const OpenHome::Brx& aJsonResponse, const OpenHome::Brx& aTrackObj, EIdType aType);
-    void TryAddAttribute(OpenHome::JsonParser& aParser,
-                         const TChar* aQobuzKey, const TChar* aDidlAttr);
-    void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
-    void TryAddTagsFromArray(OpenHome::JsonParser& aParser,
-                             const OpenHome::Brx& aQobuzKey, const OpenHome::Brx& aDidlTag,
-                             const OpenHome::Brx& aNs, const OpenHome::Brx& aRole);
-    void TryAddTagFromObj(OpenHome::JsonParser& aParser,
-                             const OpenHome::Brx& aQobuzKey, const OpenHome::Brx& aDidlTag,
-                             const OpenHome::Brx& aNs, const Brx& aQobuzSubKey);
-    void TryAddTagFromObj(OpenHome::JsonParser& aParser,
-                             const OpenHome::Brx& aQobuzKey, const OpenHome::Brx& aDidlTag,
-                             const OpenHome::Brx& aNs, const Brx& aQobuzSubKey, const Brx& aRole);
-    void TryAddTag(OpenHome::JsonParser& aParser, const OpenHome::Brx& aQobuzKey,
-                   const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs);
-    void TryAddTag(const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs,
-                   const OpenHome::Brx& aRole, const OpenHome::Brx& aValue);
-    void TryAppend(const TChar* aStr);
-    void TryAppend(const OpenHome::Brx& aBuf);
 private:
     OpenHome::Media::TrackFactory& iTrackFactory;
     OpenHome::Media::BwsTrackUri iTrackUri;
