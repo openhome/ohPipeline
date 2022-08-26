@@ -412,6 +412,13 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
 
 TUint QobuzPins::GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadata::EIdType aIdType, TBool aIsContainer, TUint& aStartIndex, TUint& aEndIndex)
 {
+    // Track = single item
+    if (aIdType == QobuzMetadata::eTrack) {
+        aStartIndex = 0;
+        aEndIndex = 1;
+        return 1;
+    }
+
     TUint total = 0;
     try {
         iJsonResponse.Reset();

@@ -498,6 +498,13 @@ TUint TidalPins::GetTotalItems(JsonParser& aParser,
                                TUint& aEndIndex,
                                const Tidal::AuthenticationConfig& aAuthConfig)
 {
+    // Track = single item
+    if (aIdType == TidalMetadata::eTrack) {
+        aStartIndex = 0;
+        aEndIndex = 1;
+        return 1;
+    }
+
     TUint total = 0;
     try {
         iJsonResponse.Reset();
