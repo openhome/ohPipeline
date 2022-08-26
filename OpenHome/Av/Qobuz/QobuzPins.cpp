@@ -129,11 +129,8 @@ void QobuzPins::Invoke()
             if (pinUri.TryGetValue(kPinKeyPath, val)) {
                 res = LoadByPath(val, pinUri, iPin.Shuffle());
             }
-            else if (pinUri.TryGetValue(kPinKeyId, val)) {
-                // test only - load by string query as if done by a control point
-                res = LoadByStringQuery(val, QobuzMetadata::StringToIdType(pinUri.Type()), iPin.Shuffle());
-            }
             else {
+                // Previous had a 'test only' branch as well, but this is no longer required
                 THROW(PinUriMissingRequiredParameter);
             }
         }

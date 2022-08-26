@@ -371,20 +371,6 @@ TBool Qobuz::TryGetFileUrlLocked(const Brx& aTrackId)
     return success;
 }
 
-TBool Qobuz::TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType, Connection aConnection)
-{
-    iTimerSocketActivity->Cancel();
-    AutoMutex _(iLock);
-    
-    iPathAndQuery.Replace(kVersionAndFormat);
-
-    iPathAndQuery.Append(QobuzMetadata::IdTypeToString(aType));
-    iPathAndQuery.Append("/search?query=");
-    Uri::Escape(iPathAndQuery, aQuery);
-
-    return TryGetResponseLocked(aWriter, kHost, 1, 0, aConnection); // return top hit
-}
-
 TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection)
 {
     iTimerSocketActivity->Cancel();
