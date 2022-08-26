@@ -98,7 +98,7 @@ void QobuzMetadata::ParseQobuzMetadata(const Brx& aJsonResponse, const Brx& aTra
     Bwn unescapedBuf;
     auto unescapeVal = [&] (const Brx& aValue) {
         unescapedBuf.Set(aValue.Ptr(), aValue.Bytes(), aValue.Bytes());
-        Json::Unescape(unescapedBuf);
+        Json::Unescape(unescapedBuf, Json::Encoding::Utf16);
     };
 
     WriterDIDLLite writer(itemId, DIDLLite::kItemTypeTrack, iMetaDataDidl);
@@ -106,14 +106,18 @@ void QobuzMetadata::ParseQobuzMetadata(const Brx& aJsonResponse, const Brx& aTra
     // First - grab metadata from the track object directly.
     // We can use: Title & track number
     if (parserTrack.HasKey("title")) {
-        writer.WriteTitle(parserTrack.String("title"));
+        unescapeVal(parserTrack.String("title"));
+        writer.WriteTitle(unescapedBuf);
     }
 
     if (parserTrack.HasKey("track_number")) {
         writer.WriteTrackNumber(parserTrack.String("track_number"));
     }
 
-    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, parserTrack.Num("duration"), iTrackUri);
+    const TUint duration = parserTrack.HasKey("duration") ? parserTrack.Num("duration")
+                                                          : 0;
+    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, duration, iTrackUri);
+
 
     // Then, set ourselves up for where we find the other details for a track - parent or self.
     JsonParser& detailParser = useHighLevelData ? parserContainer
