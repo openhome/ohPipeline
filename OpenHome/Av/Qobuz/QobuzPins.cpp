@@ -36,7 +36,6 @@ static const TChar* kPinTypeTrack = "track";
 static const TChar* kPinTypeContainer = "container";
 
 // Pin params
-static const TChar* kPinKeyId = "id";
 static const TChar* kPinKeyTrackId = "trackId";
 static const TChar* kPinKeyPath = "path";
 static const TChar* kPinKeyResponseType = "response";
@@ -173,39 +172,32 @@ TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aId
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
-    JsonParser parser;
     InitPlaylist(aShuffle);
     Bwh inputBuf(64);
     TUint tracksFound = 0;
 
-    try {
-        if (aQuery.Bytes() == 0) {
-            return false;
-        }
-        // track/artist/album/playlist search string to id
-        else if (!IsValidId(aQuery, aIdType)) {
-            iJsonResponse.Reset();
-            TBool success = iQobuz.TryGetId(iJsonResponse, aQuery, aIdType); // send request to Qobuz
-            if (!success) {
-                return false;
-            }
-            inputBuf.ReplaceThrow(QobuzMetadata::FirstIdFromJson(iJsonResponse.Buffer(), aIdType)); // parse response from Qobuz
-            if (inputBuf.Bytes() == 0) {
-                return false;
-            }
-        }
-        else {
-            inputBuf.ReplaceThrow(aQuery);
-        }
+    if (aQuery.Bytes() == 0) {
+        return false;
+    }
 
-        try {
-            lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound);
-        }
-        catch (PinNothingToPlay&) {
-        }
-    }   
+    if (!IsValidId(aQuery, aIdType)) {
+        Log::Print("QobuzPins::LoadByStringQuery - Invalid item ID %.*s (Type: %.*s)\n", PBUF(aQuery), PBUF(QobuzMetadata::IdTypeToString(aIdType)));
+        return false;
+    }
+
+    if (aQuery.Bytes() > inputBuf.MaxBytes()) {
+        Log::Print("TidalPins::LoadByStringQuery - ID too long. Space: %u, size needed: %u (Type: %.*s)\n", inputBuf.MaxBytes(), aQuery.Bytes(), PBUF(QobuzMetadata::IdTypeToString(aIdType)));
+    }
+
+    inputBuf.Replace(aQuery);
+
+    try {
+        lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound);
+    }
+    catch (PinNothingToPlay&) { // Do nothing...
+    }
     catch (Exception& ex) {
-        LOG_ERROR(kPipeline, "%s in QobuzPins::LoadByStringQuery\n", ex.Message());
+        LOG_ERROR(kMedia, "%s in QobuzPins::LoadByStringQuery\n", ex.Message());
         return false;
     }
 
@@ -223,16 +215,15 @@ TBool QobuzPins::LoadTracks(const Brx& aPath, TBool aShuffle)
     InitPlaylist(aShuffle);
     TUint tracksFound = 0;
 
+    if (aPath.Bytes() == 0) {
+        return false;
+    }
+
     try {
-        if (aPath.Bytes() == 0) {
-            return false;
-        }
-        try {
-            lastId = LoadTracksById(aPath, QobuzMetadata::eNone, lastId, tracksFound);
-        }
-        catch (PinNothingToPlay&) {
-        }
-    }   
+        lastId = LoadTracksById(aPath, QobuzMetadata::eNone, lastId, tracksFound);
+    }
+    catch (PinNothingToPlay&) {
+    }
     catch (Exception& ex) {
         LOG_ERROR(kMedia, "%s in QobuzPins::LoadTracks\n", ex.Message());
         return false;
@@ -282,17 +273,21 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
             }
             auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
             JsonParser parserItem;
-            try {
-                for (TUint i = 0; i < kItemLimitPerRequest; i++) {
-                    parserItem.Parse(parserItems.NextObject());
-                    containerIds[i].ReplaceThrow(parserItem.String(Brn("id"))); // parse response from Qobuz
-                    idCount++;
-                    if (containerIds[i].Bytes() == 0) {
-                        return false;
-                    }
+
+            for (TUint i = 0; i < kItemLimitPerRequest; i++) {
+                Brn obj;
+                if (!parserItems.TryNextObject(obj)) {
+                    break;
+                }
+
+                parserItem.Parse(obj);
+                containerIds[i].ReplaceThrow(parserItem.String(Brn("id"))); // parse response from Qobuz
+                idCount++;
+                if (containerIds[i].Bytes() == 0) {
+                    return false;
                 }
             }
-            catch (JsonArrayEnumerationComplete&) {}
+
             for (TUint j = 0; j < idCount; j++) {
                 try {
                     lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound);
@@ -356,30 +351,16 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
 
             parser.Reset();
             parser.Parse(iJsonResponse.Buffer());
-            try {
-                if (parser.HasKey(Brn("tracks"))) { 
-                    parser.Parse(parser.String(Brn("tracks")));
-                }
-                if (parser.HasKey("items")) {
-                    auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
-                    for (;;) {
-                        track = iQobuzMetadata.TrackFromJson(iJsonResponse.Buffer(), parserItems.NextObject(), aIdType);
-                        if (track != nullptr) {
-                            aCount++;
-                            iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
-                            track->RemoveRef();
-                            track = nullptr;
-                            currId = newId;
-                            isPlayable = true;
-                            if (aCount >= iMaxPlaylistTracks) {
-                                offset = end; // force exit as we could be part way through a group of tracks
-                                break;
-                            }
-                        }
-                    }
-                }
-                else {
-                    track = iQobuzMetadata.TrackFromJson(iJsonResponse.Buffer(), iJsonResponse.Buffer(), aIdType);
+
+            if (parser.HasKey(Brn("tracks"))) {
+                parser.Parse(parser.String(Brn("tracks")));
+            }
+
+            if (parser.HasKey("items")) {
+                auto parserItems = JsonParserArray::Create(parser.String("items"));
+                Brn obj;
+                while(parserItems.TryNextObject(obj)) {
+                    track = iQobuzMetadata.TrackFromJson(iJsonResponse.Buffer(), obj, aIdType);
                     if (track != nullptr) {
                         aCount++;
                         iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
@@ -387,10 +368,24 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                         track = nullptr;
                         currId = newId;
                         isPlayable = true;
+                        if (aCount >= iMaxPlaylistTracks) {
+                            offset = end; // force exit as we could be part way through a group of tracks
+                            break;
+                        }
                     }
                 }
             }
-            catch (JsonArrayEnumerationComplete&) {}
+            else {
+                track = iQobuzMetadata.TrackFromJson(iJsonResponse.Buffer(), iJsonResponse.Buffer(), aIdType);
+                if (track != nullptr) {
+                    aCount++;
+                    iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
+                    track->RemoveRef();
+                    track = nullptr;
+                    currId = newId;
+                    isPlayable = true;
+                }
+            }
             
             if (initPlay && isPlayable) {
                 initPlay = false;
@@ -501,9 +496,11 @@ void QobuzPins::UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContai
     }
 }
 
-TBool QobuzPins::IsValidId(const Brx& aRequest, QobuzMetadata::EIdType /*aIdType*/) {
-    if (aRequest == QobuzMetadata::kIdTypeUserSpecific) {
-        return true; // no additional user input
+TBool QobuzPins::IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aIdType)
+{
+    // Function is currently only called with items of type 'Track'. All other types currently report invalid.
+    if (aIdType != QobuzMetadata::EIdType::eTrack) {
+        return false;
     }
 
     for (TUint i = 0; i<aRequest.Bytes(); i++) {

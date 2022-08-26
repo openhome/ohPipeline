@@ -12,6 +12,7 @@
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Pins/Pins.h>
+#include <OpenHome/Av/Qobuz/Qobuz.h>
         
 namespace OpenHome {
     class Environment;
