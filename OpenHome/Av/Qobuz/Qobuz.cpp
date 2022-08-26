@@ -385,36 +385,6 @@ TBool Qobuz::TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdTyp
     return TryGetResponseLocked(aWriter, kHost, 1, 0, aConnection); // return top hit
 }
 
-TBool Qobuz::TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aLimitPerResponse, Connection aConnection)
-{
-    iTimerSocketActivity->Cancel();
-    AutoMutex _(iLock);
-
-    iPathAndQuery.Replace(kVersionAndFormat);
-
-    iPathAndQuery.Append(QobuzMetadata::IdTypeToString(aType));
-    switch (aType) {
-        case QobuzMetadata::eSmartNew:          iPathAndQuery.Append("/getFeatured?&type=new-releases"); break;
-        case QobuzMetadata::eSmartRecommended:  iPathAndQuery.Append("/getFeatured?&type=editor-picks"); break;
-        case QobuzMetadata::eSmartMostStreamed: iPathAndQuery.Append("/getFeatured?&type=most-streamed"); break;
-        case QobuzMetadata::eSmartBestSellers:  iPathAndQuery.Append("/getFeatured?&type=best-sellers"); break;
-        case QobuzMetadata::eSmartAwardWinning: iPathAndQuery.Append("/getFeatured?&type=press-awards"); break;
-        case QobuzMetadata::eSmartMostFeatured: iPathAndQuery.Append("/getFeatured?&type=most-featured"); break;
-        default: break;
-    }
-    if (aGenre.Bytes() > 0 && aGenre != QobuzMetadata::kGenreNone) {
-        if (Ascii::Contains(aGenre, ',')) {
-            iPathAndQuery.Append("&genre_ids=");
-        }
-        else {
-            iPathAndQuery.Append("&genre_id=");
-        }
-        iPathAndQuery.Append(aGenre);
-    }
-
-    return TryGetResponseLocked(aWriter, kHost, aLimitPerResponse, 0, aConnection);
-}
-
 TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection)
 {
     iTimerSocketActivity->Cancel();
@@ -450,17 +420,6 @@ TBool Qobuz::TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::E
     }
 
     return TryGetResponseLocked(aWriter, kHost, aLimit, aOffset, aConnection);
-}
-
-TBool Qobuz::TryGetGenreList(IWriter& aWriter, Connection aConnection)
-{
-    iTimerSocketActivity->Cancel();
-    AutoMutex _(iLock);
-
-    iPathAndQuery.Replace(kVersionAndFormat);
-    iPathAndQuery.Append("genre/list?");
-
-    return TryGetResponseLocked(aWriter, kHost, 50, 0, aConnection);
 }
 
 TBool Qobuz::TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection)

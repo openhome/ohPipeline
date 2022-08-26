@@ -115,9 +115,7 @@ public:
     QobuzTrack* StreamableTrack(const Brx& aTrackId);
     TBool TryUpdateStreamUrl(QobuzTrack& aTrack);
     TBool TryGetId(IWriter& aWriter, const Brx& aQuery, QobuzMetadata::EIdType aType, Connection aConnection = Connection::KeepAlive);
-    TBool TryGetIds(IWriter& aWriter, const Brx& aGenre, QobuzMetadata::EIdType aType, TUint aLimitPerResponse, Connection aConnection = Connection::KeepAlive);
     TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection = Connection::KeepAlive);
-    TBool TryGetGenreList(IWriter& aWriter, Connection aConnection = Connection::KeepAlive);
     TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection = Connection::KeepAlive);
     void Interrupt(TBool aInterrupt);
 private: // from ICredentialConsumer
