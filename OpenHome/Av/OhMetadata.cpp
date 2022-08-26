@@ -61,6 +61,9 @@ const Brn DIDLLite::kTagTitle("dc:title");
 const Brn DIDLLite::kTagArtist("upnp:artist");
 const Brn DIDLLite::kTagAlbumTitle("upnp:album");
 const Brn DIDLLite::kTagArtwork("upnp:albumArtURI");
+const Brn DIDLLite::kTagOriginalTrackNumber("upnp:originalTrackNumber");
+
+const Brn DIDLLite::kItemTypeTrack("object.item.audioItem.musicTrack");
 
 
 // WriterDIDLXml
@@ -183,6 +186,7 @@ WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const B
     , iTitleWritten(false)
     , iAlbumWritten(false)
     , iArtistWritten(false)
+    , iTrackNumberWritten(false)
     , iStreamingDetailsWritten(false)
 {
     iWriter.TryWriteTag(Brn("upnp:class"), WriterDIDLXml::kNsUpnp, aItemType);
@@ -210,6 +214,14 @@ void WriterDIDLLite::WriteArtist(const Brx& aArtist)
     iArtistWritten = true;
 
     iWriter.TryWriteTag(DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, aArtist);
+}
+
+void WriterDIDLLite::WriteTrackNumber(const Brx& aTrackNumber)
+{
+    ASSERT(!iTrackNumberWritten);
+    iTrackNumberWritten = true;
+
+    iWriter.TryWriteTag(DIDLLite::kTagOriginalTrackNumber, WriterDIDLXml::kNsUpnp, aTrackNumber);
 }
 
 void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri)
@@ -314,7 +326,7 @@ void OhMetadata::Parse()
         { "albumArtwork", DIDLLite::kTagAlbumTitle, WriterDIDLXml::kNsUpnp },
         { "provider", "oh:provider", WriterDIDLXml::kNsOh },
         { "artwork", "oh:artwork", WriterDIDLXml::kNsOh },
-        { "track", "upnp:originalTrackNumber", WriterDIDLXml::kNsUpnp },
+        { "track", DIDLLite::kTagOriginalTrackNumber, WriterDIDLXml::kNsUpnp },
         { "tracks", "oh:originalTrackCount", WriterDIDLXml::kNsOh },
         { "disc", "oh:originalDiscNumber", WriterDIDLXml::kNsOh },
         { "discs", "oh:originalDiscCount", WriterDIDLXml::kNsOh },

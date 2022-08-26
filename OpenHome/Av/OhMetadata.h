@@ -22,6 +22,9 @@ public:
     static const Brn kTagArtwork;
     static const Brn kTagResource;
     static const Brn kTagAlbumTitle;
+    static const Brn kTagOriginalTrackNumber;
+
+    static const Brn kItemTypeTrack;
 };
 
 // NOTE: It is not expected that this class be used directly.
@@ -68,6 +71,7 @@ public:
 public:
     // The following methods should only be called once
     void WriteTitle(const Brx& aTitle);
+    void WriteTrackNumber(const Brx& aTrackNumber);
     void WriteAlbum(const Brx& aAlbum);
     void WriteArtist(const Brx& aArtist); // TODO: This could be expanded to allow multiple calls accepting 'Roles'
     void WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri);
@@ -81,6 +85,7 @@ private:
     TBool iTitleWritten;
     TBool iAlbumWritten;
     TBool iArtistWritten;
+    TBool iTrackNumberWritten;
     TBool iStreamingDetailsWritten;
 };
 
