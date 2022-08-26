@@ -410,8 +410,8 @@ void OhMetadata::Parse()
     writer.TryWrite(">");
 
     if (iUri.Bytes() > 0) {
-        WriterBuffer writer(iMetaDataDidl);
-        Converter::ToXmlEscaped(writer, iUri);
+        WriterBuffer bufWriter(iMetaDataDidl);
+        Converter::ToXmlEscaped(bufWriter, iUri);
     }
 
     writer.TryWrite("</res>");
