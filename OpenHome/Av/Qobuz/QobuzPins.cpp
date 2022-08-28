@@ -356,11 +356,16 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                 parser.Parse(parser.String(Brn("tracks")));
             }
 
+            // We really need to try and parse out the parent container's contents, if any
+            // so that it can be re-used for constructing the tracks below, and saves them having to peek into the parent container...
+            QobuzMetadata::ParentMetadata parentMetadata;
+            const TBool hasParentMetadata = iQobuzMetadata.TryParseParentMetadata(iJsonResponse.Buffer(), parentMetadata);
+
             if (parser.HasKey("items")) {
                 auto parserItems = JsonParserArray::Create(parser.String("items"));
                 Brn obj;
                 while(parserItems.TryNextObject(obj)) {
-                    track = iQobuzMetadata.TrackFromJson(iJsonResponse.Buffer(), obj, aIdType);
+                    track = iQobuzMetadata.TrackFromJson(hasParentMetadata, parentMetadata, obj, aIdType);
                     if (track != nullptr) {
                         aCount++;
                         iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
@@ -376,7 +381,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                 }
             }
             else {
-                track = iQobuzMetadata.TrackFromJson(iJsonResponse.Buffer(), iJsonResponse.Buffer(), aIdType);
+                track = iQobuzMetadata.TrackFromJson(hasParentMetadata, parentMetadata, iJsonResponse.Buffer(), aIdType);
                 if (track != nullptr) {
                     aCount++;
                     iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);

@@ -39,10 +39,10 @@ QobuzMetadata::QobuzMetadata(Media::TrackFactory& aTrackFactory)
 {
 }
 
-Media::Track* QobuzMetadata::TrackFromJson(const Brx& aJsonResponse, const Brx& aTrackObj, EIdType aType)
+Media::Track* QobuzMetadata::TrackFromJson(TBool aHasParentMetadata, const ParentMetadata& aParentMetadata, const Brx& aTrackObj, EIdType aType)
 {
     try {
-        ParseQobuzMetadata(aJsonResponse, aTrackObj, aType);
+        ParseQobuzMetadata(aHasParentMetadata, aParentMetadata, aTrackObj, aType);
         return iTrackFactory.CreateTrack(iTrackUri, iMetaDataDidl);
     }
     catch (AssertionFailed&) {
@@ -56,11 +56,50 @@ Media::Track* QobuzMetadata::TrackFromJson(const Brx& aJsonResponse, const Brx& 
     }
 }
 
-void QobuzMetadata::ParseQobuzMetadata(const Brx& aJsonResponse, const Brx& aTrackObj, EIdType /*aType*/)
+TBool QobuzMetadata::TryParseParentMetadata(const OpenHome::Brx& aJsonResponse, ParentMetadata& aParentMetadata)
+{
+    JsonParser parser;
+    JsonParser nestedParser;
+    parser.Parse(aJsonResponse);
+
+    if (!parser.HasKey("product_type")) {
+        return false;
+    }
+
+    auto setValue = [] (Bwx& aBuffer, const Brx& aValue) {
+        aBuffer.ReplaceThrow(aValue);
+        Json::Unescape(aBuffer, Json::Encoding::Utf16);
+    };
+
+    if (parser.HasKey("title")) {
+        setValue(aParentMetadata.title, parser.String("title"));
+    }
+
+    if (parser.HasKey("artist")) {
+        nestedParser.Parse(parser.String("artist"));
+        if (nestedParser.HasKey("name")) {
+            setValue(aParentMetadata.artist, nestedParser.String("name"));
+        }
+    }
+
+    if (parser.HasKey("image")) {
+        nestedParser.Parse(parser.String("image"));
+        if (nestedParser.HasKey("small")) {
+            setValue(aParentMetadata.smallArtworkUri, nestedParser.String("small"));
+        }
+
+        if (nestedParser.HasKey("large")) {
+            setValue(aParentMetadata.largeArtworkUri, nestedParser.String("large"));
+        }
+    }
+
+    return true;
+}
+
+void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMetadata& aParentMetadata, const Brx& aTrackObj, EIdType /*aType*/)
 {
     iTrackUri.Replace(Brx::Empty());
     iMetaDataDidl.Replace(Brx::Empty());
-    JsonParser parserContainer;         // Parses the container object - aJsonResponse
     JsonParser parserTrack;             // Parses the track object - aTrackObj
     JsonParser nestedParser;            // Parses object properties from the above 2
     JsonParser nestedLevel2Parser;      // Sometimes there's another level of objects, so we need this parser as well. (Track -> Album -> Images)
@@ -89,12 +128,6 @@ void QobuzMetadata::ParseQobuzMetadata(const Brx& aJsonResponse, const Brx& aTra
         Converter::ToXmlEscaped(writer, iTrackUri);
     }
 
-    // Parse the parent container, so we can grab what we need.
-    // validate higher level metadata
-    // Qobuz tracks don't have the album/artist details directly so have to reach into the parent container
-    parserContainer.Parse(aJsonResponse);
-    const TBool useHighLevelData = parserContainer.HasKey("product_type");
-
     Bwn unescapedBuf;
     auto unescapeVal = [&] (const Brx& aValue) {
         unescapedBuf.Set(aValue.Ptr(), aValue.Bytes(), aValue.Bytes());
@@ -118,52 +151,44 @@ void QobuzMetadata::ParseQobuzMetadata(const Brx& aJsonResponse, const Brx& aTra
                                                           : 0;
     writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, duration, iTrackUri);
 
-
-    // Then, set ourselves up for where we find the other details for a track - parent or self.
-    JsonParser& detailParser = useHighLevelData ? parserContainer
-                                                : parserTrack;
-
-    // If we're grabbing the metadata from ourselves, then the album title is nested in an 'Album' object
-    // This object will also contain the other details we need later on.
-    if (detailParser.HasKey("album")) {
-        nestedParser.Parse(detailParser.String("album"));
-
-        if (nestedParser.HasKey("title")) {
-            unescapeVal(nestedParser.String("title"));
-            writer.WriteAlbum(unescapedBuf);
-        }
+    // Parent metadata is already escaped!
+    if (aHasParentMetadata) {
+        writer.WriteAlbum(aParentMetadata.title);
+        writer.WriteArtist(aParentMetadata.artist);
+        writer.WriteArtwork(aParentMetadata.smallArtworkUri);
+        writer.WriteArtwork(aParentMetadata.largeArtworkUri);
     }
-    else if (useHighLevelData && detailParser.HasKey("title")) {
-        // Otherwise, the title should just be present as a property
-        unescapeVal(detailParser.String("title"));
-        writer.WriteAlbum(unescapedBuf);
-    }
+    else
+    {
+        if (parserTrack.HasKey("album")) {
+            nestedParser.Parse(parserTrack.String("album"));
 
-    // If we're not reaching into the parent, then we want to keep ourselves inside the 'album' object
-    // as this will contain the remaining metadata we need...
-    if (!useHighLevelData) {
-        detailParser = nestedParser;
-    }
+            if (nestedParser.HasKey("title")) {
+                unescapeVal(nestedParser.String("title"));
+                writer.WriteAlbum(unescapedBuf);
+            }
 
-    if (detailParser.HasKey("artist")) {
-        nestedLevel2Parser.Parse(detailParser.String("artist"));
-        if (nestedLevel2Parser.HasKey("name")) {
-            unescapeVal(nestedLevel2Parser.String("name"));
-            writer.WriteArtist(unescapedBuf);
-        }
-    }
+            if (nestedParser.HasKey("artist")) {
+                nestedLevel2Parser.Parse(nestedParser.String("artist"));
+                if (nestedLevel2Parser.HasKey("name")) {
+                    unescapeVal(nestedLevel2Parser.String("name"));
+                    writer.WriteArtist(unescapedBuf);
+                }
+            }
 
-    if (detailParser.HasKey("image")) {
-        nestedLevel2Parser.Parse(detailParser.String("image"));
+            if (nestedParser.HasKey("image")) {
+                nestedLevel2Parser.Parse(nestedParser.String("image"));
 
-        if (nestedLevel2Parser.HasKey("small")) {
-            unescapeVal(nestedLevel2Parser.String("small"));
-            writer.WriteArtwork(unescapedBuf);
-        }
+                if (nestedLevel2Parser.HasKey("small")) {
+                    unescapeVal(nestedLevel2Parser.String("small"));
+                    writer.WriteArtwork(unescapedBuf);
+                }
 
-        if (nestedLevel2Parser.HasKey("large")) {
-            unescapeVal(nestedLevel2Parser.String("large"));
-            writer.WriteArtwork(unescapedBuf);
+                if (nestedLevel2Parser.HasKey("large")) {
+                    unescapeVal(nestedLevel2Parser.String("large"));
+                    writer.WriteArtwork(unescapedBuf);
+                }
+            }
         }
     }
 

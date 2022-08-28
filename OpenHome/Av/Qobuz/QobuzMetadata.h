@@ -58,13 +58,31 @@ public:
         eSmartAwardWinning,
         eSmartMostFeatured,
     };
+
+    struct ParentMetadata
+    {
+        // TODO: Need to find a way to store these without actually requiring the extra storage??
+        ParentMetadata()
+            : title(1024)
+            , artist(1024)
+            , smallArtworkUri(1024)
+            , largeArtworkUri(1024)
+        {}
+
+        Bwh title;
+        Bwh artist;
+        Bwh smallArtworkUri;
+        Bwh largeArtworkUri;
+    };
+
 public:
     QobuzMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
-    OpenHome::Media::Track* TrackFromJson(const OpenHome::Brx& aJsonResponse, const OpenHome::Brx& aTrackObj, EIdType aType);
+    TBool TryParseParentMetadata(const OpenHome::Brx& aJsonResponse, ParentMetadata& aParentMetadata);
+    OpenHome::Media::Track* TrackFromJson(TBool aHasParentMetadata, const ParentMetadata& aJsonResponse, const OpenHome::Brx& aTrackObj, EIdType aType);
     static const Brx& IdTypeToString(EIdType aType);
     static EIdType StringToIdType(const Brx& aString);
 private:
-    void ParseQobuzMetadata(const OpenHome::Brx& aJsonResponse, const OpenHome::Brx& aTrackObj, EIdType aType);
+    void ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMetadata& aJsonResponse, const OpenHome::Brx& aTrackObj, EIdType aType);
 private:
     OpenHome::Media::TrackFactory& iTrackFactory;
     OpenHome::Media::BwsTrackUri iTrackUri;
