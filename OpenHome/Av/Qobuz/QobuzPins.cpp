@@ -269,15 +269,8 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
             parser.Reset();
             parser.Parse(iJsonResponse.Buffer());
             TUint idCount = 0;
-            if (parser.HasKey(Brn("albums"))) { 
-                parser.Parse(parser.String(Brn("albums")));
-            }
-            else if (parser.HasKey(Brn("playlists"))) { 
-                parser.Parse(parser.String(Brn("playlists")));
-            }
-            else if (parser.HasKey(Brn("artists"))) {
-                parser.Parse(parser.String(Brn("artists")));
-            }
+
+            FindResponse(parser);
 
             auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
             JsonParser parserItem;
@@ -363,6 +356,9 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
             if (parser.HasKey(Brn("tracks"))) {
                 parser.Parse(parser.String(Brn("tracks")));
             }
+            else if (parser.HasKey("tracks_appears_on")) {
+                parser.Parse(parser.String("tracks_appears_on"));
+            }
 
             // Most Qobuz containers only provide required metadata in the parent container object, instead of the track objects directly.
             // We'll pre-parse the parent and provide that information when constructing tracks to reduce the amount of work we have to do.
@@ -445,18 +441,7 @@ TUint QobuzPins::GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadat
             aParser.Reset();
             aParser.Parse(iJsonResponse.Buffer());
 
-            if (aParser.HasKey(Brn("albums"))) { 
-                aParser.Parse(aParser.String(Brn("albums")));
-            }
-            else if (aParser.HasKey(Brn("playlists"))) { 
-                aParser.Parse(aParser.String(Brn("playlists")));
-            }
-            else if (aParser.HasKey(Brn("artists"))) {
-                aParser.Parse(aParser.String(Brn("artists")));
-            }
-            else if (aParser.HasKey(Brn("tracks"))) { 
-                aParser.Parse(aParser.String(Brn("tracks")));
-            }
+            FindResponse(aParser);
 
             if (aParser.HasKey(Brn("items"))) {
                 total = aParser.Num(Brn("total"));
@@ -536,4 +521,23 @@ void QobuzPins::InitPlaylist(TBool aShuffle)
 {
     iCpPlaylist->SyncDeleteAll();
     iCpPlaylist->SyncSetShuffle(aShuffle);
+}
+
+void QobuzPins::FindResponse(JsonParser& aParser)
+{
+    if (aParser.HasKey(Brn("albums"))) {
+        aParser.Parse(aParser.String(Brn("albums")));
+    }
+    else if (aParser.HasKey(Brn("playlists"))) {
+        aParser.Parse(aParser.String(Brn("playlists")));
+    }
+    else if (aParser.HasKey(Brn("artists"))) {
+        aParser.Parse(aParser.String(Brn("artists")));
+    }
+    else if (aParser.HasKey(Brn("tracks"))) {
+        aParser.Parse(aParser.String(Brn("tracks")));
+    }
+    else if (aParser.HasKey(Brn("tracks_appears_on"))) {
+        aParser.Parse(aParser.String(Brn("tracks_appears_on")));
+    }
 }

@@ -58,6 +58,7 @@ private: // helpers
     void UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TUint& aOffset);
     TBool IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aIdType);
     void InitPlaylist(TBool aShuffle);
+    void FindResponse(JsonParser& aParser);
 private:
     Mutex iLock;
     Qobuz& iQobuz;
