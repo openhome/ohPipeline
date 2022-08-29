@@ -43,6 +43,7 @@ static const TChar* kPinKeyResponseType = "response";
 // Pin response types
 static const TChar* kPinResponseTracks = "tracks";
 static const TChar* kPinResponseAlbums = "albums";
+static const TChar* kPinResponseArtists = "artists";
 static const TChar* kPinResponsePlaylists = "playlists";
 
 QobuzPins::QobuzPins(Qobuz& aQobuz, 
@@ -162,6 +163,9 @@ TBool QobuzPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuf
     else if (response == Brn(kPinResponsePlaylists)) {
         res = LoadContainers(aPath, QobuzMetadata::ePlaylist, aShuffle);
     }
+    else if (response == Brn(kPinResponseArtists)) {
+        res = LoadContainers(aPath, QobuzMetadata::eArtist, aShuffle);
+    }
     else {
         THROW(PinUriMissingRequiredParameter);
     }
@@ -271,6 +275,10 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
             else if (parser.HasKey(Brn("playlists"))) { 
                 parser.Parse(parser.String(Brn("playlists")));
             }
+            else if (parser.HasKey(Brn("artists"))) {
+                parser.Parse(parser.String(Brn("artists")));
+            }
+
             auto parserItems = JsonParserArray::Create(parser.String(Brn("items")));
             JsonParser parserItem;
 
@@ -442,6 +450,9 @@ TUint QobuzPins::GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadat
             }
             else if (aParser.HasKey(Brn("playlists"))) { 
                 aParser.Parse(aParser.String(Brn("playlists")));
+            }
+            else if (aParser.HasKey(Brn("artists"))) {
+                aParser.Parse(aParser.String(Brn("artists")));
             }
             else if (aParser.HasKey(Brn("tracks"))) { 
                 aParser.Parse(aParser.String(Brn("tracks")));
