@@ -101,7 +101,7 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
     iTrackUri.Replace(Brx::Empty());
     iMetaDataDidl.Replace(Brx::Empty());
     JsonParser parserTrack;             // Parses the track object - aTrackObj
-    JsonParser nestedParser;            // Parses object properties from the above 2
+    JsonParser nestedParser;            // Parses object properties from the above
     JsonParser nestedLevel2Parser;      // Sometimes there's another level of objects, so we need this parser as well. (Track -> Album -> Images)
 
     // First - parse the track object and ensure we have enough details to continue!
@@ -137,7 +137,7 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
     WriterDIDLLite writer(itemId, DIDLLite::kItemTypeTrack, iMetaDataDidl);
 
     // First - grab metadata from the track object directly.
-    // We can use: Title & track number
+    // We can use: Title, duration & track number
     if (parserTrack.HasKey("title")) {
         unescapeVal(parserTrack.String("title"));
         writer.WriteTitle(unescapedBuf);
@@ -160,6 +160,7 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
     }
     else
     {
+        // If no parent metadata, details are found in an 'Album' object
         if (parserTrack.HasKey("album")) {
             nestedParser.Parse(parserTrack.String("album"));
 

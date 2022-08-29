@@ -61,12 +61,14 @@ public:
 
     struct ParentMetadata
     {
-        // TODO: Need to find a way to store these without actually requiring the extra storage??
+        static const TUint kInitialSize = 256;
+        static const TUint kMaxSize = 1024;
+
         ParentMetadata()
-            : title(1024)
-            , artist(1024)
-            , smallArtworkUri(1024)
-            , largeArtworkUri(1024)
+            : title(kInitialSize, kMaxSize)
+            , artist(kInitialSize, kMaxSize)
+            , smallArtworkUri(kMaxSize) // Artwork URIscan be quite long, so just pre-allocate max size initially.
+            , largeArtworkUri(kMaxSize)
         {}
 
         Bwh title;

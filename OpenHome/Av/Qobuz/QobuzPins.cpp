@@ -356,16 +356,15 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                 parser.Parse(parser.String(Brn("tracks")));
             }
 
-            // We really need to try and parse out the parent container's contents, if any
-            // so that it can be re-used for constructing the tracks below, and saves them having to peek into the parent container...
-            QobuzMetadata::ParentMetadata parentMetadata;
-            const TBool hasParentMetadata = iQobuzMetadata.TryParseParentMetadata(iJsonResponse.Buffer(), parentMetadata);
+            // Most Qobuz containers only provide required metadata in the parent container object, instead of the track objects directly.
+            // We'll pre-parse the parent and provide that information when constructing tracks to reduce the amount of work we have to do.
+            const TBool hasParentMetadata = iQobuzMetadata.TryParseParentMetadata(iJsonResponse.Buffer(), iParentMetadata);
 
             if (parser.HasKey("items")) {
                 auto parserItems = JsonParserArray::Create(parser.String("items"));
                 Brn obj;
                 while(parserItems.TryNextObject(obj)) {
-                    track = iQobuzMetadata.TrackFromJson(hasParentMetadata, parentMetadata, obj, aIdType);
+                    track = iQobuzMetadata.TrackFromJson(hasParentMetadata, iParentMetadata, obj, aIdType);
                     if (track != nullptr) {
                         aCount++;
                         iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
@@ -381,7 +380,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                 }
             }
             else {
-                track = iQobuzMetadata.TrackFromJson(hasParentMetadata, parentMetadata, iJsonResponse.Buffer(), aIdType);
+                track = iQobuzMetadata.TrackFromJson(hasParentMetadata, iParentMetadata, iJsonResponse.Buffer(), aIdType);
                 if (track != nullptr) {
                     aCount++;
                     iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);

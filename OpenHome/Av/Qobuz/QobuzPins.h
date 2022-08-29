@@ -64,6 +64,7 @@ private:
     IThreadPoolHandle* iThreadPoolHandle;
     WriterBwh iJsonResponse;
     QobuzMetadata iQobuzMetadata;
+    QobuzMetadata::ParentMetadata iParentMetadata;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     TUint iMaxPlaylistTracks;
     Bws<128> iToken;
