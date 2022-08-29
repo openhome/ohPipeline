@@ -22,6 +22,7 @@ public:
     static const Brn kTagArtwork;
     static const Brn kTagResource;
     static const Brn kTagAlbumTitle;
+    static const Brn kTagDescription;
     static const Brn kTagOriginalTrackNumber;
 
     static const Brn kItemTypeTrack;
@@ -64,17 +65,18 @@ class WriterDIDLLite
 public:
     WriterDIDLLite(const Brx& aItemId,
                    const Brx& aItemType,
-                   Media::BwsTrackMetaData& aBuffer);
+                   Bwx& aBuffer);
     WriterDIDLLite(const Brx& aItemId,
                    const Brx& aItemType,
                    const Brx& aParentId,
-                   Media::BwsTrackMetaData& aBuffer);
+                   Bwx& aBuffer);
 
 public:
     // The following methods should only be called once
     void WriteTitle(const Brx& aTitle);
     void WriteTrackNumber(const Brx& aTrackNumber);
     void WriteAlbum(const Brx& aAlbum);
+    void WriteDescription(const Brx& aDescription);
     void WriteArtist(const Brx& aArtist); // TODO: This could be expanded to allow multiple calls accepting 'Roles'
     void WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri);
     void WriteEnd();
@@ -88,6 +90,7 @@ private:
     TBool iAlbumWritten;
     TBool iArtistWritten;
     TBool iTrackNumberWritten;
+    TBool iDescriptionWritten;
     TBool iStreamingDetailsWritten;
 };
 

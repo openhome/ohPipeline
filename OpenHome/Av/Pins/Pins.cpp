@@ -3,6 +3,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Json.h>
+#include <OpenHome/Av/OhMetadata.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
@@ -928,71 +929,17 @@ TBool PinUri::TryGetValue(const Brx& aKey, Bwx& aValue) const
 
 // PinMetadata
 
-static const Brn kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
-static const Brn kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
-
-void PinMetadata::GetDidlLite(const IPin& aPin, Bwx& aDidlLite)
+void PinMetadata::GetDidlLite(const IPin& aPin, Bws& aDidlLite)
 {
-    aDidlLite.ReplaceThrow(Brx::Empty());
+    Bws<4> pinId;
+    Ascii::AppendDec(pinId, aPin.Id());
 
-    TryAppend(aDidlLite, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-    TryAppend(aDidlLite, "<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-    TryAppend(aDidlLite, "<item id=\"");
-    Ascii::AppendDec(aDidlLite, aPin.Id());;
-    TryAppend(aDidlLite, "\" parentID=\"-1\" restricted=\"1\">");
-    TryAddTag(aDidlLite, Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), aPin.ArtworkUri());
-    TryAddTag(aDidlLite, Brn("upnp:class"), kNsUpnp, Brx::Empty(), Brn("object.item.audioItem.musicTrack"));
-    TryAddTag(aDidlLite, Brn("dc:title"), kNsDc, Brx::Empty(), aPin.Title());
-    TryAddTag(aDidlLite, Brn("dc:description"), kNsDc, Brx::Empty(), aPin.Description());
-    TryAppend(aDidlLite, "<res");
-    TryAddAttribute(aDidlLite, "http-get:*:*:*", "protocolInfo");
-    TryAppend(aDidlLite, ">");
-    if (aPin.Uri().Bytes() > 0) {
-        WriterBuffer writer(aDidlLite);
-        Converter::ToXmlEscaped(writer, aPin.Uri());
-    }
-    TryAppend(aDidlLite, "</res>");
-    TryAppend(aDidlLite, "</item>");
-    TryAppend(aDidlLite, "</DIDL-Lite>");
-}
+    WriterDIDLLite writer(pinId, DIDLLite::kItemTypeTrack, aDidlLite);
 
-void PinMetadata::TryAppend(Bwx& aDidlLite, const TChar* aStr)
-{
-    Brn buf(aStr);
-    TryAppend(aDidlLite, buf);
-}
+    writer.WriteTitle(aPin.Title());
+    writer.WriteDescription(aPin.Description());
+    writer.WriteArtwork(aPin.ArtworkUri());
+    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, 0, aPin.Uri());
 
-void PinMetadata::TryAppend(Bwx& aDidlLite, const Brx& aBuf)
-{
-    if (!aDidlLite.TryAppend(aBuf)) {
-        THROW(BufferOverflow);
-    }
-}
-
-void PinMetadata::TryAddTag(Bwx& aDidlLite, const Brx& aDidlTag, const Brx& aNs, const Brx& aRole, const Brx& aValue)
-{
-    TryAppend(aDidlLite, "<");
-    TryAppend(aDidlLite, aDidlTag);
-    TryAppend(aDidlLite, " xmlns:");
-    TryAppend(aDidlLite, aNs);
-    if (aRole.Bytes() > 0) {
-        TryAppend(aDidlLite, " role=\"");
-        TryAppend(aDidlLite, aRole);
-        TryAppend(aDidlLite, "\"");
-    }
-    TryAppend(aDidlLite, ">");
-    WriterBuffer writer(aDidlLite);
-    Converter::ToXmlEscaped(writer, aValue);
-    TryAppend(aDidlLite, "</");
-    TryAppend(aDidlLite, aDidlTag);
-    TryAppend(aDidlLite, ">");
-}
-
-void PinMetadata::TryAddAttribute(Bwx& aDidlLite, const TChar* aValue, const TChar* aDidlAttr)
-{
-    TryAppend(aDidlLite, " ");
-    TryAppend(aDidlLite, aDidlAttr);
-    TryAppend(aDidlLite, "=\"");
-    TryAppend(aDidlLite, aValue);
-    TryAppend(aDidlLite, "\"");
+    writer.WriteEnd();
 }

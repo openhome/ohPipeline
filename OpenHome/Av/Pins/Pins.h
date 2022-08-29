@@ -329,11 +329,7 @@ class PinMetadata
 {
 public:
     static void GetDidlLite(const IPin& aPin, Bwx& aDidlLite);
-private:
-    static void TryAppend(Bwx& aDidlLite, const TChar* aStr);
-    static void TryAppend(Bwx& aDidlLite, const Brx& aBuf);
-    static void TryAddTag(Bwx& aDidlLite, const Brx& aDidlTag, const Brx& aNs, const Brx& aRole, const Brx& aValue);
-    static void TryAddAttribute(Bwx& aDidlLite, const TChar* aValue, const TChar* aDidlAttr);
+
 };
 
 } // namespace Av

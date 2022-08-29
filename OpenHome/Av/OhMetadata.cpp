@@ -56,6 +56,7 @@ const Brn DIDLLite::kTagTitle("dc:title");
 const Brn DIDLLite::kTagArtist("upnp:artist");
 const Brn DIDLLite::kTagAlbumTitle("upnp:album");
 const Brn DIDLLite::kTagArtwork("upnp:albumArtURI");
+const Brn DIDLLite::kTagDescription("dc:description" );
 const Brn DIDLLite::kTagOriginalTrackNumber("upnp:originalTrackNumber");
 
 const Brn DIDLLite::kItemTypeTrack("object.item.audioItem.musicTrack");
@@ -192,16 +193,17 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, Bwx& aTempBuf)
 }
 
 // WriterDIDLLite
-WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, Media::BwsTrackMetaData& aBuffer)
+WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, Bwx& aBuffer)
     : WriterDIDLLite(aItemId, aItemType, Brx::Empty(), aBuffer)
 { }
 
-WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const Brx& aParentId, Media::BwsTrackMetaData& aBuffer)
+WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const Brx& aParentId, Bwx& aBuffer)
     : iWriter(aItemId, aParentId, aBuffer)
     , iTitleWritten(false)
     , iAlbumWritten(false)
     , iArtistWritten(false)
     , iTrackNumberWritten(false)
+    , iDescriptionWritten(false)
     , iStreamingDetailsWritten(false)
 {
     iWriter.TryWriteTag(Brn("upnp:class"), WriterDIDLXml::kNsUpnp, aItemType);
@@ -263,6 +265,14 @@ void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, TUint aDuration
     }
 
     iWriter.TryWrite("</res>");
+}
+
+void WriterDIDLLite::WriteDescription(const Brx& aDescription)
+{
+    ASSERT(!iDescriptionWritten);
+    iDescriptionWritten = true;
+
+    iWriter.TryWriteTag(DIDLLite::kTagDescription, aDescription);
 }
 
 
@@ -356,7 +366,7 @@ void OhMetadata::Parse()
         { "details", "oh:details" },
         { "extensions", "oh:extensions" },
         { "publisher", "dc:publisher" },
-        { "description", "dc:description" },
+        { "description", DIDLLite::kTagDescription },
         { "rating", "upnp:rating" }
     };
     static const TUint kNumOh2DidlMappings = sizeof kOh2Didl / sizeof kOh2Didl[0];
