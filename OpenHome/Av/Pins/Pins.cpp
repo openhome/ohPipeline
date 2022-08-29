@@ -929,7 +929,7 @@ TBool PinUri::TryGetValue(const Brx& aKey, Bwx& aValue) const
 
 // PinMetadata
 
-void PinMetadata::GetDidlLite(const IPin& aPin, Bws& aDidlLite)
+void PinMetadata::GetDidlLite(const IPin& aPin, Bwx& aDidlLite)
 {
     Bws<4> pinId;
     Ascii::AppendDec(pinId, aPin.Id());

@@ -53,6 +53,7 @@ using namespace OpenHome::Av;
 const Brn DIDLLite::kProtocolHttpGet("http-get:*:*:*");
 
 const Brn DIDLLite::kTagTitle("dc:title");
+const Brn DIDLLite::kTagClass("upnp:class");
 const Brn DIDLLite::kTagArtist("upnp:artist");
 const Brn DIDLLite::kTagAlbumTitle("upnp:album");
 const Brn DIDLLite::kTagArtwork("upnp:albumArtURI");
@@ -206,7 +207,7 @@ WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const B
     , iDescriptionWritten(false)
     , iStreamingDetailsWritten(false)
 {
-    iWriter.TryWriteTag(Brn("upnp:class"), WriterDIDLXml::kNsUpnp, aItemType);
+    iWriter.TryWriteTag(DIDLLite::kTagClass, aItemType);
 }
 
 void WriterDIDLLite::WriteTitle(const Brx& aTitle)

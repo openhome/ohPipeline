@@ -72,9 +72,6 @@ namespace Av {
     class TuneIn;
     class TuneInMetadata : private OpenHome::INonCopyable
     {
-        static const OpenHome::Brn kNsDc;
-        static const OpenHome::Brn kNsUpnp;
-        static const OpenHome::Brn kNsOh;
     public:
         static const OpenHome::Brn kMediaTypePodcast;
     public:
@@ -83,11 +80,6 @@ namespace Av {
         const Brx& GetNextEpisodePublishedDate(const Brx& aXmlItem);
     private:
         void ParseTuneInMetadata(const Brx& aPodcastId, const OpenHome::Brx& aMetadata, TBool aLatestOnly);
-        void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
-        void TryAddTag(const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs,
-                       const OpenHome::Brx& aRole, const OpenHome::Brx& aValue);
-        void TryAppend(const TChar* aStr);
-        void TryAppend(const OpenHome::Brx& aBuf);
     private:
         OpenHome::Media::TrackFactory& iTrackFactory;
         OpenHome::Media::BwsTrackUri iTrackUri;

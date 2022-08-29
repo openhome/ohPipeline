@@ -17,6 +17,7 @@
 #include <Generated/CpAvOpenhomeOrgRadio2.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/ThreadPool.h>
+#include <OpenHome/Av/OhMetadata.h>
 
 #include <algorithm>
 
@@ -696,9 +697,6 @@ void PodcastPinsITunes::AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObs
     aObserver.NewPodcastEpisodesAvailable(iNewEpisodeList);
 }
 
-const Brn ITunesMetadata::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
-const Brn ITunesMetadata::kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
-const Brn ITunesMetadata::kNsOh("oh=\"http://www.openhome.org\"");
 const Brn ITunesMetadata::kMediaTypePodcast("podcast");
 
 ITunesMetadata::ITunesMetadata(Media::TrackFactory& aTrackFactory)
@@ -773,111 +771,26 @@ void ITunesMetadata::ParseITunesMetadata(PodcastInfoITunes& aPodcast, const Brx&
     iTrackUri.ReplaceThrow(Brx::Empty());
     iMetaDataDidl.ReplaceThrow(Brx::Empty());
 
-    TryAppend("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-    TryAppend("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-    TryAppend("<item id=\"");
-    TryAppend(aPodcast.Id());;
-    TryAppend("\" parentID=\"-1\" restricted=\"1\">");
-    TryAddTag(Brn("upnp:artist"), kNsUpnp, Brx::Empty(), aPodcast.Artist());
-    TryAddTag(Brn("upnp:album"), kNsUpnp, Brx::Empty(), aPodcast.Name());
-    TryAddTag(Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), aPodcast.ArtworkUrl());
-    TryAddTag(Brn("upnp:class"), kNsUpnp, Brx::Empty(), Brn("object.item.audioItem.musicTrack"));
+    WriterDIDLLite writer(aPodcast.Id(), DIDLLite::kItemTypeTrack, iMetaDataDidl);
+
+    writer.WriteArtist(aPodcast.Artist());
+    writer.WriteArtwork(aPodcast.ArtworkUrl());
+    writer.WriteAlbum(aPodcast.Name());
+
     PodcastEpisodeITunes* episode = new PodcastEpisodeITunes(aXmlItem);  // get Episode Title, release date, duration, and streamable url
     LOG(kMedia, "Podcast Title: %.*s\n", PBUF(episode->Title()));
     LOG(kMedia, "    Published Date: %.*s\n", PBUF(episode->PublishedDate()));
     LOG(kMedia, "    Duration: %ds\n", episode->Duration());
     LOG(kMedia, "    Url: %.*s\n", PBUF(episode->Url()));
     iTrackUri.ReplaceThrow(episode->Url());
-    TryAddTag(Brn("dc:title"), kNsDc, Brx::Empty(), episode->Title());
-    TryAppend("<res");
-    TryAddAttribute("http-get:*:*:*", "protocolInfo");
-    if (episode->Duration() > 0) {
-        TryAppend(" duration=\"");
-        TUint duration = episode->Duration();
-        const TUint secs = duration % 60;
-        duration /= 60;
-        const TUint mins = duration % 60;
-        const TUint hours = duration / 60;
-        Bws<32> formatted;
-        formatted.AppendPrintf("%u:%02u:%02u.000", hours, mins, secs);
-        TryAppend(formatted);
-        TryAppend("\"");
-    }
-    
-    TryAppend(">");
-    if (iTrackUri.Bytes() > 0) {
-        WriterBuffer writer(iMetaDataDidl);
-        Converter::ToXmlEscaped(writer, iTrackUri);
-    }
-    TryAppend("</res>");
-    TryAppend("</item>");
-    TryAppend("</DIDL-Lite>");
+
+    writer.WriteTitle(episode->Title());
+
+    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, episode->Duration(), iTrackUri);
+
+    writer.WriteEnd();
+
     delete episode;
-}
-
-void ITunesMetadata::TryAddAttribute(JsonParser& aParser, const TChar* aITunesKey, const TChar* aDidlAttr)
-{
-    if (aParser.HasKey(aITunesKey)) {
-        TryAppend(" ");
-        TryAppend(aDidlAttr);
-        TryAppend("=\"");
-        TryAppend(aParser.String(aITunesKey));
-        TryAppend("\"");
-    }
-}
-
-void ITunesMetadata::TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr)
-{
-    TryAppend(" ");
-    TryAppend(aDidlAttr);
-    TryAppend("=\"");
-    TryAppend(aValue);
-    TryAppend("\"");
-}
-
-void ITunesMetadata::TryAddTag(JsonParser& aParser, const Brx& aITunesKey,
-                           const Brx& aDidlTag, const Brx& aNs)
-{
-    if (!aParser.HasKey(aITunesKey)) {
-        return;
-    }
-    Brn val = aParser.String(aITunesKey);
-    Bwn valEscaped(val.Ptr(), val.Bytes(), val.Bytes());
-    Json::Unescape(valEscaped);
-    TryAddTag(aDidlTag, aNs, Brx::Empty(), valEscaped);
-}
-
-void ITunesMetadata::TryAddTag(const Brx& aDidlTag, const Brx& aNs,
-                           const Brx& aRole, const Brx& aValue)
-{
-    TryAppend("<");
-    TryAppend(aDidlTag);
-    TryAppend(" xmlns:");
-    TryAppend(aNs);
-    if (aRole.Bytes() > 0) {
-        TryAppend(" role=\"");
-        TryAppend(aRole);
-        TryAppend("\"");
-    }
-    TryAppend(">");
-    WriterBuffer writer(iMetaDataDidl);
-    Converter::ToXmlEscaped(writer, aValue);
-    TryAppend("</");
-    TryAppend(aDidlTag);
-    TryAppend(">");
-}
-
-void ITunesMetadata::TryAppend(const TChar* aStr)
-{
-    Brn buf(aStr);
-    TryAppend(buf);
-}
-
-void ITunesMetadata::TryAppend(const Brx& aBuf)
-{
-    if (!iMetaDataDidl.TryAppend(aBuf)) {
-        THROW(BufferOverflow);
-    }
 }
 
 const Brn ITunes::kHost("itunes.apple.com");

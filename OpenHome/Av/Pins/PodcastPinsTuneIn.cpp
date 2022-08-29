@@ -5,6 +5,7 @@
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Av/OhMetadata.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
@@ -607,9 +608,7 @@ void PodcastPinsTuneIn::AddNewPodcastEpisodesObserver(IPodcastPinsObserver& aObs
     aObserver.NewPodcastEpisodesAvailable(iNewEpisodeList);
 }
 
-const Brn TuneInMetadata::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
-const Brn TuneInMetadata::kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
-const Brn TuneInMetadata::kNsOh("oh=\"http://www.openhome.org\"");
+
 const Brn TuneInMetadata::kMediaTypePodcast("audio");
 
 TuneInMetadata::TuneInMetadata(Media::TrackFactory& aTrackFactory)
@@ -655,91 +654,29 @@ void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlI
     iTrackUri.ReplaceThrow(Brx::Empty());
     iMetaDataDidl.ReplaceThrow(Brx::Empty());
 
-    TryAppend("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-    TryAppend("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-    TryAppend("<item id=\"");
-    TryAppend(aPodcastId);
-    TryAppend("\" parentID=\"-1\" restricted=\"1\">");
+    WriterDIDLLite writer(aPodcastId, DIDLLite::kItemTypeTrack, iMetaDataDidl);
+
     PodcastEpisodeTuneIn* episode = new PodcastEpisodeTuneIn(aXmlItem);  // get Episode Title, release date, duration, artwork, and streamable url
     if (!aLatestOnly) {
-        //TryAddTag(Brn("upnp:artist"), kNsUpnp, Brx::Empty(), aPodcast.Artist());
-        TryAddTag(Brn("upnp:album"), kNsUpnp, Brx::Empty(), Brn("Podcast Collection")); // only relevant for podcast lists
+        writer.WriteAlbum(Brn("Podcast Collection")); // only relevant for podcast list
     }
-    TryAddTag(Brn("upnp:albumArtURI"), kNsUpnp, Brx::Empty(), episode->ArtworkUrl());
-    TryAddTag(Brn("upnp:class"), kNsUpnp, Brx::Empty(), Brn("object.item.audioItem.musicTrack"));
+
+    writer.WriteArtwork(episode->ArtworkUrl());
+
     LOG(kMedia, "Podcast Title: %.*s\n", PBUF(episode->Title()));
     LOG(kMedia, "    Published Date: %.*s\n", PBUF(episode->PublishedDate()));
     LOG(kMedia, "    Duration: %ds\n", episode->Duration());
     LOG(kMedia, "    Url: %.*s\n", PBUF(episode->Url()));
     iTrackUri.ReplaceThrow(episode->Url());
-    TryAddTag(Brn("dc:title"), kNsDc, Brx::Empty(), episode->Title());
-    TryAppend("<res");
-    TryAddAttribute("http-get:*:*:*", "protocolInfo");
-    if (episode->Duration() > 0) {
-        TryAppend(" duration=\"");
-        TUint duration = episode->Duration();
-        const TUint secs = duration % 60;
-        duration /= 60;
-        const TUint mins = duration % 60;
-        const TUint hours = duration / 60;
-        Bws<32> formatted;
-        formatted.AppendPrintf("%u:%02u:%02u.000", hours, mins, secs);
-        TryAppend(formatted);
-        TryAppend("\"");
-    }
-    
-    TryAppend(">");
-    if (iTrackUri.Bytes() > 0) {
-        WriterBuffer writer(iMetaDataDidl);
-        Converter::ToXmlEscaped(writer, iTrackUri);
-    }
-    TryAppend("</res>");
-    TryAppend("</item>");
-    TryAppend("</DIDL-Lite>");
+
+    writer.WriteTitle(episode->Title());
+    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, episode->Duration(), iTrackUri);
+
+    writer.WriteEnd();
+
     delete episode;
 }
 
-void TuneInMetadata::TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr)
-{
-    TryAppend(" ");
-    TryAppend(aDidlAttr);
-    TryAppend("=\"");
-    TryAppend(aValue);
-    TryAppend("\"");
-}
-
-void TuneInMetadata::TryAddTag(const Brx& aDidlTag, const Brx& aNs,
-                           const Brx& aRole, const Brx& aValue)
-{
-    TryAppend("<");
-    TryAppend(aDidlTag);
-    TryAppend(" xmlns:");
-    TryAppend(aNs);
-    if (aRole.Bytes() > 0) {
-        TryAppend(" role=\"");
-        TryAppend(aRole);
-        TryAppend("\"");
-    }
-    TryAppend(">");
-    WriterBuffer writer(iMetaDataDidl);
-    Converter::ToXmlEscaped(writer, aValue);
-    TryAppend("</");
-    TryAppend(aDidlTag);
-    TryAppend(">");
-}
-
-void TuneInMetadata::TryAppend(const TChar* aStr)
-{
-    Brn buf(aStr);
-    TryAppend(buf);
-}
-
-void TuneInMetadata::TryAppend(const Brx& aBuf)
-{
-    if (!iMetaDataDidl.TryAppend(aBuf)) {
-        THROW(BufferOverflow);
-    }
-}
 
 TuneIn::TuneIn(Environment& aEnv)
     : iLock("ITUN")

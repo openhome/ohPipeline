@@ -17,6 +17,7 @@ class DIDLLite
 public:
     static const Brn kProtocolHttpGet;
 
+    static const Brn kTagClass;
     static const Brn kTagTitle;
     static const Brn kTagArtist;
     static const Brn kTagArtwork;

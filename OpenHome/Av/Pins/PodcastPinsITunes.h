@@ -89,17 +89,6 @@ namespace Av {
         static Brn FirstIdFromJson(const OpenHome::Brx& aJsonResponse);
     private:
         void ParseITunesMetadata(PodcastInfoITunes& aPodcast, const OpenHome::Brx& aMetadata);
-
-        void TryAddAttribute(OpenHome::JsonParser& aParser,
-                             const TChar* aITunesKey, const TChar* aDidlAttr);
-        void TryAddAttribute(const TChar* aValue, const TChar* aDidlAttr);
-
-        void TryAddTag(OpenHome::JsonParser& aParser, const OpenHome::Brx& aITunesKey,
-                       const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs);
-        void TryAddTag(const OpenHome::Brx& aDidlTag, const OpenHome::Brx& aNs,
-                       const OpenHome::Brx& aRole, const OpenHome::Brx& aValue);
-        void TryAppend(const TChar* aStr);
-        void TryAppend(const OpenHome::Brx& aBuf);
     private:
         OpenHome::Media::TrackFactory& iTrackFactory;
         OpenHome::Media::BwsTrackUri iTrackUri;
