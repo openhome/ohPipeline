@@ -16,34 +16,29 @@ namespace Scd {
 class Oh2DidlTagMapping
 {
 public:
-    Oh2DidlTagMapping(const TChar* aOhKey, const TChar* aDidlTag, const Brx& aNs)
+    Oh2DidlTagMapping(const TChar* aOhKey, const TChar* aDidlTag)
         : iOhKey(aOhKey)
         , iDidlTag(aDidlTag)
-        , iNs(aNs)
         , iRole(OpenHome::Brx::Empty())
     {}
-    Oh2DidlTagMapping(const TChar* aOhKey, const Brx& aDidlTag, const Brx& aNs)
+    Oh2DidlTagMapping(const TChar* aOhKey, const Brx& aDidlTag)
         : iOhKey(aOhKey)
         , iDidlTag(aDidlTag)
-        , iNs(aNs)
         , iRole(OpenHome::Brx::Empty())
     {}
-    Oh2DidlTagMapping(const TChar* aOhKey, const TChar* aDidlTag, const Brx& aNs, const TChar* aRole)
+    Oh2DidlTagMapping(const TChar* aOhKey, const TChar* aDidlTag, const TChar* aRole)
         : iOhKey(aOhKey)
         , iDidlTag(aDidlTag)
-        , iNs(aNs)
         , iRole(aRole)
     {}
-    Oh2DidlTagMapping(const TChar* aOhKey, const Brx& aDidlTag, const Brx& aNs, const TChar* aRole)
+    Oh2DidlTagMapping(const TChar* aOhKey, const Brx& aDidlTag, const TChar* aRole)
         : iOhKey(aOhKey)
         , iDidlTag(aDidlTag)
-        , iNs(aNs)
         , iRole(aRole)
     {}
 public:
     Brn iOhKey;
     Brn iDidlTag;
-    Brn iNs;
     Brn iRole;
 };
 
@@ -81,9 +76,16 @@ WriterDIDLXml::WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, Bwx& aBuf
 {
     iBuffer.SetBytes(0);
 
-    // Preamble....
+    // Preamble.... We include the 3 most common namespaces to avoid us having to inline them on every tag call
     TryWrite("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-    TryWrite("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
+    TryWrite("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\"");
+    TryWrite(" xmlns:");
+    TryWrite(kNsUpnp);
+    TryWrite(" xmlns:");
+    TryWrite(kNsDc);
+    TryWrite(" xmlns:");
+    TryWrite(kNsOh);
+    TryWrite(">");
     TryWrite("<item");
 
     // Every item *MUST* have an ID.
@@ -110,17 +112,30 @@ void WriterDIDLXml::TryWriteAttribute(const Brx& aDidlAttr, const Brx& aValue)
     TryWrite("\"");
 }
 
+void WriterDIDLXml::TryWriteTag(const Brx& aDidlTag, const Brx& aValue)
+{
+    TryWriteTagWithAttribute(aDidlTag, Brx::Empty(), Brx::Empty(), Brx::Empty(), aValue);
+}
+
 void WriterDIDLXml::TryWriteTag(const Brx& aDidlTag, const Brx& aNs, const Brx& aValue)
 {
     TryWriteTagWithAttribute(aDidlTag, aNs, Brx::Empty(), Brx::Empty(), aValue);
+}
+
+void WriterDIDLXml::TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue)
+{
+    TryWriteTagWithAttribute(aDidlTag, Brx::Empty(), aAttribute, aAttributeValue, aValue);
 }
 
 void WriterDIDLXml::TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aNs, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue)
 {
     TryWrite("<");
     TryWrite(aDidlTag);
-    TryWrite(" xmlns:");
-    TryWrite(aNs);
+
+    if (aNs.Bytes() > 0) {
+        TryWrite(" xmlns:");
+        TryWrite(aNs);
+    }
 
     if (aAttribute.Bytes() > 0 && aAttributeValue.Bytes() > 0) {
         TryWriteAttribute(aAttribute, aAttributeValue);
@@ -197,7 +212,7 @@ void WriterDIDLLite::WriteTitle(const Brx& aTitle)
     ASSERT(!iTitleWritten);
     iTitleWritten = true;
 
-    iWriter.TryWriteTag(DIDLLite::kTagTitle, WriterDIDLXml::kNsDc, aTitle);
+    iWriter.TryWriteTag(DIDLLite::kTagTitle, aTitle);
 }
 
 void WriterDIDLLite::WriteAlbum(const Brx& aAlbum)
@@ -205,7 +220,7 @@ void WriterDIDLLite::WriteAlbum(const Brx& aAlbum)
     ASSERT(!iAlbumWritten);
     iAlbumWritten = true;
 
-    iWriter.TryWriteTag(DIDLLite::kTagAlbumTitle, WriterDIDLXml::kNsUpnp, aAlbum);
+    iWriter.TryWriteTag(DIDLLite::kTagAlbumTitle, aAlbum);
 }
 
 void WriterDIDLLite::WriteArtist(const Brx& aArtist)
@@ -213,7 +228,7 @@ void WriterDIDLLite::WriteArtist(const Brx& aArtist)
     ASSERT(!iArtistWritten);
     iArtistWritten = true;
 
-    iWriter.TryWriteTag(DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, aArtist);
+    iWriter.TryWriteTag(DIDLLite::kTagArtist, aArtist);
 }
 
 void WriterDIDLLite::WriteTrackNumber(const Brx& aTrackNumber)
@@ -221,7 +236,7 @@ void WriterDIDLLite::WriteTrackNumber(const Brx& aTrackNumber)
     ASSERT(!iTrackNumberWritten);
     iTrackNumberWritten = true;
 
-    iWriter.TryWriteTag(DIDLLite::kTagOriginalTrackNumber, WriterDIDLXml::kNsUpnp, aTrackNumber);
+    iWriter.TryWriteTag(DIDLLite::kTagOriginalTrackNumber, aTrackNumber);
 }
 
 void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri)
@@ -259,7 +274,7 @@ void WriterDIDLLite::WriteEnd()
 
 void WriterDIDLLite::WriteArtwork(const Brx& aArtwork)
 {
-    iWriter.TryWriteTag(DIDLLite::kTagArtwork, WriterDIDLXml::kNsUpnp, aArtwork);
+    iWriter.TryWriteTag(DIDLLite::kTagArtwork, aArtwork);
 }
 
 
@@ -311,38 +326,38 @@ OhMetadata::OhMetadata(const OpenHomeMetadataBuf& aMetadata)
 void OhMetadata::Parse()
 {
     static const Oh2DidlTagMapping kOh2Didl[] = {
-        { "artist", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp },
-        { "albumArtist", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "AlbumArtist" },
-        { "composer", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "composer" },
-        { "conductor", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "conductor" },
-        { "narrator", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "narrator" },
-        { "performer", DIDLLite::kTagArtist, WriterDIDLXml::kNsUpnp, "performer" },
-        { "genre", "upnp:genre", WriterDIDLXml::kNsUpnp },
-        { "albumGenre", "upnp:genre", WriterDIDLXml::kNsUpnp },
-        { "author", "dc:author", WriterDIDLXml::kNsDc },
-        { "title", DIDLLite::kTagTitle, WriterDIDLXml::kNsDc },
-        { "year", "dc:date", WriterDIDLXml::kNsDc },
-        { "albumTitle", DIDLLite::kTagAlbumTitle, WriterDIDLXml::kNsUpnp },
-        { "albumArtwork", DIDLLite::kTagAlbumTitle, WriterDIDLXml::kNsUpnp },
-        { "provider", "oh:provider", WriterDIDLXml::kNsOh },
-        { "artwork", "oh:artwork", WriterDIDLXml::kNsOh },
-        { "track", DIDLLite::kTagOriginalTrackNumber, WriterDIDLXml::kNsUpnp },
-        { "tracks", "oh:originalTrackCount", WriterDIDLXml::kNsOh },
-        { "disc", "oh:originalDiscNumber", WriterDIDLXml::kNsOh },
-        { "discs", "oh:originalDiscCount", WriterDIDLXml::kNsOh },
-        { "work", "oh:work", WriterDIDLXml::kNsOh },
-        { "movement", "oh:movement", WriterDIDLXml::kNsOh },
-        { "show", "oh:show", WriterDIDLXml::kNsOh },
-        { "episode", "oh:episodeNumber", WriterDIDLXml::kNsOh },
-        { "episodes", "oh:episodeCount", WriterDIDLXml::kNsOh },
-        { "published", "oh:published", WriterDIDLXml::kNsOh },
-        { "website", "oh:website", WriterDIDLXml::kNsOh },
-        { "location", "oh:location", WriterDIDLXml::kNsOh },
-        { "details", "oh:details", WriterDIDLXml::kNsOh },
-        { "extensions", "oh:extensions", WriterDIDLXml::kNsOh },
-        { "publisher", "dc:publisher", WriterDIDLXml::kNsDc },
-        { "description", "dc:description", WriterDIDLXml::kNsDc },
-        { "rating", "upnp:rating", WriterDIDLXml::kNsUpnp }
+        { "artist", DIDLLite::kTagArtist },
+        { "albumArtist", DIDLLite::kTagArtist, "AlbumArtist" },
+        { "composer", DIDLLite::kTagArtist, "composer" },
+        { "conductor", DIDLLite::kTagArtist,"conductor" },
+        { "narrator", DIDLLite::kTagArtist,  "narrator" },
+        { "performer", DIDLLite::kTagArtist, "performer" },
+        { "genre", "upnp:genre" },
+        { "albumGenre", "upnp:genre"},
+        { "author", "dc:author"},
+        { "title", DIDLLite::kTagTitle},
+        { "year", "dc:date"},
+        { "albumTitle", DIDLLite::kTagAlbumTitle },
+        { "albumArtwork", DIDLLite::kTagAlbumTitle },
+        { "provider", "oh:provider" },
+        { "artwork", "oh:artwork"},
+        { "track", DIDLLite::kTagOriginalTrackNumber },
+        { "tracks", "oh:originalTrackCount" },
+        { "disc", "oh:originalDiscNumber" },
+        { "discs", "oh:originalDiscCount" },
+        { "work", "oh:work" },
+        { "movement", "oh:movement" },
+        { "show", "oh:show" },
+        { "episode", "oh:episodeNumber" },
+        { "episodes", "oh:episodeCount" },
+        { "published", "oh:published" },
+        { "website", "oh:website" },
+        { "location", "oh:location" },
+        { "details", "oh:details" },
+        { "extensions", "oh:extensions" },
+        { "publisher", "dc:publisher" },
+        { "description", "dc:description" },
+        { "rating", "upnp:rating" }
     };
     static const TUint kNumOh2DidlMappings = sizeof kOh2Didl / sizeof kOh2Didl[0];
 
@@ -364,7 +379,7 @@ void OhMetadata::Parse()
         for (TUint i = 0; i < kNumOh2DidlMappings; i++) {
             const auto& mapping = kOh2Didl[i];
             if (kvp.first == mapping.iOhKey) {
-                writer.TryWriteTagWithAttribute(mapping.iDidlTag, mapping.iNs, Brn("role"), mapping.iRole, kvp.second);
+                writer.TryWriteTagWithAttribute(mapping.iDidlTag, Brn("role"), mapping.iRole, kvp.second);
                 break;
             }
         }

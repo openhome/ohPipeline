@@ -43,7 +43,9 @@ public:
 public:
     void TryWriteAttribute(const TChar* aDidlAttr, const Brx& aValue);
     void TryWriteAttribute(const Brx& aDidlAttr, const Brx& aValue);
+    void TryWriteTag(const Brx& aDidlTag, const Brx& aValue);
     void TryWriteTag(const Brx& aDidlTag, const Brx& aNs, const Brx& aValue);
+    void TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue);
     void TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aNs, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue);
     void TryWrite(const TChar* aStr);
     void TryWrite(const Brx& aBuf);
