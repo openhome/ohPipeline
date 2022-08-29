@@ -39,12 +39,25 @@ static const TChar* kPinTypeContainer = "container";
 static const TChar* kPinKeyTrackId = "trackId";
 static const TChar* kPinKeyPath = "path";
 static const TChar* kPinKeyResponseType = "response";
+static const TChar* kPinKeyShuffleMode = "shuffleMode";
 
 // Pin response types
 static const TChar* kPinResponseTracks = "tracks";
 static const TChar* kPinResponseAlbums = "albums";
 static const TChar* kPinResponseArtists = "artists";
 static const TChar* kPinResponsePlaylists = "playlists";
+
+// JSON Property Keys
+static const Brn kPropertyAlbums("albums");
+static const Brn kPropertyArtists("artists");
+static const Brn kPropertyPlaylists("playlists");
+static const Brn kPropertyTracks("tracks");
+static const Brn kPropertyTracksAppearsOn("tracks_appears_on");
+
+// Shuffle Modes
+static const Brn kShuffleModeNone("none");
+static const Brn kShuffleModeDefault("default");
+static const Brn kShuffleModeWhenRequired("whenRequired");
 
 QobuzPins::QobuzPins(Qobuz& aQobuz, 
                      Environment& aEnv,
@@ -114,9 +127,12 @@ void QobuzPins::Invoke()
     try {
         PinUri pinUri(iPin);
         Brn val;
+
+        EShuffleMode shuffleMode = GetShuffleMode(pinUri);
+
         if (Brn(pinUri.Type()) == Brn(kPinTypeTrack)) {
             if (pinUri.TryGetValue(kPinKeyTrackId, val)) {
-                res = LoadByStringQuery(val, QobuzMetadata::eTrack, iPin.Shuffle());
+                res = LoadByStringQuery(val, QobuzMetadata::eTrack, iPin.Shuffle(), shuffleMode);
             }
             else {
                 THROW(PinUriMissingRequiredParameter);
@@ -127,7 +143,7 @@ void QobuzPins::Invoke()
                  Brn(pinUri.Type()) == Brn(kPinTypeArtist) ||
                  Brn(pinUri.Type()) == Brn(kPinTypeAlbum)) {
             if (pinUri.TryGetValue(kPinKeyPath, val)) {
-                res = LoadByPath(val, pinUri, iPin.Shuffle());
+                res = LoadByPath(val, pinUri, iPin.Shuffle(), shuffleMode);
             }
             else {
                 // Previous had a 'test only' branch as well, but this is no longer required
@@ -149,22 +165,22 @@ void QobuzPins::Invoke()
     }
 }
 
-TBool QobuzPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle)
+TBool QobuzPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aPinShuffle, EShuffleMode aShuffleMode)
 {
     TBool res = false;
     Brn response(Brx::Empty());
     aPinUri.TryGetValue(kPinKeyResponseType, response);
     if (response == Brn(kPinResponseTracks)) {
-        res = LoadTracks(aPath, aShuffle);
+        res = LoadTracks(aPath, aPinShuffle, aShuffleMode);
     }
     else if (response == Brn(kPinResponseAlbums)) {
-        res = LoadContainers(aPath, QobuzMetadata::eAlbum, aShuffle);
+        res = LoadContainers(aPath, QobuzMetadata::eAlbum, aPinShuffle, aShuffleMode);
     }
     else if (response == Brn(kPinResponsePlaylists)) {
-        res = LoadContainers(aPath, QobuzMetadata::ePlaylist, aShuffle);
+        res = LoadContainers(aPath, QobuzMetadata::ePlaylist, aPinShuffle, aShuffleMode);
     }
     else if (response == Brn(kPinResponseArtists)) {
-        res = LoadContainers(aPath, QobuzMetadata::eArtist, aShuffle);
+        res = LoadContainers(aPath, QobuzMetadata::eArtist, aPinShuffle, aShuffleMode);
     }
     else {
         THROW(PinUriMissingRequiredParameter);
@@ -172,11 +188,11 @@ TBool QobuzPins::LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuf
     return res;
 }
 
-TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aIdType, TBool aShuffle)
+TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aIdType, TBool aPinShuffle, EShuffleMode aShuffleMode)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
-    InitPlaylist(aShuffle);
+    InitPlaylist(aPinShuffle);
     Bwh inputBuf(64);
     TUint tracksFound = 0;
 
@@ -196,7 +212,7 @@ TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aId
     inputBuf.Replace(aQuery);
 
     try {
-        lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound);
+        lastId = LoadTracksById(inputBuf, aIdType, lastId, tracksFound, aPinShuffle, aShuffleMode);
     }
     catch (PinNothingToPlay&) { // Do nothing...
     }
@@ -212,11 +228,11 @@ TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aId
     return lastId;
 }
 
-TBool QobuzPins::LoadTracks(const Brx& aPath, TBool aShuffle)
+TBool QobuzPins::LoadTracks(const Brx& aPath, TBool aPinShuffle, EShuffleMode aShuffleMode)
 {
     AutoMutex _(iLock);
     TUint lastId = 0;
-    InitPlaylist(aShuffle);
+    InitPlaylist(aPinShuffle);
     TUint tracksFound = 0;
 
     if (aPath.Bytes() == 0) {
@@ -224,7 +240,7 @@ TBool QobuzPins::LoadTracks(const Brx& aPath, TBool aShuffle)
     }
 
     try {
-        lastId = LoadTracksById(aPath, QobuzMetadata::eNone, lastId, tracksFound);
+        lastId = LoadTracksById(aPath, QobuzMetadata::eNone, lastId, tracksFound, aPinShuffle, aShuffleMode);
     }
     catch (PinNothingToPlay&) {
     }
@@ -240,11 +256,11 @@ TBool QobuzPins::LoadTracks(const Brx& aPath, TBool aShuffle)
     return lastId;
 }
 
-TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType, TBool aShuffle)
+TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType, TBool aPinShuffled, EShuffleMode aShuffleMode)
 {
     AutoMutex _(iLock);
     JsonParser parser;
-    InitPlaylist(aShuffle);
+    InitPlaylist(aPinShuffled);
     TUint lastId = 0;
     TUint tracksFound = 0;
     TUint containersFound = 0;
@@ -253,8 +269,10 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
         containerIds[i].Grow(20);
     }
 
+    const TBool shuffleLoadOrder = ShouldShuffleLoadOrder(aPinShuffled, aShuffleMode);
+
     TUint start, end;
-    TUint total = GetTotalItems(parser, aPath, QobuzMetadata::eNone, true, start, end); // aIdType relevant to tracks, not containers
+    TUint total = GetTotalItems(parser, aPath, QobuzMetadata::eNone, true, shuffleLoadOrder, start, end); // aIdType relevant to tracks, not containers
     TUint offset = start;
 
     do {
@@ -291,7 +309,7 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
 
             for (TUint j = 0; j < idCount; j++) {
                 try {
-                    lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound);
+                    lastId = LoadTracksById(containerIds[j], aIdType, lastId, tracksFound, aPinShuffled, aShuffleMode);
                 }
                 catch (PinNothingToPlay&) {
                 }
@@ -305,7 +323,8 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
             LOG_ERROR(kPipeline, "%s in QobuzPins::LoadContainers\n", ex.Message());
             return false;
         }
-    } while (offset != end);
+    } while (shuffleLoadOrder ? offset != end
+                              : offset < end);
 
     if (tracksFound == 0) {
         THROW(PinNothingToPlay);
@@ -314,7 +333,7 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
     return true;
 }
 
-TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount)
+TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount, TBool aPinShuffled, EShuffleMode aShuffleMode)
 {
     if (iInterrupted.load()) {
         LOG(kMedia, "QobuzPins::LoadTracksById - interrupted\n");
@@ -328,8 +347,11 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
     JsonParser parser;
     Media::Track* track = nullptr;
 
+    const TBool shuffleLoadOrder = ShouldShuffleLoadOrder(aPinShuffled, aShuffleMode);
+
+
     TUint start, end;
-    TUint total = GetTotalItems(parser, aId, aIdType, false, start, end);
+    TUint total = GetTotalItems(parser, aId, aIdType, false, shuffleLoadOrder, start, end);
     TUint offset = start;
 
     // id to list of tracks
@@ -353,11 +375,11 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
             parser.Reset();
             parser.Parse(iJsonResponse.Buffer());
 
-            if (parser.HasKey(Brn("tracks"))) {
-                parser.Parse(parser.String(Brn("tracks")));
+            if (parser.HasKey(kPropertyTracks)) {
+                parser.Parse(parser.String(kPropertyTracks));
             }
-            else if (parser.HasKey("tracks_appears_on")) {
-                parser.Parse(parser.String("tracks_appears_on"));
+            else if (parser.HasKey(kPropertyTracksAppearsOn)) {
+                parser.Parse(parser.String(kPropertyTracksAppearsOn));
             }
 
             // Most Qobuz containers only provide required metadata in the parent container object, instead of the track objects directly.
@@ -409,7 +431,8 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
             }
             throw;
         }
-    } while (offset != end);
+    } while (shuffleLoadOrder ? offset != end
+                              : offset < end);
 
     if (!isPlayable) {
         THROW(PinNothingToPlay);
@@ -418,7 +441,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
     return currId;
 }
 
-TUint QobuzPins::GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadata::EIdType aIdType, TBool aIsContainer, TUint& aStartIndex, TUint& aEndIndex)
+TUint QobuzPins::GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadata::EIdType aIdType, TBool aIsContainer, TBool aShouldShuffleLoadOrder, TUint& aStartIndex, TUint& aEndIndex)
 {
     // Track = single item
     if (aIdType == QobuzMetadata::eTrack) {
@@ -462,20 +485,22 @@ TUint QobuzPins::GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadat
     aStartIndex = 0;
     aEndIndex = total;
 
-    if (aIsContainer) {
-        aStartIndex = iEnv.Random(total);
-        if (aStartIndex > 0) {
-            aEndIndex = aStartIndex;
-        }
-    }
-    else {
-        if (total > iMaxPlaylistTracks) {
+    if (aShouldShuffleLoadOrder) {
+        if (aIsContainer) {
             aStartIndex = iEnv.Random(total);
-            if (iMaxPlaylistTracks > (total - aStartIndex)) {
-                aEndIndex = iMaxPlaylistTracks - (total - aStartIndex); 
+            if (aStartIndex > 0) {
+                aEndIndex = aStartIndex;
             }
-            else {
-                aEndIndex = iMaxPlaylistTracks + aStartIndex;
+        }
+        else {
+            if (total > iMaxPlaylistTracks) {
+                aStartIndex = iEnv.Random(total);
+                if (iMaxPlaylistTracks > (total - aStartIndex)) {
+                    aEndIndex = iMaxPlaylistTracks - (total - aStartIndex);
+                }
+                else {
+                    aEndIndex = iMaxPlaylistTracks + aStartIndex;
+                }
             }
         }
     }
@@ -525,19 +550,65 @@ void QobuzPins::InitPlaylist(TBool aShuffle)
 
 void QobuzPins::FindResponse(JsonParser& aParser)
 {
-    if (aParser.HasKey(Brn("albums"))) {
-        aParser.Parse(aParser.String(Brn("albums")));
+    if (aParser.HasKey(kPropertyAlbums)) {
+        aParser.Parse(aParser.String(kPropertyAlbums));
     }
-    else if (aParser.HasKey(Brn("playlists"))) {
-        aParser.Parse(aParser.String(Brn("playlists")));
+    else if (aParser.HasKey(kPropertyPlaylists)) {
+        aParser.Parse(aParser.String(kPropertyPlaylists));
     }
-    else if (aParser.HasKey(Brn("artists"))) {
-        aParser.Parse(aParser.String(Brn("artists")));
+    else if (aParser.HasKey(kPropertyArtists)) {
+        aParser.Parse(aParser.String(kPropertyArtists));
     }
-    else if (aParser.HasKey(Brn("tracks"))) {
-        aParser.Parse(aParser.String(Brn("tracks")));
+    else if (aParser.HasKey(kPropertyTracks)) {
+        aParser.Parse(aParser.String(kPropertyTracks));
     }
-    else if (aParser.HasKey(Brn("tracks_appears_on"))) {
-        aParser.Parse(aParser.String(Brn("tracks_appears_on")));
+    else if (aParser.HasKey(kPropertyTracksAppearsOn)) {
+        aParser.Parse(aParser.String(kPropertyTracksAppearsOn));
     }
 }
+
+QobuzPins::EShuffleMode QobuzPins::GetShuffleMode(PinUri& aPinUri)
+{
+    Brn shuffleMode;
+
+    if (!aPinUri.TryGetValue(kPinKeyShuffleMode, shuffleMode)) {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: Default (Inferred)\n");
+        return EShuffleMode::Default;
+    }
+
+    if (shuffleMode == kShuffleModeNone) {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: None\n");
+        return EShuffleMode::None;
+    }
+    else if (shuffleMode == kShuffleModeDefault) {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: Default\n");
+        return EShuffleMode::Default;
+    }
+    else if (shuffleMode == kShuffleModeWhenRequired) {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: WhenRequired\n");
+        return EShuffleMode::WhenRequired;
+    }
+    else {
+        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Usiing: Default (Unknown mode (%.*s) requested)\n", PBUF(shuffleMode));
+        return EShuffleMode::Default;
+    }
+}
+
+TBool QobuzPins::ShouldShuffleLoadOrder(TBool aPinShuffled, EShuffleMode aShuffleMode)
+{
+    switch (aShuffleMode)
+    {
+        case EShuffleMode::None:
+            return false;
+
+        case EShuffleMode::Default:
+            return true;
+
+        case EShuffleMode::WhenRequired:
+            return aPinShuffled;
+
+        default: // Not reached
+            return true;
+    }
+}
+

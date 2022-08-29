@@ -33,6 +33,14 @@ class QobuzPins
     const TUint kMinSupportedVersion = 1;
     const TUint kMaxSupportedVersion = 1;
 
+private:
+    enum class EShuffleMode
+    {
+        None,
+        Default,
+        WhenRequired,
+    };
+
 public:
     QobuzPins(Qobuz& aQobuz, 
               Environment& iEnv,
@@ -48,17 +56,19 @@ private: // from IPinInvoker
     TBool SupportsVersion(TUint version) const override;
 private:
     void Invoke();
-    TBool LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aShuffle);
-    TBool LoadTracks(const Brx& aPath, TBool aShuffle);
-    TBool LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType, TBool aShuffle);
-    TBool LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aIdType, TBool aShuffle);
-    TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount);
+    TBool LoadByPath(const Brx& aPath, const PinUri& aPinUri, TBool aPinShuffle, EShuffleMode aShuffleMode);
+    TBool LoadTracks(const Brx& aPath, TBool aPinShuffle, EShuffleMode aShuffleMode);
+    TBool LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType, TBool aPinShuffle, EShuffleMode aShuffleMode);
+    TBool LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aIdType, TBool aPinShuffle, EShuffleMode aShuffleMode);
+    TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount, TBool aPinShuffle, EShuffleMode aShuffleMode);
 private: // helpers
-    TUint GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadata::EIdType aIdType, TBool aIsContainer, TUint& aStartIndex, TUint& aEndIndex);
+    TUint GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadata::EIdType aIdType, TBool aIsContainer, TBool aShouldShuffleLoadOrder, TUint& aStartIndex, TUint& aEndIndex);
     void UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TUint& aOffset);
     TBool IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aIdType);
     void InitPlaylist(TBool aShuffle);
     void FindResponse(JsonParser& aParser);
+    EShuffleMode GetShuffleMode(PinUri& aPinUri);
+    TBool ShouldShuffleLoadOrder(TBool aPinShuffled, EShuffleMode aShuffleMode);
 private:
     Mutex iLock;
     Qobuz& iQobuz;
