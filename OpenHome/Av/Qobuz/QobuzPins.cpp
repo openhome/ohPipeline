@@ -483,8 +483,7 @@ TUint QobuzPins::GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadat
             }
         }
     }
-    aEndIndex--; // 0 indexed
-    
+
     return total;
 }
 
