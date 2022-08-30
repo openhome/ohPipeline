@@ -69,16 +69,14 @@ const Brn WriterDIDLXml::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
 const Brn WriterDIDLXml::kNsUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
 const Brn WriterDIDLXml::kNsOh("oh=\"http://www.openhome.org\"");
 
-WriterDIDLXml::WriterDIDLXml(const Brx& aItemId, Bwx& aBuffer)
-    : WriterDIDLXml(aItemId, Brx::Empty(), aBuffer)
+WriterDIDLXml::WriterDIDLXml(const Brx& aItemId, IWriter& aWriter)
+    : WriterDIDLXml(aItemId, Brx::Empty(), aWriter)
 { }
 
-WriterDIDLXml::WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, Bwx& aBuffer)
-    : iBuffer(aBuffer)
+WriterDIDLXml::WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, IWriter& aWriter)
+    : iWriter(aWriter)
     , iEndWritten(false)
 {
-    iBuffer.SetBytes(0);
-
     // Preamble.... We include the 3 most common namespaces to avoid us having to inline them on every tag call
     TryWrite("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
     TryWrite("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\"");
@@ -126,7 +124,8 @@ void WriterDIDLXml::TryWriteAttribute(const Brx& aDidlAttr, TUint aValue)
     TryWrite(" ");
     TryWrite(aDidlAttr);
     TryWrite("=\"");
-    Ascii::AppendDec(iBuffer, aValue);
+    WriterAscii wa(iWriter);
+    wa.WriteUint(aValue);
     TryWrite("\"");
 }
 
@@ -176,14 +175,13 @@ void WriterDIDLXml::TryWrite(const TChar* aStr)
 
 void WriterDIDLXml::TryWrite(const Brx& aBuf)
 {
-    iBuffer.AppendThrow(aBuf);
+    iWriter.Write(aBuf);
 }
 
 
 void WriterDIDLXml::TryWriteEscaped(const Brx& aValue)
 {
-    WriterBuffer w(iBuffer);
-    Converter::ToXmlEscaped(w, aValue);
+    Converter::ToXmlEscaped(iWriter, aValue);
 }
 
 void WriterDIDLXml::TryWriteEnd()
@@ -247,12 +245,12 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, Bwx& aTempBuf)
 }
 
 // WriterDIDLLite
-WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, Bwx& aBuffer)
-    : WriterDIDLLite(aItemId, aItemType, Brx::Empty(), aBuffer)
+WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, IWriter& aWriter)
+    : WriterDIDLLite(aItemId, aItemType, Brx::Empty(), aWriter)
 { }
 
-WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const Brx& aParentId, Bwx& aBuffer)
-    : iWriter(aItemId, aParentId, aBuffer)
+WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const Brx& aParentId, IWriter& aWriter)
+    : iWriter(aItemId, aParentId, aWriter)
     , iTitleWritten(false)
     , iAlbumWritten(false)
     , iArtistWritten(false)
@@ -468,7 +466,8 @@ void OhMetadata::Parse()
     Brn parentId;
     TryGetValue("id", itemId);          // Assuming present
     TryGetValue("parentId", parentId);  // Optionally parent
-    WriterDIDLXml writer(itemId, parentId, iMetaDataDidl);
+    WriterBuffer w(iMetaDataDidl);
+    WriterDIDLXml writer(itemId, parentId, w);
 
     for (auto kvp : iMetadata) {
         for (TUint i = 0; i < kNumOh2DidlMappings; i++) {

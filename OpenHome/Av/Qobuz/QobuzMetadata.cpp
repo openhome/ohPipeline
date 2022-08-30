@@ -134,7 +134,8 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
         Json::Unescape(unescapedBuf, Json::Encoding::Utf16);
     };
 
-    WriterDIDLLite writer(itemId, DIDLLite::kItemTypeTrack, iMetaDataDidl);
+    WriterBuffer w(iMetaDataDidl);
+    WriterDIDLLite writer(itemId, DIDLLite::kItemTypeTrack, w);
 
     // First - grab metadata from the track object directly.
     // We can use: Title, duration & track number

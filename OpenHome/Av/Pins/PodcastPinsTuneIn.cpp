@@ -654,7 +654,8 @@ void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlI
     iTrackUri.ReplaceThrow(Brx::Empty());
     iMetaDataDidl.ReplaceThrow(Brx::Empty());
 
-    WriterDIDLLite writer(aPodcastId, DIDLLite::kItemTypeTrack, iMetaDataDidl);
+    WriterBuffer w(iMetaDataDidl);
+    WriterDIDLLite writer(aPodcastId, DIDLLite::kItemTypeTrack, w);
 
     PodcastEpisodeTuneIn* episode = new PodcastEpisodeTuneIn(aXmlItem);  // get Episode Title, release date, duration, artwork, and streamable url
     if (!aLatestOnly) {

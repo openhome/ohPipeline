@@ -286,7 +286,8 @@ void RadioPresets::SetPreset(TUint aIndex, const Brx& aStreamUri, const Brx& aTi
     iDidlLite.SetBytes(0);
 
     static const Brn kProtocolInfo("*:*:*:*");
-    WriterDIDLLite writer(Brx::Empty(), DIDLLite::kItemTypeAudioItem, iDidlLite);
+    WriterBuffer w(iDidlLite);
+    WriterDIDLLite writer(Brx::Empty(), DIDLLite::kItemTypeAudioItem, w);
     writer.WriteTitle(aTitle);
 
     WriterDIDLLite::StreamingDetails details {

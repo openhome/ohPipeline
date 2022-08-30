@@ -40,8 +40,8 @@ public:
     static const Brn kNsOh;
 
 public:
-    WriterDIDLXml(const Brx& aItemId, Bwx& aBuffer);
-    WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, Bwx& aBuffer);
+    WriterDIDLXml(const Brx& aItemId, IWriter& aWriter);
+    WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, IWriter& aWriter);
 
 public:
     void TryWriteAttribute(const TChar* aDidlAttr, const Brx& aValue);
@@ -60,7 +60,7 @@ public:
     static void FormatDuration(TUint duration, Bwx& aTempBuf);
 
 private:
-    Bwx& iBuffer;
+    IWriter& iWriter;
     TBool iEndWritten;
 };
 
@@ -78,11 +78,11 @@ public:
 public:
     WriterDIDLLite(const Brx& aItemId,
                    const Brx& aItemType,
-                   Bwx& aBuffer);
+                   IWriter& aWriter);
     WriterDIDLLite(const Brx& aItemId,
                    const Brx& aItemType,
                    const Brx& aParentId,
-                   Bwx& aBuffer);
+                   IWriter& aWriter);
 
 public:
     // The following methods should only be called once

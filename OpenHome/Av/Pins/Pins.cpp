@@ -934,7 +934,8 @@ void PinMetadata::GetDidlLite(const IPin& aPin, Bwx& aDidlLite)
     Bws<4> pinId;
     Ascii::AppendDec(pinId, aPin.Id());
 
-    WriterDIDLLite writer(pinId, DIDLLite::kItemTypeTrack, aDidlLite);
+    WriterBuffer w(aDidlLite);
+    WriterDIDLLite writer(pinId, DIDLLite::kItemTypeTrack, w);
 
     writer.WriteTitle(aPin.Title());
     writer.WriteDescription(aPin.Description());

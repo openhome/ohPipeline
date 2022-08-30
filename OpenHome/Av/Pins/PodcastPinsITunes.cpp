@@ -771,7 +771,8 @@ void ITunesMetadata::ParseITunesMetadata(PodcastInfoITunes& aPodcast, const Brx&
     iTrackUri.ReplaceThrow(Brx::Empty());
     iMetaDataDidl.ReplaceThrow(Brx::Empty());
 
-    WriterDIDLLite writer(aPodcast.Id(), DIDLLite::kItemTypeTrack, iMetaDataDidl);
+    WriterBuffer w(iMetaDataDidl);
+    WriterDIDLLite writer(aPodcast.Id(), DIDLLite::kItemTypeTrack, w);
 
     writer.WriteArtist(aPodcast.Artist());
     writer.WriteArtwork(aPodcast.ArtworkUrl());

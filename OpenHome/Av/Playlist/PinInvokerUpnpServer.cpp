@@ -286,7 +286,8 @@ TBool PinInvokerUpnpServer::TryAddItem(const Brx& aItemDidl)
     // NOTE: We don't directly use the WriterDIDLLite here, but use it to write
     //       the suitable start & end values of the XML to avoid having to store them here.
     static const Brn kItemId("");
-    WriterDIDLLite writer(kItemId, itemClass, iTrackMetadata);
+    WriterBuffer w(iTrackMetadata);
+    WriterDIDLLite writer(kItemId, itemClass, w);
 
     auto trackUri = XmlParserBasic::Find("res", aItemDidl);
     TryAddTag(aItemDidl, "title", Ns::Dc);

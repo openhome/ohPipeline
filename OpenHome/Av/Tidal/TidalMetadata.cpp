@@ -117,7 +117,8 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata,
         Json::Unescape(unescapedBuf);
     };
 
-    WriterDIDLLite writer(itemId, DIDLLite::kItemTypeTrack, iMetaDataDidl);
+    WriterBuffer w(iMetaDataDidl);
+    WriterDIDLLite writer(itemId, DIDLLite::kItemTypeTrack, w);
 
     if (parser.HasKey("title")) {
         unescapeVal(parser.String("title"));
