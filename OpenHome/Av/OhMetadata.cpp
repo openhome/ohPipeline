@@ -53,6 +53,7 @@ using namespace OpenHome::Av;
 const Brn DIDLLite::kProtocolHttpGet("http-get:*:*:*");
 
 const Brn DIDLLite::kTagTitle("dc:title");
+const Brn DIDLLite::kTagGenre("upnp:genre");
 const Brn DIDLLite::kTagClass("upnp:class");
 const Brn DIDLLite::kTagArtist("upnp:artist");
 const Brn DIDLLite::kTagAlbumTitle("upnp:album");
@@ -293,9 +294,20 @@ void WriterDIDLLite::WriteTrackNumber(const Brx& aTrackNumber)
     iWriter.TryWriteTag(DIDLLite::kTagOriginalTrackNumber, aTrackNumber);
 }
 
+void WriterDIDLLite::WriteGenre(const Brx& aGenre)
+{
+    ASSERT(!iGenreWritten);
+    iGenreWritten = true;
+
+    iWriter.TryWriteTag(DIDLLite::kTagGenre, aGenre);
+}
+
 void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri)
 {
+    StreamingDetails details;
+    details.duration = aDuration;
 
+    WriteStreamingDetails(aProtocol, details, aUri);
 }
 
 void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aDetails, const Brx& aUri)
@@ -425,8 +437,8 @@ void OhMetadata::Parse()
         { "conductor", DIDLLite::kTagArtist,"conductor" },
         { "narrator", DIDLLite::kTagArtist,  "narrator" },
         { "performer", DIDLLite::kTagArtist, "performer" },
-        { "genre", "upnp:genre" },
-        { "albumGenre", "upnp:genre"},
+        { "genre", DIDLLite::kTagGenre },
+        { "albumGenre", DIDLLite::kTagGenre},
         { "author", "dc:author"},
         { "title", DIDLLite::kTagTitle},
         { "year", "dc:date"},

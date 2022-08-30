@@ -19,6 +19,7 @@ public:
 
     static const Brn kTagClass;
     static const Brn kTagTitle;
+    static const Brn kTagGenre;
     static const Brn kTagArtist;
     static const Brn kTagArtwork;
     static const Brn kTagResource;
@@ -90,6 +91,7 @@ public:
     void WriteTrackNumber(const Brx& aTrackNumber);
     void WriteAlbum(const Brx& aAlbum);
     void WriteDescription(const Brx& aDescription);
+    void WriteGenre(const Brx& aGenre);
     void WriteArtist(const Brx& aArtist); // TODO: This could be expanded to allow multiple calls accepting 'Roles'
     void WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri);
     void WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aStreamingeDetails, const Brx& aUri);
@@ -101,6 +103,7 @@ public:
 private:
     WriterDIDLXml iWriter;
     TBool iTitleWritten;
+    TBool iGenreWritten;
     TBool iAlbumWritten;
     TBool iArtistWritten;
     TBool iTrackNumberWritten;
