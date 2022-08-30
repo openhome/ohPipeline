@@ -349,7 +349,7 @@ void OhMetadata::Parse()
         { "title", DIDLLite::kTagTitle},
         { "year", "dc:date"},
         { "albumTitle", DIDLLite::kTagAlbumTitle },
-        { "albumArtwork", DIDLLite::kTagAlbumTitle },
+        { "albumArtwork", DIDLLite::kTagArtwork },
         { "provider", "oh:provider" },
         { "artwork", "oh:artwork"},
         { "track", DIDLLite::kTagOriginalTrackNumber },
