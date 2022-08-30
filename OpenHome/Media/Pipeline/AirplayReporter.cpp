@@ -1,9 +1,6 @@
 #include <OpenHome/Types.h>
-#include <OpenHome/Media/Pipeline/AirplayReporter.h>
-#include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Av/OhMetadata.h>
-#include <OpenHome/Private/Converter.h>
-#include <OpenHome/Private/Printer.h>
+#include <OpenHome/Media/Pipeline/AirplayReporter.h>
 
 #include <limits>
 
@@ -25,7 +22,7 @@ void AirplayDidlLiteWriter::Write(IWriter& aWriter, TUint aBitDepth, TUint aChan
     static const Brn kParentId("0");
     static const Brn kProtocolInfo("Airplay:*:audio/L16:*");
 
-    WriterDIDLLite writer(kItemId, DIDLLite::kItemTypeTrack, aWriter);
+    WriterDIDLLite writer(kItemId, DIDLLite::kItemTypeTrack, kParentId, aWriter);
 
     writer.WriteTitle(iMetadata.Track());
     writer.WriteArtist(iMetadata.Artist());
