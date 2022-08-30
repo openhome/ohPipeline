@@ -293,6 +293,7 @@ def build(bld):
                 'OpenHome/Media/Utils/Silencer.cpp',
                 'OpenHome/SocketHttp.cpp',
                 'OpenHome/SocketSsl.cpp',
+                'OpenHome/Av/OhMetadata.cpp',
             ],
             use=['SSL', 'ohNetCore', 'OHNET'],
             target='ohPipeline')
@@ -352,7 +353,6 @@ def build(bld):
                 'OpenHome/Av/Pins/Pins.cpp',
                 'Generated/DvAvOpenhomeOrgPins1.cpp',
                 'OpenHome/Av/Pins/ProviderPins.cpp',
-                'OpenHome/Av/OhMetadata.cpp',
             ],
             use=['OHNET', 'SSL', 'ohPipeline'],
             target='ohMediaPlayer')
