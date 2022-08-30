@@ -61,6 +61,7 @@ const Brn DIDLLite::kTagDescription("dc:description" );
 const Brn DIDLLite::kTagOriginalTrackNumber("upnp:originalTrackNumber");
 
 const Brn DIDLLite::kItemTypeTrack("object.item.audioItem.musicTrack");
+const Brn DIDLLite::kItemTypeAudioItem("object.item.audioItem");
 
 
 // WriterDIDLXml
@@ -114,6 +115,21 @@ void WriterDIDLXml::TryWriteAttribute(const Brx& aDidlAttr, const Brx& aValue)
     TryWrite("\"");
 }
 
+void WriterDIDLXml::TryWriteAttribute(const TChar* aDidlAttr, TUint aValue)
+{
+    Brn attr(aDidlAttr);
+    TryWriteAttribute(attr, aValue);
+}
+
+void WriterDIDLXml::TryWriteAttribute(const Brx& aDidlAttr, TUint aValue)
+{
+    TryWrite(" ");
+    TryWrite(aDidlAttr);
+    TryWrite("=\"");
+    Ascii::AppendDec(iBuffer, aValue);
+    TryWrite("\"");
+}
+
 void WriterDIDLXml::TryWriteTag(const Brx& aDidlTag, const Brx& aValue)
 {
     TryWriteTagWithAttribute(aDidlTag, Brx::Empty(), Brx::Empty(), Brx::Empty(), aValue);
@@ -162,6 +178,7 @@ void WriterDIDLXml::TryWrite(const Brx& aBuf)
 {
     iBuffer.AppendThrow(aBuf);
 }
+
 
 void WriterDIDLXml::TryWriteEscaped(const Brx& aValue)
 {
@@ -244,6 +261,11 @@ void WriterDIDLLite::WriteTrackNumber(const Brx& aTrackNumber)
 
 void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri)
 {
+
+}
+
+void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aDetails, const Brx& aUri)
+{
     ASSERT(!iStreamingDetailsWritten);
     iStreamingDetailsWritten = true;
 
@@ -253,10 +275,36 @@ void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, TUint aDuration
         iWriter.TryWriteAttribute("protocolInfo", aProtocol);
     }
 
-    if (aDuration > 0) {
+    if (aDetails.duration > 0) {
         Bws<32> formatted;
-        WriterDIDLXml::FormatDuration(aDuration, formatted);
+        WriterDIDLXml::FormatDuration(aDetails.duration,  formatted);
         iWriter.TryWriteAttribute("duration", formatted);
+    }
+
+    if (aDetails.bitDepth > 0) {
+        iWriter.TryWriteAttribute("bitsPerSample", aDetails.bitDepth);
+    }
+
+    if (aDetails.sampleRate > 0) {
+        iWriter.TryWriteAttribute("sampleFrequency", aDetails.sampleRate);
+    }
+
+    if (aDetails.numberOfChannels != 0) {
+        iWriter.TryWriteAttribute("nrAudioChannels", aDetails.numberOfChannels);
+    }
+
+    // DIDL-Lite bitrate attribute actually refers to a byte rate!
+    if (aDetails.byteRate) {
+        iWriter.TryWriteAttribute("bitrate", aDetails.byteRate);
+    }
+
+    if (aDetails.bitDepth > 0 && aDetails.numberOfChannels > 0 && aDetails.sampleRate > 0 && aDetails.duration > 0) {
+        const TUint byteDepth = aDetails.bitDepth /8;
+        const TUint bytesPerSec = byteDepth * aDetails.sampleRate * aDetails.numberOfChannels;
+        const TUint bytesPerMs = bytesPerSec / 1000;
+        const TUint totalBytes = aDetails.duration * bytesPerMs;
+
+        iWriter.TryWriteAttribute("size", totalBytes);
     }
 
     iWriter.TryWrite(">");

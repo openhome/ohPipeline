@@ -27,6 +27,7 @@ public:
     static const Brn kTagOriginalTrackNumber;
 
     static const Brn kItemTypeTrack;
+    static const Brn kItemTypeAudioItem;
 };
 
 // NOTE: It is not expected that this class be used directly.
@@ -45,6 +46,8 @@ public:
 public:
     void TryWriteAttribute(const TChar* aDidlAttr, const Brx& aValue);
     void TryWriteAttribute(const Brx& aDidlAttr, const Brx& aValue);
+    void TryWriteAttribute(const TChar* aDidlAttr, TUint aValue);
+    void TryWriteAttribute(const Brx& aDidlAttr, TUint aValue);
     void TryWriteTag(const Brx& aDidlTag, const Brx& aValue);
     void TryWriteTag(const Brx& aDidlTag, const Brx& aNs, const Brx& aValue);
     void TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue);
@@ -64,6 +67,15 @@ private:
 class WriterDIDLLite
 {
 public:
+    struct StreamingDetails {
+        TUint duration;
+        TUint byteRate;
+        TUint sampleRate;
+        TUint numberOfChannels;
+        TUint bitDepth;
+    };
+
+public:
     WriterDIDLLite(const Brx& aItemId,
                    const Brx& aItemType,
                    Bwx& aBuffer);
@@ -80,6 +92,7 @@ public:
     void WriteDescription(const Brx& aDescription);
     void WriteArtist(const Brx& aArtist); // TODO: This could be expanded to allow multiple calls accepting 'Roles'
     void WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri);
+    void WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aStreamingeDetails, const Brx& aUri);
     void WriteEnd();
 
     // The following methods can be called multiple times
