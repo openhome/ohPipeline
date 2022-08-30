@@ -60,10 +60,6 @@ private:
 public:
     AirplayDidlLiteWriter(const Brx& aUri, const IAirplayMetadata& aMetadata);
     void Write(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const;
-private:
-    void SetDurationString(Bwx& aBuf) const;
-    void WriteRes(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const;
-    void WriteOptionalAttributes(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const;
 protected:
     const BwsTrackUri iUri;
     const IAirplayMetadata& iMetadata;
