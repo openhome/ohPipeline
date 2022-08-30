@@ -201,13 +201,49 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, Bwx& aTempBuf)
         return;
     }
 
-    TUint duration = aDuration;
-    const TUint secs = duration % 60;
-    duration /= 60;
-    const TUint mins = duration % 60;
-    const TUint hours = duration / 60;
+    // H+:MM:SS[.F0/F1]
+    static const TUint msPerSecond = 1000;
+    static const TUint msPerMinute = msPerSecond*60;
+    static const TUint msPerHour = msPerMinute*60;
 
-    aTempBuf.AppendPrintf("%u:%02u:%02u.000", hours, mins, secs);
+    TUint timeRemaining = aDuration;
+    const TUint hours = aDuration / msPerHour;
+    timeRemaining -= hours * msPerHour;
+
+    const TUint minutes = timeRemaining / msPerMinute;
+    timeRemaining -= minutes * msPerMinute;
+
+    const TUint seconds = timeRemaining / msPerSecond;
+    timeRemaining -= seconds * msPerSecond;
+
+    const TUint milliseconds = timeRemaining;
+
+    ASSERT(hours <= 99);
+    if (hours < 10) {
+        aTempBuf.Append('0');
+    }
+    Ascii::AppendDec(aTempBuf, hours);
+    aTempBuf.Append(':');
+
+    ASSERT(minutes <= 59);
+    if (minutes < 10) {
+        aTempBuf.Append('0');
+    }
+    Ascii::AppendDec(aTempBuf, minutes);
+    aTempBuf.Append(':');
+
+    ASSERT(seconds <= 60);
+    if (seconds < 10) {
+        aTempBuf.Append('0');
+    }
+    Ascii::AppendDec(aTempBuf, seconds);
+
+    if (milliseconds > 0) {
+        aTempBuf.Append('.');
+        Ascii::AppendDec(aTempBuf, milliseconds);
+        aTempBuf.Append('/');
+        Ascii::AppendDec(aTempBuf, msPerSecond);
+    }
 }
 
 // WriterDIDLLite
