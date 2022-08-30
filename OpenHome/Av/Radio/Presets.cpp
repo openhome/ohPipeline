@@ -290,9 +290,9 @@ void RadioPresets::SetPreset(TUint aIndex, const Brx& aStreamUri, const Brx& aTi
     WriterDIDLLite writer(Brx::Empty(), DIDLLite::kItemTypeAudioItem, w);
     writer.WriteTitle(aTitle);
 
-    WriterDIDLLite::StreamingDetails details {
-        .byteRate = aByterate
-    };
+    WriterDIDLLite::StreamingDetails details;
+    details.byteRate = aByterate;
+
     writer.WriteStreamingDetails(kProtocolInfo, details, aStreamUri);
     writer.WriteArtwork(aImageUri);
 

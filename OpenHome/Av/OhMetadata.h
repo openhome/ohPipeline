@@ -68,7 +68,16 @@ private:
 class WriterDIDLLite
 {
 public:
-    struct StreamingDetails {
+    struct StreamingDetails
+    {
+        StreamingDetails()
+            : duration(0)
+            , byteRate(0)
+            , sampleRate(0)
+            , numberOfChannels(0)
+            , bitDepth(0)
+        { }
+
         TUint duration;
         TUint byteRate;
         TUint sampleRate;
