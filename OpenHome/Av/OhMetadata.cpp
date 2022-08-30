@@ -201,6 +201,15 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, Bwx& aTempBuf)
     }
 
     // H+:MM:SS[.F0/F1]
+    // Fraction of seconds is fixed (value is in milliseconds, so F0 is always
+    // 3 bytes, and F1 always has value 1000, i.e., is 4 bytes).
+    // Everything else apart from hours is fixed. Assume no track will ever be
+    // >99 hours, so hours requires 2 bytes.
+    // Therefore, need enough bytes for string of form: 12:34:56.789/1000
+    ASSERT(aTempBuf.MaxBytes() > 17);
+
+
+    // H+:MM:SS[.F0/F1]
     static const TUint msPerSecond = 1000;
     static const TUint msPerMinute = msPerSecond*60;
     static const TUint msPerHour = msPerMinute*60;

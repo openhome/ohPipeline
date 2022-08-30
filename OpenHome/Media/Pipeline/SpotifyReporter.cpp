@@ -1,9 +1,8 @@
 #include <OpenHome/Types.h>
+#include <OpenHome/Av/OhMetadata.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Private/Ascii.h>
-#include <OpenHome/Private/Converter.h>
 #include <OpenHome/Private/Parser.h>
-#include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/ThreadPool.h>
@@ -11,6 +10,7 @@
 #include <limits>
 
 using namespace OpenHome;
+using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
 
@@ -24,137 +24,35 @@ SpotifyDidlLiteWriter::SpotifyDidlLiteWriter(const Brx& aUri, const ISpotifyMeta
 
 void SpotifyDidlLiteWriter::Write(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const
 {
-    WriterAscii writer(aWriter);
-    writer.Write(Brn("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" "));
-    writer.Write(Brn("xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" "));
-    writer.Write(Brn("xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">"));
-    writer.Write(Brn("<item id=\"0\" parentID=\"0\" restricted=\"True\">"));
+    static const Brn kItemId("0");
+    static const Brn kParentId("0");
+    static const Brn kProtocol("spotify:*:audio/L16:*");
 
-    writer.Write(Brn("<dc:title>"));
-    Converter::ToXmlEscaped(writer, iMetadata.Track());
-    writer.Write(Brn("</dc:title>"));
+    WriterDIDLLite writer(kItemId, DIDLLite::kItemTypeTrack, kParentId, aWriter);
 
+    writer.WriteTitle(iMetadata.Track());
+    writer.WriteAlbum(iMetadata.Album());
+    writer.WriteArtist(iMetadata.Artist());
+    writer.WriteArtwork(iMetadata.AlbumCoverUri());
+/*
     writer.Write(Brn("<dc:creator>"));
     Converter::ToXmlEscaped(writer, iMetadata.Artist());
     writer.Write(Brn("</dc:creator>"));
+*/
 
+/*
     writer.Write(Brn("<upnp:artist role='AlbumArtist'>"));
     Converter::ToXmlEscaped(writer, iMetadata.Artist());
     writer.Write(Brn("</upnp:artist>"));
+*/
 
-    writer.Write(Brn("<upnp:album>"));
-    Converter::ToXmlEscaped(writer, iMetadata.Album());
-    writer.Write(Brn("</upnp:album>"));
+    WriterDIDLLite::StreamingDetails details;
+    details.bitDepth = aBitDepth;
+    details.numberOfChannels = aChannels;
+    details.sampleRate = aSampleRate;
+    writer.WriteStreamingDetails(kProtocol, details, iUri);
 
-    writer.Write(Brn("<upnp:albumArtURI>"));
-    Converter::ToXmlEscaped(writer, iMetadata.AlbumCoverUrl());
-    writer.Write(Brn("</upnp:albumArtURI>"));
-
-    WriteRes(writer, aBitDepth, aChannels, aSampleRate);
-
-    writer.Write(Brn("<upnp:class>object.item.audioItem.musicTrack</upnp:class></item></DIDL-Lite>"));
-}
-
-void SpotifyDidlLiteWriter::SetDurationString(Bwx& aBuf) const
-{
-    // H+:MM:SS[.F0/F1]
-    const TUint msPerSecond = 1000;
-    const TUint msPerMinute = msPerSecond*60;
-    const TUint msPerHour = msPerMinute*60;
-
-    TUint timeRemaining = iMetadata.DurationMs();
-    const TUint hours = iMetadata.DurationMs()/msPerHour;
-    timeRemaining -= hours*msPerHour;
-
-    const TUint minutes = timeRemaining/msPerMinute;
-    timeRemaining -= minutes*msPerMinute;
-
-    const TUint seconds = timeRemaining/msPerSecond;
-    timeRemaining -= seconds*msPerSecond;
-
-    const TUint milliseconds = timeRemaining;
-
-    ASSERT(hours <= 99);
-    if (hours < 10) {
-        aBuf.Append('0');
-    }
-    Ascii::AppendDec(aBuf, hours);
-    aBuf.Append(':');
-
-    ASSERT(minutes <= 59);
-    if (minutes < 10) {
-        aBuf.Append('0');
-    }
-    Ascii::AppendDec(aBuf, minutes);
-    aBuf.Append(':');
-
-    ASSERT(seconds <= 60);
-    if (seconds < 10) {
-        aBuf.Append('0');
-    }
-    Ascii::AppendDec(aBuf, seconds);
-
-    if (milliseconds > 0) {
-        aBuf.Append('.');
-        Ascii::AppendDec(aBuf, milliseconds);
-        aBuf.Append('/');
-        Ascii::AppendDec(aBuf, msPerSecond);
-    }
-}
-
-void SpotifyDidlLiteWriter::WriteRes(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const
-{
-    WriterAscii writer(aWriter);
-
-    Bws<kMaxDurationBytes> duration;
-    SetDurationString(duration);
-    writer.Write(Brn("<res"));
-    writer.Write(Brn(" duration=\""));
-    writer.Write(duration);
-    writer.Write(Brn("\""));
-
-    writer.Write(Brn(" protocolInfo=\""));
-    writer.Write(Brn("spotify:*:audio/L16:*"));
-    writer.Write(Brn("\""));
-
-    WriteOptionalAttributes(writer, aBitDepth, aChannels, aSampleRate);
-
-    writer.Write(Brn(">"));
-    writer.Write(iUri);
-    writer.Write(Brn("</res>"));
-}
-
-void SpotifyDidlLiteWriter::WriteOptionalAttributes(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const
-{
-    WriterAscii writer(aWriter);
-
-    if (aBitDepth != 0) {
-        writer.Write(Brn(" bitsPerSample=\""));
-        writer.WriteUint(aBitDepth);
-        writer.Write(Brn("\""));
-    }
-
-    if (aSampleRate != 0) {
-        writer.Write(Brn(" sampleFrequency=\""));
-        writer.WriteUint(aSampleRate);
-        writer.Write(Brn("\""));
-    }
-
-    if (aChannels != 0) {
-        writer.Write(Brn(" nrAudioChannels=\""));
-        writer.WriteUint(aChannels);
-        writer.Write(Brn("\""));
-    }
-
-    if (aBitDepth != 0 && aChannels != 0 && aSampleRate != 0) {
-        const TUint byteDepth = aBitDepth/8;
-        const TUint bytesPerSec = byteDepth*aSampleRate*aChannels;
-        const TUint bytesPerMs = bytesPerSec / 1000;
-        const TUint totalBytes = iMetadata.DurationMs() * bytesPerMs;
-        writer.Write(Brn(" size=\""));
-        writer.WriteUint(totalBytes);
-        writer.Write(Brn("\""));
-    }
+    writer.WriteEnd();
 }
 
 

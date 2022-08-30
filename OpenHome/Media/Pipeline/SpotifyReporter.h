@@ -82,21 +82,9 @@ public:
 
 class SpotifyDidlLiteWriter : private INonCopyable
 {
-private:
-    // H+:MM:SS[.F0/F1]
-    // Fraction of seconds is fixed (value is in milliseconds, so F0 is always
-    // 3 bytes, and F1 always has value 1000, i.e., is 4 bytes).
-    // Everything else apart from hours is fixed. Assume no track will ever be
-    // >99 hours, so hours requires 2 bytes.
-    // Therefore, need enough bytes for string of form: 12:34:56.789/1000
-    static const TUint kMaxDurationBytes = 17;
 public:
     SpotifyDidlLiteWriter(const Brx& aUri, const ISpotifyMetadata& aMetadata);
     void Write(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const;
-private:
-    void SetDurationString(Bwx& aBuf) const;
-    void WriteRes(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const;
-    void WriteOptionalAttributes(IWriter& aWriter, TUint aBitDepth, TUint aChannels, TUint aSampleRate) const;
 protected:
     const BwsTrackUri iUri;
     const ISpotifyMetadata& iMetadata;
