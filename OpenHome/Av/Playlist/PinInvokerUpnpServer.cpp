@@ -333,9 +333,11 @@ void PinInvokerUpnpServer::TryAddArtistTags(const Brx& aItemDidl)
     Brn doc(aItemDidl);
     try {
         for (;;) {
-            auto elem = XmlParserBasic::Element("artist", doc, doc);
-            auto val = XmlParserBasic::Find("artist", elem);
-            auto role = XmlParserBasic::FindAttribute("artist", "role", elem);
+            const Brx& elem = XmlParserBasic::Element("artist", doc, doc);
+            const Brx& val = XmlParserBasic::Find("artist", elem);
+            const Brx& role = Ascii::Contains(elem, Brn("role")) ? XmlParserBasic::FindAttribute("artist", "role", elem)
+                                                                 : Brx::Empty();
+
             TryAddTag("artist", val, Ns::Upnp, role);
         }
     }
