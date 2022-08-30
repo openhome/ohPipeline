@@ -33,7 +33,7 @@ void SpotifyDidlLiteWriter::Write(IWriter& aWriter, TUint aBitDepth, TUint aChan
     writer.WriteTitle(iMetadata.Track());
     writer.WriteAlbum(iMetadata.Album());
     writer.WriteArtist(iMetadata.Artist());
-    writer.WriteArtwork(iMetadata.AlbumCoverUri());
+    writer.WriteArtwork(iMetadata.AlbumCoverUrl());
 /*
     writer.Write(Brn("<dc:creator>"));
     Converter::ToXmlEscaped(writer, iMetadata.Artist());
