@@ -3,6 +3,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Av/Pins/Pins.h>
+#include <OpenHome/Av/OhMetadata.h>
 #include <OpenHome/Av/Playlist/DeviceListMediaServer.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Net/Core/CpDevice.h>
@@ -274,10 +275,20 @@ TBool PinInvokerUpnpServer::TryAddItem(const Brx& aItemDidl)
         iTrackDatabase.DeleteAll();
     }
 
-    static const Brn kDidlStart("<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\"><item>");
-    static const Brn kDidlEnd("</item></DIDL-Lite>");
+    iTrackMetadata.SetBytes(0);
+
+    Brn itemClass(Brx::Empty());
+    try {
+        itemClass = XmlParserBasic::Find("class", aItemDidl);
+    }
+    catch (XmlError&) {}
+
+    // NOTE: We don't directly use the WriterDIDLLite here, but use it to write
+    //       the suitable start & end values of the XML to avoid having to store them here.
+    static const Brn kItemId("");
+    WriterDIDLLite writer(kItemId, itemClass, iTrackMetadata);
+
     auto trackUri = XmlParserBasic::Find("res", aItemDidl);
-    iTrackMetadata.ReplaceThrow(kDidlStart);
     TryAddTag(aItemDidl, "title", Ns::Dc);
     TryAddTag(aItemDidl, "class", Ns::Upnp);
     TryAddTag(aItemDidl, "albumArtURI", Ns::Upnp);
@@ -290,7 +301,9 @@ TBool PinInvokerUpnpServer::TryAddItem(const Brx& aItemDidl)
         iTrackMetadata.AppendThrow(res);
     }
     catch (XmlError&) {}
-    iTrackMetadata.AppendThrow(kDidlEnd);
+
+    writer.WriteEnd();
+
     try {
         iTrackDatabase.Insert(iTrackIdInsertAfter, trackUri, iTrackMetadata, iTrackIdInsertAfter);
         if (!iPlaying) {
@@ -331,8 +344,6 @@ void PinInvokerUpnpServer::TryAddArtistTags(const Brx& aItemDidl)
 
 void PinInvokerUpnpServer::TryAddTag(const TChar* aTag, const Brx& aVal, Ns aNs, const Brx& aRole)
 {
-    static const Brn kTagDc("dc=\"http://purl.org/dc/elements/1.1/\"");
-    static const Brn kTagUpnp("upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"");
     iTrackMetadata.AppendThrow("<");
     if (aNs == Ns::Dc) {
         iTrackMetadata.AppendThrow("dc:");
@@ -341,13 +352,10 @@ void PinInvokerUpnpServer::TryAddTag(const TChar* aTag, const Brx& aVal, Ns aNs,
         iTrackMetadata.AppendThrow("upnp:");
     }
     iTrackMetadata.AppendThrow(aTag);
-    iTrackMetadata.AppendThrow(" xmlns:");
-    if (aNs == Ns::Dc) {
-        iTrackMetadata.AppendThrow(kTagDc);
-    }
-    else {
-        iTrackMetadata.AppendThrow(kTagUpnp);
-    }
+
+    // NOTE: Because we are using a WriterDIDLLite, we don't have to inline the
+    //       XML namespaces with each tag.
+
     if (aRole.Bytes() > 0) {
         iTrackMetadata.AppendThrow(" role=\"");
         iTrackMetadata.AppendThrow(aRole);
