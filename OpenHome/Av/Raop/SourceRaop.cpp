@@ -5,6 +5,7 @@
 #include <OpenHome/Av/Debug.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
+#include <OpenHome/Av/OhMetadata.h>
 #include <OpenHome/Av/Raop/SourceRaop.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Media/UriProviderRepeater.h>
@@ -208,20 +209,16 @@ void SourceRaop::GenerateMetadata()
  */
 {
     // Get current system name.
-    iDidlLite.Replace("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
-    iDidlLite.Append("<item id=\"\" parentID=\"\" restricted=\"True\">");
-    iDidlLite.Append("<dc:title>");
+    iDidlLite.SetBytes(0);
+    WriterBuffer w(iDidlLite);
+    WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
 
     // Append name.
     Bws<kMaxSourceNameBytes> name;
     Name(name);
-    WriterBuffer writerBuf(iDidlLite);
-    Converter::ToXmlEscaped(writerBuf, name);
+    writer.WriteTitle(name);
 
-    iDidlLite.Append("</dc:title>");
-    iDidlLite.Append("<upnp:class>object.item.audioItem</upnp:class>");
-    iDidlLite.Append("</item>");
-    iDidlLite.Append("</DIDL-Lite>");
+    writer.WriteEnd();
 }
 
 void SourceRaop::StartNewTrack()
