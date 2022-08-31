@@ -123,10 +123,6 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
     // special linn style Qobuz url (non-streamable, gets converted later)
     iTrackUri.ReplaceThrow(Brn("qobuz://track?version=2&trackId="));
     iTrackUri.AppendThrow(itemId);
-    if (iTrackUri.Bytes() > 0) {
-        WriterBuffer writer(iMetaDataDidl);
-        Converter::ToXmlEscaped(writer, iTrackUri);
-    }
 
     Bwn unescapedBuf;
     auto unescapeVal = [&] (const Brx& aValue) {
