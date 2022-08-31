@@ -218,10 +218,10 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, EDurationResolution aResolut
 
     // This method assumes the provided time is in milliseconds
     if (aResolution == EDurationResolution::Seconds) {
-        timeRemaining *= 1000;
+        timeRemaining *= msPerSecond;
     }
 
-    const TUint hours = aDuration / msPerHour;
+    const TUint hours = timeRemaining / msPerHour;
     timeRemaining -= hours * msPerHour;
 
     const TUint minutes = timeRemaining / msPerMinute;
