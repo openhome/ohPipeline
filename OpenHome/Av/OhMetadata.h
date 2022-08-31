@@ -31,6 +31,12 @@ public:
     static const Brn kItemTypeAudioItem;
 };
 
+enum class EDurationResolution
+{
+    Seconds,
+    Milliseconds,
+};
+
 // NOTE: It is not expected that this class be used directly.
 //       Instead it should be accessed via 'WriterDIDLLite' or 'OhMetadata'
 class WriterDIDLXml
@@ -58,7 +64,7 @@ public:
     void TryWriteEscaped(const Brx& aValue);
     void TryWriteEnd();
 
-    static void FormatDuration(TUint duration, Bwx& aTempBuf);
+    static void FormatDuration(TUint duration, EDurationResolution aDurationResolution, Bwx& aTempBuf);
 
 private:
     IWriter& iWriter;
@@ -76,6 +82,7 @@ public:
             , sampleRate(0)
             , numberOfChannels(0)
             , bitDepth(0)
+            , durationResolution(EDurationResolution::Seconds)
         { }
 
         TUint duration;
@@ -83,6 +90,7 @@ public:
         TUint sampleRate;
         TUint numberOfChannels;
         TUint bitDepth;
+        EDurationResolution durationResolution;
     };
 
 public:
@@ -102,8 +110,7 @@ public:
     void WriteDescription(const Brx& aDescription);
     void WriteGenre(const Brx& aGenre);
     void WriteArtist(const Brx& aArtist); // TODO: This could be expanded to allow multiple calls accepting 'Roles'
-    void WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri);
-    void WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aStreamingeDetails, const Brx& aUri);
+    void WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aStreamingDetails, const Brx& aUri);
     void WriteEnd();
 
     // The following methods can be called multiple times

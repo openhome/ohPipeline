@@ -144,9 +144,11 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
         writer.WriteTrackNumber(parserTrack.String("track_number"));
     }
 
-    const TUint duration = parserTrack.HasKey("duration") ? parserTrack.Num("duration")
-                                                          : 0;
-    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, duration, iTrackUri);
+    WriterDIDLLite::StreamingDetails details;
+    details.durationResolution = EDurationResolution::Seconds;
+    details.duration = parserTrack.HasKey("duration") ? parserTrack.Num("duration")
+                                                      : 0;
+    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, details, iTrackUri);
 
     // Parent metadata is already escaped!
     if (aHasParentMetadata) {

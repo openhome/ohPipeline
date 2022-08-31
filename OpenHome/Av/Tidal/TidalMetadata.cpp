@@ -148,7 +148,12 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata,
         }
     }
 
-    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, parser.Num("duration"), iTrackUri);
+    WriterDIDLLite::StreamingDetails details;
+    details.durationResolution = EDurationResolution::Seconds;
+    details.duration = parser.HasKey("duration") ? parser.Num("duration")
+                                                 : 0;
+
+    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, details, iTrackUri);
     writer.WriteEnd();
 }
 

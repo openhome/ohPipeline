@@ -50,6 +50,9 @@ void SpotifyDidlLiteWriter::Write(IWriter& aWriter, TUint aBitDepth, TUint aChan
     details.bitDepth = aBitDepth;
     details.numberOfChannels = aChannels;
     details.sampleRate = aSampleRate;
+    details.duration = iMetadata.DurationMs();
+    details.durationResolution = EDurationResolution::Milliseconds;
+
     writer.WriteStreamingDetails(kProtocol, details, iUri);
 
     writer.WriteEnd();

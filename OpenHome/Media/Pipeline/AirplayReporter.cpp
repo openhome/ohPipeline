@@ -33,6 +33,8 @@ void AirplayDidlLiteWriter::Write(IWriter& aWriter, TUint aBitDepth, TUint aChan
     details.sampleRate = aSampleRate;
     details.numberOfChannels = aChannels;
     details.bitDepth = aBitDepth;
+    details.duration = iMetadata.DurationMs();
+    details.durationResolution = EDurationResolution::Milliseconds;
 
     writer.WriteStreamingDetails(kProtocolInfo, details, iUri);
     writer.WriteEnd();

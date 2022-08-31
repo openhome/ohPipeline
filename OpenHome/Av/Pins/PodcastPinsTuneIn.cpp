@@ -671,7 +671,11 @@ void TuneInMetadata::ParseTuneInMetadata(const Brx& aPodcastId, const Brx& aXmlI
     iTrackUri.ReplaceThrow(episode->Url());
 
     writer.WriteTitle(episode->Title());
-    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, episode->Duration(), iTrackUri);
+
+    WriterDIDLLite::StreamingDetails details;
+    details.durationResolution = EDurationResolution::Seconds;
+    details.duration = episode->Duration();
+    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, details, iTrackUri);
 
     writer.WriteEnd();
 

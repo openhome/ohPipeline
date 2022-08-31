@@ -194,7 +194,7 @@ void WriterDIDLXml::TryWriteEnd()
     TryWrite("</DIDL-Lite>");
 }
 
-void WriterDIDLXml::FormatDuration(TUint aDuration, Bwx& aTempBuf)
+void WriterDIDLXml::FormatDuration(TUint aDuration, EDurationResolution aResolution, Bwx& aTempBuf)
 {
     if (aDuration == 0) {
         return;
@@ -215,6 +215,12 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, Bwx& aTempBuf)
     static const TUint msPerHour = msPerMinute*60;
 
     TUint timeRemaining = aDuration;
+
+    // This method assumes the provided time is in milliseconds
+    if (aResolution == EDurationResolution::Seconds) {
+        timeRemaining *= 1000;
+    }
+
     const TUint hours = aDuration / msPerHour;
     timeRemaining -= hours * msPerHour;
 
@@ -311,13 +317,6 @@ void WriterDIDLLite::WriteGenre(const Brx& aGenre)
     iWriter.TryWriteTag(DIDLLite::kTagGenre, aGenre);
 }
 
-void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, TUint aDuration, const Brx& aUri)
-{
-    StreamingDetails details;
-    details.duration = aDuration;
-
-    WriteStreamingDetails(aProtocol, details, aUri);
-}
 
 void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aDetails, const Brx& aUri)
 {
@@ -332,7 +331,7 @@ void WriterDIDLLite::WriteStreamingDetails(const Brx& aProtocol, StreamingDetail
 
     if (aDetails.duration > 0) {
         Bws<32> formatted;
-        WriterDIDLXml::FormatDuration(aDetails.duration,  formatted);
+        WriterDIDLXml::FormatDuration(aDetails.duration, aDetails.durationResolution, formatted);
         iWriter.TryWriteAttribute("duration", formatted);
     }
 
@@ -505,7 +504,7 @@ void OhMetadata::Parse()
         try {
             TUint duration = Ascii::Uint(val);
             Bws<32> formatted;
-            WriterDIDLXml::FormatDuration(duration, formatted);
+            WriterDIDLXml::FormatDuration(duration, EDurationResolution::Seconds, formatted);
             writer.TryWriteAttribute("duration", formatted);
         }
         catch (AsciiError&) {

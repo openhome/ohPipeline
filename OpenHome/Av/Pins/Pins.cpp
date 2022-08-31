@@ -940,7 +940,9 @@ void PinMetadata::GetDidlLite(const IPin& aPin, Bwx& aDidlLite)
     writer.WriteTitle(aPin.Title());
     writer.WriteDescription(aPin.Description());
     writer.WriteArtwork(aPin.ArtworkUri());
-    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, 0, aPin.Uri());
+
+    WriterDIDLLite::StreamingDetails details; // Nothing to configure for a pin
+    writer.WriteStreamingDetails(DIDLLite::kProtocolHttpGet, details, aPin.Uri());
 
     writer.WriteEnd();
 }
