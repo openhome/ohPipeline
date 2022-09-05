@@ -90,7 +90,6 @@ WriterDIDLXml::WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, IWriter& 
     TryWrite(">");
     TryWrite("<item");
 
-    // Every item *MUST* have an ID.
     TryWriteAttribute("id", aItemId);
     TryWriteAttribute("parentID", (aParentId.Bytes() == 0 ? static_cast<const Brx&>(Brn("-1"))
                                                           : aParentId));
@@ -107,6 +106,10 @@ void WriterDIDLXml::TryWriteAttribute(const TChar* aDidlAttr, const Brx& aValue)
 
 void WriterDIDLXml::TryWriteAttribute(const Brx& aDidlAttr, const Brx& aValue)
 {
+    if (aValue.Bytes() == 0) {
+        return;
+    }
+
     TryWrite(" ");
     TryWrite(aDidlAttr);
     TryWrite("=\"");
