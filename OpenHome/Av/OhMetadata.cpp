@@ -268,6 +268,7 @@ WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, IWriter
 WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const Brx& aParentId, IWriter& aWriter)
     : iWriter(aItemId, aParentId, aWriter)
     , iTitleWritten(false)
+    , iGenreWritten(false)
     , iAlbumWritten(false)
     , iArtistWritten(false)
     , iTrackNumberWritten(false)
