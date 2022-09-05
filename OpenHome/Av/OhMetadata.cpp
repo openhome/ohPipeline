@@ -147,6 +147,11 @@ void WriterDIDLXml::TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aAt
 
 void WriterDIDLXml::TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aNs, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue)
 {
+    // Don't bother trying to write out any values that are totally empty!
+    if (aValue.Bytes() == 0) {
+        return;
+    }
+
     TryWrite("<");
     TryWrite(aDidlTag);
 

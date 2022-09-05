@@ -860,6 +860,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestRaop.cpp',
                 'OpenHome/Av/Tests/TestVolumeManager.cpp',
                 'OpenHome/Av/Tests/TestPins.cpp',
+                'OpenHome/Av/Tests/TestOhMetadata.cpp',
                 'OpenHome/Av/Tests/TestSenderQueue.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
                 'OpenHome/Tests/TestOAuth.cpp',
@@ -1239,6 +1240,11 @@ def build(bld):
             source='OpenHome/Av/Tests/TestPinsMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestPins',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Av/Tests/TestOhMetadataMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'ohPipline'],
+            target='TestOhMetadata',
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestSenderQueueMain.cpp',
