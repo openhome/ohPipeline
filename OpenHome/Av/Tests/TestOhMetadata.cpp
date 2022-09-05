@@ -157,13 +157,13 @@ void SuiteWriterDIDLLite::TestWriteEmptyDoesNothing()
     subject.WriteArtwork(Brx::Empty());
 
     std::array<const Brn, 7> tags = {
-        Brn(DIDLLite::kTagTitle),
-        Brn(DIDLLite::kTagArtist),
-        Brn(DIDLLite::kTagAlbumTitle),
-        Brn(DIDLLite::kTagGenre),
-        Brn(DIDLLite::kTagDescription),
-        Brn(DIDLLite::kTagOriginalTrackNumber),
-        Brn(DIDLLite::kTagArtwork),
+        DIDLLite::kTagTitle,
+        DIDLLite::kTagArtist,
+        DIDLLite::kTagAlbumTitle,
+        DIDLLite::kTagGenre,
+        DIDLLite::kTagDescription,
+        DIDLLite::kTagOriginalTrackNumber,
+        DIDLLite::kTagArtwork,
     };
 
     const Brx& didl = writer.Buffer();
