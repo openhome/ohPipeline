@@ -52,6 +52,7 @@ tests = '''
     TestJson
     TestThreadPool
     TestPins
+    TestOhMetadata
     TestRaop
     TestSpotifyReporter
     TestVolumeManager
