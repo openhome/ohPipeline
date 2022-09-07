@@ -1058,7 +1058,7 @@ void Pipeline::Unmute()
 
 void Pipeline::PostPipelineLatencyChanged()
 {
-    iVariableDelay2->PostPipelineLatencyChanged();
+    // Nothing to do here
 }
 
 void Pipeline::SetAttenuation(TUint aAttenuation)

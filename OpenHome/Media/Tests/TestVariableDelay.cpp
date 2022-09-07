@@ -173,7 +173,6 @@ private: // from IPipelineAnimator
 private:
     void TestDelayShorterThanMinimum();
     void TestAnimatorCalledOnStreamChange();
-    void TestAnimatorOverride();
     void TestClockPuller();
 private:
     TUint iAnimatorDelayJiffies;
@@ -931,7 +930,6 @@ SuiteVariableDelayRight::SuiteVariableDelayRight()
 {
     AddTest(MakeFunctor(*this, &SuiteVariableDelayRight::TestDelayShorterThanMinimum), "TestDelayShorterThanMinimum");
     AddTest(MakeFunctor(*this, &SuiteVariableDelayRight::TestAnimatorCalledOnStreamChange), "TestAnimatorCalledOnStreamChange");
-    AddTest(MakeFunctor(*this, &SuiteVariableDelayRight::TestAnimatorOverride), "TestAnimatorOverride");
     AddTest(MakeFunctor(*this, &SuiteVariableDelayRight::TestClockPuller), "TestClockPuller");
 }
 
@@ -1007,32 +1005,6 @@ void SuiteVariableDelayRight::TestAnimatorCalledOnStreamChange()
     TEST(iLastMsg == EMsgAudioPcm);
 
     TEST(iNumAnimatorDelayJiffiesCalls == 1);
-}
-
-void SuiteVariableDelayRight::TestAnimatorOverride()
-{
-    PullNext(EMsgMode);
-    PullNext(EMsgTrack);
-    PullNext(EMsgDecodedStream);
-    TEST(iNumAnimatorDelayJiffiesCalls == 1);
-
-    static const TUint kAnimatorOverride = 10 * Jiffies::kPerMs;
-    iAnimatorDelayJiffies = kAnimatorOverride;
-    static_cast<VariableDelayRight*>(iVariableDelay)->PostPipelineLatencyChanged();
-    static const TUint kDelay = 20 * Jiffies::kPerMs;
-    iNextDelayAbsoluteJiffies = kDelay;
-    PullNext(EMsgDelay);
-    TEST(iNumAnimatorDelayJiffiesCalls == 2);
-
-    iJiffies = 0;
-    while (iJiffies < kDelay - kAnimatorOverride) {
-        PullNext();
-        TEST(iLastMsg == EMsgSilence);
-    }
-    TEST(iJiffies == kDelay - kAnimatorOverride);
-    TEST(iVariableDelay->iStatus == VariableDelayBase::ERunning);
-    PullNext(EMsgAudioPcm);
-    TEST(iVariableDelay->iStatus == VariableDelayBase::ERunning);
 }
 
 void SuiteVariableDelayRight::TestClockPuller()
