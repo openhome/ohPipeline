@@ -65,6 +65,8 @@ using namespace OpenHome::Av;
 // RaatSourceSelection
 
 RaatSourceSelection::RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName)
+    : iSourceIndexCurrent(0)
+    , iStandby(true)
 {
     auto ret = RAAT__source_selection_state_listeners_init(&iListeners, RC__allocator_malloc());
     ASSERT(ret == RC__STATUS_SUCCESS);
