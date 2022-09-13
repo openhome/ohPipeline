@@ -377,6 +377,28 @@ void VariableDelayBase::HandleDelayChange(TUint aNewDelay)
     }
 }
 
+TBool VariableDelayBase::StreamInfoHasChanged(const DecodedStreamInfo& aInfo) const
+{
+    if (iDecodedStream == nullptr) {
+        return true;
+    }
+
+    auto info = iDecodedStream->StreamInfo();
+    if (info.Format() != aInfo.Format()) {
+        return true;
+    }
+    if (info.SampleRate() != aInfo.SampleRate()) {
+        return true;
+    }
+    if (info.BitDepth() != aInfo.BitDepth()) {
+        return true;
+    }
+    if (info.NumChannels() != aInfo.NumChannels()) {
+        return true;
+    }
+    return false;
+}
+
 inline const TChar* VariableDelayBase::Status() const
 {
     return kStatus[iStatus];
@@ -435,13 +457,13 @@ Msg* VariableDelayBase::ProcessMsg(MsgFlush* aMsg)
 
 Msg* VariableDelayBase::ProcessMsg(MsgDecodedStream* aMsg)
 {
+    TBool streamInfoChanged = StreamInfoHasChanged(aMsg->StreamInfo());
     if (iDecodedStream != nullptr) {
         iDecodedStream->RemoveRef();
     }
     iDecodedStream = aMsg;
     iDecodedStream->AddRef();
-    if (iStatus != ERampingUp && iCurrentRampValue == Ramp::kMin) {
-        // if we're ramped down, assume that a new stream indicates that audio has been discarded upstream
+    if (streamInfoChanged) {
         ResetStatusAndRamp();
     }
     return aMsg;
@@ -629,23 +651,11 @@ VariableDelayRight::VariableDelayRight(MsgFactory& aMsgFactory,
     : VariableDelayBase(aMsgFactory, aUpstreamElement, aRampDuration, "right")
     , iMinDelay(aMinDelay)
     , iDelayJiffiesTotal(0)
-    , iPostPipelineLatencyChanged(false)
     , iAnimatorLatency(0)
     , iSampleRate(0)
     , iBitDepth(0)
     , iNumChannels(0)
 {
-    ASSERT(iPostPipelineLatencyChanged.is_lock_free());
-}
-
-Msg* VariableDelayRight::Pull()
-{
-    TBool changed = true;
-    if (iPostPipelineLatencyChanged.compare_exchange_strong(changed, false)) {
-        AdjustDelayForAnimatorLatency();
-    }
-
-    return VariableDelayBase::Pull();
 }
 
 Msg* VariableDelayRight::ProcessMsg(MsgMode* aMsg)
@@ -677,12 +687,17 @@ Msg* VariableDelayRight::ProcessMsg(MsgDelay* aMsg)
 
 Msg* VariableDelayRight::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    Msg* msg = VariableDelayBase::ProcessMsg(aMsg);
     auto stream = aMsg->StreamInfo();
-    iSampleRate = stream.SampleRate();
-    iBitDepth = stream.BitDepth();
-    iNumChannels = stream.NumChannels();
-    AdjustDelayForAnimatorLatency();
+    TBool streamInfoChanged = StreamInfoHasChanged(stream);
+    Msg* msg = VariableDelayBase::ProcessMsg(aMsg);
+
+    if (streamInfoChanged) {
+        iSampleRate = stream.SampleRate();
+        iBitDepth = stream.BitDepth();
+        iNumChannels = stream.NumChannels();
+
+        AdjustDelayForAnimatorLatency();
+    }
     return msg;
 }
 
@@ -697,11 +712,6 @@ void VariableDelayRight::NotifyDelayApplied(TUint /*aJiffies*/)
     if (iDelayAdjustment == 0) {
         StartClockPuller();
     }
-}
-
-void VariableDelayRight::PostPipelineLatencyChanged()
-{
-    iPostPipelineLatencyChanged.store(true);
 }
 
 void VariableDelayRight::AdjustDelayForAnimatorLatency()

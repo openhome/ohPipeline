@@ -337,7 +337,7 @@ const Tidal::UserInfo* Tidal::SelectSuitableToken(const AuthenticationConfig& aA
                                     && iTokenProvider->HasToken(aAuthConfig.oauthTokenId);
 
         if (tokenPresent) {
-            LOG_TRACE(kMedia, "Tidal::SelectSuitableTokenId -> OAuth token with ID '%*s' found.\n", PBUF(aAuthConfig.oauthTokenId));
+            LOG_TRACE(kMedia, "Tidal::SelectSuitableTokenId -> OAuth token with ID '%.*s' found.\n", PBUF(aAuthConfig.oauthTokenId));
 
             for(const auto& element : iUserInfos) {
                 if (element.TokenId() == aAuthConfig.oauthTokenId) {

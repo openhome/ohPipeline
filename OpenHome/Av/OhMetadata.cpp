@@ -90,7 +90,6 @@ WriterDIDLXml::WriterDIDLXml(const Brx& aItemId, const Brx& aParentId, IWriter& 
     TryWrite(">");
     TryWrite("<item");
 
-    // Every item *MUST* have an ID.
     TryWriteAttribute("id", aItemId);
     TryWriteAttribute("parentID", (aParentId.Bytes() == 0 ? static_cast<const Brx&>(Brn("-1"))
                                                           : aParentId));
@@ -107,6 +106,10 @@ void WriterDIDLXml::TryWriteAttribute(const TChar* aDidlAttr, const Brx& aValue)
 
 void WriterDIDLXml::TryWriteAttribute(const Brx& aDidlAttr, const Brx& aValue)
 {
+    if (aValue.Bytes() == 0) {
+        return;
+    }
+
     TryWrite(" ");
     TryWrite(aDidlAttr);
     TryWrite("=\"");
@@ -147,6 +150,11 @@ void WriterDIDLXml::TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aAt
 
 void WriterDIDLXml::TryWriteTagWithAttribute(const Brx& aDidlTag, const Brx& aNs, const Brx& aAttribute, const Brx& aAttributeValue, const Brx& aValue)
 {
+    // Don't bother trying to write out any values that are totally empty!
+    if (aValue.Bytes() == 0) {
+        return;
+    }
+
     TryWrite("<");
     TryWrite(aDidlTag);
 
@@ -218,10 +226,10 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, EDurationResolution aResolut
 
     // This method assumes the provided time is in milliseconds
     if (aResolution == EDurationResolution::Seconds) {
-        timeRemaining *= 1000;
+        timeRemaining *= msPerSecond;
     }
 
-    const TUint hours = aDuration / msPerHour;
+    const TUint hours = timeRemaining / msPerHour;
     timeRemaining -= hours * msPerHour;
 
     const TUint minutes = timeRemaining / msPerMinute;
@@ -268,6 +276,7 @@ WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, IWriter
 WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const Brx& aParentId, IWriter& aWriter)
     : iWriter(aItemId, aParentId, aWriter)
     , iTitleWritten(false)
+    , iGenreWritten(false)
     , iAlbumWritten(false)
     , iArtistWritten(false)
     , iTrackNumberWritten(false)

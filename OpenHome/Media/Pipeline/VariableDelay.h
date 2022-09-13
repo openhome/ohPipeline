@@ -43,6 +43,7 @@ public: // from IPipelineElementUpstream
     Msg* Pull() override;
 protected:
     void HandleDelayChange(TUint aNewDelay);
+    TBool StreamInfoHasChanged(const DecodedStreamInfo& aInfo) const;
     inline const TChar* Status() const;
 private:
     Msg* DoPull();
@@ -114,14 +115,11 @@ private:
 
 class VariableDelayRight : public VariableDelayBase
                          , public IVariableDelayObserver
-                         , public IPostPipelineLatencyObserver
 {
 public:
     VariableDelayRight(MsgFactory& aMsgFactory,
                        IPipelineElementUpstream& aUpstreamElement,
                        TUint aRampDuration, TUint aMinDelay);
-public: // from IPipelineElementUpstream
-    Msg* Pull() override;
 private: // from PipelineElement (IMsgProcessor)
     using VariableDelayBase::ProcessMsg;
     Msg* ProcessMsg(MsgMode* aMsg) override;
@@ -131,15 +129,12 @@ private: // from VariableDelayBase
     void LocalDelayApplied() override;
 private: // from IVariableDelayObserver
     void NotifyDelayApplied(TUint aJiffies) override;
-public: // from IPostPipelineLatencyObserver
-    void PostPipelineLatencyChanged() override;
 private:
     void AdjustDelayForAnimatorLatency();
     void StartClockPuller();
 private:
     const TUint iMinDelay;
     TUint iDelayJiffiesTotal;
-    std::atomic<TBool> iPostPipelineLatencyChanged;
     TUint iAnimatorLatency;
     TUint iSampleRate;
     TUint iBitDepth;
