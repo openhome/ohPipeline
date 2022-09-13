@@ -1,9 +1,12 @@
 #include <OpenHome/Av/Raat/Output.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Types.h>
+#include <OpenHome/OsWrapper.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/Parser.h>
+#include <OpenHome/Private/Printer.h>
+#include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/PipelineManager.h>
@@ -25,6 +28,7 @@ static inline OpenHome::Av::RaatOutput* Output(void *self)
     return ext->iSelf;
 }
 
+
 extern "C"
 RC__Status Raat_Output_Get_Info(void *self, json_t **out_info)
 {
@@ -35,6 +39,7 @@ RC__Status Raat_Output_Get_Info(void *self, json_t **out_info)
 extern "C"
 RC__Status Raat_Output_Get_Supported_Formats(void *self, RC__Allocator *alloc, size_t *out_nformats, RAAT__StreamFormat **out_formats)
 {
+    LOG(kMedia, "Raat_Output_Get_Supported_Formats\n");
     Output(self)->GetSupportedFormats(alloc, out_nformats, out_formats);
     return RC__STATUS_SUCCESS;
 }
@@ -52,43 +57,50 @@ void Raat_Output_Setup(
 extern "C"
 RC__Status Raat_Output_Teardown(void *self, int token)
 {
-    return Output(self)->TeardownStream(token);
+    auto ret = Output(self)->TeardownStream(token);
+    return ret;
 }
 
 extern "C"
 RC__Status Raat_Output_Start(void *self, int token, int64_t walltime, int64_t streamtime, RAAT__Stream *stream)
 {
-    return Output(self)->StartStream(token, walltime, streamtime, stream);
+    auto ret = Output(self)->StartStream(token, walltime, streamtime, stream);
+    return ret;
 }
 
 extern "C"
 RC__Status Raat_Output_Get_Local_Time(void *self, int token, int64_t *out_time)
 {
-    return Output(self)->GetLocalTime(token, out_time);
+    auto ret = Output(self)->GetLocalTime(token, out_time);
+    return ret;
 }
 
 extern "C"
 RC__Status Raat_Output_Set_Remote_Time(void *self, int token, int64_t clock_offset, bool new_source)
 {
-    return Output(self)->SetRemoteTime(token, clock_offset, new_source);
+    auto ret = Output(self)->SetRemoteTime(token, clock_offset, new_source);
+    return ret;
 }
 
 extern "C"
 RC__Status Raat_Output_Stop(void *self, int token)
 {
-    return Output(self)->TryStop(token);
+    auto ret = Output(self)->TryStop(token);
+    return ret;
 }
 
 extern "C"
 RC__Status Raat_Output_Force_Teardown(void *self, json_t* /*reason*/)
 {
-    return Output(self)->Stop();
+    auto ret = Output(self)->Stop();
+    return ret;
 }
 
 extern "C"
 RC__Status Raat_Output_Add_Message_Listener(void *self, RAAT__OutputMessageCallback cb, void *cb_userdata)
 {
-    return Output(self)->AddListener(cb, cb_userdata);
+    auto ret = Output(self)->AddListener(cb, cb_userdata);
+    return ret;
 }
 
 extern "C"
@@ -160,6 +172,7 @@ RAAT__OutputPlugin* RaatOutput::Plugin()
 void RaatOutput::GetInfo(json_t** aInfo)
 {
     // FIXME - check what needs to be communicated - docs are *very* vague
+
     json_t *obj = json_object();
     ASSERT(obj != nullptr);
     json_object_set_new(obj, "refresh_supported_formats_before_playback", json_true());
@@ -217,7 +230,9 @@ void RaatOutput::GetSupportedFormats(RC__Allocator* aAlloc, size_t* aNumFormats,
         AddFormatPcm(&formats[i], kStandardRatesPcm[j], 16);
         AddFormatPcm(&formats[i+1], kStandardRatesPcm[j], 24);
     }
-    count += 2 * NumElems(kHigherRatesPcm);
+    if (maxPcm > kStandardRatesPcm[NumElems(kStandardRatesPcm) - 1]) {
+        count += 2 * NumElems(kHigherRatesPcm);
+    }
     for (j = 0; i < count; i += 2, j++) {
         AddFormatPcm(&formats[i], kHigherRatesPcm[j], 16);
         AddFormatPcm(&formats[i + 1], kHigherRatesPcm[j], 24);
@@ -255,11 +270,13 @@ void RaatOutput::SetupStream(
         0LL, // FIXME - sampleStart may not be available
         uri);
 
+    LOG(kMedia, "RaatOutput::SetupStream uri=%.*s\n", PBUF(uri));
     iSourceRaat.Play(uri);
 }
 
 RC__Status RaatOutput::TeardownStream(int aToken)
 {
+    LOG(kMedia, "RaatOutput::TeardownStream(%d) iToken=%d\n", aToken, iToken);
     if (aToken != iToken) {
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
@@ -268,6 +285,7 @@ RC__Status RaatOutput::TeardownStream(int aToken)
 
 RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStreamTime, RAAT__Stream* aStream)
 {
+    LOG(kMedia, "RaatOutput::StartStream(%d) iToken=%d\n", aToken, iToken);
     OutputSignalPath(); // FIXME - should be prompted by clients informing us of SP changes
 
     if (aToken != iToken) {
@@ -285,7 +303,7 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     const TUint64 delayNs = (TUint64)(aWallTime - GetLocalTime());
     const TUint64 nsPerSample = 1000000000LL / iSampleRate;
     const TUint delaySamples = (TUint)(delayNs / nsPerSample);
-    Log::Print("RaatOutput::StartStream: delay = %u (%u ms)\n", delaySamples, (delaySamples * 1000) / iSampleRate);
+    LOG(kMedia, "RaatOutput::StartStream: delay = %u (%u ms)\n", delaySamples, (delaySamples * 1000) / iSampleRate);
     iPendingDelay = delaySamples * Media::Jiffies::PerSample(iSampleRate);
     iSemStarted.Signal();
     return RC__STATUS_SUCCESS;
@@ -294,10 +312,11 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
 RC__Status RaatOutput::GetLocalTime(int aToken, int64_t* aTime)
 {
     if (aToken != iToken) {
+        LOG(kMedia, "RaatOutput::GetLocalTime(%d) iToken=%d\n", aToken, iToken);
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
     *aTime = GetLocalTime();
-    // FIXME - should use TimeInUs as a seed, then clock puller to count samples processed (i.e. measure delta from start) once playing
+    //LOG(kMedia, "RaatOutput::GetLocalTime(%d) time=%lld\n", aToken, *aTime);
     return RC__STATUS_SUCCESS;
 }
 
@@ -314,6 +333,7 @@ RC__Status RaatOutput::SetRemoteTime(int /*aToken*/, int64_t /*aClockOffset*/, b
 
 RC__Status RaatOutput::TryStop(int aToken)
 {
+    LOG(kMedia, "RaatOutput::TryStop(%d) iToken=%d\n", aToken, iToken);
     if (aToken != iToken) {
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
@@ -329,11 +349,13 @@ RC__Status RaatOutput::Stop()
 
 RC__Status RaatOutput::AddListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
 {
+    LOG(kMedia, "AddListener\n");
     return RAAT__output_message_listeners_add(&iListeners, aCb, aCbUserdata);
 }
 
 void RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
 {
+    LOG(kMedia, "Raat_Output_Remove_Message_Listener\n");
     (void)RAAT__output_message_listeners_remove(&iListeners, aCb, aCbUserdata);
 }
 
@@ -363,12 +385,14 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         }
         auto err = RAAT__stream_consume_packet(iStream, &packet);
         if (err != RC__STATUS_SUCCESS) {
+            LOG(kMedia, "Error: %d from RAAT__stream_consume_packet\n", err);
             return;
         }
     }
     if (!iRunning || iStreamPos == packet.streamsample) {
         iRunning = true;
         // current packet is suitable to send into pipeline immediately
+        //Log::Print("[%u] RaatOutput::Read: pushing %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), packet.nsamples);
         Brn audio((const TByte*)packet.buf, (TUint)packet.nsamples * iBytesPerSample);
         aWriter.WriteData(audio);
         iStreamPos = packet.streamsample + packet.nsamples;
@@ -378,6 +402,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         for (; it != iPendingPackets.end(); ++it) {
             if (it->streamsample == iStreamPos) {
                 audio.Set((const TByte*)it->buf, (TUint)it->nsamples * iBytesPerSample);
+                //Log::Print("[%u] RaatOutput::Read: (delayed) push %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), it->nsamples);
                 aWriter.WriteData(audio);
             }
             else {
@@ -400,6 +425,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         for (; it != iPendingPackets.end(); ++it) {
             if (it->streamsample >= packet.streamsample) {
                 if (it->streamsample > packet.streamsample) {
+                    //Log::Print("[%u] RaatOutput::Read: out of order, hold off on block starting %lld\n", Os::TimeInMs(iEnv.OsCtx()), packet.streamsample);
                     iPendingPackets.insert(it, packet);
                 }
                 done = true;
@@ -418,7 +444,7 @@ void RaatOutput::Interrupt()
     if (iStream != nullptr) {
         auto ret = RAAT__stream_cancel_consume_packet(iStream);
         if (ret != RC__STATUS_SUCCESS) {
-            Log::Print("Warning: RAAT__stream_cancel_consume_packet failed (%d)\n", ret);
+            LOG(kMedia, "RaatOutput::Interrupt() Warning: RAAT__stream_cancel_consume_packet failed (%d)\n", ret);
         }
     }
     AutoMutex _(iLockStream);
@@ -438,6 +464,7 @@ void RaatOutput::Reset()
 
 void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)
 {
+    LOG(kMedia, "RaatOutput::SignalPathChanged(%u,%u,%u)\n", aExakt, aAmplifier, aSpeaker);
     json_t* message = json_object();
     json_t* signal_path = json_array();
 
@@ -593,8 +620,7 @@ void RaatUri::Create(
 }
 
 RaatUri::RaatUri()
-{
-    Reset();
+{    Reset();
 }
 
 void RaatUri::Parse(const Brx& aUri)
@@ -622,9 +648,9 @@ void RaatUri::Parse(const Brx& aUri)
         val.Set(parser.Next('&'));
         kvps.insert(std::pair<Brn, Brn>(key, val));
     }
-    for (auto it : kvps) {
-        Log::Print("  key: %.*s,  val: %.*s\n", PBUF(it.first), PBUF(it.second));
-    }
+//    for (auto it : kvps) {
+//        OpenHome::Log::Print("  key: %.*s,  val: %.*s\n", PBUF(it.first), PBUF(it.second));
+//    }
 
     SetValUint(kvps, kKeySampleRate, iSampleRate);
     SetValUint(kvps, kKeyBitDepth, iBitDepth);
