@@ -349,13 +349,13 @@ RC__Status RaatOutput::Stop()
 
 RC__Status RaatOutput::AddListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
 {
-    LOG(kMedia, "AddListener\n");
+    LOG(kMedia, "RaatOutput::AddListener\n");
     return RAAT__output_message_listeners_add(&iListeners, aCb, aCbUserdata);
 }
 
 void RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
 {
-    LOG(kMedia, "Raat_Output_Remove_Message_Listener\n");
+    LOG(kMedia, "RaatOutput::RemoveListener\n");
     (void)RAAT__output_message_listeners_remove(&iListeners, aCb, aCbUserdata);
 }
 
