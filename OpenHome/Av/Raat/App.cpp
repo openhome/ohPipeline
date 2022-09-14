@@ -77,7 +77,7 @@ void RaatApp::RaatThread()
     RAAT__Log    *log;
     auto status = RAAT__log_new(RC__ALLOCATOR_DEFAULT, RAAT__LOG_DEFAULT_SIZE, &log);
     ASSERT(RC__STATUS_IS_SUCCESS(status));
-    RAAT__log_add_callback(log, Raat_Log, NULL); // FIXME - redirect as per Log::Print
+    RAAT__log_add_callback(log, Raat_Log, NULL);
 
     status = RAAT__device_new(RC__ALLOCATOR_DEFAULT, log, &iDevice);
     ASSERT(RC__STATUS_IS_SUCCESS(status));
@@ -87,17 +87,23 @@ void RaatApp::RaatThread()
     SetInfo(iInfo, RAAT__INFO_KEY_UNIQUE_ID, iMediaPlayer.Device().Udn());
     Brn name;
     Brn info;
+    Bws<128> vendorModel;
     Bws<Product::kMaxUriBytes> url;
     Bws<Product::kMaxUriBytes> imageUrl;
     auto& product = iMediaPlayer.Product();
     product.GetManufacturerDetails(name, info, url, imageUrl);
     SetInfo(iInfo, RAAT__INFO_KEY_VENDOR, name);
-    product.GetModelDetails(name, info, url, imageUrl);
-    SetInfo(iInfo, RAAT__INFO_KEY_VENDOR_MODEL, name);
-    SetInfo(iInfo, RAAT__INFO_KEY_MODEL, name); // FIXME - MODEL and VENDOR_MODEL are presumably intended to be different
+    vendorModel.Append(name);
+    vendorModel.Append(' ');
 
-    status = RAAT__info_set(iInfo, RAAT__INFO_KEY_OUTPUT_NAME, "output_name"); // FIXME - what is this? Brand name for DAC?
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
+    product.GetModelDetails(name, info, url, imageUrl);
+    SetInfo(iInfo, RAAT__INFO_KEY_MODEL, name);
+
+    Bws<Product::kMaxRoomBytes> room;
+    Bws<Product::kMaxNameBytes> userName;
+    product.GetProductDetails(room, userName, info, imageUrl);
+    vendorModel.AppendThrow(room);
+    SetInfo(iInfo, RAAT__INFO_KEY_VENDOR_MODEL, vendorModel);
 
     // register observer whose callback allows us to set RAAT__INFO_KEY_AUTO_NAME
     iFriendlyNameId = iMediaPlayer.FriendlyNameObservable().RegisterFriendlyNameObserver(
