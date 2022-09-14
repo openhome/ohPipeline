@@ -369,8 +369,8 @@ void RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserda
 void RaatOutput::GetDelay(int aToken, int64_t* aDelay)
 {
     LOG(kMedia, "RaatOutput::GetDelay(%d)\n", aToken);
-    static const int64_t kDelayNs = 150 * 1000 * 1000; // 150ms
-    *aDelay = kDelayNs;
+    *aDelay = (int64_t)iPipeline.SenderMinLatencyMs();
+    *aDelay *= 1000 * 1000; // convert milli to nano seconds
 }
 
 void RaatOutput::NotifyReady()
