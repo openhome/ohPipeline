@@ -80,6 +80,7 @@ public:
     RC__Status Stop();
     RC__Status AddListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata);
     void RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata);
+    void GetDelay(int aToken, int64_t* aDelayNs);
 private:
     TUint64 GetLocalTime() const;
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);

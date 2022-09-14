@@ -110,6 +110,13 @@ RC__Status Raat_Output_Remove_Message_Listener(void *self, RAAT__OutputMessageCa
     return RC__STATUS_SUCCESS;
 }
 
+extern "C"
+RC__Status Raat_Output_Get_Output_Delay(void *self, int token, int64_t *out_delay)
+{
+    Output(self)->GetDelay(token, out_delay);
+    return RC__STATUS_SUCCESS;
+}
+
 
 
 using namespace OpenHome;
@@ -150,7 +157,7 @@ RaatOutput::RaatOutput(
     iPluginExt.iPlugin.send_message = nullptr;
     iPluginExt.iPlugin.add_message_listener = Raat_Output_Add_Message_Listener;
     iPluginExt.iPlugin.remove_message_listener = Raat_Output_Remove_Message_Listener;
-    iPluginExt.iPlugin.get_output_delay = nullptr;
+    iPluginExt.iPlugin.get_output_delay = Raat_Output_Get_Output_Delay;
     iPluginExt.iSelf = this;
 
     RAAT__output_message_listeners_init(&iListeners, RC__allocator_malloc());
@@ -357,6 +364,13 @@ void RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserda
 {
     LOG(kMedia, "RaatOutput::RemoveListener\n");
     (void)RAAT__output_message_listeners_remove(&iListeners, aCb, aCbUserdata);
+}
+
+void RaatOutput::GetDelay(int aToken, int64_t* aDelay)
+{
+    LOG(kMedia, "RaatOutput::GetDelay(%d)\n", aToken);
+    static const int64_t kDelayNs = 150 * 1000 * 1000; // 150ms
+    *aDelay = kDelayNs;
 }
 
 void RaatOutput::NotifyReady()
