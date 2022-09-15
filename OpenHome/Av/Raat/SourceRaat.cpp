@@ -119,6 +119,7 @@ void SourceRaat::StandbyEnabled()
 
 void SourceRaat::Play(const Brx& aUri)
 {
+    EnsureActiveNoPrefetch();
     AutoMutex _(iLock);
     if (iTrack != nullptr) {
         iTrack->RemoveRef();
