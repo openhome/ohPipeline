@@ -131,6 +131,7 @@ private:
     TUint iBytesPerSample;
     TUint iSamplesPerRead;
     TUint iPendingDelay;
+    int64_t iPipelineDelayNs;
     TBool iStarted;
     TBool iRunning;
     TByte iAudioData[Media::AudioData::kMaxBytes];

@@ -140,6 +140,7 @@ RaatOutput::RaatOutput(
     , iSemStarted("ROut", 0)
     , iSampleRate(0)
     , iPendingDelay(0)
+    , iPipelineDelayNs(((int64_t)iPipeline.SenderMinLatencyMs()) * 1000 * 1000)
     , iStarted(false)
     , iRunning(false)
 {
@@ -366,11 +367,10 @@ void RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserda
     (void)RAAT__output_message_listeners_remove(&iListeners, aCb, aCbUserdata);
 }
 
-void RaatOutput::GetDelay(int aToken, int64_t* aDelay)
+void RaatOutput::GetDelay(int /*aToken*/, int64_t* aDelay)
 {
-    LOG(kMedia, "RaatOutput::GetDelay(%d)\n", aToken);
-    *aDelay = (int64_t)iPipeline.SenderMinLatencyMs();
-    *aDelay *= 1000 * 1000; // convert milli to nano seconds
+    //LOG(kMedia, "RaatOutput::GetDelay(%d)\n", aToken);
+    *aDelay = iPipelineDelayNs;
 }
 
 void RaatOutput::NotifyReady()
