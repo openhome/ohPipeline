@@ -10,6 +10,7 @@
 #include <OpenHome/Av/Raat/Volume.h>
 #include <OpenHome/Av/Raat/SourceSelection.h>
 #include <OpenHome/Av/Raat/Transport.h>
+#include <OpenHome/Media/Debug.h>
 
 #include <raat_device.h> 
 #include <raat_info.h> 
@@ -64,7 +65,7 @@ IRaatReader& RaatApp::Reader()
 }
 
 static void Raat_Log(RAAT__LogEntry* entry, void* /*userdata*/) {
-    Log::Print("RAAT: [%07d] %lld %s\n", entry->seq, entry->time, entry->message);
+    LOG(kMedia, "RAAT: [%07d] %lld %s\n", entry->seq, entry->time, entry->message);
 }
 
 static void SetInfo(RAAT__Info* aInfo, const char* aKey, const Brx& aValue)

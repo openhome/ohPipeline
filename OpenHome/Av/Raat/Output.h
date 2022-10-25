@@ -85,7 +85,6 @@ private:
     TUint64 GetLocalTime() const;
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);
     static void AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate);
-    void OutputSignalPath();
 private: // from IRaatReader
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;

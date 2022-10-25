@@ -293,8 +293,11 @@ RC__Status RaatOutput::TeardownStream(int aToken)
 
 RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStreamTime, RAAT__Stream* aStream)
 {
-    LOG(kMedia, "RaatOutput::StartStream(%d) iToken=%d\n", aToken, iToken);
-    OutputSignalPath(); // FIXME - should be prompted by clients informing us of SP changes
+    {
+        TUint64 localTime = GetLocalTime();
+        LOG(kMedia, "RaatOutput::StartStream(%d, %lld, %lld) iToken=%d, localTime=%llu\n",
+                    aToken, aWallTime, aStreamTime, iToken, localTime);
+    }
 
     if (aToken != iToken) {
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
@@ -308,7 +311,7 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
         RAAT__stream_incref(iStream);
     }
     iStreamPos = aStreamTime;
-    const TUint64 delayNs = (TUint64)(aWallTime - GetLocalTime());
+    const TUint64 delayNs = (TUint64)aWallTime;
     const TUint64 nsPerSample = 1000000000LL / iSampleRate;
     const TUint delaySamples = (TUint)(delayNs / nsPerSample);
     LOG(kMedia, "RaatOutput::StartStream: delay = %u (%u ms)\n", delaySamples, (delaySamples * 1000) / iSampleRate);
@@ -324,18 +327,19 @@ RC__Status RaatOutput::GetLocalTime(int aToken, int64_t* aTime)
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
     *aTime = GetLocalTime();
-    //LOG(kMedia, "RaatOutput::GetLocalTime(%d) time=%lld\n", aToken, *aTime);
+    LOG(kMedia, "RaatOutput::GetLocalTime(%d) time=%lld\n", aToken, *aTime);
     return RC__STATUS_SUCCESS;
 }
 
 TUint64 RaatOutput::GetLocalTime() const
 {
-    return iRaatTime.MclkTimeNs();
+    return iRaatTime.MclkTimeNs(iSampleRate);
 }
 
-RC__Status RaatOutput::SetRemoteTime(int /*aToken*/, int64_t /*aClockOffset*/, bool /*aNewSource*/)
+RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNewSource)
 {
     // FIXME
+    LOG(kMedia, "RaatOutput::SetRemoteTime(%d, %lld, %u)\n", aToken, aClockOffset, aNewSource);
     return RC__STATUS_NOT_IMPLEMENTED;
 }
 
@@ -406,7 +410,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
     if (!iRunning || iStreamPos == packet.streamsample) {
         iRunning = true;
         // current packet is suitable to send into pipeline immediately
-        //Log::Print("[%u] RaatOutput::Read: pushing %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), packet.nsamples);
+        Log::Print("[%u] RaatOutput::Read: pushing %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), packet.nsamples);
         Brn audio((const TByte*)packet.buf, (TUint)packet.nsamples * iBytesPerSample);
         aWriter.WriteData(audio);
         iStreamPos = packet.streamsample + packet.nsamples;
@@ -416,7 +420,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         for (; it != iPendingPackets.end(); ++it) {
             if (it->streamsample == iStreamPos) {
                 audio.Set((const TByte*)it->buf, (TUint)it->nsamples * iBytesPerSample);
-                //Log::Print("[%u] RaatOutput::Read: (delayed) push %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), it->nsamples);
+                Log::Print("[%u] RaatOutput::Read: (delayed) push %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), it->nsamples);
                 aWriter.WriteData(audio);
             }
             else {
@@ -431,15 +435,15 @@ void RaatOutput::Read(IRaatWriter& aWriter)
     else {
         if (iPendingPackets.size() == kPendingPacketsMax) {
             // we've exceeded our capacity for audio backlog - instruct the pipeline to drain then start again
+            LOG(kMedia, "RaatOutput::Read: too many out of order packets, THROW(RaatPacketError)\n");
             THROW(RaatPacketError);
-            // FIXME - throw exception causing protocol to drain 
         }
         TBool done = false;
         auto it = iPendingPackets.begin();
         for (; it != iPendingPackets.end(); ++it) {
             if (it->streamsample >= packet.streamsample) {
                 if (it->streamsample > packet.streamsample) {
-                    //Log::Print("[%u] RaatOutput::Read: out of order, hold off on block starting %lld\n", Os::TimeInMs(iEnv.OsCtx()), packet.streamsample);
+                    Log::Print("[%u] RaatOutput::Read: out of order, hold off on block starting %lld\n", Os::TimeInMs(iEnv.OsCtx()), packet.streamsample);
                     iPendingPackets.insert(it, packet);
                 }
                 done = true;
@@ -447,6 +451,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
             }
         }
         if (!done) {
+            Log::Print("[%u] RaatOutput::Read: out of order, hold off on block starting %lld\n", Os::TimeInMs(iEnv.OsCtx()), packet.streamsample);
             iPendingPackets.push_back(packet);
         }
     }
@@ -466,7 +471,7 @@ void RaatOutput::Interrupt()
         RAAT__stream_decref(iStream);
         iStream = nullptr;
     }
-    iToken = SetupCb::kTokenInvalid;
+//    iToken = SetupCb::kTokenInvalid;
 }
 
 void RaatOutput::Reset()
@@ -514,30 +519,6 @@ void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeake
     json_object_set_new(message, "signal_path", signal_path);
     RAAT__output_message_listeners_invoke(&iListeners, message);
     json_decref(message);
-}
-
-void RaatOutput::OutputSignalPath()
-{
-#if 0
-    json_t* message = json_object();
-    json_t* signal_path = json_array();
-
-    json_t* amplifier = json_object();
-    json_object_set_new(amplifier, "type", json_string("amplifier"));
-    json_object_set_new(amplifier, "method", json_string("digital"));
-    json_object_set_new(amplifier, "quality", json_string("lossless"));
-    json_array_append_new(signal_path, amplifier);
-
-    json_t* output = json_object();
-    json_object_set_new(output, "type", json_string("output"));
-    json_object_set_new(output, "method", json_string("speakers"));
-    json_object_set_new(output, "quality", json_string("lossless"));
-    json_array_append_new(signal_path, output);
-
-    json_object_set_new(message, "signal_path", signal_path);
-    RAAT__output_message_listeners_invoke(&iListeners, message);
-    json_decref(message);
-#endif
 }
 
 
