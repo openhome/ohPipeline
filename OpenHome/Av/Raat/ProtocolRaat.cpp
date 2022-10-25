@@ -138,7 +138,9 @@ void ProtocolRaat::WriteMetadata(const Brx& aMetadata)
 void ProtocolRaat::WriteDelay(TUint aJiffies)
 {
     static const TUint kMinDelayJiffies = Jiffies::kPerMs * 100;
-    aJiffies = std::max(aJiffies, kMinDelayJiffies);
+    if (aJiffies < kMinDelayJiffies) {
+        aJiffies = kMinDelayJiffies;
+    }
     iSupply->OutputDelay(aJiffies);
 }
 
