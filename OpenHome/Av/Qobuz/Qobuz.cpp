@@ -32,7 +32,7 @@ using namespace OpenHome::Configuration;
 // QobuzTrack
 
 QobuzTrack::QobuzTrack(IUnixTimestamp& aUnixTimestamp, Media::IPipelineObservable& aPipelineObservable,
-                       IQobuzTrackObserver& aObserver, TUint aTrackId, const Brx& aUrl, TUint aFormatId)
+                       IQobuzTrackObserver& aObserver, TUint aTrackId, const Brx& aUrl, TUint aFormatId, TBool aIsSample)
     : iLock("QTrk")
     , iUnixTimestamp(aUnixTimestamp)
     , iPipelineObservable(aPipelineObservable)
@@ -43,6 +43,7 @@ QobuzTrack::QobuzTrack(IUnixTimestamp& aUnixTimestamp, Media::IPipelineObservabl
     , iLastPlayedSeconds(0)
     , iStreamId(Media::IPipelineIdProvider::kStreamIdInvalid)
     , iFormatId(aFormatId)
+    , iIsSample(aIsSample)
     , iCurrentStream(false)
     , iStarted(false)
 {
@@ -110,6 +111,11 @@ const Brx& QobuzTrack::Url() const
 TUint QobuzTrack::FormatId() const
 {
     return iFormatId;
+}
+
+TBool QobuzTrack::IsSample() const
+{
+    return iIsSample;
 }
 
 TUint QobuzTrack::StartTime() const
@@ -282,9 +288,13 @@ QobuzTrack* Qobuz::StreamableTrack(const Brx& aTrackId)
     const TUint trackId = (TUint)parser.Num("track_id");
     const Brn url = parser.String(kTagFileUrl);
     const TUint formatId = (TUint)(TUint)parser.Num("format_id");
+    TBool sample = false;
+    if (parser.HasKey("sample")) {
+        sample = parser.Bool("sample");
+    }
 
     LOG(kMedia, "Qobuz::StreamableTrack TrackUrl: %.*s\n", PBUF(url));
-    return new QobuzTrack(iUnixTimestamp, iPipelineObservable, *this, trackId, url, formatId);
+    return new QobuzTrack(iUnixTimestamp, iPipelineObservable, *this, trackId, url, formatId, sample);
 }
 
 TBool Qobuz::TryUpdateStreamUrl(QobuzTrack& aTrack)
@@ -684,7 +694,7 @@ void Qobuz::NotifyStreamStarted(QobuzTrack& aTrack)
     WriterJsonArray writerArray(writerFormUrl);
     auto writerObject = writerArray.CreateObject();
     writerObject.WriteBool("online", true);
-    writerObject.WriteBool("sample", false);
+    writerObject.WriteBool("sample", aTrack.IsSample());
     writerObject.WriteString("intent", "streaming");
     writerObject.WriteString("device_id", iDeviceId);
     const auto trackId = aTrack.Id();

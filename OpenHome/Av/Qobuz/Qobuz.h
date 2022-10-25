@@ -46,7 +46,7 @@ class QobuzTrack : private Media::IPipelineObserver
 {
 public:
     QobuzTrack(IUnixTimestamp& aUnixTimestamp, Media::IPipelineObservable& aPipelineObservable,
-               IQobuzTrackObserver& aObserver, TUint aTrackId, const Brx& aUrl, TUint aFormatId);
+               IQobuzTrackObserver& aObserver, TUint aTrackId, const Brx& aUrl, TUint aFormatId, TBool aIsSample);
     ~QobuzTrack();
     void ProtocolStarted(TUint aStreamId);
     void ProtocolCompleted(TBool aStopped);
@@ -54,6 +54,7 @@ public:
     TUint Id() const;
     const Brx& Url() const;
     TUint FormatId() const;
+    TBool IsSample() const;
     TUint StartTime() const; // unix time
 private: // from IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
@@ -75,6 +76,7 @@ private:
     TUint iLastPlayedSeconds;
     TUint iStreamId; // from pipeline
     TUint iFormatId;
+    TBool iIsSample;
     TBool iCurrentStream;
     TBool iStarted;
 };
