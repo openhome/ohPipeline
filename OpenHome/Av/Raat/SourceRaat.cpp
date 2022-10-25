@@ -34,7 +34,7 @@ UriProviderRaat::UriProviderRaat(
     TrackFactory& aTrackFactory)
     : UriProviderSingleTrack(
         aMode,
-        false /* supportsLatency*/,
+        true /* supportsLatency*/,
         false /* supportsPause */,
         aTrackFactory)
 {
@@ -47,7 +47,7 @@ Optional<IClockPuller> UriProviderRaat::ClockPuller()
 
 
 const TChar* SourceFactory::kSourceTypeRaat = "RAAT";
-const Brn SourceFactory::kSourceNameRaat("RAAT");
+const Brn SourceFactory::kSourceNameRaat("Roon Ready");
 
 // SourceRaat
 

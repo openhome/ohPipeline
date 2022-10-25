@@ -11,7 +11,7 @@ RaatTimeCpu::RaatTimeCpu(Environment& aEnv)
 {
 }
 
-TUint64 RaatTimeCpu::MclkTimeNs() const
+TUint64 RaatTimeCpu::MclkTimeNs(TUint /*aSampleRate*/) const
 {
     return Os::TimeInUs(iOsCtx) * 1000;
 }

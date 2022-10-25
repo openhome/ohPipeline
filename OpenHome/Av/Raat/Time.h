@@ -10,7 +10,7 @@ class IRaatTime
 {
 public:
     virtual ~IRaatTime() {}
-    virtual TUint64 MclkTimeNs() const = 0;
+    virtual TUint64 MclkTimeNs(TUint aSampleRate) const = 0;
 };
 
 // Dummy implementation that uses processor rather than audio clock ticks.
@@ -20,7 +20,7 @@ class RaatTimeCpu : public IRaatTime
 public:
     RaatTimeCpu(Environment& aEnv);
 private: // from IRaatTime
-    TUint64 MclkTimeNs() const override;
+    TUint64 MclkTimeNs(TUint aSampleRate) const override;
 private:
     OsContext* iOsCtx;
 };

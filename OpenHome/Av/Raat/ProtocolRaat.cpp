@@ -8,6 +8,8 @@
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
 
+#include <algorithm>
+
 using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Media;
@@ -135,7 +137,8 @@ void ProtocolRaat::WriteMetadata(const Brx& aMetadata)
 
 void ProtocolRaat::WriteDelay(TUint aJiffies)
 {
-    aJiffies = Jiffies::kPerMs * 100; // FIXME - Roon appear to try to run at an implausibly low latency
+    static const TUint kMinDelayJiffies = Jiffies::kPerMs * 100;
+    aJiffies = std::max(aJiffies, kMinDelayJiffies);
     iSupply->OutputDelay(aJiffies);
 }
 
