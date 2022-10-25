@@ -543,7 +543,9 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(SourceFactory::NewRaat(
         *iMediaPlayer,
         new RaatTimeCpu(iMediaPlayer->Env()),
-        iRaatSignalPathObservable != nullptr? iRaatSignalPathObservable : new DummyRaatSignalPath()));
+        iRaatSignalPathObservable != nullptr? iRaatSignalPathObservable : new DummyRaatSignalPath(),
+        Brn("12345"),
+        Brn("0.0.1")));
     iRaatSignalPathObservable = nullptr;
 #endif
 }

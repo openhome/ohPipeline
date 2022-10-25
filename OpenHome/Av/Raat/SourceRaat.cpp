@@ -21,9 +21,16 @@ using namespace OpenHome::Media;
 ISource* SourceFactory::NewRaat(
     IMediaPlayer& aMediaPlayer,
     IRaatTime* aRaatTime,
-    IRaatSignalPathObservable* aSignalPathObservable)
+    IRaatSignalPathObservable* aSignalPathObservable,
+    const Brx& aSerialNumber,
+    const Brx& aSoftwareVersion)
 { // static
-    return new SourceRaat(aMediaPlayer, aRaatTime, aSignalPathObservable);
+    return new SourceRaat(
+        aMediaPlayer,
+        aRaatTime,
+        aSignalPathObservable,
+        aSerialNumber,
+        aSoftwareVersion);
 }
 
 
@@ -54,7 +61,9 @@ const Brn SourceFactory::kSourceNameRaat("Roon Ready");
 SourceRaat::SourceRaat(
     IMediaPlayer& aMediaPlayer,
     IRaatTime* aRaatTime,
-    IRaatSignalPathObservable* aSignalPathObservable)
+    IRaatSignalPathObservable* aSignalPathObservable,
+    const Brx& aSerialNumber,
+    const Brx& aSoftwareVersion)
     : Source(
         SourceFactory::kSourceNameRaat,
         SourceFactory::kSourceTypeRaat,
@@ -66,6 +75,8 @@ SourceRaat::SourceRaat(
     , iSignalPathObservable(aSignalPathObservable)
     , iApp(nullptr)
     , iTrack(nullptr)
+    , iSerialNumber(aSerialNumber)
+    , iSoftwareVersion(aSoftwareVersion)
 {
     iUriProvider = new UriProviderRaat(SourceFactory::kSourceTypeRaat, aMediaPlayer.TrackFactory());
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceRaat::Play));
@@ -138,8 +149,8 @@ void SourceRaat::Started()
         *this,
         *iRaatTime,
         *iSignalPathObservable,
-        Brn("12345"),
-        Brn("0.0.0"));
+        iSerialNumber,
+        iSoftwareVersion);
     auto protocol = new ProtocolRaat(
         iMediaPlayer.Env(),
         iApp->Reader(),

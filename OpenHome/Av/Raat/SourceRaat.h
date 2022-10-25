@@ -41,7 +41,9 @@ public:
     SourceRaat(
         IMediaPlayer& aMediaPlayer,
         IRaatTime* aRaatTime,
-        IRaatSignalPathObservable* aSignalPathObservable);
+        IRaatSignalPathObservable* aSignalPathObservable,
+        const Brx& aSerialNumber,
+        const Brx& aSoftwareVersion);
     ~SourceRaat();
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
@@ -67,6 +69,8 @@ private:
     RaatApp* iApp;
     Media::Track* iTrack;
     Media::BwsTrackMetaData iDefaultMetadata;
+    const Bws<64> iSerialNumber;
+    const Bws<64> iSoftwareVersion;
 };
 
 }

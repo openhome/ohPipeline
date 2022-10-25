@@ -39,7 +39,9 @@ public:
     static ISource* NewRaat(
         IMediaPlayer& aMediaPlayer,
         IRaatTime* aRaatTime,
-        IRaatSignalPathObservable* aSignalPathObservable);
+        IRaatSignalPathObservable* aSignalPathObservable,
+        const Brx& aSerialNumber,
+        const Brx& aSoftwareVersion);
 
     static const TChar* kSourceTypePlaylist;
     static const TChar* kSourceTypeRadio;
