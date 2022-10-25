@@ -18,6 +18,7 @@ namespace Av {
     class RaatOutput;
     class RaatVolume;
     class RaatSourceSelection;
+    class RaatTransport;
     
 class RaatApp
 {
@@ -43,6 +44,7 @@ private:
     RaatOutput* iOutput;
     RaatVolume* iVolume;
     RaatSourceSelection* iSourceSelection;
+    RaatTransport* iTransport;
     TUint iFriendlyNameId;
     Bwh iSerialNumber;
     Bwh iSoftwareVersion;

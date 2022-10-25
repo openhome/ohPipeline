@@ -9,6 +9,7 @@
 #include <OpenHome/Av/Raat/Output.h>
 #include <OpenHome/Av/Raat/Volume.h>
 #include <OpenHome/Av/Raat/SourceSelection.h>
+#include <OpenHome/Av/Raat/Transport.h>
 
 #include <raat_device.h> 
 #include <raat_info.h> 
@@ -39,6 +40,7 @@ RaatApp::RaatApp(
         iVolume = RaatVolume::New(aMediaPlayer);
     }
     iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat);
+    iTransport = new RaatTransport(aMediaPlayer);
     iThread->Start();
 }
 
@@ -50,6 +52,7 @@ RaatApp::~RaatApp()
     iMediaPlayer.FriendlyNameObservable().DeregisterFriendlyNameObserver(iFriendlyNameId);
     delete iThread;
     RAAT__device_delete(iDevice);
+    delete iTransport;
     delete iSourceSelection;
     delete iVolume;
     delete iOutput;
@@ -120,6 +123,8 @@ void RaatApp::RaatThread()
     if (iVolume != nullptr) {
         RAAT__device_set_volume_plugin(iDevice, iVolume->Plugin());
     }
+    RAAT__device_set_source_selection_plugin(iDevice, iSourceSelection->Plugin());
+    RAAT__device_set_transport_plugin(iDevice, iTransport->Plugin());
 
     status = RAAT__device_run(iDevice);
     if (!RC__STATUS_IS_SUCCESS(status)) {

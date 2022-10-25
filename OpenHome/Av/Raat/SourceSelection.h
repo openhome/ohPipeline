@@ -31,6 +31,7 @@ class RaatSourceSelection
 public:
     RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName);
     ~RaatSourceSelection(); 
+    RAAT__SourceSelectionPlugin* Plugin();
     void AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
     void RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
     void GetState(RAAT__SourceSelectionState *aState);

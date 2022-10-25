@@ -112,6 +112,11 @@ RaatSourceSelection::~RaatSourceSelection()
     iCpDevice->RemoveRef();
 }
 
+RAAT__SourceSelectionPlugin* RaatSourceSelection::Plugin()
+{
+    return (RAAT__SourceSelectionPlugin*)&iPluginExt;
+}
+
 void RaatSourceSelection::AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
 {
     (void)RAAT__source_selection_state_listeners_add(&iListeners, aCb, aCbUserdata);

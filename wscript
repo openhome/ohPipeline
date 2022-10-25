@@ -489,6 +489,7 @@ def build(bld):
                     'OpenHome/Av/Raat/Output.cpp',
                     'OpenHome/Av/Raat/Volume.cpp',
                     'OpenHome/Av/Raat/SourceSelection.cpp',
+                    'OpenHome/Av/Raat/Transport.cpp',
                     'OpenHome/Av/Raat/ProtocolRaat.cpp',
                     'OpenHome/Av/Raat/SourceRaat.cpp',
                     'OpenHome/Av/Raat/Time.cpp'
