@@ -32,8 +32,11 @@ private: // IMsgProcessor
 private:
     Msg* ProcessAudio(MsgAudioDecoded* aMsg);
 private:
+    TBool IsRampApplicable(const DecodedStreamInfo& aInfo);
+private:
     IPipelineElementUpstream& iUpstreamElement;
     TUint iStreamId;
+    AudioFormat iFormat;
     TBool iRamping;
     const TUint iRampJiffiesLong;
     const TUint iRampJiffiesShort;

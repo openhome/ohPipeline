@@ -29,6 +29,7 @@ Ramper::Ramper(IPipelineElementUpstream& aUpstreamElement,
     : PipelineElement(kSupportedMsgTypes)
     , iUpstreamElement(aUpstreamElement)
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
+    , iFormat(AudioFormat::Pcm)
     , iRamping(false)
     , iRampJiffiesLong(aRampJiffiesLong)
     , iRampJiffiesShort(aRampJiffiesShort)
@@ -72,9 +73,8 @@ Msg* Ramper::ProcessMsg(MsgHalt* aMsg)
 Msg* Ramper::ProcessMsg(MsgDecodedStream* aMsg)
 {
     const DecodedStreamInfo& info = aMsg->StreamInfo();
-    const TBool newStream = (info.StreamId() != iStreamId);
-    iStreamId = info.StreamId();
-    if (info.Live() || (newStream && info.SampleStart() > 0)) {
+
+    if (IsRampApplicable(info)) {
         iRamping = true;
         iCurrentRampValue = Ramp::kMin;
         iRemainingRampSize = iRampJiffies;
@@ -84,6 +84,10 @@ Msg* Ramper::ProcessMsg(MsgDecodedStream* aMsg)
         iCurrentRampValue = Ramp::kMax;
         iRemainingRampSize = 0;
     }
+
+    iStreamId = info.StreamId();
+    iFormat = info.Format();
+
     return aMsg;
 }
 
@@ -125,4 +129,23 @@ Msg* Ramper::ProcessAudio(MsgAudioDecoded* aMsg)
         }
     }
     return aMsg;
+}
+
+TBool Ramper::IsRampApplicable(const DecodedStreamInfo& aInfo)
+{
+    if (aInfo.Live()) {
+        return true;
+    }
+
+    const TBool newStream = (aInfo.StreamId() != iStreamId);
+    if (newStream && aInfo.SampleStart() > 0) {
+        return true;
+    }
+
+    const TBool formatChanged = (aInfo.Format() != iFormat);
+    if (formatChanged && aInfo.Format() == AudioFormat::Dsd) {
+        return true;
+    }
+
+    return false;
 }
