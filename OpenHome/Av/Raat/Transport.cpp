@@ -6,6 +6,7 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/OhMetadata.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Media/PipelineObserver.h>
 
@@ -98,7 +99,18 @@ void RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, vo
 
 void RaatTransport::UpdateStatus(json_t *aStatus)
 {
-    Log::Print("RaatTransport::UpdateStatus - %s\n", json_dumps(aStatus, 0)); // FIXME - probably leaks the return from json_dumps
+    iDidlLite.SetBytes(0);
+    WriterBuffer w(iDidlLite);
+    WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
+    json_t* nowPlaying = json_object_get(aStatus, "now_playing");
+    const char* title = json_string_value(json_object_get(nowPlaying, "two_line_title"));
+    const char* subTitle = json_string_value(json_object_get(nowPlaying, "two_line_subtitle"));
+    writer.WriteTitle(Brn(title));
+    writer.WriteArtist(Brn(subTitle));
+    writer.WriteEnd();
+    Log::Print("RaatTransport::UpdateStatus - %.*s\n", PBUF(iDidlLite));
+
+// FIXME - pass to output module / protocol
 }
 
 void RaatTransport::ReportTransportState()
@@ -110,12 +122,12 @@ void RaatTransport::ReportTransportState()
         switch (iTransportState)
         {
         case EPipelinePlaying:
-            buttonType = "pause";
+            buttonType = "play";
             break;
         case EPipelinePaused:
         case EPipelineStopped:
         case EPipelineWaiting:
-            buttonType = "play";
+            buttonType = "pause";
             break;
         case EPipelineBuffering:
             // don't set buttonType => no update to Roon transport controls

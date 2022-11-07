@@ -48,6 +48,7 @@ private:
     RAAT__TransportControlListeners iListeners;
     IThreadPoolHandle* iRaatCallback;
     Media::EPipelineState iTransportState;
+    Bws<Media::kTrackMetaDataMaxBytes> iDidlLite;
 };
 
 } // nsamepsacenamespace Av
