@@ -2,6 +2,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/Raat/Plugin.h>
 #include <OpenHome/Av/VolumeManager.h>
 #include <OpenHome/Media/MuteManager.h>
 #include <OpenHome/Configuration/ConfigManager.h>
@@ -88,7 +89,8 @@ RaatVolume* RaatVolume::New(IMediaPlayer& aMediaPlayer)
 }
 
 RaatVolume::RaatVolume(IMediaPlayer& aMediaPlayer)
-    : iVolumeManager(aMediaPlayer.VolumeManager())
+    : RaatPluginAsync(aMediaPlayer.ThreadPool())
+    , iVolumeManager(aMediaPlayer.VolumeManager())
     , iConfigLimit(aMediaPlayer.ConfigManager().GetNum(VolumeConfig::kKeyLimit))
 {
     auto ret = RAAT__volume_state_listeners_init(&iListeners, RC__allocator_malloc());
@@ -105,11 +107,6 @@ RaatVolume::RaatVolume(IMediaPlayer& aMediaPlayer)
     iPluginExt.iPlugin.toggle_mute = Raat_Volume_Toggle_Mute;
     iPluginExt.iSelf = this;
 
-    iHandleNotify = aMediaPlayer.ThreadPool().CreateHandle(
-        MakeFunctor(*this, &RaatVolume::NotifyChange),
-        "RaatVolume",
-        ThreadPoolPriority::Medium);
-
     iVolumeManager.AddVolumeObserver(*this);
     iVolumeManager.AddMuteObserver(*this);
     iSubscriberIdLimit = iConfigLimit.Subscribe(MakeFunctorConfigNum(*this, &RaatVolume::LimitChanged));
@@ -118,7 +115,6 @@ RaatVolume::RaatVolume(IMediaPlayer& aMediaPlayer)
 RaatVolume::~RaatVolume()
 {
     iConfigLimit.Unsubscribe(iSubscriberIdLimit);
-    iHandleNotify->Destroy();
     RAAT__volume_state_listeners_destroy(&iListeners);
 }
 
@@ -188,22 +184,22 @@ void RaatVolume::ToggleMute()
 void RaatVolume::VolumeChanged(const IVolumeValue& aVolume)
 {
     iVolume.store(aVolume.VolumeUser());
-    (void)iHandleNotify->TrySchedule();
+    TryReportState();
 }
 
 void RaatVolume::MuteChanged(TBool aValue)
 {
     iMute.store(aValue);
-    (void)iHandleNotify->TrySchedule();
+    TryReportState();
 }
 
 void RaatVolume::LimitChanged(Configuration::ConfigNum::KvpNum& aKvp)
 {
     iVolumeLimit.store(aKvp.Value());
-    (void)iHandleNotify->TrySchedule();
+    TryReportState();
 }
 
-void RaatVolume::NotifyChange()
+void RaatVolume::ReportState()
 {
     RAAT__VolumeState state;
     GetState(&state);

@@ -8,6 +8,7 @@
 
 namespace OpenHome {
     class Environment;
+    class Timer;
 namespace Av {
 
     class IMediaPlayer;
@@ -36,9 +37,11 @@ public:
 private:
     void RaatThread();
     void FriendlyNameChanged(const Brx& aName);
+    void StartPlugins();
 private:
     IMediaPlayer& iMediaPlayer;
     ThreadFunctor* iThread;
+    Timer* iTimer;
     RAAT__Device* iDevice;
     RAAT__Info* iInfo;
     RaatOutput* iOutput;

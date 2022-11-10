@@ -2,6 +2,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Thread.h>
+#include <OpenHome/Private/Timer.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Av/SourceFactory.h>
@@ -36,6 +37,7 @@ RaatApp::RaatApp(
     , iSoftwareVersion(aSoftwareVersion)
 {
     iThread = new ThreadFunctor("Raat", MakeFunctor(*this, &RaatApp::RaatThread));
+    iTimer = new Timer(aEnv, MakeFunctor(*this, &RaatApp::StartPlugins), "RaatApp");
     iOutput = new RaatOutput(aEnv, aMediaPlayer.Pipeline(), aSourceRaat, aRaatTime, aSignalPathObservable);
     if (aMediaPlayer.ConfigManager().HasNum(VolumeConfig::kKeyLimit)) {
         iVolume = RaatVolume::New(aMediaPlayer);
@@ -51,6 +53,7 @@ RaatApp::~RaatApp()
         RAAT__device_stop(iDevice);
     }
     iMediaPlayer.FriendlyNameObservable().DeregisterFriendlyNameObserver(iFriendlyNameId);
+    delete iTimer;
     delete iThread;
     RAAT__device_delete(iDevice);
     delete iTransport;
@@ -126,6 +129,10 @@ void RaatApp::RaatThread()
     }
     RAAT__device_set_source_selection_plugin(iDevice, iSourceSelection->Plugin());
     RAAT__device_set_transport_plugin(iDevice, iTransport->Plugin());
+    iTimer->FireIn(100); /* raat's lua interpreter crashes (memory overwrites?)
+                            if evented updates are delivered during startup.
+                            Delay all eventing for a short time to allow time
+                            for the device to be started below */
 
     status = RAAT__device_run(iDevice);
     if (!RC__STATUS_IS_SUCCESS(status)) {
@@ -136,4 +143,11 @@ void RaatApp::RaatThread()
 void RaatApp::FriendlyNameChanged(const Brx& aName)
 {
     SetInfo(iInfo, RAAT__INFO_KEY_AUTO_NAME, aName);
+}
+
+void RaatApp::StartPlugins()
+{
+    iVolume->Start();
+    iSourceSelection->Start();
+    iTransport->Start();
 }

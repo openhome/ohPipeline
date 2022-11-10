@@ -1,7 +1,10 @@
 #include <OpenHome/Av/Raat/SourceSelection.h>
+#include <OpenHome/Av/Raat/Plugin.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Functor.h>
+#include <OpenHome/ThreadPool.h>
+#include <OpenHome/Private/Thread.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <Generated/CpAvOpenhomeOrgProduct3.h>
@@ -65,7 +68,8 @@ using namespace OpenHome::Av;
 // RaatSourceSelection
 
 RaatSourceSelection::RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName)
-    : iSourceIndexCurrent(0)
+    : RaatPluginAsync(aMediaPlayer.ThreadPool())
+    , iSourceIndexCurrent(0)
     , iStandby(true)
 {
     auto ret = RAAT__source_selection_state_listeners_init(&iListeners, RC__allocator_malloc());
@@ -120,6 +124,7 @@ RAAT__SourceSelectionPlugin* RaatSourceSelection::Plugin()
 void RaatSourceSelection::AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
 {
     (void)RAAT__source_selection_state_listeners_add(&iListeners, aCb, aCbUserdata);
+    TryReportState();
 }
 
 void RaatSourceSelection::RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
@@ -145,13 +150,13 @@ void RaatSourceSelection::SetStandby()
 void RaatSourceSelection::StandbyChanged()
 {
     iProxyProduct->PropertyStandby(iStandby);
-    ReportStateChange();
+    TryReportState();
 }
 
 void RaatSourceSelection::SourceIndexChanged()
 {
     iProxyProduct->PropertySourceIndex(iSourceIndexCurrent);
-    ReportStateChange();
+    TryReportState();
 }
 
 RAAT__SourceSelectionState RaatSourceSelection::State() const
@@ -169,7 +174,7 @@ RAAT__SourceSelectionState RaatSourceSelection::State() const
     return state;
 }
 
-void RaatSourceSelection::ReportStateChange()
+void RaatSourceSelection::ReportState()
 {
     auto state = State();
     RAAT__source_selection_state_listeners_invoke(&iListeners, &state);
