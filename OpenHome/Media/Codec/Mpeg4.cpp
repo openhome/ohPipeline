@@ -2451,7 +2451,6 @@ TUint SeekTable::AudioSampleFromCodecSample(TUint aCodecSample) const
 {
     // Use entries from stts box to find audio sample that start at given codec sample;
     TUint totalCodecSamples = 0;
-    TUint totalAudioSamples = 0;
     for (TUint entry = 0; entry < iAudioSamplesPerSample.size(); entry++) {
         const TUint sampleCount = iAudioSamplesPerSample[entry].iSampleCount;
         const TUint audioSamples = iAudioSamplesPerSample[entry].iAudioSamples;
@@ -2463,11 +2462,9 @@ TUint SeekTable::AudioSampleFromCodecSample(TUint aCodecSample) const
             const TUint codecSampleOffset = aCodecSample - totalCodecSamples;
             const TUint audioSampleOffset = codecSampleOffset * audioSamples;
 
-            totalAudioSamples += audioSampleOffset;
             return audioSampleOffset;
         }
         totalCodecSamples += sampleCount;
-        totalAudioSamples += sampleCount * audioSamples;
     }
 
     if (aCodecSample > totalCodecSamples) {

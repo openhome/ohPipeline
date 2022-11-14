@@ -128,6 +128,9 @@ void RaatTransport::ReportState()
         case EPipelineBuffering:
             // don't set buttonType => no update to Roon transport controls
             break;
+        default:
+            ASSERTS();
+            break;
         }
     }
     if (buttonType != nullptr) {
