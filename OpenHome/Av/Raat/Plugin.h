@@ -14,7 +14,7 @@ public:
     void Start();
 protected:
     RaatPluginAsync(IThreadPool& aThreadPool);
-    ~RaatPluginAsync();
+    virtual ~RaatPluginAsync();
     void TryReportState();
 private:
     void DoReportState();
