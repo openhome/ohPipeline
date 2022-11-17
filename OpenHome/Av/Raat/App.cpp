@@ -13,10 +13,17 @@
 #include <OpenHome/Av/Raat/Transport.h>
 #include <OpenHome/Media/Debug.h>
 
+#include <uv.h>
 #include <raat_device.h> 
 #include <raat_info.h> 
 #include <rc_guid.h>
 #include <raat_base.h>
+
+extern "C"
+void raat_thread(void* arg)
+{
+    reinterpret_cast<OpenHome::Av::RaatApp*>(arg)->RaatThread();
+}
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -36,7 +43,6 @@ RaatApp::RaatApp(
     , iSerialNumber(aSerialNumber)
     , iSoftwareVersion(aSoftwareVersion)
 {
-    iThread = new ThreadFunctor("Raat", MakeFunctor(*this, &RaatApp::RaatThread));
     iTimer = new Timer(aEnv, MakeFunctor(*this, &RaatApp::StartPlugins), "RaatApp");
     iOutput = new RaatOutput(aEnv, aMediaPlayer.Pipeline(), aSourceRaat, aRaatTime, aSignalPathObservable);
     if (aMediaPlayer.ConfigManager().HasNum(VolumeConfig::kKeyLimit)) {
@@ -44,7 +50,8 @@ RaatApp::RaatApp(
     }
     iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat);
     iTransport = new RaatTransport(aMediaPlayer);
-    iThread->Start();
+    int err = uv_thread_create(&iThread, raat_thread, this);
+    ASSERT(err == 0);
 }
 
 RaatApp::~RaatApp()
@@ -54,7 +61,7 @@ RaatApp::~RaatApp()
     }
     iMediaPlayer.FriendlyNameObservable().DeregisterFriendlyNameObserver(iFriendlyNameId);
     delete iTimer;
-    delete iThread;
+    (void)uv_thread_join(&iThread);
     RAAT__device_delete(iDevice);
     delete iTransport;
     delete iSourceSelection;
@@ -129,7 +136,7 @@ void RaatApp::RaatThread()
     }
     RAAT__device_set_source_selection_plugin(iDevice, iSourceSelection->Plugin());
     RAAT__device_set_transport_plugin(iDevice, iTransport->Plugin());
-    iTimer->FireIn(100); /* raat's lua interpreter crashes (memory overwrites?)
+    iTimer->FireIn(250); /* raat's lua interpreter crashes (memory overwrites?)
                             if evented updates are delivered during startup.
                             Delay all eventing for a short time to allow time
                             for the device to be started below */
