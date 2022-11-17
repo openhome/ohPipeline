@@ -3,6 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Thread.h>
 
+#include <uv.h>
 #include <raat_device.h> 
 #include <raat_info.h> 
 
@@ -34,13 +35,13 @@ public:
         const Brx& aSoftwareVersion);
     ~RaatApp();
     IRaatReader& Reader();
-private:
     void RaatThread();
+private:
     void FriendlyNameChanged(const Brx& aName);
     void StartPlugins();
 private:
     IMediaPlayer& iMediaPlayer;
-    ThreadFunctor* iThread;
+    uv_thread_t iThread;
     Timer* iTimer;
     RAAT__Device* iDevice;
     RAAT__Info* iInfo;
