@@ -1,6 +1,7 @@
 #pragma once
 
 #include <OpenHome/Types.h>
+#include <OpenHome/Av/Raat/Plugin.h>
 #include <OpenHome/Av/VolumeManager.h>
 #include <OpenHome/Media/MuteManager.h>
 
@@ -8,7 +9,6 @@
 #include <raat_plugin_volume.h>
 
 namespace OpenHome {
-    class IThreadPoolHandle;
     namespace  Configuration {
         class ConfigNum;
     }
@@ -23,7 +23,10 @@ typedef struct {
 
 class IMediaPlayer;
 
-class RaatVolume : private IVolumeObserver, private Media::IMuteObserver
+class RaatVolume :
+    public RaatPluginAsync,
+    private IVolumeObserver,
+    private Media::IMuteObserver
 {
 public:
     static RaatVolume* New(IMediaPlayer& aMediaPlayer);
@@ -42,12 +45,12 @@ private: // from Media::IMuteObserver
 private:
     RaatVolume(IMediaPlayer& aMediaPlayer);
     void LimitChanged(Configuration::ConfigNum::KvpNum& aKvp);
-    void NotifyChange();
+private: // from RaatPluginAsync
+    void ReportState() override;
 private:
     RaatVolumePluginExt iPluginExt;
     RAAT__VolumeStateListeners iListeners;
     IVolumeManager& iVolumeManager;
-    IThreadPoolHandle* iHandleNotify;
     std::atomic<TUint> iVolume;
     std::atomic<TUint> iVolumeLimit;
     std::atomic<TBool> iMute;

@@ -78,10 +78,18 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
         iStarted = iStopped = iUnrecoverableError = iExit = false;
         iHalted = true;
     }
+    TBool yieldBeforeNextTry = false;
 
     for (; !iExit && !iStopped && !iUnrecoverableError;) {
         try {
             for (;;) {
+                if (yieldBeforeNextTry) {
+                    Thread::Sleep(500); /* This code runs in a fairly high priority thread.
+                                           Avoid it busy-looping, preventing action invocation
+                                           threads from being scheduled and changing the active
+                                           url/mode. */
+                }
+                yieldBeforeNextTry = true;
                 Close();
                 if (Connect(iUri, 0)) { // slightly dodgy - relies on implementation ignoring iUri's scheme
                     iStarted = true;
@@ -97,10 +105,6 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
                         THROW(ScdError);
                     }
                 }
-                Thread::Sleep(500); /* This code runs in a fairly high priority thread.
-                                       Avoid it busy-looping, preventing action invocation
-                                       threads from being scheduled and changing the active
-                                       url/mode. */
             }
             //Log::Print("\n\n\n");
             iObserver.NotifyScdConnectionChange(true);

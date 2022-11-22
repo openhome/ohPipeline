@@ -1,13 +1,13 @@
 #pragma once
 
 #include <OpenHome/Types.h>
+#include <OpenHome/Av/Raat/Plugin.h>
 
 #include <rc_status.h>
 #include <raat_plugin_source_selection.h>
 
 namespace OpenHome {
     class Brx;
-    class IThreadPoolHandle;
     namespace Configuration {
         class ConfigNum;
     }
@@ -26,7 +26,7 @@ typedef struct {
 
 class IMediaPlayer;
 
-class RaatSourceSelection
+class RaatSourceSelection : public RaatPluginAsync
 {
 public:
     RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName);
@@ -41,14 +41,18 @@ private:
     void StandbyChanged();
     void SourceIndexChanged();
     RAAT__SourceSelectionState State() const;
-    void ReportStateChange();
+    void TryReportStateChange();
+private: // from RaatPluginAsync
+    void ReportState() override;
 private:
     RaatSourceSelectionPluginExt iPluginExt;
     RAAT__SourceSelectionStateListeners iListeners;
     Net::CpDeviceDv* iCpDevice;
     Net::CpProxyAvOpenhomeOrgProduct3* iProxyProduct;
+    IThreadPoolHandle* iRaatCallback;
     TUint iSourceIndexRaat;
     TUint iSourceIndexCurrent;
+    TBool iStarted;
     TBool iStandby;
 };
 
