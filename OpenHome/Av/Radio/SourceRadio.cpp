@@ -271,8 +271,10 @@ void SourceRadio::Play()
      * "Failure to recognise audio format, flushing stream..."
      * which is just a false-positive in this scenario.
      */
-    iPipeline.RemoveAll();
-    iPipeline.Begin(iCurrentMode, iTrack->Id());
+    if (iLive) {
+        iPipeline.RemoveAll();
+        iPipeline.Begin(iCurrentMode, iTrack->Id());
+    }
     DoPlay();
 }
 
