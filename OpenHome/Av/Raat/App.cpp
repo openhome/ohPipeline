@@ -48,6 +48,9 @@ RaatApp::RaatApp(
     if (aMediaPlayer.ConfigManager().HasNum(VolumeConfig::kKeyLimit)) {
         iVolume = RaatVolume::New(aMediaPlayer);
     }
+    else {
+        iVolume = nullptr;
+    }
     iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat);
     iTransport = new RaatTransport(aMediaPlayer);
     int err = uv_thread_create(&iThread, raat_thread, this);
