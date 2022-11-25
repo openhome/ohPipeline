@@ -1,12 +1,44 @@
 #pragma once
 
 #include <OpenHome/Types.h>
-#include <OpenHome/Net/Private/XmlParser.h>
+#include <OpenHome/Media/Protocol/Protocol.h>
 
+#include <vector>
 #include <functional>
 
 namespace OpenHome {
 namespace Media {
+
+class IMpdParser
+{
+public:
+    virtual ~IMpdParser() { };
+    virtual const Brx& Id() const = 0;
+    virtual TBool CanProcess(const Brx& aMpd) = 0;
+    virtual ProtocolStreamResult Process(const Brx& aMpd) = 0;
+};
+
+
+class ContentMpd : public ContentProcessor
+{
+public:
+    ContentMpd();
+    ~ContentMpd();
+
+public: // ContentProcessor
+    TBool Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aData);
+    ProtocolStreamResult Stream(IReader& aReader, TUint64 aTotalBytes);
+
+public:
+    void AddParser(IMpdParser* aParser);
+
+private:
+    Optional<const Brx> iData;
+    std::vector<IMpdParser*> iParsers;
+};
+
+
+
 
 /* This namespace contains a set of helper classes for parsing MPEG-DASH manifest files.
  *

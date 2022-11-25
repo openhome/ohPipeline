@@ -15,6 +15,89 @@ using namespace OpenHome::Net;
 using namespace OpenHome::Media;
 using namespace OpenHome::Media::Mpd;
 
+
+// ContentMpd
+ContentMpd::ContentMpd()
+{ }
+
+ContentMpd::~ContentMpd()
+{ }
+
+TBool ContentMpd::Recognise(const Brx& /*aUri*/, const Brx& aMimeType, const Brx& aData)
+{
+    static const Brn kContentType("application/dash+xml");
+
+    // If we have no parsers for the manifest then there is nothing we can do. No point in checking the content type
+    if (iParsers.size() == 0) {
+        return false;
+    }
+
+    // Just incase, we'll copy the 'Data' param here. At the moment our parsing functions expect to work
+    // on the complete XML document which is not currently available in 'Stream()' without re-reading everything
+    // which creates a duplicate copy.
+    iData = Optional<const Brx>(aData);
+
+    // Assume that the MIME Type is just a single value...
+    if (aMimeType == kContentType) {
+        return true;
+    }
+
+    // Some services provide multiple header values to define encoding + content type.
+    Parser p(aMimeType);
+    Brn val = p.Next(';');
+
+    while(val.Bytes() > 0) {
+        if (val == kContentType) {
+            return true;
+        }
+
+        val = p.Next(';');
+    }
+
+    val = p.Remaining();
+    if (val == kContentType) {
+        return true;
+    }
+
+    return false;
+}
+
+ProtocolStreamResult ContentMpd::Stream(IReader& /*aReader*/, TUint64 /*aTotalBytes*/)
+{
+    // We need at least one Parser available in order to stream
+    if (iParsers.size() == 0) {
+        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+    }
+
+    if (!iData.Ok()) {
+        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+    }
+
+    const Brx& manifest = iData.Unwrap();
+    ProtocolStreamResult res = EProtocolStreamErrorUnrecoverable;
+
+    for(auto& entry : iParsers) {
+        if (entry->CanProcess(manifest)) {
+            Log::Print("ContentMpd::Stream - Selected Parser '%.*s'\n", PBUF(entry->Id()));
+            res = entry->Process(manifest);
+            break;
+        }
+    }
+
+    // Clear off our data to we're not going to access the potentially changed buffer in the future....
+    iData = {};
+    return res;
+}
+
+void ContentMpd::AddParser(IMpdParser* aParser)
+{
+    iParsers.push_back(std::move(aParser));
+}
+
+
+
+
+
 // MpdElements
 const Brn MpdElements::kRoot("MPD");
 const Brn MpdElements::kPeriod("Period");

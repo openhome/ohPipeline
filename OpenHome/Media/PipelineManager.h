@@ -32,6 +32,7 @@ class ContentProcessor;
 class UriProvider;
 class IVolumeRamper;
 class IVolumeMuterStepped;
+class IMpdParser;
 
 class PriorityArbitratorPipeline : public IPriorityArbitrator, private INonCopyable
 {
@@ -116,6 +117,13 @@ public:
      * @param[in] aContentProcessor   Ownership transfers to PipelineManager.
      */
     void Add(ContentProcessor* aContentProcessor);
+    /**
+     * Add a MPD parser to the pipeline to handle MPEG-DASH manifests
+     *
+     * Must be called before Start().
+     * @param[in] aParser  Ownership transfers to PipelineManager
+     */
+    void Add(IMpdParser* aParser);
     /**
      * Add a uri provider to the pipeline.
      *

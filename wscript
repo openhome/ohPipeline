@@ -1154,7 +1154,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestContentMpdMain.cpp',
-            use=['OHNET', 'ohPipeline', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohPipeline', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target="TestContentMpd",
             install_path=None)
     bld.program(
