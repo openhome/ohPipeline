@@ -6,6 +6,40 @@
 using namespace OpenHome;
 using namespace OpenHome::Media;
 
+class WriterSupply : public IWriter
+{
+public:
+    WriterSupply(ISupply& aSupply);
+public: // IWriter
+    virtual void Write(TByte aValue) override;
+    virtual void Write(const Brx& aBuffer) override;
+    virtual void WriteFlush() override;
+
+private:
+    ISupply& iSupply;
+};
+
+
+// WriterSupply
+WriterSupply::WriterSupply(ISupply& aSupply)
+    : iSupply(aSupply)
+{ }
+
+void WriterSupply::Write(TByte aValue)
+{
+    const Brn wrapped(&aValue, 1);
+    Write(wrapped);
+}
+
+void WriterSupply::Write(const Brx& aBuffer)
+{
+    iSupply.OutputData(aBuffer);
+}
+
+void WriterSupply::WriteFlush()
+{ }
+
+
 // ContentAudio
 
 ContentAudio::ContentAudio(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownstream)
@@ -17,6 +51,12 @@ ContentAudio::~ContentAudio()
 {
     delete iSupply;
 }
+
+void ContentAudio::Add(IDRMProvider* aProvider)
+{
+    iDRMProviders.push_back(std::move(aProvider));
+}
+
 
 TBool ContentAudio::Recognise(const Brx& /*aUri*/, const Brx& /*aMimeType*/, const Brx& /*aData*/)
 {
@@ -42,7 +82,25 @@ ProtocolStreamResult ContentAudio::Stream(IReader& aReader, TUint64 aTotalBytes)
     try {
         for (;;) {
             Brn buf = aReader.Read(kMaxReadBytes);
-            iSupply->OutputData(buf);
+
+            TBool wasDRMProtected = false;
+            WriterSupply ws(*iSupply);
+
+            for(auto s : iDRMProviders) {
+                if (s->IsActive()) {
+                    wasDRMProtected = true;
+                    // TODO / FIXME - Get the result of this!!
+                    (void)s->TryGetAudioFrom(buf, ws);
+                    break;
+                }
+            }
+
+            if (!wasDRMProtected) {
+                ws.Write(buf);
+            }
+
+            ws.WriteFlush();
+
             if (aTotalBytes > 0) {
                 if (buf.Bytes() > aTotalBytes) { // aTotalBytes is inaccurate - ignore it
                     aTotalBytes = 0;

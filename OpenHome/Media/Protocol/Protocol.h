@@ -251,8 +251,9 @@ private:
     TUint iBytesRemaining;
 };
 
-class IMpdParser;
-class ContentMpd;
+class IDRMProvider;
+class ContentAudio;
+
 class ProtocolManager : public IUriStreamer, public IUrlBlockWriter, private IProtocolManager, private INonCopyable
 {
     static const TUint kMaxUriBytes = 1024;
@@ -261,7 +262,7 @@ public:
     virtual ~ProtocolManager();
     void Add(Protocol* aProtocol);
     void Add(ContentProcessor* aProcessor);
-    void Add(IMpdParser* aMpdParser);
+    void Add(IDRMProvider* aProvider);
 public: // from IUriStreamer
     ProtocolStreamResult DoStream(Track& aTrack) override;
     void Interrupt(TBool aInterrupt) override;
@@ -280,8 +281,8 @@ private:
     mutable Mutex iLock;
     std::vector<Protocol*> iProtocols;
     std::vector<ContentProcessor*> iContentProcessors;
-    ContentMpd* iMpdProcessor;
-    ContentProcessor* iAudioProcessor;
+    ContentAudio* iAudioProcessor;
+
 };
 
 } // namespace Media

@@ -309,9 +309,9 @@ void MediaPlayer::Add(Codec::CodecBase* aCodec)
     iPipeline->Add(aCodec);
 }
 
-void MediaPlayer::Add(IMpdParser* aParser)
+void MediaPlayer::Add(IDRMProvider* aProvider)
 {
-    iPipeline->Add(aParser);
+    iPipeline->Add(aProvider);
 }
 
 void MediaPlayer::Add(Protocol* aProtocol)

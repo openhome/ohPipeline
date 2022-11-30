@@ -9,32 +9,18 @@
 namespace OpenHome {
 namespace Media {
 
-class IMpdParser
+// This class should be the base class for any MPD processors. TODO: Document furter...
+class ContentMpdBase : public ContentProcessor
 {
 public:
-    virtual ~IMpdParser() { };
-    virtual const Brx& Id() const = 0;
-    virtual TBool CanProcess(const Brx& aMpd) = 0;
-    virtual ProtocolStreamResult Process(const Brx& aMpd) = 0;
-};
-
-
-class ContentMpd : public ContentProcessor
-{
-public:
-    ContentMpd();
-    ~ContentMpd();
+    static const Brn kContentType;
 
 public: // ContentProcessor
-    TBool Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aData);
-    ProtocolStreamResult Stream(IReader& aReader, TUint64 aTotalBytes);
+    TBool Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aData) override;
+    // NOTE: Stream() not overridden. Expexted for implementers do to this for us
 
-public:
-    void AddParser(IMpdParser* aParser);
-
-private:
-    Optional<const Brx> iData;
-    std::vector<IMpdParser*> iParsers;
+protected:
+    virtual TBool RecogniseSpecific(const Brx& aUri, const Brx& aMimeType, const Brx& aData) = 0;
 };
 
 
