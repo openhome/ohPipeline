@@ -473,10 +473,7 @@ ProtocolManager::ProtocolManager(IPipelineElementDownstream& aDownstream, MsgFac
     , iFlushIdProvider(aFlushIdProvider)
     , iLock("PMGR")
 {
-    iMpdProcessor = new ContentMpd();
     iAudioProcessor = new ContentAudio(aMsgFactory, aDownstream);
-
-    Add(iMpdProcessor); // NOTE: Ownership is transfered over here, but we retain a reference so we can add 'Parser' implementations to the Pipeline
 }
 
 ProtocolManager::~ProtocolManager()
@@ -489,8 +486,6 @@ ProtocolManager::~ProtocolManager()
     for (TUint i = 0; i < count; i++) {
         delete iContentProcessors[i];
     }
-    // NOTE: iMpdProcessor has been freed above, nullify it here to prevent us using it again
-    iMpdProcessor = nullptr;
 
     delete iAudioProcessor;
 }
@@ -507,9 +502,9 @@ void ProtocolManager::Add(ContentProcessor* aProcessor)
     aProcessor->Initialise(*this);
 }
 
-void ProtocolManager::Add(IMpdParser* aParser)
+void ProtocolManager::Add(IDRMProvider* aProvider)
 {
-    iMpdProcessor->AddParser(aParser);
+    iAudioProcessor->Add(aProvider);
 }
 
 void ProtocolManager::Interrupt(TBool aInterrupt)

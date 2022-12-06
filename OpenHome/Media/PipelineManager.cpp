@@ -113,9 +113,9 @@ void PipelineManager::Add(ContentProcessor* aContentProcessor)
     iProtocolManager->Add(aContentProcessor);
 }
 
-void PipelineManager::Add(IMpdParser* aParser)
+void PipelineManager::Add(IDRMProvider* aProvider)
 {
-    iProtocolManager->Add(aParser);
+    iProtocolManager->Add(aProvider);
 }
 
 void PipelineManager::Add(UriProvider* aUriProvider)
