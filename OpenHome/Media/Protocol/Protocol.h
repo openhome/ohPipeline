@@ -48,6 +48,7 @@ public:
     virtual void NotifyServer(const Brx& aServer) = 0; // not allowed to throw
 };
 
+
 class ContentProcessor;
 class IProtocolManager : public IProtocolSet
 {
@@ -250,6 +251,9 @@ private:
     TUint iBytesRemaining;
 };
 
+class IDRMProvider;
+class ContentAudio;
+
 class ProtocolManager : public IUriStreamer, public IUrlBlockWriter, private IProtocolManager, private INonCopyable
 {
     static const TUint kMaxUriBytes = 1024;
@@ -258,6 +262,7 @@ public:
     virtual ~ProtocolManager();
     void Add(Protocol* aProtocol);
     void Add(ContentProcessor* aProcessor);
+    void Add(IDRMProvider* aProvider);
 public: // from IUriStreamer
     ProtocolStreamResult DoStream(Track& aTrack) override;
     void Interrupt(TBool aInterrupt) override;
@@ -276,7 +281,8 @@ private:
     mutable Mutex iLock;
     std::vector<Protocol*> iProtocols;
     std::vector<ContentProcessor*> iContentProcessors;
-    ContentProcessor* iAudioProcessor;
+    ContentAudio* iAudioProcessor;
+
 };
 
 } // namespace Media

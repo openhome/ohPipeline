@@ -1,12 +1,30 @@
 #pragma once
 
 #include <OpenHome/Types.h>
-#include <OpenHome/Net/Private/XmlParser.h>
+#include <OpenHome/Media/Protocol/Protocol.h>
 
+#include <vector>
 #include <functional>
 
 namespace OpenHome {
 namespace Media {
+
+// This class should be the base class for any MPD processors. TODO: Document furter...
+class ContentMpdBase : public ContentProcessor
+{
+public:
+    static const Brn kContentType;
+
+public: // ContentProcessor
+    TBool Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aData) override;
+    // NOTE: Stream() not overridden. Expexted for implementers do to this for us
+
+protected:
+    virtual TBool RecogniseSpecific(const Brx& aUri, const Brx& aMimeType, const Brx& aData) = 0;
+};
+
+
+
 
 /* This namespace contains a set of helper classes for parsing MPEG-DASH manifest files.
  *

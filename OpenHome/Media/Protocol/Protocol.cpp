@@ -5,6 +5,7 @@
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Media/Debug.h>
+#include <OpenHome/Media/Protocol/ContentMpd.h>
 
 #include <algorithm>
 
@@ -485,6 +486,7 @@ ProtocolManager::~ProtocolManager()
     for (TUint i = 0; i < count; i++) {
         delete iContentProcessors[i];
     }
+
     delete iAudioProcessor;
 }
 
@@ -498,6 +500,11 @@ void ProtocolManager::Add(ContentProcessor* aProcessor)
 {
     iContentProcessors.push_back(aProcessor);
     aProcessor->Initialise(*this);
+}
+
+void ProtocolManager::Add(IDRMProvider* aProvider)
+{
+    iAudioProcessor->Add(aProvider);
 }
 
 void ProtocolManager::Interrupt(TBool aInterrupt)

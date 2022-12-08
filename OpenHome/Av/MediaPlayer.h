@@ -32,6 +32,7 @@ namespace Media {
         class ContainerBase;
         class CodecBase;
     }
+    class IDRMProvider;
     class TrackFactory;
 }
 namespace Configuration {
@@ -102,6 +103,7 @@ public:
     virtual void Add(Media::Codec::ContainerBase* aContainer) = 0;
     virtual void Add(Media::Codec::CodecBase* aCodec) = 0;
     virtual void Add(Media::Protocol* aProtocol) = 0;
+    virtual void Add(Media::IDRMProvider* aProvider) = 0;
     virtual void Add(ISource* aSource) = 0;
     virtual void Add(Media::UriProvider* aUriProvider) = 0;
     virtual void AddAttribute(const TChar* aAttribute) = 0;
@@ -195,6 +197,7 @@ public: // from IMediaPlayer
     SslContext& Ssl() override;
     void Add(Media::Codec::ContainerBase* aContainer) override;
     void Add(Media::Codec::CodecBase* aCodec) override;
+    void Add(Media::IDRMProvider *aProvider) override;
     void Add(Media::Protocol* aProtocol) override;
     void Add(ISource* aSource) override;
     void Add(Media::UriProvider* aUriProvider) override;

@@ -15,6 +15,42 @@ using namespace OpenHome::Net;
 using namespace OpenHome::Media;
 using namespace OpenHome::Media::Mpd;
 
+
+// ContentMpdBase
+const Brn ContentMpdBase::kContentType("application/dash+xml");
+
+TBool ContentMpdBase::Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aData)
+{
+    TBool isRecognised = false;
+
+    // Content types match, we're good just to return here!
+    if (aMimeType == kContentType) {
+        isRecognised = true;
+    }
+
+    // Some services provide multiple header values to define encoding + content type.
+    if (!isRecognised) {
+        Parser p(aMimeType);
+        Brn val = p.Next(';');
+
+        while(val.Bytes() > 0) {
+            if (val == kContentType) {
+                isRecognised = true;
+                break;
+            }
+
+            val = p.Next(';');
+        }
+
+        // Compare last header value with content type, but careful not to override any previous
+        // isRecognised value!
+        isRecognised |= (p.Remaining() == kContentType);
+    }
+
+    return isRecognised && RecogniseSpecific(aUri, aMimeType, aData);
+}
+
+
 // MpdElements
 const Brn MpdElements::kRoot("MPD");
 const Brn MpdElements::kPeriod("Period");

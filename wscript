@@ -17,7 +17,6 @@ from filetasks import gather_files, build_tree, copy_task, find_dir_or_fail, cre
 from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform
 
 def options(opt):
-    opt.load('msvs')
     opt.load('msvc')
     opt.load('compiler_cxx')
     opt.load('compiler_c')
@@ -1154,7 +1153,7 @@ def build(bld):
             install_path=None)
     bld.program(
             source='OpenHome/Media/Tests/TestContentMpdMain.cpp',
-            use=['OHNET', 'ohPipeline', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            use=['OHNET', 'ohPipeline', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
             target="TestContentMpd",
             install_path=None)
     bld.program(
