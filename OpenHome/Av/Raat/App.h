@@ -21,6 +21,7 @@ namespace Av {
     class RaatVolume;
     class RaatSourceSelection;
     class RaatTransport;
+    class IRaatTransport;
     
 class RaatApp
 {
@@ -35,6 +36,7 @@ public:
         const Brx& aSoftwareVersion);
     ~RaatApp();
     IRaatReader& Reader();
+    IRaatTransport& Transport();
     void RaatThread();
 private:
     void FriendlyNameChanged(const Brx& aName);

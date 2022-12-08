@@ -74,7 +74,7 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
         aUri,
         0 /* totalBytes */,
         false /* seekable */,
-        true /* live */,
+        false /* live */,
         Media::Multiroom::Forbidden,
         *this,
         iStreamId,
@@ -88,9 +88,12 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
     iRaatReader.NotifyReady();
     
     // do stuff - read from RAAT forever (until source change)
-    for (; !iStopped; ) {
-        iRaatReader.Read(*this);
+    try {
+        for (; !iStopped; ) {
+            iRaatReader.Read(*this);
+        }
     }
+    catch (RaatReaderStopped&) {}
 
     // cleanup
     iSupply->Flush();
@@ -137,11 +140,14 @@ void ProtocolRaat::WriteMetadata(const Brx& aMetadata)
 
 void ProtocolRaat::WriteDelay(TUint aJiffies)
 {
+    Log::Print("FIXME - ignoring delay of %u (%ums)\n", aJiffies, Jiffies::ToMs(aJiffies));
+#if 0
     static const TUint kMinDelayJiffies = Jiffies::kPerMs * 100;
     if (aJiffies < kMinDelayJiffies) {
         aJiffies = kMinDelayJiffies;
     }
     iSupply->OutputDelay(aJiffies);
+#endif
 }
 
 void ProtocolRaat::WriteData(const Brx& aData)

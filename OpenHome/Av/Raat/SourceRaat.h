@@ -59,7 +59,10 @@ private: // from IProductObserver
     void ProductUrisChanged() override;
 private:
     void Play();
+    void Pause();
     void Stop();
+    void Next();
+    void Prev();
 private:
     Mutex iLock;
     IMediaPlayer& iMediaPlayer;

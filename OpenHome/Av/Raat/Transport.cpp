@@ -2,14 +2,8 @@
 #include <OpenHome/Av/Raat/Plugin.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Functor.h>
-#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Private/Printer.h>
-#include <OpenHome/Private/Thread.h>
-#include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Av/OhMetadata.h>
-#include <OpenHome/Media/PipelineManager.h>
-#include <OpenHome/Media/PipelineObserver.h>
 
 #include <rc_status.h>
 #include <raat_plugin_transport.h>
@@ -56,8 +50,7 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
 
-RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
-    : RaatPluginAsync(aMediaPlayer.ThreadPool())
+RaatTransport::RaatTransport()
 {
     auto ret = RAAT__transport_control_listeners_init(&iListeners, RC__allocator_malloc());
     ASSERT(ret == RC__STATUS_SUCCESS);
@@ -68,8 +61,6 @@ RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
     iPluginExt.iPlugin.remove_control_listener = Raat_RaatTransport_Remove_Control_Listener;
     iPluginExt.iPlugin.update_status = Raat_RaatTransport_Update_Status;
     iPluginExt.iSelf = this;
-
-    aMediaPlayer.Pipeline().AddObserver(*this);
 }
 
 RaatTransport::~RaatTransport()
@@ -84,8 +75,8 @@ RAAT__TransportPlugin* RaatTransport::Plugin()
 
 void RaatTransport::AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)
 {
+    Log::Print("RaatTransport::AddControlListener(cb, %p)\n", aCbUserdata);
     RAAT__transport_control_listeners_add(&iListeners, aCb, aCbUserdata);
-    TryReportState();
 }
 
 void RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)
@@ -95,79 +86,118 @@ void RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, vo
 
 void RaatTransport::UpdateStatus(json_t *aStatus)
 {
+    /*
+        {
+            "now_playing": {
+                "length": 231,
+                "composer": "Larry Mullen, Jr. / Adam Clayton / Bono / The Edge",
+                "title": "One",
+                "two_line_subtitle": "Johnny Cash",
+                "album": "American III: Solitary Man",
+                "two_line_title": "One",
+                "three_line_subsubtitle": "American III: Solitary Man",
+                "three_line_title": "One",
+                "three_line_subtitle": "Johnny Cash",
+                "artist": "Johnny Cash",
+                "one_line": "One - Johnny Cash"
+            },
+            "is_next_allowed": true,
+            "shuffle": false,
+            "state": "paused",
+            "seek": 36,
+            "is_previous_allowed": true,
+            "is_seek_allowed": true,
+            "is_play_allowed": true,
+            "is_pause_allowed": false,
+            "loop": "disabled"
+        }
+    */
+//    Log::Print("RaatTransport::UpdateStatus - %s\n\n", json_dumps(aStatus, 0)); // FIXME - leaks
+    iTrackCapabilities.SetPauseSupported(ValueBool(aStatus, "is_next_allowed"));
+    iTrackCapabilities.SetNextSupported(ValueBool(aStatus, "is_next_allowed"));
+    iTrackCapabilities.SetPrevSupported(ValueBool(aStatus, "is_previous_allowed"));
+    iTrackCapabilities.SetSeekSupported(ValueBool(aStatus, "is_seek_allowed"));
+    iTrackCapabilities.SetShuffle(ValueBool(aStatus, "shuffle"));
+    static const Brn kRepeatOff("disabled");
+    Brn loopCurrent = Brn(ValueString(aStatus, "loop"));
+    const TBool repeat = loopCurrent == kRepeatOff;
+    iTrackCapabilities.SetRepeat(repeat);
     iDidlLite.SetBytes(0);
     WriterBuffer w(iDidlLite);
     WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
     json_t* nowPlaying = json_object_get(aStatus, "now_playing");
-    const char* title = json_string_value(json_object_get(nowPlaying, "two_line_title"));
-    const char* subTitle = json_string_value(json_object_get(nowPlaying, "two_line_subtitle"));
+    const char* title = ValueString(nowPlaying, "two_line_title");
+    const char* subTitle = ValueString(nowPlaying, "two_line_subtitle");
     writer.WriteTitle(Brn(title));
     writer.WriteArtist(Brn(subTitle));
     writer.WriteEnd();
-    Log::Print("RaatTransport::UpdateStatus - %.*s\n", PBUF(iDidlLite));
+//    Log::Print("RaatTransport::UpdateStatus - %.*s\n", PBUF(iDidlLite));
 
 // FIXME - pass to output module / protocol
 }
 
-void RaatTransport::ReportState()
-{
-    // FIXME - report TransportState to Roon
-    const char* buttonType = nullptr;
-    {
-        AutoMutex _(iLock);
-        switch (iTransportState)
-        {
-        case EPipelinePlaying:
-            buttonType = "play";
-            break;
-        case EPipelinePaused:
-        case EPipelineStopped:
-        case EPipelineWaiting:
-            buttonType = "pause";
-            break;
-        case EPipelineBuffering:
-            // don't set buttonType => no update to Roon transport controls
-            break;
-        default:
-            ASSERTS();
-            break;
-        }
+const TChar* RaatTransport::ValueString(json_t* aObject, const TChar* aKey)
+{ // static
+    json_t* kvp = json_object_get(aObject, aKey);
+    if (kvp == nullptr) {
+        return "";
     }
-    if (buttonType != nullptr) {
-        json_t* ctrl = json_object();
-        json_object_set_new(ctrl, "button", json_string(buttonType));
-        RAAT__transport_control_listeners_invoke(&iListeners, ctrl);
+    const TChar* val = json_string_value(kvp);
+    if (val == nullptr) {
+        return "";
     }
+    return val;
 }
 
-void RaatTransport::NotifyPipelineState(EPipelineState aState)
-{
-    {
-        AutoMutex _(iLock);
-        iTransportState = aState;
+TBool RaatTransport::ValueBool(json_t* aObject, const TChar* aKey)
+{ // static
+    json_t* kvp = json_object_get(aObject, aKey);
+    if (kvp == nullptr) {
+        return false;
     }
-    TryReportState();
+    return json_is_true(kvp);
 }
 
-void RaatTransport::NotifyMode(
-    const Brx& /*aMode*/,
-    const ModeInfo& /*aInfo*/,
-    const ModeTransportControls& /*aTransportControls*/)
+void RaatTransport::DoReportState(const TChar* aState)
 {
+    json_t* ctrl = json_object();
+    json_object_set_new(ctrl, "button", json_string(aState));
+    RAAT__transport_control_listeners_invoke(&iListeners, ctrl);
 }
 
-void RaatTransport::NotifyTrack(Track& /*aTrack*/, TBool /*aStartOfStream*/)
+void RaatTransport::Play()
 {
+    DoReportState("play");
 }
 
-void RaatTransport::NotifyMetaText(const Brx& /*aText*/)
+TBool RaatTransport::CanPause()
 {
+    if (!iTrackCapabilities.PauseSupported()) {
+        return false;
+    }
+    DoReportState("pause");
+    return true;
 }
 
-void RaatTransport::NotifyTime(TUint /*aSeconds*/)
+void RaatTransport::Stop()
 {
+    DoReportState("stop");
 }
 
-void RaatTransport::NotifyStreamInfo(const DecodedStreamInfo& /*aStreamInfo*/)
+TBool RaatTransport::CanMoveNext()
 {
+    if (!iTrackCapabilities.NextSupported()) {
+        return false;
+    }
+    DoReportState("next");
+    return true;
+}
+
+TBool RaatTransport::CanMovePrev()
+{
+    if (!iTrackCapabilities.PrevSupported()) {
+        return false;
+    }
+    DoReportState("previous");
+    return true;
 }

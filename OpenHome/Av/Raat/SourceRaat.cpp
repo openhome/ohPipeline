@@ -10,6 +10,7 @@
 #include <OpenHome/Av/Raat/App.h>
 #include <OpenHome/Av/Raat/ProtocolRaat.h>
 #include <OpenHome/Av/Raat/Time.h>
+#include <OpenHome/Av/Raat/Transport.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -41,7 +42,7 @@ UriProviderRaat::UriProviderRaat(
     TrackFactory& aTrackFactory)
     : UriProviderSingleTrack(
         aMode,
-        true /* supportsLatency*/,
+        false /* supportsLatency*/,
         false /* supportsPause */,
         aTrackFactory)
 {
@@ -80,7 +81,10 @@ SourceRaat::SourceRaat(
 {
     iUriProvider = new UriProviderRaat(SourceFactory::kSourceTypeRaat, aMediaPlayer.TrackFactory());
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceRaat::Play));
+    iUriProvider->SetTransportPause(MakeFunctor(*this, &SourceRaat::Pause));
     iUriProvider->SetTransportStop(MakeFunctor(*this, &SourceRaat::Stop));
+    iUriProvider->SetTransportNext(MakeFunctor(*this, &SourceRaat::Next));
+    iUriProvider->SetTransportPrev(MakeFunctor(*this, &SourceRaat::Prev));
     iPipeline.Add(iUriProvider); // transfers ownership
 
     iDefaultMetadata.Replace("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
@@ -175,10 +179,37 @@ void SourceRaat::ProductUrisChanged()
 
 void SourceRaat::Play()
 {
-    // deliberately blank - this source does not support any Transport commands, even the ones that are mandatory elsewhere
+    iApp->Transport().Play();
+    iPipeline.Play();
+}
+
+void SourceRaat::Pause()
+{
+    if (iApp->Transport().CanPause()) {
+        iPipeline.Pause();
+    }
+    else {
+        iApp->Transport().Stop();
+        iPipeline.Stop();
+    }
 }
 
 void SourceRaat::Stop()
 {
-    // deliberately blank - this source does not support any Transport commands, even the ones that are mandatory elsewhere
+    iApp->Transport().Stop();
+    iPipeline.Stop();
+}
+
+void SourceRaat::Next()
+{
+    if (iApp->Transport().CanMoveNext()) {
+        // FIXME - flush pipeline / RAAT_stream, but unclear for how long
+    }
+}
+
+void SourceRaat::Prev()
+{
+    if (iApp->Transport().CanMovePrev()) {
+        // FIXME - flush pipeline / RAAT_stream, but unclear for how long
+    }
 }

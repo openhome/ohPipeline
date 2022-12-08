@@ -52,7 +52,7 @@ RaatApp::RaatApp(
         iVolume = nullptr;
     }
     iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat);
-    iTransport = new RaatTransport(aMediaPlayer);
+    iTransport = new RaatTransport();
     int err = uv_thread_create(&iThread, raat_thread, this);
     ASSERT(err == 0);
 }
@@ -74,7 +74,14 @@ RaatApp::~RaatApp()
 
 IRaatReader& RaatApp::Reader()
 {
+    ASSERT(iOutput != nullptr);
     return *iOutput;
+}
+
+IRaatTransport& RaatApp::Transport()
+{
+    ASSERT(iTransport != nullptr);
+    return *iTransport;
 }
 
 static void Raat_Log(RAAT__LogEntry* entry, void* /*userdata*/) {
@@ -159,5 +166,4 @@ void RaatApp::StartPlugins()
 {
     iVolume->Start();
     iSourceSelection->Start();
-    iTransport->Start();
 }

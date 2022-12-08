@@ -17,6 +17,7 @@
 
 EXCEPTION(RaatUriError);
 EXCEPTION(RaatPacketError)
+EXCEPTION(RaatReaderStopped)
 
 namespace OpenHome {
     class Env;
@@ -42,6 +43,50 @@ public:
     virtual void Read(IRaatWriter& aWriter) = 0;
     virtual void Interrupt() = 0;
     virtual void Reset() = 0;
+};
+
+
+class RaatUri
+{
+    static const Brn kKeyFormat;
+    static const Brn kKeySampleRate;
+    static const Brn kKeyBitDepth;
+    static const Brn kKeyNumChannels;
+    static const Brn kKeySampleStart;
+public:
+    static const Brn kScheme;
+    static const Brn kFormatPcm;
+    static const Brn kFormatDsd;
+public:
+    void Set(
+        Media::AudioFormat aFormat,
+        TUint aSampleRate,
+        TUint aBitDepth,
+        TUint aNumChannels,
+        TUint64 aSampleStart);
+    void SetSampleStart(TUint64 aSampleStart);
+    void GetUri(Bwx& aUri);
+public:
+    RaatUri();
+    void Parse(const Brx& aUri);
+    const Brx& AbsoluteUri() const;
+    Media::AudioFormat Format() const;
+    TUint SampleRate() const;
+    TUint BitDepth() const;
+    TUint NumChannels() const;
+    TUint SampleStart() const;
+private:
+    void Reset();
+    static Brn Val(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey);
+    static void SetValUint(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey, TUint& aVal);
+    static void SetValUint64(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey, TUint64& aVal);
+private:
+    Uri iUri;
+    Media::AudioFormat iFormat;
+    TUint iSampleRate;
+    TUint iBitDepth;
+    TUint iNumChannels;
+    TUint64 iSampleStart;
 };
 
 class ISourceRaat;
@@ -83,6 +128,7 @@ public:
     void GetDelay(int aToken, int64_t* aDelayNs);
 private:
     TUint64 GetLocalTime() const;
+    RAAT__Stream* StreamRef();
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);
     static void AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate);
 private: // from IRaatReader
@@ -125,6 +171,7 @@ private:
     Semaphore iSemStarted;
     SetupCb iSetupCb;
     int iToken;
+    RaatUri iUri;
     int64_t iStreamPos;
     TUint iSampleRate;
     TUint iBytesPerSample;
@@ -138,46 +185,13 @@ private:
     json_t* iSignalPath;
 };
 
-class RaatUri
+class AutoStreamRef // constructed with ref already held, releases ref on destruction
 {
-    static const Brn kKeyFormat;
-    static const Brn kKeySampleRate;
-    static const Brn kKeyBitDepth;
-    static const Brn kKeyNumChannels;
-    static const Brn kKeySampleStart;
 public:
-    static const Brn kScheme;
-    static const Brn kFormatPcm;
-    static const Brn kFormatDsd;
-public:
-    static void Create(
-        Media::AudioFormat aFormat,
-        TUint aSampleRate,
-        TUint aBitDepth,
-        TUint aNumChannels,
-        TUint64 aSampleStart,
-        Bwx& aUri);
-public:
-    RaatUri();
-    void Parse(const Brx& aUri);
-    const Brx& AbsoluteUri() const;
-    Media::AudioFormat Format() const;
-    TUint SampleRate() const;
-    TUint BitDepth() const;
-    TUint NumChannels() const;
-    TUint SampleStart() const;
+    AutoStreamRef(RAAT__Stream* aStream);
+    ~AutoStreamRef();
 private:
-    void Reset();
-    static Brn Val(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey);
-    static void SetValUint(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey, TUint& aVal);
-    static void SetValUint64(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey, TUint64& aVal);
-private:
-    Uri iUri;
-    Media::AudioFormat iFormat;
-    TUint iSampleRate;
-    TUint iBitDepth;
-    TUint iNumChannels;
-    TUint64 iSampleStart;
+    RAAT__Stream* iStream;
 };
 
 }
