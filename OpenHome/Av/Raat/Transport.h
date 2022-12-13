@@ -2,8 +2,11 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Av/Raat/Plugin.h>
+#include <OpenHome/Av/Raat/SourceSelection.h>
+#include <OpenHome/Av/TransportControl.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+
+#include <atomic>
 
 #include <rc_status.h>
 #include <raat_plugin_transport.h>
@@ -64,10 +67,15 @@ public:
     virtual TBool CanMovePrev() = 0;
 };
 
-class RaatTransport : public IRaatTransport
+class IMediaPlayer;
+
+class RaatTransport :
+    public IRaatTransport,
+    public IRaatSourceObserver,
+    private ITransportRepeatRandomObserver
 {
 public:
-    RaatTransport();
+    RaatTransport(IMediaPlayer& aMediaPlayer);
     ~RaatTransport();
     RAAT__TransportPlugin* Plugin();
     void AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
@@ -83,11 +91,20 @@ private: // from IRaatTransport
     void Stop() override;
     TBool CanMoveNext() override;
     TBool CanMovePrev() override;
+private: // IRaatSourceObserver
+    void RaatSourceActivated() override;
+    void RaatSourceDectivated() override;
+private: // from ITransportRepeatRandomObserver
+    void TransportRepeatChanged(TBool aRepeat) override;
+    void TransportRandomChanged(TBool aRandom) override;
 private:
     RaatTransportPluginExt iPluginExt;
     RAAT__TransportControlListeners iListeners;
+    ITransportRepeatRandom& iTransportRepeatRandom;
     RaatTransportInfo iTrackCapabilities;
     Bws<Media::kTrackMetaDataMaxBytes> iDidlLite;
+    std::atomic<TBool> iActive;
+    TBool iStarted;
 };
 
 } // nsamepsacenamespace Av

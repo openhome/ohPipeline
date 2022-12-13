@@ -3,7 +3,10 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Printer.h>
+#include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Av/OhMetadata.h>
+
+#include <atomic>
 
 #include <rc_status.h>
 #include <raat_plugin_transport.h>
@@ -50,7 +53,10 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
 
-RaatTransport::RaatTransport()
+RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
+    : iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
+    , iActive(false)
+    , iStarted(false)
 {
     auto ret = RAAT__transport_control_listeners_init(&iListeners, RC__allocator_malloc());
     ASSERT(ret == RC__STATUS_SUCCESS);
@@ -61,10 +67,13 @@ RaatTransport::RaatTransport()
     iPluginExt.iPlugin.remove_control_listener = Raat_RaatTransport_Remove_Control_Listener;
     iPluginExt.iPlugin.update_status = Raat_RaatTransport_Update_Status;
     iPluginExt.iSelf = this;
+
+    iTransportRepeatRandom.AddObserver(*this, "RaatTransport");
 }
 
 RaatTransport::~RaatTransport()
 {
+    iTransportRepeatRandom.RemoveObserver(*this);
     RAAT__transport_control_listeners_destroy(&iListeners);
 }
 
@@ -117,11 +126,19 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
     iTrackCapabilities.SetNextSupported(ValueBool(aStatus, "is_next_allowed"));
     iTrackCapabilities.SetPrevSupported(ValueBool(aStatus, "is_previous_allowed"));
     iTrackCapabilities.SetSeekSupported(ValueBool(aStatus, "is_seek_allowed"));
-    iTrackCapabilities.SetShuffle(ValueBool(aStatus, "shuffle"));
+    const TBool shuffle = ValueBool(aStatus, "shuffle");
+    if (!iStarted || iTrackCapabilities.Shuffle() != shuffle) {
+        iTransportRepeatRandom.SetRandom(shuffle);
+    }
+    iTrackCapabilities.SetShuffle(shuffle);
     static const Brn kRepeatOff("disabled");
     Brn loopCurrent = Brn(ValueString(aStatus, "loop"));
     const TBool repeat = loopCurrent == kRepeatOff;
+    if (!iStarted || iTrackCapabilities.Repeat() != repeat) {
+        iTransportRepeatRandom.SetRepeat(shuffle);
+    }
     iTrackCapabilities.SetRepeat(repeat);
+    iStarted = true;
     iDidlLite.SetBytes(0);
     WriterBuffer w(iDidlLite);
     WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
@@ -200,4 +217,28 @@ TBool RaatTransport::CanMovePrev()
     }
     DoReportState("previous");
     return true;
+}
+
+void RaatTransport::RaatSourceActivated()
+{
+    iActive.store(true);
+}
+
+void RaatTransport::RaatSourceDectivated()
+{
+    iActive.store(false);
+}
+
+void RaatTransport::TransportRepeatChanged(TBool aRepeat)
+{
+    if (iActive.load() && iTrackCapabilities.Repeat() != aRepeat) {
+        DoReportState("toggleloop");
+    }
+}
+
+void RaatTransport::TransportRandomChanged(TBool aRandom)
+{
+    if (iActive.load() && iTrackCapabilities.Shuffle() != aRandom) {
+        DoReportState("toggleshuffle");
+    }
 }

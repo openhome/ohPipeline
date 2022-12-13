@@ -24,12 +24,20 @@ typedef struct {
     RaatSourceSelection* iSelf;
 } RaatSourceSelectionPluginExt;
 
+class IRaatSourceObserver
+{
+public:
+    virtual ~IRaatSourceObserver() {}
+    virtual void RaatSourceActivated() = 0;
+    virtual void RaatSourceDectivated() = 0;
+};
+
 class IMediaPlayer;
 
 class RaatSourceSelection : public RaatPluginAsync
 {
 public:
-    RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName);
+    RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName, IRaatSourceObserver& aObserver);
     ~RaatSourceSelection(); 
     RAAT__SourceSelectionPlugin* Plugin();
     void AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
@@ -47,6 +55,7 @@ private: // from RaatPluginAsync
 private:
     RaatSourceSelectionPluginExt iPluginExt;
     RAAT__SourceSelectionStateListeners iListeners;
+    IRaatSourceObserver& iObserver;
     Net::CpDeviceDv* iCpDevice;
     Net::CpProxyAvOpenhomeOrgProduct3* iProxyProduct;
     IThreadPoolHandle* iRaatCallback;

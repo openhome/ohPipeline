@@ -51,8 +51,8 @@ RaatApp::RaatApp(
     else {
         iVolume = nullptr;
     }
-    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat);
-    iTransport = new RaatTransport();
+    iTransport = new RaatTransport(aMediaPlayer);
+    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport);
     int err = uv_thread_create(&iThread, raat_thread, this);
     ASSERT(err == 0);
 }
@@ -66,8 +66,8 @@ RaatApp::~RaatApp()
     delete iTimer;
     (void)uv_thread_join(&iThread);
     RAAT__device_delete(iDevice);
-    delete iTransport;
     delete iSourceSelection;
+    delete iTransport;
     delete iVolume;
     delete iOutput;
 }
