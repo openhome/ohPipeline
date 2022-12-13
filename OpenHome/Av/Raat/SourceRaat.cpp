@@ -203,13 +203,13 @@ void SourceRaat::Stop()
 void SourceRaat::Next()
 {
     if (iApp->Transport().CanMoveNext()) {
-        // FIXME - flush pipeline / RAAT_stream, but unclear for how long
+        iPipeline.Next();
     }
 }
 
 void SourceRaat::Prev()
 {
     if (iApp->Transport().CanMovePrev()) {
-        // FIXME - flush pipeline / RAAT_stream, but unclear for how long
+        iPipeline.Prev();
     }
 }
