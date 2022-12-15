@@ -128,17 +128,19 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
     iTrackCapabilities.SetPrevSupported(ValueBool(aStatus, "is_previous_allowed"));
     iTrackCapabilities.SetSeekSupported(ValueBool(aStatus, "is_seek_allowed"));
     const TBool shuffle = ValueBool(aStatus, "shuffle");
-    if (!iStarted || iTrackCapabilities.Shuffle() != shuffle) {
+    TBool report = (!iStarted || iTrackCapabilities.Shuffle() != shuffle);
+    iTrackCapabilities.SetShuffle(shuffle);
+    if (report) {
         iTransportRepeatRandom.SetRandom(shuffle);
     }
-    iTrackCapabilities.SetShuffle(shuffle);
     static const Brn kRepeatOff("disabled");
     Brn loopCurrent = Brn(ValueString(aStatus, "loop"));
     const TBool repeat = loopCurrent == kRepeatOff;
-    if (!iStarted || iTrackCapabilities.Repeat() != repeat) {
+    report = (!iStarted || iTrackCapabilities.Repeat() != repeat);
+    iTrackCapabilities.SetRepeat(repeat);
+    if (report) {
         iTransportRepeatRandom.SetRepeat(shuffle);
     }
-    iTrackCapabilities.SetRepeat(repeat);
     iStarted = true;
 
     json_t* nowPlaying = json_object_get(aStatus, "now_playing");
