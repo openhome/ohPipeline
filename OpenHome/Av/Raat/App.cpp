@@ -51,7 +51,7 @@ RaatApp::RaatApp(
     else {
         iVolume = nullptr;
     }
-    iTransport = new RaatTransport(aMediaPlayer);
+    iTransport = new RaatTransport(aMediaPlayer, *iOutput);
     iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport);
     int err = uv_thread_create(&iThread, raat_thread, this);
     ASSERT(err == 0);

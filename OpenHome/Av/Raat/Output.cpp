@@ -312,7 +312,7 @@ RaatOutput::RaatOutput(
     , iPipeline(aPipeline)
     , iSourceRaat(aSourceRaat)
     , iRaatTime(aRaatTime)
-    , iLockStream("RatL")
+    , iLockStream("Rat1")
     , iStream(nullptr)
     , iSemStarted("ROut", 0)
     , iSampleRate(0)
@@ -320,6 +320,7 @@ RaatOutput::RaatOutput(
     , iPipelineDelayNs(((int64_t)iPipeline.SenderMinLatencyMs()) * 1000 * 1000)
     , iStarted(false)
     , iRunning(false)
+    , iLockMetadata("Rat2")
 {
     iPluginExt.iPlugin.get_info = Raat_Output_Get_Info;
     iPluginExt.iPlugin.get_supported_formats = Raat_Output_Get_Supported_Formats;
@@ -592,6 +593,16 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         aWriter.WriteDelay(iPendingDelay);
         iPendingDelay = 0;
     }
+    {
+        AutoMutex _(iLockMetadata);
+        if (iMetadata.Bytes() > 0) {
+            iMetadataTemp.Replace(iMetadata);
+        }
+    }
+    if (iMetadataTemp.Bytes() > 0) {
+        aWriter.WriteMetadata(iMetadataTemp);
+        iMetadataTemp.Replace(Brx::Empty());
+    }
 
     RAAT__AudioPacket packet;
     {
@@ -673,6 +684,12 @@ void RaatOutput::Reset()
     iRunning = false;
     iStreamPos = 0;
     (void)iPendingPackets.clear();
+}
+
+void RaatOutput::MetadataChanged(const Brx& aDidlLite)
+{
+    AutoMutex _(iLockMetadata);
+    iMetadata.ReplaceThrow(aDidlLite);
 }
 
 void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)

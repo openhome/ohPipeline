@@ -53,8 +53,9 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
 
-RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
+RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer, IRaatMetadataObserver& aMetadataObserver)
     : iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
+    , iMetadataObserver(aMetadataObserver)
     , iActive(false)
     , iStarted(false)
 {
@@ -139,18 +140,26 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
     }
     iTrackCapabilities.SetRepeat(repeat);
     iStarted = true;
-    iDidlLite.SetBytes(0);
-    WriterBuffer w(iDidlLite);
-    WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
+
     json_t* nowPlaying = json_object_get(aStatus, "now_playing");
     const char* title = ValueString(nowPlaying, "two_line_title");
     const char* subTitle = ValueString(nowPlaying, "two_line_subtitle");
-    writer.WriteTitle(Brn(title));
-    writer.WriteArtist(Brn(subTitle));
-    writer.WriteEnd();
-//    Log::Print("RaatTransport::UpdateStatus - %.*s\n", PBUF(iDidlLite));
+    Brn titleBuf(title);
+    Brn subTitleBuf(subTitle);
+    if (titleBuf != iMetadataTitle || subTitleBuf != iMetadataSubtitle) {
+        iMetadataTitle.ReplaceThrow(titleBuf);
+        iMetadataSubtitle.ReplaceThrow(subTitleBuf);
 
-// FIXME - pass to output module / protocol
+        iDidlLite.SetBytes(0);
+        WriterBuffer w(iDidlLite);
+        WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
+        writer.WriteTitle(titleBuf);
+        writer.WriteArtist(subTitleBuf);
+        writer.WriteEnd();
+//        Log::Print("RaatTransport::UpdateStatus - %.*s\n", PBUF(iDidlLite));
+
+        iMetadataObserver.MetadataChanged(iDidlLite);
+    }
 }
 
 const TChar* RaatTransport::ValueString(json_t* aObject, const TChar* aKey)

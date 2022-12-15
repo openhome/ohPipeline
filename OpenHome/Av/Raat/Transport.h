@@ -67,6 +67,13 @@ public:
     virtual TBool CanMovePrev() = 0;
 };
 
+class IRaatMetadataObserver
+{
+public:
+    virtual ~IRaatMetadataObserver() {}
+    virtual void MetadataChanged(const Brx& aDidlLite) = 0;
+};
+
 class IMediaPlayer;
 
 class RaatTransport :
@@ -75,7 +82,7 @@ class RaatTransport :
     private ITransportRepeatRandomObserver
 {
 public:
-    RaatTransport(IMediaPlayer& aMediaPlayer);
+    RaatTransport(IMediaPlayer& aMediaPlayer, IRaatMetadataObserver& aMetadataObserver);
     ~RaatTransport();
     RAAT__TransportPlugin* Plugin();
     void AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
@@ -101,8 +108,11 @@ private:
     RaatTransportPluginExt iPluginExt;
     RAAT__TransportControlListeners iListeners;
     ITransportRepeatRandom& iTransportRepeatRandom;
+    IRaatMetadataObserver& iMetadataObserver;
     RaatTransportInfo iTrackCapabilities;
     Bws<Media::kTrackMetaDataMaxBytes> iDidlLite;
+    Bws<128> iMetadataTitle;
+    Bws<128> iMetadataSubtitle;
     std::atomic<TBool> iActive;
     TBool iStarted;
 };

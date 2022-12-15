@@ -6,6 +6,7 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Av/Raat/SignalPath.h>
+#include <OpenHome/Av/Raat/Transport.h>
 
 #include <vector>
 
@@ -99,7 +100,10 @@ typedef struct {
 
 class IRaatTime;
 
-class RaatOutput : public IRaatReader, private IRaatSignalPathObserver
+class RaatOutput :
+    public IRaatReader,
+    public IRaatMetadataObserver,
+    private IRaatSignalPathObserver
 {
     static const TUint kPendingPacketsMax;
 public:
@@ -136,6 +140,8 @@ private: // from IRaatReader
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
     void Reset() override;
+private: // from IRaatMetadataObserver
+    void MetadataChanged(const Brx& aDidlLite) override;
 private: // from IRaatSignalPathObserver
     void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
 private:
@@ -183,6 +189,9 @@ private:
     TByte iAudioData[Media::AudioData::kMaxBytes];
     std::vector<RAAT__AudioPacket> iPendingPackets;
     json_t* iSignalPath;
+    Mutex iLockMetadata;
+    Bws<Media::kTrackMetaDataMaxBytes> iMetadata;
+    Bws<Media::kTrackMetaDataMaxBytes> iMetadataTemp; // local scope but too big for the stack
 };
 
 class AutoStreamRef // constructed with ref already held, releases ref on destruction
