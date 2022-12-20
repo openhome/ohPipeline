@@ -597,6 +597,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         AutoMutex _(iLockMetadata);
         if (iMetadata.Bytes() > 0) {
             iMetadataTemp.Replace(iMetadata);
+            iMetadata.Replace(Brx::Empty());
         }
     }
     if (iMetadataTemp.Bytes() > 0) {
