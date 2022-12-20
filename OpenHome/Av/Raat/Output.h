@@ -43,7 +43,6 @@ public:
     virtual void NotifyReady() = 0;
     virtual void Read(IRaatWriter& aWriter) = 0;
     virtual void Interrupt() = 0;
-    virtual void Reset() = 0;
 };
 
 
@@ -133,13 +132,13 @@ public:
 private:
     TUint64 GetLocalTime() const;
     RAAT__Stream* StreamRef();
+    void ChangeStream(RAAT__Stream* aStream);
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);
     static void AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate);
 private: // from IRaatReader
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
-    void Reset() override;
 private: // from IRaatMetadataObserver
     void MetadataChanged(const Brx& aDidlLite) override;
 private: // from IRaatSignalPathObserver

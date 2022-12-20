@@ -480,15 +480,8 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     if (aToken != iToken) {
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
-    {
-        Interrupt();
-        AutoMutex _(iLockStream);
-        if (iStream != nullptr) {
-            RAAT__stream_decref(iStream);
-        }
-        iStream = aStream;
-        RAAT__stream_incref(iStream);
-    }
+    Interrupt();
+    ChangeStream(aStream);
     iStreamPos = aStreamTime;
     const TUint64 delayNs = (TUint64)aWallTime;
     const TUint64 nsPerSample = 1000000000LL / iSampleRate;
@@ -541,11 +534,7 @@ RC__Status RaatOutput::Stop()
 {
     iPipeline.Stop();
     Interrupt();
-    AutoMutex _(iLockStream);
-    if (iStream != nullptr) {
-        RAAT__stream_decref(iStream);
-        iStream = nullptr;
-    }
+    ChangeStream(nullptr);
     return RC__STATUS_SUCCESS;
 }
 
@@ -574,6 +563,23 @@ RAAT__Stream* RaatOutput::StreamRef()
         RAAT__stream_incref(iStream);
     }
     return iStream;
+}
+
+void RaatOutput::ChangeStream(RAAT__Stream* aStream)
+{
+    AutoMutex _(iLockStream);
+    if (iStream != nullptr) {
+        for (auto it = iPendingPackets.begin(); it != iPendingPackets.end(); ++it) {
+            RAAT__AudioPacket p = *it;
+            RAAT__stream_destroy_packet(iStream, &p);
+        }
+        (void)iPendingPackets.clear();
+        RAAT__stream_decref(iStream);
+    }
+    iStream = aStream;
+    if (iStream != nullptr) {
+        RAAT__stream_incref(iStream);
+    }
 }
 
 void RaatOutput::NotifyReady()
@@ -606,18 +612,17 @@ void RaatOutput::Read(IRaatWriter& aWriter)
     }
 
     RAAT__AudioPacket packet;
-    {
-        RAAT__Stream* stream = StreamRef();
-        AutoStreamRef _(stream);
-        if (stream == nullptr) {
-            THROW(RaatReaderStopped);
-        }
-        auto err = RAAT__stream_consume_packet(stream, &packet);
-        if (err != RC__STATUS_SUCCESS) {
-            LOG(kMedia, "Error: %d from RAAT__stream_consume_packet\n", err);
-            THROW(RaatReaderStopped);
-        }
+    RAAT__Stream* stream = StreamRef();
+    AutoStreamRef _(stream);
+    if (stream == nullptr) {
+        THROW(RaatReaderStopped);
     }
+    auto err = RAAT__stream_consume_packet(stream, &packet);
+    if (err != RC__STATUS_SUCCESS) {
+        LOG(kMedia, "Error: %d from RAAT__stream_consume_packet\n", err);
+        THROW(RaatReaderStopped);
+    }
+
     if (!iRunning || iStreamPos == packet.streamsample) {
         iRunning = true;
         // current packet is suitable to send into pipeline immediately
@@ -625,6 +630,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         Brn audio((const TByte*)packet.buf, (TUint)packet.nsamples * iBytesPerSample);
         aWriter.WriteData(audio);
         iStreamPos = packet.streamsample + packet.nsamples;
+        RAAT__stream_destroy_packet(stream, &packet);
 
         // check whether above packet unblocks any pending ones
         auto it = iPendingPackets.begin();
@@ -633,6 +639,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
                 audio.Set((const TByte*)it->buf, (TUint)it->nsamples * iBytesPerSample);
                 Log::Print("[%u] RaatOutput::Read: (delayed) push %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), it->nsamples);
                 aWriter.WriteData(audio);
+                iStreamPos = it->streamsample + it->nsamples;
             }
             else {
                 break;
@@ -640,6 +647,10 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         }
         if (it != iPendingPackets.begin()) {
             --it;
+            for (auto it2 = iPendingPackets.begin(); it2 != it; ++it2) {
+                RAAT__AudioPacket p = *it2;
+                RAAT__stream_destroy_packet(stream, &p);
+            }
             iPendingPackets.erase(iPendingPackets.begin(), it);
         }
     }
@@ -678,13 +689,6 @@ void RaatOutput::Interrupt()
         }
         RAAT__stream_decref(stream);
     }
-}
-
-void RaatOutput::Reset()
-{
-    iRunning = false;
-    iStreamPos = 0;
-    (void)iPendingPackets.clear();
 }
 
 void RaatOutput::MetadataChanged(const Brx& aDidlLite)
