@@ -620,7 +620,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
     if (!iRunning || iStreamPos == packet.streamsample) {
         iRunning = true;
         // current packet is suitable to send into pipeline immediately
-        Log::Print("[%u] RaatOutput::Read: pushing %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), packet.nsamples);
+//        Log::Print("[%u] RaatOutput::Read: pushing %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), packet.nsamples);
         Brn audio((const TByte*)packet.buf, (TUint)packet.nsamples * iBytesPerSample);
         aWriter.WriteData(audio);
         iStreamPos = packet.streamsample + packet.nsamples;
