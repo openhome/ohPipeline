@@ -7,7 +7,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
-#include <Generated/CpAvOpenhomeOrgProduct3.h>
+#include <Generated/CpAvOpenhomeOrgProduct4.h>
 
 #include <rc_status.h>
 #include <raat_plugin_source_selection.h>
@@ -89,7 +89,7 @@ RaatSourceSelection::RaatSourceSelection(
     iPluginExt.iSelf = this;
 
     iCpDevice = Net::CpDeviceDv::New(aMediaPlayer.CpStack(), aMediaPlayer.Device());
-    iProxyProduct = new Net::CpProxyAvOpenhomeOrgProduct3(*iCpDevice);
+    iProxyProduct = new Net::CpProxyAvOpenhomeOrgProduct4(*iCpDevice);
 
     TUint count;
     iProxyProduct->SyncSourceCount(count);

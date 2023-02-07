@@ -274,7 +274,7 @@ void Product::GetModelDetails(Brn& aName, Brn& aInfo, Bwx& aUrl, Bwx& aImageUri)
     GetUri(StaticDataKey::kBufModelImageUrl, aImageUri);
 }
 
-void Product::GetProductDetails(Bwx& aRoom, Bwx& aName, Brn& aInfo, Bwx& aImageUri)
+void Product::GetProductDetails(Bwx& aRoom, Bwx& aName, Brn& aInfo, Bwx& aImageUri, Bwx& aImageHiresUri)
 {
     iLockDetails.Wait();
     aRoom.Append(iProductRoom);
@@ -283,6 +283,7 @@ void Product::GetProductDetails(Bwx& aRoom, Bwx& aName, Brn& aInfo, Bwx& aImageU
     ASSERT(iReadStore.TryReadStoreStaticItem(StaticDataKey::kBufModelInfo, aInfo));
     // presentation url
     GetUri(StaticDataKey::kBufModelImageUrl, aImageUri);
+    GetUri(StaticDataKey::kBufModelImageHiresUrl, aImageHiresUri);
 }
 
 TUint Product::SourceCount() const

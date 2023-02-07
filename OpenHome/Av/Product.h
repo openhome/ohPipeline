@@ -133,7 +133,7 @@ public:
     void SetAttribute(const Brx& aKey, const Brx& aValue);
     void GetManufacturerDetails(Brn& aName, Brn& aInfo, Bwx& aUrl, Bwx& aImageUri);
     void GetModelDetails(Brn& aName, Brn& aInfo, Bwx& aUrl, Bwx& aImageUri);
-    void GetProductDetails(Bwx& aRoom, Bwx& aName, Brn& aInfo, Bwx& aImageUri);
+    void GetProductDetails(Bwx& aRoom, Bwx& aName, Brn& aInfo, Bwx& aImageUri, Bwx& aImageHiresUri);
     TUint SourceCount() const;
     TUint CurrentSourceIndex() const;
     void GetSourceXml(IWriter& aWriter);

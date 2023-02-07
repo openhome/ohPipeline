@@ -42,6 +42,7 @@ public:
     static const TChar* kModelInfo;
     static const TChar* kModelUrl;
     static const TChar* kModelImageUrl;
+    static const TChar* kModelImageHiresUrl;
     static const Brn kBufManufacturerName;
     static const Brn kBufManufacturerInfo;
     static const Brn kBufManufacturerUrl;
@@ -50,6 +51,7 @@ public:
     static const Brn kBufModelInfo;
     static const Brn kBufModelUrl;
     static const Brn kBufModelImageUrl;
+    static const Brn kBufModelImageHiresUrl;
 };
 
 // data that is hard-coded for a device so doesn't need to be written to disk

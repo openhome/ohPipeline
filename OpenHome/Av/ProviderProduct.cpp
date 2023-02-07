@@ -1,6 +1,6 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <Generated/DvAvOpenhomeOrgProduct3.h>
+#include <Generated/DvAvOpenhomeOrgProduct4.h>
 #include <OpenHome/Av/ProviderProduct.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
@@ -16,7 +16,7 @@ const TUint ProviderProduct::kSourceXmlGranularityBytes;
 const TUint ProviderProduct::kAttributeGranularityBytes;
 
 ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, IPowerManager& aPowerManager)
-    : DvProviderAvOpenhomeOrgProduct3(aDevice)
+    : DvProviderAvOpenhomeOrgProduct4(aDevice)
     , iDevice(aDevice)
     , iProduct(aProduct)
     , iPowerManager(aPowerManager)
@@ -37,6 +37,7 @@ ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, 
     EnablePropertyProductInfo();
     EnablePropertyProductUrl();
     EnablePropertyProductImageUri();
+    EnablePropertyProductImageHiresUri();
     EnablePropertyStandby();
     EnablePropertyStandbyTransitioning();
     EnablePropertySourceIndex();
@@ -59,6 +60,7 @@ ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, 
     EnableActionSource();
     EnableActionAttributes();
     EnableActionSourceXmlChangeCount();
+    EnableActionGetImageUri();
 
     {
         Brn name;
@@ -83,11 +85,13 @@ ProviderProduct::ProviderProduct(Net::DvDevice& aDevice, Av::Product& aProduct, 
         Bws<Product::kMaxNameBytes> name;
         Brn info;
         Bws<Product::kMaxUriBytes> imageUri;
-        iProduct.GetProductDetails(room, name, info, imageUri);
+        Bws<Product::kMaxUriBytes> imageHiresUri;
+        iProduct.GetProductDetails(room, name, info, imageUri, imageHiresUri);
         SetPropertyProductRoom(room);
         SetPropertyProductName(name);
         SetPropertyProductInfo(info);
         SetPropertyProductImageUri(imageUri);
+        SetPropertyProductImageHiresUri(imageHiresUri);
     }
     UpdatePresentationUrlLocked(); // no need for lock yet - observers aren't registered so no other functions will run in other threads
     SetPropertyProductUrl(iPresentationUrl);
@@ -147,13 +151,14 @@ void ProviderProduct::Model(IDvInvocation& aInvocation, IDvInvocationResponseStr
     aInvocation.EndResponse();
 }
 
-void ProviderProduct::Product(IDvInvocation& aInvocation, IDvInvocationResponseString& aRoom, IDvInvocationResponseString& aName, IDvInvocationResponseString& aInfo, IDvInvocationResponseString& aUrl, IDvInvocationResponseString& aImageUri)
+void ProviderProduct::Product(IDvInvocation& aInvocation, IDvInvocationResponseString& aRoom, IDvInvocationResponseString& aName, IDvInvocationResponseString& aInfo, IDvInvocationResponseString& aUrl, IDvInvocationResponseString& aImageUri, IDvInvocationResponseString& aImageHiresUri)
 {
     Bws<Product::kMaxRoomBytes> room;
     Bws<Product::kMaxNameBytes> name;
     Brn info;
     Bws<Product::kMaxUriBytes> imageUri;
-    iProduct.GetProductDetails(room, name, info, imageUri);
+    Bws<Product::kMaxUriBytes> imageHiresUri;
+    iProduct.GetProductDetails(room, name, info, imageUri, imageHiresUri);
 
     aInvocation.StartResponse();
     aRoom.Write(room);
@@ -170,6 +175,8 @@ void ProviderProduct::Product(IDvInvocation& aInvocation, IDvInvocationResponseS
     aUrl.WriteFlush();
     aImageUri.Write(imageUri);
     aImageUri.WriteFlush();
+    aImageHiresUri.Write(imageHiresUri);
+    aImageHiresUri.WriteFlush();
     aInvocation.EndResponse();
 }
 
@@ -334,8 +341,10 @@ void ProviderProduct::ProductUrisChanged()
         Bws<Product::kMaxNameBytes> name;
         Brn info;
         Bws<Product::kMaxUriBytes> imageUri;
-        iProduct.GetProductDetails(room, name, info, imageUri);
+        Bws<Product::kMaxUriBytes> imageHiresUri;
+        iProduct.GetProductDetails(room, name, info, imageUri, imageHiresUri);
         SetPropertyProductImageUri(imageUri);
+        SetPropertyProductImageHiresUri(imageHiresUri);
     }
 
     {
@@ -412,4 +421,27 @@ void ProviderProduct::UpdatePresentationUrlLocked()
     Endpoint::AppendAddress(iPresentationUrl, addr);
 
     iPresentationUrl.Append(presentationUrl);
+}
+
+const Brn kImageResolutionLow("Low");
+const Brn kImageResolutionHigh("High");
+
+void ProviderProduct::GetImageUri(Net::IDvInvocation& aInvocation, const Brx& aResolution, Net::IDvInvocationResponseString& aImageUri)
+{
+    Bws<Product::kMaxRoomBytes> room;
+    Bws<Product::kMaxNameBytes> name;
+    Brn info;
+    Bws<Product::kMaxUriBytes> imageUri;
+    Bws<Product::kMaxUriBytes> imageHiresUri;
+    iProduct.GetProductDetails(room, name, info, imageUri, imageHiresUri);
+
+    aInvocation.StartResponse();
+    if (aResolution == kImageResolutionLow) {
+        aImageUri.Write(imageUri);
+    }
+    else {
+        aImageUri.Write(imageHiresUri);
+    }
+    aImageUri.WriteFlush();
+    aInvocation.EndResponse();
 }

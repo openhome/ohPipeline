@@ -3,7 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Standard.h>
-#include <Generated/DvAvOpenhomeOrgProduct3.h>
+#include <Generated/DvAvOpenhomeOrgProduct4.h>
 #include <OpenHome/Net/Core/DvInvocationResponse.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Private/Stream.h>
@@ -15,7 +15,7 @@ namespace OpenHome {
 
 namespace Av {
 
-class ProviderProduct : public Net::DvProviderAvOpenhomeOrgProduct3
+class ProviderProduct : public Net::DvProviderAvOpenhomeOrgProduct4
                       , private IProductObserver
                       , private IProductNameObserver
                       , IProductAttributesObserver
@@ -30,7 +30,7 @@ public:
 private: // from DvProviderAvOpenhomeOrgProduct1
     void Manufacturer(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aName, Net::IDvInvocationResponseString& aInfo, Net::IDvInvocationResponseString& aUrl, Net::IDvInvocationResponseString& aImageUri) override;
     void Model(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aName, Net::IDvInvocationResponseString& aInfo, Net::IDvInvocationResponseString& aUrl, Net::IDvInvocationResponseString& aImageUri) override;
-    void Product(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aRoom, Net::IDvInvocationResponseString& aName, Net::IDvInvocationResponseString& aInfo, Net::IDvInvocationResponseString& aUrl, Net::IDvInvocationResponseString& aImageUri) override;
+    void Product(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aRoom, Net::IDvInvocationResponseString& aName, Net::IDvInvocationResponseString& aInfo, Net::IDvInvocationResponseString& aUrl, Net::IDvInvocationResponseString& aImageUri, Net::IDvInvocationResponseString& aImageHiresUri) override;
     void Standby(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseBool& aValue) override;
     void StandbyTransitioning(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseBool& aValue) override;
     void SetStandby(Net::IDvInvocation& aInvocation, TBool aValue) override;
@@ -43,6 +43,7 @@ private: // from DvProviderAvOpenhomeOrgProduct1
     void Source(Net::IDvInvocation& aInvocation, TUint aIndex, Net::IDvInvocationResponseString& aSystemName, Net::IDvInvocationResponseString& aType, Net::IDvInvocationResponseString& aName, Net::IDvInvocationResponseBool& aVisible) override;
     void Attributes(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseString& aValue) override;
     void SourceXmlChangeCount(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseUint& aValue) override;
+    void GetImageUri(Net::IDvInvocation& aInvocation, const Brx& aResolution, Net::IDvInvocationResponseString& aImageUri) override;
 private: // from IProductObserver
     void Started() override;
     void SourceIndexChanged() override;

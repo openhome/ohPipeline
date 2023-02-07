@@ -591,7 +591,8 @@ void SongcastSender::ProductUrisChanged()
     Bws<Product::kMaxNameBytes> name;
     Brn info;
     Bws<Product::kMaxUriBytes> imageUri;
-    iProduct.GetProductDetails(room, name, info, imageUri);
+    Bws<Product::kMaxUriBytes> imageHiresUri;
+    iProduct.GetProductDetails(room, name, info, imageUri, imageHiresUri);
     iSender->SetImageUri(imageUri);
 }
 

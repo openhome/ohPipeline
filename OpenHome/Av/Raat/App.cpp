@@ -114,6 +114,7 @@ void RaatApp::RaatThread()
     Bws<128> vendorModel;
     Bws<Product::kMaxUriBytes> url;
     Bws<Product::kMaxUriBytes> imageUrl;
+    Bws<Product::kMaxUriBytes> imageHiresUrl;
     auto& product = iMediaPlayer.Product();
     product.GetManufacturerDetails(name, info, url, imageUrl);
     SetInfo(iInfo, RAAT__INFO_KEY_VENDOR, name);
@@ -125,7 +126,7 @@ void RaatApp::RaatThread()
 
     Bws<Product::kMaxRoomBytes> room;
     Bws<Product::kMaxNameBytes> userName;
-    product.GetProductDetails(room, userName, info, imageUrl);
+    product.GetProductDetails(room, userName, info, imageUrl, imageHiresUrl);
     vendorModel.AppendThrow(room);
     SetInfo(iInfo, RAAT__INFO_KEY_VENDOR_MODEL, vendorModel);
 

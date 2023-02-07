@@ -13,7 +13,7 @@ namespace OpenHome {
     }
     namespace Net {
         class CpDeviceDv;
-        class CpProxyAvOpenhomeOrgProduct3;
+        class CpProxyAvOpenhomeOrgProduct4;
     }
 namespace Av {
 
@@ -57,7 +57,7 @@ private:
     RAAT__SourceSelectionStateListeners iListeners;
     IRaatSourceObserver& iObserver;
     Net::CpDeviceDv* iCpDevice;
-    Net::CpProxyAvOpenhomeOrgProduct3* iProxyProduct;
+    Net::CpProxyAvOpenhomeOrgProduct4* iProxyProduct;
     IThreadPoolHandle* iRaatCallback;
     TUint iSourceIndexRaat;
     TUint iSourceIndexCurrent;

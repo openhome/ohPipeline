@@ -18,6 +18,7 @@ const TChar* StaticDataKey::kModelName            = "Model.Name";
 const TChar* StaticDataKey::kModelInfo            = "Model.Info";
 const TChar* StaticDataKey::kModelUrl             = "Model.Url";
 const TChar* StaticDataKey::kModelImageUrl        = "Model.ImageUrl";
+const TChar* StaticDataKey::kModelImageHiresUrl   = "Model.ImageHiresUrl";
 const Brn StaticDataKey::kBufManufacturerName     = Brn(kManufacturerName);
 const Brn StaticDataKey::kBufManufacturerInfo     = Brn(kManufacturerInfo);
 const Brn StaticDataKey::kBufManufacturerUrl      = Brn(kManufacturerUrl);
@@ -26,6 +27,7 @@ const Brn StaticDataKey::kBufModelName            = Brn(kModelName);
 const Brn StaticDataKey::kBufModelInfo            = Brn(kModelInfo);
 const Brn StaticDataKey::kBufModelUrl             = Brn(kModelUrl);
 const Brn StaticDataKey::kBufModelImageUrl        = Brn(kModelImageUrl);
+const Brn StaticDataKey::kBufModelImageHiresUrl   = Brn(kModelImageHiresUrl);
 
 
 // KvpStore
