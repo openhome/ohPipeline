@@ -10,8 +10,8 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/PipelineManager.h>
+#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Av/Raat/SourceRaat.h>
-#include <OpenHome/Av/Raat/Time.h>
 
 #include <map>
 #include <stdlib.h>
@@ -301,22 +301,22 @@ void RaatUri::SetValUint64(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx
 // RaatOutput
 
 const TUint RaatOutput::kPendingPacketsMax = 20;
+const TUint RaatOutput::kFreqNs = 1000000000;
 
 RaatOutput::RaatOutput(
     Environment& aEnv,
     Media::PipelineManager& aPipeline,
     ISourceRaat& aSourceRaat,
-    IRaatTime& aRaatTime,
+    Media::IAudioTime& aAudioTime,
     IRaatSignalPathObservable& aSignalPathObservable)
     : iEnv(aEnv)
     , iPipeline(aPipeline)
     , iSourceRaat(aSourceRaat)
-    , iRaatTime(aRaatTime)
+    , iAudioTime(aAudioTime)
     , iLockStream("Rat1")
     , iStream(nullptr)
     , iSemStarted("ROut", 0)
     , iSampleRate(0)
-    , iPendingDelay(0)
     , iPipelineDelayNs(((int64_t)iPipeline.SenderMinLatencyMs()) * 1000 * 1000)
     , iStarted(false)
     , iRunning(false)
@@ -472,7 +472,7 @@ RC__Status RaatOutput::TeardownStream(int aToken)
 RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStreamTime, RAAT__Stream* aStream)
 {
     {
-        TUint64 localTime = GetLocalTime();
+        TUint64 localTime = MclkToNs();
         LOG(kMedia, "RaatOutput::StartStream(%d, %lld, %lld, %p) iToken=%d, localTime=%llu\n",
                     aToken, aWallTime, aStreamTime, aStream, iToken, localTime);
     }
@@ -483,11 +483,8 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     Interrupt();
     ChangeStream(aStream);
     iStreamPos = aStreamTime;
-    const TUint64 delayNs = (TUint64)aWallTime;
-    const TUint64 nsPerSample = 1000000000LL / iSampleRate;
-    const TUint delaySamples = (TUint)(delayNs / nsPerSample);
-    LOG(kMedia, "RaatOutput::StartStream: delay = %u (%u ms)\n", delaySamples, (delaySamples * 1000) / iSampleRate);
-    iPendingDelay = delaySamples * Media::Jiffies::PerSample(iSampleRate);
+    const TUint64 startTicks = NsToMclk((TUint64)aWallTime);
+    static_cast<Media::IStarterTimed&>(iPipeline).StartAt(startTicks);
 
     iUri.SetSampleStart((TUint64)aStreamTime);
     Bws<256> uri;
@@ -504,14 +501,37 @@ RC__Status RaatOutput::GetLocalTime(int aToken, int64_t* aTime)
         LOG(kMedia, "RaatOutput::GetLocalTime(%d) iToken=%d\n", aToken, iToken);
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
-    *aTime = GetLocalTime();
+    *aTime = MclkToNs();
     LOG(kMedia, "RaatOutput::GetLocalTime(%d) time=%lld\n", aToken, *aTime);
     return RC__STATUS_SUCCESS;
 }
 
-TUint64 RaatOutput::GetLocalTime() const
+TUint64 RaatOutput::MclkToNs()
 {
-    return iRaatTime.MclkTimeNs(iSampleRate);
+    TUint64 ticks;
+    TUint freq;
+    iAudioTime.GetTickCount(ticks, freq);
+    return ConvertTime(ticks, freq, kFreqNs);
+}
+
+TUint64 RaatOutput::NsToMclk(TUint64 aTimeNs)
+{
+    TUint64 ignore;
+    TUint freq;
+    iAudioTime.GetTickCount(ignore, freq);
+    const auto ticks = ConvertTime(aTimeNs, kFreqNs, freq);
+    LOG(kMedia, "RaatOutput::NsToMclk: aTimeNs=%llu, freq=%u, ticks=%llu\n", aTimeNs, freq, ticks);
+    return ticks;
+}
+
+TUint64 RaatOutput::ConvertTime(TUint64 aTicksFrom, TUint aFreqFrom, TUint aFreqTo)
+{
+    TUint64 secs = aTicksFrom / aFreqFrom;
+    TUint64 ticks = aTicksFrom % aFreqFrom;
+    ticks *= aFreqTo;
+    ticks /= aFreqFrom;
+    ticks += (secs * aFreqTo);
+    return ticks;
 }
 
 RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNewSource)
@@ -595,10 +615,6 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         static const TUint kMsPerRead = 2;
         iSamplesPerRead = (iSampleRate * kMsPerRead) / 1000;
     }
-    if (iPendingDelay != 0) {
-        aWriter.WriteDelay(iPendingDelay);
-        iPendingDelay = 0;
-    }
     {
         AutoMutex _(iLockMetadata);
         if (iMetadata.Bytes() > 0) {
@@ -607,6 +623,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         }
     }
     if (iMetadataTemp.Bytes() > 0) {
+        Log::Print("RaatOutput::Read writing metadata %.*s\n", PBUF(iMetadataTemp));
         aWriter.WriteMetadata(iMetadataTemp);
         iMetadataTemp.Replace(Brx::Empty());
     }

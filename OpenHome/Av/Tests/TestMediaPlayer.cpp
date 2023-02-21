@@ -5,6 +5,7 @@
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Net/Core/DvDevice.h>
 #include <OpenHome/Media/PipelineManager.h>
+#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/TestFramework.h>
@@ -30,7 +31,6 @@
 #include <OpenHome/Net/Odp/DviServerOdp.h>
 #include <OpenHome/Net/Odp/DviProtocolOdp.h>
 #include <OpenHome/Private/Debug.h>
-#include <OpenHome/Av/Raat/Time.h>
 
 #include <vector>
 
@@ -253,11 +253,12 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     pipelineInit->SetDsdMaxSampleRate(kDsdMaxSampleRate);
     pipelineInit->SetSupportElements(Media::EPipelineSupportElementsValidatorMinimal | Media::EPipelineSupportElementsDecodedAudioValidator | Media::EPipelineSupportElementsRampValidator);
     const Brn kFriendlyNamePrefix("OpenHome ");
+    iAudioTime = new AudioTimeCpu(aDvStack.Env());
     auto mpInit = MediaPlayerInitParams::New(Brn(aRoom), Brn(aProductName), kFriendlyNamePrefix);
     mpInit->EnableConfigApp();
     mpInit->EnablePins(kMaxPinsDevice);
     iMediaPlayer = new MediaPlayer(aDvStack, aCpStack, *iDevice, *iRamStore,
-                                   *iConfigRamStore, pipelineInit,
+                                   *iConfigRamStore, pipelineInit, *iAudioTime,
                                    volumeInit, volumeProfile,
                                    *iInfoLogger,
                                    aUdn, mpInit);
@@ -297,6 +298,7 @@ TestMediaPlayer::~TestMediaPlayer()
     delete iMediaPlayer;
     delete iPipelineObserver;
     delete iInfoLogger;
+    delete iAudioTime;
     delete iDevice;
     delete iDeviceUpnpAv;
     delete iRaatSignalPathObservable;
@@ -538,11 +540,11 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
                                                  Optional<IOhmTimestamper>(iRxTimestamper),
                                                  Optional<IOhmMsgProcessor>()));
 
-    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
+//    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
 #ifdef RAAT_ENABLE
     iMediaPlayer->Add(SourceFactory::NewRaat(
         *iMediaPlayer,
-        new RaatTimeCpu(iMediaPlayer->Env()),
+        *iAudioTime,
         iRaatSignalPathObservable != nullptr? iRaatSignalPathObservable : new DummyRaatSignalPath(),
         Brn("12345"),
         Brn("0.0.1")));

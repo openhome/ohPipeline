@@ -124,6 +124,7 @@ Msg* Reporter::ProcessMsg(MsgTrack* aMsg)
         iSeconds.store(0);
     }
     aMsg->AddRef();
+    Log::Print("Reporter::ProcessMsg(MsgTrack) - %.*s", PBUF(aMsg->Track().MetaData()));
     auto prevTrack = iMsgTrack.exchange(aMsg);
     if (prevTrack != nullptr) {
         prevTrack->RemoveRef();

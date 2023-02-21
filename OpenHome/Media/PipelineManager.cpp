@@ -43,7 +43,11 @@ TUint PriorityArbitratorPipeline::HostRange() const
 
 // PipelineManager
 
-PipelineManager::PipelineManager(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory)
+PipelineManager::PipelineManager(
+    PipelineInitParams* aInitParams,
+    IInfoAggregator& aInfoAggregator,
+    TrackFactory& aTrackFactory,
+    IAudioTime& aAudioTime)
     : iLock("PLM1")
     , iPublicLock("PLM2")
     , iLockObservers("PLM3")
@@ -53,7 +57,7 @@ PipelineManager::PipelineManager(PipelineInitParams* aInitParams, IInfoAggregato
 {
     iPrefetchObserver = new PrefetchObserver();
     iPipeline = new Pipeline(aInitParams, aInfoAggregator, aTrackFactory,
-                             *this, *iPrefetchObserver, *this, *this);
+                             *this, *iPrefetchObserver, *this, *this, aAudioTime);
     iIdManager = new IdManager(*iPipeline);
     TUint min, max;
     iPipeline->GetThreadPriorityRange(min, max);
@@ -413,6 +417,11 @@ void PipelineManager::SetAttenuation(TUint aAttenuation)
 void PipelineManager::DrainAllAudio()
 {
     iPipeline->DrainAllAudio();
+}
+
+void PipelineManager::StartAt(TUint64 aTime)
+{
+    iPipeline->StartAt(aTime);
 }
 
 void PipelineManager::NotifyPipelineState(EPipelineState aState)

@@ -11,6 +11,7 @@ namespace Net {
 }
 namespace Media {
     class IClockPuller;
+    class IAudioTime;
 }
 namespace Av {
 
@@ -19,7 +20,6 @@ class IMediaPlayer;
 class IPlaylistLoader;
 class IOhmTimestamper;
 class IOhmMsgProcessor;
-class IRaatTime;
 class IRaatSignalPathObservable;
 
 class SourceFactory
@@ -38,7 +38,7 @@ public:
     static ISource* NewScd(IMediaPlayer& aMediaPlayer, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerChunk);
     static ISource* NewRaat(
         IMediaPlayer& aMediaPlayer,
-        IRaatTime* aRaatTime,
+        Media::IAudioTime& aAudioTime,
         IRaatSignalPathObservable* aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion);

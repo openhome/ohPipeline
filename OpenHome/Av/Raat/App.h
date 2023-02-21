@@ -10,6 +10,9 @@
 namespace OpenHome {
     class Environment;
     class Timer;
+namespace Media {
+    class IAudioTime;
+}
 namespace Av {
 
     class IMediaPlayer;
@@ -30,7 +33,7 @@ public:
         Environment& aEnv,
         IMediaPlayer& aMediaPlayer,
         ISourceRaat& aSourceRaat,
-        IRaatTime& aRaatTime,
+        Media::IAudioTime& aAudioTime,
         IRaatSignalPathObservable& aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion);

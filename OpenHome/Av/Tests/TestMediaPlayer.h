@@ -7,6 +7,7 @@
 #include <OpenHome/Net/Core/DvDevice.h>
 #include <OpenHome/Av/Utils/DriverSongcastSender.h>
 #include <OpenHome/Media/PipelineManager.h>
+#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/UriProviderSingleTrack.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Standard.h>
@@ -44,6 +45,7 @@ namespace Media {
     class DriverSongcastSender;
     class IPullableClock;
     class AllocatorInfoLogger;
+    class AudioTimeCpu;
 }
 namespace Configuration {
     class ConfigRamStore;
@@ -188,6 +190,7 @@ private:
     IOhmTimestamper* iTxTimestamper;
     IOhmTimestamper* iRxTimestamper;
     VolumeSinkLogger iVolumeLogger;
+    Media::AudioTimeCpu* iAudioTime;
     Bws<Uri::kMaxUriBytes+1> iPresentationUrl;
     Media::LoggingPipelineObserver* iPipelineObserver;
     Av::FriendlyNameAttributeUpdater* iFnUpdaterStandard;

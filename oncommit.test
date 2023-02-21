@@ -22,6 +22,7 @@ tests = '''
     TestTrackInspector
     TestRamper
     TestReporter
+    TestStarterTimed
     TestStarvationRamper
     TestMuter
     TestMuterVolume

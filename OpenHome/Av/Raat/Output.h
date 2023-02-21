@@ -24,6 +24,7 @@ namespace OpenHome {
     class Env;
 namespace Media {
     class PipelineManager;
+    class IAudioTime;
 }
 namespace Av {
 
@@ -105,12 +106,13 @@ class RaatOutput :
     private IRaatSignalPathObserver
 {
     static const TUint kPendingPacketsMax;
+    static const TUint kFreqNs;
 public:
     RaatOutput(
         Environment& aEnv,
         Media::PipelineManager& aPipeline,
         ISourceRaat& aSourceRaat,
-        IRaatTime& aRaatTime,
+        Media::IAudioTime& aAudioTime,
         IRaatSignalPathObservable& aSignalPathObservable);
     ~RaatOutput();
     RAAT__OutputPlugin* Plugin();
@@ -130,7 +132,9 @@ public:
     void RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata);
     void GetDelay(int aToken, int64_t* aDelayNs);
 private:
-    TUint64 GetLocalTime() const;
+    TUint64 MclkToNs();
+    TUint64 NsToMclk(TUint64 aTimeNs);
+    TUint64 ConvertTime(TUint64 aTicksFrom, TUint aFreqFrom, TUint aFreqTo);
     RAAT__Stream* StreamRef();
     void ChangeStream(RAAT__Stream* aStream);
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);
@@ -170,7 +174,7 @@ private:
     Environment& iEnv;
     Media::PipelineManager& iPipeline;
     ISourceRaat& iSourceRaat;
-    IRaatTime& iRaatTime;
+    Media::IAudioTime& iAudioTime;
     Mutex iLockStream;
     RAAT__Stream* iStream;
     Semaphore iSemStarted;

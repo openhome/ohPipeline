@@ -8,6 +8,7 @@
 #include <OpenHome/Media/Pipeline/Waiter.h>
 #include <OpenHome/Media/Pipeline/Stopper.h>
 #include <OpenHome/Media/Pipeline/Reporter.h>
+#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Media/MuteManager.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
@@ -161,6 +162,7 @@ class Pipeline : public IPipelineElementDownstream
                , public IPostPipelineLatencyObserver
                , public IAttenuator
                , public IPipelineDrainer
+               , public IStarterTimed
                , private IStopperObserver
                , private IStarvationRamperObserver
 {
@@ -180,8 +182,15 @@ class Pipeline : public IPipelineElementDownstream
     static const TUint kMsgCountQuit            = 1;
     static const TUint kMsgCountDrain           = 10;
 public:
-    Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory, IPipelineObserver& aObserver,
-             IStreamPlayObserver& aStreamPlayObserver, ISeekRestreamer& aSeekRestreamer, IUrlBlockWriter& aUrlBlockWriter);
+    Pipeline(
+        PipelineInitParams* aInitParams,
+        IInfoAggregator& aInfoAggregator,
+        TrackFactory& aTrackFactory,
+        IPipelineObserver& aObserver,
+        IStreamPlayObserver& aStreamPlayObserver,
+        ISeekRestreamer& aSeekRestreamer,
+        IUrlBlockWriter& aUrlBlockWriter,
+        IAudioTime& aAudioTime);
     virtual ~Pipeline();
     void AddContainer(Codec::ContainerBase* aContainer);
     void AddCodec(Codec::CodecBase* aCodec);
@@ -230,6 +239,8 @@ public: // from IAttenuator
     void SetAttenuation(TUint aAttenuation) override;
 public: // from IPipelineDrainer
     void DrainAllAudio() override;
+public: // from IStarterTimed
+    void StartAt(TUint64 aTime) override;
 private:
     void DoPlay(TBool aQuit);
     void NotifyStatus();
@@ -310,6 +321,8 @@ private:
     DecodedAudioValidator* iDecodedAudioValidatorRouter;
     DrainerRight* iDrainer2;
     Logger* iLoggerDrainer2;
+    StarterTimed* iStarterTimed;
+    Logger* iLoggerStarterTimed;
     VariableDelayRight* iVariableDelay2;
     Logger* iLoggerVariableDelay2;
     RampValidator* iRampValidatorDelay2;

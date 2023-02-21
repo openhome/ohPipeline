@@ -252,6 +252,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Seeker.cpp',
                 'OpenHome/Media/Pipeline/PhaseAdjuster.cpp',
                 'OpenHome/Media/Pipeline/Skipper.cpp',
+                'OpenHome/Media/Pipeline/StarterTimed.cpp',
                 'OpenHome/Media/Pipeline/StarvationRamper.cpp',
                 'OpenHome/Media/Pipeline/Stopper.cpp',
                 'OpenHome/Media/Pipeline/TrackInspector.cpp',
@@ -493,8 +494,7 @@ def build(bld):
                     'OpenHome/Av/Raat/Transport.cpp',
                     'OpenHome/Av/Raat/Plugin.cpp',
                     'OpenHome/Av/Raat/ProtocolRaat.cpp',
-                    'OpenHome/Av/Raat/SourceRaat.cpp',
-                    'OpenHome/Av/Raat/Time.cpp'
+                    'OpenHome/Av/Raat/SourceRaat.cpp'
                 ],
                 use=['OHNET', 'ohMediaPlayer', 'RAAT'],
                 target='SourceRaat')
@@ -818,6 +818,7 @@ def build(bld):
                 'OpenHome/Media/Tests/TestMuter.cpp',
                 'OpenHome/Media/Tests/TestMuterVolume.cpp',
                 'OpenHome/Media/Tests/TestDrainer.cpp',
+                'OpenHome/Media/Tests/TestStarterTimed.cpp',
                 'OpenHome/Av/Tests/TestContentProcessor.cpp',
                 'OpenHome/Media/Tests/TestPipeline.cpp',
                 'OpenHome/Media/Tests/TestPipelineConfig.cpp',
@@ -986,6 +987,11 @@ def build(bld):
             source='OpenHome/Media/Tests/TestDrainerMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestDrainer',
+            install_path=None)
+    bld.program(
+            source='OpenHome/Media/Tests/TestStarterTimedMain.cpp',
+            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
+            target='TestStarterTimed',
             install_path=None)
     bld.program(
             source='OpenHome/Av/Tests/TestContentProcessorMain.cpp',

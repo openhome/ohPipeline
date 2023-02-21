@@ -11,6 +11,7 @@ namespace OpenHome {
     namespace Media {
         class TrackFactory;
         class IClockPuller;
+        class IAudioTime;
     }
 namespace Av {
 
@@ -32,7 +33,6 @@ public:
 
 class IMediaPlayer;
 class RaatApp;
-class IRaatTime;
 class IRaatSignalPathObservable;
 
 class SourceRaat : public Source, public ISourceRaat, private IProductObserver
@@ -40,7 +40,7 @@ class SourceRaat : public Source, public ISourceRaat, private IProductObserver
 public:
     SourceRaat(
         IMediaPlayer& aMediaPlayer,
-        IRaatTime* aRaatTime,
+        Media::IAudioTime& aAudioTime,
         IRaatSignalPathObservable* aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion);
@@ -66,7 +66,7 @@ private:
 private:
     Mutex iLock;
     IMediaPlayer& iMediaPlayer;
-    IRaatTime* iRaatTime;
+    Media::IAudioTime& iAudioTime;
     IRaatSignalPathObservable* iSignalPathObservable;
     UriProviderRaat* iUriProvider;
     RaatApp* iApp;

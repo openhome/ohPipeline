@@ -10,6 +10,7 @@
 #include <OpenHome/Private/Shell.h>
 #include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
+#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/ThreadPool.h>
 
 #include <string.h>
@@ -72,7 +73,7 @@ class SuitePipeline : public Suite
     static const TUint kSubsampleRampedUpFull = 0x7f7f7f;
     static const TUint kSubsampleRampedDownFull = 0;
 public:
-    SuitePipeline();
+    SuitePipeline(Environment& aEnv);
 private: // from Suite
     ~SuitePipeline();
     void Test() override;
@@ -142,6 +143,7 @@ private:
     PipelineInitParams* iInitParams;
     Pipeline* iPipeline;
     TrackFactory* iTrackFactory;
+    AudioTimeCpu* iAudioTime;
     IPipelineElementUpstream* iPipelineEnd;
     VolumeRamperStub iVolumeRamper;
     TUint iSampleRate;
@@ -327,7 +329,7 @@ void Supplier::NotifyStarving(const Brx& /*aMode*/, TUint /*aStreamId*/, TBool /
 
 const SpeakerProfile SuitePipeline::kProfile(2);
 
-SuitePipeline::SuitePipeline()
+SuitePipeline::SuitePipeline(Environment& aEnv)
     : Suite("Pipeline integration tests")
     , iSampleRate(0)
     , iNumChannels(0)
@@ -345,7 +347,8 @@ SuitePipeline::SuitePipeline()
     iInitParams = PipelineInitParams::New();
     iInitParams->SetLongRamp(Jiffies::kPerMs * 150); // reduced size to ensure that 1ms chunks of ramped audio show a change
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
-    iPipeline = new Pipeline(iInitParams, iInfoAggregator, *iTrackFactory, *this, *this, *this, *this);
+    iAudioTime = new AudioTimeCpu(aEnv);
+    iPipeline = new Pipeline(iInitParams, iInfoAggregator, *iTrackFactory, *this, *this, *this, *this, *iAudioTime);
     iPipeline->SetAnimator(*this);
     iSupplier = new Supplier(iPipeline->Factory(), *iPipeline, *iTrackFactory);
     iPipeline->AddCodec(new DummyCodec(kNumChannels, kSampleRate, kBitDepth, AudioDataEndian::Little, kProfile));
@@ -366,6 +369,7 @@ SuitePipeline::~SuitePipeline()
     delete iSupplier;
     delete iPipeline;
     delete iTrackFactory;
+    delete iAudioTime;
     delete th;
 }
 
@@ -1078,10 +1082,10 @@ void PcmProcessorTestPipeline::Flush()
 
 
 
-void TestPipeline()
+void TestPipeline(Environment& aEnv)
 {
     //Debug::SetLevel(Debug::kPipeline | Debug::kMedia);
     Runner runner("Pipeline integration tests\n");
-    runner.Add(new SuitePipeline());
+    runner.Add(new SuitePipeline(aEnv));
     runner.Run();
 }

@@ -9,7 +9,6 @@
 #include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/Raat/App.h>
 #include <OpenHome/Av/Raat/ProtocolRaat.h>
-#include <OpenHome/Av/Raat/Time.h>
 #include <OpenHome/Av/Raat/Transport.h>
 
 using namespace OpenHome;
@@ -21,14 +20,14 @@ using namespace OpenHome::Media;
 
 ISource* SourceFactory::NewRaat(
     IMediaPlayer& aMediaPlayer,
-    IRaatTime* aRaatTime,
+    Media::IAudioTime& aAudioTime,
     IRaatSignalPathObservable* aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion)
 { // static
     return new SourceRaat(
         aMediaPlayer,
-        aRaatTime,
+        aAudioTime,
         aSignalPathObservable,
         aSerialNumber,
         aSoftwareVersion);
@@ -61,7 +60,7 @@ const Brn SourceFactory::kSourceNameRaat("Roon Ready");
 
 SourceRaat::SourceRaat(
     IMediaPlayer& aMediaPlayer,
-    IRaatTime* aRaatTime,
+    Media::IAudioTime& aAudioTime,
     IRaatSignalPathObservable* aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion)
@@ -72,7 +71,7 @@ SourceRaat::SourceRaat(
         false /* not visible by default */)
     , iLock("SRat")
     , iMediaPlayer(aMediaPlayer)
-    , iRaatTime(aRaatTime)
+    , iAudioTime(aAudioTime)
     , iSignalPathObservable(aSignalPathObservable)
     , iApp(nullptr)
     , iTrack(nullptr)
@@ -103,7 +102,6 @@ SourceRaat::~SourceRaat()
 {
     delete iSignalPathObservable;
     delete iApp;
-    delete iRaatTime;
     if (iTrack != nullptr) {
         iTrack->RemoveRef();
     }
@@ -151,7 +149,7 @@ void SourceRaat::Started()
         iMediaPlayer.Env(),
         iMediaPlayer,
         *this,
-        *iRaatTime,
+        iAudioTime,
         *iSignalPathObservable,
         iSerialNumber,
         iSoftwareVersion);

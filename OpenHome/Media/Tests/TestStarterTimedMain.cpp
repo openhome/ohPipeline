@@ -1,12 +1,11 @@
 #include <OpenHome/Private/TestFramework.h>
-#include <OpenHome/Net/Private/Globals.h>
 
-extern void TestPipeline(OpenHome::Environment& aEnv);
+extern void TestStarterTimed();
 
 void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], Net::InitialisationParams* aInitParams)
 {
     Net::UpnpLibrary::InitialiseMinimal(aInitParams);
-    TestPipeline(*gEnv);
+    TestStarterTimed();
     delete aInitParams;
     Net::UpnpLibrary::Close();
 }

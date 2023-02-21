@@ -159,6 +159,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
                          IStaticDataSource& aStaticDataSource,
                          IStoreReadWrite& aReadWriteStore,
                          PipelineInitParams* aPipelineInitParams,
+                         IAudioTime& aAudioTime,
                          VolumeConsumer& aVolumeConsumer, IVolumeProfile& aVolumeProfile,
                          IInfoAggregator& aInfoAggregator,
                          const Brx& aEntropy,
@@ -213,7 +214,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     }
     iProduct = new Av::Product(aDvStack.Env(), aDevice, *iKvpStore, iReadWriteStore, *iConfigManager, *iConfigManager, *iPowerManager);
     iFriendlyNameManager = new Av::FriendlyNameManager(aInitParams->FriendlyNamePrefix(), *iProduct, *iThreadPool);
-    iPipeline = new PipelineManager(aPipelineInitParams, aInfoAggregator, *iTrackFactory);
+    iPipeline = new PipelineManager(aPipelineInitParams, aInfoAggregator, *iTrackFactory, aAudioTime);
     iVolumeConfig = new VolumeConfig(aReadWriteStore, *iConfigManager, *iPowerManager, aVolumeProfile);
     iVolumeManager = new Av::VolumeManager(aVolumeConsumer, iPipeline, *iVolumeConfig, aDevice, *iProduct, *iConfigManager, *iPowerManager, aDvStack.Env());
     iCredentials = new Credentials(aDvStack.Env(), aDevice, aReadWriteStore, aEntropy, *iConfigManager, *iPowerManager);
@@ -250,7 +251,6 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
 MediaPlayer::~MediaPlayer()
 {
     ASSERT(!iDevice.Enabled());
-    delete iPipeline;
 
     /* ProviderOAuth will observe changes in service's enabled state from
      * credentials service. Need to unsubscribe first before freeing credentials */
@@ -287,6 +287,7 @@ MediaPlayer::~MediaPlayer()
     delete iPowerManager;
     delete iProviderConfigApp;
     delete iConfigManager;
+    delete iPipeline;
     delete iTrackFactory;
     delete iKvpStore;
     delete iLoggerBuffered;

@@ -29,6 +29,7 @@
 #include <OpenHome/Media/Pipeline/Attenuator.h>
 #include <OpenHome/Media/Pipeline/Logger.h>
 #include <OpenHome/Media/Pipeline/PhaseAdjuster.h>
+#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Media/Pipeline/Muter.h>
 #include <OpenHome/Media/Pipeline/VolumeRamper.h>
@@ -246,8 +247,15 @@ TUint OpenHome::Media::PipelineInitParams::DsdMaxSampleRate() const
     } while (0)
 
 static Pipeline* gPipeline = nullptr;
-Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory, IPipelineObserver& aObserver,
-                   IStreamPlayObserver& aStreamPlayObserver, ISeekRestreamer& aSeekRestreamer, IUrlBlockWriter& aUrlBlockWriter)
+Pipeline::Pipeline(
+    PipelineInitParams* aInitParams,
+    IInfoAggregator& aInfoAggregator,
+    TrackFactory& aTrackFactory,
+    IPipelineObserver& aObserver,
+    IStreamPlayObserver& aStreamPlayObserver,
+    ISeekRestreamer& aSeekRestreamer,
+    IUrlBlockWriter& aUrlBlockWriter,
+    IAudioTime& aAudioTime)
     : iInitParams(aInitParams)
     , iLock("PLMG")
     , iState(EStopped)
@@ -485,6 +493,10 @@ Pipeline::Pipeline(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggreg
     ATTACH_ELEMENT(iDrainer2, new DrainerRight(*iMsgFactory, *upstream),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerDrainer2, new Logger(*iDrainer2, "DrainerRight"),
+                   upstream, elementsSupported, EPipelineSupportElementsLogger);
+    ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime),
+                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
+    ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iDrainer2, "DrainerRight"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iVariableDelay2,
                    new VariableDelayRight(*iMsgFactory, *upstream,
@@ -1069,6 +1081,11 @@ void Pipeline::SetAttenuation(TUint aAttenuation)
 void Pipeline::DrainAllAudio()
 {
     iStarvationRamper->DrainAllAudio();
+}
+
+void Pipeline::StartAt(TUint64 aTime)
+{
+    iStarterTimed->StartAt(aTime);
 }
 
 void Pipeline::NotifyStarvationRamperBuffering(TBool aBuffering)

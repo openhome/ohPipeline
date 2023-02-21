@@ -4,6 +4,7 @@
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/AirplayReporter.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
+#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/MuteManager.h>
@@ -33,6 +34,7 @@ class UriProvider;
 class IVolumeRamper;
 class IVolumeMuterStepped;
 class IDRMProvider;
+class IAudioTime;
 
 class PriorityArbitratorPipeline : public IPriorityArbitrator, private INonCopyable
 {
@@ -65,12 +67,17 @@ class PipelineManager : public IPipeline
                       , public IPostPipelineLatencyObserver
                       , public IAttenuator
                       , public IPipelineDrainer
+                      , public IStarterTimed
                       , private IPipelineObserver
                       , private ISeekRestreamer
                       , private IUrlBlockWriter
 {
 public:
-    PipelineManager(PipelineInitParams* aInitParams, IInfoAggregator& aInfoAggregator, TrackFactory& aTrackFactory);
+    PipelineManager(
+        PipelineInitParams* aInitParams,
+        IInfoAggregator& aInfoAggregator,
+        TrackFactory& aTrackFactory,
+        IAudioTime& aAudioTime);
     ~PipelineManager();
     /**
      * Signal that the pipeline should quit.
@@ -313,6 +320,8 @@ private: // from IAttenuator
     void SetAttenuation(TUint aAttenuation) override;
 private: // from IPipelineDrainer
     void DrainAllAudio() override;
+private: // from IStarterTimed
+    void StartAt(TUint64 aTime) override;
 private: // from IPipelineObserver
     void NotifyPipelineState(EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const ModeInfo& aInfo,

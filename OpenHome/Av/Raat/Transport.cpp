@@ -158,7 +158,7 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
         writer.WriteTitle(titleBuf);
         writer.WriteArtist(subTitleBuf);
         writer.WriteEnd();
-//        Log::Print("RaatTransport::UpdateStatus - %.*s\n", PBUF(iDidlLite));
+        Log::Print("RaatTransport::UpdateStatus - %.*s\n", PBUF(iDidlLite));
 
         iMetadataObserver.MetadataChanged(iDidlLite);
     }

@@ -5,6 +5,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/VolumeRamper.h>
 #include <OpenHome/Media/Pipeline/MuterVolume.h>
+#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/ThreadPool.h>
@@ -25,7 +26,7 @@ class SuitePipelineConfig : public Suite
                           , private IVolumeRamper
 {
 public:
-    SuitePipelineConfig();
+    SuitePipelineConfig(Environment& aEnv);
     ~SuitePipelineConfig();
 private: // from Suite
     void Test() override;
@@ -89,6 +90,7 @@ private:
     AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
     MsgFactory* iMsgFactory;
+    AudioTimeCpu* iAudioTime;
     NullPipelineObserver iPipelineObserver;
     EMsgType iLastPulledMsg;
     VolumeRamperStub iVolumeRamper;
@@ -99,10 +101,11 @@ private:
 } // namespace OpenHome
 
 
-SuitePipelineConfig::SuitePipelineConfig()
+SuitePipelineConfig::SuitePipelineConfig(Environment& aEnv)
     : Suite("PipelineConfig")
 {
     iTrackFactory = new TrackFactory(iInfoAggregator, 1);
+    iAudioTime = new AudioTimeCpu(aEnv);
     MsgFactoryInitParams init;
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
 }
@@ -111,6 +114,7 @@ SuitePipelineConfig::~SuitePipelineConfig()
 {
     delete iMsgFactory;
     delete iTrackFactory;
+    delete iAudioTime;
 }
 
 void SuitePipelineConfig::Test()
@@ -141,7 +145,7 @@ void SuitePipelineConfig::Test()
 
 void SuitePipelineConfig::RunTest(PipelineInitParams* aInitParams)
 {
-    Pipeline* pipeline = new Pipeline(aInitParams, iInfoAggregator, *iTrackFactory, iPipelineObserver, *this, *this, *this);
+    Pipeline* pipeline = new Pipeline(aInitParams, iInfoAggregator, *iTrackFactory, iPipelineObserver, *this, *this, *this, *iAudioTime);
     pipeline->Start(*this, iVolumeRamper);
     pipeline->Push(iMsgFactory->CreateMsgQuit());
     Msg* msg = pipeline->Pull();
@@ -255,9 +259,9 @@ void SuitePipelineConfig::ApplyVolumeMultiplier(TUint /*aValue*/)
 }
 
 
-void TestPipelineConfig()
+void TestPipelineConfig(Environment& aEnv)
 {
     Runner runner("Pipeline configuration tests\n");
-    runner.Add(new SuitePipelineConfig());
+    runner.Add(new SuitePipelineConfig(aEnv));
     runner.Run();
 }
