@@ -1062,7 +1062,7 @@ void ProtocolRaop::SendFlush(TUint aSeq, TUint aTime, FunctorGeneric<TUint> aFlu
 
 // RaopControlServer
 
-RaopControlServer::RaopControlServer(SocketUdpServer& aServer, IRaopResendConsumer& aResendConsumer, TUint aThreadPriority)
+RaopControlServer::RaopControlServer(SocketUdpServer* aServer, IRaopResendConsumer& aResendConsumer, TUint aThreadPriority)
     : iClientPort(kInvalidServerPort)
     , iServer(aServer)
     , iResendConsumer(aResendConsumer)
@@ -1083,7 +1083,8 @@ RaopControlServer::~RaopControlServer()
         AutoMutex _(iLock);
         iExit = true;
     }
-    iServer.Interrupt(true);
+    iServer->Interrupt(true);
+    iServer->RemoveRef();
     iSem.Signal();
     iThread->Join();
     delete iThread;
@@ -1094,7 +1095,7 @@ void RaopControlServer::Open()
     LOG_INFO(kMedia, "RaopControlServer::Open\n");
     AutoMutex a(iLock);
     if (!iOpen) {
-        iServer.Open();
+        iServer->Open();
         iOpen = true;
         iSem.Clear();
         iSem.Signal();
@@ -1106,7 +1107,7 @@ void RaopControlServer::Close()
     LOG_INFO(kMedia, "RaopControlServer::Close\n");
     AutoMutex a(iLock);
     if (iOpen) {
-        iServer.Close();
+        iServer->Close();
         iOpen = false;
 
         // Clear any unread packet, which is now invalid.
@@ -1119,7 +1120,7 @@ void RaopControlServer::Close()
 void RaopControlServer::Interrupt(TBool aInterrupt)
 {
     LOG(kMedia, "RaopControlServer::Interrupt aInterrupt: %u\n", aInterrupt);
-    iServer.Interrupt(aInterrupt);
+    iServer->Interrupt(aInterrupt);
 }
 
 void RaopControlServer::Reset(TUint aClientPort)
@@ -1174,7 +1175,7 @@ void RaopControlServer::Run()
         if (canRead) {
             try {
                 iBuf.SetBytes(0);
-                iEndpoint.Replace(iServer.Receive(iBuf));
+                iEndpoint.Replace(iServer->Receive(iBuf));
                 try {
                     // This (and other packet wrappers) may throw InvalidRaopPacket.
                     RtpPacketRaop packet(iBuf);
@@ -1276,7 +1277,7 @@ void RaopControlServer::RequestResend(TUint aSeqStart, TUint aCount)
         iLock.Signal();
 
         // FIXME - need to lock around iEndpoint (or do this on main thread).
-        iServer.Send(resendBuf, iEndpoint);
+        iServer->Send(resendBuf, iEndpoint);
 
         // Signal thread to try read response (it should always be trying to read from socket anyway).
         //iSem.Signal();
@@ -1335,7 +1336,7 @@ TUint ResendRange::End() const
 
 // RaopAudioServer
 
-RaopAudioServer::RaopAudioServer(SocketUdpServer& aServer, IRaopAudioConsumer& aConsumer, TUint aThreadPriority)
+RaopAudioServer::RaopAudioServer(SocketUdpServer* aServer, IRaopAudioConsumer& aConsumer, TUint aThreadPriority)
     : iServer(aServer)
     , iConsumer(aConsumer)
     , iOpen(false)
@@ -1354,7 +1355,8 @@ RaopAudioServer::~RaopAudioServer()
         AutoMutex _(iLock);
         iQuit = true;
     }
-    iServer.Interrupt(true);
+    iServer->Interrupt(true);
+    iServer->RemoveRef();
     iSem.Signal();
     iThread->Join();
     delete iThread;
@@ -1365,7 +1367,7 @@ void RaopAudioServer::Open()
     LOG_INFO(kMedia, "RaopAudioServer::Open\n");
     AutoMutex a(iLock);
     if (!iOpen) {
-        iServer.Open();
+        iServer->Open();
         iOpen = true;
         iSem.Clear();
         iSem.Signal();
@@ -1377,7 +1379,7 @@ void RaopAudioServer::Close()
     LOG_INFO(kMedia, "RaopAudioServer::Close\n");
     AutoMutex a(iLock);
     if (iOpen) {
-        iServer.Close();
+        iServer->Close();
         iOpen = false;
 
         // Clear any unread packet, which is now invalid.
@@ -1390,7 +1392,7 @@ void RaopAudioServer::Close()
 void RaopAudioServer::Interrupt(TBool aInterrupt)
 {
     LOG(kMedia, "RaopAudioServer::Interrupt aInterrupt: %u\n", aInterrupt);
-    iServer.Interrupt(aInterrupt);
+    iServer->Interrupt(aInterrupt);
 }
 
 void RaopAudioServer::Reset()
@@ -1442,7 +1444,7 @@ void RaopAudioServer::Run()
         if (canRead) {
             try {
                 iBuf.SetBytes(0);
-                (void)iServer.Receive(iBuf); // Never send any data to audio server, so don't care about Endpoint returned.
+                (void)iServer->Receive(iBuf); // Never send any data to audio server, so don't care about Endpoint returned.
                 try {
                     iPacket.Set(iBuf);
                 }

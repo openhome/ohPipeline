@@ -54,6 +54,7 @@ private: // from IPipelineObserver
     void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private:
+    TUint ServerPort(TUint aId);
     void FlushCallback(TUint aFlushId);
     void GenerateMetadata();
     void StartNewTrack();

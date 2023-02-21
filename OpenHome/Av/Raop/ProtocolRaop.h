@@ -170,7 +170,7 @@ class RaopAudioServer : private INonCopyable
 private:
     static const TUint kSocketFailureRetryIntervalMs = 50;
 public:
-    RaopAudioServer(SocketUdpServer& aServer, IRaopAudioConsumer& aConsumer, TUint aThreadPriority);
+    RaopAudioServer(SocketUdpServer* aServer, IRaopAudioConsumer& aConsumer, TUint aThreadPriority);
     ~RaopAudioServer();
     void Open();
     /*
@@ -185,7 +185,7 @@ public:
 private:
     void Run();
 private:
-    SocketUdpServer& iServer;
+    SocketUdpServer* iServer;
     IRaopAudioConsumer& iConsumer;
     Bws<RtpPacketRaop::kMaxPacketBytes> iBuf;
     RaopPacketAudio iPacket;
@@ -245,7 +245,7 @@ private:
     };
 public:
     //RaopControlServer(SocketUdpServer& aServer, IRaopResendObserver& aResendObserver, ILatencyObserver& aLatencyObserver);
-    RaopControlServer(SocketUdpServer& aServer, IRaopResendConsumer& aResendConsumer, TUint aThreadPriority);
+    RaopControlServer(SocketUdpServer* aServer, IRaopResendConsumer& aResendConsumer, TUint aThreadPriority);
     ~RaopControlServer();
     void Open();
     /*
@@ -271,7 +271,7 @@ private:
     // FIXME - is this ever actually used? Currently get client port by storing endpoint that has sent us a packet. That seems like it may not always be good (e.g., what if haven't received any data on control channel, but wish to send a resend request?). Probably need hook from TCP channel into here to set server/port.
     TUint iClientPort;
 
-    SocketUdpServer& iServer;
+    SocketUdpServer* iServer;
     IRaopResendConsumer& iResendConsumer;
     Bws<kMaxReadBufferBytes> iBuf;
     RaopPacketResendResponse iPacket;

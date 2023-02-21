@@ -102,10 +102,10 @@ SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider
     iPipeline.Add(iProtocol);   // takes ownership
     iPipeline.AddObserver(*this);
 
-    SocketUdpServer& serverAudio = iServerManager.Find(iAudioId);
-    SocketUdpServer& serverControl = iServerManager.Find(iControlId);
-    SocketUdpServer& serverTiming = iServerManager.Find(iTimingId);    // never Open() this
-    iRaopDiscovery->SetListeningPorts(serverAudio.Port(), serverControl.Port(), serverTiming.Port());
+    const TUint serverAudioPort = ServerPort(iAudioId);
+    const TUint serverControlPort = ServerPort(iControlId);
+    const TUint serverTimingPort = ServerPort(iTimingId);
+    iRaopDiscovery->SetListeningPorts(serverAudioPort, serverControlPort, serverTimingPort);
 
     NetworkAdapterList& adapterList = iEnv.NetworkAdapterList();
     Functor functor = MakeFunctor(*this, &SourceRaop::HandleInterfaceChange);
@@ -353,6 +353,14 @@ void SourceRaop::NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo)
     iLock.Signal();
 }
 
+TUint SourceRaop::ServerPort(TUint aId)
+{
+    auto server = iServerManager.Find(aId);
+    const TUint port = server->Port();
+    server->RemoveRef();
+    return port;
+}
+
 void SourceRaop::FlushCallback(TUint aFlushId)
 {
     // Called synchronously during SendFlush() call in ::NotifySessionWait();
@@ -366,10 +374,10 @@ void SourceRaop::HandleInterfaceChange()
 {
     //iRaopDiscovery->Disable();
     //iRaopDiscovery->Enable();
-    SocketUdpServer& serverAudio = iServerManager.Find(iAudioId);
-    SocketUdpServer& serverControl = iServerManager.Find(iControlId);
-    SocketUdpServer& serverTiming = iServerManager.Find(iTimingId);    // never Open() this
-    iRaopDiscovery->SetListeningPorts(serverAudio.Port(), serverControl.Port(), serverTiming.Port());
+    const TUint serverAudioPort = ServerPort(iAudioId);
+    const TUint serverControlPort = ServerPort(iControlId);
+    const TUint serverTimingPort = ServerPort(iTimingId);
+    iRaopDiscovery->SetListeningPorts(serverAudioPort, serverControlPort, serverTimingPort);
 }
 
 void SourceRaop::SessionStartAsynchronous()

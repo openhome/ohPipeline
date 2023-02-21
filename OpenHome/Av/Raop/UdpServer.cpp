@@ -41,6 +41,7 @@ const TChar* SocketUdpServer::kAdapterCookie = "SocketUdpServer";
 SocketUdpServer::SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority, TUint aPort, TIpAddress aInterface)
     : iEnv(aEnv)
     , iSocket(aEnv, aPort, aInterface)
+    , iRefCount(1)
     , iMaxSize(aMaxSize)
     , iOpen(false)
     , iFifoWaiting(aMaxPackets)
@@ -95,6 +96,25 @@ SocketUdpServer::~SocketUdpServer()
         delete msg;
     }
     delete iDiscard;
+}
+
+void SocketUdpServer::AddRef()
+{
+    AutoMutex _(iLock);
+    ++iRefCount;
+}
+
+void SocketUdpServer::RemoveRef()
+{
+    TBool dead = false;
+    {
+        AutoMutex _(iLock);
+        --iRefCount;
+        dead = (iRefCount == 0);
+    }
+    if (dead) {
+        delete this;
+    }
 }
 
 void SocketUdpServer::Open()
@@ -333,7 +353,7 @@ UdpServerManager::~UdpServerManager()
 {
     AutoMutex a(iLock);
     for (size_t i=0; i<iServers.size(); i++) {
-        delete iServers[i];
+        iServers[i]->RemoveRef();
     }
 }
 
@@ -345,11 +365,13 @@ TUint UdpServerManager::CreateServer(TUint aPort, TIpAddress aInterface)
     return iServers.size()-1;
 }
 
-SocketUdpServer& UdpServerManager::Find(TUint aId)
+SocketUdpServer* UdpServerManager::Find(TUint aId)
 {
     AutoMutex a(iLock);
     ASSERT(aId < iServers.size());
-    return *(iServers[aId]);
+    auto server = iServers[aId];
+    server->AddRef();
+    return server;
 }
 
 void UdpServerManager::CloseAll()

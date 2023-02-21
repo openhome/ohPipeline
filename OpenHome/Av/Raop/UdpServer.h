@@ -3,6 +3,8 @@
 #include <OpenHome/Private/Fifo.h>
 #include <OpenHome/Private/Network.h>
 
+#include <atomic>
+
 EXCEPTION(UdpServerClosed);
 
 namespace OpenHome {
@@ -34,7 +36,9 @@ private:
     static const TChar* kAdapterCookie;
 public:
     SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority, TUint aPort, TIpAddress aInterface);
-    ~SocketUdpServer();
+    void AddRef();
+    void RemoveRef();
+
     void Open();
     void Close();
 
@@ -49,6 +53,7 @@ public:
     
     Endpoint Receive(Bwx& aBuf);
 private:
+    ~SocketUdpServer();
     static void CopyMsgToBuf(MsgUdp& aMsg, Bwx& aBuf, Endpoint& aEndpoint);
     void ServerThread();
     void CurrentAdapterChanged();
@@ -62,6 +67,7 @@ private:
 private:
     Environment& iEnv;
     SocketUdp iSocket;
+    TUint iRefCount;
     TUint iMaxSize;
     TBool iOpen;
     FifoLiteDynamic<MsgUdp*> iFifoWaiting;
@@ -88,7 +94,7 @@ public:
     UdpServerManager(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority);
     ~UdpServerManager();
     TUint CreateServer(TUint aPort = 0, TIpAddress aInterface = kIpAddressV4AllAdapters); // return ID of server
-    SocketUdpServer& Find(TUint aId); // find server by ID
+    SocketUdpServer* Find(TUint aId); // find server by ID (index). Returns a reference if non-null
     void CloseAll();
     void OpenAll();
 private:

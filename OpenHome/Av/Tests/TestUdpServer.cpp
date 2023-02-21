@@ -159,7 +159,7 @@ void SuiteSocketUdpServer::Setup()
 
 void SuiteSocketUdpServer::TearDown()
 {
-    delete iServer;
+    iServer->RemoveRef();
     delete iSender;
 }
 
@@ -501,16 +501,16 @@ void SuiteUdpServerManager::TestCreateMultipleServers()
     // create the servers (and record their port as we go, as this is a unique
     // enough identifier)
     TUint id1 = iManager->CreateServer(kPort, iInterface);
-    TUint port1 = iManager->Find(id1).Port();
+    TUint port1 = iManager->Find(id1)->Port();
     TUint id2 = iManager->CreateServer(kPort, iInterface);
-    TUint port2 = iManager->Find(id2).Port();
+    TUint port2 = iManager->Find(id2)->Port();
     TUint id3 = iManager->CreateServer(kPort, iInterface);
-    TUint port3 = iManager->Find(id3).Port();
+    TUint port3 = iManager->Find(id3)->Port();
 
     // retrieve all the servers, checking the ids and ports map correctly
-    TEST(iManager->Find(id1).Port() == port1);
-    TEST(iManager->Find(id2).Port() == port2);
-    TEST(iManager->Find(id3).Port() == port3);
+    TEST(iManager->Find(id1)->Port() == port1);
+    TEST(iManager->Find(id2)->Port() == port2);
+    TEST(iManager->Find(id3)->Port() == port3);
 }
 
 void SuiteUdpServerManager::TestFindInvalidId()
