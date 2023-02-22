@@ -1,10 +1,13 @@
 #pragma once
 
 #include <OpenHome/Types.h>
+#include <OpenHome/Exception.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/Thread.h>
+
+EXCEPTION(AudioTimeNotSupported)
 
 namespace OpenHome {
 namespace Media {

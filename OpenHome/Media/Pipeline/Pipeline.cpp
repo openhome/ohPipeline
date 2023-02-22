@@ -1093,6 +1093,9 @@ void Pipeline::DrainAllAudio()
 
 void Pipeline::StartAt(TUint64 aTime)
 {
+    if (iStarterTimed == nullptr) {
+        THROW(AudioTimeNotSupported);
+    }
     iStarterTimed->StartAt(aTime);
 }
 
