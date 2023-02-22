@@ -287,7 +287,6 @@ Msg* SuiteStarterTimed::ProcessMsg(MsgQuit* aMsg)
 
 void SuiteStarterTimed::GetTickCount(TUint64& aTicks, TUint& aFrequency)
 {
-    static const TUint kFrequency = 1000000;
     aTicks = iNextReportedTime;
     aFrequency = iClockFreq;
 }
@@ -422,8 +421,6 @@ void SuiteStarterTimed::TestStartStreamStartPosInFuture()
     TUint size = Jiffies::kPerMs;
     iPendingMsgs.push_back(iMsgFactory->CreateMsgSilence(size, kSampleRate, 16, kNumChannels));
     iPendingMsgs.push_back(CreateAudio());
-    static const TUint64 kNextTimeUs = 1500;
-    static const TUint64 kStartTimeUs = 7000;
     iNextReportedTime = Jiffies::kPerMs * 2;
     iClockFreq = Jiffies::kPerSecond;
     const TUint kStartTime = Jiffies::kPerMs * 12;
