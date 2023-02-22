@@ -255,7 +255,7 @@ Pipeline::Pipeline(
     IStreamPlayObserver& aStreamPlayObserver,
     ISeekRestreamer& aSeekRestreamer,
     IUrlBlockWriter& aUrlBlockWriter,
-    IAudioTime& aAudioTime)
+    Optional<IAudioTime> aAudioTime)
     : iInitParams(aInitParams)
     , iLock("PLMG")
     , iState(EStopped)
@@ -494,10 +494,16 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerDrainer2, new Logger(*iDrainer2, "DrainerRight"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime),
-                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iDrainer2, "DrainerRight"),
-                   upstream, elementsSupported, EPipelineSupportElementsLogger);
+    if (aAudioTime.Ok()) {
+        ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime.Unwrap()),
+                       upstream, elementsSupported, EPipelineSupportElementsMandatory);
+        ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iDrainer2, "StarterTimed"),
+                       upstream, elementsSupported, EPipelineSupportElementsLogger);
+    }
+    else {
+        iStarterTimed = nullptr;
+        iLoggerStarterTimed = nullptr;
+    }
     ATTACH_ELEMENT(iVariableDelay2,
                    new VariableDelayRight(*iMsgFactory, *upstream,
                                           aInitParams->RampEmergencyJiffies(),

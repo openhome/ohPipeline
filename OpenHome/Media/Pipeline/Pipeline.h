@@ -190,7 +190,7 @@ public:
         IStreamPlayObserver& aStreamPlayObserver,
         ISeekRestreamer& aSeekRestreamer,
         IUrlBlockWriter& aUrlBlockWriter,
-        IAudioTime& aAudioTime);
+        Optional<IAudioTime> aAudioTime);
     virtual ~Pipeline();
     void AddContainer(Codec::ContainerBase* aContainer);
     void AddCodec(Codec::CodecBase* aCodec);
