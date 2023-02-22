@@ -6,8 +6,6 @@
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/Thread.h>
 
-#include <atomic>
-
 namespace OpenHome {
 namespace Media {
 
@@ -45,7 +43,7 @@ private:
     IPipelineElementUpstream& iUpstream;
     IAudioTime& iAudioTime;
     Mutex iLock;
-    std::atomic<TUint64> iStartTicks; // 0 => disabled
+    TUint64 iStartTicks; // 0 => disabled
     TUint iPipelineDelayJiffies;
     TUint iSampleRate;
     TUint iBitDepth;

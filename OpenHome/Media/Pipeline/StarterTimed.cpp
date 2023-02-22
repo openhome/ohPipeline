@@ -9,7 +9,6 @@
 #include <OpenHome/Media/Debug.h>
 
 #include <algorithm>
-#include <atomic>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
