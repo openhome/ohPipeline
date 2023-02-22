@@ -97,7 +97,6 @@ private:
     TUint64 iTrackOffset;
     TUint64 iJiffiesSilence;
     std::list<Msg*> iPendingMsgs;
-    TUint iLastSubsample;
     TUint iNextStreamId;
     TUint64 iNextReportedTime;
     TUint iClockFreq;
