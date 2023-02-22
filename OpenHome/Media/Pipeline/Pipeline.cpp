@@ -664,6 +664,8 @@ Pipeline::~Pipeline()
     delete iRampValidatorDelay2;
     delete iLoggerVariableDelay2;
     delete iVariableDelay2;
+    delete iStarterTimed;
+    delete iLoggerStarterTimed;
     delete iLoggerDrainer2;
     delete iDrainer2;
     delete iDecodedAudioValidatorRouter;
