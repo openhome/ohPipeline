@@ -159,7 +159,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
                          IStaticDataSource& aStaticDataSource,
                          IStoreReadWrite& aReadWriteStore,
                          PipelineInitParams* aPipelineInitParams,
-                         IAudioTime& aAudioTime,
+                         Optional<IAudioTime> aAudioTime,
                          VolumeConsumer& aVolumeConsumer, IVolumeProfile& aVolumeProfile,
                          IInfoAggregator& aInfoAggregator,
                          const Brx& aEntropy,

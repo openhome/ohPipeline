@@ -47,7 +47,7 @@ PipelineManager::PipelineManager(
     PipelineInitParams* aInitParams,
     IInfoAggregator& aInfoAggregator,
     TrackFactory& aTrackFactory,
-    IAudioTime& aAudioTime)
+    Optional<IAudioTime> aAudioTime)
     : iLock("PLM1")
     , iPublicLock("PLM2")
     , iLockObservers("PLM3")

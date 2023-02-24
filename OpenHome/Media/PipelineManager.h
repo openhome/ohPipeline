@@ -77,7 +77,7 @@ public:
         PipelineInitParams* aInitParams,
         IInfoAggregator& aInfoAggregator,
         TrackFactory& aTrackFactory,
-        IAudioTime& aAudioTime);
+        Optional<IAudioTime> aAudioTime);
     ~PipelineManager();
     /**
      * Signal that the pipeline should quit.

@@ -510,7 +510,7 @@ TUint64 RaatOutput::MclkToNs()
 {
     TUint64 ticks;
     TUint freq;
-    iAudioTime.GetTickCount(ticks, freq);
+    iAudioTime.GetTickCount(iSampleRate, ticks, freq);
     return ConvertTime(ticks, freq, kFreqNs);
 }
 
@@ -518,7 +518,7 @@ TUint64 RaatOutput::NsToMclk(TUint64 aTimeNs)
 {
     TUint64 ignore;
     TUint freq;
-    iAudioTime.GetTickCount(ignore, freq);
+    iAudioTime.GetTickCount(iSampleRate, ignore, freq);
     const auto ticks = ConvertTime(aTimeNs, kFreqNs, freq);
     LOG(kMedia, "RaatOutput::NsToMclk: aTimeNs=%llu, freq=%u, ticks=%llu\n", aTimeNs, freq, ticks);
     return ticks;

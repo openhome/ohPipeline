@@ -16,7 +16,7 @@ class IAudioTime
 {
 public:
     virtual ~IAudioTime() {}
-    virtual void GetTickCount(TUint64& aTicks, TUint& aFrequency) = 0;
+    virtual void GetTickCount(TUint aSampleRate, TUint64& aTicks, TUint& aFrequency) const = 0;
 };
 
 class IStarterTimed
@@ -61,7 +61,7 @@ class AudioTimeCpu : public IAudioTime
 public:
     AudioTimeCpu(Environment& aEnv);
 private: // from IAudioTime
-    void GetTickCount(TUint64& aTicks, TUint& aFrequency) override;
+    void GetTickCount(TUint aSampleRate, TUint64& aTicks, TUint& aFrequency) const override;
 private:
     OsContext* iOsCtx;
 };

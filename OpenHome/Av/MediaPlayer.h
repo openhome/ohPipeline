@@ -168,7 +168,7 @@ public:
                 IStaticDataSource& aStaticDataSource,
                 Configuration::IStoreReadWrite& aReadWriteStore,
                 Media::PipelineInitParams* aPipelineInitParams,
-                Media::IAudioTime& aAudioTime,
+                Optional<Media::IAudioTime> aAudioTime,
                 VolumeConsumer& aVolumeConsumer, IVolumeProfile& aVolumeProfile,
                 IInfoAggregator& aInfoAggregator,
                 const Brx& aEntropy,

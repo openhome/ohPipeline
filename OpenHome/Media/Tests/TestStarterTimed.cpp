@@ -55,7 +55,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgPlayable* aMsg) override;
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private: // from IAudioTime
-    void GetTickCount(TUint64& aTicks, TUint& aFrequency) override;
+    void GetTickCount(TUint aSampleRate, TUint64& aTicks, TUint& aFrequency) const override;
 private:
     enum EMsgType
     {
@@ -284,7 +284,7 @@ Msg* SuiteStarterTimed::ProcessMsg(MsgQuit* aMsg)
     return aMsg;
 }
 
-void SuiteStarterTimed::GetTickCount(TUint64& aTicks, TUint& aFrequency)
+void SuiteStarterTimed::GetTickCount(TUint /*aSampleRate*/, TUint64& aTicks, TUint& aFrequency) const
 {
     aTicks = iNextReportedTime;
     aFrequency = iClockFreq;

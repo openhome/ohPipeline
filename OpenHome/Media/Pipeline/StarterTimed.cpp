@@ -118,7 +118,7 @@ Msg* StarterTimed::ProcessMsg(MsgSilence* aMsg)
     if (startTicks > 0) {
         TUint64 ticksNow;
         TUint freq;
-        iAudioTime.GetTickCount(ticksNow, freq);
+        iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
 
         if (startTicks > ticksNow) {
             TUint64 delayTicks = startTicks - ticksNow;
@@ -146,7 +146,7 @@ AudioTimeCpu::AudioTimeCpu(Environment& aEnv)
 {
 }
 
-void AudioTimeCpu::GetTickCount(TUint64& aTicks, TUint& aFrequency)
+void AudioTimeCpu::GetTickCount(TUint /*aSampleRate*/, TUint64& aTicks, TUint& aFrequency) const
 {
     aTicks = Os::TimeInUs(iOsCtx);
     static const TUint kUsTicksPerSecond = 1000000;
