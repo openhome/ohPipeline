@@ -93,6 +93,13 @@ class Observable : public IObservable<TObserver>
             //std::for_each(iObservers.cbegin(), iObservers.cend(), aNotifyFunc);
         }
 
+        void NotifyAll(FunctorGeneric<TObserver&>& aNotifyFunc)
+        {
+            for(auto it = iObservers.cbegin(); it != iObservers.cend(); ++it) {
+                aNotifyFunc(it->first.get());
+            }
+        }
+
     protected:
         std::vector<std::pair<std::reference_wrapper<TObserver>, const TChar*>> iObservers;
 };
@@ -122,6 +129,12 @@ class ThreadSafeObservable : public Observable<TObserver>
         }
 
         void NotifyAll(std::function<void (TObserver&)> aNotifyFunc)
+        {
+            AutoMutex m(iLock);
+            Observable<TObserver>::NotifyAll(aNotifyFunc);
+        }
+
+        void NotifyAll(FunctorGeneric<TObserver&>& aNotifyFunc)
         {
             AutoMutex m(iLock);
             Observable<TObserver>::NotifyAll(aNotifyFunc);

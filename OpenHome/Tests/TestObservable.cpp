@@ -33,6 +33,9 @@ class SuiteObservable : public Suite
 
     public: // Suite
         void Test() override;
+
+    private:
+        void NotifyObserver(MockObserver& aObserver);
 };
 
 
@@ -70,6 +73,11 @@ SuiteObservable::SuiteObservable()
 
 SuiteObservable::~SuiteObservable()
 { }
+
+void SuiteObservable::NotifyObserver(MockObserver& aObserver)
+{
+    aObserver.Notify();
+}
 
 void SuiteObservable::Test()
 {
@@ -114,6 +122,29 @@ void SuiteObservable::Test()
     TEST(observerA.CallCount() == 2);
     TEST(observerB.CallCount() == 3);
     TEST(observerC.CallCount() == 2);
+
+    // Reset before trying with a FunctorGeneric
+    observerA.Reset();
+    observerB.Reset();
+    observerC.Reset();
+
+    // Calling with a FunctorGeneric instead of a Lambda
+    FunctorGeneric<MockObserver&> notifyFunc2 = MakeFunctorGeneric<MockObserver&>(*this, &SuiteObservable::NotifyObserver);
+
+    subject.AddObserver(observerA, "Test-A");
+    subject.AddObserver(observerB, "Test-B");
+    subject.AddObserver(observerC, "Test-C");
+
+    subject.NotifyAll(notifyFunc2);
+
+    TEST(observerA.CallCount() == 1);
+    TEST(observerB.CallCount() == 1);
+    TEST(observerC.CallCount() == 1);
+
+    // And finally cleanup to remove observers otherwise we'll assert
+    subject.RemoveObserver(observerA);
+    subject.RemoveObserver(observerB);
+    subject.RemoveObserver(observerC);
 }
 
 
