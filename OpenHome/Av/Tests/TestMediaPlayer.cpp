@@ -553,7 +553,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
         kDsdPadBytesPerChunk));
     iRaatSignalPathObservable = nullptr;
 #else
-    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
+    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, nullptr, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
 #endif
 }
 
