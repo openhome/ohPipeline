@@ -23,7 +23,6 @@ public:
     /**
      * Signal that the clock should be pulled.
      *
-     * @param[in] aSampleRate  Nominal frequency for the stream.
      * @param[in] aMultiplier  Amount to pull by as fix 1.31 value (so, in the range [0..2)).
      *                         kNominalFreq implies no pull - i.e. run at nominal frequency.
      */

@@ -25,6 +25,7 @@ namespace OpenHome {
 namespace Media {
     class PipelineManager;
     class IAudioTime;
+    class IPullableClock;
 }
 namespace Av {
 
@@ -113,6 +114,7 @@ public:
         Media::PipelineManager& aPipeline,
         ISourceRaat& aSourceRaat,
         Media::IAudioTime& aAudioTime,
+        Media::IPullableClock& aPullableClock,
         IRaatSignalPathObservable& aSignalPathObservable);
     ~RaatOutput();
     RAAT__OutputPlugin* Plugin();
@@ -175,6 +177,7 @@ private:
     Media::PipelineManager& iPipeline;
     ISourceRaat& iSourceRaat;
     Media::IAudioTime& iAudioTime;
+    Media::IPullableClock& iPullableClock;
     Mutex iLockStream;
     RAAT__Stream* iStream;
     Semaphore iSemStarted;
@@ -187,8 +190,11 @@ private:
     TUint iSamplesPerRead;
     TUint iPendingDelay;
     int64_t iPipelineDelayNs;
+    TUint64 iLastClockPullTicks;
+    TUint iClockPull;
     TBool iStarted;
     TBool iRunning;
+    TBool iClockSyncStarted;
     TByte iAudioData[Media::AudioData::kMaxBytes];
     std::vector<RAAT__AudioPacket> iPendingPackets;
     json_t* iSignalPath;

@@ -10,6 +10,7 @@
 #include <OpenHome/Av/Raat/App.h>
 #include <OpenHome/Av/Raat/ProtocolRaat.h>
 #include <OpenHome/Av/Raat/Transport.h>
+#include <OpenHome/Configuration/ConfigManager.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -18,9 +19,82 @@ using namespace OpenHome::Media;
 
 // SourceFactory
 
+const Brn RoonProtocolSelector::kKeyProtocol("Roon.Protocol");
+const TUint RoonProtocolSelector::kValRaat = 0;
+const TUint RoonProtocolSelector::kValScd = 1;
+
+RoonProtocolSelector::RoonProtocolSelector(Configuration::IConfigInitialiser& aConfigInitialiser)
+    : iProtocol(RoonProtocol::Raat)
+    , iSubscriberId(Configuration::IConfigManager::kSubscriptionIdInvalid)
+{
+    const int arr[] = { kValRaat, kValScd };
+    std::vector<TUint> protocols(arr, arr + sizeof(arr) / sizeof(arr[0]));
+    iConfigProtocol = new Configuration::ConfigChoice(aConfigInitialiser, kKeyProtocol, protocols, kValRaat);
+    iSubscriberId = iConfigProtocol->Subscribe(Configuration::MakeFunctorConfigChoice(*this, &RoonProtocolSelector::ProtocolChanged));
+}
+
+RoonProtocolSelector::~RoonProtocolSelector()
+{
+    ASSERT(iConfigProtocol == nullptr);
+}
+
+RoonProtocol RoonProtocolSelector::Protocol() const
+{
+    return iProtocol;
+}
+
+Configuration::ConfigChoice* RoonProtocolSelector::Transfer()
+{
+    ASSERT(iConfigProtocol != nullptr);
+    iConfigProtocol->Unsubscribe(iSubscriberId);
+    auto config = iConfigProtocol;
+    iConfigProtocol = nullptr;
+    return config;
+}
+
+void RoonProtocolSelector::ProtocolChanged(Configuration::KeyValuePair<TUint>& aKvp)
+{
+    if (aKvp.Value() == kValRaat) {
+        iProtocol = RoonProtocol::Raat;
+    }
+    else {
+        iProtocol = RoonProtocol::Scd;
+    }
+}
+
+
+ISource* SourceFactory::NewRoon(
+    IMediaPlayer& aMediaPlayer,
+    Media::IAudioTime& aAudioTime,
+    Media::IPullableClock& aPullableClock,
+    IRaatSignalPathObservable* aSignalPathObservable,
+    const Brx& aSerialNumber,
+    const Brx& aSoftwareVersion,
+    TUint aDsdSampleBlockWords,
+    TUint aDsdPadBytesPerChunk)
+{ // static
+    RoonProtocolSelector selector(aMediaPlayer.ConfigInitialiser());
+    auto configVal = selector.Transfer();
+    auto protocol = selector.Protocol();
+    if (protocol == RoonProtocol::Raat) {
+        return new SourceRaat(
+            aMediaPlayer,
+            aAudioTime,
+            aPullableClock,
+            aSignalPathObservable,
+            configVal,
+            aSerialNumber,
+            aSoftwareVersion);
+    }
+    else {
+        return SourceFactory::NewScd(aMediaPlayer, configVal, aDsdSampleBlockWords, aDsdPadBytesPerChunk);
+    }
+}
+
 ISource* SourceFactory::NewRaat(
     IMediaPlayer& aMediaPlayer,
     Media::IAudioTime& aAudioTime,
+    Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable* aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion)
@@ -28,7 +102,9 @@ ISource* SourceFactory::NewRaat(
     return new SourceRaat(
         aMediaPlayer,
         aAudioTime,
+        aPullableClock,
         aSignalPathObservable,
+        nullptr,
         aSerialNumber,
         aSoftwareVersion);
 }
@@ -61,7 +137,9 @@ const Brn SourceFactory::kSourceNameRaat("Roon Ready");
 SourceRaat::SourceRaat(
     IMediaPlayer& aMediaPlayer,
     Media::IAudioTime& aAudioTime,
+    Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable* aSignalPathObservable,
+    Optional<Configuration::ConfigChoice> aProtocolSelector,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion)
     : Source(
@@ -72,7 +150,9 @@ SourceRaat::SourceRaat(
     , iLock("SRat")
     , iMediaPlayer(aMediaPlayer)
     , iAudioTime(aAudioTime)
+    , iPullableClock(aPullableClock)
     , iSignalPathObservable(aSignalPathObservable)
+    , iProtocolSelector(aProtocolSelector.Ptr())
     , iApp(nullptr)
     , iTrack(nullptr)
     , iSerialNumber(aSerialNumber)
@@ -100,6 +180,7 @@ SourceRaat::SourceRaat(
 
 SourceRaat::~SourceRaat()
 {
+    delete iProtocolSelector;
     delete iSignalPathObservable;
     delete iApp;
     if (iTrack != nullptr) {
@@ -150,6 +231,7 @@ void SourceRaat::Started()
         iMediaPlayer,
         *this,
         iAudioTime,
+        iPullableClock,
         *iSignalPathObservable,
         iSerialNumber,
         iSoftwareVersion);

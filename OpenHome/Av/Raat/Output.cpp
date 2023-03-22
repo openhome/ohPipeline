@@ -11,6 +11,7 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Media/Pipeline/StarterTimed.h>
+#include <OpenHome/Media/ClockPuller.h>
 #include <OpenHome/Av/Raat/SourceRaat.h>
 
 #include <map>
@@ -308,11 +309,13 @@ RaatOutput::RaatOutput(
     Media::PipelineManager& aPipeline,
     ISourceRaat& aSourceRaat,
     Media::IAudioTime& aAudioTime,
+    Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable& aSignalPathObservable)
     : iEnv(aEnv)
     , iPipeline(aPipeline)
     , iSourceRaat(aSourceRaat)
     , iAudioTime(aAudioTime)
+    , iPullableClock(aPullableClock)
     , iLockStream("Rat1")
     , iStream(nullptr)
     , iSemStarted("ROut", 0)
@@ -485,6 +488,9 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     iStreamPos = aStreamTime;
     const TUint64 startTicks = NsToMclk((TUint64)aWallTime);
     static_cast<Media::IStarterTimed&>(iPipeline).StartAt(startTicks);
+    iClockSyncStarted = false;
+    iLastClockPullTicks = startTicks; // doesn't really matter - will be overridden when iClockSyncStarted is set true
+    iClockPull = Media::IPullableClock::kNominalFreq;
 
     iUri.SetSampleStart((TUint64)aStreamTime);
     Bws<256> uri;
@@ -538,6 +544,26 @@ RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNew
 {
     // FIXME
     LOG(kMedia, "RaatOutput::SetRemoteTime(%d, %lld, %u)\n", aToken, aClockOffset, aNewSource);
+    TUint64 ticksNow;
+    TUint freq;
+    iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
+    const TUint64 remoteTime = RaatOutput::ConvertTime(abs(aClockOffset), kFreqNs, freq);
+    if (!iClockSyncStarted) {
+        iAudioTime.SetTickCount(remoteTime);
+        iClockSyncStarted = true;
+    }
+    else {
+        TUint64 delta = ((remoteTime - ticksNow) * iClockPull) / (ticksNow - iLastClockPullTicks);
+        if (aClockOffset > 0) {
+            iClockPull += (TUint)delta;
+        }
+        else {
+            iClockPull -= (TUint)delta;
+        }
+        LOG(kMedia, "RaatOutput::SetRemoteTime delta=%llx, pull=%x\n", delta, iClockPull);
+        iPullableClock.PullClock(iClockPull);
+    }
+    iLastClockPullTicks = ticksNow;
     return RC__STATUS_NOT_IMPLEMENTED;
 }
 

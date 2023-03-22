@@ -12,6 +12,7 @@ namespace OpenHome {
     class Timer;
 namespace Media {
     class IAudioTime;
+    class IPullableClock;
 }
 namespace Av {
 
@@ -34,6 +35,7 @@ public:
         IMediaPlayer& aMediaPlayer,
         ISourceRaat& aSourceRaat,
         Media::IAudioTime& aAudioTime,
+        Media::IPullableClock& aPullableClock,
         IRaatSignalPathObservable& aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion);

@@ -143,12 +143,19 @@ Msg* StarterTimed::ProcessMsg(MsgSilence* aMsg)
 
 AudioTimeCpu::AudioTimeCpu(Environment& aEnv)
     : iOsCtx(aEnv.OsCtx())
+    , iTicksAdjustment(0)
 {
 }
 
 void AudioTimeCpu::GetTickCount(TUint /*aSampleRate*/, TUint64& aTicks, TUint& aFrequency) const
 {
-    aTicks = Os::TimeInUs(iOsCtx);
     static const TUint kUsTicksPerSecond = 1000000;
     aFrequency = kUsTicksPerSecond;
+    aTicks = Os::TimeInUs(iOsCtx);
+    aTicks += iTicksAdjustment;
+}
+
+void AudioTimeCpu::SetTickCount(TUint64 aTicks)
+{
+    iTicksAdjustment = aTicks - Os::TimeInUs(iOsCtx);
 }

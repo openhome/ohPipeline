@@ -52,6 +52,6 @@ ConfigAppMediaPlayer::ConfigAppMediaPlayer(IInfoAggregator& aInfoAggregator,
     AddConfigChoiceConditional(Brn("tidalhifi.com.SoundQuality"));
     AddConfigChoiceConditional(Brn("tidalhifi.com.Enabled"));
     AddConfigChoiceConditional(Brn("tunein.com.Enabled"));
-
     AddConfigTextConditional(Brn("Radio.TuneInUserName"));
+    AddConfigChoiceConditional(Brn("Roon.Protocol"));
 }

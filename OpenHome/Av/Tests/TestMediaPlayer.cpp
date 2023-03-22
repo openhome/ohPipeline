@@ -540,15 +540,20 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
                                                  Optional<IOhmTimestamper>(iRxTimestamper),
                                                  Optional<IOhmMsgProcessor>()));
 
-//    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
 #ifdef RAAT_ENABLE
-    iMediaPlayer->Add(SourceFactory::NewRaat(
+    ASSERT(iPullableClock != nullptr);
+    iMediaPlayer->Add(SourceFactory::NewRoon(
         *iMediaPlayer,
         *iAudioTime,
-        iRaatSignalPathObservable != nullptr? iRaatSignalPathObservable : new DummyRaatSignalPath(),
+        *iPullableClock,
+        iRaatSignalPathObservable != nullptr ? iRaatSignalPathObservable : new DummyRaatSignalPath(),
         Brn("12345"),
-        Brn("0.0.1")));
+        Brn("0.0.1"),
+        kDsdSampleBlockWords,
+        kDsdPadBytesPerChunk));
     iRaatSignalPathObservable = nullptr;
+#else
+    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
 #endif
 }
 

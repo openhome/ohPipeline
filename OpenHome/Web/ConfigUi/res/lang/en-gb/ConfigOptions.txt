@@ -45,3 +45,7 @@ tidalhifi.com.Enabled
 tunein.com.Enabled
 0   No
 1   Yes
+
+Roon.Protocol
+0  Roon Ready
+1  Linn Streaming

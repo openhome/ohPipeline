@@ -6,14 +6,40 @@
 #include <OpenHome/Media/UriProviderSingleTrack.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
+#include <OpenHome/Configuration/ConfigManager.h>
 
 namespace OpenHome {
     namespace Media {
         class TrackFactory;
         class IClockPuller;
         class IAudioTime;
+        class IPullableClock;
     }
 namespace Av {
+
+enum class RoonProtocol
+{
+    Raat,
+    Scd
+};
+
+class RoonProtocolSelector
+{
+    static const Brn kKeyProtocol;
+    static const TUint kValRaat;
+    static const TUint kValScd;
+public:
+    RoonProtocolSelector(Configuration::IConfigInitialiser& aConfigInitialiser);
+    ~RoonProtocolSelector();
+    RoonProtocol Protocol() const;
+    Configuration::ConfigChoice* Transfer();
+private:
+    void ProtocolChanged(Configuration::KeyValuePair<TUint>& aKvp);
+private:
+    Configuration::ConfigChoice* iConfigProtocol;
+    RoonProtocol iProtocol;
+    TUint iSubscriberId;
+};
 
 class UriProviderRaat : public Media::UriProviderSingleTrack
 {
@@ -41,7 +67,9 @@ public:
     SourceRaat(
         IMediaPlayer& aMediaPlayer,
         Media::IAudioTime& aAudioTime,
+        Media::IPullableClock& aPullableClock,
         IRaatSignalPathObservable* aSignalPathObservable,
+        Optional<Configuration::ConfigChoice> aProtocolSelector,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion);
     ~SourceRaat();
@@ -67,7 +95,9 @@ private:
     Mutex iLock;
     IMediaPlayer& iMediaPlayer;
     Media::IAudioTime& iAudioTime;
+    Media::IPullableClock& iPullableClock;
     IRaatSignalPathObservable* iSignalPathObservable;
+    Configuration::ConfigChoice* iProtocolSelector;
     UriProviderRaat* iUriProvider;
     RaatApp* iApp;
     Media::Track* iTrack;

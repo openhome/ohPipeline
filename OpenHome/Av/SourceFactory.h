@@ -3,6 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Optional.h>
+#include <OpenHome/Configuration/ConfigManager.h>
 
 namespace OpenHome {
 namespace Net {
@@ -12,6 +13,7 @@ namespace Net {
 namespace Media {
     class IClockPuller;
     class IAudioTime;
+    class IPullableClock;
 }
 namespace Av {
 
@@ -35,13 +37,27 @@ public:
                                 Optional<IOhmTimestamper> aTxTimestamper,
                                 Optional<IOhmTimestamper> aRxTimestamper,
                                 Optional<IOhmMsgProcessor> aOhmMsgObserver);
-    static ISource* NewScd(IMediaPlayer& aMediaPlayer, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerChunk);
+    static ISource* NewScd(
+        IMediaPlayer& aMediaPlayer,
+        Optional<Configuration::ConfigChoice> aProtocolSelector,
+        TUint aDsdSampleBlockWords,
+        TUint aDsdPadBytesPerChunk);
     static ISource* NewRaat(
         IMediaPlayer& aMediaPlayer,
         Media::IAudioTime& aAudioTime,
+        Media::IPullableClock& aPullableClock,
         IRaatSignalPathObservable* aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion);
+    static ISource* NewRoon(
+        IMediaPlayer& aMediaPlayer,
+        Media::IAudioTime& aAudioTime,
+        Media::IPullableClock& aPullableClock,
+        IRaatSignalPathObservable* aSignalPathObservable,
+        const Brx& aSerialNumber,
+        const Brx& aSoftwareVersion,
+        TUint aDsdSampleBlockWords,
+        TUint aDsdPadBytesPerChunk);
 
     static const TChar* kSourceTypePlaylist;
     static const TChar* kSourceTypeRadio;
