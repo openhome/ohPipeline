@@ -564,7 +564,7 @@ RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNew
         iPullableClock.PullClock(iClockPull);
     }
     iLastClockPullTicks = ticksNow;
-    return RC__STATUS_NOT_IMPLEMENTED;
+    return RC__STATUS_SUCCESS;
 }
 
 RC__Status RaatOutput::TryStop(int aToken)
