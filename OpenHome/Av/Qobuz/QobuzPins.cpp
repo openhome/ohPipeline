@@ -556,11 +556,11 @@ void QobuzPins::FindResponse(JsonParser& aParser)
     else if (aParser.HasKey(kPropertyPlaylists)) {
         aParser.Parse(aParser.String(kPropertyPlaylists));
     }
-    else if (aParser.HasKey(kPropertyArtists)) {
-        aParser.Parse(aParser.String(kPropertyArtists));
-    }
     else if (aParser.HasKey(kPropertyTracks)) {
         aParser.Parse(aParser.String(kPropertyTracks));
+    }
+    else if (aParser.HasKey(kPropertyArtists)) {
+        aParser.Parse(aParser.String(kPropertyArtists));
     }
     else if (aParser.HasKey(kPropertyTracksAppearsOn)) {
         aParser.Parse(aParser.String(kPropertyTracksAppearsOn));
