@@ -206,7 +206,7 @@ TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aId
     }
 
     if (aQuery.Bytes() > inputBuf.MaxBytes()) {
-        Log::Print("TidalPins::LoadByStringQuery - ID too long. Space: %u, size needed: %u (Type: %.*s)\n", inputBuf.MaxBytes(), aQuery.Bytes(), PBUF(QobuzMetadata::IdTypeToString(aIdType)));
+        Log::Print("QobuzPins::LoadByStringQuery - ID too long. Space: %u, size needed: %u (Type: %.*s)\n", inputBuf.MaxBytes(), aQuery.Bytes(), PBUF(QobuzMetadata::IdTypeToString(aIdType)));
     }
 
     inputBuf.Replace(aQuery);
@@ -556,11 +556,11 @@ void QobuzPins::FindResponse(JsonParser& aParser)
     else if (aParser.HasKey(kPropertyPlaylists)) {
         aParser.Parse(aParser.String(kPropertyPlaylists));
     }
-    else if (aParser.HasKey(kPropertyArtists)) {
-        aParser.Parse(aParser.String(kPropertyArtists));
-    }
     else if (aParser.HasKey(kPropertyTracks)) {
         aParser.Parse(aParser.String(kPropertyTracks));
+    }
+    else if (aParser.HasKey(kPropertyArtists)) {
+        aParser.Parse(aParser.String(kPropertyArtists));
     }
     else if (aParser.HasKey(kPropertyTracksAppearsOn)) {
         aParser.Parse(aParser.String(kPropertyTracksAppearsOn));
@@ -572,24 +572,24 @@ QobuzPins::EShuffleMode QobuzPins::GetShuffleMode(PinUri& aPinUri)
     Brn shuffleMode;
 
     if (!aPinUri.TryGetValue(kPinKeyShuffleMode, shuffleMode)) {
-        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: Default (Inferred)\n");
+        LOG_INFO(kMedia, "QobuzPins::GetShuffleMode - Using: Default (Inferred)\n");
         return EShuffleMode::Default;
     }
 
     if (shuffleMode == kShuffleModeNone) {
-        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: None\n");
+        LOG_INFO(kMedia, "QobuzPins::GetShuffleMode - Using: None\n");
         return EShuffleMode::None;
     }
     else if (shuffleMode == kShuffleModeDefault) {
-        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: Default\n");
+        LOG_INFO(kMedia, "QobuzPins::GetShuffleMode - Using: Default\n");
         return EShuffleMode::Default;
     }
     else if (shuffleMode == kShuffleModeWhenRequired) {
-        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Using: WhenRequired\n");
+        LOG_INFO(kMedia, "QobuzPins::GetShuffleMode - Using: WhenRequired\n");
         return EShuffleMode::WhenRequired;
     }
     else {
-        LOG_INFO(kMedia, "TidalPins::GetShuffleMode - Usiing: Default (Unknown mode (%.*s) requested)\n", PBUF(shuffleMode));
+        LOG_INFO(kMedia, "QobuzPins::GetShuffleMode - Usiing: Default (Unknown mode (%.*s) requested)\n", PBUF(shuffleMode));
         return EShuffleMode::Default;
     }
 }
