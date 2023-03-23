@@ -547,13 +547,20 @@ RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNew
     TUint64 ticksNow;
     TUint freq;
     iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
-    const TUint64 remoteTime = RaatOutput::ConvertTime(abs(aClockOffset), kFreqNs, freq);
+    const TUint64 remoteTicksDelta = RaatOutput::ConvertTime(abs(aClockOffset), kFreqNs, freq);
     if (!iClockSyncStarted) {
-        iAudioTime.SetTickCount(remoteTime);
+        TUint64 remoteTicks = ticksNow;
+        if (aClockOffset > 0) {
+            remoteTicks += remoteTicksDelta;
+        }
+        else {
+            remoteTicks -= remoteTicksDelta;
+        }
+        iAudioTime.SetTickCount(remoteTicks);
         iClockSyncStarted = true;
     }
     else {
-        TUint64 delta = ((remoteTime - ticksNow) * iClockPull) / (ticksNow - iLastClockPullTicks);
+        TUint64 delta = (remoteTicksDelta * iClockPull) / (ticksNow - iLastClockPullTicks);
         if (aClockOffset > 0) {
             iClockPull += (TUint)delta;
         }
