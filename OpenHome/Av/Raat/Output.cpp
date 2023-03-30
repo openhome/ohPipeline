@@ -537,6 +537,7 @@ TUint64 RaatOutput::ConvertTime(TUint64 aTicksFrom, TUint aFreqFrom, TUint aFreq
     ticks *= aFreqTo;
     ticks /= aFreqFrom;
     ticks += (secs * aFreqTo);
+    ticks &= ~0x8000000000000000LL; // Roon deals in 63-bit signed times so clear the top bit of our 64-bit unsigned value
     return ticks;
 }
 
@@ -551,10 +552,10 @@ RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNew
     if (!iClockSyncStarted) {
         TUint64 remoteTicks = ticksNow;
         if (aClockOffset > 0) {
-            remoteTicks += remoteTicksDelta;
+            remoteTicks -= remoteTicksDelta;
         }
         else {
-            remoteTicks -= remoteTicksDelta;
+            remoteTicks += remoteTicksDelta;
         }
         iAudioTime.SetTickCount(remoteTicks);
         iClockSyncStarted = true;
@@ -562,10 +563,10 @@ RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNew
     else {
         TUint64 delta = (remoteTicksDelta * iClockPull) / (ticksNow - iLastClockPullTicks);
         if (aClockOffset > 0) {
-            iClockPull += (TUint)delta;
+            iClockPull -= (TUint)delta;
         }
         else {
-            iClockPull -= (TUint)delta;
+            iClockPull += (TUint)delta;
         }
         LOG(kMedia, "RaatOutput::SetRemoteTime delta=%llx, pull=%x\n", delta, iClockPull);
         iPullableClock.PullClock(iClockPull);
