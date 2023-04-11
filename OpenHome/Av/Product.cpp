@@ -366,6 +366,14 @@ void Product::AutoPlayChanged(KeyValuePair<TUint>& aKvp)
 
 void Product::CurrentAdapterChanged()
 {
+    // Capture the old values before they are overwritten.
+    // Allows us to check for changes later on
+    Endpoint::AddressBuf oldConfigAppAddress;
+    oldConfigAppAddress.ReplaceThrow(iConfigAppAddress);
+
+    const Brn opn(iUriPrefix);
+    const Brh oldPrefix(opn);
+
     {
         AutoMutex _(iLock);
         AutoNetworkAdapterRef ar(iEnv, "Av::Product");
@@ -381,7 +389,11 @@ void Product::CurrentAdapterChanged()
         }
     }
 
-    {
+    // If we've not changed anything there is no point in notifyong observers.
+    const TBool endpointAddressChanged = oldConfigAppAddress != iConfigAppAddress;
+    const TBool prefixesChanged = oldPrefix != iUriPrefix;
+
+    if (endpointAddressChanged || prefixesChanged) {
         AutoMutex amx(iObserverLock);
         for (auto observer : iObservers) {
             observer->ProductUrisChanged();
