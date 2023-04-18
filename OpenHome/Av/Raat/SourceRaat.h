@@ -4,6 +4,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/UriProviderSingleTrack.h>
+#include <OpenHome/Media/ClockPuller.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Configuration/ConfigManager.h>
@@ -47,6 +48,8 @@ public:
     UriProviderRaat(const TChar* aMode, Media::TrackFactory& aTrackFactory); // should later pass IClockPuller& 
 private: // from UriProvider
     Optional<Media::IClockPuller> ClockPuller() override;
+private:
+    Media::ClockPullerMock iClockPuller;
 };
 
 

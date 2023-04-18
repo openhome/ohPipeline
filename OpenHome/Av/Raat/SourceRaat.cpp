@@ -125,7 +125,7 @@ UriProviderRaat::UriProviderRaat(
 
 Optional<IClockPuller> UriProviderRaat::ClockPuller()
 {
-    return nullptr;
+    return &iClockPuller;
 }
 
 
