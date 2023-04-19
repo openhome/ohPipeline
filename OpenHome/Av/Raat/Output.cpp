@@ -323,6 +323,7 @@ RaatOutput::RaatOutput(
     , iPipelineDelayNs(((int64_t)iPipeline.SenderMinLatencyMs()) * 1000 * 1000)
     , iStarted(false)
     , iRunning(false)
+    , iSampleStartUpdate(false)
     , iLockMetadata("Rat2")
 {
     iPluginExt.iPlugin.get_info = Raat_Output_Get_Info;
@@ -486,6 +487,8 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     Interrupt();
     ChangeStream(aStream);
     iStreamPos = aStreamTime;
+    iSampleStart = (TUint64)aStreamTime;
+    iSampleStartUpdate = true;
     const TUint64 startTicks = NsToMclk((TUint64)aWallTime);
     static_cast<Media::IStarterTimed&>(iPipeline).StartAt(startTicks);
     iClockSyncStarted = false;
@@ -493,10 +496,6 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     iClockPull = Media::IPullableClock::kNominalFreq;
 
     iUri.SetSampleStart((TUint64)aStreamTime);
-    Bws<256> uri;
-    iUri.GetUri(uri);
-    LOG(kMedia, "RaatOutput::StartStream uri=%.*s\n", PBUF(uri));
-    iSourceRaat.Play(uri);
     iSemStarted.Signal();
     return RC__STATUS_SUCCESS;
 }
@@ -660,6 +659,10 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         Log::Print("RaatOutput::Read writing metadata %.*s\n", PBUF(iMetadataTemp));
         aWriter.WriteMetadata(iMetadataTemp);
         iMetadataTemp.Replace(Brx::Empty());
+    }
+    if (iSampleStartUpdate) {
+        iSampleStartUpdate = false;
+        aWriter.WriteSampleStart(iSampleStart);
     }
 
     RAAT__AudioPacket packet;

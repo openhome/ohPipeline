@@ -34,6 +34,7 @@ class IRaatWriter
 public:
     virtual ~IRaatWriter() {}
     virtual void WriteMetadata(const Brx& aMetadata) = 0;
+    virtual void WriteSampleStart(TUint64 aPos) = 0;
     virtual void WriteDelay(TUint aJiffies) = 0;
     virtual void WriteData(const Brx& aData) = 0;
 };
@@ -185,6 +186,7 @@ private:
     int iToken;
     RaatUri iUri;
     int64_t iStreamPos;
+    TUint64 iSampleStart;
     TUint iSampleRate;
     TUint iBytesPerSample;
     TUint iSamplesPerRead;
@@ -195,6 +197,7 @@ private:
     TBool iStarted;
     TBool iRunning;
     TBool iClockSyncStarted;
+    TBool iSampleStartUpdate;
     TByte iAudioData[Media::AudioData::kMaxBytes];
     std::vector<RAAT__AudioPacket> iPendingPackets;
     json_t* iSignalPath;

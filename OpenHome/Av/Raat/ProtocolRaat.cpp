@@ -61,24 +61,7 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
         iStreamId = iIdProvider->NextStreamId();
         iStopped = false;
     }
-    SpeakerProfile sp;
-    PcmStreamInfo streamInfo;
-    streamInfo.Set(
-        iRaatUri.BitDepth(),
-        iRaatUri.SampleRate(),
-        iRaatUri.NumChannels(),
-        AudioDataEndian::Little,
-        sp,
-        iRaatUri.SampleStart());
-    iSupply->OutputPcmStream(
-        aUri,
-        0 /* totalBytes */,
-        false /* seekable */,
-        false /* live */,
-        Media::Multiroom::Forbidden,
-        *this,
-        iStreamId,
-        streamInfo);
+    OutputStream(iRaatUri.SampleStart());
     const auto bytesPerSample = (iRaatUri.BitDepth() / 8) * iRaatUri.NumChannels();
     iMaxBytesPerAudioChunk = AudioData::kMaxBytes - (AudioData::kMaxBytes % bytesPerSample);
 
@@ -138,6 +121,11 @@ void ProtocolRaat::WriteMetadata(const Brx& aMetadata)
     iSupply->OutputTrack(*track, false /* startOfStream */);
 }
 
+void ProtocolRaat::WriteSampleStart(TUint64 aPos)
+{
+    OutputStream(aPos);
+}
+
 void ProtocolRaat::WriteDelay(TUint aJiffies)
 {
     Log::Print("FIXME - ignoring delay of %u (%ums)\n", aJiffies, Jiffies::ToMs(aJiffies));
@@ -164,4 +152,27 @@ void ProtocolRaat::WriteData(const Brx& aData)
         }
         ptr += bytes;
     }
+}
+
+void ProtocolRaat::OutputStream(TUint64 aSampleStart)
+{
+    SpeakerProfile sp;
+    PcmStreamInfo streamInfo;
+    streamInfo.Set(
+        iRaatUri.BitDepth(),
+        iRaatUri.SampleRate(),
+        iRaatUri.NumChannels(),
+        AudioDataEndian::Little,
+        sp,
+        aSampleStart);
+    iSupply->OutputPcmStream(
+        iRaatUri.AbsoluteUri(),
+        0 /* totalBytes */,
+        false /* seekable */,
+        false /* live */,
+        Media::Multiroom::Forbidden,
+        *this,
+        iStreamId,
+        streamInfo);
+
 }
