@@ -33,11 +33,8 @@ private: // from Media::IStreamHandler
     TUint TryStop(TUint aStreamId) override;
 private: // from IRaatWriter
     void WriteMetadata(const Brx& aMetadata) override;
-    void WriteSampleStart(TUint64 aPos) override;
     void WriteDelay(TUint aJiffies) override;
     void WriteData(const Brx& aData) override;
-private:
-    void OutputStream(TUint64 aSampleStart);
 private:
     Mutex iLock;
     IRaatReader& iRaatReader;
