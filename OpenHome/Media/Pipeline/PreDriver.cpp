@@ -64,6 +64,11 @@ Msg* PreDriver::Pull()
 
 Msg* PreDriver::ProcessMsg(MsgMode* aMsg)
 {
+    if (aMsg->Mode() == iModeName) {
+        aMsg->RemoveRef();
+        return nullptr;
+    }
+    iModeName.Replace(aMsg->Mode());
     if (iModeHasPullableClock) {
         /* if we're changing from a mode that used a pullable clock, make sure the next
            DecodedStream is passed on.  Without this, we'd risk leaving the new mode

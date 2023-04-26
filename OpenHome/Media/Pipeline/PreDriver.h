@@ -34,6 +34,7 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private:
     IPipelineElementUpstream& iUpstreamElement;
+    BwsMode iModeName;
     TUint iSampleRate;
     TUint iBitDepth;
     TUint iNumChannels;

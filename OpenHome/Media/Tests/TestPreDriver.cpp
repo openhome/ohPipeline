@@ -76,6 +76,7 @@ private:
     PreDriver* iPreDriver;
     ClockPullerMock iClockPuller;
     EMsgType iNextGeneratedMsg;
+    std::vector<EMsgType> iNextGeneratedMsgs;
     EMsgType iLastMsg;
     TUint64 iTrackOffset;
     TUint iSampleRate;
@@ -155,6 +156,7 @@ void SuitePreDriver::Test()
 
     // Send Mode; check it is passed on.
     iNextGeneratedMsg = EMsgMode;
+    iNextModePullable = true;
     iPreDriver->Pull()->Process(*this)->RemoveRef();
     TEST(iLastMsg == EMsgMode);
 
@@ -189,6 +191,7 @@ void SuitePreDriver::Test()
 
     // Mode (non-pullable) -> Mode (pullable) - duplicate DecodedStream suppressed
     iNextGeneratedMsg = EMsgMode;
+    iNextModePullable = false;
     iPreDriver->Pull()->Process(*this)->RemoveRef();
     TEST(iLastMsg == EMsgMode);
     iSampleRate = 44100;
@@ -211,18 +214,37 @@ void SuitePreDriver::Test()
     iNextGeneratedMsg = EMsgDecodedStream;
     iPreDriver->Pull()->Process(*this)->RemoveRef();
     TEST(iLastMsg == EMsgDecodedStream);
+
+    // Mode, DecodedStream, Mode (identical), DecodedStream (identical) - duplicate Mode + DecodedStream pruned
+    iNextModePullable = true;
+    iNextGeneratedMsgs.push_back(EMsgMode);
+    iSampleRate = 96000;
+    iNextGeneratedMsgs.push_back(EMsgDecodedStream);
+    iNextGeneratedMsgs.push_back(EMsgMode);
+    iNextGeneratedMsgs.push_back(EMsgDecodedStream);
+    iPreDriver->Pull()->Process(*this)->RemoveRef();
+    TEST(iLastMsg == EMsgMode);
+    iPreDriver->Pull()->Process(*this)->RemoveRef();
+    TEST(iLastMsg == EMsgDecodedStream);
+    iPreDriver->Pull()->Process(*this)->RemoveRef();
+    TEST(iLastMsg == EMsgPlayable);
 }
 
 Msg* SuitePreDriver::Pull()
 {
-    switch (iNextGeneratedMsg)
+    auto nextMsg = iNextGeneratedMsg;
+    if (iNextGeneratedMsgs.size() > 0) {
+        nextMsg = iNextGeneratedMsgs[0];
+        iNextGeneratedMsgs.erase(iNextGeneratedMsgs.begin(), iNextGeneratedMsgs.begin()+1);
+    }
+    switch (nextMsg)
     {
     case EMsgMode:
     {
         ModeInfo info;
         ModeTransportControls transportControls;
         IClockPuller* puller = iNextModePullable ? &iClockPuller : nullptr;
-        return iMsgFactory->CreateMsgMode(Brn("dummyMode"), info, puller, transportControls);
+        return iMsgFactory->CreateMsgMode(puller? Brn("dummyMode1") : Brn("dummyMode2"), info, puller, transportControls);
     }
     case EMsgDrain:
         return iMsgFactory->CreateMsgDrain(Functor());
