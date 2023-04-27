@@ -320,7 +320,7 @@ RaatOutput::RaatOutput(
     , iStream(nullptr)
     , iSemStarted("ROut", 0)
     , iSampleRate(0)
-    , iPipelineDelayNs(((int64_t)iPipeline.SenderMinLatencyMs()) * 1000 * 1000)
+    , iPipelineDelayNs(1000 * 1000 * 1000) // 1 second - Roon will use this to set startTime and draining/restarting pipeline sometimes has quiet spells of hundreds of millisecs
     , iStarted(false)
     , iRunning(false)
     , iLockMetadata("Rat2")
@@ -522,11 +522,11 @@ TUint64 RaatOutput::MclkToNs()
 
 TUint64 RaatOutput::NsToMclk(TUint64 aTimeNs)
 {
-    TUint64 ignore;
+    TUint64 ticksNow;
     TUint freq;
-    iAudioTime.GetTickCount(iSampleRate, ignore, freq);
+    iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
     const auto ticks = ConvertTime(aTimeNs, kFreqNs, freq);
-    LOG(kMedia, "RaatOutput::NsToMclk: aTimeNs=%llu, freq=%u, ticks=%llu\n", aTimeNs, freq, ticks);
+    LOG(kMedia, "RaatOutput::NsToMclk: aTimeNs=%llu (mclck=%llu), freq=%u, ticks=%llu, ticksNow=%llu\n", aTimeNs, MclkToNs(), freq, ticks, ticksNow);
     return ticks;
 }
 

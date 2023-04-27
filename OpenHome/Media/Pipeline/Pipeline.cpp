@@ -494,16 +494,6 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerDrainer2, new Logger(*iDrainer2, "DrainerRight"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    if (aAudioTime.Ok()) {
-        ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime.Unwrap()),
-                       upstream, elementsSupported, EPipelineSupportElementsMandatory);
-        ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iDrainer2, "StarterTimed"),
-                       upstream, elementsSupported, EPipelineSupportElementsLogger);
-    }
-    else {
-        iStarterTimed = nullptr;
-        iLoggerStarterTimed = nullptr;
-    }
     ATTACH_ELEMENT(iVariableDelay2,
                    new VariableDelayRight(*iMsgFactory, *upstream,
                                           aInitParams->RampEmergencyJiffies(),
@@ -516,6 +506,16 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorDelay2, new DecodedAudioValidator(*upstream, "VariableDelay2"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    if (aAudioTime.Ok()) {
+        ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime.Unwrap()),
+                       upstream, elementsSupported, EPipelineSupportElementsMandatory);
+        ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iDrainer2, "StarterTimed"),
+                       upstream, elementsSupported, EPipelineSupportElementsLogger);
+    }
+    else {
+        iStarterTimed = nullptr;
+        iLoggerStarterTimed = nullptr;
+    }
     ATTACH_ELEMENT(iStarvationRamper,
                    new StarvationRamper(*iMsgFactory, *upstream, *this, *iEventThread,
                                         aInitParams->StarvationRamperMinJiffies(),

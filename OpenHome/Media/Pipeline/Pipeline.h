@@ -321,12 +321,12 @@ private:
     DecodedAudioValidator* iDecodedAudioValidatorRouter;
     DrainerRight* iDrainer2;
     Logger* iLoggerDrainer2;
-    StarterTimed* iStarterTimed;
-    Logger* iLoggerStarterTimed;
     VariableDelayRight* iVariableDelay2;
     Logger* iLoggerVariableDelay2;
     RampValidator* iRampValidatorDelay2;
     DecodedAudioValidator* iDecodedAudioValidatorDelay2;
+    StarterTimed* iStarterTimed;
+    Logger* iLoggerStarterTimed;
     StarvationRamper* iStarvationRamper;
     Logger* iLoggerStarvationRamper;
     RampValidator* iRampValidatorStarvationRamper;

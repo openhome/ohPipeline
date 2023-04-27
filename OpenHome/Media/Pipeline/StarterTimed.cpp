@@ -61,6 +61,7 @@ void StarterTimed::StartAt(TUint64 aTime)
 {
     AutoMutex _(iLock);
     iStartTicks = aTime;
+    LOG(kMedia, "StarterTimed::StartAt(%llu)\n", iStartTicks);
 }
 
 Msg* StarterTimed::Pull()
@@ -120,18 +121,25 @@ Msg* StarterTimed::ProcessMsg(MsgSilence* aMsg)
         TUint freq;
         iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
 
-        if (startTicks > ticksNow) {
+        if (startTicks <= ticksNow) {
+            LOG(kMedia, "StarterTimed: start time in past (%llu / %llu)\n", startTicks, ticksNow);
+        }
+        else {
             TUint64 delayTicks = startTicks - ticksNow;
             iJiffiesRemaining = 0;
-            while (delayTicks > freq) {
-                iJiffiesRemaining += Jiffies::kPerSecond;
-                delayTicks -= freq;
+            TUint seconds = delayTicks / freq;
+            if (seconds > 5) {
+                LOG(kMedia, "StarterTimed: start suspiciously far in the future (>%u seconds) - (%llu / %llu)\n", seconds, startTicks, ticksNow);
             }
-            iJiffiesRemaining += (TUint)((delayTicks * Jiffies::kPerSecond) / freq);
-            iJiffiesRemaining -= iPipelineDelayJiffies; // iPipelineDelayJiffies will already be applied by other pipeline elements
-            LOG(kMedia, "StartAt: delay jiffies=%u (%ums)\n", iJiffiesRemaining, Jiffies::ToMs(iJiffiesRemaining));
-            iPending = aMsg;
-            return nullptr;
+            else {
+                iJiffiesRemaining = seconds * Jiffies::kPerSecond;
+                delayTicks -= seconds * freq;
+                iJiffiesRemaining += (TUint)((delayTicks * Jiffies::kPerSecond) / freq);
+                iJiffiesRemaining -= iPipelineDelayJiffies; // iPipelineDelayJiffies will already be applied by other pipeline elements
+                LOG(kMedia, "StarterTimed: delay jiffies=%u (%ums)\n", iJiffiesRemaining, Jiffies::ToMs(iJiffiesRemaining));
+                iPending = aMsg;
+                return nullptr;
+            }
         }
     }
 
