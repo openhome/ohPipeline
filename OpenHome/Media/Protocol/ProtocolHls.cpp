@@ -1099,17 +1099,16 @@ void ProtocolHls::Interrupt(TBool aInterrupt)
 
 
     LOG(kMedia, "ProtocolHls::Interrupt aInterrupt: %u\n", aInterrupt);
-    iLock.Wait();
+    AutoMutex _(iLock);
     if (iActive) {
         LOG(kMedia, "ProtocolHls::Interrupt(%u)\n", aInterrupt);
         if (aInterrupt) {
             iStopped = true;
         }
         iSem.Signal();
+        iSegmentStreamer.Interrupt(aInterrupt);
+        iM3uReader.Interrupt(aInterrupt);
     }
-    iSegmentStreamer.Interrupt(aInterrupt);
-    iM3uReader.Interrupt(aInterrupt);
-    iLock.Signal();
 }
 
 ProtocolStreamResult ProtocolHls::Stream(const Brx& aUri)
@@ -1137,13 +1136,13 @@ ProtocolStreamResult ProtocolHls::Stream(const Brx& aUri)
     // increased complexity of the code required, just don't allow
     // seeking/pausing.
 
-    Reinitialise();
     Uri uriHls(aUri);
     const auto& scheme = uriHls.Scheme();
     if (!Ascii::CaseInsensitiveEquals(scheme, kSchemeHls) && !Ascii::CaseInsensitiveEquals(scheme, kSchemeHlsSecure)) {
         return EProtocolErrorNotSupported;
     }
     LOG(kMedia, "ProtocolHls::Stream(%.*s)\n", PBUF(aUri));
+    Reinitialise();
 
     if (!iStarted) {
         StartStream(uriHls);
@@ -1355,6 +1354,8 @@ void ProtocolHls::Reinitialise()
     iStarted = iStopped = false;
     iNextFlushId = MsgFlush::kIdInvalid;
     (void)iSem.Clear();
+    iSegmentStreamer.Interrupt(false);
+    iM3uReader.Interrupt(false);
 }
 
 void ProtocolHls::StartStream(const Uri& aUri)
