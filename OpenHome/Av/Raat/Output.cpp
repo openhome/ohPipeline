@@ -559,19 +559,21 @@ RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNew
         }
         iAudioTime.SetTickCount(remoteTicks);
         iClockSyncStarted = true;
+        iLastClockPullTicks = ticksNow;
     }
     else {
         TUint64 delta = (remoteTicksDelta * iClockPull) / (ticksNow - iLastClockPullTicks);
         if (aClockOffset > 0) {
-            iClockPull -= (TUint)delta;
+            //iClockPull -= (TUint)delta;
+            iClockPull = Media::IPullableClock::kNominalFreq - (TUint)delta;
         }
         else {
-            iClockPull += (TUint)delta;
+            //iClockPull += (TUint)delta;
+            iClockPull = Media::IPullableClock::kNominalFreq + (TUint)delta;
         }
         LOG(kMedia, "RaatOutput::SetRemoteTime delta=%llx, pull=%x\n", delta, iClockPull);
         iPullableClock.PullClock(iClockPull);
     }
-    iLastClockPullTicks = ticksNow;
     return RC__STATUS_SUCCESS;
 }
 
