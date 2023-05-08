@@ -127,7 +127,7 @@ Msg* StarterTimed::ProcessMsg(MsgSilence* aMsg)
         else {
             TUint64 delayTicks = startTicks - ticksNow;
             iJiffiesRemaining = 0;
-            TUint seconds = delayTicks / freq;
+            TUint seconds = (TUint)(delayTicks / freq);
             if (seconds > 5) {
                 LOG(kMedia, "StarterTimed: start suspiciously far in the future (>%u seconds) - (%llu / %llu)\n", seconds, startTicks, ticksNow);
             }
