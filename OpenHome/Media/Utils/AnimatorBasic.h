@@ -31,7 +31,13 @@ class AnimatorBasic : public PipelineElement, public IPullableClock, public IPip
     static const TUint kSupportedMsgTypes;
     static const TUint kDsdPlayableBytesPerChunk = 4;
 public:
-    AnimatorBasic(Environment& aEnv, IPipeline& aPipeline, TBool aPullable, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerWord);
+    AnimatorBasic(
+        Environment& aEnv,
+        IPipeline& aPipeline,
+        TBool aPullable,
+        TUint aDsdMaxSampleRate,
+        TUint aDsdSampleBlockWords,
+        TUint aDsdPadBytesPerWord);
     ~AnimatorBasic();
 private:
     void DriverThread();
@@ -60,6 +66,7 @@ private:
     OsContext* iOsCtx;
     ThreadFunctor *iThread;
     const TBool iPullable;
+    const TUint iDsdMaxSampleRate;
     const TUint iDsdSampleBlockWords;
     const TUint iDsdBlockWordsNoPad;
     AudioFormat iFormat;

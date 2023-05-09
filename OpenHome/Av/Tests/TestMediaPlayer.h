@@ -124,7 +124,7 @@ private:
     static const TUint kUiMsgBufBytes = 16;
     static const TUint kMaxPinsDevice = 6;
     static const TUint kFsFlushFreqMs = 60 * 1000; // 1 minute
-    static const TUint kDsdMaxSampleRate = 5644800; // DSD128.
+    static const TUint kDsdMaxSampleRate = 11289600; // DSD256
     static const TUint kDsdSampleBlockWords = 6; // Specifies if the test player outputs DSD as 16xL, 16xR [32 bits = 1 word] or 4 x (24xL, 24xR) [192 bits = 6]
     static const TUint kDsdPadBytesPerChunk = 2;
 public:
@@ -141,8 +141,9 @@ public:
     virtual void RunWithSemaphore();
     Media::PipelineManager& Pipeline();
     Net::DvDeviceStandard* Device();
-    TUint DsdSampleBlockWords();
-    TUint DsdPadBytesPerChunk();
+    TUint DsdMaxSampleRate() const;
+    TUint DsdSampleBlockWords() const;
+    TUint DsdPadBytesPerChunk() const;
 protected:
     virtual void TryRegisterVorbis();
     virtual void RegisterPlugins(Environment& aEnv);

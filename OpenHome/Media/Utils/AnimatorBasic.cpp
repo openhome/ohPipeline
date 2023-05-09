@@ -43,12 +43,19 @@ const TUint AnimatorBasic::kSupportedMsgTypes =   eMode
                                                 | ePlayable
                                                 | eQuit;
 
-AnimatorBasic::AnimatorBasic(Environment& aEnv, IPipeline& aPipeline, TBool aPullable, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerWord)
+AnimatorBasic::AnimatorBasic(
+    Environment& aEnv,
+    IPipeline& aPipeline,
+    TBool aPullable,
+    TUint aDsdMaxSampleRate,
+    TUint aDsdSampleBlockWords,
+    TUint aDsdPadBytesPerWord)
     : PipelineElement(kSupportedMsgTypes)
     , iPipeline(aPipeline)
     , iSem("DRVB", 0)
     , iOsCtx(aEnv.OsCtx())
     , iPullable(aPullable)
+    , iDsdMaxSampleRate(aDsdMaxSampleRate)
     , iDsdSampleBlockWords(aDsdSampleBlockWords)
     , iDsdBlockWordsNoPad((aDsdSampleBlockWords * 4) / (kDsdPlayableBytesPerChunk + aDsdPadBytesPerWord))
     , iSampleRate(0)
@@ -286,5 +293,5 @@ TUint AnimatorBasic::PipelineAnimatorMaxBitDepth() const
 void AnimatorBasic::PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const
 {
     aPcm = 384000;
-    aDsd = 11289600;
+    aDsd = iDsdMaxSampleRate;
 }

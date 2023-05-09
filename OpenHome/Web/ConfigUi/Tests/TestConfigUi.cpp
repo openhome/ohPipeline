@@ -801,7 +801,13 @@ void SuiteConfigUi::Setup()
     Brn userAgent("dummyUA");
 
     InitialiseMediaPlayer(udn, suiteConfigUiStr, "SoftPlayer", tuneInPartnerId, tidalId, qobuzIdSecret, userAgent);
-    iAnimator = new Media::AnimatorBasic(iDvStack.Env(), iMediaPlayer->Pipeline(), false, iMediaPlayer->DsdSampleBlockWords(), iMediaPlayer->DsdPadBytesPerChunk());
+    iAnimator = new Media::AnimatorBasic(
+        iDvStack.Env(),
+        iMediaPlayer->Pipeline(),
+        false,
+        iMediaPlayer->DsdMaxSampleRate(),
+        iMediaPlayer->DsdSampleBlockWords(),
+        iMediaPlayer->DsdPadBytesPerChunk());
 
     iMediaPlayerThread = new ThreadFunctor("TestConfigUi", MakeFunctor(*this, &SuiteConfigUi::Run));
     iMediaPlayerThread->Start();

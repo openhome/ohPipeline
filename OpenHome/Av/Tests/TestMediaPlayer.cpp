@@ -421,12 +421,17 @@ DvDeviceStandard* TestMediaPlayer::Device()
     return iDevice;
 }
 
-TUint TestMediaPlayer::DsdSampleBlockWords()
+TUint TestMediaPlayer::DsdMaxSampleRate() const
+{
+    return kDsdMaxSampleRate;
+}
+
+TUint TestMediaPlayer::DsdSampleBlockWords() const
 {
     return kDsdSampleBlockWords;
 }
 
-TUint TestMediaPlayer::DsdPadBytesPerChunk()
+TUint TestMediaPlayer::DsdPadBytesPerChunk() const
 {
     return kDsdPadBytesPerChunk;
 }
