@@ -666,10 +666,10 @@ void RaatOutput::Read(IRaatWriter& aWriter)
 
     RAAT__AudioPacket packet;
     RAAT__Stream* stream = StreamRef();
-    AutoStreamRef _(stream);
     if (stream == nullptr) {
         THROW(RaatReaderStopped);
     }
+    AutoStreamRef _(stream);
     auto err = RAAT__stream_consume_packet(stream, &packet);
     if (err != RC__STATUS_SUCCESS) {
         LOG(kMedia, "Error: %d from RAAT__stream_consume_packet\n", err);
