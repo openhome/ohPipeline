@@ -3,7 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Thread.h>
-#include <OpenHome/Media/UriProviderSingleTrack.h>
+#include <OpenHome/Media/UriProviderRepeater.h>
 #include <OpenHome/Media/ClockPuller.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
@@ -42,7 +42,7 @@ private:
     TUint iSubscriberId;
 };
 
-class UriProviderRaat : public Media::UriProviderSingleTrack
+class UriProviderRaat : public Media::UriProviderRepeater
 {
 public:
     UriProviderRaat(const TChar* aMode, Media::TrackFactory& aTrackFactory); // should later pass IClockPuller& 

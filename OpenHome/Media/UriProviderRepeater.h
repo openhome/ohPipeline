@@ -12,7 +12,17 @@ namespace Media {
 class UriProviderRepeater : public UriProvider, public ITrackObserver
 {
 public:
-    UriProviderRepeater(const TChar* aMode, TBool aSupportsLatency, TrackFactory& aTrackFactory);
+    UriProviderRepeater(
+        const TChar* aMode,
+        TBool aSupportsLatency,
+        TrackFactory& aTrackFactory,
+        Pause aPauseSupported = Pause::NotSupported, // UriProvider that supports pause may still find this over-ridden by individual streams
+        Next aNextSupported = Next::NotSupported,
+        Prev aPrevSupported = Prev::NotSupported,
+        Repeat aRepeatSupported = Repeat::NotSupported,
+        Random aRandomSupported = Random::NotSupported,
+        RampPauseResume aRampPauseResume = RampPauseResume::Long,
+        RampSkip aRampSkip = RampSkip::Short);
     ~UriProviderRepeater();
     Track* SetTrack(const Brx& aUri, const Brx& aMetaData);
     void SetTrack(Track* aTrack);

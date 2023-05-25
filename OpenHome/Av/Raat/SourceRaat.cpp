@@ -3,7 +3,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/PipelineManager.h>
-#include <OpenHome/Media/UriProviderSingleTrack.h>
+#include <OpenHome/Media/UriProviderRepeater.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Av/SourceFactory.h>
@@ -115,11 +115,16 @@ ISource* SourceFactory::NewRaat(
 UriProviderRaat::UriProviderRaat(
     const TChar* aMode,
     TrackFactory& aTrackFactory)
-    : UriProviderSingleTrack(
+    : UriProviderRepeater(
         aMode,
         false /* supportsLatency*/,
-        false /* supportsPause */,
-        aTrackFactory)
+        aTrackFactory,
+        Pause::Supported,
+        Next::Supported,
+        Prev::Supported,
+        Repeat::Supported,
+        Random::Supported,
+        RampPauseResume::Long)
 {
 }
 
