@@ -28,7 +28,7 @@ class MockObserver
 class SuiteObservable : public Suite
 {
     private:
-        static const TUint kUserData = 13034431;
+        static const TUint kUserData;
 
     public:
         SuiteObservable();
@@ -71,6 +71,8 @@ void MockObserver::Reset()
 
 
 // SuiteObserver
+const TUint SuiteObservable::kUserData = 1304331;
+
 SuiteObservable::SuiteObservable()
     : Suite("TestObservable")
 { }
