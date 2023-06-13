@@ -27,6 +27,9 @@ class MockObserver
 
 class SuiteObservable : public Suite
 {
+    private:
+        static const TUint kUserData = 13034431;
+
     public:
         SuiteObservable();
         ~SuiteObservable();
@@ -36,6 +39,7 @@ class SuiteObservable : public Suite
 
     private:
         void NotifyObserver(MockObserver& aObserver);
+        void NotifyObserverWithUserData(Observable<MockObserver>::Callback aCallback);
 };
 
 
@@ -79,6 +83,17 @@ void SuiteObservable::NotifyObserver(MockObserver& aObserver)
     aObserver.Notify();
 }
 
+void SuiteObservable::NotifyObserverWithUserData(Observable<MockObserver>::Callback aCallback)
+{
+    TEST(aCallback.iTag != nullptr);
+    TEST(aCallback.iUserData != nullptr);
+
+    TUint value = *(static_cast<const TUint *>(aCallback.iUserData));
+    TEST(value == kUserData);
+
+    aCallback.iObserver.Notify();
+}
+
 void SuiteObservable::Test()
 {
     MockObserver observerA, observerB, observerC;
@@ -94,10 +109,28 @@ void SuiteObservable::Test()
     subject.AddObserver(observerB, "bar");
     subject.NotifyAll(notifyFunc);
 
+    TBool fooCalled = false;
+    TBool barCalled = false;
+
+    subject.NotifyAll([&] (const TChar* aTag, MockObserver&) {
+        Brn tag(aTag);
+        if (tag == Brn("foo")) {
+            fooCalled = true;
+        }
+        else if (tag == Brn("bar")) {
+            barCalled = true;
+        }
+        else {
+            ASSERTS();
+        }
+    });
+
     TEST(observerA.CallCount() == 1);
     TEST(observerB.CallCount() == 1);
     TEST(observerC.CallCount() == 0);
 
+    TEST(fooCalled);
+    TEST(barCalled);
 
     subject.AddObserver(observerC, "foobar");
     subject.NotifyAll(notifyFunc);
@@ -136,6 +169,18 @@ void SuiteObservable::Test()
     subject.AddObserver(observerC, "Test-C");
 
     subject.NotifyAll(notifyFunc2);
+
+    TEST(observerA.CallCount() == 1);
+    TEST(observerB.CallCount() == 1);
+    TEST(observerC.CallCount() == 1);
+
+    // Reset again before trying FunctorGeneric with a parameter
+    observerA.Reset();
+    observerB.Reset();
+    observerC.Reset();
+
+    FunctorGeneric<Observable<MockObserver>::Callback> notifyFunc3 = MakeFunctorGeneric<Observable<MockObserver>::Callback>(*this, &SuiteObservable::NotifyObserverWithUserData);
+    subject.NotifyAll(notifyFunc3, reinterpret_cast<const void *>(&kUserData));
 
     TEST(observerA.CallCount() == 1);
     TEST(observerB.CallCount() == 1);
