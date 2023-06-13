@@ -13,6 +13,8 @@ TransportRepeatRandom::TransportRepeatRandom()
     : iLock("TCRR")
     , iRepeat(false)
     , iRandom(false)
+    , iRepeatNotifyFunc(MakeFunctorGeneric(*this, &TransportRepeatRandom::DoNotifyRepeatChangedLocked))
+    , iRandomNotifyFunc(MakeFunctorGeneric(*this, &TransportRepeatRandom::DoNotifyRandomChangedLocked))
 {
 }
 
@@ -24,9 +26,7 @@ void TransportRepeatRandom::SetRepeat(TBool aRepeat)
     }
     iRepeat = aRepeat;
 
-    iObservable.NotifyAll([aRepeat](ITransportRepeatRandomObserver& o) {
-        o.TransportRepeatChanged(aRepeat);
-    });
+    iObservable.NotifyAll(iRepeatNotifyFunc);
 }
 
 void TransportRepeatRandom::SetRandom(TBool aRandom)
@@ -37,9 +37,7 @@ void TransportRepeatRandom::SetRandom(TBool aRandom)
     }
     iRandom = aRandom;
 
-    iObservable.NotifyAll([aRandom] (ITransportRepeatRandomObserver& o) {
-        o.TransportRandomChanged(aRandom);
-    });
+    iObservable.NotifyAll(iRandomNotifyFunc);
 }
 
 void TransportRepeatRandom::AddObserver(ITransportRepeatRandomObserver& aObserver, const TChar* aId)
@@ -55,4 +53,14 @@ void TransportRepeatRandom::RemoveObserver(ITransportRepeatRandomObserver& aObse
 {
     AutoMutex _(iLock);
     iObservable.RemoveObserver(aObserver);
+}
+
+void TransportRepeatRandom::DoNotifyRandomChangedLocked(ITransportRepeatRandomObserver& aObserver)
+{
+    aObserver.TransportRandomChanged(iRandom);
+}
+
+void TransportRepeatRandom::DoNotifyRepeatChangedLocked(ITransportRepeatRandomObserver& aObserver)
+{
+    aObserver.TransportRepeatChanged(iRepeat);
 }
