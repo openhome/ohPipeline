@@ -9,15 +9,12 @@
 #if defined(_MSC_VER) && _MSC_VER >= 1920
 #include <filesystem>
 #if _HAS_CXX17  // VS19 also enforces that C++ 17 or later MUST be used in order to access the filesystem header
-using FileSystemPath = filesystem::path;
-using DirectoryIterator = filesystem::directory_iterator;
 #define BUILD_DIR_SCANNER
 #endif // _HAS_CXX17
 #else
 #include <experimental/filesystem>
 #define BUILD_DIR_SCANNER
-using FileSystemPath = experimental::filesystem::path;
-using DirectoryIterator = experimental::filesystem::v1::directory_iterator;
+using namespace std::experimental;
 #endif
 
 using namespace OpenHome;
@@ -35,8 +32,8 @@ void DirScanner::Run(string& aPath, IScdSupply& aSupply)
 
     ASSERT_VA(false, "%s", "Use of std::filesystem with MSVC requires C++ 17\n");
 #else
-    FileSystemPath path(aPath);
-    for (auto& p: DirectoryIterator(path)) {
+     filesystem::path path(aPath);
+    for (auto& p: filesystem::directory_iterator(path)) {
         auto filename = p.path().string();
         cout << filename << endl;
         WavSender sender(filename, aSupply);
