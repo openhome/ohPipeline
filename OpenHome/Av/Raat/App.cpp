@@ -166,6 +166,8 @@ void RaatApp::FriendlyNameChanged(const Brx& aName)
 
 void RaatApp::StartPlugins()
 {
-    iVolume->Start();
+    if (iVolume != nullptr) {
+        iVolume->Start();
+    }
     iSourceSelection->Start();
 }
