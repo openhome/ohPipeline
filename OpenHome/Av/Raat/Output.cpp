@@ -383,7 +383,7 @@ void RaatOutput::AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate)
     aFormat->sample_type = RAAT__SAMPLE_TYPE_DSD;
     aFormat->sample_rate = (int)aSampleRate;
     aFormat->bits_per_sample = 1;
-    aFormat->channels = 1;
+    aFormat->channels = 2;
     aFormat->sample_subtype = RAAT__SAMPLE_SUBTYPE_NONE;
     aFormat->mqa_original_sample_rate = 0;
 }
@@ -449,7 +449,6 @@ void RaatOutput::SetupStream(
     iStarted = false;
     iSetupCb.Set(aCbSetup, aCbSetupData, aCbLost, aCbLostData);
     iSampleRate = (TUint)aFormat->sample_rate;
-    iBytesPerSample = (TUint)((aFormat->bits_per_sample/8) * aFormat->channels);
     iUri.Set(
         aFormat->sample_type == RAAT__SAMPLE_TYPE_PCM ? Media::AudioFormat::Pcm : Media::AudioFormat::Dsd,
         iSampleRate,
@@ -680,7 +679,8 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         iRunning = true;
         // current packet is suitable to send into pipeline immediately
 //        Log::Print("[%u] RaatOutput::Read: pushing %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), packet.nsamples);
-        Brn audio((const TByte*)packet.buf, (TUint)packet.nsamples * iBytesPerSample);
+        TUint packetBytes = ((TUint)packet.nsamples * iUri.BitDepth() * iUri.NumChannels()) / 8;
+        Brn audio((const TByte*)packet.buf, packetBytes);
         aWriter.WriteData(audio);
         iStreamPos = packet.streamsample + packet.nsamples;
         RAAT__stream_destroy_packet(stream, &packet);
@@ -689,7 +689,8 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         auto it = iPendingPackets.begin();
         for (; it != iPendingPackets.end(); ++it) {
             if (it->streamsample == iStreamPos) {
-                audio.Set((const TByte*)it->buf, (TUint)it->nsamples * iBytesPerSample);
+                packetBytes = ((TUint)it->nsamples * iUri.BitDepth() * iUri.NumChannels()) / 8;
+                audio.Set((const TByte*)it->buf, packetBytes);
                 Log::Print("[%u] RaatOutput::Read: (delayed) push %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), it->nsamples);
                 aWriter.WriteData(audio);
                 iStreamPos = it->streamsample + it->nsamples;

@@ -18,6 +18,8 @@ namespace OpenHome {
 
 namespace Av {
 
+class RaatSupplyDsd;
+
 class ProtocolRaat : public Media::Protocol, private IRaatWriter
 {
     static const TUint kMaxStreamUrlSize = 1024;
@@ -39,12 +41,45 @@ private:
     Mutex iLock;
     IRaatReader& iRaatReader;
     Media::TrackFactory& iTrackFactory;
-    Media::SupplyAggregator* iSupply;
+    Media::SupplyAggregator* iSupplyPcm;
+    RaatSupplyDsd* iSupplyDsd;
+    Media::ISupply* iSupply;
     RaatUri iRaatUri;
     TUint iStreamId;
     TUint iMaxBytesPerAudioChunk;
     TUint iNextFlushId;
     TBool iStopped;
+    TBool iPcmStream;
+};
+
+class RaatSupplyDsd : public Media::ISupply
+{
+public:
+    RaatSupplyDsd(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownStreamElement);
+    virtual ~RaatSupplyDsd();
+    void Flush();
+public: // from ISupply
+    void OutputTrack(Media::Track& aTrack, TBool aStartOfStream = true) override;
+    void OutputDrain(Functor aCallback) override;
+    void OutputDelay(TUint aJiffies) override;
+    void OutputStream(const Brx& aUri, TUint64 aTotalBytes, TUint64 aStartPos, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId, TUint aSeekPosMs = 0) override;
+    void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::PcmStreamInfo& aPcmStream) override;
+    void OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, TBool aLive, Media::Multiroom aMultiroom, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::PcmStreamInfo& aPcmStream, Media::RampType aRamp) override;
+    void OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, Media::IStreamHandler& aStreamHandler, TUint aStreamId, const Media::DsdStreamInfo& aDsdStream) override;
+    void OutputSegment(const Brx& aId) override;
+    void OutputData(const Brx& aData) override;
+    void OutputMetadata(const Brx& aMetadata) override;
+    void OutputHalt(TUint aHaltId = Media::MsgHalt::kIdNone) override;
+    void OutputFlush(TUint aFlushId) override;
+    void OutputWait() override;
+private:
+    void Output(Media::Msg* aMsg);
+private:
+    Media::MsgFactory& iMsgFactory;
+    Media::IPipelineElementDownstream& iDownStreamElement;
+    static const TUint kMaxDsdDataBytes = Media::AudioData::kMaxBytes - (Media::AudioData::kMaxBytes % 6);
+    Bws<kMaxDsdDataBytes> iDsdDataBuf;
+    Bws<4> iDsdPartialBlock;
 };
 
 } // namespace Av

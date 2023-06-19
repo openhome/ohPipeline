@@ -186,7 +186,6 @@ private:
     RaatUri iUri;
     int64_t iStreamPos;
     TUint iSampleRate;
-    TUint iBytesPerSample;
     TUint iSamplesPerRead;
     TUint iPendingDelay;
     int64_t iPipelineDelayNs;
