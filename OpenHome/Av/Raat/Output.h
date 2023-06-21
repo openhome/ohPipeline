@@ -33,7 +33,7 @@ class IRaatWriter
 {
 public:
     virtual ~IRaatWriter() {}
-    virtual void WriteMetadata(const Brx& aMetadata) = 0;
+    virtual void WriteMetadata(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) = 0;
     virtual void WriteDelay(TUint aJiffies) = 0;
     virtual void WriteData(const Brx& aData) = 0;
 };
@@ -146,7 +146,7 @@ private: // from IRaatReader
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
 private: // from IRaatMetadataObserver
-    void MetadataChanged(const Brx& aDidlLite) override;
+    void MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) override;
 private: // from IRaatSignalPathObserver
     void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
 private:
@@ -198,8 +198,10 @@ private:
     std::vector<RAAT__AudioPacket> iPendingPackets;
     json_t* iSignalPath;
     Mutex iLockMetadata;
-    Bws<Media::kTrackMetaDataMaxBytes> iMetadata;
-    Bws<Media::kTrackMetaDataMaxBytes> iMetadataTemp; // local scope but too big for the stack
+    Bws<Media::kTrackMetaDataMaxBytes> iMetadataTitle;
+    Bws<Media::kTrackMetaDataMaxBytes> iMetadataSubtitle;
+    TUint iPosSeconds;
+    TUint iDurationSeconds;
 };
 
 class AutoStreamRef // constructed with ref already held, releases ref on destruction

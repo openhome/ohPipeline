@@ -4,7 +4,6 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Av/MediaPlayer.h>
-#include <OpenHome/Av/OhMetadata.h>
 
 #include <atomic>
 
@@ -141,27 +140,17 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
     if (report) {
         iTransportRepeatRandom.SetRepeat(shuffle);
     }
+    const TUint posSeconds = ValueUint(aStatus, "seek");
     iStarted = true;
 
     json_t* nowPlaying = json_object_get(aStatus, "now_playing");
     const char* title = ValueString(nowPlaying, "two_line_title");
-    const char* subTitle = ValueString(nowPlaying, "two_line_subtitle");
+    const char* subtitle = ValueString(nowPlaying, "two_line_subtitle");
     Brn titleBuf(title);
-    Brn subTitleBuf(subTitle);
-    if (titleBuf != iMetadataTitle || subTitleBuf != iMetadataSubtitle) {
-        iMetadataTitle.ReplaceThrow(titleBuf);
-        iMetadataSubtitle.ReplaceThrow(subTitleBuf);
-
-        iDidlLite.SetBytes(0);
-        WriterBuffer w(iDidlLite);
-        WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
-        writer.WriteTitle(titleBuf);
-        writer.WriteArtist(subTitleBuf);
-        writer.WriteEnd();
-        Log::Print("RaatTransport::UpdateStatus - %.*s\n", PBUF(iDidlLite));
-
-        iMetadataObserver.MetadataChanged(iDidlLite);
-    }
+    Brn subtitleBuf(subtitle);
+    const TUint durationSeconds = ValueUint(nowPlaying, "length");
+//    Log::Print("RaatTransport::UpdateStatus - %s, %s, %u\n", title, subtitle, posSeconds);
+    iMetadataObserver.MetadataChanged(titleBuf, subtitleBuf, posSeconds, durationSeconds);
 }
 
 const TChar* RaatTransport::ValueString(json_t* aObject, const TChar* aKey)
@@ -184,6 +173,15 @@ TBool RaatTransport::ValueBool(json_t* aObject, const TChar* aKey)
         return false;
     }
     return json_is_true(kvp);
+}
+
+TUint RaatTransport::ValueUint(json_t* aObject, const TChar* aKey)
+{ // static
+    json_t* kvp = json_object_get(aObject, aKey);
+    if (kvp == nullptr) {
+        return 0;
+    }
+    return (TUint)json_integer_value(kvp);
 }
 
 void RaatTransport::DoReportState(const TChar* aState)

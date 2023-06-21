@@ -6,6 +6,7 @@
 #include <OpenHome/Media/Protocol/Protocol.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Av/Raat/Output.h>
+#include <OpenHome/Av/Raat/Transport.h>
 #include <OpenHome/Media/SupplyAggregator.h>
 
 namespace OpenHome {
@@ -34,9 +35,11 @@ private: // from Media::Protocol
 private: // from Media::IStreamHandler
     TUint TryStop(TUint aStreamId) override;
 private: // from IRaatWriter
-    void WriteMetadata(const Brx& aMetadata) override;
+    void WriteMetadata(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) override;
     void WriteDelay(TUint aJiffies) override;
     void WriteData(const Brx& aData) override;
+private:
+    void OutputStream(TUint64 aSampleStart, TUint64 aDurationBytes);
 private:
     Mutex iLock;
     IRaatReader& iRaatReader;
@@ -50,6 +53,10 @@ private:
     TUint iNextFlushId;
     TBool iStopped;
     TBool iPcmStream;
+    Bws<RaatTransport::kMaxBytesMetadataTitle> iMetadataTitle;
+    Bws<RaatTransport::kMaxBytesMetadataSubtitle> iMetadataSubtitle;
+    Bws<Media::kTrackMetaDataMaxBytes> iDidlLite; // local scope but too big for the stack
+    TUint iLastTrackPosSeconds;
 };
 
 class RaatSupplyDsd : public Media::ISupply

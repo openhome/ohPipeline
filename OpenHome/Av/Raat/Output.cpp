@@ -13,6 +13,7 @@
 #include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/ClockPuller.h>
 #include <OpenHome/Av/Raat/SourceRaat.h>
+#include <OpenHome/Av/Raat/Transport.h>
 
 #include <map>
 #include <stdlib.h>
@@ -651,16 +652,24 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         iSamplesPerRead = (iSampleRate * kMsPerRead) / 1000;
     }
     {
-        AutoMutex _(iLockMetadata);
-        if (iMetadata.Bytes() > 0) {
-            iMetadataTemp.Replace(iMetadata);
-            iMetadata.Replace(Brx::Empty());
+        Bws<RaatTransport::kMaxBytesMetadataTitle> title;
+        Bws<RaatTransport::kMaxBytesMetadataSubtitle> subtitle;
+        TUint seconds = 0, duration = 0;
+        {
+            AutoMutex _(iLockMetadata);
+            if (iMetadataTitle.Bytes() > 0) {
+                title.Replace(iMetadataTitle);
+                iMetadataTitle.Replace(Brx::Empty());
+                subtitle.Replace(iMetadataSubtitle);
+                iMetadataSubtitle.Replace(Brx::Empty());
+                seconds = iPosSeconds;
+                duration = iDurationSeconds;
+            }
         }
-    }
-    if (iMetadataTemp.Bytes() > 0) {
-        Log::Print("RaatOutput::Read writing metadata %.*s\n", PBUF(iMetadataTemp));
-        aWriter.WriteMetadata(iMetadataTemp);
-        iMetadataTemp.Replace(Brx::Empty());
+        if (title.Bytes() > 0) {
+            //Log::Print("RaatOutput::Read writing metadata %.*s\n", PBUF(iMetadataTemp));
+            aWriter.WriteMetadata(title, subtitle, seconds, duration);
+        }
     }
 
     RAAT__AudioPacket packet;
@@ -745,10 +754,13 @@ void RaatOutput::Interrupt()
     }
 }
 
-void RaatOutput::MetadataChanged(const Brx& aDidlLite)
+void RaatOutput::MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds)
 {
     AutoMutex _(iLockMetadata);
-    iMetadata.ReplaceThrow(aDidlLite);
+    iMetadataTitle.ReplaceThrow(aTitle);
+    iMetadataSubtitle.ReplaceThrow(aSubtitle);
+    iPosSeconds = aPosSeconds;
+    iDurationSeconds = aDurationSeconds;
 }
 
 void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)

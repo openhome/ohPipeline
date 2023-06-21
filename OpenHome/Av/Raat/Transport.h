@@ -71,7 +71,7 @@ class IRaatMetadataObserver
 {
 public:
     virtual ~IRaatMetadataObserver() {}
-    virtual void MetadataChanged(const Brx& aDidlLite) = 0;
+    virtual void MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) = 0;
 };
 
 class IMediaPlayer;
@@ -82,6 +82,9 @@ class RaatTransport :
     private ITransportRepeatRandomObserver
 {
 public:
+    static const TUint kMaxBytesMetadataTitle = 128;
+    static const TUint kMaxBytesMetadataSubtitle = 128;
+public:
     RaatTransport(IMediaPlayer& aMediaPlayer, IRaatMetadataObserver& aMetadataObserver);
     ~RaatTransport();
     RAAT__TransportPlugin* Plugin();
@@ -91,6 +94,7 @@ public:
 private:
     static const TChar* ValueString(json_t* aObject, const TChar* aKey);
     static TBool ValueBool(json_t* aObject, const TChar* aKey);
+    static TUint ValueUint(json_t* aObject, const TChar* aKey);
     void DoReportState(const TChar* aState);
 private: // from IRaatTransport
     void Play() override;

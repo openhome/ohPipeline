@@ -4,6 +4,7 @@
 #include <OpenHome/Media/Protocol/Protocol.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Av/Raat/Output.h>
+#include <OpenHome/Av/OhMetadata.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
@@ -65,43 +66,20 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
         iNextFlushId = MsgFlush::kIdInvalid;
         iStreamId = iIdProvider->NextStreamId();
         iStopped = false;
+        iMetadataTitle.ReplaceThrow(Brx::Empty());
+        iMetadataSubtitle.ReplaceThrow(Brx::Empty());
+        iLastTrackPosSeconds = 0;
     }
     if (iPcmStream) {
         iSupply = iSupplyPcm;
-        SpeakerProfile sp;
-        PcmStreamInfo streamInfo;
-        streamInfo.Set(
-            iRaatUri.BitDepth(),
-            iRaatUri.SampleRate(),
-            iRaatUri.NumChannels(),
-            AudioDataEndian::Little,
-            sp,
-            iRaatUri.SampleStart());
-        iSupply->OutputPcmStream(
-            aUri,
-            0 /* totalBytes */,
-            false /* seekable */,
-            false /* live */,
-            Media::Multiroom::Forbidden,
-            *this,
-            iStreamId,
-            streamInfo);
         const auto bytesPerSample = (iRaatUri.BitDepth() / 8) * iRaatUri.NumChannels();
         iMaxBytesPerAudioChunk = AudioData::kMaxBytes - (AudioData::kMaxBytes % bytesPerSample);
     }
     else {
         iSupply = iSupplyDsd;
-        DsdStreamInfo streamInfo;
-        streamInfo.Set(iRaatUri.SampleRate(), 2, 6, iRaatUri.SampleStart());
-        iSupply->OutputDsdStream(
-            aUri,
-            0 /* totalBytes */,
-            false /* seekable */,
-            *this,
-            iStreamId,
-            streamInfo);
         iMaxBytesPerAudioChunk = AudioData::kMaxBytes - (AudioData::kMaxBytes % 6);
     }
+    OutputStream(iRaatUri.SampleStart(), 0LL);
 
     Semaphore sem("PRat", 0);
     iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal));
@@ -158,10 +136,42 @@ TUint ProtocolRaat::TryStop(TUint aStreamId)
     return iNextFlushId;
 }
 
-void ProtocolRaat::WriteMetadata(const Brx& aMetadata)
+void ProtocolRaat::WriteMetadata(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds)
 {
-    auto track = iTrackFactory.CreateTrack(iRaatUri.AbsoluteUri(), aMetadata);
-    iSupply->OutputTrack(*track, false /* startOfStream */);
+    if (iMetadataTitle != aTitle || iMetadataSubtitle != aSubtitle) {
+        iDidlLite.SetBytes(0);
+        WriterBuffer w(iDidlLite);
+        WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
+        writer.WriteTitle(aTitle);
+        writer.WriteArtist(aSubtitle);
+        writer.WriteEnd();
+
+        iMetadataTitle.ReplaceThrow(aTitle);
+        iMetadataSubtitle.ReplaceThrow(aSubtitle);
+
+        auto track = iTrackFactory.CreateTrack(iRaatUri.AbsoluteUri(), iDidlLite);
+        iSupply->OutputTrack(*track, aPosSeconds == 0);
+    }
+
+    // we usually get one metadata update per second but appear to sometimes miss a couple so updates to iLastTrackPosSeconds may not be smooth
+    if (iLastTrackPosSeconds >= aPosSeconds || aPosSeconds > iLastTrackPosSeconds + 4) {
+        const TUint64 jiffies = ((TUint64)Jiffies::kPerSecond) * aPosSeconds;
+        const TUint64 sampleStart = Jiffies::ToSamples(jiffies, iRaatUri.SampleRate());
+        TUint64 bytesPerSecond;
+        if (iPcmStream) {
+            bytesPerSecond = iRaatUri.SampleRate() * iRaatUri.NumChannels() * iRaatUri.BitDepth() / 8;
+        }
+        else {
+            bytesPerSecond = iRaatUri.SampleRate() * iRaatUri.NumChannels() / 8;
+            // add padding bytes
+            bytesPerSecond *= 3;
+            bytesPerSecond /= 2;
+        }
+        OutputStream(sampleStart, bytesPerSecond * aDurationSeconds);
+    }
+    iLastTrackPosSeconds = aPosSeconds;
+
+
 }
 
 void ProtocolRaat::WriteDelay(TUint aJiffies)
@@ -194,6 +204,41 @@ void ProtocolRaat::WriteData(const Brx& aData)
     }
     else { // DSD
         iSupply->OutputData(aData);
+    }
+}
+
+void ProtocolRaat::OutputStream(TUint64 aSampleStart, TUint64 aDurationBytes)
+{
+    if (iPcmStream) {
+        SpeakerProfile sp;
+        PcmStreamInfo streamInfo;
+        streamInfo.Set(
+            iRaatUri.BitDepth(),
+            iRaatUri.SampleRate(),
+            iRaatUri.NumChannels(),
+            AudioDataEndian::Little,
+            sp,
+            aSampleStart);
+        iSupply->OutputPcmStream(
+            iRaatUri.AbsoluteUri(),
+            aDurationBytes,
+            false /* seekable */,
+            false /* live */,
+            Media::Multiroom::Forbidden,
+            *this,
+            iStreamId,
+            streamInfo);
+    }
+    else {
+        DsdStreamInfo streamInfo;
+        streamInfo.Set(iRaatUri.SampleRate(), 2, 6, aSampleStart);
+        iSupply->OutputDsdStream(
+            iRaatUri.AbsoluteUri(),
+            aDurationBytes,
+            false /* seekable */,
+            *this,
+            iStreamId,
+            streamInfo);
     }
 }
 
