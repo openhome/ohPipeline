@@ -122,11 +122,7 @@ void RaatApp::RaatThread()
 
     product.GetModelDetails(name, info, url, imageUrl);
     SetInfo(iInfo, RAAT__INFO_KEY_MODEL, name);
-
-    Bws<Product::kMaxRoomBytes> room;
-    Bws<Product::kMaxNameBytes> userName;
-    product.GetProductDetails(room, userName, info, imageUrl, imageHiresUrl);
-    vendorModel.AppendThrow(room);
+    vendorModel.AppendThrow(name);
     SetInfo(iInfo, RAAT__INFO_KEY_VENDOR_MODEL, vendorModel);
 
     SetInfo(iInfo, RAAT__INFO_KEY_SERIAL, iSerialNumber);
