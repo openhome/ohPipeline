@@ -18,7 +18,7 @@
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.135",
+        "version": "0.2.136",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -65,7 +65,7 @@
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.0.44",
+        "version": "1.0.47",
         "archive-suffix": "-${debugmode}",
         "cross-check": false,
         "platform-ignore": {
