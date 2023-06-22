@@ -236,6 +236,7 @@ void RaatTransport::RaatSourceActivated()
 void RaatTransport::RaatSourceDectivated()
 {
     iActive.store(false);
+    DoReportState("stop");
 }
 
 void RaatTransport::TransportRepeatChanged(TBool aRepeat)
