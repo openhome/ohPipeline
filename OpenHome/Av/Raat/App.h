@@ -56,7 +56,6 @@ private:
     RaatVolume* iVolume;
     RaatSourceSelection* iSourceSelection;
     RaatTransport* iTransport;
-    TUint iFriendlyNameId;
     Bwh iSerialNumber;
     Bwh iSoftwareVersion;
 };

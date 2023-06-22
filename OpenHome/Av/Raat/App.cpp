@@ -40,7 +40,6 @@ RaatApp::RaatApp(
     : iMediaPlayer(aMediaPlayer)
     , iDevice(nullptr)
     , iInfo(nullptr)
-    , iFriendlyNameId(IFriendlyNameObservable::kIdInvalid)
     , iSerialNumber(aSerialNumber)
     , iSoftwareVersion(aSoftwareVersion)
 {
@@ -63,7 +62,6 @@ RaatApp::~RaatApp()
     if (iDevice != nullptr) {
         RAAT__device_stop(iDevice);
     }
-    iMediaPlayer.FriendlyNameObservable().DeregisterFriendlyNameObserver(iFriendlyNameId);
     delete iTimer;
     (void)uv_thread_join(&iThread);
     RAAT__device_delete(iDevice);
@@ -131,11 +129,6 @@ void RaatApp::RaatThread()
     vendorModel.AppendThrow(room);
     SetInfo(iInfo, RAAT__INFO_KEY_VENDOR_MODEL, vendorModel);
 
-    // register observer whose callback allows us to set RAAT__INFO_KEY_AUTO_NAME
-    iFriendlyNameId = iMediaPlayer.FriendlyNameObservable().RegisterFriendlyNameObserver(
-        MakeFunctorGeneric<const Brx&>(*this, &RaatApp::FriendlyNameChanged)
-    );
-
     SetInfo(iInfo, RAAT__INFO_KEY_SERIAL, iSerialNumber);
     SetInfo(iInfo, RAAT__INFO_KEY_VERSION, iSoftwareVersion);
     
@@ -157,11 +150,6 @@ void RaatApp::RaatThread()
     if (!RC__STATUS_IS_SUCCESS(status)) {
         Log::Print("RAAT server exited with error\n");
     }
-}
-
-void RaatApp::FriendlyNameChanged(const Brx& aName)
-{
-    SetInfo(iInfo, RAAT__INFO_KEY_AUTO_NAME, aName);
 }
 
 void RaatApp::StartPlugins()
