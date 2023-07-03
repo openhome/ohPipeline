@@ -44,10 +44,15 @@ public: // from ITransportRepeatRandom
     void AddObserver(ITransportRepeatRandomObserver& aObserver, const TChar* aId) override;
     void RemoveObserver(ITransportRepeatRandomObserver& aObserver) override;
 private:
+    void DoNotifyRepeatChangedLocked(ITransportRepeatRandomObserver& aObserver);
+    void DoNotifyRandomChangedLocked(ITransportRepeatRandomObserver& aObserver);
+private:
     Mutex iLock;
     TBool iRepeat;
     TBool iRandom;
     Observable<ITransportRepeatRandomObserver> iObservable;
+    FunctorGeneric<ITransportRepeatRandomObserver&> iRepeatNotifyFunc;
+    FunctorGeneric<ITransportRepeatRandomObserver&> iRandomNotifyFunc;
 };
 
 } // namespace Av

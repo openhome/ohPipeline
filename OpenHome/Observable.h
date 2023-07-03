@@ -56,6 +56,14 @@ template<typename TObserver>
 class Observable : public IObservable<TObserver>
 {
     public:
+        struct Callback
+        {
+            const TChar *iTag;
+            TObserver   &iObserver;
+            const void  *iUserData;
+        };
+
+    public:
         Observable() { }
         ~Observable()
         {
@@ -85,6 +93,29 @@ class Observable : public IObservable<TObserver>
             }
         }
 
+        // NOTE: This is the preferred NotifyAll overload for all observers that don't need any parameter passed to the observer
+        void NotifyAll(FunctorGeneric<TObserver&>& aNotifyFunc)
+        {
+            for(auto it = iObservers.cbegin(); it != iObservers.cend(); ++it) {
+                aNotifyFunc(it->first.get());
+            }
+        }
+
+        // NOTE: This is the preferred NotifyAll overload for all observers that require one or more parameter(s) passed to the observer
+        //       If required, the std::function overload can be used to capture local state at the cost of some dynamic allocation
+        void NotifyAll(FunctorGeneric<Callback>& aNotifyFunc, const void *aUserData)
+        {
+            for(auto it = iObservers.cbegin(); it != iObservers.cend(); ++it) {
+                Callback cb = {
+                    it->second,      // .iTag
+                    it->first.get(), // .iObserver
+                    aUserData        // .iUserData
+                };
+                aNotifyFunc(cb);
+            }
+        }
+
+
         void NotifyAll(std::function<void (TObserver&)> aNotifyFunc)
         {
             for (auto it = iObservers.cbegin(); it != iObservers.cend(); ++it) {
@@ -93,10 +124,10 @@ class Observable : public IObservable<TObserver>
             //std::for_each(iObservers.cbegin(), iObservers.cend(), aNotifyFunc);
         }
 
-        void NotifyAll(FunctorGeneric<TObserver&>& aNotifyFunc)
+        void NotifyAll(std::function<void (const TChar*, TObserver&)> aNotifyFunc)
         {
             for(auto it = iObservers.cbegin(); it != iObservers.cend(); ++it) {
-                aNotifyFunc(it->first.get());
+                aNotifyFunc(it->second, it->first.get());
             }
         }
 
