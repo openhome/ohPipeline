@@ -166,9 +166,9 @@ protected:
     void Open();
     void Close();
 protected:
+    SocketTcpClient iTcpClient;
     Srs<kReadBufferBytes> iReaderBuf;
     Sws<kWriteBufferBytes> iWriterBuf;
-    SocketTcpClient iTcpClient;
     Mutex iLock;
     TBool iSocketIsOpen;
 };

@@ -127,7 +127,7 @@ def configure(conf):
 
     # Setup Mad (mp3) lib options
     fixed_point_model = 'FPM_INTEL'
-    if conf.options.with_default_fpm:
+    if conf.options.with_default_fpm or conf.options.dest_platform in ['Linux-riscv64']:
         fixed_point_model = 'FPM_DEFAULT'
     elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
@@ -224,7 +224,7 @@ def build(bld):
             bld.read_stlib(lib, paths=[bld.env['STLIBPATH_OHNET']])
 
     # Library
-    bld.stlib(
+    main = bld.stlib(
             source=[
                 'OpenHome/Media/Pipeline/VolumeRamper.cpp',
                 'OpenHome/Media/Pipeline/AudioDumper.cpp',
@@ -299,6 +299,7 @@ def build(bld):
             ],
             use=['SSL', 'ohNetCore', 'OHNET'],
             target='ohPipeline')
+    main.cxxflags = ['-Wno-error=deprecated-declarations']
 
     # Library
     bld.stlib(
