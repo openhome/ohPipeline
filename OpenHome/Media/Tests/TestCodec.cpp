@@ -551,7 +551,9 @@ Brx* SuiteCodecStream::StartStreaming(const Brx& aTestName, const Brx& aFilename
     ASSERT(aFilename.Bytes() <= kMaxFilenameLen);
     Bwh* fileLocation = new Bwh(iUri.AbsoluteUri().Bytes() + aFilename.Bytes() + 1);
     fileLocation->Replace(iUri.AbsoluteUri());
-    fileLocation->Append("/");
+    if ((*fileLocation)[fileLocation->Bytes() - 1] != '/') {
+        fileLocation->Append("/");
+    }
     fileLocation->Append(aFilename);
     iPipeline->StartStreaming(*fileLocation);
     return fileLocation;
@@ -1092,9 +1094,7 @@ void TestCodec(Environment& aEnv, CreateTestCodecPipelineFunc aFunc, GetTestFile
     uriBuf.Append("/");
     uriBuf.Append(optionPath.Value());
     Uri uri(uriBuf);
-    Log::Print("Connecting to server: ");
-    Log::Print(uri.AbsoluteUri());
-    Log::Print("\n");
+    Log::Print("Connecting to server: %.*s\n", PBUF(uri.AbsoluteUri()));
 
     // set test type
     TBool testFull = true;
