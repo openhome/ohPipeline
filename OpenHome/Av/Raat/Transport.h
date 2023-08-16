@@ -12,6 +12,8 @@
 #include <raat_plugin_transport.h>
 #include <jansson.h>
 
+EXCEPTION(RaatTransportStatusParserError);
+
 namespace OpenHome {
 namespace Av {
 
@@ -28,6 +30,16 @@ public:
         , iShuffle(false)
         , iRepeat(false)
     {}
+
+    void Set(const RaatTransportInfo& aTransportInfo)
+    {
+        iPauseSupported = aTransportInfo.PauseSupported();
+        iNextSupported = aTransportInfo.NextSupported();
+        iPrevSupported = aTransportInfo.PrevSupported();
+        iSeekSupported = aTransportInfo.SeekSupported();
+        iShuffle = aTransportInfo.Shuffle();
+        iRepeat = aTransportInfo.Repeat();
+    }
 
     void SetPauseSupported(TBool aSupported) { iPauseSupported = aSupported; }
     void SetNextSupported(TBool aSupported) { iNextSupported = aSupported; }
@@ -49,6 +61,44 @@ private:
     TBool iSeekSupported;
     TBool iShuffle;
     TBool iRepeat;
+};
+
+class RaatTrackInfo
+{
+private:
+    static const TUint kDefaultInfoSize = 128;
+public:
+    enum class EState {
+        ePlaying,
+        eLoading,
+        ePaused,
+        eStopped,
+        eUndefined
+    };
+public:
+    RaatTrackInfo()
+        : iState(EState::eUndefined)
+        , iDurationSecs(0)
+        , iPositionSecs(0)
+    {}
+public:
+    void SetState(EState aState) { iState = aState; }
+    void SetTitle(const Brx& aTitle) { iTitle.Replace(aTitle); }
+    void SetSubtitle(const Brx& aSubtitle) { iSubtitle.Replace(aSubtitle); }
+    void SetDurationSecs(TUint aDurationSecs) { iDurationSecs = aDurationSecs; }
+    void SetPositionSecs(TUint aPositionSecs) { iPositionSecs = aPositionSecs; }
+public:
+    EState GetState() const { return iState; }
+    const Brx& GetTitle() const { return iTitle; }
+    const Brx& GetSubtitle() const { return iSubtitle; }
+    TUint GetDurationSecs() const { return iDurationSecs; }
+    TUint GetPositionSecs() const { return iPositionSecs; }
+private:
+    EState iState;
+    TUint iDurationSecs;
+    TUint iPositionSecs;
+    Bws<kDefaultInfoSize> iTitle;
+    Bws<kDefaultInfoSize> iSubtitle;
 };
 
 typedef struct {
@@ -74,12 +124,32 @@ public:
     virtual void MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) = 0;
 };
 
+class RaatTransportStatusParser
+{
+private:
+    static const Brn kLoopDisabled;
+    static const Brn kStatePlaying;
+    static const Brn kStateLoading;
+    static const Brn kStatePaused;
+    static const Brn kStateStopped;
+    static const std::map<Brn, RaatTrackInfo::EState, BufferCmp> kTrackStateMap;
+public:
+    static void Parse(
+        json_t*             aJson,
+        RaatTransportInfo&  aTransportInfo,
+        RaatTrackInfo&      aTrackInfo);
+private:
+    static const TChar* ValueString(json_t* aObject, const TChar* aKey);
+    static TBool ValueBool(json_t* aObject, const TChar* aKey);
+    static TUint ValueUint(json_t* aObject, const TChar* aKey);
+};
+
 class IMediaPlayer;
 
-class RaatTransport :
-    public IRaatTransport,
-    public IRaatSourceObserver,
-    private ITransportRepeatRandomObserver
+class RaatTransport
+    : public IRaatTransport
+    , public IRaatSourceObserver
+    , private ITransportRepeatRandomObserver
 {
 public:
     static const TUint kMaxBytesMetadataTitle = 128;
@@ -87,14 +157,12 @@ public:
 public:
     RaatTransport(IMediaPlayer& aMediaPlayer, IRaatMetadataObserver& aMetadataObserver);
     ~RaatTransport();
+public:
     RAAT__TransportPlugin* Plugin();
     void AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
     void RemoveControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
     void UpdateStatus(json_t *aStatus);
 private:
-    static const TChar* ValueString(json_t* aObject, const TChar* aKey);
-    static TBool ValueBool(json_t* aObject, const TChar* aKey);
-    static TUint ValueUint(json_t* aObject, const TChar* aKey);
     void DoReportState(const TChar* aState);
 private: // from IRaatTransport
     void Play() override;
@@ -113,12 +181,10 @@ private:
     RAAT__TransportControlListeners iListeners;
     ITransportRepeatRandom& iTransportRepeatRandom;
     IRaatMetadataObserver& iMetadataObserver;
-    RaatTransportInfo iTrackCapabilities;
-    Bws<Media::kTrackMetaDataMaxBytes> iDidlLite;
-    Bws<128> iMetadataTitle;
-    Bws<128> iMetadataSubtitle;
-    std::atomic<TBool> iActive;
+    RaatTransportInfo iTransportInfo;
+    TBool iActive;
     TBool iStarted;
+    Mutex iLockStatus;
 };
 
 } // nsamepsacenamespace Av

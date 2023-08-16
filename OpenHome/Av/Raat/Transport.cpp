@@ -18,32 +18,32 @@ static inline OpenHome::Av::RaatTransport* Transport(void *self)
     return ext->iSelf;
 }
 
-extern "C"
+extern "C" {
+
 RC__Status Raat_RaatTransport_Get_Info(void * /*self*/, json_t **out_info)
 {
     *out_info = nullptr;
     return RC__STATUS_SUCCESS;
 }
 
-extern "C"
 RC__Status Raat_RaatTransport_Add_Control_Listener(void *self, RAAT__TransportControlCallback cb, void *cb_userdata)
 {
     Transport(self)->AddControlListener(cb, cb_userdata);
     return RC__STATUS_SUCCESS;
 }
 
-extern "C"
 RC__Status Raat_RaatTransport_Remove_Control_Listener(void *self, RAAT__TransportControlCallback cb, void *cb_userdata)
 {
     Transport(self)->RemoveControlListener(cb, cb_userdata);
     return RC__STATUS_SUCCESS;
 }
 
-extern "C"
 RC__Status Raat_RaatTransport_Update_Status(void *self, json_t *status)
 {
     Transport(self)->UpdateStatus(status);
     return RC__STATUS_SUCCESS;
+}
+
 }
 
 
@@ -51,12 +51,143 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
+// RaatTransportStatusParser
+
+const Brn RaatTransportStatusParser::kLoopDisabled("disabled");
+const Brn RaatTransportStatusParser::kStatePlaying("playing");
+const Brn RaatTransportStatusParser::kStateLoading("loading");
+const Brn RaatTransportStatusParser::kStatePaused("paused");
+const Brn RaatTransportStatusParser::kStateStopped("stopped");
+
+const std::map<Brn, RaatTrackInfo::EState, BufferCmp> RaatTransportStatusParser::kTrackStateMap = {
+    { kStatePlaying, RaatTrackInfo::EState::ePlaying },
+    { kStateLoading, RaatTrackInfo::EState::eLoading },
+    { kStatePaused, RaatTrackInfo::EState::ePaused },
+    { kStateStopped, RaatTrackInfo::EState::eStopped }
+};
+
+void RaatTransportStatusParser::Parse(
+    json_t*             aJson,
+    RaatTransportInfo&  aTransportInfo,
+    RaatTrackInfo&      aTrackInfo)
+{
+    /*
+        { 
+            "loop":    "disabled" | "loop" | "loopone",
+            "shuffle": true | false,
+            "state":   "playing" | "loading" | "paused" | "stopped",
+            "seek":    seek position | null,
+
+            "is_previous_allowed": true | false,        NOTE: is_*_allowed were introduced in Roon 1.3
+            "is_next_allowed":     true | false,        NOTE: is_*_allowed were introduced in Roon 1.3
+            "is_play_allowed":     true | false,        NOTE: is_*_allowed were introduced in Roon 1.3
+            "is_pause_allowed":    true | false,        NOTE: is_*_allowed were introduced in Roon 1.3
+            "is_seek_allowed":     true | false,        NOTE: is_*_allowed were introduced in Roon 1.3
+
+            "now_playing": {                                            NOTE: this field is be omitted if nothing is playing
+                "one_line":      "text for single line displays",
+
+                "two_line_title":    "title for two line displays",
+                "two_line_subtitle": "subtitle for two line displays"
+
+                "three_line_title":       "title for three line displays" | null,        NOTE three_line_* were introduced in Roon 1.2
+                "three_line_subtitle":    "subtitle for three line displays" | null,
+                "three_line_subsubtitle": "subsubtitle for three line displays" | null,
+
+                "length":        length | null,
+
+                "title":         NOTE: THIS IS DEPRECATED. DO NOT USE. YOU WILL FAIL CERTIFICATION.
+                "album":         NOTE: THIS IS DEPRECATED. DO NOT USE. YOU WILL FAIL CERTIFICATION.
+                "channel":       NOTE: THIS IS DEPRECATED. DO NOT USE. YOU WILL FAIL CERTIFICATION.
+                "artist":        NOTE: THIS IS DEPRECATED. DO NOT USE. YOU WILL FAIL CERTIFICATION.
+                "composer":      NOTE: THIS IS DEPRECATED. DO NOT USE. YOU WILL FAIL CERTIFICATION.
+            }
+            "stream_format": {                                          NOTE: this field is optional. please behave gracefully if it is not present. 
+                "sample_type":     "dsd" | "pcm",                      NOTE: This information is for display purposes only. Do not allow it to influence audio playback.
+                "sample_rate":     44100 | 48000 | ...,
+                "bits_per_sample": 1 | 16 | 24 | 32,
+                "channels":        1, 2, ...
+            }
+        }
+    */
+
+    // State
+    Brn loop = Brn(ValueString(aJson, "loop"));
+    const TBool shuffle = ValueBool(aJson, "shuffle");
+    Brn state = Brn(ValueString(aJson, "state"));
+    const TUint positionSecs = ValueUint(aJson, "seek");
+
+    // Capabilities
+    const TBool prevAllowed = ValueBool(aJson, "is_previous_allowed");
+    const TBool nextAllowed = ValueBool(aJson, "is_next_allowed");
+    const TBool pauseAllowed = ValueBool(aJson, "is_pause_allowed");
+    const TBool seekAllowed = ValueBool(aJson, "is_seek_allowed");
+
+    // Metadata
+    auto* metadata = json_object_get(aJson, "now_playing");
+    Brn title = Brn(ValueString(metadata, "two_line_title"));
+    Brn subtitle = Brn(ValueString(metadata, "two_line_subtitle"));
+    TUint durationSecs = ValueUint(metadata, "length");
+
+    aTransportInfo.SetRepeat(loop != kLoopDisabled);
+    aTransportInfo.SetShuffle(shuffle);
+    aTransportInfo.SetPrevSupported(prevAllowed);
+    aTransportInfo.SetNextSupported(nextAllowed);
+    aTransportInfo.SetPauseSupported(pauseAllowed);
+    aTransportInfo.SetSeekSupported(seekAllowed);
+
+    aTrackInfo.SetTitle(title);
+    aTrackInfo.SetSubtitle(subtitle);
+    aTrackInfo.SetDurationSecs(durationSecs);
+    aTrackInfo.SetPositionSecs(positionSecs);
+
+    auto it = kTrackStateMap.find(state);
+    if (it == kTrackStateMap.end()) {
+        THROW(RaatTransportStatusParserError);
+    }
+    aTrackInfo.SetState(it->second);
+}
+
+const TChar* RaatTransportStatusParser::ValueString(json_t* aObject, const TChar* aKey)
+{
+    json_t* kvp = json_object_get(aObject, aKey);
+    if (kvp == nullptr) {
+        return "";
+    }
+    const TChar* val = json_string_value(kvp);
+    if (val == nullptr) {
+        return "";
+    }
+    return val;
+}
+
+TBool RaatTransportStatusParser::ValueBool(json_t* aObject, const TChar* aKey)
+{
+    json_t* kvp = json_object_get(aObject, aKey);
+    if (kvp == nullptr) {
+        return false;
+    }
+    return json_is_true(kvp);
+}
+
+TUint RaatTransportStatusParser::ValueUint(json_t* aObject, const TChar* aKey)
+{
+    json_t* kvp = json_object_get(aObject, aKey);
+    if (kvp == nullptr) {
+        return 0;
+    }
+    return (TUint)json_integer_value(kvp);
+}
+
+
+// RaatTransport
 
 RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer, IRaatMetadataObserver& aMetadataObserver)
     : iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
     , iMetadataObserver(aMetadataObserver)
     , iActive(false)
     , iStarted(false)
+    , iLockStatus("RTTR")
 {
     auto ret = RAAT__transport_control_listeners_init(&iListeners, RC__allocator_malloc());
     ASSERT(ret == RC__STATUS_SUCCESS);
@@ -95,93 +226,35 @@ void RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, vo
 
 void RaatTransport::UpdateStatus(json_t *aStatus)
 {
-    /*
-        {
-            "now_playing": {
-                "length": 231,
-                "composer": "Larry Mullen, Jr. / Adam Clayton / Bono / The Edge",
-                "title": "One",
-                "two_line_subtitle": "Johnny Cash",
-                "album": "American III: Solitary Man",
-                "two_line_title": "One",
-                "three_line_subsubtitle": "American III: Solitary Man",
-                "three_line_title": "One",
-                "three_line_subtitle": "Johnny Cash",
-                "artist": "Johnny Cash",
-                "one_line": "One - Johnny Cash"
-            },
-            "is_next_allowed": true,
-            "shuffle": false,
-            "state": "paused",
-            "seek": 36,
-            "is_previous_allowed": true,
-            "is_seek_allowed": true,
-            "is_play_allowed": true,
-            "is_pause_allowed": false,
-            "loop": "disabled"
-        }
-    */
-//    Log::Print("RaatTransport::UpdateStatus - %s\n\n", json_dumps(aStatus, 0)); // FIXME - leaks
-    iTrackCapabilities.SetPauseSupported(ValueBool(aStatus, "is_next_allowed"));
-    iTrackCapabilities.SetNextSupported(ValueBool(aStatus, "is_next_allowed"));
-    iTrackCapabilities.SetPrevSupported(ValueBool(aStatus, "is_previous_allowed"));
-    iTrackCapabilities.SetSeekSupported(ValueBool(aStatus, "is_seek_allowed"));
-    const TBool shuffle = ValueBool(aStatus, "shuffle");
-    TBool report = (!iStarted || iTrackCapabilities.Shuffle() != shuffle);
-    iTrackCapabilities.SetShuffle(shuffle);
-    if (report) {
-        iTransportRepeatRandom.SetRandom(shuffle);
-    }
-    static const Brn kRepeatOff("disabled");
-    Brn loopCurrent = Brn(ValueString(aStatus, "loop"));
-    const TBool repeat = loopCurrent == kRepeatOff;
-    report = (!iStarted || iTrackCapabilities.Repeat() != repeat);
-    iTrackCapabilities.SetRepeat(repeat);
-    if (report) {
-        iTransportRepeatRandom.SetRepeat(shuffle);
-    }
-    const TUint posSeconds = ValueUint(aStatus, "seek");
-    iStarted = true;
+    TBool randomChanged = false;
+    TBool repeatChanged = false;
 
-    json_t* nowPlaying = json_object_get(aStatus, "now_playing");
-    const char* title = ValueString(nowPlaying, "two_line_title");
-    const char* subtitle = ValueString(nowPlaying, "two_line_subtitle");
-    Brn titleBuf(title);
-    Brn subtitleBuf(subtitle);
-    const TUint durationSeconds = ValueUint(nowPlaying, "length");
-//    Log::Print("RaatTransport::UpdateStatus - %s, %s, %u\n", title, subtitle, posSeconds);
-    iMetadataObserver.MetadataChanged(titleBuf, subtitleBuf, posSeconds, durationSeconds);
-}
+    {
+        AutoMutex _(iLockStatus);
 
-const TChar* RaatTransport::ValueString(json_t* aObject, const TChar* aKey)
-{ // static
-    json_t* kvp = json_object_get(aObject, aKey);
-    if (kvp == nullptr) {
-        return "";
-    }
-    const TChar* val = json_string_value(kvp);
-    if (val == nullptr) {
-        return "";
-    }
-    return val;
-}
+        RaatTransportInfo transportInfo;
+        RaatTrackInfo trackInfo;
+        RaatTransportStatusParser::Parse(aStatus, transportInfo, trackInfo);
 
-TBool RaatTransport::ValueBool(json_t* aObject, const TChar* aKey)
-{ // static
-    json_t* kvp = json_object_get(aObject, aKey);
-    if (kvp == nullptr) {
-        return false;
-    }
-    return json_is_true(kvp);
-}
+        randomChanged = (!iStarted || (iTransportInfo.Shuffle() != transportInfo.Shuffle()));
+        repeatChanged = (!iStarted || (iTransportInfo.Repeat() != transportInfo.Repeat()));
 
-TUint RaatTransport::ValueUint(json_t* aObject, const TChar* aKey)
-{ // static
-    json_t* kvp = json_object_get(aObject, aKey);
-    if (kvp == nullptr) {
-        return 0;
+        iTransportInfo.Set(transportInfo);
+        iMetadataObserver.MetadataChanged(
+            trackInfo.GetTitle(),
+            trackInfo.GetSubtitle(),
+            trackInfo.GetPositionSecs(),
+            trackInfo.GetDurationSecs());
+
+        iStarted = true;
     }
-    return (TUint)json_integer_value(kvp);
+
+    if (randomChanged) {
+        iTransportRepeatRandom.SetRandom(iTransportInfo.Shuffle());
+    }
+    if (repeatChanged) {
+        iTransportRepeatRandom.SetRepeat(iTransportInfo.Repeat());
+    }
 }
 
 void RaatTransport::DoReportState(const TChar* aState)
@@ -198,7 +271,8 @@ void RaatTransport::Play()
 
 TBool RaatTransport::CanPause()
 {
-    if (!iTrackCapabilities.PauseSupported()) {
+    AutoMutex _(iLockStatus);
+    if (!iTransportInfo.PauseSupported()) {
         return false;
     }
     DoReportState("pause");
@@ -212,7 +286,8 @@ void RaatTransport::Stop()
 
 TBool RaatTransport::CanMoveNext()
 {
-    if (!iTrackCapabilities.NextSupported()) {
+    AutoMutex _(iLockStatus);
+    if (!iTransportInfo.NextSupported()) {
         return false;
     }
     DoReportState("next");
@@ -221,7 +296,8 @@ TBool RaatTransport::CanMoveNext()
 
 TBool RaatTransport::CanMovePrev()
 {
-    if (!iTrackCapabilities.PrevSupported()) {
+    AutoMutex _(iLockStatus);
+    if (!iTransportInfo.PrevSupported()) {
         return false;
     }
     DoReportState("previous");
@@ -230,25 +306,29 @@ TBool RaatTransport::CanMovePrev()
 
 void RaatTransport::RaatSourceActivated()
 {
-    iActive.store(true);
+    AutoMutex _(iLockStatus);
+    iActive = true;
 }
 
 void RaatTransport::RaatSourceDectivated()
 {
-    iActive.store(false);
+    AutoMutex _(iLockStatus);
+    iActive = false;
     DoReportState("stop");
 }
 
 void RaatTransport::TransportRepeatChanged(TBool aRepeat)
 {
-    if (iActive.load() && iTrackCapabilities.Repeat() != aRepeat) {
+    AutoMutex _(iLockStatus);
+    if (iActive && iTransportInfo.Repeat() != aRepeat) {
         DoReportState("toggleloop");
     }
 }
 
 void RaatTransport::TransportRandomChanged(TBool aRandom)
 {
-    if (iActive.load() && iTrackCapabilities.Shuffle() != aRandom) {
+    AutoMutex _(iLockStatus);
+    if (iActive && iTransportInfo.Shuffle() != aRandom) {
         DoReportState("toggleshuffle");
     }
 }
