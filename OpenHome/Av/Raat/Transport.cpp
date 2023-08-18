@@ -185,13 +185,14 @@ TUint RaatTransportStatusParser::ValueUint(json_t* aObject, const TChar* aKey)
 
 // RaatTransport
 
-RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
+RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer, IRaatTransportStateObserver& aStateObserver)
     : iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
+    , iStateObserver(aStateObserver)
     , iMetadataHandler(
         aMediaPlayer.Pipeline().AsyncTrackReporter(),
         *(aMediaPlayer.Env().InfoAggregator()))
     , iActive(false)
-    , iStarted(false)
+    , iState(RaatTrackInfo::EState::eUndefined)
     , iLockStatus("RTTR")
 {
     auto ret = RAAT__transport_control_listeners_init(&iListeners, RC__allocator_malloc());
@@ -231,6 +232,7 @@ void RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, vo
 
 void RaatTransport::UpdateStatus(json_t *aStatus)
 {
+    TBool stateChanged = false;
     TBool randomChanged = false;
     TBool repeatChanged = false;
 
@@ -241,15 +243,21 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
         RaatTrackInfo trackInfo;
         RaatTransportStatusParser::Parse(aStatus, transportInfo, trackInfo);
 
-        randomChanged = (!iStarted || (iTransportInfo.Shuffle() != transportInfo.Shuffle()));
-        repeatChanged = (!iStarted || (iTransportInfo.Repeat() != transportInfo.Repeat()));
+        randomChanged = (iState == RaatTrackInfo::EState::eUndefined || (iTransportInfo.Shuffle() != transportInfo.Shuffle()));
+        repeatChanged = (iState == RaatTrackInfo::EState::eUndefined || (iTransportInfo.Repeat() != transportInfo.Repeat()));
 
         iTransportInfo.Set(transportInfo);
         iMetadataHandler.TrackInfoChanged(trackInfo);
 
-        iStarted = true;
+        if (iState != trackInfo.GetState()) {
+            iState = trackInfo.GetState();
+            stateChanged = true;
+        }
     }
 
+    if (stateChanged) {
+        iStateObserver.TransportStateChanged(iState);
+    }
     if (randomChanged) {
         iTransportRepeatRandom.SetRandom(iTransportInfo.Shuffle());
     }

@@ -121,6 +121,13 @@ public:
     virtual TBool CanMovePrev() = 0;
 };
 
+class IRaatTransportStateObserver
+{
+public:
+    virtual void TransportStateChanged(RaatTrackInfo::EState aState) = 0;
+    virtual ~IRaatTransportStateObserver() {}
+};
+
 class RaatTransportStatusParser
 {
 private:
@@ -152,7 +159,7 @@ public:
     static const TUint kMaxBytesMetadataTitle = 128;
     static const TUint kMaxBytesMetadataSubtitle = 128;
 public:
-    RaatTransport(IMediaPlayer& aMediaPlayer);
+    RaatTransport(IMediaPlayer& aMediaPlayer, IRaatTransportStateObserver& aStateObserver);
     ~RaatTransport();
 public:
     RAAT__TransportPlugin* Plugin();
@@ -177,10 +184,11 @@ private:
     RaatTransportPluginExt iPluginExt;
     RAAT__TransportControlListeners iListeners;
     ITransportRepeatRandom& iTransportRepeatRandom;
+    IRaatTransportStateObserver& iStateObserver;
     RaatMetadataHandler iMetadataHandler;
     RaatTransportInfo iTransportInfo;
     TBool iActive;
-    TBool iStarted;
+    RaatTrackInfo::EState iState;
     Mutex iLockStatus;
 };
 

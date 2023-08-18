@@ -103,6 +103,7 @@ class IRaatTime;
 class RaatOutput
     : public IRaatReader
     , private IRaatSignalPathObserver
+    , public IRaatTransportStateObserver
 {
     static const TUint kPendingPacketsMax;
     static const TUint kFreqNs;
@@ -147,6 +148,8 @@ private: // from IRaatReader
     void Interrupt() override;
 private: // from IRaatSignalPathObserver
     void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
+private: // from IRaatTransportStateObserver
+    void TransportStateChanged(RaatTrackInfo::EState aState) override;
 private:
     class SetupCb
     {
