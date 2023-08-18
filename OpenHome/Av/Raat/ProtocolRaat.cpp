@@ -66,9 +66,6 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
         iNextFlushId = MsgFlush::kIdInvalid;
         iStreamId = iIdProvider->NextStreamId();
         iStopped = false;
-        iMetadataTitle.ReplaceThrow(Brx::Empty());
-        iMetadataSubtitle.ReplaceThrow(Brx::Empty());
-        iLastTrackPosSeconds = 0;
     }
     if (iPcmStream) {
         iSupply = iSupplyPcm;
@@ -134,44 +131,6 @@ TUint ProtocolRaat::TryStop(TUint aStreamId)
     iStopped = true;
     iRaatReader.Interrupt();
     return iNextFlushId;
-}
-
-void ProtocolRaat::WriteMetadata(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds)
-{
-    if (iMetadataTitle != aTitle || iMetadataSubtitle != aSubtitle) {
-        iDidlLite.SetBytes(0);
-        WriterBuffer w(iDidlLite);
-        WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
-        writer.WriteTitle(aTitle);
-        writer.WriteArtist(aSubtitle);
-        writer.WriteEnd();
-
-        iMetadataTitle.ReplaceThrow(aTitle);
-        iMetadataSubtitle.ReplaceThrow(aSubtitle);
-
-        auto track = iTrackFactory.CreateTrack(iRaatUri.AbsoluteUri(), iDidlLite);
-        iSupply->OutputTrack(*track, aPosSeconds == 0);
-    }
-
-    // we usually get one metadata update per second but appear to sometimes miss a couple so updates to iLastTrackPosSeconds may not be smooth
-    if (iLastTrackPosSeconds >= aPosSeconds || aPosSeconds > iLastTrackPosSeconds + 4) {
-        const TUint64 jiffies = ((TUint64)Jiffies::kPerSecond) * aPosSeconds;
-        const TUint64 sampleStart = Jiffies::ToSamples(jiffies, iRaatUri.SampleRate());
-        TUint64 bytesPerSecond;
-        if (iPcmStream) {
-            bytesPerSecond = iRaatUri.SampleRate() * iRaatUri.NumChannels() * iRaatUri.BitDepth() / 8;
-        }
-        else {
-            bytesPerSecond = iRaatUri.SampleRate() * iRaatUri.NumChannels() / 8;
-            // add padding bytes
-            bytesPerSecond *= 3;
-            bytesPerSecond /= 2;
-        }
-        OutputStream(sampleStart, bytesPerSecond * aDurationSeconds);
-    }
-    iLastTrackPosSeconds = aPosSeconds;
-
-
 }
 
 void ProtocolRaat::WriteDelay(TUint aJiffies)

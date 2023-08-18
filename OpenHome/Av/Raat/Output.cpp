@@ -312,19 +312,19 @@ RaatOutput::RaatOutput(
     Media::IAudioTime& aAudioTime,
     Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable& aSignalPathObservable)
+
     : iEnv(aEnv)
     , iPipeline(aPipeline)
     , iSourceRaat(aSourceRaat)
     , iAudioTime(aAudioTime)
     , iPullableClock(aPullableClock)
-    , iLockStream("Rat1")
+    , iLockStream("RAT1")
     , iStream(nullptr)
-    , iSemStarted("ROut", 0)
+    , iSemStarted("ROUT", 0)
     , iSampleRate(0)
     , iPipelineDelayNs(1000 * 1000 * 1000) // 1 second - Roon will use this to set startTime and draining/restarting pipeline sometimes has quiet spells of hundreds of millisecs
     , iStarted(false)
     , iRunning(false)
-    , iLockMetadata("Rat2")
 {
     iPluginExt.iPlugin.get_info = Raat_Output_Get_Info;
     iPluginExt.iPlugin.get_supported_formats = Raat_Output_Get_Supported_Formats;
@@ -651,26 +651,6 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         static const TUint kMsPerRead = 2;
         iSamplesPerRead = (iSampleRate * kMsPerRead) / 1000;
     }
-    {
-        Bws<RaatTransport::kMaxBytesMetadataTitle> title;
-        Bws<RaatTransport::kMaxBytesMetadataSubtitle> subtitle;
-        TUint seconds = 0, duration = 0;
-        {
-            AutoMutex _(iLockMetadata);
-            if (iMetadataTitle.Bytes() > 0) {
-                title.Replace(iMetadataTitle);
-                iMetadataTitle.Replace(Brx::Empty());
-                subtitle.Replace(iMetadataSubtitle);
-                iMetadataSubtitle.Replace(Brx::Empty());
-                seconds = iPosSeconds;
-                duration = iDurationSeconds;
-            }
-        }
-        if (title.Bytes() > 0) {
-            //Log::Print("RaatOutput::Read writing metadata %.*s\n", PBUF(iMetadataTemp));
-            aWriter.WriteMetadata(title, subtitle, seconds, duration);
-        }
-    }
 
     RAAT__AudioPacket packet;
     RAAT__Stream* stream = StreamRef();
@@ -752,15 +732,6 @@ void RaatOutput::Interrupt()
         }
         RAAT__stream_decref(stream);
     }
-}
-
-void RaatOutput::MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds)
-{
-    AutoMutex _(iLockMetadata);
-    iMetadataTitle.ReplaceThrow(aTitle);
-    iMetadataSubtitle.ReplaceThrow(aSubtitle);
-    iPosSeconds = aPosSeconds;
-    iDurationSeconds = aDurationSeconds;
 }
 
 void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)

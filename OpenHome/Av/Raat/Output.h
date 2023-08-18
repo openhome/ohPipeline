@@ -33,7 +33,6 @@ class IRaatWriter
 {
 public:
     virtual ~IRaatWriter() {}
-    virtual void WriteMetadata(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) = 0;
     virtual void WriteDelay(TUint aJiffies) = 0;
     virtual void WriteData(const Brx& aData) = 0;
 };
@@ -101,22 +100,23 @@ typedef struct {
 
 class IRaatTime;
 
-class RaatOutput :
-    public IRaatReader,
-    public IRaatMetadataObserver,
-    private IRaatSignalPathObserver
+class RaatOutput
+    : public IRaatReader
+    , private IRaatSignalPathObserver
 {
     static const TUint kPendingPacketsMax;
     static const TUint kFreqNs;
 public:
     RaatOutput(
-        Environment& aEnv,
-        Media::PipelineManager& aPipeline,
-        ISourceRaat& aSourceRaat,
-        Media::IAudioTime& aAudioTime,
-        Media::IPullableClock& aPullableClock,
-        IRaatSignalPathObservable& aSignalPathObservable);
+        Environment&                aEnv,
+        Media::PipelineManager&     aPipeline,
+        ISourceRaat&                aSourceRaat,
+        Media::IAudioTime&          aAudioTime,
+        Media::IPullableClock&      aPullableClock,
+        IRaatSignalPathObservable&  aSignalPathObservable);
+
     ~RaatOutput();
+public:
     RAAT__OutputPlugin* Plugin();
     void GetInfo(json_t** aInfo);
     void GetSupportedFormats(RC__Allocator* aAlloc, size_t* aNumFormats, RAAT__StreamFormat** aFormats);
@@ -145,8 +145,6 @@ private: // from IRaatReader
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
-private: // from IRaatMetadataObserver
-    void MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) override;
 private: // from IRaatSignalPathObserver
     void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
 private:
@@ -197,11 +195,6 @@ private:
     TByte iAudioData[Media::AudioData::kMaxBytes];
     std::vector<RAAT__AudioPacket> iPendingPackets;
     json_t* iSignalPath;
-    Mutex iLockMetadata;
-    Bws<Media::kTrackMetaDataMaxBytes> iMetadataTitle;
-    Bws<Media::kTrackMetaDataMaxBytes> iMetadataSubtitle;
-    TUint iPosSeconds;
-    TUint iDurationSeconds;
 };
 
 class AutoStreamRef // constructed with ref already held, releases ref on destruction

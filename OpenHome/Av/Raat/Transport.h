@@ -3,6 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Av/Raat/SourceSelection.h>
+#include <OpenHome/Av/Raat/Metadata.h>
 #include <OpenHome/Av/TransportControl.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
@@ -85,12 +86,14 @@ public:
     void SetState(EState aState) { iState = aState; }
     void SetTitle(const Brx& aTitle) { iTitle.Replace(aTitle); }
     void SetSubtitle(const Brx& aSubtitle) { iSubtitle.Replace(aSubtitle); }
+    void SetSubSubtitle(const Brx& aSubSubtitle) { iSubSubtitle.Replace(aSubSubtitle); }
     void SetDurationSecs(TUint aDurationSecs) { iDurationSecs = aDurationSecs; }
     void SetPositionSecs(TUint aPositionSecs) { iPositionSecs = aPositionSecs; }
 public:
     EState GetState() const { return iState; }
     const Brx& GetTitle() const { return iTitle; }
     const Brx& GetSubtitle() const { return iSubtitle; }
+    const Brx& GetSubSubtitle() const { return iSubSubtitle; }
     TUint GetDurationSecs() const { return iDurationSecs; }
     TUint GetPositionSecs() const { return iPositionSecs; }
 private:
@@ -99,6 +102,7 @@ private:
     TUint iPositionSecs;
     Bws<kDefaultInfoSize> iTitle;
     Bws<kDefaultInfoSize> iSubtitle;
+    Bws<kDefaultInfoSize> iSubSubtitle;
 };
 
 typedef struct {
@@ -115,13 +119,6 @@ public:
     virtual void Stop() = 0;
     virtual TBool CanMoveNext() = 0;
     virtual TBool CanMovePrev() = 0;
-};
-
-class IRaatMetadataObserver
-{
-public:
-    virtual ~IRaatMetadataObserver() {}
-    virtual void MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) = 0;
 };
 
 class RaatTransportStatusParser
@@ -155,7 +152,7 @@ public:
     static const TUint kMaxBytesMetadataTitle = 128;
     static const TUint kMaxBytesMetadataSubtitle = 128;
 public:
-    RaatTransport(IMediaPlayer& aMediaPlayer, IRaatMetadataObserver& aMetadataObserver);
+    RaatTransport(IMediaPlayer& aMediaPlayer);
     ~RaatTransport();
 public:
     RAAT__TransportPlugin* Plugin();
@@ -180,7 +177,7 @@ private:
     RaatTransportPluginExt iPluginExt;
     RAAT__TransportControlListeners iListeners;
     ITransportRepeatRandom& iTransportRepeatRandom;
-    IRaatMetadataObserver& iMetadataObserver;
+    RaatMetadataHandler iMetadataHandler;
     RaatTransportInfo iTransportInfo;
     TBool iActive;
     TBool iStarted;

@@ -489,6 +489,7 @@ def build(bld):
         bld.stlib(
                 source=[
                     'OpenHome/Av/Raat/App.cpp',
+                    'OpenHome/Av/Raat/Metadata.cpp',
                     'OpenHome/Av/Raat/Output.cpp',
                     'OpenHome/Av/Raat/Volume.cpp',
                     'OpenHome/Av/Raat/SourceSelection.cpp',

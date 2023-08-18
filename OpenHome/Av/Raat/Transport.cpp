@@ -4,6 +4,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Media/PipelineManager.h>
 
 #include <atomic>
 
@@ -125,8 +126,9 @@ void RaatTransportStatusParser::Parse(
 
     // Metadata
     auto* metadata = json_object_get(aJson, "now_playing");
-    Brn title = Brn(ValueString(metadata, "two_line_title"));
-    Brn subtitle = Brn(ValueString(metadata, "two_line_subtitle"));
+    Brn title = Brn(ValueString(metadata, "three_line_title"));
+    Brn subtitle = Brn(ValueString(metadata, "three_line_subtitle"));
+    Brn subsubtitle = Brn(ValueString(metadata, "three_line_subsubtitle"));
     TUint durationSecs = ValueUint(metadata, "length");
 
     aTransportInfo.SetRepeat(loop != kLoopDisabled);
@@ -138,6 +140,7 @@ void RaatTransportStatusParser::Parse(
 
     aTrackInfo.SetTitle(title);
     aTrackInfo.SetSubtitle(subtitle);
+    aTrackInfo.SetSubSubtitle(subsubtitle);
     aTrackInfo.SetDurationSecs(durationSecs);
     aTrackInfo.SetPositionSecs(positionSecs);
 
@@ -182,9 +185,11 @@ TUint RaatTransportStatusParser::ValueUint(json_t* aObject, const TChar* aKey)
 
 // RaatTransport
 
-RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer, IRaatMetadataObserver& aMetadataObserver)
+RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
     : iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
-    , iMetadataObserver(aMetadataObserver)
+    , iMetadataHandler(
+        aMediaPlayer.Pipeline().AsyncTrackReporter(),
+        *(aMediaPlayer.Env().InfoAggregator()))
     , iActive(false)
     , iStarted(false)
     , iLockStatus("RTTR")
@@ -240,11 +245,7 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
         repeatChanged = (!iStarted || (iTransportInfo.Repeat() != transportInfo.Repeat()));
 
         iTransportInfo.Set(transportInfo);
-        iMetadataObserver.MetadataChanged(
-            trackInfo.GetTitle(),
-            trackInfo.GetSubtitle(),
-            trackInfo.GetPositionSecs(),
-            trackInfo.GetDurationSecs());
+        iMetadataHandler.TrackInfoChanged(trackInfo);
 
         iStarted = true;
     }
