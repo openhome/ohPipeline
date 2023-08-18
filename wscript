@@ -243,6 +243,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Attenuator.cpp',
                 'OpenHome/Media/Pipeline/Ramper.cpp',
                 'OpenHome/Media/Pipeline/Reporter.cpp',
+                'OpenHome/Media/Pipeline/AsyncTrackReporter.cpp',
                 'OpenHome/Media/Pipeline/AirplayReporter.cpp',
                 'OpenHome/Media/Pipeline/SpotifyReporter.cpp',
                 'OpenHome/Media/Pipeline/RampValidator.cpp',
