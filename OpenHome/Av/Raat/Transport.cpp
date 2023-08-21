@@ -55,6 +55,8 @@ using namespace OpenHome::Media;
 // RaatTransportStatusParser
 
 const Brn RaatTransportStatusParser::kLoopDisabled("disabled");
+const Brn RaatTransportStatusParser::kLoopEnabled("loop");
+const Brn RaatTransportStatusParser::kLoopOneEnabled("loopone");
 const Brn RaatTransportStatusParser::kStatePlaying("playing");
 const Brn RaatTransportStatusParser::kStateLoading("loading");
 const Brn RaatTransportStatusParser::kStatePaused("paused");
@@ -65,6 +67,12 @@ const std::map<Brn, RaatTrackInfo::EState, BufferCmp> RaatTransportStatusParser:
     { kStateLoading, RaatTrackInfo::EState::eLoading },
     { kStatePaused, RaatTrackInfo::EState::ePaused },
     { kStateStopped, RaatTrackInfo::EState::eStopped }
+};
+
+const std::map<Brn, RaatTransportInfo::ERepeatMode, BufferCmp> RaatTransportStatusParser::kRepeatModeMap = {
+    { kLoopDisabled, RaatTransportInfo::ERepeatMode::eOff },
+    { kLoopEnabled, RaatTransportInfo::ERepeatMode::eRepeat },
+    { kLoopOneEnabled, RaatTransportInfo::ERepeatMode::eRepeatOne }
 };
 
 void RaatTransportStatusParser::Parse(
@@ -131,24 +139,27 @@ void RaatTransportStatusParser::Parse(
     Brn subsubtitle = Brn(ValueString(metadata, "three_line_subsubtitle"));
     TUint durationSecs = ValueUint(metadata, "length");
 
-    aTransportInfo.SetRepeat(loop != kLoopDisabled);
-    aTransportInfo.SetShuffle(shuffle);
     aTransportInfo.SetPrevSupported(prevAllowed);
     aTransportInfo.SetNextSupported(nextAllowed);
     aTransportInfo.SetPauseSupported(pauseAllowed);
     aTransportInfo.SetSeekSupported(seekAllowed);
+    aTransportInfo.SetShuffle(shuffle);
+    auto itRepeat = kRepeatModeMap.find(loop);
+    if (itRepeat == kRepeatModeMap.end()) {
+        THROW(RaatTransportStatusParserError);
+    }
+    aTransportInfo.SetRepeat(itRepeat->second);
 
     aTrackInfo.SetTitle(title);
     aTrackInfo.SetSubtitle(subtitle);
     aTrackInfo.SetSubSubtitle(subsubtitle);
     aTrackInfo.SetDurationSecs(durationSecs);
     aTrackInfo.SetPositionSecs(positionSecs);
-
-    auto it = kTrackStateMap.find(state);
-    if (it == kTrackStateMap.end()) {
+    auto itState = kTrackStateMap.find(state);
+    if (itState == kTrackStateMap.end()) {
         THROW(RaatTransportStatusParserError);
     }
-    aTrackInfo.SetState(it->second);
+    aTrackInfo.SetState(itState->second);
 }
 
 const TChar* RaatTransportStatusParser::ValueString(json_t* aObject, const TChar* aKey)
@@ -182,11 +193,74 @@ TUint RaatTransportStatusParser::ValueUint(json_t* aObject, const TChar* aKey)
     return (TUint)json_integer_value(kvp);
 }
 
+// RaatTransportRepeatAdapter
+
+RaatTransportRepeatAdapter::RaatTransportRepeatAdapter(
+    ITransportRepeatRandom& aTransportRepeatRandom,
+    IRaatRepeatToggler&     aRepeatToggler)
+
+    : iTransportRepeatRandom(aTransportRepeatRandom)
+    , iRepeatToggler(aRepeatToggler)
+    , iLinnRepeat(false)
+    , iRaatRepeat(RaatTransportInfo::ERepeatMode::eOff)
+    , iLock("RRPT")
+{
+}
+
+void RaatTransportRepeatAdapter::RaatRepeatChanged(RaatTransportInfo::ERepeatMode aMode)
+{
+    TBool changed = false;
+    TBool repeatEnabled = false;
+    TBool isSynced = false;
+    {
+        AutoMutex _(iLock);
+        repeatEnabled = (aMode != RaatTransportInfo::ERepeatMode::eOff);
+        if (!iLinnRepeatChangePending) {
+            if (iLinnRepeat != repeatEnabled) {
+                iLinnRepeat = repeatEnabled;
+                changed = true;
+            }
+            iRaatRepeat = aMode;
+        }
+        if (iRaatRepeat == aMode) {
+            if (iLinnRepeatChangePending) {
+                iLinnRepeatChangePending = false;
+            }
+            isSynced = true;
+        }
+    }
+
+    if (changed) {
+        iTransportRepeatRandom.SetRepeat(repeatEnabled);
+    }
+    if (!isSynced) {
+        iRepeatToggler.ToggleRepeat();
+    }
+}
+
+void RaatTransportRepeatAdapter::LinnRepeatChanged(TBool aRepeat)
+{
+    {
+        AutoMutex _(iLock);
+        iLinnRepeat = aRepeat;
+        iRaatRepeat = iLinnRepeat ? RaatTransportInfo::ERepeatMode::eRepeat : RaatTransportInfo::ERepeatMode::eOff;
+        iLinnRepeatChangePending = true;
+    }
+    iRepeatToggler.ToggleRepeat();
+}
+
+TBool RaatTransportRepeatAdapter::RepeatEnabled() const
+{
+    AutoMutex _(iLock);
+    return iLinnRepeat;
+}
+
 
 // RaatTransport
 
 RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer, IRaatTransportStateObserver& aStateObserver)
     : iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
+    , iRepeatAdapter(iTransportRepeatRandom, *this)
     , iStateObserver(aStateObserver)
     , iMetadataHandler(
         aMediaPlayer.Pipeline().AsyncTrackReporter(),
@@ -244,7 +318,7 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
         RaatTransportStatusParser::Parse(aStatus, transportInfo, trackInfo);
 
         randomChanged = (iState == RaatTrackInfo::EState::eUndefined || (iTransportInfo.Shuffle() != transportInfo.Shuffle()));
-        repeatChanged = (iState == RaatTrackInfo::EState::eUndefined || (iTransportInfo.Repeat() != transportInfo.Repeat()));
+        repeatChanged = (iState == RaatTrackInfo::EState::eUndefined || (iTransportInfo.RepeatMode() != transportInfo.RepeatMode()));
 
         iTransportInfo.Set(transportInfo);
         iMetadataHandler.TrackInfoChanged(trackInfo);
@@ -262,7 +336,7 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
         iTransportRepeatRandom.SetRandom(iTransportInfo.Shuffle());
     }
     if (repeatChanged) {
-        iTransportRepeatRandom.SetRepeat(iTransportInfo.Repeat());
+        iRepeatAdapter.RaatRepeatChanged(iTransportInfo.RepeatMode());
     }
 }
 
@@ -326,11 +400,23 @@ void RaatTransport::RaatSourceDectivated()
     DoReportState("stop");
 }
 
-void RaatTransport::TransportRepeatChanged(TBool aRepeat)
+void RaatTransport::ToggleRepeat()
 {
     AutoMutex _(iLockStatus);
-    if (iActive && iTransportInfo.Repeat() != aRepeat) {
-        DoReportState("toggleloop");
+    DoReportState("toggleloop");
+}
+
+void RaatTransport::TransportRepeatChanged(TBool aRepeat)
+{
+    TBool changed = false;
+    {
+        AutoMutex _(iLockStatus);
+        if (iActive && iRepeatAdapter.RepeatEnabled() != aRepeat) {
+            changed = true;
+        }
+    }
+    if (changed) {
+        iRepeatAdapter.LinnRepeatChanged(aRepeat);
     }
 }
 

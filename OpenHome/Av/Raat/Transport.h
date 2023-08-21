@@ -23,13 +23,19 @@ class RaatTransport;
 class RaatTransportInfo
 {
 public:
+    enum class ERepeatMode {
+        eOff,
+        eRepeat,
+        eRepeatOne
+    };
+public:
     RaatTransportInfo()
         : iPauseSupported(false)
         , iNextSupported(false)
         , iPrevSupported(false)
         , iSeekSupported(false)
         , iShuffle(false)
-        , iRepeat(false)
+        , iRepeatMode(ERepeatMode::eOff)
     {}
 
     void Set(const RaatTransportInfo& aTransportInfo)
@@ -39,7 +45,7 @@ public:
         iPrevSupported = aTransportInfo.PrevSupported();
         iSeekSupported = aTransportInfo.SeekSupported();
         iShuffle = aTransportInfo.Shuffle();
-        iRepeat = aTransportInfo.Repeat();
+        iRepeatMode = aTransportInfo.RepeatMode();
     }
 
     void SetPauseSupported(TBool aSupported) { iPauseSupported = aSupported; }
@@ -47,21 +53,21 @@ public:
     void SetPrevSupported(TBool aSupported) { iPrevSupported = aSupported; }
     void SetSeekSupported(TBool aSupported) { iSeekSupported = aSupported; }
     void SetShuffle(TBool aShuffle) { iShuffle = aShuffle; }
-    void SetRepeat(TBool aRepeat) { iRepeat = aRepeat; }
+    void SetRepeat(ERepeatMode aMode) { iRepeatMode = aMode; }
 
     TBool PauseSupported() const { return iPauseSupported; }
     TBool NextSupported() const { return iNextSupported; }
     TBool PrevSupported() const { return iPrevSupported; }
     TBool SeekSupported() const { return iSeekSupported; }
     TBool Shuffle() const { return iShuffle; }
-    TBool Repeat() const { return iRepeat; }
+    ERepeatMode RepeatMode() const { return iRepeatMode; }
 private:
     TBool iPauseSupported;
     TBool iNextSupported;
     TBool iPrevSupported;
     TBool iSeekSupported;
     TBool iShuffle;
-    TBool iRepeat;
+    ERepeatMode iRepeatMode;
 };
 
 class RaatTrackInfo
@@ -110,6 +116,13 @@ typedef struct {
     RaatTransport* iSelf;
 } RaatTransportPluginExt;
 
+class IRaatRepeatToggler
+{
+public:
+    virtual void ToggleRepeat() = 0;
+    virtual ~IRaatRepeatToggler() {}
+};
+
 class IRaatTransport
 {
 public:
@@ -132,11 +145,15 @@ class RaatTransportStatusParser
 {
 private:
     static const Brn kLoopDisabled;
+    static const Brn kLoopEnabled;
+    static const Brn kLoopOneEnabled;
     static const Brn kStatePlaying;
     static const Brn kStateLoading;
     static const Brn kStatePaused;
     static const Brn kStateStopped;
+
     static const std::map<Brn, RaatTrackInfo::EState, BufferCmp> kTrackStateMap;
+    static const std::map<Brn, RaatTransportInfo::ERepeatMode, BufferCmp> kRepeatModeMap;
 public:
     static void Parse(
         json_t*             aJson,
@@ -148,11 +165,29 @@ private:
     static TUint ValueUint(json_t* aObject, const TChar* aKey);
 };
 
+class RaatTransportRepeatAdapter
+{
+public:
+    RaatTransportRepeatAdapter(ITransportRepeatRandom& aTransportRepeatRandom, IRaatRepeatToggler& aRepeatToggler);
+public:
+    void RaatRepeatChanged(RaatTransportInfo::ERepeatMode aMode);
+    void LinnRepeatChanged(TBool aRepeat);
+    TBool RepeatEnabled() const;
+private:
+    ITransportRepeatRandom& iTransportRepeatRandom;
+    IRaatRepeatToggler& iRepeatToggler;
+    TBool iLinnRepeat;
+    TBool iLinnRepeatChangePending;
+    RaatTransportInfo::ERepeatMode iRaatRepeat;
+    mutable Mutex iLock;
+};
+
 class IMediaPlayer;
 
 class RaatTransport
     : public IRaatTransport
     , public IRaatSourceObserver
+    , public IRaatRepeatToggler
     , private ITransportRepeatRandomObserver
 {
 public:
@@ -177,6 +212,8 @@ private: // from IRaatTransport
 private: // IRaatSourceObserver
     void RaatSourceActivated() override;
     void RaatSourceDectivated() override;
+private: // from IRaatRepeatToggler
+    void ToggleRepeat() override;
 private: // from ITransportRepeatRandomObserver
     void TransportRepeatChanged(TBool aRepeat) override;
     void TransportRandomChanged(TBool aRandom) override;
@@ -184,6 +221,7 @@ private:
     RaatTransportPluginExt iPluginExt;
     RAAT__TransportControlListeners iListeners;
     ITransportRepeatRandom& iTransportRepeatRandom;
+    RaatTransportRepeatAdapter iRepeatAdapter;
     IRaatTransportStateObserver& iStateObserver;
     RaatMetadataHandler iMetadataHandler;
     RaatTransportInfo iTransportInfo;
