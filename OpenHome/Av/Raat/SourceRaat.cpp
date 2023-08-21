@@ -229,11 +229,20 @@ void SourceRaat::Play(const Brx& aUri)
     iPipeline.Play();
 }
 
+
+void SourceRaat::StandbyChanged(TBool aStandbyEnabled)
+{
+    if (aStandbyEnabled) {
+        Stop();
+    }
+}
+
 void SourceRaat::Started()
 {
     iApp = new RaatApp(
         iMediaPlayer.Env(),
         iMediaPlayer,
+        *this,
         *this,
         iAudioTime,
         iPullableClock,

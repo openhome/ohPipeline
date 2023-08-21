@@ -32,6 +32,7 @@ RaatApp::RaatApp(
     Environment& aEnv,
     IMediaPlayer& aMediaPlayer,
     ISourceRaat& aSourceRaat,
+    ISourceRaatStandbyControl& aSourceStandbyControl,
     Media::IAudioTime& aAudioTime,
     Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable& aSignalPathObservable,
@@ -52,7 +53,7 @@ RaatApp::RaatApp(
         iVolume = nullptr;
     }
     iTransport = new RaatTransport(aMediaPlayer, *iOutput);
-    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport);
+    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport, aSourceStandbyControl);
     int err = uv_thread_create(&iThread, raat_thread, this);
     ASSERT(err == 0);
 }

@@ -2,6 +2,7 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Av/Raat/Plugin.h>
+#include <OpenHome/Av/Raat/SourceRaat.h>
 
 #include <rc_status.h>
 #include <raat_plugin_source_selection.h>
@@ -37,7 +38,7 @@ class IMediaPlayer;
 class RaatSourceSelection : public RaatPluginAsync
 {
 public:
-    RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName, IRaatSourceObserver& aObserver);
+    RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName, IRaatSourceObserver& aObserver, ISourceRaatStandbyControl& aSourceStandbyControl);
     ~RaatSourceSelection(); 
     RAAT__SourceSelectionPlugin* Plugin();
     void AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
@@ -56,6 +57,7 @@ private:
     RaatSourceSelectionPluginExt iPluginExt;
     RAAT__SourceSelectionStateListeners iListeners;
     IRaatSourceObserver& iObserver;
+    ISourceRaatStandbyControl& iSourceStandbyControl;
     Net::CpDeviceDv* iCpDevice;
     Net::CpProxyAvOpenhomeOrgProduct4* iProxyProduct;
     IThreadPoolHandle* iRaatCallback;

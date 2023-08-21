@@ -18,6 +18,7 @@ namespace Av {
 
     class IMediaPlayer;
     class ISourceRaat;
+    class ISourceRaatStandbyControl;
     class IRaatReader;
     class IRaatTime;
     class IRaatSignalPathObservable;
@@ -34,6 +35,7 @@ public:
         Environment& aEnv,
         IMediaPlayer& aMediaPlayer,
         ISourceRaat& aSourceRaat,
+        ISourceRaatStandbyControl& aSourceStanbyControl,
         Media::IAudioTime& aAudioTime,
         Media::IPullableClock& aPullableClock,
         IRaatSignalPathObservable& aSignalPathObservable,

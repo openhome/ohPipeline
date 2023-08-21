@@ -60,11 +60,22 @@ public:
     virtual void Play(const Brx& aUri) = 0;
 };
 
+class ISourceRaatStandbyControl
+{
+public:
+    virtual void StandbyChanged(TBool aStandbyChanged) = 0;
+    virtual ~ISourceRaatStandbyControl() {}
+};
+
 class IMediaPlayer;
 class RaatApp;
 class IRaatSignalPathObservable;
 
-class SourceRaat : public Source, public ISourceRaat, private IProductObserver
+class SourceRaat
+    : public Source
+    , public ISourceRaat
+    , public ISourceRaatStandbyControl
+    , private IProductObserver
 {
 public:
     SourceRaat(
@@ -83,6 +94,8 @@ private: // from ISource
     void StandbyEnabled() override;
 private: // from ISourceRaat
     void Play(const Brx& aUri) override;
+private: // from ISourceRaatStandbyControl
+    void StandbyChanged(TBool aStandbyEnabled) override;
 private: // from IProductObserver
     void Started() override;
     void SourceIndexChanged() override;
