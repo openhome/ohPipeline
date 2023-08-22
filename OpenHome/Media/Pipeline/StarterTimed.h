@@ -52,6 +52,7 @@ private:
     TUint iSampleRate;
     TUint iBitDepth;
     TUint iNumChannels;
+    AudioFormat iFormat;
     Msg* iPending;
     TUint iJiffiesRemaining;
     TBool iStartingStream;
