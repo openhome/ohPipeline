@@ -393,7 +393,7 @@ void RaatTransport::RaatSourceActivated()
     iActive = true;
 }
 
-void RaatTransport::RaatSourceDectivated()
+void RaatTransport::RaatSourceDeactivated()
 {
     AutoMutex _(iLockStatus);
     iActive = false;

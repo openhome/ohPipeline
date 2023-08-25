@@ -189,6 +189,6 @@ void RaatSourceSelection::ReportState()
         iObserver.RaatSourceActivated();
     }
     else {
-        iObserver.RaatSourceDectivated();
+        iObserver.RaatSourceDeactivated();
     }
 }

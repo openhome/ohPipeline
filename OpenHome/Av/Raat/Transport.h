@@ -211,7 +211,7 @@ private: // from IRaatTransport
     TBool CanMovePrev() override;
 private: // IRaatSourceObserver
     void RaatSourceActivated() override;
-    void RaatSourceDectivated() override;
+    void RaatSourceDeactivated() override;
 private: // from IRaatRepeatToggler
     void ToggleRepeat() override;
 private: // from ITransportRepeatRandomObserver

@@ -30,7 +30,7 @@ class IRaatSourceObserver
 public:
     virtual ~IRaatSourceObserver() {}
     virtual void RaatSourceActivated() = 0;
-    virtual void RaatSourceDectivated() = 0;
+    virtual void RaatSourceDeactivated() = 0;
 };
 
 class IMediaPlayer;
