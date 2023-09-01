@@ -41,7 +41,7 @@ void ProtocolRaat::Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineEl
 void ProtocolRaat::Interrupt(TBool aInterrupt)
 {
     if (iActive) {
-        LOG(kMedia, "ProtocolRaat::Interrupt(%u)\n", aInterrupt);
+        LOG(kRaat, "ProtocolRaat::Interrupt(%u)\n", aInterrupt);
         if (aInterrupt) {
             iStopped = true;
             iRaatReader.Interrupt();
@@ -127,7 +127,7 @@ TUint ProtocolRaat::TryStop(TUint aStreamId)
             our main thread gets a chance to issue a Flush */
         iNextFlushId = iFlushIdProvider->NextFlushId();
     }
-    LOG(kMedia, "ProtocolRaat::TryStop(%u), iStreamId=%u, iNextFlushId=%u\n", aStreamId, iStreamId, iNextFlushId);
+    LOG(kRaat, "ProtocolRaat::TryStop(%u), iStreamId=%u, iNextFlushId=%u\n", aStreamId, iStreamId, iNextFlushId);
     iStopped = true;
     iRaatReader.Interrupt();
     return iNextFlushId;

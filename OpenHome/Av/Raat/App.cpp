@@ -84,8 +84,9 @@ IRaatTransport& RaatApp::Transport()
     return *iTransport;
 }
 
-static void Raat_Log(RAAT__LogEntry* entry, void* /*userdata*/) {
-    LOG(kMedia, "RAAT: [%07d] %lld %s\n", entry->seq, entry->time, entry->message);
+static void Raat_Log(RAAT__LogEntry* entry, void* /*userdata*/)
+{
+    LOG(kRaat, "RAAT: [%07d] %lld %s\n", entry->seq, entry->time, entry->message);
 }
 
 static void SetInfo(RAAT__Info* aInfo, const char* aKey, const Brx& aValue)

@@ -7,6 +7,7 @@ namespace OpenHome {
 #define kMedia       kApplication1
 #define kCodec       kApplication2
 #define kPipeline    kApplication5
+#define kRaat        kApplication31
 
 } // namespace OpenHome
 
