@@ -4,6 +4,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/AsyncTrackReporter.h>
+#include <OpenHome/Av/Raat/Artwork.h>
 
 namespace OpenHome {
 namespace Av {
@@ -19,11 +20,13 @@ public:
     void SetTitle(const Brx& aTitle);
     void SetSubtitle(const Brx& Subtitle);
     void SetSubSubtitle(const Brx& SubSubtitle);
+    void SetArtworkUri(const Brx& aUri);
     void SetDurationMs(TUint aDurationMs);
 
     const Brx& Title() const;
     const Brx& Subtitle() const;
     const Brx& SubSubtitle() const;
+    const Brx& ArtworkUri() const;
 
     void Clear();
     TBool operator==(const RaatMetadata& aMetadata) const;
@@ -34,6 +37,7 @@ private:
     Bws<kMaxMetadataSize> iTitle;
     Bws<kMaxMetadataSize> iSubtitle;
     Bws<kMaxMetadataSize> iSubSubtitle;
+    Bws<kMaxMetadataSize> iArtworkUri;
     TUint iDurationMs;
 };
 
@@ -47,6 +51,7 @@ public:
     void SetTitle(const Brx& aTitle);
     void SetSubtitle(const Brx& Subtitle);
     void SetSubSubtitle(const Brx& SubSubtitle);
+    void SetArtworkUri(const Brx& aUri);
     void SetDurationMs(TUint aDurationMs);
 
     TBool operator==(const RaatMetadataAllocated& aMetadata) const;
@@ -61,7 +66,9 @@ private:
 };
 
 class RaatTrackInfo;
-class RaatMetadataHandler : public Media::IAsyncTrackClient
+class RaatMetadataHandler
+    : public Media::IAsyncTrackClient
+    , public IRaatArtworkServerObserver
 {
 private:
     static const Brn kMode;
@@ -70,7 +77,8 @@ private:
 public:
     RaatMetadataHandler(
         Media::IAsyncTrackReporter& aAsyncTrackReporter,
-        IInfoAggregator&            aInfoAggregator);
+        IInfoAggregator&            aInfoAggregator,
+        IRaatArtworkServer&         aArtworkServer);
 
 public: // from IAsyncTrackClient
     const Brx& Mode() const override;
@@ -79,11 +87,14 @@ public: // from IAsyncTrackClient
         const Media::IAsyncMetadata&    aMetadata,
         const Media::DecodedStreamInfo& aStreamInfo,
         IWriter&                        aWriter) override;
+public: // from IRaatArtworkServerObserver
+    void ArtworkChanged(const Brx& aUri) override;
 public:
     void TrackInfoChanged(const RaatTrackInfo& aTrackInfo);
 private:
     Media::IAsyncTrackReporter&             iTrackReporter;
     Media::Allocator<RaatMetadataAllocated> iAllocatorMetadata;
+    IRaatArtworkServer&                     iArtworkServer;
     RaatMetadataAllocated*                  iMetadata;
     TUint                                   iTrackPositionSecs;
 };

@@ -488,6 +488,7 @@ def build(bld):
     if 'RAAT_ENABLE' in bld.env.DEFINES:
         bld.stlib(
                 source=[
+                    'OpenHome/Av/Raat/Artwork.cpp',
                     'OpenHome/Av/Raat/App.cpp',
                     'OpenHome/Av/Raat/Metadata.cpp',
                     'OpenHome/Av/Raat/Output.cpp',

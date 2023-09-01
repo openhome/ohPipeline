@@ -4,6 +4,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Av/Raat/SourceSelection.h>
 #include <OpenHome/Av/Raat/Metadata.h>
+#include <OpenHome/Av/Raat/Artwork.h>
 #include <OpenHome/Av/TransportControl.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
@@ -201,6 +202,7 @@ public:
     void AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
     void RemoveControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
     void UpdateStatus(json_t *aStatus);
+    void UpdateArtwork(const char *mime_type, void *data, size_t data_len);
 private:
     void DoReportState(const TChar* aState);
 private: // from IRaatTransport
@@ -223,6 +225,7 @@ private:
     ITransportRepeatRandom& iTransportRepeatRandom;
     RaatTransportRepeatAdapter iRepeatAdapter;
     IRaatTransportStateObserver& iStateObserver;
+    RaatArtworkHttpServer iArtworkServer;
     RaatMetadataHandler iMetadataHandler;
     RaatTransportInfo iTransportInfo;
     TBool iActive;

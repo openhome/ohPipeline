@@ -45,6 +45,12 @@ RC__Status Raat_RaatTransport_Update_Status(void *self, json_t *status)
     return RC__STATUS_SUCCESS;
 }
 
+RC__Status Raat_RaatTransport_Update_Artwork(void *self, const char *mime_type, void *data, size_t data_len)
+{
+    Transport(self)->UpdateArtwork(mime_type, data, data_len);
+    return RC__STATUS_SUCCESS;
+}
+
 }
 
 
@@ -262,9 +268,11 @@ RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer, IRaatTransportStateObse
     : iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
     , iRepeatAdapter(iTransportRepeatRandom, *this)
     , iStateObserver(aStateObserver)
+    , iArtworkServer(aMediaPlayer.Env())
     , iMetadataHandler(
         aMediaPlayer.Pipeline().AsyncTrackReporter(),
-        *(aMediaPlayer.Env().InfoAggregator()))
+        *(aMediaPlayer.Env().InfoAggregator()),
+        iArtworkServer)
     , iActive(false)
     , iState(RaatTrackInfo::EState::eUndefined)
     , iLockStatus("RTTR")
@@ -277,6 +285,7 @@ RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer, IRaatTransportStateObse
     iPluginExt.iPlugin.add_control_listener = Raat_RaatTransport_Add_Control_Listener;
     iPluginExt.iPlugin.remove_control_listener = Raat_RaatTransport_Remove_Control_Listener;
     iPluginExt.iPlugin.update_status = Raat_RaatTransport_Update_Status;
+    iPluginExt.iPlugin.update_artwork = Raat_RaatTransport_Update_Artwork;
     iPluginExt.iSelf = this;
 
     iTransportRepeatRandom.AddObserver(*this, "RaatTransport");
@@ -338,6 +347,17 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
     if (repeatChanged) {
         iRepeatAdapter.RaatRepeatChanged(iTransportInfo.RepeatMode());
     }
+}
+
+void RaatTransport::UpdateArtwork(const char *mime_type, void *data, size_t data_len)
+{
+    if (data == nullptr) {
+        iArtworkServer.ClearArtwork();
+        return;
+    }
+
+    Brn artwork((TByte*)data, (TUint)data_len);
+    iArtworkServer.SetArtwork(artwork, Brn(mime_type));
 }
 
 void RaatTransport::DoReportState(const TChar* aState)
