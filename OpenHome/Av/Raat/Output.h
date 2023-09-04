@@ -105,8 +105,11 @@ class RaatOutput
     , private IRaatSignalPathObserver
     , public IRaatTransportStateObserver
 {
+private:
     static const TUint kPendingPacketsMax;
     static const TUint kFreqNs;
+    static const TUint kDefaultDelayMs = 1000;
+    static const TUint64 kDefaultDelayNs = kDefaultDelayMs * 1000 * 1000;
 public:
     RaatOutput(
         Environment&                aEnv,
@@ -187,9 +190,7 @@ private:
     RaatUri iUri;
     int64_t iStreamPos;
     TUint iSampleRate;
-    TUint iSamplesPerRead;
     TUint iPendingDelay;
-    int64_t iPipelineDelayNs;
     TUint64 iLastClockPullTicks;
     TUint iClockPull;
     TBool iStarted;

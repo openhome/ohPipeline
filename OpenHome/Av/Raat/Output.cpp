@@ -30,23 +30,20 @@ static inline OpenHome::Av::RaatOutput* Output(void *self)
     return ext->iSelf;
 }
 
+extern "C" {
 
-extern "C"
 RC__Status Raat_Output_Get_Info(void *self, json_t **out_info)
 {
     Output(self)->GetInfo(out_info);
     return RC__STATUS_SUCCESS;
 }
 
-extern "C"
 RC__Status Raat_Output_Get_Supported_Formats(void *self, RC__Allocator *alloc, size_t *out_nformats, RAAT__StreamFormat **out_formats)
 {
-    LOG(kRaat, "Raat_Output_Get_Supported_Formats\n");
     Output(self)->GetSupportedFormats(alloc, out_nformats, out_formats);
     return RC__STATUS_SUCCESS;
 }
 
-extern "C"
 void Raat_Output_Setup(
     void *self,
     RAAT__StreamFormat *format,
@@ -56,74 +53,65 @@ void Raat_Output_Setup(
     Output(self)->SetupStream(format, cb_setup, cb_setup_userdata, cb_lost, cb_lost_userdata);
 }
 
-extern "C"
 RC__Status Raat_Output_Teardown(void *self, int token)
 {
     auto ret = Output(self)->TeardownStream(token);
     return ret;
 }
 
-extern "C"
 RC__Status Raat_Output_Start(void *self, int token, int64_t walltime, int64_t streamtime, RAAT__Stream *stream)
 {
     auto ret = Output(self)->StartStream(token, walltime, streamtime, stream);
     return ret;
 }
 
-extern "C"
 RC__Status Raat_Output_Get_Local_Time(void *self, int token, int64_t *out_time)
 {
     auto ret = Output(self)->GetLocalTime(token, out_time);
     return ret;
 }
 
-extern "C"
 RC__Status Raat_Output_Set_Remote_Time(void *self, int token, int64_t clock_offset, bool new_source)
 {
     auto ret = Output(self)->SetRemoteTime(token, clock_offset, new_source);
     return ret;
 }
 
-extern "C"
 RC__Status Raat_Output_Stop(void *self, int token)
 {
     auto ret = Output(self)->TryStop(token);
     return ret;
 }
 
-extern "C"
 RC__Status Raat_Output_Force_Teardown(void *self, json_t* /*reason*/)
 {
     auto ret = Output(self)->Stop();
     return ret;
 }
 
-extern "C"
 RC__Status Raat_Output_Add_Message_Listener(void *self, RAAT__OutputMessageCallback cb, void *cb_userdata)
 {
     auto ret = Output(self)->AddListener(cb, cb_userdata);
     return ret;
 }
 
-extern "C"
 RC__Status Raat_Output_Remove_Message_Listener(void *self, RAAT__OutputMessageCallback cb, void *cb_userdata)
 {
     Output(self)->RemoveListener(cb, cb_userdata);
     return RC__STATUS_SUCCESS;
 }
 
-extern "C"
 RC__Status Raat_Output_Get_Output_Delay(void *self, int token, int64_t *out_delay)
 {
     Output(self)->GetDelay(token, out_delay);
     return RC__STATUS_SUCCESS;
 }
 
+}
 
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
-
 
 // RaatUri
 
@@ -218,9 +206,6 @@ void RaatUri::Parse(const Brx& aUri)
         val.Set(parser.Next('&'));
         kvps.insert(std::pair<Brn, Brn>(key, val));
     }
-    //    for (auto it : kvps) {
-    //        OpenHome::Log::Print("  key: %.*s,  val: %.*s\n", PBUF(it.first), PBUF(it.second));
-    //    }
 
     SetValUint(kvps, kKeySampleRate, iSampleRate);
     SetValUint(kvps, kKeyBitDepth, iBitDepth);
@@ -322,7 +307,6 @@ RaatOutput::RaatOutput(
     , iStream(nullptr)
     , iSemStarted("ROUT", 0)
     , iSampleRate(0)
-    , iPipelineDelayNs(1000 * 1000 * 1000) // 1 second - Roon will use this to set startTime and draining/restarting pipeline sometimes has quiet spells of hundreds of millisecs
     , iStarted(false)
     , iRunning(false)
 {
@@ -362,7 +346,6 @@ RAAT__OutputPlugin* RaatOutput::Plugin()
 void RaatOutput::GetInfo(json_t** aInfo)
 {
     // FIXME - check what needs to be communicated - docs are *very* vague
-
     json_t *obj = json_object();
     ASSERT(obj != nullptr);
     json_object_set_new(obj, "refresh_supported_formats_before_playback", json_true());
@@ -459,7 +442,7 @@ void RaatOutput::SetupStream(
     Bws<256> uri;
     iUri.GetUri(uri);
 
-    LOG(kRaat, "RaatOutput::SetupStream uri=%.*s\n", PBUF(uri));
+    LOG(kRaat, "RaatOutput::SetupStream() uri=%.*s\n", PBUF(uri));
     iSourceRaat.Play(uri);
 }
 
@@ -608,8 +591,7 @@ void RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserda
 
 void RaatOutput::GetDelay(int /*aToken*/, int64_t* aDelay)
 {
-    //LOG(kRaat, "RaatOutput::GetDelay(%d)\n", aToken);
-    *aDelay = iPipelineDelayNs;
+    *aDelay = kDefaultDelayNs;
 }
 
 RAAT__Stream* RaatOutput::StreamRef()
@@ -648,8 +630,6 @@ void RaatOutput::Read(IRaatWriter& aWriter)
     if (!iStarted) {
         iSemStarted.Wait();
         iStarted = true;
-        static const TUint kMsPerRead = 2;
-        iSamplesPerRead = (iSampleRate * kMsPerRead) / 1000;
     }
 
     RAAT__AudioPacket packet;
@@ -667,7 +647,6 @@ void RaatOutput::Read(IRaatWriter& aWriter)
     if (!iRunning || iStreamPos == packet.streamsample) {
         iRunning = true;
         // current packet is suitable to send into pipeline immediately
-//        Log::Print("[%u] RaatOutput::Read: pushing %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), packet.nsamples);
         TUint packetBytes = ((TUint)packet.nsamples * iUri.BitDepth() * iUri.NumChannels()) / 8;
         Brn audio((const TByte*)packet.buf, packetBytes);
         aWriter.WriteData(audio);
