@@ -192,9 +192,6 @@ class RaatTransport
     , private ITransportRepeatRandomObserver
 {
 public:
-    static const TUint kMaxBytesMetadataTitle = 128;
-    static const TUint kMaxBytesMetadataSubtitle = 128;
-public:
     RaatTransport(IMediaPlayer& aMediaPlayer, IRaatTransportStateObserver& aStateObserver);
     ~RaatTransport();
 public:

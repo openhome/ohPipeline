@@ -13,8 +13,6 @@ class RaatMetadata
     : public Media::IAsyncMetadata
 {
 public:
-    static const TUint kMaxMetadataSize = 255;
-public:
     RaatMetadata();
 public:
     void SetTitle(const Brx& aTitle);
@@ -34,10 +32,10 @@ public:
 public: // from IAsyncMetadata
     TUint DurationMs() const override;
 private:
-    Bws<kMaxMetadataSize> iTitle;
-    Bws<kMaxMetadataSize> iSubtitle;
-    Bws<kMaxMetadataSize> iSubSubtitle;
-    Bws<kMaxMetadataSize> iArtworkUri;
+    Bwh iTitle;
+    Bwh iSubtitle;
+    Bwh iSubSubtitle;
+    Bwh iArtworkUri;
     TUint iDurationMs;
 };
 

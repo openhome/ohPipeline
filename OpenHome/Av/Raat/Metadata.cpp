@@ -16,21 +16,25 @@ RaatMetadata::RaatMetadata()
 
 void RaatMetadata::SetTitle(const Brx& aTitle)
 {
+    iTitle.Grow(aTitle.Bytes());
     iTitle.Replace(aTitle);
 }
 
 void RaatMetadata::SetSubtitle(const Brx& aSubtitle)
 {
+    iSubtitle.Grow(aSubtitle.Bytes());
     iSubtitle.Replace(aSubtitle);
 }
 
 void RaatMetadata::SetSubSubtitle(const Brx& aSubSubtitle)
 {
+    iSubSubtitle.Grow(aSubSubtitle.Bytes());
     iSubSubtitle.Replace(aSubSubtitle);
 }
 
 void RaatMetadata::SetArtworkUri(const Brx& aUri)
 {
+    iArtworkUri.Grow(aUri.Bytes());
     iArtworkUri.Replace(aUri);
 }
 
