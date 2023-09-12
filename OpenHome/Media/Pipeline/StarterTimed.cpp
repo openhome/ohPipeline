@@ -141,6 +141,13 @@ Msg* StarterTimed::ProcessMsg(MsgSilence* aMsg)
                 iJiffiesRemaining = seconds * Jiffies::kPerSecond;
                 delayTicks -= seconds * freq;
                 iJiffiesRemaining += (TUint)((delayTicks * Jiffies::kPerSecond) / freq);
+
+                if (iJiffiesRemaining <= iPipelineDelayJiffies) {
+                    LOG(kMedia, "StarterTimed: pipeline delay (%ums) exceeds requested start time (%ums)\n", Jiffies::ToMs(iPipelineDelayJiffies), Jiffies::ToMs(iJiffiesRemaining));
+                    iJiffiesRemaining = 0;
+                    return aMsg;
+                }
+
                 iJiffiesRemaining -= iPipelineDelayJiffies; // iPipelineDelayJiffies will already be applied by other pipeline elements
                 LOG(kMedia, "StarterTimed: delay jiffies=%u (%ums)\n", iJiffiesRemaining, Jiffies::ToMs(iJiffiesRemaining));
                 iPending = aMsg;
