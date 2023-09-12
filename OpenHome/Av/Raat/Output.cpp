@@ -571,7 +571,7 @@ RC__Status RaatOutput::TryStop(int aToken)
 
 RC__Status RaatOutput::Stop()
 {
-    iPipeline.Stop();
+    iPipeline.Pause();
     Interrupt();
     ChangeStream(nullptr);
     return RC__STATUS_SUCCESS;
@@ -640,7 +640,9 @@ void RaatOutput::Read(IRaatWriter& aWriter)
     AutoStreamRef _(stream);
     auto err = RAAT__stream_consume_packet(stream, &packet);
     if (err != RC__STATUS_SUCCESS) {
-        LOG(kRaat, "Error: %d from RAAT__stream_consume_packet\n", err);
+        if (err != RC__STATUS_CANCELED) {
+            LOG(kRaat, "RaatOutput::Read() RAAT__stream_consume_packet unexpected error (%d)\n", err);
+        }
         THROW(RaatReaderStopped);
     }
 
@@ -649,7 +651,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         // current packet is suitable to send into pipeline immediately
         TUint packetBytes = ((TUint)packet.nsamples * iUri.BitDepth() * iUri.NumChannels()) / 8;
         Brn audio((const TByte*)packet.buf, packetBytes);
-        aWriter.WriteData(audio);
+        aWriter.Write(audio);
         iStreamPos = packet.streamsample + packet.nsamples;
         RAAT__stream_destroy_packet(stream, &packet);
 
@@ -660,7 +662,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
                 packetBytes = ((TUint)it->nsamples * iUri.BitDepth() * iUri.NumChannels()) / 8;
                 audio.Set((const TByte*)it->buf, packetBytes);
                 Log::Print("[%u] RaatOutput::Read: (delayed) push %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), it->nsamples);
-                aWriter.WriteData(audio);
+                aWriter.Write(audio);
                 iStreamPos = it->streamsample + it->nsamples;
             }
             else {

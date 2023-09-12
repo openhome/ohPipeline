@@ -33,8 +33,7 @@ class IRaatWriter
 {
 public:
     virtual ~IRaatWriter() {}
-    virtual void WriteDelay(TUint aJiffies) = 0;
-    virtual void WriteData(const Brx& aData) = 0;
+    virtual void Write(const Brx& aData) = 0;
 };
 
 class IRaatReader

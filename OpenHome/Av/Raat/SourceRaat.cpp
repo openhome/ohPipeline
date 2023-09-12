@@ -233,7 +233,8 @@ void SourceRaat::Play(const Brx& aUri)
 void SourceRaat::StandbyChanged(TBool aStandbyEnabled)
 {
     if (aStandbyEnabled) {
-        Stop();
+        iProtocol->Stop();
+        iPipeline.Stop();
     }
 }
 
@@ -249,11 +250,11 @@ void SourceRaat::Started()
         *iSignalPathObservable,
         iSerialNumber,
         iSoftwareVersion);
-    auto protocol = new ProtocolRaat(
+    iProtocol = new ProtocolRaat(
         iMediaPlayer.Env(),
         iApp->Reader(),
         iMediaPlayer.TrackFactory());
-    iMediaPlayer.Add(protocol);
+    iMediaPlayer.Add(iProtocol);
 }
 
 void SourceRaat::SourceIndexChanged()

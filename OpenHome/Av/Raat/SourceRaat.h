@@ -69,6 +69,7 @@ public:
 
 class IMediaPlayer;
 class RaatApp;
+class ProtocolRaat;
 class IRaatSignalPathObservable;
 
 class SourceRaat
@@ -116,6 +117,7 @@ private:
     Configuration::ConfigChoice* iProtocolSelector;
     UriProviderRaat* iUriProvider;
     RaatApp* iApp;
+    ProtocolRaat* iProtocol; // non-owning
     Media::Track* iTrack;
     Media::BwsTrackMetaData iDefaultMetadata;
     const Bws<64> iSerialNumber;

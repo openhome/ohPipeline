@@ -133,19 +133,13 @@ TUint ProtocolRaat::TryStop(TUint aStreamId)
     return iNextFlushId;
 }
 
-void ProtocolRaat::WriteDelay(TUint aJiffies)
+void ProtocolRaat::Stop()
 {
-    Log::Print("FIXME - ignoring delay of %u (%ums)\n", aJiffies, Jiffies::ToMs(aJiffies));
-#if 0
-    static const TUint kMinDelayJiffies = Jiffies::kPerMs * 100;
-    if (aJiffies < kMinDelayJiffies) {
-        aJiffies = kMinDelayJiffies;
-    }
-    iSupply->OutputDelay(aJiffies);
-#endif
+    LOG(kRaat, "ProtocolRaat::Stop()\n");
+    Interrupt(true);
 }
 
-void ProtocolRaat::WriteData(const Brx& aData)
+void ProtocolRaat::Write(const Brx& aData)
 {
     if (iPcmStream) {
         const TByte* ptr = aData.Ptr();

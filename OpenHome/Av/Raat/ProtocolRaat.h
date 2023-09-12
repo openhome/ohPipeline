@@ -36,9 +36,10 @@ private: // from Media::Protocol
     Media::ProtocolGetResult Get(IWriter& aWriter, const Brx& aUri, TUint64 aOffset, TUint aBytes) override;
 private: // from Media::IStreamHandler
     TUint TryStop(TUint aStreamId) override;
+public:
+    void Stop();
 private: // from IRaatWriter
-    void WriteDelay(TUint aJiffies) override;
-    void WriteData(const Brx& aData) override;
+    void Write(const Brx& aData) override;
 private:
     void OutputStream(TUint64 aSampleStart, TUint64 aDurationBytes);
 private:
