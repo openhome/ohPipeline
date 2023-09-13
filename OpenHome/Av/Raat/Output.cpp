@@ -846,8 +846,12 @@ void RaatOutput::SetupCb::Set(
 
 TUint RaatOutput::SetupCb::NotifyReady()
 {
-    const auto token = iNextToken++;
-    iCbSetup(iCbSetupData, RC__STATUS_SUCCESS, (int)token);
+    auto token = iNextToken;
+    if (iCbSetup) {
+        token = ++iNextToken;
+        iCbSetup(iCbSetupData, RC__STATUS_SUCCESS, (int)token);
+        Reset();
+    }
     return token;
 }
 
