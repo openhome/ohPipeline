@@ -304,6 +304,7 @@ RaatOutput::RaatOutput(
     , iAudioTime(aAudioTime)
     , iPullableClock(aPullableClock)
     , iLockStream("RAT1")
+    , iLockSignalPath("RAT2")
     , iStream(nullptr)
     , iSemStarted("ROUT", 0)
     , iSampleRate(0)
@@ -441,6 +442,11 @@ void RaatOutput::SetupStream(
         0LL);
     Bws<256> uri;
     iUri.GetUri(uri);
+
+    {
+        AutoMutex _(iLockSignalPath);
+        NotifySignalPathChangedLocked();
+    }
 
     LOG(kRaat, "RaatOutput::SetupStream() uri=%.*s\n", PBUF(uri));
     iSourceRaat.Play(uri);
@@ -718,24 +724,31 @@ void RaatOutput::Interrupt()
 void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)
 {
     LOG(kRaat, "RaatOutput::SignalPathChanged(%u,%u,%u)\n", aExakt, aAmplifier, aSpeaker);
+    AutoMutex _(iLockSignalPath);
+    iSignalPath.Set(aExakt, aAmplifier, aSpeaker);
+    NotifySignalPathChangedLocked();
+}
+
+void RaatOutput::NotifySignalPathChangedLocked()
+{
     json_t* message = json_object();
     json_t* signal_path = json_array();
 
-    if (aExakt) {
+    if (iSignalPath.Exakt()) {
         json_t* exakt = json_object();
         json_object_set_new(exakt, "type", json_string("linn"));
         json_object_set_new(exakt, "method", json_string("exakt"));
         json_object_set_new(exakt, "quality", json_string("enhanced"));
         json_array_append_new(signal_path, exakt);
     }
-    if (aAmplifier) {
+    if (iSignalPath.Amplifier()) {
         json_t* amplifier = json_object();
         json_object_set_new(amplifier, "type", json_string("amplifier"));
         json_object_set_new(amplifier, "method", json_string("analog"));
         json_object_set_new(amplifier, "quality", json_string("lossless"));
         json_array_append_new(signal_path, amplifier);
     }
-    if (aSpeaker) {
+    if (iSignalPath.Speaker()) {
         json_t* output = json_object();
         json_object_set_new(output, "type", json_string("output"));
         json_object_set_new(output, "method", json_string("speakers"));

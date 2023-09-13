@@ -45,6 +45,24 @@ public:
     virtual void Interrupt() = 0;
 };
 
+class RaatSignalPath
+{
+public:
+    void Set(TBool aExakt, TBool aAmplifier, TBool aSpeaker)
+        {
+            iExakt = aExakt;
+            iAmplifier = aAmplifier;
+            iSpeaker = aSpeaker;
+        }
+
+    TBool Exakt() const { return iExakt; }
+    TBool Amplifier() const { return iAmplifier; }
+    TBool Speaker() const { return iSpeaker; }
+private:
+    TBool iExakt;
+    TBool iAmplifier;
+    TBool iSpeaker;
+};
 
 class RaatUri
 {
@@ -144,6 +162,7 @@ private:
     void ChangeStream(RAAT__Stream* aStream);
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);
     static void AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate);
+    void NotifySignalPathChangedLocked();
 private: // from IRaatReader
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;
@@ -182,11 +201,13 @@ private:
     Media::IAudioTime& iAudioTime;
     Media::IPullableClock& iPullableClock;
     Mutex iLockStream;
+    Mutex iLockSignalPath;
     RAAT__Stream* iStream;
     Semaphore iSemStarted;
     SetupCb iSetupCb;
     int iToken;
     RaatUri iUri;
+    RaatSignalPath iSignalPath;
     int64_t iStreamPos;
     TUint iSampleRate;
     TUint iPendingDelay;
@@ -197,7 +218,6 @@ private:
     TBool iClockSyncStarted;
     TByte iAudioData[Media::AudioData::kMaxBytes];
     std::vector<RAAT__AudioPacket> iPendingPackets;
-    json_t* iSignalPath;
 };
 
 class AutoStreamRef // constructed with ref already held, releases ref on destruction
