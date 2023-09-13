@@ -306,14 +306,14 @@ const TUint RaatOutput::kPendingPacketsMax = 20;
 const TUint RaatOutput::kFreqNs = 1000000000;
 
 RaatOutput::RaatOutput(
-    Environment& aEnv,
-    Media::PipelineManager& aPipeline,
+    IMediaPlayer& aMediaPlayer,
     ISourceRaat& aSourceRaat,
     Media::IAudioTime& aAudioTime,
     Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable& aSignalPathObservable)
-    : iEnv(aEnv)
-    , iPipeline(aPipeline)
+    : RaatPluginAsync(aMediaPlayer.ThreadPool())
+    , iEnv(aMediaPlayer.Env())
+    , iPipeline(aMediaPlayer.Pipeline())
     , iSourceRaat(aSourceRaat)
     , iAudioTime(aAudioTime)
     , iPullableClock(aPullableClock)
@@ -325,6 +325,10 @@ RaatOutput::RaatOutput(
     , iStarted(false)
     , iRunning(false)
     , iLockMetadata("Rat2")
+    , iLockSignalPath("Rat3")
+    , iSignalPathExakt(false)
+    , iSignalPathAmplifier(false)
+    , iSignalPathSpeaker(false)
 {
     iPluginExt.iPlugin.get_info = Raat_Output_Get_Info;
     iPluginExt.iPlugin.get_supported_formats = Raat_Output_Get_Supported_Formats;
@@ -597,7 +601,9 @@ RC__Status RaatOutput::Stop()
 RC__Status RaatOutput::AddListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
 {
     LOG(kMedia, "RaatOutput::AddListener\n");
-    return RAAT__output_message_listeners_add(&iListeners, aCb, aCbUserdata);
+    auto err = RAAT__output_message_listeners_add(&iListeners, aCb, aCbUserdata);
+    TryReportState();
+    return err;
 }
 
 void RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
@@ -763,44 +769,58 @@ void RaatOutput::MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint 
     iDurationSeconds = aDurationSeconds;
 }
 
-void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)
+void RaatOutput::ReportState()
 {
-    LOG(kMedia, "RaatOutput::SignalPathChanged(%u,%u,%u)\n", aExakt, aAmplifier, aSpeaker);
     json_t* message = json_object();
     json_t* signal_path = json_array();
+    {
+        AutoMutex _(iLockSignalPath);
 
-    if (aExakt) {
-        json_t* exakt = json_object();
-        json_object_set_new(exakt, "type", json_string("linn"));
-        json_object_set_new(exakt, "method", json_string("exakt"));
-        json_object_set_new(exakt, "quality", json_string("enhanced"));
-        json_array_append_new(signal_path, exakt);
-    }
-    if (aAmplifier) {
-        json_t* amplifier = json_object();
-        json_object_set_new(amplifier, "type", json_string("amplifier"));
-        json_object_set_new(amplifier, "method", json_string("analog"));
-        json_object_set_new(amplifier, "quality", json_string("lossless"));
-        json_array_append_new(signal_path, amplifier);
-    }
-    if (aSpeaker) {
-        json_t* output = json_object();
-        json_object_set_new(output, "type", json_string("output"));
-        json_object_set_new(output, "method", json_string("speakers"));
-        json_object_set_new(output, "quality", json_string("lossless"));
-        json_array_append_new(signal_path, output);
-    }
-    else {
-        json_t* output = json_object();
-        json_object_set_new(output, "type", json_string("output"));
-        json_object_set_new(output, "method", json_string("analog"));
-        json_object_set_new(output, "quality", json_string("lossless"));
-        json_array_append_new(signal_path, output);
+        if (iSignalPathExakt) {
+            json_t* exakt = json_object();
+            json_object_set_new(exakt, "type", json_string("linn"));
+            json_object_set_new(exakt, "method", json_string("exakt"));
+            json_object_set_new(exakt, "quality", json_string("enhanced"));
+            json_array_append_new(signal_path, exakt);
+        }
+        if (iSignalPathAmplifier) {
+            json_t* amplifier = json_object();
+            json_object_set_new(amplifier, "type", json_string("amplifier"));
+            json_object_set_new(amplifier, "method", json_string("analog"));
+            json_object_set_new(amplifier, "quality", json_string("lossless"));
+            json_array_append_new(signal_path, amplifier);
+        }
+        if (iSignalPathSpeaker) {
+            json_t* output = json_object();
+            json_object_set_new(output, "type", json_string("output"));
+            json_object_set_new(output, "method", json_string("speakers"));
+            json_object_set_new(output, "quality", json_string("lossless"));
+            json_array_append_new(signal_path, output);
+        }
+        else {
+            json_t* output = json_object();
+            json_object_set_new(output, "type", json_string("output"));
+            json_object_set_new(output, "method", json_string("analog"));
+            json_object_set_new(output, "quality", json_string("lossless"));
+            json_array_append_new(signal_path, output);
+        }
     }
 
     json_object_set_new(message, "signal_path", signal_path);
     RAAT__output_message_listeners_invoke(&iListeners, message);
     json_decref(message);
+}
+
+void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)
+{
+    LOG(kMedia, "RaatOutput::SignalPathChanged(%u,%u,%u)\n", aExakt, aAmplifier, aSpeaker);
+    {
+        AutoMutex _(iLockSignalPath);
+        iSignalPathExakt = aExakt;
+        iSignalPathAmplifier = aAmplifier;
+        iSignalPathSpeaker = aSpeaker;
+    }
+    TryReportState();
 }
 
 
