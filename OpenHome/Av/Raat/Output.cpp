@@ -291,15 +291,15 @@ const TUint RaatOutput::kPendingPacketsMax = 20;
 const TUint RaatOutput::kFreqNs = 1000000000;
 
 RaatOutput::RaatOutput(
-    Environment& aEnv,
-    Media::PipelineManager& aPipeline,
-    ISourceRaat& aSourceRaat,
-    Media::IAudioTime& aAudioTime,
-    Media::IPullableClock& aPullableClock,
-    IRaatSignalPathObservable& aSignalPathObservable)
+    IMediaPlayer&               aMediaPlayer,
+    ISourceRaat&                aSourceRaat,
+    Media::IAudioTime&          aAudioTime,
+    Media::IPullableClock&      aPullableClock,
+    IRaatSignalPathObservable&  aSignalPathObservable)
 
-    : iEnv(aEnv)
-    , iPipeline(aPipeline)
+    : RaatPluginAsync(aMediaPlayer.ThreadPool())
+    , iEnv(aMediaPlayer.Env())
+    , iPipeline(aMediaPlayer.Pipeline())
     , iSourceRaat(aSourceRaat)
     , iAudioTime(aAudioTime)
     , iPullableClock(aPullableClock)
@@ -443,11 +443,6 @@ void RaatOutput::SetupStream(
     Bws<256> uri;
     iUri.GetUri(uri);
 
-    {
-        AutoMutex _(iLockSignalPath);
-        NotifySignalPathChangedLocked();
-    }
-
     LOG(kRaat, "RaatOutput::SetupStream() uri=%.*s\n", PBUF(uri));
     iSourceRaat.Play(uri);
 }
@@ -585,8 +580,10 @@ RC__Status RaatOutput::Stop()
 
 RC__Status RaatOutput::AddListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
 {
-    LOG(kRaat, "RaatOutput::AddListener\n");
-    return RAAT__output_message_listeners_add(&iListeners, aCb, aCbUserdata);
+    LOG(kMedia, "RaatOutput::AddListener\n");
+    auto err = RAAT__output_message_listeners_add(&iListeners, aCb, aCbUserdata);
+    TryReportState();
+    return err;
 }
 
 void RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
@@ -724,43 +721,47 @@ void RaatOutput::Interrupt()
 void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)
 {
     LOG(kRaat, "RaatOutput::SignalPathChanged(%u,%u,%u)\n", aExakt, aAmplifier, aSpeaker);
-    AutoMutex _(iLockSignalPath);
-    iSignalPath.Set(aExakt, aAmplifier, aSpeaker);
-    NotifySignalPathChangedLocked();
+    {
+        AutoMutex _(iLockSignalPath);
+        iSignalPath.Set(aExakt, aAmplifier, aSpeaker);
+    }
+    TryReportState();
 }
 
-void RaatOutput::NotifySignalPathChangedLocked()
+void RaatOutput::ReportState()
 {
     json_t* message = json_object();
     json_t* signal_path = json_array();
-
-    if (iSignalPath.Exakt()) {
-        json_t* exakt = json_object();
-        json_object_set_new(exakt, "type", json_string("linn"));
-        json_object_set_new(exakt, "method", json_string("exakt"));
-        json_object_set_new(exakt, "quality", json_string("enhanced"));
-        json_array_append_new(signal_path, exakt);
-    }
-    if (iSignalPath.Amplifier()) {
-        json_t* amplifier = json_object();
-        json_object_set_new(amplifier, "type", json_string("amplifier"));
-        json_object_set_new(amplifier, "method", json_string("analog"));
-        json_object_set_new(amplifier, "quality", json_string("lossless"));
-        json_array_append_new(signal_path, amplifier);
-    }
-    if (iSignalPath.Speaker()) {
-        json_t* output = json_object();
-        json_object_set_new(output, "type", json_string("output"));
-        json_object_set_new(output, "method", json_string("speakers"));
-        json_object_set_new(output, "quality", json_string("lossless"));
-        json_array_append_new(signal_path, output);
-    }
-    else {
-        json_t* output = json_object();
-        json_object_set_new(output, "type", json_string("output"));
-        json_object_set_new(output, "method", json_string("analog"));
-        json_object_set_new(output, "quality", json_string("lossless"));
-        json_array_append_new(signal_path, output);
+    {
+        AutoMutex _(iLockSignalPath);
+        if (iSignalPath.Exakt()) {
+            json_t* exakt = json_object();
+            json_object_set_new(exakt, "type", json_string("linn"));
+            json_object_set_new(exakt, "method", json_string("exakt"));
+            json_object_set_new(exakt, "quality", json_string("enhanced"));
+            json_array_append_new(signal_path, exakt);
+        }
+        if (iSignalPath.Amplifier()) {
+            json_t* amplifier = json_object();
+            json_object_set_new(amplifier, "type", json_string("amplifier"));
+            json_object_set_new(amplifier, "method", json_string("analog"));
+            json_object_set_new(amplifier, "quality", json_string("lossless"));
+            json_array_append_new(signal_path, amplifier);
+        }
+        if (iSignalPath.Speaker()) {
+            json_t* output = json_object();
+            json_object_set_new(output, "type", json_string("output"));
+            json_object_set_new(output, "method", json_string("speakers"));
+            json_object_set_new(output, "quality", json_string("lossless"));
+            json_array_append_new(signal_path, output);
+        }
+        else {
+            json_t* output = json_object();
+            json_object_set_new(output, "type", json_string("output"));
+            json_object_set_new(output, "method", json_string("analog"));
+            json_object_set_new(output, "quality", json_string("lossless"));
+            json_array_append_new(signal_path, output);
+        }
     }
 
     json_object_set_new(message, "signal_path", signal_path);
@@ -800,8 +801,12 @@ void RaatOutput::SetupCb::Set(
 
 TUint RaatOutput::SetupCb::NotifyReady()
 {
-    const auto token = iNextToken++;
-    iCbSetup(iCbSetupData, RC__STATUS_SUCCESS, (int)token);
+    auto token = iNextToken;
+    if (iCbSetup) {
+        token = ++iNextToken;
+        iCbSetup(iCbSetupData, RC__STATUS_SUCCESS, (int)token);
+        Reset();
+    }
     return token;
 }
 

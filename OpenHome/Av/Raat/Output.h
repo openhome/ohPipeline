@@ -5,6 +5,8 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/Raat/Plugin.h>
 #include <OpenHome/Av/Raat/SignalPath.h>
 #include <OpenHome/Av/Raat/Transport.h>
 
@@ -28,6 +30,7 @@ namespace Media {
     class IPullableClock;
 }
 namespace Av {
+    class IMediaPlayer;
 
 class IRaatWriter
 {
@@ -118,7 +121,8 @@ typedef struct {
 class IRaatTime;
 
 class RaatOutput
-    : public IRaatReader
+    : public RaatPluginAsync 
+    , public IRaatReader
     , private IRaatSignalPathObserver
     , public IRaatTransportStateObserver
 {
@@ -129,13 +133,11 @@ private:
     static const TUint64 kDefaultDelayNs = kDefaultDelayMs * 1000 * 1000;
 public:
     RaatOutput(
-        Environment&                aEnv,
-        Media::PipelineManager&     aPipeline,
+        IMediaPlayer&               aMediaPlayer,
         ISourceRaat&                aSourceRaat,
         Media::IAudioTime&          aAudioTime,
         Media::IPullableClock&      aPullableClock,
         IRaatSignalPathObservable&  aSignalPathObservable);
-
     ~RaatOutput();
 public:
     RAAT__OutputPlugin* Plugin();
@@ -162,11 +164,12 @@ private:
     void ChangeStream(RAAT__Stream* aStream);
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);
     static void AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate);
-    void NotifySignalPathChangedLocked();
 private: // from IRaatReader
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
+private: // from RaatPluginAsync
+    void ReportState() override;
 private: // from IRaatSignalPathObserver
     void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
 private: // from IRaatTransportStateObserver
