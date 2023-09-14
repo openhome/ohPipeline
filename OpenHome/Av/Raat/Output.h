@@ -124,7 +124,6 @@ class RaatOutput
     : public RaatPluginAsync 
     , public IRaatReader
     , private IRaatSignalPathObserver
-    , public IRaatTransportStateObserver
 {
 private:
     static const TUint kPendingPacketsMax;
@@ -172,8 +171,6 @@ private: // from RaatPluginAsync
     void ReportState() override;
 private: // from IRaatSignalPathObserver
     void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
-private: // from IRaatTransportStateObserver
-    void TransportStateChanged(RaatTrackInfo::EState aState) override;
 private:
     class SetupCb
     {

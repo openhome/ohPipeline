@@ -769,15 +769,6 @@ void RaatOutput::ReportState()
     json_decref(message);
 }
 
-void RaatOutput::TransportStateChanged(RaatTrackInfo::EState aState)
-{
-    // Currently not receiving stop/pause notifications from the SDK
-    // Use transport state as a workaround for now
-    if (aState == RaatTrackInfo::EState::ePaused) {
-        (void)Stop();
-    }
-}
-
 
 // RaatOutput::SetupCb
 

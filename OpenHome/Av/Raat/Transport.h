@@ -135,13 +135,6 @@ public:
     virtual TBool CanMovePrev() = 0;
 };
 
-class IRaatTransportStateObserver
-{
-public:
-    virtual void TransportStateChanged(RaatTrackInfo::EState aState) = 0;
-    virtual ~IRaatTransportStateObserver() {}
-};
-
 class RaatTransportStatusParser
 {
 private:
@@ -192,7 +185,7 @@ class RaatTransport
     , private ITransportRepeatRandomObserver
 {
 public:
-    RaatTransport(IMediaPlayer& aMediaPlayer, IRaatTransportStateObserver& aStateObserver);
+    RaatTransport(IMediaPlayer& aMediaPlayer);
     ~RaatTransport();
 public:
     RAAT__TransportPlugin* Plugin();
@@ -221,7 +214,6 @@ private:
     RAAT__TransportControlListeners iListeners;
     ITransportRepeatRandom& iTransportRepeatRandom;
     RaatTransportRepeatAdapter iRepeatAdapter;
-    IRaatTransportStateObserver& iStateObserver;
     RaatArtworkHttpServer iArtworkServer;
     RaatMetadataHandler iMetadataHandler;
     RaatTransportInfo iTransportInfo;

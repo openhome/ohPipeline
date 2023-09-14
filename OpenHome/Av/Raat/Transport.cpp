@@ -264,10 +264,9 @@ TBool RaatTransportRepeatAdapter::RepeatEnabled() const
 
 // RaatTransport
 
-RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer, IRaatTransportStateObserver& aStateObserver)
+RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
     : iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
     , iRepeatAdapter(iTransportRepeatRandom, *this)
-    , iStateObserver(aStateObserver)
     , iArtworkServer(aMediaPlayer.Env())
     , iMetadataHandler(
         aMediaPlayer.Pipeline().AsyncTrackReporter(),
@@ -315,7 +314,6 @@ void RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, vo
 
 void RaatTransport::UpdateStatus(json_t *aStatus)
 {
-    TBool stateChanged = false;
     TBool randomChanged = false;
     TBool repeatChanged = false;
 
@@ -334,13 +332,9 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
 
         if (iState != trackInfo.GetState()) {
             iState = trackInfo.GetState();
-            stateChanged = true;
         }
     }
 
-    if (stateChanged) {
-        iStateObserver.TransportStateChanged(iState);
-    }
     if (randomChanged) {
         iTransportRepeatRandom.SetRandom(iTransportInfo.Shuffle());
     }
