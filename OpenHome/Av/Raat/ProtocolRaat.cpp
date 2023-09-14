@@ -133,12 +133,6 @@ TUint ProtocolRaat::TryStop(TUint aStreamId)
     return iNextFlushId;
 }
 
-void ProtocolRaat::Stop()
-{
-    LOG(kRaat, "ProtocolRaat::Stop()\n");
-    Interrupt(true);
-}
-
 void ProtocolRaat::Write(const Brx& aData)
 {
     if (iPcmStream) {
