@@ -152,6 +152,7 @@ void RaatApp::RaatThread()
 
 void RaatApp::StartPlugins()
 {
+    iOutput->Start();
     if (iVolume != nullptr) {
         iVolume->Start();
     }

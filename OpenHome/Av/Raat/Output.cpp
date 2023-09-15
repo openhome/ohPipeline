@@ -443,6 +443,8 @@ void RaatOutput::SetupStream(
     Bws<256> uri;
     iUri.GetUri(uri);
 
+    TryReportState();
+
     LOG(kRaat, "RaatOutput::SetupStream() uri=%.*s\n", PBUF(uri));
     iSourceRaat.Play(uri);
 }
@@ -582,7 +584,6 @@ RC__Status RaatOutput::AddListener(RAAT__OutputMessageCallback aCb, void* aCbUse
 {
     LOG(kMedia, "RaatOutput::AddListener\n");
     auto err = RAAT__output_message_listeners_add(&iListeners, aCb, aCbUserdata);
-    TryReportState();
     return err;
 }
 
