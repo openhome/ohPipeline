@@ -5,6 +5,8 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/Raat/Plugin.h>
 #include <OpenHome/Av/Raat/SignalPath.h>
 #include <OpenHome/Av/Raat/Transport.h>
 
@@ -28,6 +30,7 @@ namespace Media {
     class IPullableClock;
 }
 namespace Av {
+    class IMediaPlayer;
 
 class IRaatWriter
 {
@@ -102,6 +105,7 @@ typedef struct {
 class IRaatTime;
 
 class RaatOutput :
+    public RaatPluginAsync,
     public IRaatReader,
     public IRaatMetadataObserver,
     private IRaatSignalPathObserver
@@ -110,8 +114,7 @@ class RaatOutput :
     static const TUint kFreqNs;
 public:
     RaatOutput(
-        Environment& aEnv,
-        Media::PipelineManager& aPipeline,
+        IMediaPlayer& aMediaPlayer,
         ISourceRaat& aSourceRaat,
         Media::IAudioTime& aAudioTime,
         Media::IPullableClock& aPullableClock,
@@ -147,6 +150,8 @@ private: // from IRaatReader
     void Interrupt() override;
 private: // from IRaatMetadataObserver
     void MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) override;
+private: // from RaatPluginAsync
+    void ReportState() override;
 private: // from IRaatSignalPathObserver
     void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
 private:
@@ -202,6 +207,10 @@ private:
     Bws<Media::kTrackMetaDataMaxBytes> iMetadataSubtitle;
     TUint iPosSeconds;
     TUint iDurationSeconds;
+    Mutex iLockSignalPath;
+    TBool iSignalPathExakt;
+    TBool iSignalPathAmplifier;
+    TBool iSignalPathSpeaker;
 };
 
 class AutoStreamRef // constructed with ref already held, releases ref on destruction

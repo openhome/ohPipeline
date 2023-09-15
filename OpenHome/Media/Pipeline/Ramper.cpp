@@ -142,8 +142,7 @@ TBool Ramper::IsRampApplicable(const DecodedStreamInfo& aInfo)
         return true;
     }
 
-    const TBool formatChanged = (aInfo.Format() != iFormat);
-    if (formatChanged && aInfo.Format() == AudioFormat::Dsd) {
+    if (aInfo.Format() == AudioFormat::Dsd) {
         return true;
     }
 
