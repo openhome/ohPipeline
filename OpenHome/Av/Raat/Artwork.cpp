@@ -23,6 +23,7 @@ RaatArtworkHttpServer::RaatArtworkHttpServer(Environment& aEnv)
     , iAdapter(nullptr)
     , iCount(0)
     , iLock("RART")
+    , iLockObservers("ROBS")
 {
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
     Functor functor = MakeFunctor(*this, &RaatArtworkHttpServer::CurrentAdapterChanged);
@@ -67,12 +68,20 @@ void RaatArtworkHttpServer::ClearArtwork()
 
 void RaatArtworkHttpServer::AddObserver(IRaatArtworkServerObserver& aObserver)
 {
+    AutoMutex _(iLockObservers);
     iObservers.push_back(aObserver);
 }
 
 void RaatArtworkHttpServer::RemoveObserver(IRaatArtworkServerObserver& aObserver)
 {
-
+    AutoMutex _(iLockObservers);
+    for (auto it = iObservers.begin(); it != iObservers.end(); ++it) {
+        auto& o = (*it).get();
+        if (&o == &aObserver) {
+            iObservers.erase(it);
+            return;
+        }
+    }
 }
 
 const IRaatArtworkResource& RaatArtworkHttpServer::GetArtworkResource()

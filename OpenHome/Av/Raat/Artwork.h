@@ -95,6 +95,7 @@ private:
     NetworkAdapter* iAdapter;
     TUint iCount;
     Mutex iLock;
+    Mutex iLockObservers;
 
     Bws<64> iBaseUri;
 
