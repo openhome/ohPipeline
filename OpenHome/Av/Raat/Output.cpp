@@ -719,13 +719,16 @@ void RaatOutput::Interrupt()
     }
 }
 
-void RaatOutput::SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker)
+void RaatOutput::SignalPathChanged(const IRaatSignalPath& aSignalPath)
 {
-    LOG(kRaat, "RaatOutput::SignalPathChanged(%u,%u,%u)\n", aExakt, aAmplifier, aSpeaker);
-    {
-        AutoMutex _(iLockSignalPath);
-        iSignalPath.Set(aExakt, aAmplifier, aSpeaker);
-    }
+    LOG(kRaat, "RaatOutput::SignalPathChanged(%u,%u,%u,%u)\n",
+        aSignalPath.Exakt(),
+        aSignalPath.SpaceOptimisation(),
+        aSignalPath.Amplifier(),
+        aSignalPath.Output());
+
+    AutoMutex _(iLockSignalPath);
+    iSignalPath.Set(aSignalPath);
     TryReportState();
 }
 
@@ -742,6 +745,13 @@ void RaatOutput::ReportState()
             json_object_set_new(exakt, "quality", json_string("enhanced"));
             json_array_append_new(signal_path, exakt);
         }
+        if (iSignalPath.SpaceOptimisation()) {
+            json_t* exakt = json_object();
+            json_object_set_new(exakt, "type", json_string("linn"));
+            json_object_set_new(exakt, "method", json_string("space_optimisation"));
+            json_object_set_new(exakt, "quality", json_string("enhanced"));
+            json_array_append_new(signal_path, exakt);
+        }
         if (iSignalPath.Amplifier()) {
             json_t* amplifier = json_object();
             json_object_set_new(amplifier, "type", json_string("amplifier"));
@@ -749,20 +759,23 @@ void RaatOutput::ReportState()
             json_object_set_new(amplifier, "quality", json_string("lossless"));
             json_array_append_new(signal_path, amplifier);
         }
-        if (iSignalPath.Speaker()) {
-            json_t* output = json_object();
-            json_object_set_new(output, "type", json_string("output"));
-            json_object_set_new(output, "method", json_string("speakers"));
-            json_object_set_new(output, "quality", json_string("lossless"));
-            json_array_append_new(signal_path, output);
+
+        Brhz outputString;
+        if (iSignalPath.Output() == IRaatSignalPath::EOutput::eHeadphones) {
+            outputString.Set("headphones");
+        }
+        else if (iSignalPath.Output() == IRaatSignalPath::EOutput::eSpeakers){
+            outputString.Set("speakers");
         }
         else {
-            json_t* output = json_object();
-            json_object_set_new(output, "type", json_string("output"));
-            json_object_set_new(output, "method", json_string("analog"));
-            json_object_set_new(output, "quality", json_string("lossless"));
-            json_array_append_new(signal_path, output);
+            outputString.Set("analog");
         }
+
+        json_t* output = json_object();
+        json_object_set_new(output, "type", json_string("output"));
+        json_object_set_new(output, "method", json_string(outputString.CString()));
+        json_object_set_new(output, "quality", json_string("lossless"));
+        json_array_append_new(signal_path, output);
     }
 
     json_object_set_new(message, "signal_path", signal_path);

@@ -48,23 +48,27 @@ public:
     virtual void Interrupt() = 0;
 };
 
-class RaatSignalPath
+class RaatSignalPath : public IRaatSignalPath
 {
 public:
-    void Set(TBool aExakt, TBool aAmplifier, TBool aSpeaker)
-        {
-            iExakt = aExakt;
-            iAmplifier = aAmplifier;
-            iSpeaker = aSpeaker;
-        }
+    void Set(const IRaatSignalPath& aSignalPath)
+    {
+        iExakt = aSignalPath.Exakt();
+        iSpaceOptimisation = aSignalPath.SpaceOptimisation();
+        iAmplifier = aSignalPath.Amplifier();
+        iOutput = aSignalPath.Output();
+    }
 
-    TBool Exakt() const { return iExakt; }
-    TBool Amplifier() const { return iAmplifier; }
-    TBool Speaker() const { return iSpeaker; }
+public: // from IRaatSignalPath
+    TBool Exakt() const override { return iExakt; }
+    TBool SpaceOptimisation() const override { return iSpaceOptimisation; }
+    TBool Amplifier() const override { return iAmplifier; }
+    IRaatSignalPath::EOutput Output() const override { return iOutput; }
 private:
     TBool iExakt;
+    TBool iSpaceOptimisation;
     TBool iAmplifier;
-    TBool iSpeaker;
+    IRaatSignalPath::EOutput iOutput;
 };
 
 class RaatUri
@@ -170,7 +174,7 @@ private: // from IRaatReader
 private: // from RaatPluginAsync
     void ReportState() override;
 private: // from IRaatSignalPathObserver
-    void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
+    void SignalPathChanged(const IRaatSignalPath& aSignalPath) override;
 private:
     class SetupCb
     {

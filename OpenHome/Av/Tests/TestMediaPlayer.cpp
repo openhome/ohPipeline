@@ -138,7 +138,7 @@ void RebootLogger::Reboot(const Brx& aReason)
 
 void DummyRaatSignalPath::RegisterObserver(IRaatSignalPathObserver& aObserver)
 {
-    aObserver.SignalPathChanged(false/*aExakt*/, true/*aAmplifier*/, false/*aSpeaker*/);
+    aObserver.SignalPathChanged(*this);
 }
 
 
