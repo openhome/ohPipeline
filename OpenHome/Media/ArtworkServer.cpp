@@ -1,37 +1,37 @@
-#include <OpenHome/Av/Raat/Artwork.h>
+#include <OpenHome/Media/ArtworkServer.h>
 #include <OpenHome/Private/NetworkAdapterList.h>
 #include <OpenHome/Private/Ascii.h>
 
 #include <OpenHome/Private/Debug.h>
 
 using namespace OpenHome;
-using namespace OpenHome::Av;
+using namespace OpenHome::Media;
 
-// RaatArtworkServer
+// ArtworkServer
 
-const TChar* RaatArtworkHttpServer::kAdapterCookie("RaatArtworkServer");
-const Brn RaatArtworkHttpServer::kResourcePrefix("/artwork-");
-const std::map<Brn, Brn, BufferCmp> RaatArtworkHttpServer::kMimeTypeFileExtensionMap = {
+const TChar* ArtworkHttpServer::kAdapterCookie("ArtworkServer");
+const Brn ArtworkHttpServer::kResourcePrefix("/artwork-");
+const std::map<Brn, Brn, BufferCmp> ArtworkHttpServer::kMimeTypeFileExtensionMap = {
     { Brn("image/jpeg"), Brn(".jpeg") },
     { Brn("image/bmp"), Brn(".bmp") },
     { Brn("image/png"), Brn(".png") }
 };
 
-RaatArtworkHttpServer::RaatArtworkHttpServer(Environment& aEnv)
+ArtworkHttpServer::ArtworkHttpServer(Environment& aEnv)
     : iEnv(aEnv)
     , iAdapterListenerId(0)
     , iAdapter(nullptr)
     , iCount(0)
-    , iLock("RART")
-    , iLockObservers("ROBS")
+    , iLock("ARTS")
+    , iLockObservers("ARTO")
 {
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
-    Functor functor = MakeFunctor(*this, &RaatArtworkHttpServer::CurrentAdapterChanged);
-    iAdapterListenerId = nifList.AddCurrentChangeListener(functor, "RaatArtworkServer", true);
+    Functor functor = MakeFunctor(*this, &ArtworkHttpServer::CurrentAdapterChanged);
+    iAdapterListenerId = nifList.AddCurrentChangeListener(functor, "ArtworkServer", true);
     CurrentAdapterChanged();
 }
 
-RaatArtworkHttpServer::~RaatArtworkHttpServer()
+ArtworkHttpServer::~ArtworkHttpServer()
 {
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
     nifList.RemoveCurrentChangeListener(iAdapterListenerId);
@@ -40,7 +40,7 @@ RaatArtworkHttpServer::~RaatArtworkHttpServer()
     }
 }
 
-void RaatArtworkHttpServer::SetArtwork(const Brx& aData, const Brx& aType)
+void ArtworkHttpServer::SetArtwork(const Brx& aData, const Brx& aType)
 {
     Bws<128> uri;
     {
@@ -51,12 +51,12 @@ void RaatArtworkHttpServer::SetArtwork(const Brx& aData, const Brx& aType)
         uri.Append(iBaseUri);
         uri.Append(path);
 
-        iResource.reset(new RaatArtworkResource(path, aData));
+        iResource.reset(new ArtworkResource(path, aData));
     }
     NotifyObservers(uri);
 }
 
-void RaatArtworkHttpServer::ClearArtwork()
+void ArtworkHttpServer::ClearArtwork()
 {
     {
         AutoMutex _(iLock);
@@ -66,13 +66,13 @@ void RaatArtworkHttpServer::ClearArtwork()
 }
 
 
-void RaatArtworkHttpServer::AddObserver(IRaatArtworkServerObserver& aObserver)
+void ArtworkHttpServer::AddObserver(IArtworkServerObserver& aObserver)
 {
     AutoMutex _(iLockObservers);
     iObservers.push_back(aObserver);
 }
 
-void RaatArtworkHttpServer::RemoveObserver(IRaatArtworkServerObserver& aObserver)
+void ArtworkHttpServer::RemoveObserver(IArtworkServerObserver& aObserver)
 {
     AutoMutex _(iLockObservers);
     for (auto it = iObservers.begin(); it != iObservers.end(); ++it) {
@@ -84,16 +84,16 @@ void RaatArtworkHttpServer::RemoveObserver(IRaatArtworkServerObserver& aObserver
     }
 }
 
-const IRaatArtworkResource& RaatArtworkHttpServer::GetArtworkResource()
+const IArtworkResource& ArtworkHttpServer::GetArtworkResource()
 {
     AutoMutex _(iLock);
     if (iResource == nullptr) {
-        THROW(RaatArtworkNotAvailable);
+        THROW(ArtworkNotAvailable);
     }
     return *iResource;
 }
 
-void RaatArtworkHttpServer::CurrentAdapterChanged()
+void ArtworkHttpServer::CurrentAdapterChanged()
 {
     NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
     NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie).Ptr();
@@ -125,7 +125,7 @@ void RaatArtworkHttpServer::CurrentAdapterChanged()
 
     if (iAdapter != nullptr) {
         iServer.reset(new SocketTcpServer(iEnv, "ArtworkServer", 0, iAdapter->Address()));
-        iServer->Add("ArtworkSession", new RaatArtworkHttpSession(iEnv, *this));
+        iServer->Add("ArtworkSession", new ArtworkHttpSession(iEnv, *this));
 
         Bws<64> uri;
         uri.Append("http://");
@@ -135,19 +135,19 @@ void RaatArtworkHttpServer::CurrentAdapterChanged()
     }
 }
 
-void RaatArtworkHttpServer::CreateResourcePath(const Brx& aType, Bwx& aPath)
+void ArtworkHttpServer::CreateResourcePath(const Brx& aType, Bwx& aPath)
 {
     aPath.Append(kResourcePrefix);
     Ascii::AppendDec(aPath, iCount++);
     auto it = kMimeTypeFileExtensionMap.find(Brn(aType));
     if (it == kMimeTypeFileExtensionMap.end()) {
-        Log::Print("RaatArtworkHttpServer::SetArtwork(), MIME type not supported\n");
-        THROW(RaatArtworkTypeUnsupported);
+        Log::Print("ArtworkHttpServer::SetArtwork(), MIME type not supported\n");
+        THROW(ArtworkTypeUnsupported);
     }
     aPath.Append(it->second);
 }
 
-void RaatArtworkHttpServer::NotifyObservers(const Brx& aUri)
+void ArtworkHttpServer::NotifyObservers(const Brx& aUri)
 {
     for (auto observer : iObservers) {
         observer.get().ArtworkChanged(aUri);
@@ -155,9 +155,9 @@ void RaatArtworkHttpServer::NotifyObservers(const Brx& aUri)
 }
 
 
-// RaatArtworkHttpSession
+// ArtworkHttpSession
 
-RaatArtworkHttpSession::RaatArtworkHttpSession(Environment& aEnv, IRaatArtworkProvider& aArtworkProvider)
+ArtworkHttpSession::ArtworkHttpSession(Environment& aEnv, IArtworkProvider& aArtworkProvider)
     : iEnv(aEnv)
     , iArtworkProvider(aArtworkProvider)
 {
@@ -170,7 +170,7 @@ RaatArtworkHttpSession::RaatArtworkHttpSession(Environment& aEnv, IRaatArtworkPr
     iReaderRequest->AddMethod(Http::kMethodGet);
 }
 
-RaatArtworkHttpSession::~RaatArtworkHttpSession()
+ArtworkHttpSession::~ArtworkHttpSession()
 {
     Interrupt(true);
     delete iWriterResponse;
@@ -180,7 +180,7 @@ RaatArtworkHttpSession::~RaatArtworkHttpSession()
     delete iReadBuffer;
 }
 
-void RaatArtworkHttpSession::Run()
+void ArtworkHttpSession::Run()
 {
     const HttpStatus* status = &HttpStatus::kOk;
     try {
@@ -217,7 +217,7 @@ void RaatArtworkHttpSession::Run()
             }
             catch (WriterError&) {}
         }
-        catch (RaatArtworkNotAvailable&) {
+        catch (ArtworkNotAvailable&) {
             status = &HttpStatus::kNotFound;
             THROW(HttpError);
         }

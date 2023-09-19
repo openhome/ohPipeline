@@ -4,7 +4,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
-#include <OpenHome/Av/Raat/Artwork.h>
+#include <OpenHome/Media/ArtworkServer.h>
 
 namespace OpenHome {
 namespace Av {
@@ -66,7 +66,7 @@ private:
 class RaatTrackInfo;
 class RaatMetadataHandler
     : public Media::IAsyncTrackClient
-    , public IRaatArtworkServerObserver
+    , public Media::IArtworkServerObserver
 {
 private:
     static const Brn kMode;
@@ -76,7 +76,7 @@ public:
     RaatMetadataHandler(
         Media::IAsyncTrackObserver& aAsyncTrackObserver,
         IInfoAggregator&            aInfoAggregator,
-        IRaatArtworkServer&         aArtworkServer);
+        Media::IArtworkServer&      aArtworkServer);
     ~RaatMetadataHandler();
 
 public: // from IAsyncTrackClient
@@ -87,14 +87,14 @@ public: // from IAsyncTrackClient
         const Media::IAsyncMetadata&    aMetadata,
         const Media::DecodedStreamInfo& aStreamInfo,
         IWriter&                        aWriter) override;
-public: // from IRaatArtworkServerObserver
+public: // from IArtworkServerObserver
     void ArtworkChanged(const Brx& aUri) override;
 public:
     void TrackInfoChanged(const RaatTrackInfo& aTrackInfo);
 private:
     Media::IAsyncTrackObserver&             iTrackObserver;
     Media::Allocator<RaatMetadataAllocated> iAllocatorMetadata;
-    IRaatArtworkServer&                     iArtworkServer;
+    Media::IArtworkServer&                  iArtworkServer;
     RaatMetadataAllocated*                  iMetadata;
     TUint                                   iTrackPositionSecs;
 };

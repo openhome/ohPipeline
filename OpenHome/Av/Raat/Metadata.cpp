@@ -156,7 +156,7 @@ const Brn RaatMetadataHandler::kMode("RAAT");
 RaatMetadataHandler::RaatMetadataHandler(
     IAsyncTrackObserver&    aTrackObserver,
     IInfoAggregator&        aInfoAggregator,
-    IRaatArtworkServer&     aArtworkServer)
+    IArtworkServer&         aArtworkServer)
 
     : iTrackObserver(aTrackObserver)
     , iAllocatorMetadata("RaatMetadata", kMaxMetadataCount, aInfoAggregator)

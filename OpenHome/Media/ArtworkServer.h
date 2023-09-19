@@ -9,55 +9,55 @@
 
 #include <memory>
 
-EXCEPTION(RaatArtworkNotAvailable);
-EXCEPTION(RaatArtworkTypeUnsupported);
+EXCEPTION(ArtworkNotAvailable);
+EXCEPTION(ArtworkTypeUnsupported);
 
 namespace OpenHome {
     class NetworkAdapter;
-namespace Av {
+namespace Media {
 
-class IRaatArtworkServerObserver
+class IArtworkServerObserver
 {
 public:
     virtual void ArtworkChanged(const Brx& aArtworkUri) = 0;
-    virtual ~IRaatArtworkServerObserver() {}
+    virtual ~IArtworkServerObserver() {}
 };
 
-class IRaatArtworkServer
+class IArtworkServer
 {
 public:
     virtual void SetArtwork(const Brx& aData, const Brx& aType) = 0;
     virtual void ClearArtwork() = 0;
-    virtual void AddObserver(IRaatArtworkServerObserver& aObserver) = 0;
-    virtual void RemoveObserver(IRaatArtworkServerObserver& aObserver) = 0;
-    virtual ~IRaatArtworkServer() {}
+    virtual void AddObserver(IArtworkServerObserver& aObserver) = 0;
+    virtual void RemoveObserver(IArtworkServerObserver& aObserver) = 0;
+    virtual ~IArtworkServer() {}
 };
 
-class IRaatArtworkResource
+class IArtworkResource
 {
 public:
     virtual const Brx& Path() const = 0;
     virtual const Brx& Data() const = 0;
     virtual TUint Size() const = 0;
-    virtual ~IRaatArtworkResource() {}
+    virtual ~IArtworkResource() {}
 };
 
-class IRaatArtworkProvider
+class IArtworkProvider
 {
 public:
-    virtual const IRaatArtworkResource& GetArtworkResource() = 0;
-    virtual ~IRaatArtworkProvider() {}
+    virtual const IArtworkResource& GetArtworkResource() = 0;
+    virtual ~IArtworkProvider() {}
 };
 
-class RaatArtworkResource : public IRaatArtworkResource
+class ArtworkResource : public IArtworkResource
 {
 public:
-    RaatArtworkResource(const Brx& aPath, const Brx& aData)
+    ArtworkResource(const Brx& aPath, const Brx& aData)
         : iPath(aPath)
         , iData(aData)
         , iSize(aData.Bytes())
         {}
-public: // from IRaatArtworkResource
+public: // from IArtworkResource
     const Brx& Path() const override { return iPath; }
     const Brx& Data() const override { return iData; }
     TUint Size() const override { return iSize; }
@@ -67,24 +67,24 @@ private:
     TUint iSize;
 };
 
-class RaatArtworkHttpServer
-    : public IRaatArtworkServer
-    , public IRaatArtworkProvider
+class ArtworkHttpServer
+    : public IArtworkServer
+    , public IArtworkProvider
 {
 private:
     static const TChar* kAdapterCookie;
     static const Brn kResourcePrefix;
     static const std::map<Brn, Brn, BufferCmp> kMimeTypeFileExtensionMap;
 public:
-    RaatArtworkHttpServer(Environment& aEnv);
-    ~RaatArtworkHttpServer();
-public: // from IRaatArtworkServer
+    ArtworkHttpServer(Environment& aEnv);
+    ~ArtworkHttpServer();
+public: // from IArtworkServer
     void SetArtwork(const Brx& aData, const Brx& aType) override;
     void ClearArtwork() override;
-    void AddObserver(IRaatArtworkServerObserver& aObserver) override;
-    void RemoveObserver(IRaatArtworkServerObserver& aObserver) override;
-private: // from IRaatArtworkProvider
-    const IRaatArtworkResource& GetArtworkResource() override;
+    void AddObserver(IArtworkServerObserver& aObserver) override;
+    void RemoveObserver(IArtworkServerObserver& aObserver) override;
+private: // from IArtworkProvider
+    const IArtworkResource& GetArtworkResource() override;
 private:
     void CurrentAdapterChanged();
     void CreateResourcePath(const Brx& aType, Bwx& aPath);
@@ -100,20 +100,20 @@ private:
     Bws<64> iBaseUri;
 
     std::unique_ptr<SocketTcpServer> iServer;
-    std::unique_ptr<RaatArtworkResource> iResource;
-    std::vector<std::reference_wrapper<IRaatArtworkServerObserver>> iObservers;
+    std::unique_ptr<ArtworkResource> iResource;
+    std::vector<std::reference_wrapper<IArtworkServerObserver>> iObservers;
 };
 
-class RaatArtworkHttpSession : public SocketTcpSession
+class ArtworkHttpSession : public SocketTcpSession
 {
 public:
-    RaatArtworkHttpSession(Environment& aEnv, IRaatArtworkProvider& aArtworkProvider);
-    ~RaatArtworkHttpSession();
+    ArtworkHttpSession(Environment& aEnv, IArtworkProvider& aArtworkProvider);
+    ~ArtworkHttpSession();
 private: // from SocketTcpSession
     void Run() override;
 private:
     Environment& iEnv;
-    IRaatArtworkProvider& iArtworkProvider;
+    IArtworkProvider& iArtworkProvider;
     Srx* iReadBuffer;
     ReaderUntil* iReaderUntil;
     ReaderHttpRequest* iReaderRequest;
