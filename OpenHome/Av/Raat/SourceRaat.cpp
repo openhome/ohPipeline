@@ -153,7 +153,6 @@ SourceRaat::SourceRaat(
         SourceFactory::kSourceTypeRaat,
         aMediaPlayer.Pipeline(),
         false /* not visible by default */)
-    , iLock("SRat")
     , iMediaPlayer(aMediaPlayer)
     , iAudioTime(aAudioTime)
     , iPullableClock(aPullableClock)
@@ -233,10 +232,9 @@ void SourceRaat::StandbyEnabled()
 {
 }
 
-void SourceRaat::Play(const Brx& aUri)
+void SourceRaat::NotifyPlay(const Brx& aUri)
 {
     EnsureActiveNoPrefetch();
-    AutoMutex _(iLock);
     if (iTrack != nullptr) {
         iTrack->RemoveRef();
     }
@@ -246,6 +244,12 @@ void SourceRaat::Play(const Brx& aUri)
     iPipeline.Play();
 }
 
+void SourceRaat::NotifyStop()
+{
+    if (iActive) {
+        iPipeline.Pause();
+    }
+}
 
 void SourceRaat::StandbyChanged(TBool aStandbyEnabled)
 {

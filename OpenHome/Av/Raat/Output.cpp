@@ -446,7 +446,7 @@ void RaatOutput::SetupStream(
     TryReportState();
 
     LOG(kRaat, "RaatOutput::SetupStream() uri=%.*s\n", PBUF(uri));
-    iSourceRaat.Play(uri);
+    iSourceRaat.NotifyPlay(uri);
 }
 
 RC__Status RaatOutput::TeardownStream(int aToken)
@@ -482,7 +482,7 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     Bws<256> uri;
     iUri.GetUri(uri);
     LOG(kRaat, "RaatOutput::StartStream uri=%.*s\n", PBUF(uri));
-    iSourceRaat.Play(uri);
+    iSourceRaat.NotifyPlay(uri);
     iSemStarted.Signal();
     return RC__STATUS_SUCCESS;
 }
@@ -574,7 +574,7 @@ RC__Status RaatOutput::TryStop(int aToken)
 
 RC__Status RaatOutput::Stop()
 {
-    iPipeline.Pause();
+    iSourceRaat.NotifyStop();
     Interrupt();
     ChangeStream(nullptr);
     return RC__STATUS_SUCCESS;

@@ -57,7 +57,8 @@ class ISourceRaat
 {
 public:
     virtual ~ISourceRaat() {}
-    virtual void Play(const Brx& aUri) = 0;
+    virtual void NotifyPlay(const Brx& aUri) = 0;
+    virtual void NotifyStop() = 0;
 };
 
 class ISourceRaatStandbyControl
@@ -94,7 +95,8 @@ private: // from ISource
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
 private: // from ISourceRaat
-    void Play(const Brx& aUri) override;
+    void NotifyPlay(const Brx& aUri) override;
+    void NotifyStop() override;
 private: // from ISourceRaatStandbyControl
     void StandbyChanged(TBool aStandbyEnabled) override;
 private: // from IProductObserver
@@ -109,7 +111,6 @@ private:
     void Next();
     void Prev();
 private:
-    Mutex iLock;
     IMediaPlayer& iMediaPlayer;
     Media::IAudioTime& iAudioTime;
     Media::IPullableClock& iPullableClock;
