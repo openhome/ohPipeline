@@ -73,10 +73,12 @@ RaatSourceSelection::RaatSourceSelection(
     IRaatSourceObserver& aObserver,
     ISourceRaatStandbyControl& aSourceStandbyControl)
     : RaatPluginAsync(aMediaPlayer.ThreadPool())
+    , iSystemName(aSystemName)
     , iObserver(aObserver)
     , iSourceStandbyControl(aSourceStandbyControl)
     , iSourceIndexCurrent(0)
     , iStandby(true)
+    , iStarted(false)
 {
     auto ret = RAAT__source_selection_state_listeners_init(&iListeners, RC__allocator_malloc());
     ASSERT(ret == RC__STATUS_SUCCESS);
@@ -92,26 +94,6 @@ RaatSourceSelection::RaatSourceSelection(
 
     iCpDevice = Net::CpDeviceDv::New(aMediaPlayer.CpStack(), aMediaPlayer.Device());
     iProxyProduct = new Net::CpProxyAvOpenhomeOrgProduct4(*iCpDevice);
-
-    TUint count;
-    iProxyProduct->SyncSourceCount(count);
-    for (TUint index = count-1; ; index--) {
-        Brh systemName;
-        Brh type;
-        Brh name;
-        TBool visible;
-        iProxyProduct->SyncSource(index, systemName, type, name, visible);
-        if (systemName == aSystemName) {
-            iSourceIndexRaat = index;
-            break;
-        }
-        ASSERT(index != 0); // no RAAT source registered
-    }
-    Functor cb = MakeFunctor(*this, &RaatSourceSelection::StandbyChanged);
-    iProxyProduct->SetPropertyStandbyChanged(cb);
-    cb = MakeFunctor(*this, &RaatSourceSelection::SourceIndexChanged);
-    iProxyProduct->SetPropertySourceIndexChanged(cb);
-    iProxyProduct->Subscribe();
 }
 
 RaatSourceSelection::~RaatSourceSelection()
@@ -153,6 +135,29 @@ void RaatSourceSelection::SetStandby()
     iProxyProduct->SyncSetStandby(true);
 }
 
+void RaatSourceSelection::Initialise()
+{
+    TUint count;
+    iProxyProduct->SyncSourceCount(count);
+    for (TUint index = count-1; ; index--) {
+        Brh systemName;
+        Brh type;
+        Brh name;
+        TBool visible;
+        iProxyProduct->SyncSource(index, systemName, type, name, visible);
+        if (systemName == iSystemName) {
+            iSourceIndexRaat = index;
+            break;
+        }
+        ASSERT(index != 0); // no RAAT source registered
+    }
+    Functor cb = MakeFunctor(*this, &RaatSourceSelection::StandbyChanged);
+    iProxyProduct->SetPropertyStandbyChanged(cb);
+    cb = MakeFunctor(*this, &RaatSourceSelection::SourceIndexChanged);
+    iProxyProduct->SetPropertySourceIndexChanged(cb);
+    iProxyProduct->Subscribe();
+}
+
 void RaatSourceSelection::StandbyChanged()
 {
     iProxyProduct->PropertyStandby(iStandby);
@@ -183,6 +188,11 @@ RAAT__SourceSelectionState RaatSourceSelection::State() const
 
 void RaatSourceSelection::ReportState()
 {
+    if (!iStarted) {
+        Initialise();
+        iStarted = true;
+    }
+
     auto state = State();
     RAAT__source_selection_state_listeners_invoke(&iListeners, &state);
     if (iSourceIndexCurrent == iSourceIndexRaat) {

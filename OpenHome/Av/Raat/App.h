@@ -42,11 +42,13 @@ public:
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion);
     ~RaatApp();
+public:
+    void Start();
     IRaatReader& Reader();
     IRaatTransport& Transport();
+public:
     void RaatThread();
 private:
-    void FriendlyNameChanged(const Brx& aName);
     void StartPlugins();
 private:
     IMediaPlayer& iMediaPlayer;
@@ -60,6 +62,7 @@ private:
     RaatTransport* iTransport;
     Bwh iSerialNumber;
     Bwh iSoftwareVersion;
+    TBool iStarted;
 };
 
 }
