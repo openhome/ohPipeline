@@ -612,7 +612,7 @@ TBool Qobuz::TryLoginLocked()
     iPathAndQuery.Append(iAppId);
     iPathAndQuery.Append("&username=");
     iLockConfig.Wait();
-    iPathAndQuery.Append(iUsername.Buffer());
+    Uri::EscapeDataString(iPathAndQuery, iUsername.Buffer());
     iPathAndQuery.Append("&password=");
     AppendMd5(iPathAndQuery, iPassword.Buffer());
     iLockConfig.Signal();
