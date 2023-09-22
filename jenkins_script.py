@@ -34,9 +34,4 @@ if opts.debug:
 else:
     cargs += ['--release',]
 
-# TEMP HACK until we get the build machines updated
-if not cenv['PLATFORM'].startswith('Windows-'):
-    subprocess.check_call(args=['pip', 'install', 'cherrypy'], cwd=cdir)
-
-
 subprocess.check_call(args=[os.path.join(scrd, 'ohMediaPlayer', 'go' + ext), 'ci-build'] + cargs, cwd=cdir)
