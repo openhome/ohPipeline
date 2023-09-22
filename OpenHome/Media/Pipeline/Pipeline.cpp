@@ -682,6 +682,7 @@ Pipeline::~Pipeline()
     delete iDecodedAudioValidatorRouter;
     delete iLoggerRouter;
     delete iRouter;
+    delete iLoggerTrackReporter;
     delete iLoggerReporter;
     delete iReporter;
     delete iAsyncTrackReporter;
