@@ -287,9 +287,6 @@ void RaatUri::SetValUint64(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx
 
 // RaatOutput
 
-const TUint RaatOutput::kPendingPacketsMax = 20;
-const TUint RaatOutput::kFreqNs = 1000000000;
-
 RaatOutput::RaatOutput(
     IMediaPlayer&               aMediaPlayer,
     ISourceRaat&                aSourceRaat,
@@ -309,7 +306,6 @@ RaatOutput::RaatOutput(
     , iSemStarted("ROUT", 0)
     , iSampleRate(0)
     , iStarted(false)
-    , iRunning(false)
 {
     iPluginExt.iPlugin.get_info = Raat_Output_Get_Info;
     iPluginExt.iPlugin.get_supported_formats = Raat_Output_Get_Supported_Formats;
@@ -329,8 +325,6 @@ RaatOutput::RaatOutput(
     iPluginExt.iSelf = this;
 
     RAAT__output_message_listeners_init(&iListeners, RC__allocator_malloc());
-    iPendingPackets.reserve(kPendingPacketsMax);
-
     aSignalPathObservable.RegisterObserver(*this);
 }
 
@@ -442,6 +436,7 @@ void RaatOutput::SetupStream(
         0LL);
     Bws<256> uri;
     iUri.GetUri(uri);
+    iStreamPos = 0;
 
     TryReportState();
 
@@ -471,7 +466,7 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     }
     Interrupt();
     ChangeStream(aStream);
-    iStreamPos = aStreamTime;
+    iStreamPos = (aStreamTime == 0) ? 0 : iStreamPos;
     const TUint64 startTicks = NsToMclk((TUint64)aWallTime);
     static_cast<Media::IStarterTimed&>(iPipeline).StartAt(startTicks);
     iClockSyncStarted = false;
@@ -503,7 +498,7 @@ TUint64 RaatOutput::MclkToNs()
     TUint64 ticks;
     TUint freq;
     iAudioTime.GetTickCount(iSampleRate, ticks, freq);
-    return ConvertTime(ticks, freq, kFreqNs);
+    return ConvertTime(ticks, freq, kNanoSecsPerSec);
 }
 
 TUint64 RaatOutput::NsToMclk(TUint64 aTimeNs)
@@ -511,7 +506,7 @@ TUint64 RaatOutput::NsToMclk(TUint64 aTimeNs)
     TUint64 ticksNow;
     TUint freq;
     iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
-    const auto ticks = ConvertTime(aTimeNs, kFreqNs, freq);
+    const auto ticks = ConvertTime(aTimeNs, kNanoSecsPerSec, freq);
     LOG(kRaat, "RaatOutput::NsToMclk: aTimeNs=%llu (mclck=%llu), freq=%u, ticks=%llu, ticksNow=%llu\n", aTimeNs, MclkToNs(), freq, ticks, ticksNow);
     return ticks;
 }
@@ -534,7 +529,7 @@ RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNew
     TUint64 ticksNow;
     TUint freq;
     iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
-    const TUint64 remoteTicksDelta = RaatOutput::ConvertTime(abs(aClockOffset), kFreqNs, freq);
+    const TUint64 remoteTicksDelta = RaatOutput::ConvertTime(abs(aClockOffset), kNanoSecsPerSec, freq);
     if (!iClockSyncStarted) {
         TUint64 remoteTicks = ticksNow;
         if (aClockOffset > 0) {
@@ -611,11 +606,6 @@ void RaatOutput::ChangeStream(RAAT__Stream* aStream)
 {
     AutoMutex _(iLockStream);
     if (iStream != nullptr) {
-        for (auto it = iPendingPackets.begin(); it != iPendingPackets.end(); ++it) {
-            RAAT__AudioPacket p = *it;
-            RAAT__stream_destroy_packet(iStream, &p);
-        }
-        (void)iPendingPackets.clear();
         RAAT__stream_decref(iStream);
     }
     iStream = aStream;
@@ -649,62 +639,16 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         }
         THROW(RaatReaderStopped);
     }
-
-    if (!iRunning || iStreamPos == packet.streamsample) {
-        iRunning = true;
-        // current packet is suitable to send into pipeline immediately
-        TUint packetBytes = ((TUint)packet.nsamples * iUri.BitDepth() * iUri.NumChannels()) / 8;
-        Brn audio((const TByte*)packet.buf, packetBytes);
-        aWriter.Write(audio);
-        iStreamPos = packet.streamsample + packet.nsamples;
-        RAAT__stream_destroy_packet(stream, &packet);
-
-        // check whether above packet unblocks any pending ones
-        auto it = iPendingPackets.begin();
-        for (; it != iPendingPackets.end(); ++it) {
-            if (it->streamsample == iStreamPos) {
-                packetBytes = ((TUint)it->nsamples * iUri.BitDepth() * iUri.NumChannels()) / 8;
-                audio.Set((const TByte*)it->buf, packetBytes);
-                Log::Print("[%u] RaatOutput::Read: (delayed) push %d samples into the pipeline\n", Os::TimeInMs(iEnv.OsCtx()), it->nsamples);
-                aWriter.Write(audio);
-                iStreamPos = it->streamsample + it->nsamples;
-            }
-            else {
-                break;
-            }
-        }
-        if (it != iPendingPackets.begin()) {
-            --it;
-            for (auto it2 = iPendingPackets.begin(); it2 != it; ++it2) {
-                RAAT__AudioPacket p = *it2;
-                RAAT__stream_destroy_packet(stream, &p);
-            }
-            iPendingPackets.erase(iPendingPackets.begin(), it);
-        }
+    if (iStreamPos != packet.streamsample) {
+        LOG(kRaat, "RaatOutput::Read() Unexpected packet order. iStreamPos: %lli, packet.streamsample: %lli\n", iStreamPos, packet.streamsample);
+        THROW(RaatReaderStopped);
     }
-    else {
-        if (iPendingPackets.size() == kPendingPacketsMax) {
-            // we've exceeded our capacity for audio backlog - instruct the pipeline to drain then start again
-            LOG(kRaat, "RaatOutput::Read: too many out of order packets, THROW(RaatPacketError)\n");
-            THROW(RaatPacketError);
-        }
-        TBool done = false;
-        auto it = iPendingPackets.begin();
-        for (; it != iPendingPackets.end(); ++it) {
-            if (it->streamsample >= packet.streamsample) {
-                if (it->streamsample > packet.streamsample) {
-                    Log::Print("[%u] RaatOutput::Read: out of order, hold off on block starting %lld\n", Os::TimeInMs(iEnv.OsCtx()), packet.streamsample);
-                    iPendingPackets.insert(it, packet);
-                }
-                done = true;
-                break;
-            }
-        }
-        if (!done) {
-            Log::Print("[%u] RaatOutput::Read: out of order, hold off on block starting %lld\n", Os::TimeInMs(iEnv.OsCtx()), packet.streamsample);
-            iPendingPackets.push_back(packet);
-        }
-    }
+
+    TUint packetBytes = ((TUint)packet.nsamples * iUri.BitDepth() * iUri.NumChannels()) / 8;
+    Brn audio((const TByte*)packet.buf, packetBytes);
+    aWriter.Write(audio);
+    iStreamPos += packet.nsamples;
+    RAAT__stream_destroy_packet(stream, &packet);
 }
 
 void RaatOutput::Interrupt()

@@ -130,8 +130,7 @@ class RaatOutput
     , private IRaatSignalPathObserver
 {
 private:
-    static const TUint kPendingPacketsMax;
-    static const TUint kFreqNs;
+    static const TUint kNanoSecsPerSec = 1000000000;
     static const TUint kDefaultDelayMs = 1000;
     static const TUint64 kDefaultDelayNs = kDefaultDelayMs * 1000 * 1000;
 public:
@@ -214,14 +213,10 @@ private:
     RaatSignalPath iSignalPath;
     int64_t iStreamPos;
     TUint iSampleRate;
-    TUint iPendingDelay;
     TUint64 iLastClockPullTicks;
     TUint iClockPull;
     TBool iStarted;
-    TBool iRunning;
     TBool iClockSyncStarted;
-    TByte iAudioData[Media::AudioData::kMaxBytes];
-    std::vector<RAAT__AudioPacket> iPendingPackets;
 };
 
 class AutoStreamRef // constructed with ref already held, releases ref on destruction
