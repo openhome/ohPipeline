@@ -287,6 +287,10 @@ void RaatUri::SetValUint64(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx
 
 // RaatOutput
 
+const Brn RaatOutput::kKeyDsdEnable("Raat.DsdEnable");
+const TUint RaatOutput::kValDsdDisabled = 0;
+const TUint RaatOutput::kValDsdEnabled = 1;
+
 RaatOutput::RaatOutput(
     IMediaPlayer&               aMediaPlayer,
     ISourceRaat&                aSourceRaat,
@@ -302,6 +306,9 @@ RaatOutput::RaatOutput(
     , iPullableClock(aPullableClock)
     , iLockStream("RAT1")
     , iLockSignalPath("RAT2")
+    , iLockConfig("RAT3")
+    , iConfigDsdEnable(nullptr)
+    , iSubscriberIdDsdEnable(Configuration::IConfigManager::kSubscriptionIdInvalid)
     , iStream(nullptr)
     , iSemStarted("ROUT", 0)
     , iSampleRate(0)
@@ -326,10 +333,28 @@ RaatOutput::RaatOutput(
 
     RAAT__output_message_listeners_init(&iListeners, RC__allocator_malloc());
     aSignalPathObservable.RegisterObserver(*this);
+
+    TUint maxPcm, maxDsd;
+    iPipeline.GetMaxSupportedSampleRates(maxPcm, maxDsd);
+    if (maxDsd != 0) {
+        const int arr[] = { kValDsdDisabled, kValDsdEnabled };
+        std::vector<TUint> opts(arr, arr + sizeof(arr) / sizeof(arr[0]));
+        iConfigDsdEnable = new Configuration::ConfigChoice(
+            aMediaPlayer.ConfigInitialiser(),
+            kKeyDsdEnable,
+            opts,
+            kValDsdEnabled);
+        iSubscriberIdDsdEnable = iConfigDsdEnable->Subscribe(
+            Configuration::MakeFunctorConfigChoice(*this, &RaatOutput::DsdEnableChanged));
+    }
 }
 
 RaatOutput::~RaatOutput()
 {
+    if (iConfigDsdEnable != nullptr) {
+        iConfigDsdEnable->Unsubscribe(iSubscriberIdDsdEnable);
+        delete iConfigDsdEnable;
+    }
     RAAT__output_message_listeners_destroy(&iListeners);
 }
 
@@ -382,11 +407,14 @@ void RaatOutput::GetSupportedFormats(RC__Allocator* aAlloc, size_t* aNumFormats,
         num += NumElems(kHigherRatesPcm);
     }
     num *= 2; // we'll report support for 16 + 24 bit at each sample rate
-    if (maxDsd > 0) {
+    iLockConfig.Wait();
+    const TBool dsdSupported = maxDsd > 0 && iDsdEnabled;
+    iLockConfig.Signal();
+    if (dsdSupported) {
         num += NumElems(kStandardRatesDsd);
-    }
-    if (maxDsd > kStandardRatesDsd[NumElems(kStandardRatesDsd) - 1]) {
-        num += NumElems(kHigherRatesDsd);
+        if (maxDsd > kStandardRatesDsd[NumElems(kStandardRatesDsd) - 1]) {
+            num += NumElems(kHigherRatesDsd);
+        }
     }
     RAAT__StreamFormat* formats = (RAAT__StreamFormat*)aAlloc->alloc(num * sizeof *formats);
     ASSERT(formats != nullptr);
@@ -405,7 +433,7 @@ void RaatOutput::GetSupportedFormats(RC__Allocator* aAlloc, size_t* aNumFormats,
         AddFormatPcm(&formats[i], kHigherRatesPcm[j], 16);
         AddFormatPcm(&formats[i + 1], kHigherRatesPcm[j], 24);
     }
-    if (maxDsd > 0) {
+    if (dsdSupported) {
         count += NumElems(kStandardRatesDsd);
         for (j = 0; i < count; i++, j++) {
             AddFormatDsd(&formats[i], kStandardRatesDsd[j]);
@@ -612,6 +640,12 @@ void RaatOutput::ChangeStream(RAAT__Stream* aStream)
     if (iStream != nullptr) {
         RAAT__stream_incref(iStream);
     }
+}
+
+void RaatOutput::DsdEnableChanged(Configuration::KeyValuePair<TUint>& aKvp)
+{
+    AutoMutex _(iLockConfig);
+    iDsdEnabled = aKvp.Value() == kValDsdEnabled;
 }
 
 void RaatOutput::NotifyReady()
