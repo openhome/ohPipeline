@@ -3,7 +3,7 @@
         "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.35.5043",
+        "version": "1.36.5151",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
@@ -18,7 +18,7 @@
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.136",
+        "version": "0.2.139",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -34,7 +34,7 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.87.1190",
+        "version": "0.87.1273",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {

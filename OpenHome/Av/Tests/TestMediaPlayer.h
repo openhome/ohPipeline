@@ -105,8 +105,15 @@ public: // from IRebootHandler
     void Reboot(const Brx& aReason) override;
 };
 
-class DummyRaatSignalPath : public IRaatSignalPathObservable
+class DummyRaatSignalPath
+    : public IRaatSignalPath
+    , public IRaatSignalPathObservable
 {
+public:
+    TBool Exakt() const override { return false; }
+    TBool SpaceOptimisation() const override { return false; }
+    TBool Amplifier() const override { return false; }
+    EOutput Output() const override { return IRaatSignalPath::EOutput::eDefault; }
 private: // from IRaatSignalPathObservable
     void RegisterObserver(IRaatSignalPathObserver& aObserver) override;
 };

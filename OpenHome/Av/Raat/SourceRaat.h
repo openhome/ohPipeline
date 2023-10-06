@@ -57,14 +57,27 @@ class ISourceRaat
 {
 public:
     virtual ~ISourceRaat() {}
-    virtual void Play(const Brx& aUri) = 0;
+    virtual void NotifyPlay(const Brx& aUri) = 0;
+    virtual void NotifyStop() = 0;
+};
+
+class ISourceRaatStandbyControl
+{
+public:
+    virtual void StandbyChanged(TBool aStandbyChanged) = 0;
+    virtual ~ISourceRaatStandbyControl() {}
 };
 
 class IMediaPlayer;
 class RaatApp;
+class ProtocolRaat;
 class IRaatSignalPathObservable;
 
-class SourceRaat : public Source, public ISourceRaat, private IProductObserver
+class SourceRaat
+    : public Source
+    , public ISourceRaat
+    , public ISourceRaatStandbyControl
+    , private IProductObserver
 {
 public:
     SourceRaat(
@@ -82,7 +95,10 @@ private: // from ISource
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
 private: // from ISourceRaat
-    void Play(const Brx& aUri) override;
+    void NotifyPlay(const Brx& aUri) override;
+    void NotifyStop() override;
+private: // from ISourceRaatStandbyControl
+    void StandbyChanged(TBool aStandbyEnabled) override;
 private: // from IProductObserver
     void Started() override;
     void SourceIndexChanged() override;
@@ -95,7 +111,6 @@ private:
     void Next();
     void Prev();
 private:
-    Mutex iLock;
     IMediaPlayer& iMediaPlayer;
     Media::IAudioTime& iAudioTime;
     Media::IPullableClock& iPullableClock;

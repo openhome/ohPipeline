@@ -129,7 +129,7 @@ def configure(conf):
     fixed_point_model = 'FPM_INTEL'
     if conf.options.with_default_fpm:
         fixed_point_model = 'FPM_DEFAULT'
-    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
+    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-arm64', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
@@ -243,6 +243,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Attenuator.cpp',
                 'OpenHome/Media/Pipeline/Ramper.cpp',
                 'OpenHome/Media/Pipeline/Reporter.cpp',
+                'OpenHome/Media/Pipeline/AsyncTrackReporter.cpp',
                 'OpenHome/Media/Pipeline/AirplayReporter.cpp',
                 'OpenHome/Media/Pipeline/SpotifyReporter.cpp',
                 'OpenHome/Media/Pipeline/RampValidator.cpp',
@@ -487,7 +488,9 @@ def build(bld):
     if 'RAAT_ENABLE' in bld.env.DEFINES:
         bld.stlib(
                 source=[
+                    'OpenHome/Av/Raat/Artwork.cpp',
                     'OpenHome/Av/Raat/App.cpp',
+                    'OpenHome/Av/Raat/Metadata.cpp',
                     'OpenHome/Av/Raat/Output.cpp',
                     'OpenHome/Av/Raat/Volume.cpp',
                     'OpenHome/Av/Raat/SourceSelection.cpp',

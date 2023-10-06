@@ -147,22 +147,38 @@ SourceRaat::SourceRaat(
     Optional<Configuration::ConfigChoice> aProtocolSelector,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion)
+
     : Source(
         SourceFactory::kSourceNameRaat,
         SourceFactory::kSourceTypeRaat,
         aMediaPlayer.Pipeline(),
         false /* not visible by default */)
-    , iLock("SRat")
     , iMediaPlayer(aMediaPlayer)
     , iAudioTime(aAudioTime)
     , iPullableClock(aPullableClock)
     , iSignalPathObservable(aSignalPathObservable)
     , iProtocolSelector(aProtocolSelector.Ptr())
-    , iApp(nullptr)
     , iTrack(nullptr)
     , iSerialNumber(aSerialNumber)
     , iSoftwareVersion(aSoftwareVersion)
 {
+    iApp = new RaatApp(
+        iMediaPlayer.Env(),
+        iMediaPlayer,
+        *this,
+        *this,
+        iAudioTime,
+        iPullableClock,
+        *iSignalPathObservable,
+        iSerialNumber,
+        iSoftwareVersion);
+
+    iMediaPlayer.Add(
+        new ProtocolRaat(
+            iMediaPlayer.Env(),
+            iApp->Reader(),
+            iMediaPlayer.TrackFactory()));
+
     iUriProvider = new UriProviderRaat(SourceFactory::kSourceTypeRaat, aMediaPlayer.TrackFactory());
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceRaat::Play));
     iUriProvider->SetTransportPause(MakeFunctor(*this, &SourceRaat::Pause));
@@ -216,10 +232,9 @@ void SourceRaat::StandbyEnabled()
 {
 }
 
-void SourceRaat::Play(const Brx& aUri)
+void SourceRaat::NotifyPlay(const Brx& aUri)
 {
     EnsureActiveNoPrefetch();
-    AutoMutex _(iLock);
     if (iTrack != nullptr) {
         iTrack->RemoveRef();
     }
@@ -229,22 +244,23 @@ void SourceRaat::Play(const Brx& aUri)
     iPipeline.Play();
 }
 
+void SourceRaat::NotifyStop()
+{
+    if (iActive) {
+        iPipeline.Pause();
+    }
+}
+
+void SourceRaat::StandbyChanged(TBool aStandbyEnabled)
+{
+    if (aStandbyEnabled) {
+        Stop();
+    }
+}
+
 void SourceRaat::Started()
 {
-    iApp = new RaatApp(
-        iMediaPlayer.Env(),
-        iMediaPlayer,
-        *this,
-        iAudioTime,
-        iPullableClock,
-        *iSignalPathObservable,
-        iSerialNumber,
-        iSoftwareVersion);
-    auto protocol = new ProtocolRaat(
-        iMediaPlayer.Env(),
-        iApp->Reader(),
-        iMediaPlayer.TrackFactory());
-    iMediaPlayer.Add(protocol);
+    iApp->Start();
 }
 
 void SourceRaat::SourceIndexChanged()

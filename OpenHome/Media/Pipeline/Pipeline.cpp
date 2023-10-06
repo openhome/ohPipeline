@@ -22,6 +22,7 @@
 #include <OpenHome/Media/Pipeline/Skipper.h>
 #include <OpenHome/Media/Pipeline/Stopper.h>
 #include <OpenHome/Media/Pipeline/Reporter.h>
+#include <OpenHome/Media/Pipeline/AsyncTrackReporter.h>
 #include <OpenHome/Media/Pipeline/AirplayReporter.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Pipeline/Router.h>
@@ -470,6 +471,10 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorStopper, new DecodedAudioValidator(*upstream, "Stopper"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    ATTACH_ELEMENT(iAsyncTrackReporter, new Media::AsyncTrackReporter(*upstream, *iMsgFactory, aTrackFactory),
+                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
+    ATTACH_ELEMENT(iLoggerTrackReporter, new Logger(*iAsyncTrackReporter, "AsyncTrackReporter"),
+                   upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iAirplayReporter, new Media::AirplayReporter(*upstream, *iMsgFactory, aTrackFactory),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iSpotifyReporter, new Media::SpotifyReporter(*upstream, *iMsgFactory, aTrackFactory),
@@ -677,8 +682,10 @@ Pipeline::~Pipeline()
     delete iDecodedAudioValidatorRouter;
     delete iLoggerRouter;
     delete iRouter;
+    delete iLoggerTrackReporter;
     delete iLoggerReporter;
     delete iReporter;
+    delete iAsyncTrackReporter;
     delete iAirplayReporter;
     delete iLoggerSpotifyReporter;
     delete iSpotifyReporter;
@@ -891,6 +898,11 @@ void Pipeline::Seek(TUint aStreamId, TUint aSecondsAbsolute)
 void Pipeline::AddObserver(ITrackObserver& aObserver)
 {
     iTrackInspector->AddObserver(aObserver);
+}
+
+IAsyncTrackReporter& Pipeline::AsyncTrackReporter() const
+{
+    return *iAsyncTrackReporter;
 }
 
 IAirplayReporter& Pipeline::AirplayReporter() const

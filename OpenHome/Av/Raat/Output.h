@@ -5,6 +5,8 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/Raat/Plugin.h>
 #include <OpenHome/Av/Raat/SignalPath.h>
 #include <OpenHome/Av/Raat/Transport.h>
 
@@ -28,14 +30,13 @@ namespace Media {
     class IPullableClock;
 }
 namespace Av {
+    class IMediaPlayer;
 
 class IRaatWriter
 {
 public:
     virtual ~IRaatWriter() {}
-    virtual void WriteMetadata(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) = 0;
-    virtual void WriteDelay(TUint aJiffies) = 0;
-    virtual void WriteData(const Brx& aData) = 0;
+    virtual void Write(const Brx& aData) = 0;
 };
 
 class IRaatReader
@@ -47,6 +48,28 @@ public:
     virtual void Interrupt() = 0;
 };
 
+class RaatSignalPath : public IRaatSignalPath
+{
+public:
+    void Set(const IRaatSignalPath& aSignalPath)
+    {
+        iExakt = aSignalPath.Exakt();
+        iSpaceOptimisation = aSignalPath.SpaceOptimisation();
+        iAmplifier = aSignalPath.Amplifier();
+        iOutput = aSignalPath.Output();
+    }
+
+public: // from IRaatSignalPath
+    TBool Exakt() const override { return iExakt; }
+    TBool SpaceOptimisation() const override { return iSpaceOptimisation; }
+    TBool Amplifier() const override { return iAmplifier; }
+    IRaatSignalPath::EOutput Output() const override { return iOutput; }
+private:
+    TBool iExakt;
+    TBool iSpaceOptimisation;
+    TBool iAmplifier;
+    IRaatSignalPath::EOutput iOutput;
+};
 
 class RaatUri
 {
@@ -101,22 +124,28 @@ typedef struct {
 
 class IRaatTime;
 
-class RaatOutput :
-    public IRaatReader,
-    public IRaatMetadataObserver,
-    private IRaatSignalPathObserver
+class RaatOutput
+    : public RaatPluginAsync 
+    , public IRaatReader
+    , private IRaatSignalPathObserver
 {
+private:
     static const TUint kPendingPacketsMax;
     static const TUint kFreqNs;
+    static const TUint kDefaultDelayMs = 1000;
+    static const TUint64 kDefaultDelayNs = kDefaultDelayMs * 1000 * 1000;
+    static const Brn kKeyDsdEnable;
+    static const TUint kValDsdDisabled;
+    static const TUint kValDsdEnabled;
 public:
     RaatOutput(
-        Environment& aEnv,
-        Media::PipelineManager& aPipeline,
-        ISourceRaat& aSourceRaat,
-        Media::IAudioTime& aAudioTime,
-        Media::IPullableClock& aPullableClock,
-        IRaatSignalPathObservable& aSignalPathObservable);
+        IMediaPlayer&               aMediaPlayer,
+        ISourceRaat&                aSourceRaat,
+        Media::IAudioTime&          aAudioTime,
+        Media::IPullableClock&      aPullableClock,
+        IRaatSignalPathObservable&  aSignalPathObservable);
     ~RaatOutput();
+public:
     RAAT__OutputPlugin* Plugin();
     void GetInfo(json_t** aInfo);
     void GetSupportedFormats(RC__Allocator* aAlloc, size_t* aNumFormats, RAAT__StreamFormat** aFormats);
@@ -139,16 +168,17 @@ private:
     TUint64 ConvertTime(TUint64 aTicksFrom, TUint aFreqFrom, TUint aFreqTo);
     RAAT__Stream* StreamRef();
     void ChangeStream(RAAT__Stream* aStream);
+    void DsdEnableChanged(Configuration::KeyValuePair<TUint>& aKvp);
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);
     static void AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate);
 private: // from IRaatReader
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
-private: // from IRaatMetadataObserver
-    void MetadataChanged(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds) override;
+private: // from RaatPluginAsync
+    void ReportState() override;
 private: // from IRaatSignalPathObserver
-    void SignalPathChanged(TBool aExakt, TBool aAmplifier, TBool aSpeaker) override;
+    void SignalPathChanged(const IRaatSignalPath& aSignalPath) override;
 private:
     class SetupCb
     {
@@ -179,29 +209,27 @@ private:
     Media::IAudioTime& iAudioTime;
     Media::IPullableClock& iPullableClock;
     Mutex iLockStream;
+    Mutex iLockSignalPath;
+    Mutex iLockConfig;
+    Configuration::ConfigChoice* iConfigDsdEnable;
+    TUint iSubscriberIdDsdEnable;
     RAAT__Stream* iStream;
     Semaphore iSemStarted;
     SetupCb iSetupCb;
     int iToken;
     RaatUri iUri;
+    RaatSignalPath iSignalPath;
     int64_t iStreamPos;
     TUint iSampleRate;
-    TUint iSamplesPerRead;
     TUint iPendingDelay;
-    int64_t iPipelineDelayNs;
     TUint64 iLastClockPullTicks;
     TUint iClockPull;
     TBool iStarted;
     TBool iRunning;
     TBool iClockSyncStarted;
+    TBool iDsdEnabled;
     TByte iAudioData[Media::AudioData::kMaxBytes];
     std::vector<RAAT__AudioPacket> iPendingPackets;
-    json_t* iSignalPath;
-    Mutex iLockMetadata;
-    Bws<Media::kTrackMetaDataMaxBytes> iMetadataTitle;
-    Bws<Media::kTrackMetaDataMaxBytes> iMetadataSubtitle;
-    TUint iPosSeconds;
-    TUint iDurationSeconds;
 };
 
 class AutoStreamRef // constructed with ref already held, releases ref on destruction

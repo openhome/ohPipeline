@@ -70,7 +70,12 @@ Msg* StarterTimed::Pull()
     do {
         if (iJiffiesRemaining != 0) {
             TUint jiffies = std::min(iJiffiesRemaining, kMaxSilenceJiffies);
-            msg = iMsgFactory.CreateMsgSilence(jiffies, iSampleRate, iBitDepth, iNumChannels);
+            if (iFormat == AudioFormat::Pcm) {
+                msg = iMsgFactory.CreateMsgSilence(jiffies, iSampleRate, iBitDepth, iNumChannels);
+            }
+            else {
+                msg = iMsgFactory.CreateMsgSilenceDsd(jiffies, iSampleRate, iNumChannels, 6); // DSD sample block words
+            }
             if (iJiffiesRemaining < kMaxSilenceJiffies) {
                 iJiffiesRemaining = 0; // CreateMsgSilence rounds to nearest sample so jiffies>iJiffiesRemaining is possible in the final call
             }
@@ -102,6 +107,7 @@ Msg* StarterTimed::ProcessMsg(MsgDecodedStream* aMsg)
     iSampleRate = info.SampleRate();
     iBitDepth = info.BitDepth();
     iNumChannels = info.NumChannels();
+    iFormat = info.Format();
     iStartingStream = true;
     return aMsg;
 }
@@ -135,6 +141,13 @@ Msg* StarterTimed::ProcessMsg(MsgSilence* aMsg)
                 iJiffiesRemaining = seconds * Jiffies::kPerSecond;
                 delayTicks -= seconds * freq;
                 iJiffiesRemaining += (TUint)((delayTicks * Jiffies::kPerSecond) / freq);
+
+                if (iJiffiesRemaining <= iPipelineDelayJiffies) {
+                    LOG(kMedia, "StarterTimed: pipeline delay (%ums) exceeds requested start time (%ums)\n", Jiffies::ToMs(iPipelineDelayJiffies), Jiffies::ToMs(iJiffiesRemaining));
+                    iJiffiesRemaining = 0;
+                    return aMsg;
+                }
+
                 iJiffiesRemaining -= iPipelineDelayJiffies; // iPipelineDelayJiffies will already be applied by other pipeline elements
                 LOG(kMedia, "StarterTimed: delay jiffies=%u (%ums)\n", iJiffiesRemaining, Jiffies::ToMs(iJiffiesRemaining));
                 iPending = aMsg;
