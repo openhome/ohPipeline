@@ -1,6 +1,7 @@
 #include <OpenHome/Media/Codec/CodecController.h>
 #include <OpenHome/Media/Codec/CodecFactory.h>
 #include <OpenHome/Media/Codec/Container.h>
+#include <OpenHome/Media/Codec/DsdFiller.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Printer.h>
@@ -11,13 +12,12 @@ namespace OpenHome {
 namespace Media {
 namespace Codec {
 
-class CodecDsdRaw : public CodecBase
+class CodecDsdRaw
+    : public CodecBase
+    , private DsdFiller
 {
 private:
     static const TUint kInputBufferSizeMax = 4096;
-    static const TUint kOutputBufferSizeMax = AudioData::kMaxBytes;
-    static const TUint kPendingBufferSizeMax = 16; // FIXME - not determined programmatically - assumes input block size of 16 bytes
-    static const TUint kSilenceByteDsd = 0x69;
 public:
     CodecDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes);
 private: // from CodecBase
@@ -25,13 +25,14 @@ private: // from CodecBase
     void StreamInitialise() override;
     void Process() override;
     TBool TrySeek(TUint aStreamId, TUint64 aSample) override;
+private: // from DsdFiller
+    void WriteChunkDsd(const TByte*& aSrc, TByte*& aDest) override;
+    void OutputDsd(const Brx& aData) override;
 private:
     const TUint iSampleBlockWords;
     const TUint iPaddingBytes;
 
     Bws<kInputBufferSizeMax> iInputBuffer;
-    Bws<kOutputBufferSizeMax> iOutputBuffer;
-    Bws<kPendingBufferSizeMax> iPending;
 
     TUint iSampleRate;
     TUint iNumChannels;
@@ -58,6 +59,10 @@ CodecBase* CodecFactory::NewDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes)
 
 CodecDsdRaw::CodecDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes)
     : CodecBase("DSD", kCostVeryLow)
+    , DsdFiller(
+        (aSampleBlockWords * 4) - (aPaddingBytes * 4),  // BlockBytesInput
+        (aSampleBlockWords * 4),                        // BlockBytesOutput
+        4)                                              // ChunksPerBlock
     , iSampleBlockWords(aSampleBlockWords)
     , iPaddingBytes(aPaddingBytes)
 {
@@ -98,75 +103,13 @@ void CodecDsdRaw::StreamInitialise()
 
 void CodecDsdRaw::Process()
 {
-    const TUint kSampleBlockBytes = iSampleBlockWords * 4; // output block size (expected to be 24 bytes for now)
-    const TUint kSampleBlockBytesInput = kSampleBlockBytes - (iPaddingBytes * 4); // input block size (expected to be 16 bytes for now)
-    const TUint kSampleBlockWordsInput = kSampleBlockBytesInput / 4;
-
-    iInputBuffer.SetBytes(0);
-    iInputBuffer.Replace(iPending);
     try {
+        iInputBuffer.SetBytes(0);
         iController->ReadNextMsg(iInputBuffer);
-        const TByte* src = iInputBuffer.Ptr();
-        TUint inputBlocks = iInputBuffer.Bytes() / kSampleBlockBytesInput;
-        TUint inputBytes = inputBlocks * kSampleBlockBytesInput;
-
-        while (inputBlocks > 0) {
-            TByte* dst = const_cast<TByte*>(iOutputBuffer.Ptr() + iOutputBuffer.Bytes());
-            TUint outputBlocks = iOutputBuffer.BytesRemaining() / kSampleBlockBytes;
-            const TUint blocks = std::min(inputBlocks, outputBlocks);
-            const TUint bytes = blocks * kSampleBlockBytes;
-
-            for (TUint i = 0; i < blocks; i++) {
-                for (TUint j = 0; j < kSampleBlockWordsInput; j++) {
-                    *dst++ = 0x00;
-                    *dst++ = src[0];
-                    *dst++ = src[1];
-                    *dst++ = 0x00;
-                    *dst++ = src[2];
-                    *dst++ = src[3];
-                    src += 4;
-                }
-            }
-            iOutputBuffer.SetBytes(iOutputBuffer.Bytes() + bytes);
-            inputBlocks -= blocks;
-            outputBlocks -= blocks;
-
-            if (outputBlocks == 0) {
-                iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iNumChannels, iSampleRate, iSampleBlockWords, iTrackOffsetJiffies, iPaddingBytes);
-                iOutputBuffer.SetBytes(0);
-            }
-        }
-        iPending.Replace(iInputBuffer.Ptr() + inputBytes, iInputBuffer.Bytes() - inputBytes);
+        DsdFiller::Push(iInputBuffer);
     }
     catch (CodecStreamEnded&) {
-        if (iPending.Bytes() == 0) {
-            throw; // caught by CodecController
-        }
-
-        // Fill the remaining space in iPending with DSD silence to create a full sample block
-        const TUint remaining = kSampleBlockBytesInput - iPending.Bytes();
-        for (TUint i = iPending.Bytes(); i < iPending.Bytes() + remaining; i++) {
-            iPending[i] = kSilenceByteDsd;
-        }
-
-        // Write the full sample block to output with padding
-        // Guaranteed to have enough space in output buffer to accept this final sample block
-        const TByte* src = iPending.Ptr();
-        TByte* dst = const_cast<TByte*>(iOutputBuffer.Ptr() + iOutputBuffer.Bytes());
-
-        for (TUint i = 0; i < kSampleBlockWordsInput; i++) {
-            *dst++ = 0x00;
-            *dst++ = src[0];
-            *dst++ = src[1];
-            *dst++ = 0x00;
-            *dst++ = src[2];
-            *dst++ = src[3];
-            src += 4;
-        }
-        iOutputBuffer.SetBytes(iOutputBuffer.Bytes() + kSampleBlockBytes);
-        iTrackOffsetJiffies += iController->OutputAudioDsd(iOutputBuffer, iNumChannels, iSampleRate, iSampleBlockWords, iTrackOffsetJiffies, iPaddingBytes);
-        iOutputBuffer.SetBytes(0);
-        iPending.SetBytes(0);
+        DsdFiller::Flush();
         throw; // caught by CodecController
     }
 }
@@ -174,4 +117,22 @@ void CodecDsdRaw::Process()
 TBool CodecDsdRaw::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
 {
     return false;
+}
+
+void CodecDsdRaw::WriteChunkDsd(const TByte*& aSrc, TByte*& aDest)
+{
+    // CodecDsdRaw only pads and passes the data
+    *aDest++ = 0x00;
+    *aDest++ = aSrc[0];
+    *aDest++ = aSrc[1];
+    *aDest++ = 0x00;
+    *aDest++ = aSrc[2];
+    *aDest++ = aSrc[3];
+    aSrc += 4;
+}
+
+void CodecDsdRaw::OutputDsd(const Brx& aData)
+{
+    // Called by DsdFiller once its output buffer is full
+    iTrackOffsetJiffies += iController->OutputAudioDsd(aData, iNumChannels, iSampleRate, iSampleBlockWords, iTrackOffsetJiffies, iPaddingBytes);
 }

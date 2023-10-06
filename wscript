@@ -274,6 +274,7 @@ def build(bld):
                 'OpenHome/Media/Codec/Id3v2.cpp',
                 'OpenHome/Media/Codec/MpegTs.cpp',
                 'OpenHome/Media/Codec/CodecController.cpp',
+                'OpenHome/Media/Codec/DsdFiller.cpp',
                 'OpenHome/Media/Protocol/Protocol.cpp',
                 'OpenHome/Media/Protocol/ProtocolHls.cpp',
                 'OpenHome/Media/Protocol/ProtocolHttp.cpp',
@@ -539,7 +540,7 @@ def build(bld):
     # DSDDFF
     bld.stlib(
             source=['OpenHome/Media/Codec/DsdRaw.cpp'],
-            use=['OHNET'],
+            use=['OHNET', 'ohPipeline'],
             target='CodecDsdRaw')
 
     # AiffBase
