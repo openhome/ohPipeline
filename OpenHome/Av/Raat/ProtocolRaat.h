@@ -45,6 +45,7 @@ private: // from IRaatWriter
     void Write(const Brx& aData) override;
 private:
     void OutputStream(TUint64 aSampleStart);
+    void OutputDrain();
 private:
     Mutex iLock;
     IRaatReader& iRaatReader;

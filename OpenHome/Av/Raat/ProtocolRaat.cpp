@@ -65,12 +65,9 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
         iStopped = false;
     }
     OutputStream(iRaatUri.SampleStart());
-
-    Semaphore sem("PRat", 0);
-    iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal));
-    sem.Wait();
+    OutputDrain();
     iRaatReader.NotifyReady();
-    
+
     // do stuff - read from RAAT forever (until source change)
     try {
         for (; !iStopped; ) {
@@ -182,5 +179,18 @@ void ProtocolRaat::OutputStream(TUint64 aSampleStart)
             *this,
             iStreamId,
             streamInfo);
+    }
+}
+
+void ProtocolRaat::OutputDrain()
+{
+    LOG(kRaat, "ProtocolRaat::OutputDrain()\n");
+    Semaphore sem("DRAT", 0);
+    iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal));
+    try {
+        sem.Wait(ISupply::kMaxDrainMs);
+    }
+    catch (Timeout&) {
+        LOG(kPipeline, "WARNING: ProtocolRaat: timeout draining pipeline\n");
     }
 }
