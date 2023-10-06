@@ -57,11 +57,6 @@ void SupplyAggregator::OutputDelay(TUint aJiffies)
     Output(msg);
 }
 
-void SupplyAggregator::OutputDsdStream(const Brx& /*aUri*/, TUint64 /*aTotalBytes*/, TBool /*aSeekable*/, IStreamHandler& /*aStreamHandler*/, TUint /*aStreamId*/, const DsdStreamInfo& /*aDsdStream*/)
-{
-    ASSERTS(); // no known clients, so no need to support yet
-}
-
 void SupplyAggregator::OutputSegment(const Brx& aId)
 {
     auto* msg = iMsgFactory.CreateMsgStreamSegment(aId);
@@ -142,6 +137,13 @@ void SupplyAggregatorBytes::OutputPcmStream(const Brx& aUri, TUint64 aTotalBytes
     Output(msg);
 }
 
+void SupplyAggregatorBytes::OutputDsdStream(const Brx& aUri, TUint64 aTotalBytes, TBool aSeekable, IStreamHandler& aStreamHandler, TUint aStreamId, const DsdStreamInfo& aDsdStream)
+{
+    // FIXME - no metatext available
+    MsgEncodedStream* msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes, 0, aStreamId, aSeekable, &aStreamHandler, aDsdStream);
+    Output(msg);
+}
+
 void SupplyAggregatorBytes::OutputData(const Brx& aData)
 {
     if (aData.Bytes() == 0) {
@@ -192,6 +194,11 @@ void SupplyAggregatorJiffies::OutputPcmStream(const Brx& aUri, TUint64 aTotalByt
     iDataMaxBytes = Jiffies::ToBytes(ignore, jiffiesPerSample, aPcmStream.NumChannels(), aPcmStream.BitDepth());
     MsgEncodedStream* msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes, 0, aStreamId, aSeekable, aLive, aMultiroom, &aStreamHandler, aPcmStream, aRamp);
     Output(msg);
+}
+
+void SupplyAggregatorJiffies::OutputDsdStream(const Brx& /*aUri*/, TUint64 /*aTotalBytes*/, TBool /*aSeekable*/, IStreamHandler& /*aStreamHandler*/, TUint /*aStreamId*/, const DsdStreamInfo& /*aDsdStream*/)
+{
+    ASSERTS(); // no known clients, so no need to support yet
 }
 
 void SupplyAggregatorJiffies::OutputData(const Brx& aData)
