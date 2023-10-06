@@ -231,6 +231,7 @@ public:
     const TestFramework::OptionString& StoreFile() const;
     const TestFramework::OptionUint& OptionOdp() const;
     const TestFramework::OptionUint& OptionWebUi() const;
+    const TestFramework::OptionUint& Shell() const;
 private:
     TestFramework::OptionParser iParser;
     TestFramework::OptionString iOptionRoom;
@@ -247,13 +248,17 @@ private:
     TestFramework::OptionString iOptionStoreFile;
     TestFramework::OptionUint iOptionOdp;
     TestFramework::OptionUint iOptionWebUi;
+    TestFramework::OptionUint iOptionShell;
 };
 
 // Not very nice, but only to allow reusable test functions.
 class TestMediaPlayerInit
 {
 public:
-    static OpenHome::Net::Library* CreateLibrary(const TChar* aRoom, TBool aLoopback, TUint aAdapter);  // creates lib; client must start appropriate stacks
+    /*
+     * Pass 0 for aShellPort to disable shell.
+     */
+    static OpenHome::Net::Library* CreateLibrary(const TChar* aRoom, TBool aLoopback, TUint aAdapter, TUint aShellPort);  // creates lib; client must start appropriate stacks
     static void SeedRandomNumberGenerator(Environment& aEnv, const Brx& aRoom, TIpAddress aAddress, Net::DviServerUpnp& aServer);    // seed from room + server port
     static void AppendUniqueId(Environment& aEnv, const Brx& aUserUdn, const Brx& aDefaultUdn, Bwh& aOutput);
 };
