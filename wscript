@@ -500,7 +500,7 @@ def build(bld):
                     'OpenHome/Av/Raat/ProtocolRaat.cpp',
                     'OpenHome/Av/Raat/SourceRaat.cpp'
                 ],
-                use=['OHNET', 'ohMediaPlayer', 'RAAT'],
+                use=['OHNET', 'ohMediaPlayer', 'ohPipeline', 'RAAT'],
                 target='SourceRaat')
 
     # Podcast
