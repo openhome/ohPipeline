@@ -156,8 +156,8 @@ public:
     RC__Status StartStream(int aToken, int64_t aWallTime, int64_t aStreamTime, RAAT__Stream* aStream);
     RC__Status GetLocalTime(int aToken, int64_t* aTime);
     RC__Status SetRemoteTime(int aToken, int64_t aClockOffset, bool aNewSource);
-    RC__Status TryStop(int aToken);
-    RC__Status Stop();
+    RC__Status StopStream(int aToken);
+    RC__Status ForceTeardownStream();
     RC__Status AddListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata);
     void RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata);
     void GetDelay(int aToken, int64_t* aDelayNs);
@@ -170,6 +170,7 @@ private:
     void DsdEnableChanged(Configuration::KeyValuePair<TUint>& aKvp);
     static void AddFormatPcm(RAAT__StreamFormat* aFormat, TUint aSampleRate, TUint aBitDepth);
     static void AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate);
+    void Stop();
 private: // from IRaatReader
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;

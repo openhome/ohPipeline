@@ -79,13 +79,13 @@ RC__Status Raat_Output_Set_Remote_Time(void *self, int token, int64_t clock_offs
 
 RC__Status Raat_Output_Stop(void *self, int token)
 {
-    auto ret = Output(self)->TryStop(token);
+    auto ret = Output(self)->StopStream(token);
     return ret;
 }
 
 RC__Status Raat_Output_Force_Teardown(void *self, json_t* /*reason*/)
 {
-    auto ret = Output(self)->Stop();
+    auto ret = Output(self)->ForceTeardownStream();
     return ret;
 }
 
@@ -478,7 +478,8 @@ RC__Status RaatOutput::TeardownStream(int aToken)
     if (aToken != iToken) {
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
-    return Stop();
+    Stop();
+    return RC__STATUS_SUCCESS;
 }
 
 RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStreamTime, RAAT__Stream* aStream)
@@ -517,7 +518,6 @@ RC__Status RaatOutput::GetLocalTime(int aToken, int64_t* aTime)
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
     *aTime = MclkToNs();
-    LOG(kRaat, "RaatOutput::GetLocalTime(%d) time=%lld\n", aToken, *aTime);
     return RC__STATUS_SUCCESS;
 }
 
@@ -586,20 +586,20 @@ RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNew
     return RC__STATUS_SUCCESS;
 }
 
-RC__Status RaatOutput::TryStop(int aToken)
+RC__Status RaatOutput::StopStream(int aToken)
 {
-    LOG(kRaat, "RaatOutput::TryStop(%d) iToken=%d\n", aToken, iToken);
+    LOG(kRaat, "RaatOutput::StopStream(%d) iToken=%d\n", aToken, iToken);
     if (aToken != iToken) {
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
-    return Stop();
+    Stop();
+    return RC__STATUS_SUCCESS;
 }
 
-RC__Status RaatOutput::Stop()
+RC__Status RaatOutput::ForceTeardownStream()
 {
-    iSourceRaat.NotifyStop();
-    Interrupt();
-    ChangeStream(nullptr);
+    LOG(kRaat, "RaatOutput::ForceTeardownStream()\n");
+    Stop();
     return RC__STATUS_SUCCESS;
 }
 
@@ -648,6 +648,13 @@ void RaatOutput::DsdEnableChanged(Configuration::KeyValuePair<TUint>& aKvp)
     iDsdEnabled = aKvp.Value() == kValDsdEnabled;
 }
 
+void RaatOutput::Stop()
+{
+    iSourceRaat.NotifyStop();
+    Interrupt();
+    ChangeStream(nullptr);
+}
+
 void RaatOutput::NotifyReady()
 {
     iToken = iSetupCb.NotifyReady();
@@ -688,13 +695,15 @@ void RaatOutput::Read(IRaatWriter& aWriter)
 void RaatOutput::Interrupt()
 {
     RAAT__Stream* stream = StreamRef();
-    if (stream != nullptr) {
-        auto ret = RAAT__stream_cancel_consume_packet(stream);
-        if (ret != RC__STATUS_SUCCESS) {
-            LOG(kRaat, "RaatOutput::Interrupt() Warning: RAAT__stream_cancel_consume_packet failed (%d)\n", ret);
-        }
-        RAAT__stream_decref(stream);
+    if (stream == nullptr) {
+        return;
     }
+
+    auto ret = RAAT__stream_cancel_consume_packet(stream);
+    if (ret != RC__STATUS_SUCCESS) {
+        LOG(kRaat, "RaatOutput::Interrupt() Warning: RAAT__stream_cancel_consume_packet failed (%d)\n", ret);
+    }
+    RAAT__stream_decref(stream);
 }
 
 void RaatOutput::SignalPathChanged(const IRaatSignalPath& aSignalPath)
