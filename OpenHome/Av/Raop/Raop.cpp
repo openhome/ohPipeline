@@ -1139,76 +1139,76 @@ void RaopDiscovery::HandleInterfaceChange()
     // -- remove all subnets that no longer exist
     // -- add new subnets
 
-    iServersLock.Wait();
-    if (current != nullptr) {
-        // Single interface selected. Register only on this interface.
+    {
+        AutoMutex amx(iServersLock);
+        if (current != nullptr) {
+            // Single interface selected. Register only on this interface.
 
-        // First, remove any other interfaces.
-        TUint i = 0;
-        while (i<iServers.size()) {
-            const NetworkAdapter& adapter = iServers[i]->Adapter();
-            if (!NifsMatch(adapter, *current)) {
-                if ((iCurrent != nullptr) && NifsMatch(adapter, iCurrent->Adapter())) {
-                    // Clear current server if its interface has been removed.
-                    currentRemoved = true;
-                    iCurrent = nullptr;
+            // First, remove any other interfaces.
+            TUint i = 0;
+            while (i<iServers.size()) {
+                const NetworkAdapter& adapter = iServers[i]->Adapter();
+                if (!NifsMatch(adapter, *current)) {
+                    if ((iCurrent != nullptr) && NifsMatch(adapter, iCurrent->Adapter())) {
+                        // Clear current server if its interface has been removed.
+                        currentRemoved = true;
+                        iCurrent = nullptr;
+                    }
+                    iServers[i]->Disable();
+                    delete iServers[i];
+                    iServers.erase(iServers.begin()+i);
                 }
-                iServers[i]->Disable();
-                delete iServers[i];
-                iServers.erase(iServers.begin()+i);
+                else {
+                    i++;
+                }
             }
-            else {
-                i++;
+
+            // If this interface isn't registered, add it.
+            if (iServers.size() == 0) {
+                AddAdapter(*current);
             }
         }
+        else {
+            // No interface selected. Advertise on all interfaces.
 
-        // If this interface isn't registered, add it.
-        if (iServers.size() == 0) {
-            AddAdapter(*current);
+            // First, remove any subnets that have disappeared from the new subnet list.
+            TUint i = 0;
+            while (i<iServers.size()) {
+                const NetworkAdapter& adapter = iServers[i]->Adapter();
+                if (InterfaceIndex(adapter, *subnetList) == -1) {
+                    if ((iCurrent != nullptr) && NifsMatch(adapter, iCurrent->Adapter())) {
+                        // Clear current server if its interface has been removed.
+                        currentRemoved = true;
+                        iCurrent = nullptr;
+                    }
+                    iServers[i]->Disable();
+                    delete iServers[i];
+                    iServers.erase(iServers.begin()+i);
+                }
+                else {
+                    i++;
+                }
+            }
+
+            // Then, add any new interfaces.
+            for (TUint j=0; j<subnetList->size(); j++) {
+                NetworkAdapter* subnet = (*subnetList)[j];
+                if (InterfaceIndex(*subnet) == -1) {
+                    AddAdapter(*subnet);
+                }
+            }
         }
     }
-    else {
-        // No interface selected. Advertise on all interfaces.
-
-        // First, remove any subnets that have disappeared from the new subnet list.
-        TUint i = 0;
-        while (i<iServers.size()) {
-            const NetworkAdapter& adapter = iServers[i]->Adapter();
-            if (InterfaceIndex(adapter, *subnetList) == -1) {
-                if ((iCurrent != nullptr) && NifsMatch(adapter, iCurrent->Adapter())) {
-                    // Clear current server if its interface has been removed.
-                    currentRemoved = true;
-                    iCurrent = nullptr;
-                }
-                iServers[i]->Disable();
-                delete iServers[i];
-                iServers.erase(iServers.begin()+i);
-            }
-            else {
-                i++;
-            }
-        }
-
-        // Then, add any new interfaces.
-        for (TUint j=0; j<subnetList->size(); j++) {
-            NetworkAdapter* subnet = (*subnetList)[j];
-            if (InterfaceIndex(*subnet) == -1) {
-                AddAdapter(*subnet);
-           }
-        }
-    }
-    iServersLock.Signal();
     NetworkAdapterList::DestroySubnetList(subnetList);
 
     if (currentRemoved) {
          // If current active server has been removed, notify observers.
-        iObserversLock.Wait();
+        AutoMutex amx(iObserversLock);
         std::vector<IRaopObserver*>::iterator it = iObservers.begin();
         while (it != iObservers.end()) {
             (*it)->NotifySessionEnd();
             ++it;
         }
-        iObserversLock.Signal();
     }
 }
 
@@ -1242,7 +1242,7 @@ TInt RaopDiscovery::InterfaceIndex(const NetworkAdapter& aNif, const std::vector
 
 TBool RaopDiscovery::NifsMatch(const NetworkAdapter& aNif1, const NetworkAdapter& aNif2)
 {
-    if (TIpAddressUtils::Equals(aNif1.Address(), aNif2.Address()) && 
+    if (TIpAddressUtils::Equals(aNif1.Address(), aNif2.Address()) &&
         TIpAddressUtils::Equals(aNif1.Subnet(), aNif2.Subnet()) &&
         strcmp(aNif1.Name(), aNif2.Name()) == 0) {
         return true;
