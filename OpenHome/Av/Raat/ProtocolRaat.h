@@ -29,6 +29,8 @@ private:
     static const TUint kDsdBlockBytes = 4;
     static const TUint kDsdChunksPerBlock = 1;
 public:
+    static const Brn kUri;
+public:
     ProtocolRaat(Environment& aEnv, IRaatReader& aRaatReader, Media::TrackFactory& aTrackFactory);
     ~ProtocolRaat();
 private: // from Media::Protocol
@@ -44,14 +46,13 @@ private: // from DsdFiller
 private: // from IRaatWriter
     void Write(const Brx& aData) override;
 private:
-    void OutputStream(TUint64 aSampleStart);
+    void OutputStream(const RaatStreamFormat& aStreamFormat);
     void OutputDrain();
 private:
-    Mutex iLock;
     IRaatReader& iRaatReader;
     Media::TrackFactory& iTrackFactory;
     Media::SupplyAggregator* iSupply;
-    RaatUri iRaatUri;
+    Mutex iLock;
     TUint iStreamId;
     TUint iNextFlushId;
     TBool iStopped;

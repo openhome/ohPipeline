@@ -232,13 +232,13 @@ void SourceRaat::StandbyEnabled()
 {
 }
 
-void SourceRaat::NotifyPlay(const Brx& aUri)
+void SourceRaat::NotifyPlay()
 {
     EnsureActiveNoPrefetch();
     if (iTrack != nullptr) {
         iTrack->RemoveRef();
     }
-    iTrack = iUriProvider->SetTrack(aUri, iDefaultMetadata);
+    iTrack = iUriProvider->SetTrack(ProtocolRaat::kUri, iDefaultMetadata);
     iPipeline.RemoveAll();
     iPipeline.Begin(iUriProvider->Mode(), iTrack->Id());
     iPipeline.Play();

@@ -15,13 +15,17 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
+// ProtocolRaat
+
+const Brn ProtocolRaat::kUri("raat://default");
+
 ProtocolRaat::ProtocolRaat(Environment& aEnv, IRaatReader& aRaatReader, Media::TrackFactory& aTrackFactory)
     : Protocol(aEnv)
     , DsdFiller(kDsdBlockBytes, kDsdBlockBytes, kDsdChunksPerBlock)
-    , iLock("PRat")
     , iRaatReader(aRaatReader)
     , iTrackFactory(aTrackFactory)
     , iSupply(nullptr)
+    , iLock("PRat")
 {
 }
 
@@ -48,12 +52,7 @@ void ProtocolRaat::Interrupt(TBool aInterrupt)
 
 Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
 {
-    // validate that we can handle aUri
-    try {
-        iRaatUri.Parse(aUri);
-        iPcmStream = iRaatUri.Format() == Media::AudioFormat::Pcm;
-    }
-    catch (RaatUriError&) {
+    if (aUri != kUri) {
         return EProtocolErrorNotSupported;
     }
 
@@ -64,7 +63,10 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
         iStreamId = iIdProvider->NextStreamId();
         iStopped = false;
     }
-    OutputStream(iRaatUri.SampleStart());
+
+    const RaatStreamFormat& streamFormat = iRaatReader.StreamFormat();
+    iPcmStream = (streamFormat.Format() == AudioFormat::Pcm);
+    OutputStream(streamFormat);
     OutputDrain();
     iRaatReader.NotifyReady();
 
@@ -146,20 +148,20 @@ void ProtocolRaat::Write(const Brx& aData)
     }
 }
 
-void ProtocolRaat::OutputStream(TUint64 aSampleStart)
+void ProtocolRaat::OutputStream(const RaatStreamFormat& aStreamFormat)
 {
     if (iPcmStream) {
         SpeakerProfile sp;
         PcmStreamInfo streamInfo;
         streamInfo.Set(
-            iRaatUri.BitDepth(),
-            iRaatUri.SampleRate(),
-            iRaatUri.NumChannels(),
+            aStreamFormat.BitDepth(),
+            aStreamFormat.SampleRate(),
+            aStreamFormat.NumChannels(),
             AudioDataEndian::Little,
             sp,
-            aSampleStart);
+            0LL); // sample start (passed asynchronously)
         iSupply->OutputPcmStream(
-            iRaatUri.AbsoluteUri(),
+            kUri,
             0LL, // duration
             false, // seekable
             false, // live
@@ -170,10 +172,14 @@ void ProtocolRaat::OutputStream(TUint64 aSampleStart)
     }
     else {
         DsdStreamInfo streamInfo;
-        streamInfo.Set(iRaatUri.SampleRate(), 2, 6, aSampleStart);
+        streamInfo.Set(
+            aStreamFormat.SampleRate(),
+            2,
+            6,
+            0LL); // sample start (passed asynchronously)
         streamInfo.SetCodec(Brn("DSD-RAAT"));
         iSupply->OutputDsdStream(
-            iRaatUri.AbsoluteUri(),
+            kUri,
             0LL, // duration
             false, // seekable
             *this,

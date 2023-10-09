@@ -3,7 +3,6 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Thread.h>
-#include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Av/Raat/Plugin.h>
@@ -18,7 +17,6 @@
 #include <jansson.h>
 #include <raat_stream.h>
 
-EXCEPTION(RaatUriError);
 EXCEPTION(RaatPacketError)
 EXCEPTION(RaatReaderStopped)
 
@@ -39,10 +37,12 @@ public:
     virtual void Write(const Brx& aData) = 0;
 };
 
+class RaatStreamFormat;
 class IRaatReader
 {
 public:
     virtual ~IRaatReader() {}
+    virtual const RaatStreamFormat& StreamFormat() = 0;
     virtual void NotifyReady() = 0;
     virtual void Read(IRaatWriter& aWriter) = 0;
     virtual void Interrupt() = 0;
@@ -71,47 +71,23 @@ private:
     IRaatSignalPath::EOutput iOutput;
 };
 
-class RaatUri
+class RaatStreamFormat
 {
-    static const Brn kKeyFormat;
-    static const Brn kKeySampleRate;
-    static const Brn kKeyBitDepth;
-    static const Brn kKeyNumChannels;
-    static const Brn kKeySampleStart;
 public:
-    static const Brn kScheme;
-    static const Brn kFormatPcm;
-    static const Brn kFormatDsd;
+    RaatStreamFormat();
 public:
-    void Set(
-        Media::AudioFormat aFormat,
-        TUint aSampleRate,
-        TUint aBitDepth,
-        TUint aNumChannels,
-        TUint64 aSampleStart);
-    void SetSampleStart(TUint64 aSampleStart);
-    void GetUri(Bwx& aUri);
+    void Set(RAAT__StreamFormat*& aFormat);
 public:
-    RaatUri();
-    void Parse(const Brx& aUri);
-    const Brx& AbsoluteUri() const;
     Media::AudioFormat Format() const;
     TUint SampleRate() const;
     TUint BitDepth() const;
     TUint NumChannels() const;
-    TUint SampleStart() const;
 private:
-    void Reset();
-    static Brn Val(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey);
-    static void SetValUint(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey, TUint& aVal);
-    static void SetValUint64(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey, TUint64& aVal);
-private:
-    Uri iUri;
     Media::AudioFormat iFormat;
     TUint iSampleRate;
     TUint iBitDepth;
     TUint iNumChannels;
-    TUint64 iSampleStart;
+    mutable Mutex iLock;
 };
 
 class ISourceRaat;
@@ -172,6 +148,7 @@ private:
     static void AddFormatDsd(RAAT__StreamFormat* aFormat, TUint aSampleRate);
     void Stop();
 private: // from IRaatReader
+    const RaatStreamFormat& StreamFormat() override;
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
@@ -217,7 +194,7 @@ private:
     Semaphore iSemStarted;
     SetupCb iSetupCb;
     int iToken;
-    RaatUri iUri;
+    RaatStreamFormat iStreamFormat;
     RaatSignalPath iSignalPath;
     int64_t iStreamPos;
     TUint iSampleRate;

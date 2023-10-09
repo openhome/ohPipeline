@@ -57,7 +57,7 @@ class ISourceRaat
 {
 public:
     virtual ~ISourceRaat() {}
-    virtual void NotifyPlay(const Brx& aUri) = 0;
+    virtual void NotifyPlay() = 0;
     virtual void NotifyStop() = 0;
 };
 
@@ -95,7 +95,7 @@ private: // from ISource
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
 private: // from ISourceRaat
-    void NotifyPlay(const Brx& aUri) override;
+    void NotifyPlay() override;
     void NotifyStop() override;
 private: // from ISourceRaatStandbyControl
     void StandbyChanged(TBool aStandbyEnabled) override;

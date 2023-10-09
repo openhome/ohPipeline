@@ -8,7 +8,6 @@
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Thread.h>
-#include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/ClockPuller.h>
@@ -113,175 +112,48 @@ RC__Status Raat_Output_Get_Output_Delay(void *self, int token, int64_t *out_dela
 using namespace OpenHome;
 using namespace OpenHome::Av;
 
-// RaatUri
+// RaatStreamFormat
 
-const Brn RaatUri::kKeyFormat("fmt");
-const Brn RaatUri::kKeySampleRate("sr");
-const Brn RaatUri::kKeyBitDepth("bd");
-const Brn RaatUri::kKeyNumChannels("ch");
-const Brn RaatUri::kKeySampleStart("ss");
-
-const Brn RaatUri::kScheme("raat");
-const Brn RaatUri::kFormatPcm("pcm");
-const Brn RaatUri::kFormatDsd("dsd");
-
-void RaatUri::Set(
-    Media::AudioFormat aFormat,
-    TUint aSampleRate,
-    TUint aBitDepth,
-    TUint aNumChannels,
-    TUint64 aSampleStart)
+RaatStreamFormat::RaatStreamFormat()
+    : iFormat(Media::AudioFormat::Undefined)
+    , iSampleRate(0)
+    , iBitDepth(0)
+    , iNumChannels(0)
+    , iLock("RSTR")
 {
-    iFormat = aFormat;
-    iSampleRate = aSampleRate;
-    iBitDepth = aBitDepth;
-    iNumChannels = aNumChannels;
-    iSampleStart = aSampleStart;
 }
 
-void RaatUri::SetSampleStart(TUint64 aSampleStart)
+void RaatStreamFormat::Set(RAAT__StreamFormat*& aFormat)
 {
-    iSampleStart = aSampleStart;
+    AutoMutex _(iLock);
+    iFormat = (aFormat->sample_type == RAAT__SAMPLE_TYPE_PCM) ? Media::AudioFormat::Pcm : Media::AudioFormat::Dsd;
+    iSampleRate = (TUint)aFormat->sample_rate;
+    iBitDepth = (TUint)aFormat->bits_per_sample;
+    iNumChannels = (TUint)aFormat->channels;
 }
 
-void RaatUri::GetUri(Bwx& aUri)
-{ // static
-    aUri.Replace(Brx::Empty());
-    aUri.AppendThrow(kScheme);
-    aUri.AppendThrow("://stream?");
-
-    ASSERT(iFormat != Media::AudioFormat::Undefined);
-    aUri.AppendThrow(kKeyFormat);
-    aUri.AppendThrow("=");
-    aUri.AppendThrow(iFormat == Media::AudioFormat::Pcm ? kFormatPcm : kFormatDsd);
-
-    aUri.AppendThrow("&");
-    aUri.AppendThrow(kKeySampleRate);
-    aUri.AppendThrow("=");
-    Ascii::AppendDec(aUri, iSampleRate);
-
-    aUri.AppendThrow("&");
-    aUri.AppendThrow(kKeyBitDepth);
-    aUri.AppendThrow("=");
-    Ascii::AppendDec(aUri, iBitDepth);
-
-    aUri.AppendThrow("&");
-    aUri.AppendThrow(kKeyNumChannels);
-    aUri.AppendThrow("=");
-    Ascii::AppendDec(aUri, iNumChannels);
-
-    aUri.AppendThrow("&");
-    aUri.AppendThrow(kKeySampleStart);
-    aUri.AppendThrow("=");
-    Ascii::AppendDec(aUri, iSampleStart);
-}
-
-RaatUri::RaatUri()
+Media::AudioFormat RaatStreamFormat::Format() const
 {
-    Reset();
-}
-
-void RaatUri::Parse(const Brx& aUri)
-{
-    Reset();
-    iUri.Replace(aUri);
-
-    if (iUri.Scheme() != kScheme) {
-        THROW(RaatUriError);
-    }
-    Brn query(iUri.Query());
-    if (query.Bytes() == 0) {
-        THROW(RaatUriError);
-    }
-    query.Set(query.Ptr() + 1, query.Bytes() - 1); // remove leading '?'
-    Parser parser(query);
-
-    Brn key, val;
-    std::map<Brn, Brn, BufferCmp> kvps;
-    for (;;) {
-        key.Set(parser.Next('='));
-        if (key.Bytes() == 0) {
-            break;
-        }
-        val.Set(parser.Next('&'));
-        kvps.insert(std::pair<Brn, Brn>(key, val));
-    }
-
-    SetValUint(kvps, kKeySampleRate, iSampleRate);
-    SetValUint(kvps, kKeyBitDepth, iBitDepth);
-    SetValUint(kvps, kKeyNumChannels, iNumChannels);
-    SetValUint64(kvps, kKeySampleStart, iSampleStart);
-    Brn keyFormat(kKeyFormat);
-    auto it = kvps.find(keyFormat);
-    if (it == kvps.end()) {
-        THROW(RaatUriError);
-    }
-    iFormat = it->second == kFormatPcm ? Media::AudioFormat::Pcm : Media::AudioFormat::Dsd;
-}
-
-const Brx& RaatUri::AbsoluteUri() const
-{
-    return iUri.AbsoluteUri();
-}
-
-Media::AudioFormat RaatUri::Format() const
-{
-    ASSERT(iFormat != Media::AudioFormat::Undefined);
+    AutoMutex _(iLock);
     return iFormat;
 }
 
-TUint RaatUri::SampleRate() const
+TUint RaatStreamFormat::SampleRate() const
 {
-    ASSERT(iSampleRate != 0);
+    AutoMutex _(iLock);
     return iSampleRate;
 }
 
-TUint RaatUri::BitDepth() const
+TUint RaatStreamFormat::BitDepth() const
 {
-    ASSERT(iBitDepth != 0);
+    AutoMutex _(iLock);
     return iBitDepth;
 }
 
-TUint RaatUri::NumChannels() const
+TUint RaatStreamFormat::NumChannels() const
 {
-    ASSERT(iNumChannels != 0);
+    AutoMutex _(iLock);
     return iNumChannels;
-}
-
-TUint RaatUri::SampleStart() const
-{
-    return iSampleStart;
-}
-
-void RaatUri::Reset()
-{
-    iFormat = Media::AudioFormat::Undefined;
-    iSampleRate = 0;
-    iBitDepth = 0;
-    iNumChannels = 0;
-    iSampleStart = 0;
-}
-
-Brn RaatUri::Val(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey)
-{ // static
-    Brn key(aKey);
-    auto it = aKvps.find(key);
-    if (it == aKvps.end()) {
-        THROW(RaatUriError);
-    }
-    return it->second;
-}
-
-void RaatUri::SetValUint(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey, TUint& aVal)
-{ // static
-    Brn val = Val(aKvps, aKey);
-    aVal = Ascii::Uint(val);
-}
-
-void RaatUri::SetValUint64(const std::map<Brn, Brn, BufferCmp>& aKvps, const Brx& aKey, TUint64& aVal)
-{ // static
-    Brn val = Val(aKvps, aKey);
-    aVal = Ascii::Uint64(val);
 }
 
 
@@ -452,24 +324,17 @@ void RaatOutput::SetupStream(
     RAAT__OutputSetupCallback aCbSetup, void* aCbSetupData,
     RAAT__OutputLostCallback aCbLost, void* aCbLostData)
 {
+    LOG(kRaat, "RaatOutput::SetupStream()\n");
+
     ASSERT(aFormat != nullptr);
-    iStarted = false;
+    iStreamFormat.Set(aFormat);
+    iSampleRate = iStreamFormat.SampleRate();
     iSetupCb.Set(aCbSetup, aCbSetupData, aCbLost, aCbLostData);
-    iSampleRate = (TUint)aFormat->sample_rate;
-    iUri.Set(
-        aFormat->sample_type == RAAT__SAMPLE_TYPE_PCM ? Media::AudioFormat::Pcm : Media::AudioFormat::Dsd,
-        iSampleRate,
-        (TUint)aFormat->bits_per_sample,
-        (TUint)aFormat->channels,
-        0LL);
-    Bws<256> uri;
-    iUri.GetUri(uri);
+    iStarted = false;
     iStreamPos = 0;
 
     TryReportState();
-
-    LOG(kRaat, "RaatOutput::SetupStream() uri=%.*s\n", PBUF(uri));
-    iSourceRaat.NotifyPlay(uri);
+    iSourceRaat.NotifyPlay();
 }
 
 RC__Status RaatOutput::TeardownStream(int aToken)
@@ -502,12 +367,7 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     iLastClockPullTicks = startTicks; // doesn't really matter - will be overridden when iClockSyncStarted is set true
     iClockPull = Media::IPullableClock::kNominalFreq;
 
-    iUri.SetSampleStart((TUint64)aStreamTime);
-    Bws<256> uri;
-    iUri.GetUri(uri);
-    LOG(kRaat, "RaatOutput::StartStream uri=%.*s\n", PBUF(uri));
-    iSourceRaat.NotifyPlay(uri);
-    iSemStarted.Signal();
+    iSourceRaat.NotifyPlay();
     return RC__STATUS_SUCCESS;
 }
 
@@ -655,6 +515,12 @@ void RaatOutput::Stop()
     ChangeStream(nullptr);
 }
 
+const RaatStreamFormat& RaatOutput::StreamFormat()
+{
+    // RaatStreamFormat handles its own thread safety
+    return iStreamFormat;
+}
+
 void RaatOutput::NotifyReady()
 {
     iToken = iSetupCb.NotifyReady();
@@ -685,7 +551,7 @@ void RaatOutput::Read(IRaatWriter& aWriter)
         THROW(RaatReaderStopped);
     }
 
-    TUint packetBytes = ((TUint)packet.nsamples * iUri.BitDepth() * iUri.NumChannels()) / 8;
+    TUint packetBytes = ((TUint)packet.nsamples * iStreamFormat.BitDepth() * iStreamFormat.NumChannels()) / 8;
     Brn audio((const TByte*)packet.buf, packetBytes);
     aWriter.Write(audio);
     iStreamPos += packet.nsamples;
