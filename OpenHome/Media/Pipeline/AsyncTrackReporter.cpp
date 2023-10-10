@@ -165,11 +165,13 @@ void AsyncTrackReporter::AddClient(IAsyncTrackClient& aClient)
 void AsyncTrackReporter::MetadataChanged(IAsyncMetadataAllocated* aMetadata)
 {
     AutoMutex _(iLock);
-    if (iMetadata != nullptr) {
-        iMetadata->RemoveReference(); // Any pending metadata is now invalid
-        iMetadata = nullptr;
+    if (iMetadata != aMetadata) {
+        if (iMetadata != nullptr) {
+            iMetadata->RemoveReference(); // Any pending metadata is now invalid
+            iMetadata = nullptr;
+        }
+        iMetadata = aMetadata;
     }
-    iMetadata = aMetadata;
     if (iMetadata != nullptr) {
         iTrackDurationMs = iMetadata->Metadata().DurationMs();
     }
