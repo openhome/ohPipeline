@@ -719,14 +719,19 @@ void TestMediaPlayer::Disabled()
 
 // TestMediaPlayerInit
 
-OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, TBool aLoopback, TUint aAdapter)
+OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(
+    const TChar* aRoom,
+    TBool aLoopback,
+    TUint aAdapter,
+    TUint aShellPort
+)
 {
     InitialisationParams* initParams = InitialisationParams::Create();
     initParams->SetDvEnableBonjour(aRoom, true);
     if (aLoopback == true) {
         initParams->SetUseLoopbackNetworkAdapter();
     }
-    initParams->SetEnableShell(0);
+    initParams->SetEnableShell(aShellPort);
     initParams->SetIPv6Supported(false);
 #ifdef LPEC_ENABLE
     initParams->SetDvNumLpecThreads(4);
