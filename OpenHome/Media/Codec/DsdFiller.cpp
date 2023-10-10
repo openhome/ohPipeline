@@ -1,5 +1,6 @@
 #include <OpenHome/Media/Codec/DsdFiller.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <algorithm>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
