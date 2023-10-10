@@ -741,6 +741,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(
     Debug::SetLevel(Debug::kPipeline);
     Debug::AddLevel(Debug::kSources);
     Debug::AddLevel(Debug::kMedia);
+    Debug::AddLevel(Debug::kRaat);
     Debug::AddLevel(Debug::kAdapterChange);
     //Debug::AddLevel(Debug::kSongcast);
     Debug::AddLevel(Debug::kOAuth);
