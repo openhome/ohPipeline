@@ -350,6 +350,12 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
         TUint64 localTime = MclkToNs();
         LOG(kRaat, "RaatOutput::StartStream(%d, %lld, %lld, %p) iToken=%d, localTime=%llu\n",
                     aToken, aWallTime, aStreamTime, aStream, iToken, localTime);
+
+        const TUint msPerNs = 1000000;
+        const TUint timeNowMs = localTime / msPerNs;
+        const TUint timeStartMs = aWallTime / msPerNs;
+        const TUint deltaMs = timeStartMs - timeNowMs;
+        Log::Print("[RAAT_TIME] RaatOutput::StartStream()   Time now: %ums, Start at: %ums (%ums)\n", timeNowMs, timeStartMs, deltaMs);
     }
 
     if (aToken != iToken) {
