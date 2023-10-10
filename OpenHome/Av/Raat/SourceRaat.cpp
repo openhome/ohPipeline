@@ -161,7 +161,6 @@ SourceRaat::SourceRaat(
         aMediaPlayer.Env(),
         aMediaPlayer,
         *this,
-        *this,
         aAudioTime,
         aPullableClock,
         *iSignalPathObservable,
@@ -251,13 +250,6 @@ void SourceRaat::NotifyStop()
     if (flushId != MsgFlush::kIdInvalid) {
         iPipeline.Wait(flushId);
         iPipeline.Pause();
-    }
-}
-
-void SourceRaat::StandbyChanged(TBool aStandbyEnabled)
-{
-    if (aStandbyEnabled) {
-        Stop();
     }
 }
 

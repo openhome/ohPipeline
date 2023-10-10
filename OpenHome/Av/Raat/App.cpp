@@ -44,7 +44,6 @@ RaatApp::RaatApp(
     Environment& aEnv,
     IMediaPlayer& aMediaPlayer,
     ISourceRaat& aSourceRaat,
-    ISourceRaatStandbyControl& aSourceStandbyControl,
     Media::IAudioTime& aAudioTime,
     Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable& aSignalPathObservable,
@@ -67,7 +66,7 @@ RaatApp::RaatApp(
         iVolume = nullptr;
     }
     iTransport = new RaatTransport(aMediaPlayer);
-    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport, aSourceStandbyControl);
+    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport);
 }
 
 RaatApp::~RaatApp()

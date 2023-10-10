@@ -62,13 +62,6 @@ public:
     virtual void NotifyStop() = 0;
 };
 
-class ISourceRaatStandbyControl
-{
-public:
-    virtual void StandbyChanged(TBool aStandbyChanged) = 0;
-    virtual ~ISourceRaatStandbyControl() {}
-};
-
 class IMediaPlayer;
 class RaatApp;
 class ProtocolRaat;
@@ -77,7 +70,6 @@ class IRaatSignalPathObservable;
 class SourceRaat
     : public Source
     , public ISourceRaat
-    , public ISourceRaatStandbyControl
     , private IProductObserver
 {
 public:
@@ -99,8 +91,6 @@ private: // from ISourceRaat
     void NotifySetup() override;
     void NotifyStart() override;
     void NotifyStop() override;
-private: // from ISourceRaatStandbyControl
-    void StandbyChanged(TBool aStandbyEnabled) override;
 private: // from IProductObserver
     void Started() override;
     void SourceIndexChanged() override;

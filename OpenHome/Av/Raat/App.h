@@ -35,7 +35,6 @@ public:
         Environment& aEnv,
         IMediaPlayer& aMediaPlayer,
         ISourceRaat& aSourceRaat,
-        ISourceRaatStandbyControl& aSourceStandbyControl,
         Media::IAudioTime& aAudioTime,
         Media::IPullableClock& aPullableClock,
         IRaatSignalPathObservable& aSignalPathObservable,

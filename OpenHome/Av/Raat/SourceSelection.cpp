@@ -70,12 +70,11 @@ using namespace OpenHome::Av;
 RaatSourceSelection::RaatSourceSelection(
     IMediaPlayer& aMediaPlayer,
     const Brx& aSystemName,
-    IRaatSourceObserver& aObserver,
-    ISourceRaatStandbyControl& aSourceStandbyControl)
+    IRaatSourceObserver& aObserver)
+
     : RaatPluginAsync(aMediaPlayer.ThreadPool())
     , iSystemName(aSystemName)
     , iObserver(aObserver)
-    , iSourceStandbyControl(aSourceStandbyControl)
     , iSourceIndexCurrent(0)
     , iStandby(true)
     , iStarted(false)
@@ -161,7 +160,6 @@ void RaatSourceSelection::Initialise()
 void RaatSourceSelection::StandbyChanged()
 {
     iProxyProduct->PropertyStandby(iStandby);
-    iSourceStandbyControl.StandbyChanged(iStandby);
     TryReportState();
 }
 
@@ -195,7 +193,7 @@ void RaatSourceSelection::ReportState()
 
     auto state = State();
     RAAT__source_selection_state_listeners_invoke(&iListeners, &state);
-    if (iSourceIndexCurrent == iSourceIndexRaat) {
+    if ((iSourceIndexCurrent == iSourceIndexRaat) && !iStandby) {
         iObserver.RaatSourceActivated();
     }
     else {

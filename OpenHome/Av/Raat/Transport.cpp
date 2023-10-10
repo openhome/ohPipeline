@@ -411,7 +411,7 @@ void RaatTransport::RaatSourceDeactivated()
 {
     AutoMutex _(iLockStatus);
     iActive = false;
-    DoReportState("stop");
+    DoReportState("pause");
 }
 
 void RaatTransport::ToggleRepeat()

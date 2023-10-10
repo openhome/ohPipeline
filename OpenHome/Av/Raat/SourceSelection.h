@@ -38,7 +38,7 @@ class IMediaPlayer;
 class RaatSourceSelection : public RaatPluginAsync
 {
 public:
-    RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName, IRaatSourceObserver& aObserver, ISourceRaatStandbyControl& aSourceStandbyControl);
+    RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName, IRaatSourceObserver& aObserver);
     ~RaatSourceSelection();
 public:
     RAAT__SourceSelectionPlugin* Plugin();
@@ -60,7 +60,6 @@ private:
     RAAT__SourceSelectionStateListeners iListeners;
     Bwh iSystemName;
     IRaatSourceObserver& iObserver;
-    ISourceRaatStandbyControl& iSourceStandbyControl;
     Net::CpDeviceDv* iCpDevice;
     Net::CpProxyAvOpenhomeOrgProduct4* iProxyProduct;
     IThreadPoolHandle* iRaatCallback;
