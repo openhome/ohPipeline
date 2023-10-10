@@ -9,11 +9,6 @@
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
 
-#include <OpenHome/OsWrapper.h>
-
-
-#include <algorithm>
-
 using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Media;
