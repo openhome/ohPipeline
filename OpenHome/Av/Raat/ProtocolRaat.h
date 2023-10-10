@@ -10,6 +10,8 @@
 #include <OpenHome/Av/Raat/Transport.h>
 #include <OpenHome/Media/SupplyAggregator.h>
 
+EXCEPTION(ProtocolRaatInterrupt);
+
 namespace OpenHome {
 
     class Environment;
@@ -30,9 +32,20 @@ private:
     static const TUint kDsdChunksPerBlock = 1;
 public:
     static const Brn kUri;
+private:
+    enum class EStreamState {
+        eStopped,
+        eIdle,
+        eStreaming
+    };
 public:
     ProtocolRaat(Environment& aEnv, IRaatReader& aRaatReader, Media::TrackFactory& aTrackFactory);
     ~ProtocolRaat();
+public:
+    TBool IsStreaming();
+    void NotifySetup();
+    void NotifyStart();
+    TUint FlushAsync();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
     void Interrupt(TBool aInterrupt) override;
@@ -48,15 +61,20 @@ private: // from IRaatWriter
 private:
     void OutputStream(const RaatStreamFormat& aStreamFormat);
     void OutputDrain();
+    void DoInterrupt();
 private:
+    Environment& iEnv;
     IRaatReader& iRaatReader;
     Media::TrackFactory& iTrackFactory;
     Media::SupplyAggregator* iSupply;
+    std::atomic<EStreamState> iState;
+    std::atomic<TBool> iInterrupt;
+    Semaphore iSemStateChange;
     Mutex iLock;
-    TUint iStreamId;
+
     TUint iNextFlushId;
-    TBool iStopped;
     TBool iPcmStream;
+    TBool iSetup;
 };
 
 } // namespace Av

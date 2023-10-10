@@ -9,6 +9,9 @@
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
 
+#include <OpenHome/OsWrapper.h>
+
+
 #include <algorithm>
 
 using namespace OpenHome;
@@ -22,9 +25,13 @@ const Brn ProtocolRaat::kUri("raat://default");
 ProtocolRaat::ProtocolRaat(Environment& aEnv, IRaatReader& aRaatReader, Media::TrackFactory& aTrackFactory)
     : Protocol(aEnv)
     , DsdFiller(kDsdBlockBytes, kDsdBlockBytes, kDsdChunksPerBlock)
+    , iEnv(aEnv)
     , iRaatReader(aRaatReader)
     , iTrackFactory(aTrackFactory)
     , iSupply(nullptr)
+    , iState(EStreamState::eStopped)
+    , iInterrupt(false)
+    , iSemStateChange("PRSM", 0)
     , iLock("PRat")
 {
 }
@@ -34,6 +41,36 @@ ProtocolRaat::~ProtocolRaat()
     delete iSupply;
 }
 
+TBool ProtocolRaat::IsStreaming()
+{
+    return (iState.load() != EStreamState::eStopped);
+}
+
+void ProtocolRaat::NotifySetup()
+{
+    iSetup = true;
+    iSemStateChange.Signal();
+}
+
+void ProtocolRaat::NotifyStart()
+{
+    iSetup = false;
+    iSemStateChange.Signal();
+}
+
+TUint ProtocolRaat::FlushAsync()
+{
+    if (iState.load() != EStreamState::eStreaming) {
+        return MsgFlush::kIdInvalid;
+    }
+
+    AutoMutex _(iLock);
+    if (iNextFlushId == MsgFlush::kIdInvalid) {
+        iNextFlushId = iFlushIdProvider->NextFlushId();
+    }
+    return iNextFlushId;
+}
+
 void ProtocolRaat::Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream)
 {
     iSupply = new SupplyAggregatorBytes(aMsgFactory, aDownstream);
@@ -41,12 +78,15 @@ void ProtocolRaat::Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineEl
 
 void ProtocolRaat::Interrupt(TBool aInterrupt)
 {
-    if (iActive) {
-        LOG(kRaat, "ProtocolRaat::Interrupt(%u)\n", aInterrupt);
-        if (aInterrupt) {
-            iStopped = true;
-            iRaatReader.Interrupt();
-        }
+    if (!iActive) {
+        return;
+    }
+    if (!aInterrupt) {
+        return;
+    }
+    LOG(kRaat, "ProtocolRaat::Interrupt(%u)\n", aInterrupt);
+    if (IsStreaming()) {
+        DoInterrupt();
     }
 }
 
@@ -56,39 +96,52 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
         return EProtocolErrorNotSupported;
     }
 
-    // reinitialise
-    {
-        AutoMutex _(iLock);
-        iNextFlushId = MsgFlush::kIdInvalid;
-        iStreamId = iIdProvider->NextStreamId();
-        iStopped = false;
-    }
-
-    const RaatStreamFormat& streamFormat = iRaatReader.StreamFormat();
-    iPcmStream = (streamFormat.Format() == AudioFormat::Pcm);
-    OutputStream(streamFormat);
-    OutputDrain();
-    iRaatReader.NotifyReady();
-
-    // do stuff - read from RAAT forever (until source change)
     try {
-        for (; !iStopped; ) {
-            iRaatReader.Read(*this);
+        for (;;) {
+            iState.store(EStreamState::eIdle);
+            iSemStateChange.Wait();
+            if (iInterrupt.load()) {
+                THROW(ProtocolRaatInterrupt);
+            }
+
+            const RaatStreamFormat& streamFormat = iRaatReader.StreamFormat();
+            iPcmStream = (streamFormat.Format() == AudioFormat::Pcm);
+            OutputStream(streamFormat);
+
+            if (iSetup) {
+                OutputDrain();
+                iRaatReader.NotifyReady();
+                continue;
+            }
+
+            // Stream
+            iState.store(EStreamState::eStreaming);
+            try {
+                for (;;) {
+                    iRaatReader.Read(*this);
+                }
+            }
+            catch (RaatReaderStopped&) {}
+
+            // Flush
+            DsdFiller::Flush(); // safe to call regardless of format
+            iSupply->Flush();
+
+            TUint nextFlushId;
+            {
+                AutoMutex _(iLock);
+                nextFlushId = iNextFlushId;
+                iNextFlushId = MsgFlush::kIdInvalid;
+            }
+            if (nextFlushId != MsgFlush::kIdInvalid) {
+                iSupply->OutputFlush(nextFlushId);
+            }
         }
     }
-    catch (RaatReaderStopped&) {}
+    catch (ProtocolRaatInterrupt&) {}
 
-    DsdFiller::Flush(); // safe to call regardless of format
-    iSupply->Flush();
-    TUint nextFlushId;
-    {
-        AutoMutex _(iLock);
-        nextFlushId = iNextFlushId;
-        iStreamId = IPipelineIdProvider::kStreamIdInvalid;
-    }
-    if (nextFlushId != MsgFlush::kIdInvalid) {
-        iSupply->OutputFlush(nextFlushId);
-    }
+    iInterrupt.store(false);
+    iState.store(EStreamState::eStopped);
     return EProtocolStreamStopped;
 }
 
@@ -97,22 +150,12 @@ Media::ProtocolGetResult ProtocolRaat::Get(IWriter& /*aWriter*/, const Brx& /*aU
     return EProtocolGetErrorNotSupported;
 }
 
-TUint ProtocolRaat::TryStop(TUint aStreamId)
+TUint ProtocolRaat::TryStop(TUint /*aStreamId*/)
 {
-    AutoMutex _(iLock);
-    if (iStreamId != aStreamId) {
-        return MsgFlush::kIdInvalid;
+    if (IsStreaming()) {
+        DoInterrupt();
     }
-    if (iNextFlushId == MsgFlush::kIdInvalid) {
-        /* If a valid flushId is set then We've previously promised to send a Flush but haven't
-            got round to it yet.  Re-use the same id for any other requests that come in before
-            our main thread gets a chance to issue a Flush */
-        iNextFlushId = iFlushIdProvider->NextFlushId();
-    }
-    LOG(kRaat, "ProtocolRaat::TryStop(%u), iStreamId=%u, iNextFlushId=%u\n", aStreamId, iStreamId, iNextFlushId);
-    iStopped = true;
-    iRaatReader.Interrupt();
-    return iNextFlushId;
+    return MsgFlush::kIdInvalid;
 }
 
 void ProtocolRaat::WriteChunkDsd(const TByte*& aSrc, TByte*& aDest)
@@ -150,6 +193,7 @@ void ProtocolRaat::Write(const Brx& aData)
 
 void ProtocolRaat::OutputStream(const RaatStreamFormat& aStreamFormat)
 {
+    TUint streamId = iIdProvider->NextStreamId();
     if (iPcmStream) {
         SpeakerProfile sp;
         PcmStreamInfo streamInfo;
@@ -167,7 +211,7 @@ void ProtocolRaat::OutputStream(const RaatStreamFormat& aStreamFormat)
             false, // live
             Media::Multiroom::Forbidden,
             *this,
-            iStreamId,
+            streamId,
             streamInfo);
     }
     else {
@@ -183,7 +227,7 @@ void ProtocolRaat::OutputStream(const RaatStreamFormat& aStreamFormat)
             0LL, // duration
             false, // seekable
             *this,
-            iStreamId,
+            streamId,
             streamInfo);
     }
 }
@@ -199,4 +243,11 @@ void ProtocolRaat::OutputDrain()
     catch (Timeout&) {
         LOG(kPipeline, "WARNING: ProtocolRaat: timeout draining pipeline\n");
     }
+}
+
+void ProtocolRaat::DoInterrupt()
+{
+    iInterrupt.store(true);
+    iRaatReader.Interrupt();
+    iSemStateChange.Signal();
 }

@@ -57,7 +57,8 @@ class ISourceRaat
 {
 public:
     virtual ~ISourceRaat() {}
-    virtual void NotifyPlay() = 0;
+    virtual void NotifySetup() = 0;
+    virtual void NotifyStart() = 0;
     virtual void NotifyStop() = 0;
 };
 
@@ -95,7 +96,8 @@ private: // from ISource
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
 private: // from ISourceRaat
-    void NotifyPlay() override;
+    void NotifySetup() override;
+    void NotifyStart() override;
     void NotifyStop() override;
 private: // from ISourceRaatStandbyControl
     void StandbyChanged(TBool aStandbyEnabled) override;
@@ -111,17 +113,15 @@ private:
     void Next();
     void Prev();
 private:
-    IMediaPlayer& iMediaPlayer;
-    Media::IAudioTime& iAudioTime;
-    Media::IPullableClock& iPullableClock;
+    void Initialise();
+private:
     IRaatSignalPathObservable* iSignalPathObservable;
     Configuration::ConfigChoice* iProtocolSelector;
     UriProviderRaat* iUriProvider;
     RaatApp* iApp;
+    ProtocolRaat* iProtocol;
     Media::Track* iTrack;
     Media::BwsTrackMetaData iDefaultMetadata;
-    const Bws<64> iSerialNumber;
-    const Bws<64> iSoftwareVersion;
 };
 
 }

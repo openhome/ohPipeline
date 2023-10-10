@@ -191,7 +191,6 @@ private:
     Configuration::ConfigChoice* iConfigDsdEnable;
     TUint iSubscriberIdDsdEnable;
     RAAT__Stream* iStream;
-    Semaphore iSemStarted;
     SetupCb iSetupCb;
     int iToken;
     RaatStreamFormat iStreamFormat;
@@ -200,7 +199,6 @@ private:
     TUint iSampleRate;
     TUint64 iLastClockPullTicks;
     TUint iClockPull;
-    TBool iStarted;
     TBool iClockSyncStarted;
     TBool iDsdEnabled;
 };

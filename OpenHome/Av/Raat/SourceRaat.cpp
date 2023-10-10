@@ -124,7 +124,7 @@ UriProviderRaat::UriProviderRaat(
         Prev::Supported,
         Repeat::Supported,
         Random::Supported,
-        RampPauseResume::Long)
+        RampPauseResume::Short)
 {
 }
 
@@ -152,32 +152,27 @@ SourceRaat::SourceRaat(
         SourceFactory::kSourceNameRaat,
         SourceFactory::kSourceTypeRaat,
         aMediaPlayer.Pipeline(),
-        false /* not visible by default */)
-    , iMediaPlayer(aMediaPlayer)
-    , iAudioTime(aAudioTime)
-    , iPullableClock(aPullableClock)
+        false) // not visible by default
     , iSignalPathObservable(aSignalPathObservable)
     , iProtocolSelector(aProtocolSelector.Ptr())
     , iTrack(nullptr)
-    , iSerialNumber(aSerialNumber)
-    , iSoftwareVersion(aSoftwareVersion)
 {
     iApp = new RaatApp(
-        iMediaPlayer.Env(),
-        iMediaPlayer,
+        aMediaPlayer.Env(),
+        aMediaPlayer,
         *this,
         *this,
-        iAudioTime,
-        iPullableClock,
+        aAudioTime,
+        aPullableClock,
         *iSignalPathObservable,
-        iSerialNumber,
-        iSoftwareVersion);
+        aSerialNumber,
+        aSoftwareVersion);
 
-    iMediaPlayer.Add(
-        new ProtocolRaat(
-            iMediaPlayer.Env(),
-            iApp->Reader(),
-            iMediaPlayer.TrackFactory()));
+    iProtocol = new ProtocolRaat(
+        aMediaPlayer.Env(),
+        iApp->Reader(),
+        aMediaPlayer.TrackFactory());
+    aMediaPlayer.Add(iProtocol); // passes ownership
 
     iUriProvider = new UriProviderRaat(SourceFactory::kSourceTypeRaat, aMediaPlayer.TrackFactory());
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceRaat::Play));
@@ -212,6 +207,7 @@ SourceRaat::~SourceRaat()
 void SourceRaat::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
     SourceBase::Activate(aAutoPlay, aPrefetchAllowed); // FIXME - remove this if we find no work to do here
+    Initialise();
 }
 
 void SourceRaat::PipelineStopped()
@@ -232,21 +228,28 @@ void SourceRaat::StandbyEnabled()
 {
 }
 
-void SourceRaat::NotifyPlay()
+void SourceRaat::NotifySetup()
 {
     EnsureActiveNoPrefetch();
-    if (iTrack != nullptr) {
-        iTrack->RemoveRef();
-    }
-    iTrack = iUriProvider->SetTrack(ProtocolRaat::kUri, iDefaultMetadata);
-    iPipeline.RemoveAll();
-    iPipeline.Begin(iUriProvider->Mode(), iTrack->Id());
+    Initialise();
+    iProtocol->NotifySetup();
+    iPipeline.Play();
+}
+
+void SourceRaat::NotifyStart()
+{
+    iProtocol->NotifyStart();
     iPipeline.Play();
 }
 
 void SourceRaat::NotifyStop()
 {
-    if (iActive) {
+    if (!iActive) {
+        return;
+    }
+    TUint flushId = iProtocol->FlushAsync();
+    if (flushId != MsgFlush::kIdInvalid) {
+        iPipeline.Wait(flushId);
         iPipeline.Pause();
     }
 }
@@ -313,4 +316,22 @@ void SourceRaat::Prev()
     if (iApp->Transport().CanMovePrev()) {
         iPipeline.Prev();
     }
+}
+
+void SourceRaat::Initialise()
+{
+    if (iProtocol->IsStreaming()) {
+        return;
+    }
+
+    /* Push the default track into the pipeline
+     * This ensures that we've entered ProtocolRaat::Stream and are ready to
+     * receive notifications to configure or begin streaming audio
+     */
+    if (iTrack != nullptr) {
+        iTrack->RemoveRef();
+    }
+    iTrack = iUriProvider->SetTrack(ProtocolRaat::kUri, iDefaultMetadata);
+    iPipeline.RemoveAll();
+    iPipeline.Begin(iUriProvider->Mode(), iTrack->Id());
 }

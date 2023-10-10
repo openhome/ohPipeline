@@ -182,9 +182,7 @@ RaatOutput::RaatOutput(
     , iConfigDsdEnable(nullptr)
     , iSubscriberIdDsdEnable(Configuration::IConfigManager::kSubscriptionIdInvalid)
     , iStream(nullptr)
-    , iSemStarted("ROUT", 0)
     , iSampleRate(0)
-    , iStarted(false)
 {
     iPluginExt.iPlugin.get_info = Raat_Output_Get_Info;
     iPluginExt.iPlugin.get_supported_formats = Raat_Output_Get_Supported_Formats;
@@ -330,11 +328,10 @@ void RaatOutput::SetupStream(
     iStreamFormat.Set(aFormat);
     iSampleRate = iStreamFormat.SampleRate();
     iSetupCb.Set(aCbSetup, aCbSetupData, aCbLost, aCbLostData);
-    iStarted = false;
     iStreamPos = 0;
 
     TryReportState();
-    iSourceRaat.NotifyPlay();
+    iSourceRaat.NotifySetup();
 }
 
 RC__Status RaatOutput::TeardownStream(int aToken)
@@ -367,7 +364,7 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     iLastClockPullTicks = startTicks; // doesn't really matter - will be overridden when iClockSyncStarted is set true
     iClockPull = Media::IPullableClock::kNominalFreq;
 
-    iSourceRaat.NotifyPlay();
+    iSourceRaat.NotifyStart();
     return RC__STATUS_SUCCESS;
 }
 
@@ -528,11 +525,6 @@ void RaatOutput::NotifyReady()
 
 void RaatOutput::Read(IRaatWriter& aWriter)
 {
-    if (!iStarted) {
-        iSemStarted.Wait();
-        iStarted = true;
-    }
-
     RAAT__AudioPacket packet;
     RAAT__Stream* stream = StreamRef();
     if (stream == nullptr) {
