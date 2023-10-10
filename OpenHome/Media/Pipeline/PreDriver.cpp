@@ -1,4 +1,5 @@
 #include <OpenHome/Media/Pipeline/PreDriver.h>
+#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Printer.h>
@@ -21,9 +22,13 @@ const TUint PreDriver::kSupportedMsgTypes =   eMode
                                             | eSilence
                                             | eQuit;
 
-PreDriver::PreDriver(IPipelineElementUpstream& aUpstreamElement)
+PreDriver::PreDriver(
+    IPipelineElementUpstream& aUpstreamElement,
+    Optional<IAudioTime> aAudioTimeOpt)
+
     : PipelineElement(kSupportedMsgTypes)
     , iUpstreamElement(aUpstreamElement)
+    , iAudioTimeOpt(aAudioTimeOpt)
     , iSampleRate(0)
     , iBitDepth(0)
     , iNumChannels(0)
@@ -47,12 +52,20 @@ Msg* PreDriver::Pull()
     do {
         msg = iUpstreamElement.Pull();
         ASSERT(msg != nullptr);
-        const TBool silenceSincePcm = iSilenceSinceAudio;
+        const TBool silenceSinceAudio = iSilenceSinceAudio;
         msg = msg->Process(*this);
-        if (silenceSincePcm && !iSilenceSinceAudio) {
+        if (silenceSinceAudio && !iSilenceSinceAudio) {
             const TUint ms = Jiffies::ToMs(iSilenceSinceLastAudio);
             iSilenceSinceLastAudio = 0;
             LOG(kPipeline, "PreDriver: silence since last audio - %ums\n", ms);
+
+            if (iAudioTimeOpt.Ok()) {
+                TUint64 ticksNow;
+                TUint freq;
+                iAudioTimeOpt.Unwrap().GetTickCount(iSampleRate, ticksNow, freq);
+                TUint timeNowMs = (TUint)((ticksNow * 1000) / freq);
+                Log::Print("[RAAT_TIME] PreDriver::Pull()   Time now: %ums\n", timeNowMs);
+            }
         }
         if (iQuit) {
             iShutdownSem.Signal();

@@ -14,12 +14,14 @@ Only passes on Format when either sample rate and/or bit depth changes.
 Converts AudioPcm, Silence msgs to Playable.
 Consumes StreamInterrupted
 */
-    
+class IAudioTime;
 class PreDriver : public PipelineElement, public IPipelineElementUpstream, private INonCopyable
 {
     static const TUint kSupportedMsgTypes;
 public:
-    PreDriver(IPipelineElementUpstream& aUpstreamElement);
+    PreDriver(
+        IPipelineElementUpstream& aUpstreamElement,
+        Optional<IAudioTime> aAudioTimeOpt);
     virtual ~PreDriver();
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
@@ -34,6 +36,7 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private:
     IPipelineElementUpstream& iUpstreamElement;
+    Optional<IAudioTime> iAudioTimeOpt;
     BwsMode iModeName;
     TUint iSampleRate;
     TUint iBitDepth;

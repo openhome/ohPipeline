@@ -569,7 +569,7 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerVolumeRamper, new Logger(*iVolumeRamper, "VolumeRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iPreDriver, new PreDriver(*upstream),
+    ATTACH_ELEMENT(iPreDriver, new PreDriver(*upstream, aAudioTime),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     iLoggerPreDriver = new Logger(*iPreDriver, "PreDriver");
 

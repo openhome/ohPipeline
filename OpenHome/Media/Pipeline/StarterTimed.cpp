@@ -128,7 +128,9 @@ Msg* StarterTimed::ProcessMsg(MsgSilence* aMsg)
         iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
 
         if (startTicks <= ticksNow) {
-            LOG(kMedia, "StarterTimed: start time in past (%llu / %llu)\n", startTicks, ticksNow);
+            TUint64 lateTicks = (ticksNow - startTicks);
+            TUint lateMs = (TUint)((lateTicks * 1000) / freq);
+            LOG(kMedia, "StarterTimed: start time in past (%ums late) - (%llu / %llu)\n", lateMs, startTicks, ticksNow);
         }
         else {
             TUint64 delayTicks = startTicks - ticksNow;
