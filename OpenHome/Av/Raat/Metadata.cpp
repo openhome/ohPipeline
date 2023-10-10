@@ -168,6 +168,14 @@ RaatMetadataHandler::RaatMetadataHandler(
     iArtworkServer.AddObserver(*this);
 }
 
+RaatMetadataHandler::~RaatMetadataHandler()
+{
+    if (iMetadata != nullptr) {
+        iTrackReporter.MetadataChanged(nullptr); // observer must remove any metadata reference before we call the d'tor for iAllocatorMetadata
+        iMetadata->RemoveReference();
+    }
+}
+
 const Brx& RaatMetadataHandler::Mode() const
 {
     return kMode;
@@ -205,7 +213,6 @@ void RaatMetadataHandler::WriteMetadata(
 void RaatMetadataHandler::ArtworkChanged(const Brx& aUri)
 {
     if (iMetadata != nullptr) {
-        iMetadata->AddReference();
         iMetadata->SetArtworkUri(aUri);
         iTrackReporter.MetadataChanged(iMetadata);
     }

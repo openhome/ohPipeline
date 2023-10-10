@@ -77,6 +77,7 @@ public:
         Media::IAsyncTrackReporter& aAsyncTrackReporter,
         IInfoAggregator&            aInfoAggregator,
         IRaatArtworkServer&         aArtworkServer);
+    ~RaatMetadataHandler();
 
 public: // from IAsyncTrackClient
     const Brx& Mode() const override;
