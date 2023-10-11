@@ -619,7 +619,7 @@ void RaatOutput::ReportState()
             outputString.Set("speakers");
         }
         else {
-            outputString.Set("analog");
+            outputString.Set("analog_digital");
         }
 
         json_t* output = json_object();
