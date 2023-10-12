@@ -49,10 +49,10 @@ public:
     void SetStandby();
 private:
     void Initialise();
+    TBool IsActiveLocked() const;
     void StandbyChanged();
     void SourceIndexChanged();
     RAAT__SourceSelectionState State() const;
-    void TryReportStateChange();
 private: // from RaatPluginAsync
     void ReportState() override;
 private:
@@ -67,6 +67,8 @@ private:
     TUint iSourceIndexCurrent;
     TBool iStandby;
     TBool iStarted;
+    TBool iActivationPending;
+    mutable Mutex iLock;
 };
 
 }

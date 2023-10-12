@@ -78,6 +78,8 @@ RaatSourceSelection::RaatSourceSelection(
     , iSourceIndexCurrent(0)
     , iStandby(true)
     , iStarted(false)
+    , iActivationPending(false)
+    , iLock("RASS")
 {
     auto ret = RAAT__source_selection_state_listeners_init(&iListeners, RC__allocator_malloc());
     ASSERT(ret == RC__STATUS_SUCCESS);
@@ -111,7 +113,6 @@ RAAT__SourceSelectionPlugin* RaatSourceSelection::Plugin()
 void RaatSourceSelection::AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
 {
     (void)RAAT__source_selection_state_listeners_add(&iListeners, aCb, aCbUserdata);
-    TryReportState();
 }
 
 void RaatSourceSelection::RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
@@ -126,11 +127,14 @@ void RaatSourceSelection::GetState(RAAT__SourceSelectionState *aState)
 
 void RaatSourceSelection::ActivateRaatSource()
 {
+    AutoMutex _(iLock);
+    iActivationPending = true;
     iProxyProduct->SyncSetSourceIndex(iSourceIndexRaat);
 }
 
 void RaatSourceSelection::SetStandby()
 {
+    AutoMutex _(iLock);
     iProxyProduct->SyncSetStandby(true);
 }
 
@@ -157,26 +161,46 @@ void RaatSourceSelection::Initialise()
     iProxyProduct->Subscribe();
 }
 
+TBool RaatSourceSelection::IsActiveLocked() const
+{
+    return (!iStandby && (iSourceIndexCurrent == iSourceIndexRaat));
+}
+
 void RaatSourceSelection::StandbyChanged()
 {
+    AutoMutex _(iLock);
     iProxyProduct->PropertyStandby(iStandby);
+    if (iActivationPending) {
+        if (!IsActiveLocked()) {
+            return;
+        }
+        iActivationPending = false;
+    }
     TryReportState();
 }
 
 void RaatSourceSelection::SourceIndexChanged()
 {
+    AutoMutex _(iLock);
     iProxyProduct->PropertySourceIndex(iSourceIndexCurrent);
+    if (iActivationPending) {
+        if (!IsActiveLocked()) {
+            return;
+        }
+        iActivationPending = false;
+    }
     TryReportState();
 }
 
 RAAT__SourceSelectionState RaatSourceSelection::State() const
 {
+    AutoMutex _(iLock);
     RAAT__SourceSelectionState state;
-    if (iStandby) {
-        state.status = RAAT__SOURCE_SELECTION_STATUS_STANDBY;
-    }
-    else if (iSourceIndexCurrent == iSourceIndexRaat) {
+    if (IsActiveLocked()) {
         state.status = RAAT__SOURCE_SELECTION_STATUS_SELECTED;
+    }
+    else if (iStandby) {
+        state.status = RAAT__SOURCE_SELECTION_STATUS_STANDBY;
     }
     else {
         state.status = RAAT__SOURCE_SELECTION_STATUS_DESELECTED;
@@ -189,14 +213,12 @@ void RaatSourceSelection::ReportState()
     if (!iStarted) {
         Initialise();
         iStarted = true;
+        return;
     }
 
     auto state = State();
     RAAT__source_selection_state_listeners_invoke(&iListeners, &state);
-    if ((iSourceIndexCurrent == iSourceIndexRaat) && !iStandby) {
-        iObserver.RaatSourceActivated();
-    }
-    else {
-        iObserver.RaatSourceDeactivated();
-    }
+
+    AutoMutex _(iLock);
+    IsActiveLocked() ? iObserver.RaatSourceActivated() : iObserver.RaatSourceDeactivated();
 }
