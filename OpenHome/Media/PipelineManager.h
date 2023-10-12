@@ -2,7 +2,7 @@
 
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/PipelineObserver.h>
-#include <OpenHome/Media/Pipeline/AsyncTrackReporter.h>
+#include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
 #include <OpenHome/Media/Pipeline/AirplayReporter.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Pipeline/StarterTimed.h>
@@ -151,12 +151,12 @@ public:
     void AddObserver(ITrackObserver& aObserver);
     void AddObserver(IModeObserver& aObserver);
     /**
-     * Retrieve the AsyncTrackReporter.
+     * Retrieve the AsyncTrackObserver.
      *
-     * @return  IAsyncTrackReporter that allows clients to report out-of-band track
+     * @return  IAsyncTrackObserver that allows clients to report out-of-band track
      *          and metadata information to the pipeline.
      */
-    IAsyncTrackReporter& AsyncTrackReporter() const;
+    IAsyncTrackObserver& AsyncTrackObserver() const;
     /**
      * Retrieve a sample reporter.
      *

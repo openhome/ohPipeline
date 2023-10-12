@@ -3,7 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Media/Pipeline/AsyncTrackReporter.h>
+#include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
 #include <OpenHome/Av/Raat/Artwork.h>
 
 namespace OpenHome {
@@ -74,7 +74,7 @@ private:
     static const TUint kMaxMetadataCount = 2;
 public:
     RaatMetadataHandler(
-        Media::IAsyncTrackReporter& aAsyncTrackReporter,
+        Media::IAsyncTrackObserver& aAsyncTrackObserver,
         IInfoAggregator&            aInfoAggregator,
         IRaatArtworkServer&         aArtworkServer);
     ~RaatMetadataHandler();
@@ -92,7 +92,7 @@ public: // from IRaatArtworkServerObserver
 public:
     void TrackInfoChanged(const RaatTrackInfo& aTrackInfo);
 private:
-    Media::IAsyncTrackReporter&             iTrackReporter;
+    Media::IAsyncTrackObserver&             iTrackObserver;
     Media::Allocator<RaatMetadataAllocated> iAllocatorMetadata;
     IRaatArtworkServer&                     iArtworkServer;
     RaatMetadataAllocated*                  iMetadata;

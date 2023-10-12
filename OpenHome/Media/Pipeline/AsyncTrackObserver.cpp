@@ -1,5 +1,5 @@
 #include <OpenHome/Types.h>
-#include <OpenHome/Media/Pipeline/AsyncTrackReporter.h>
+#include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
 
 #include <OpenHome/Private/Printer.h>
 
@@ -41,9 +41,9 @@ TUint AsyncStartOffset::AbsoluteDifference(TUint aOffsetMs) const
 }
 
 
-// AsyncTrackReporter
+// AsyncTrackObserver
 
-const TUint AsyncTrackReporter::kSupportedMsgTypes =   eMode
+const TUint AsyncTrackObserver::kSupportedMsgTypes =   eMode
                                                   | eTrack
                                                   | eDrain
                                                   | eDelay
@@ -59,7 +59,7 @@ const TUint AsyncTrackReporter::kSupportedMsgTypes =   eMode
                                                   | eSilence
                                                   | eQuit;
 
-AsyncTrackReporter::AsyncTrackReporter(
+AsyncTrackObserver::AsyncTrackObserver(
     IPipelineElementUpstream&   aUpstreamElement,
     MsgFactory&                 aMsgFactory,
     TrackFactory&               aTrackFactory)
@@ -80,7 +80,7 @@ AsyncTrackReporter::AsyncTrackReporter(
 {
 }
 
-AsyncTrackReporter::~AsyncTrackReporter()
+AsyncTrackObserver::~AsyncTrackObserver()
 {
     AutoMutex _(iLock);
     if (iMetadata != nullptr) {
@@ -91,7 +91,7 @@ AsyncTrackReporter::~AsyncTrackReporter()
     }
 }
 
-Msg* AsyncTrackReporter::Pull()
+Msg* AsyncTrackObserver::Pull()
 {
     Msg* msg = nullptr;
     while (msg == nullptr) {
@@ -157,12 +157,12 @@ Msg* AsyncTrackReporter::Pull()
     return msg;
 }
 
-void AsyncTrackReporter::AddClient(IAsyncTrackClient& aClient)
+void AsyncTrackObserver::AddClient(IAsyncTrackClient& aClient)
 {
     iClients.push_back(&aClient);
 }
 
-void AsyncTrackReporter::MetadataChanged(IAsyncMetadataAllocated* aMetadata)
+void AsyncTrackObserver::MetadataChanged(IAsyncMetadataAllocated* aMetadata)
 {
     AutoMutex _(iLock);
     if (iMetadata != aMetadata) {
@@ -183,14 +183,14 @@ void AsyncTrackReporter::MetadataChanged(IAsyncMetadataAllocated* aMetadata)
     // If this metadata arrives mid-track (i.e., because retrieval of the new metadata has been delayed, or the metadata has actually changed mid-track) the start sample for the new MsgDecodedStream should already be (roughly) correct without any extra book-keeping, as long as calls to ::TrackPosition() are being made, which update iStartOffset to avoid any playback time sync issues.
 }
 
-void AsyncTrackReporter::TrackOffsetChanged(TUint aOffsetMs)
+void AsyncTrackObserver::TrackOffsetChanged(TUint aOffsetMs)
 {
     AutoMutex _(iLock);
     iStartOffset.SetMs(aOffsetMs);
     iMsgDecodedStreamPending = true;
 }
 
-void AsyncTrackReporter::TrackPositionChanged(TUint aPositionMs)
+void AsyncTrackObserver::TrackPositionChanged(TUint aPositionMs)
 {
     AutoMutex _(iLock);
     const TUint offsetDiffAbs = iStartOffset.AbsoluteDifference(aPositionMs);
@@ -200,7 +200,7 @@ void AsyncTrackReporter::TrackPositionChanged(TUint aPositionMs)
     iStartOffset.SetMs(aPositionMs);
 }
 
-Msg* AsyncTrackReporter::ProcessMsg(MsgMode* aMsg)
+Msg* AsyncTrackObserver::ProcessMsg(MsgMode* aMsg)
 {
     for (auto* client : iClients) {
         if (aMsg->Mode() == client->Mode()) {
@@ -225,7 +225,7 @@ Msg* AsyncTrackReporter::ProcessMsg(MsgMode* aMsg)
     return aMsg;
 }
 
-Msg* AsyncTrackReporter::ProcessMsg(MsgDecodedStream* aMsg)
+Msg* AsyncTrackObserver::ProcessMsg(MsgDecodedStream* aMsg)
 {
     if (!iInterceptMode) {
         return aMsg;
@@ -248,7 +248,7 @@ Msg* AsyncTrackReporter::ProcessMsg(MsgDecodedStream* aMsg)
     return nullptr;
 }
 
-Msg* AsyncTrackReporter::ProcessMsg(MsgTrack* aMsg)
+Msg* AsyncTrackObserver::ProcessMsg(MsgTrack* aMsg)
 {
     if (!iInterceptMode) {
         return aMsg;
@@ -263,7 +263,7 @@ Msg* AsyncTrackReporter::ProcessMsg(MsgTrack* aMsg)
     return aMsg;
 }
 
-void AsyncTrackReporter::ClearDecodedStream()
+void AsyncTrackObserver::ClearDecodedStream()
 {
     if (iDecodedStream != nullptr) {
         iDecodedStream->RemoveRef();
@@ -271,14 +271,14 @@ void AsyncTrackReporter::ClearDecodedStream()
     }
 }
 
-void AsyncTrackReporter::UpdateDecodedStream(MsgDecodedStream& aMsg)
+void AsyncTrackObserver::UpdateDecodedStream(MsgDecodedStream& aMsg)
 {
     ClearDecodedStream();
     iDecodedStream = &aMsg;
     iDecodedStream->AddRef();
 }
 
-TUint64 AsyncTrackReporter::TrackLengthJiffiesLocked() const
+TUint64 AsyncTrackObserver::TrackLengthJiffiesLocked() const
 {
     ASSERT(iDecodedStream != nullptr);
     const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
@@ -286,7 +286,7 @@ TUint64 AsyncTrackReporter::TrackLengthJiffiesLocked() const
     return trackLengthJiffies;
 }
 
-MsgDecodedStream* AsyncTrackReporter::CreateMsgDecodedStreamLocked() const
+MsgDecodedStream* AsyncTrackObserver::CreateMsgDecodedStreamLocked() const
 {
     ASSERT(iDecodedStream != nullptr);
     const DecodedStreamInfo& info = iDecodedStream->StreamInfo();

@@ -154,24 +154,24 @@ void RaatMetadataAllocated::Clear()
 const Brn RaatMetadataHandler::kMode("RAAT");
 
 RaatMetadataHandler::RaatMetadataHandler(
-    IAsyncTrackReporter&    aTrackReporter,
+    IAsyncTrackObserver&    aTrackObserver,
     IInfoAggregator&        aInfoAggregator,
     IRaatArtworkServer&     aArtworkServer)
 
-    : iTrackReporter(aTrackReporter)
+    : iTrackObserver(aTrackObserver)
     , iAllocatorMetadata("RaatMetadata", kMaxMetadataCount, aInfoAggregator)
     , iArtworkServer(aArtworkServer)
     , iMetadata(nullptr)
     , iTrackPositionSecs(0)
 {
-    iTrackReporter.AddClient(*this);
+    iTrackObserver.AddClient(*this);
     iArtworkServer.AddObserver(*this);
 }
 
 RaatMetadataHandler::~RaatMetadataHandler()
 {
     if (iMetadata != nullptr) {
-        iTrackReporter.MetadataChanged(nullptr); // observer must remove any metadata reference before we call the d'tor for iAllocatorMetadata
+        iTrackObserver.MetadataChanged(nullptr); // observer must remove any metadata reference before we call the d'tor for iAllocatorMetadata
         iMetadata->RemoveReference();
     }
 }
@@ -223,7 +223,7 @@ void RaatMetadataHandler::ArtworkChanged(const Brx& aUri)
 {
     if (iMetadata != nullptr) {
         iMetadata->SetArtworkUri(aUri);
-        iTrackReporter.MetadataChanged(iMetadata);
+        iTrackObserver.MetadataChanged(iMetadata);
     }
 }
 
@@ -231,7 +231,7 @@ void RaatMetadataHandler::TrackInfoChanged(const RaatTrackInfo& aTrackInfo)
 {
     if (iTrackPositionSecs != aTrackInfo.GetPositionSecs()) {
         iTrackPositionSecs = aTrackInfo.GetPositionSecs();
-        iTrackReporter.TrackPositionChanged(iTrackPositionSecs * kMsPerSec);
+        iTrackObserver.TrackPositionChanged(iTrackPositionSecs * kMsPerSec);
     }
 
     RaatMetadataAllocated* metadata = iAllocatorMetadata.Allocate();
@@ -250,6 +250,6 @@ void RaatMetadataHandler::TrackInfoChanged(const RaatTrackInfo& aTrackInfo)
 
     iMetadata = metadata;
     iMetadata->AddReference();
-    iTrackReporter.MetadataChanged(iMetadata);
-    iTrackReporter.TrackOffsetChanged(iTrackPositionSecs * kMsPerSec);
+    iTrackObserver.MetadataChanged(iMetadata);
+    iTrackObserver.TrackOffsetChanged(iTrackPositionSecs * kMsPerSec);
 }

@@ -164,9 +164,9 @@ void PipelineManager::AddObserver(IModeObserver& aObserver)
     iModeObserver = &aObserver;
 }
 
-IAsyncTrackReporter& PipelineManager::AsyncTrackReporter() const
+IAsyncTrackObserver& PipelineManager::AsyncTrackObserver() const
 {
-    return iPipeline->AsyncTrackReporter();
+    return iPipeline->AsyncTrackObserver();
 }
 
 IAirplayReporter& PipelineManager::AirplayReporter() const

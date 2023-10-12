@@ -267,7 +267,7 @@ RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
     , iRepeatAdapter(iTransportRepeatRandom, *this)
     , iArtworkServer(aMediaPlayer.Env())
     , iMetadataHandler(
-        aMediaPlayer.Pipeline().AsyncTrackReporter(),
+        aMediaPlayer.Pipeline().AsyncTrackObserver(),
         *(aMediaPlayer.Env().InfoAggregator()),
         iArtworkServer)
     , iActive(false)

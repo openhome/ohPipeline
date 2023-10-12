@@ -8,7 +8,7 @@ namespace Media {
 
 
 /* IAsyncMetadata
- * Interface to provide the minimum information required by IAsyncTrackReporter
+ * Interface to provide the minimum information required by IAsyncTrackObserver
  * Clients should implement and extend as necessary
  */
 class IAsyncMetadata
@@ -33,7 +33,7 @@ public:
 
 /* IAsyncTrackClient
  * Clients should implement this interface in order to register themselves with 
- * IAsyncTrackReporter. Metadata can then be written asynchronously at IAsyncTrackReporter's
+ * IAsyncTrackObserver. Metadata can then be written asynchronously at IAsyncTrackObserver's
  * descretion
  */
 class IAsyncTrackClient
@@ -46,7 +46,7 @@ public:
     virtual ~IAsyncTrackClient() {}
 };
 
-class IAsyncTrackReporter
+class IAsyncTrackObserver
 {
 public:
     virtual void AddClient(IAsyncTrackClient& aClient) = 0;
@@ -63,7 +63,7 @@ public:
      */
     virtual void TrackPositionChanged(TUint aPositionMs) = 0;
 
-    virtual ~IAsyncTrackReporter() {}
+    virtual ~IAsyncTrackObserver() {}
 };
 
 /**
@@ -83,28 +83,28 @@ private:
     TUint iOffsetMs;
 };
 
-/* AsyncTrackReporter
- * Concrete pipeline element implementation of IAsyncTrackReporter
+/* AsyncTrackObserver
+ * Concrete pipeline element implementation of IAsyncTrackObserver
  */
-class AsyncTrackReporter
+class AsyncTrackObserver
     : public PipelineElement
     , public IPipelineElementUpstream
-    , public IAsyncTrackReporter
+    , public IAsyncTrackObserver
     , private INonCopyable
 {
 private:
     static const TUint kSupportedMsgTypes;
     static const TUint kTrackOffsetChangeThresholdMs = 2000;
 public:
-    AsyncTrackReporter(
+    AsyncTrackObserver(
         IPipelineElementUpstream&   aUpstreamElement,
         MsgFactory&                 aMsgFactory,
         TrackFactory&               aTrackFactory);
 
-    ~AsyncTrackReporter();
+    ~AsyncTrackObserver();
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
-public: // from IAsyncTrackReporter
+public: // from IAsyncTrackObserver
     void AddClient(IAsyncTrackClient& aClient) override;
     void MetadataChanged(IAsyncMetadataAllocated* aMetadata) override;
     void TrackOffsetChanged(TUint aOffsetMs) override;
