@@ -48,7 +48,8 @@ public:
         Media::IPullableClock& aPullableClock,
         IRaatSignalPathObservable* aSignalPathObservable,
         const Brx& aSerialNumber,
-        const Brx& aSoftwareVersion);
+        const Brx& aSoftwareVersion,
+        const Brx& aConfigUrl);
     static ISource* NewRoon(
         IMediaPlayer& aMediaPlayer,
         Media::IAudioTime& aAudioTime,
@@ -56,6 +57,7 @@ public:
         IRaatSignalPathObservable* aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
+        const Brx& aConfigUrl,
         TUint aDsdSampleBlockWords,
         TUint aDsdPadBytesPerChunk);
 

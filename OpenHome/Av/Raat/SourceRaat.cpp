@@ -70,6 +70,7 @@ ISource* SourceFactory::NewRoon(
     IRaatSignalPathObservable* aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion,
+    const Brx& aConfigUrl,
     TUint aDsdSampleBlockWords,
     TUint aDsdPadBytesPerChunk)
 { // static
@@ -84,7 +85,8 @@ ISource* SourceFactory::NewRoon(
             aSignalPathObservable,
             configVal,
             aSerialNumber,
-            aSoftwareVersion);
+            aSoftwareVersion,
+            aConfigUrl);
     }
     else {
         return SourceFactory::NewScd(aMediaPlayer, configVal, aDsdSampleBlockWords, aDsdPadBytesPerChunk);
@@ -97,7 +99,8 @@ ISource* SourceFactory::NewRaat(
     Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable* aSignalPathObservable,
     const Brx& aSerialNumber,
-    const Brx& aSoftwareVersion)
+    const Brx& aSoftwareVersion,
+    const Brx& aConfigUrl)
 { // static
     return new SourceRaat(
         aMediaPlayer,
@@ -106,7 +109,8 @@ ISource* SourceFactory::NewRaat(
         aSignalPathObservable,
         nullptr,
         aSerialNumber,
-        aSoftwareVersion);
+        aSoftwareVersion,
+        aConfigUrl);
 }
 
 
@@ -146,7 +150,8 @@ SourceRaat::SourceRaat(
     IRaatSignalPathObservable* aSignalPathObservable,
     Optional<Configuration::ConfigChoice> aProtocolSelector,
     const Brx& aSerialNumber,
-    const Brx& aSoftwareVersion)
+    const Brx& aSoftwareVersion,
+    const Brx& aConfigUrl)
 
     : Source(
         SourceFactory::kSourceNameRaat,
@@ -165,7 +170,8 @@ SourceRaat::SourceRaat(
         aPullableClock,
         *iSignalPathObservable,
         aSerialNumber,
-        aSoftwareVersion);
+        aSoftwareVersion,
+        aConfigUrl);
 
     iProtocol = new ProtocolRaat(
         aMediaPlayer.Env(),

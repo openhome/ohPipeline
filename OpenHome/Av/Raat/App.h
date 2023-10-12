@@ -39,7 +39,8 @@ public:
         Media::IPullableClock& aPullableClock,
         IRaatSignalPathObservable& aSignalPathObservable,
         const Brx& aSerialNumber,
-        const Brx& aSoftwareVersion);
+        const Brx& aSoftwareVersion,
+        const Brx& aConfigUrl);
     ~RaatApp();
 public:
     void Start();
@@ -61,6 +62,7 @@ private:
     RaatTransport* iTransport;
     Bwh iSerialNumber;
     Bwh iSoftwareVersion;
+    Bwh iConfigUrl;
     TBool iStarted;
 };
 

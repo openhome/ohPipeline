@@ -48,13 +48,15 @@ RaatApp::RaatApp(
     Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable& aSignalPathObservable,
     const Brx& aSerialNumber,
-    const Brx& aSoftwareVersion)
+    const Brx& aSoftwareVersion,
+    const Brx& aConfigUrl)
 
     : iMediaPlayer(aMediaPlayer)
     , iDevice(nullptr)
     , iInfo(nullptr)
     , iSerialNumber(aSerialNumber)
     , iSoftwareVersion(aSoftwareVersion)
+    , iConfigUrl(aConfigUrl)
     , iStarted(false)
 {
     iTimer = new Timer(aEnv, MakeFunctor(*this, &RaatApp::StartPlugins), "RaatApp");
@@ -138,9 +140,7 @@ void RaatApp::RaatThread()
 
     SetInfo(iInfo, RAAT__INFO_KEY_SERIAL, iSerialNumber);
     SetInfo(iInfo, RAAT__INFO_KEY_VERSION, iSoftwareVersion);
-    
-    // FIXME - following info is all stubbed out
-    // RAAT__INFO_KEY_CONFIG_URL
+    SetInfo(iInfo, RAAT__INFO_KEY_CONFIG_URL, iConfigUrl);
 
     RAAT__device_set_output_plugin(iDevice, iOutput->Plugin());
     if (iVolume != nullptr) {

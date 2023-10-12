@@ -80,7 +80,8 @@ public:
         IRaatSignalPathObservable* aSignalPathObservable,
         Optional<Configuration::ConfigChoice> aProtocolSelector,
         const Brx& aSerialNumber,
-        const Brx& aSoftwareVersion);
+        const Brx& aSoftwareVersion,
+        const Brx& aConfigUrl);
     ~SourceRaat();
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
