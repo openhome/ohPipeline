@@ -181,6 +181,15 @@ const Brx& RaatMetadataHandler::Mode() const
     return kMode;
 }
 
+TBool RaatMetadataHandler::ForceDecodedStream() const
+{
+    /* Force initial decoded stream to be output, even though it may be incomplete (missing start offset etc.,)
+     * Ensures pipeline has the minimum information to be setup correctly (sample rate)
+     * Required for clocking/tick count setup
+     */
+    return true;
+}
+
 void RaatMetadataHandler::WriteMetadata(
     const Brx&                      aTrackUri,
     const Media::IAsyncMetadata&    aMetadata,

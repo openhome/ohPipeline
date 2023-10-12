@@ -81,6 +81,7 @@ public:
 
 public: // from IAsyncTrackClient
     const Brx& Mode() const override;
+    TBool ForceDecodedStream() const override;
     void WriteMetadata(
         const Brx&                      aTrackUri,
         const Media::IAsyncMetadata&    aMetadata,
