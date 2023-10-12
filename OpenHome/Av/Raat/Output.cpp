@@ -377,7 +377,6 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
 RC__Status RaatOutput::GetLocalTime(int aToken, int64_t* aTime)
 {
     if (aToken != iToken) {
-        LOG(kRaat, "RaatOutput::GetLocalTime(%d) iToken=%d\n", aToken, iToken);
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
     *aTime = MclkToNs();
