@@ -236,10 +236,15 @@ Msg* AsyncTrackReporter::ProcessMsg(MsgDecodedStream* aMsg)
     ASSERT(info.NumChannels() != 0);
 
     UpdateDecodedStream(*aMsg);
-    aMsg->RemoveRef();
-
-    // Set flag and return nullptr to output generated MsgDecodedStream instead of this
     iMsgDecodedStreamPending = true;
+
+    // The client wishes this decoded stream to be output
+    if (iClient->ForceDecodedStream()) { // safe to access iClient as already checked iInterceptMode
+        return aMsg;
+    }
+
+    // Output generated MsgDecodedStream instead of this decoded stream
+    aMsg->RemoveRef();
     return nullptr;
 }
 

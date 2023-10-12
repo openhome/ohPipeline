@@ -40,6 +40,7 @@ class IAsyncTrackClient
 {
 public:
     virtual const Brx& Mode() const = 0;
+    virtual TBool ForceDecodedStream() const = 0;
     virtual void WriteMetadata(const Brx& aTrackUri, const IAsyncMetadata& aMetadata, const DecodedStreamInfo& aStreamInfo, IWriter& aWriter) = 0;
 
     virtual ~IAsyncTrackClient() {}
