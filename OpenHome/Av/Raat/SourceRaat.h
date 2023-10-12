@@ -97,12 +97,6 @@ private: // from IProductObserver
     void SourceXmlChanged() override;
     void ProductUrisChanged() override;
 private:
-    void Play();
-    void Pause();
-    void Stop();
-    void Next();
-    void Prev();
-private:
     void Initialise();
 private:
     IRaatSignalPathObservable* iSignalPathObservable;

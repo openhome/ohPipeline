@@ -174,11 +174,11 @@ SourceRaat::SourceRaat(
     aMediaPlayer.Add(iProtocol); // passes ownership
 
     iUriProvider = new UriProviderRaat(SourceFactory::kSourceTypeRaat, aMediaPlayer.TrackFactory());
-    iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceRaat::Play));
-    iUriProvider->SetTransportPause(MakeFunctor(*this, &SourceRaat::Pause));
-    iUriProvider->SetTransportStop(MakeFunctor(*this, &SourceRaat::Stop));
-    iUriProvider->SetTransportNext(MakeFunctor(*this, &SourceRaat::Next));
-    iUriProvider->SetTransportPrev(MakeFunctor(*this, &SourceRaat::Prev));
+    iUriProvider->SetTransportPlay(MakeFunctor(iApp->Transport(), &IRaatTransport::Play));
+    iUriProvider->SetTransportPause(MakeFunctor(iApp->Transport(), &IRaatTransport::TryPause));
+    iUriProvider->SetTransportStop(MakeFunctor(iApp->Transport(), &IRaatTransport::Stop));
+    iUriProvider->SetTransportNext(MakeFunctor(iApp->Transport(), &IRaatTransport::TryMoveNext));
+    iUriProvider->SetTransportPrev(MakeFunctor(iApp->Transport(), &IRaatTransport::TryMovePrev));
     iPipeline.Add(iUriProvider); // transfers ownership
 
     iDefaultMetadata.Replace("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
@@ -271,43 +271,6 @@ void SourceRaat::SourceXmlChanged()
 void SourceRaat::ProductUrisChanged()
 {
     // deliberately blank - we implement IProductObserver for Started() only
-}
-
-void SourceRaat::Play()
-{
-    iApp->Transport().Play();
-    iPipeline.Play();
-}
-
-void SourceRaat::Pause()
-{
-    if (iApp->Transport().CanPause()) {
-        iPipeline.Pause();
-    }
-    else {
-        iApp->Transport().Stop();
-        iPipeline.Stop();
-    }
-}
-
-void SourceRaat::Stop()
-{
-    iApp->Transport().Stop();
-    iPipeline.Stop();
-}
-
-void SourceRaat::Next()
-{
-    if (iApp->Transport().CanMoveNext()) {
-        iPipeline.Next();
-    }
-}
-
-void SourceRaat::Prev()
-{
-    if (iApp->Transport().CanMovePrev()) {
-        iPipeline.Prev();
-    }
 }
 
 void SourceRaat::Initialise()

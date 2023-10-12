@@ -129,10 +129,10 @@ class IRaatTransport
 public:
     virtual ~IRaatTransport() {}
     virtual void Play() = 0;
-    virtual TBool CanPause() = 0;
+    virtual void TryPause() = 0;
     virtual void Stop() = 0;
-    virtual TBool CanMoveNext() = 0;
-    virtual TBool CanMovePrev() = 0;
+    virtual void TryMoveNext() = 0;
+    virtual void TryMovePrev() = 0;
 };
 
 class RaatTransportStatusParser
@@ -197,10 +197,10 @@ private:
     void DoReportState(const TChar* aState);
 private: // from IRaatTransport
     void Play() override;
-    TBool CanPause() override;
+    void TryPause() override;
     void Stop() override;
-    TBool CanMoveNext() override;
-    TBool CanMovePrev() override;
+    void TryMoveNext() override;
+    void TryMovePrev() override;
 private: // IRaatSourceObserver
     void RaatSourceActivated() override;
     void RaatSourceDeactivated() override;

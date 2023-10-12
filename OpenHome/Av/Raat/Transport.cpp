@@ -370,14 +370,15 @@ void RaatTransport::Play()
     DoReportState("play");
 }
 
-TBool RaatTransport::CanPause()
+void RaatTransport::TryPause()
 {
     AutoMutex _(iLockStatus);
-    if (!iTransportInfo.PauseSupported()) {
-        return false;
+    if (iTransportInfo.PauseSupported()) {
+        DoReportState("pause");
     }
-    DoReportState("pause");
-    return true;
+    else {
+        Stop();
+    }
 }
 
 void RaatTransport::Stop()
@@ -385,24 +386,20 @@ void RaatTransport::Stop()
     DoReportState("stop");
 }
 
-TBool RaatTransport::CanMoveNext()
+void RaatTransport::TryMoveNext()
 {
     AutoMutex _(iLockStatus);
-    if (!iTransportInfo.NextSupported()) {
-        return false;
+    if (iTransportInfo.NextSupported()) {
+        DoReportState("next");
     }
-    DoReportState("next");
-    return true;
 }
 
-TBool RaatTransport::CanMovePrev()
+void RaatTransport::TryMovePrev()
 {
     AutoMutex _(iLockStatus);
-    if (!iTransportInfo.PrevSupported()) {
-        return false;
+    if (iTransportInfo.PrevSupported()) {
+        DoReportState("previous");
     }
-    DoReportState("previous");
-    return true;
 }
 
 void RaatTransport::RaatSourceActivated()
