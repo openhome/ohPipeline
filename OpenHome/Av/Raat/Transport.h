@@ -168,12 +168,14 @@ public:
         IRaatRepeatRandomInvoker& aRaatRepeatRandom);
     ~RaatRepeatRandomAdapter();
 public:
-    void SetEnabled(TBool aEnabled);
+    void SetActive(TBool aActive);
     void RaatRepeatChanged(RaatTransportInfo::ERepeatMode aMode);
     void RaatRandomChanged(TBool aRandom);
 private: // from ITransportRepeatRandomObserver
     void TransportRepeatChanged(TBool aRepeat) override;
     void TransportRandomChanged(TBool aRandom) override;
+private:
+    TBool DoSetRandom(TBool aRandom);
 private:
     ITransportRepeatRandom& iTransportRepeatRandom;
     IRaatRepeatRandomInvoker& iRaatRepeatRandom;
@@ -182,7 +184,8 @@ private:
     TBool iLinnRepeatChangePending;
     RaatTransportInfo::ERepeatMode iRaatRepeatMode;
     TBool iRandomEnabled;
-    mutable Mutex iLock;
+    TBool iActive;
+    Mutex iLock;
 };
 
 class IMediaPlayer;
@@ -222,7 +225,6 @@ private:
     RaatArtworkHttpServer iArtworkServer;
     RaatMetadataHandler iMetadataHandler;
     RaatTransportInfo iTransportInfo;
-    TBool iActive;
     RaatTrackInfo::EState iState;
     Mutex iLockStatus;
 };
