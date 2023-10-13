@@ -199,21 +199,33 @@ TUint RaatTransportStatusParser::ValueUint(json_t* aObject, const TChar* aKey)
     return (TUint)json_integer_value(kvp);
 }
 
-// RaatTransportRepeatAdapter
+// RaatRepeatRandomAdapter
 
-RaatTransportRepeatAdapter::RaatTransportRepeatAdapter(
+RaatRepeatRandomAdapter::RaatRepeatRandomAdapter(
     ITransportRepeatRandom& aTransportRepeatRandom,
-    IRaatRepeatToggler&     aRepeatToggler)
+    IRaatRepeatRandomInvoker& aRaatRepeatRandom)
 
     : iTransportRepeatRandom(aTransportRepeatRandom)
-    , iRepeatToggler(aRepeatToggler)
-    , iLinnRepeat(false)
-    , iRaatRepeat(RaatTransportInfo::ERepeatMode::eOff)
+    , iRaatRepeatRandom(aRaatRepeatRandom)
+    , iLinnRepeatEnabled(false)
+    , iRaatRepeatMode(RaatTransportInfo::ERepeatMode::eOff)
+    , iRandomEnabled(false)
     , iLock("RRPT")
 {
+    iTransportRepeatRandom.AddObserver(*this, "RaatTransport");
 }
 
-void RaatTransportRepeatAdapter::RaatRepeatChanged(RaatTransportInfo::ERepeatMode aMode)
+RaatRepeatRandomAdapter::~RaatRepeatRandomAdapter()
+{
+    iTransportRepeatRandom.RemoveObserver(*this);
+}
+
+void RaatRepeatRandomAdapter::SetEnabled(TBool aEnabled)
+{
+
+}
+
+void RaatRepeatRandomAdapter::RaatRepeatChanged(RaatTransportInfo::ERepeatMode aMode)
 {
     TBool changed = false;
     TBool repeatEnabled = false;
@@ -222,13 +234,13 @@ void RaatTransportRepeatAdapter::RaatRepeatChanged(RaatTransportInfo::ERepeatMod
         AutoMutex _(iLock);
         repeatEnabled = (aMode != RaatTransportInfo::ERepeatMode::eOff);
         if (!iLinnRepeatChangePending) {
-            if (iLinnRepeat != repeatEnabled) {
-                iLinnRepeat = repeatEnabled;
+            if (iLinnRepeatEnabled != repeatEnabled) {
+                iLinnRepeatEnabled = repeatEnabled;
                 changed = true;
             }
-            iRaatRepeat = aMode;
+            iRaatRepeatMode = aMode;
         }
-        if (iRaatRepeat == aMode) {
+        if (iRaatRepeatMode == aMode) {
             iLinnRepeatChangePending = false;
             isSynced = true;
         }
@@ -238,33 +250,55 @@ void RaatTransportRepeatAdapter::RaatRepeatChanged(RaatTransportInfo::ERepeatMod
         iTransportRepeatRandom.SetRepeat(repeatEnabled);
     }
     if (!isSynced) {
-        iRepeatToggler.ToggleRepeat();
+        iRaatRepeatRandom.ToggleRepeat();
     }
 }
 
-void RaatTransportRepeatAdapter::LinnRepeatChanged(TBool aRepeat)
+void RaatRepeatRandomAdapter::RaatRandomChanged(TBool aRandom)
 {
     {
         AutoMutex _(iLock);
-        iLinnRepeat = aRepeat;
-        iRaatRepeat = iLinnRepeat ? RaatTransportInfo::ERepeatMode::eRepeat : RaatTransportInfo::ERepeatMode::eOff;
-        iLinnRepeatChangePending = true;
+        if (aRandom == iRandomEnabled) {
+            return;
+        }
+        iRandomEnabled = aRandom;
     }
-    iRepeatToggler.ToggleRepeat();
+    iTransportRepeatRandom.SetRandom(aRandom);
 }
 
-TBool RaatTransportRepeatAdapter::RepeatEnabled() const
+void RaatRepeatRandomAdapter::TransportRepeatChanged(TBool aRepeat)
 {
-    AutoMutex _(iLock);
-    return iLinnRepeat;
+    {
+        AutoMutex _(iLock);
+        if (aRepeat == iLinnRepeatEnabled) {
+            return;
+        }
+        iLinnRepeatEnabled = aRepeat;
+        iRaatRepeatMode = iLinnRepeatEnabled ? RaatTransportInfo::ERepeatMode::eRepeat : RaatTransportInfo::ERepeatMode::eOff;
+        iLinnRepeatChangePending = true;
+    }
+    iRaatRepeatRandom.ToggleRepeat();
+}
+
+void RaatRepeatRandomAdapter::TransportRandomChanged(TBool aRandom)
+{
+    {
+        AutoMutex _(iLock);
+        if (aRandom == iRandomEnabled) {
+            return;
+        }
+        iRandomEnabled = aRandom;
+    }
+    iRaatRepeatRandom.ToggleRandom();
 }
 
 
 // RaatTransport
 
 RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
-    : iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
-    , iRepeatAdapter(iTransportRepeatRandom, *this)
+    : iRaatRepeatRandomAdapter(
+        aMediaPlayer.TransportRepeatRandom(),
+        *this)
     , iArtworkServer(aMediaPlayer.Env())
     , iMetadataHandler(
         aMediaPlayer.Pipeline().AsyncTrackObserver(),
@@ -284,13 +318,10 @@ RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
     iPluginExt.iPlugin.update_status = Raat_RaatTransport_Update_Status;
     iPluginExt.iPlugin.update_artwork = Raat_RaatTransport_Update_Artwork;
     iPluginExt.iSelf = this;
-
-    iTransportRepeatRandom.AddObserver(*this, "RaatTransport");
 }
 
 RaatTransport::~RaatTransport()
 {
-    iTransportRepeatRandom.RemoveObserver(*this);
     RAAT__transport_control_listeners_destroy(&iListeners);
 }
 
@@ -301,7 +332,6 @@ RAAT__TransportPlugin* RaatTransport::Plugin()
 
 void RaatTransport::AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)
 {
-    Log::Print("RaatTransport::AddControlListener(cb, %p)\n", aCbUserdata);
     RAAT__transport_control_listeners_add(&iListeners, aCb, aCbUserdata);
 }
 
@@ -312,10 +342,8 @@ void RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, vo
 
 void RaatTransport::UpdateStatus(json_t *aStatus)
 {
-    TBool starting = false;
     TBool randomChanged = false;
     TBool repeatChanged = false;
-
     {
         AutoMutex _(iLockStatus);
 
@@ -323,27 +351,21 @@ void RaatTransport::UpdateStatus(json_t *aStatus)
         RaatTrackInfo trackInfo;
         RaatTransportStatusParser::Parse(aStatus, transportInfo, trackInfo);
 
-        starting = (iState == RaatTrackInfo::EState::eUndefined);
         randomChanged = (iState == RaatTrackInfo::EState::eUndefined || (iTransportInfo.Shuffle() != transportInfo.Shuffle()));
         repeatChanged = (iState == RaatTrackInfo::EState::eUndefined || (iTransportInfo.RepeatMode() != transportInfo.RepeatMode()));
 
         iTransportInfo.Set(transportInfo);
         iMetadataHandler.TrackInfoChanged(trackInfo);
-
         if (iState != trackInfo.GetState()) {
             iState = trackInfo.GetState();
         }
     }
 
     if (randomChanged) {
-        iTransportRepeatRandom.SetRandom(iTransportInfo.Shuffle());
-    }
-    if (starting) {
-        const TBool repeat = (iTransportInfo.RepeatMode() != RaatTransportInfo::ERepeatMode::eOff);
-        iTransportRepeatRandom.SetRepeat(repeat);
+        iRaatRepeatRandomAdapter.RaatRandomChanged(iTransportInfo.Shuffle());
     }
     else if (repeatChanged) {
-        iRepeatAdapter.RaatRepeatChanged(iTransportInfo.RepeatMode());
+        iRaatRepeatRandomAdapter.RaatRepeatChanged(iTransportInfo.RepeatMode());
     }
 }
 
@@ -421,24 +443,8 @@ void RaatTransport::ToggleRepeat()
     DoReportState("toggleloop");
 }
 
-void RaatTransport::TransportRepeatChanged(TBool aRepeat)
-{
-    TBool changed = false;
-    {
-        AutoMutex _(iLockStatus);
-        if (iActive && iRepeatAdapter.RepeatEnabled() != aRepeat) {
-            changed = true;
-        }
-    }
-    if (changed) {
-        iRepeatAdapter.LinnRepeatChanged(aRepeat);
-    }
-}
-
-void RaatTransport::TransportRandomChanged(TBool aRandom)
+void RaatTransport::ToggleRandom()
 {
     AutoMutex _(iLockStatus);
-    if (iActive && iTransportInfo.Shuffle() != aRandom) {
-        DoReportState("toggleshuffle");
-    }
+    DoReportState("toggleshuffle");
 }

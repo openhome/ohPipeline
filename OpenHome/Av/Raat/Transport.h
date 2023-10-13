@@ -117,11 +117,12 @@ typedef struct {
     RaatTransport* iSelf;
 } RaatTransportPluginExt;
 
-class IRaatRepeatToggler
+class IRaatRepeatRandomInvoker
 {
 public:
     virtual void ToggleRepeat() = 0;
-    virtual ~IRaatRepeatToggler() {}
+    virtual void ToggleRandom() = 0;
+    virtual ~IRaatRepeatRandomInvoker() {}
 };
 
 class IRaatTransport
@@ -159,20 +160,28 @@ private:
     static TUint ValueUint(json_t* aObject, const TChar* aKey);
 };
 
-class RaatTransportRepeatAdapter
+class RaatRepeatRandomAdapter : private ITransportRepeatRandomObserver
 {
 public:
-    RaatTransportRepeatAdapter(ITransportRepeatRandom& aTransportRepeatRandom, IRaatRepeatToggler& aRepeatToggler);
+    RaatRepeatRandomAdapter(
+        ITransportRepeatRandom& aTransportRepeatRandom,
+        IRaatRepeatRandomInvoker& aRaatRepeatRandom);
+    ~RaatRepeatRandomAdapter();
 public:
+    void SetEnabled(TBool aEnabled);
     void RaatRepeatChanged(RaatTransportInfo::ERepeatMode aMode);
-    void LinnRepeatChanged(TBool aRepeat);
-    TBool RepeatEnabled() const;
+    void RaatRandomChanged(TBool aRandom);
+private: // from ITransportRepeatRandomObserver
+    void TransportRepeatChanged(TBool aRepeat) override;
+    void TransportRandomChanged(TBool aRandom) override;
 private:
     ITransportRepeatRandom& iTransportRepeatRandom;
-    IRaatRepeatToggler& iRepeatToggler;
-    TBool iLinnRepeat;
+    IRaatRepeatRandomInvoker& iRaatRepeatRandom;
+
+    TBool iLinnRepeatEnabled;
     TBool iLinnRepeatChangePending;
-    RaatTransportInfo::ERepeatMode iRaatRepeat;
+    RaatTransportInfo::ERepeatMode iRaatRepeatMode;
+    TBool iRandomEnabled;
     mutable Mutex iLock;
 };
 
@@ -181,8 +190,7 @@ class IMediaPlayer;
 class RaatTransport
     : public IRaatTransport
     , public IRaatSourceObserver
-    , public IRaatRepeatToggler
-    , private ITransportRepeatRandomObserver
+    , private IRaatRepeatRandomInvoker
 {
 public:
     RaatTransport(IMediaPlayer& aMediaPlayer);
@@ -204,16 +212,13 @@ private: // from IRaatTransport
 private: // IRaatSourceObserver
     void RaatSourceActivated() override;
     void RaatSourceDeactivated() override;
-private: // from IRaatRepeatToggler
+private: // from IRaatRepeatRandomInvoker
     void ToggleRepeat() override;
-private: // from ITransportRepeatRandomObserver
-    void TransportRepeatChanged(TBool aRepeat) override;
-    void TransportRandomChanged(TBool aRandom) override;
+    void ToggleRandom() override;
 private:
     RaatTransportPluginExt iPluginExt;
     RAAT__TransportControlListeners iListeners;
-    ITransportRepeatRandom& iTransportRepeatRandom;
-    RaatTransportRepeatAdapter iRepeatAdapter;
+    RaatRepeatRandomAdapter iRaatRepeatRandomAdapter;
     RaatArtworkHttpServer iArtworkServer;
     RaatMetadataHandler iMetadataHandler;
     RaatTransportInfo iTransportInfo;
