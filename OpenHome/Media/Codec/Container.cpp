@@ -668,7 +668,7 @@ Msg* ContainerController::ProcessMsg(MsgMode* aMsg)
         return nullptr;
     }
 
-    if (aMsg->Info().SupportsLatency()) {
+    if (aMsg->Info().LatencyMode() != Latency::NotSupported) {
         // Don't perform any recognition on streams that support latency.
         iPassThrough = true;
     }

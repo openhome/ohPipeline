@@ -9,13 +9,17 @@ using namespace OpenHome::Media;
 
 // UriProviderSingleTrack
 
-UriProviderSingleTrack::UriProviderSingleTrack(const TChar* aMode, TBool aSupportsLatency, TBool aSupportsPause, TrackFactory& aTrackFactory)
-    : UriProvider(aMode,
-                  aSupportsLatency? Latency::Supported : Latency::NotSupported,
-                  aSupportsPause? Pause::Supported : Pause::NotSupported,
-                  Next::NotSupported, Prev::NotSupported,
-                  Repeat::NotSupported, Random::NotSupported,
-                  RampPauseResume::Long, RampSkip::Short)
+UriProviderSingleTrack::UriProviderSingleTrack(const TChar* aMode, Latency aLatencyMode, TBool aSupportsPause, TrackFactory& aTrackFactory)
+    : UriProvider(
+        aMode,
+        aLatencyMode,
+        aSupportsPause ? Pause::Supported : Pause::NotSupported,
+        Next::NotSupported,
+        Prev::NotSupported,
+        Repeat::NotSupported,
+        Random::NotSupported,
+        RampPauseResume::Long,
+        RampSkip::Short)
     , iLock("UPST")
     , iTrackFactory(aTrackFactory)
     , iTrack(nullptr)

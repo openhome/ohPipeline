@@ -34,7 +34,6 @@ class SuiteSupplyAggregator : public Suite, private IPipelineElementDownstream, 
     #define kTestData "0123456789012345678901234567890123456789"
     #define kMetaData "Wee bit of meta data"
     #define kMode "TestMode"
-    static const TBool kSupportsLatency = true;
     static const TBool kIsRealTime = true;
     static const TUint kDelayJiffies = 12345;
 public:

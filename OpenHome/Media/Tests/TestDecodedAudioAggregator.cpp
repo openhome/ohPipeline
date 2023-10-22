@@ -556,7 +556,7 @@ void SuiteDecodedAudioAggregator::TestPcmIsExpectedSize()
 void SuiteDecodedAudioAggregator::TestRawPcmNotAggregated()
 {
     ModeInfo info;
-    info.SetSupportsLatency(true);
+    info.SetLatencyMode(Latency::Internal);
     ModeTransportControls transportControls;
     Queue(iMsgFactory->CreateMsgMode(Brn("dummyMode"), info, nullptr, transportControls));
     Queue(CreateTrack());

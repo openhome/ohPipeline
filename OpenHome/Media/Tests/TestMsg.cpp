@@ -2269,14 +2269,14 @@ void SuiteMode::Test()
 {
     Brn mode("First");
     ModeInfo mi;
-    mi.SetSupportsLatency(true);
+    mi.SetLatencyMode(Latency::Internal);
     mi.SetSupportsNextPrev(true, false);
     mi.SetSupportsRepeatRandom(true, false);
     ModeTransportControls transportControls;
     MsgMode* msg = iMsgFactory->CreateMsgMode(mode, mi, nullptr, transportControls);
     TEST(msg->Mode() == mode);
     const ModeInfo& info = msg->Info();
-    TEST( info.SupportsLatency());
+    TEST( info.LatencyMode() == Latency::Internal);
     TEST( info.SupportsNext());
     TEST(!info.SupportsPrev());
     TEST( info.SupportsRepeat());
@@ -2286,13 +2286,13 @@ void SuiteMode::Test()
 
     Brn mode2("Second");
     ModeInfo mi2;
-    mi2.SetSupportsLatency(false);
+    mi.SetLatencyMode(Latency::NotSupported);
     mi2.SetSupportsNextPrev(false, true);
     mi2.SetSupportsRepeatRandom(false, true);
     msg = iMsgFactory->CreateMsgMode(mode2, mi2, nullptr, transportControls);
     const ModeInfo& info2 = msg->Info();
     TEST(msg->Mode() == mode2);
-    TEST(!info2.SupportsLatency());
+    TEST( info2.LatencyMode() == Latency::NotSupported);
     TEST(!info2.SupportsNext());
     TEST( info2.SupportsPrev());
     TEST(!info2.SupportsRepeat());

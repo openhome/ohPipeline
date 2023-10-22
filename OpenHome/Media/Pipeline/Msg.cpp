@@ -957,7 +957,7 @@ void Track::Clear()
 
 void ModeInfo::Clear()
 {
-    iSupportsLatency     = false;
+    iLatencyMode         = Latency::NotSupported;
     iSupportsPause       = false;
     iSupportsNext        = false;
     iSupportsPrev        = false;

@@ -315,6 +315,13 @@ typedef Bws<kTrackUriMaxBytes>      BwsTrackUri;
 typedef Bws<kTrackMetaDataMaxBytes> BwsTrackMetaData;
 typedef Bws<kMaxCodecNameBytes>     BwsCodecName;
 
+enum class Latency
+{
+    NotSupported,
+    Internal,
+    External
+};
+
 class Track : public Allocated
 {
     friend class TrackFactory;
@@ -338,16 +345,17 @@ private:
 class MsgMode;
 class ModeInfo
 {
+private:
     friend class MsgMode;
 public:
     inline ModeInfo();
-    inline ModeInfo(TBool aSupportsLatency);
-    inline void SetSupportsLatency(TBool aSupportsLatency);
+    inline ModeInfo(Latency aLatencyMode);
+    inline void SetLatencyMode(Latency aLatencyMode);
     inline void SetSupportsPause(TBool aSupportsPause);
     inline void SetSupportsNextPrev(TBool aSupportsNext, TBool aSupportsPrev);
     inline void SetSupportsRepeatRandom(TBool aSupportsRepeat, TBool aSupportsRandom);
     inline void SetRampDurations(TBool aPauseResumeLong, TBool aSkipLong);
-    inline TBool SupportsLatency() const;
+    inline Latency LatencyMode() const;
     inline TBool SupportsPause() const;
     inline TBool SupportsNext() const;
     inline TBool SupportsPrev() const;
@@ -358,7 +366,7 @@ public:
 private:
     void Clear();
 private:
-    TBool iSupportsLatency;
+    Latency iLatencyMode;
     TBool iSupportsPause;
     TBool iSupportsNext;
     TBool iSupportsPrev;

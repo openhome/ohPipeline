@@ -51,7 +51,7 @@ void DecodedAudioAggregator::Push(Msg* aMsg)
 Msg* DecodedAudioAggregator::ProcessMsg(MsgMode* aMsg)
 {
     OutputAggregatedAudio();
-    iSupportsLatency = aMsg->Info().SupportsLatency();
+    iSupportsLatency = (aMsg->Info().LatencyMode() != Latency::NotSupported);
     return aMsg;
 }
 

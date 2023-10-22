@@ -83,7 +83,7 @@ UriProvider::UriProvider(const TChar* aMode, Latency aLatency, Pause aPauseSuppo
                          RampPauseResume aRampPauseResume, RampSkip aRampSkip)
     : iMode(aMode)
 {
-    iModeInfo.SetSupportsLatency(aLatency == Latency::Supported);
+    iModeInfo.SetLatencyMode(aLatency);
     iModeInfo.SetSupportsPause(aPauseSupported == Pause::Supported);
     iModeInfo.SetSupportsNextPrev(aNextSupported == Next::Supported,
                                   aPrevSupported == Prev::Supported);
@@ -375,7 +375,7 @@ void Filler::Run()
             if (iChangedMode) {
                 const auto& modeInfo = iActiveUriProvider->ModeInfo();
                 auto clockPuller = iActiveUriProvider->ClockPuller();
-                if (modeInfo.SupportsLatency()) {
+                if (modeInfo.LatencyMode() != Latency::NotSupported) {
                     iClockPullerLatency.SetClockPullerMode(clockPuller);
                     clockPuller = &iClockPullerLatency;
                 }
@@ -383,7 +383,7 @@ void Filler::Run()
                                                          modeInfo,
                                                          clockPuller,
                                                          iActiveUriProvider->ModeTransportControls()));
-                if (!modeInfo.SupportsLatency()) {
+                if (modeInfo.LatencyMode() == Latency::NotSupported) {
                     iPipeline.Push(iMsgFactory.CreateMsgDelay(iDefaultDelay));
                 }
                 iChangedMode = false;

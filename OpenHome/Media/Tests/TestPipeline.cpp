@@ -712,8 +712,8 @@ void SuitePipeline::NotifyMode(const Brx& aMode,
 #ifdef LOG_PIPELINE_OBSERVER
     Log::Print("Pipeline report property: MODE {mode=");
     Log::Print(aMode);
-    Log::Print("; supportsLatency=%u; supportsNext=%u; supportsPrev=%u}\n",
-               aInfo.SupportsLatency(),aInfo.SupportsNext(), aInfo.SupportsPrev());
+    Log::Print("; latencyMode=%u; supportsNext=%u; supportsPrev=%u}\n",
+               aInfo.LatencyMode(),aInfo.SupportsNext(), aInfo.SupportsPrev());
 #endif
 }
 

@@ -73,7 +73,7 @@ public:
     TUint LastTrackId() const;
     TUint LastStreamId() const;
     const Brx& LastMode() const;
-    TBool LastSupportsLatency() const;
+    Latency LastLatencyMode() const;
     TUint LastDelayJiffies() const;
 private: // from IPipelineElementDownstream
     void Push(Msg* aMsg) override;
@@ -99,7 +99,7 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgQuit* aMsg) override;
 private:
     BwsMode iLastMode;
-    TBool iLastSupportsLatency;
+    Latency iLastLatencyMode;
     BwsTrackUri iLastTrackUri;
     TUint iLastTrackId;
     TUint iLastStreamId;
@@ -347,9 +347,9 @@ const Brx& DummySupply::LastMode() const
     return iLastMode;
 }
 
-TBool DummySupply::LastSupportsLatency() const
+Latency DummySupply::LastLatencyMode() const
 {
-    return iLastSupportsLatency;
+    return iLastLatencyMode;
 }
 
 TUint DummySupply::LastDelayJiffies() const
@@ -367,7 +367,7 @@ Msg* DummySupply::ProcessMsg(MsgMode* aMsg)
 {
     iLastMode.Replace(aMsg->Mode());
     const ModeInfo& info = aMsg->Info();
-    iLastSupportsLatency = info.SupportsLatency();
+    iLastLatencyMode = info.LatencyMode();
     return aMsg;
 }
 
@@ -523,7 +523,7 @@ void SuiteFiller::Test()
     iFiller->Play(iUriProvider->Mode(), iUriProvider->IdByIndex(0));
     iTrackAddedSem.Wait();
     TEST(iDummySupply->LastMode() == iUriProvider->Mode());
-    TEST(iDummySupply->LastSupportsLatency() == iUriProvider->ModeInfo().SupportsLatency());
+    TEST(iDummySupply->LastLatencyMode() == iUriProvider->ModeInfo().LatencyMode());
     TEST(iDummySupply->LastTrackUri() == iUriProvider->TrackUriByIndex(0));
     TEST(iDummySupply->LastTrackId() == iUriStreamer->TrackId());
     TEST(iDummySupply->LastStreamId() == iUriStreamer->StreamId());

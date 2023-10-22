@@ -1128,7 +1128,7 @@ void SuiteGorger::PullNext(EMsgType aExpectedMsg)
 Msg* SuiteGorger::CreateMode(const Brx& aMode, TBool aSupportsLatency)
 {
     ModeInfo info;
-    info.SetSupportsLatency(aSupportsLatency);
+    info.SetLatencyMode(aSupportsLatency ? Latency::Internal : Latency::NotSupported);
     ModeTransportControls transportControls;
     return iMsgFactory->CreateMsgMode(aMode, info, nullptr, transportControls);
 }
