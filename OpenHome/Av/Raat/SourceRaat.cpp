@@ -121,7 +121,7 @@ UriProviderRaat::UriProviderRaat(
     TrackFactory& aTrackFactory)
     : UriProviderRepeater(
         aMode,
-        Latency::NotSupported,
+        Latency::External,
         aTrackFactory,
         Pause::Supported,
         Next::Supported,

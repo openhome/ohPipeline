@@ -102,6 +102,7 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
             const RaatStreamFormat& streamFormat = iRaatReader.StreamFormat();
             iPcmStream = (streamFormat.Format() == AudioFormat::Pcm);
             OutputStream(streamFormat);
+            iSupply->OutputDelay(kDefaultDelayJiffies);
 
             if (iSetup) {
                 OutputDrain();
