@@ -9,6 +9,7 @@
 #include <OpenHome/Media/Debug.h>
 
 #include <algorithm>
+#include <stdint.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
@@ -46,7 +47,6 @@ StarterTimed::StarterTimed(MsgFactory& aMsgFactory, IPipelineElementUpstream& aU
     , iNumChannels(0)
     , iPending(nullptr)
     , iJiffiesRemaining(0)
-    , iStartingStream(false)
 {
 }
 
@@ -108,57 +108,63 @@ Msg* StarterTimed::ProcessMsg(MsgDecodedStream* aMsg)
     iBitDepth = info.BitDepth();
     iNumChannels = info.NumChannels();
     iFormat = info.Format();
-    iStartingStream = true;
+
+    // Must calculate delay jiffies here as DecodedStream can
+    // cause TickCount to reset when it reaches RHS of pipeline
+    AutoMutex _(iLock);
+    if (iStartTicks > 0) {
+        iJiffiesRemaining = CalculateDelayJiffies(iStartTicks);
+        iStartTicks = 0;
+    }
+    else {
+        iJiffiesRemaining = 0;
+    }
     return aMsg;
 }
 
 Msg* StarterTimed::ProcessMsg(MsgSilence* aMsg)
 {
-    TUint64 startTicks = 0;
-    if (iStartingStream) {
-        AutoMutex _(iLock);
-        startTicks = iStartTicks;
-        iStartTicks = 0;
-        iStartingStream = false;
+    AutoMutex _(iLock);
+    if (iJiffiesRemaining == 0) {
+        return aMsg;
+    }
+    iPending = aMsg;
+    return nullptr;
+}
+
+TUint StarterTimed::CalculateDelayJiffies(TUint64 aStartTicks)
+{
+    TUint64 ticksNow;
+    TUint freq;
+    iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
+
+    if (aStartTicks <= ticksNow) {
+        TUint64 lateTicks = (ticksNow - aStartTicks);
+        TUint lateMs = (TUint)((lateTicks * 1000) / freq);
+        LOG(kMedia, "StarterTimed: start time in past (%ums late) - (%llu / %llu)\n", lateMs, aStartTicks, ticksNow);
+        return 0;
     }
 
-    if (startTicks > 0) {
-        TUint64 ticksNow;
-        TUint freq;
-        iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
-
-        if (startTicks <= ticksNow) {
-            TUint64 lateTicks = (ticksNow - startTicks);
-            TUint lateMs = (TUint)((lateTicks * 1000) / freq);
-            LOG(kMedia, "StarterTimed: start time in past (%ums late) - (%llu / %llu)\n", lateMs, startTicks, ticksNow);
-        }
-        else {
-            TUint64 delayTicks = startTicks - ticksNow;
-            iJiffiesRemaining = 0;
-            TUint seconds = (TUint)(delayTicks / freq);
-            if (seconds > 5) {
-                LOG(kMedia, "StarterTimed: start suspiciously far in the future (>%u seconds) - (%llu / %llu)\n", seconds, startTicks, ticksNow);
-            }
-            else {
-                iJiffiesRemaining = seconds * Jiffies::kPerSecond;
-                delayTicks -= seconds * freq;
-                iJiffiesRemaining += (TUint)((delayTicks * Jiffies::kPerSecond) / freq);
-
-                if (iJiffiesRemaining <= iPipelineDelayJiffies) {
-                    LOG(kMedia, "StarterTimed: pipeline delay (%ums) exceeds requested start time (%ums)\n", Jiffies::ToMs(iPipelineDelayJiffies), Jiffies::ToMs(iJiffiesRemaining));
-                    iJiffiesRemaining = 0;
-                    return aMsg;
-                }
-
-                iJiffiesRemaining -= iPipelineDelayJiffies; // iPipelineDelayJiffies will already be applied by other pipeline elements
-                LOG(kMedia, "StarterTimed: delay jiffies=%u (%ums)\n", iJiffiesRemaining, Jiffies::ToMs(iJiffiesRemaining));
-                iPending = aMsg;
-                return nullptr;
-            }
-        }
+    const TUint kMaxTicks = 5 * freq; // 5 seconds in ticks
+    const TUint64 kDelayTicks = aStartTicks - ticksNow;
+    if (kDelayTicks > kMaxTicks) {
+        const TUint64 secs = kDelayTicks / freq;
+        LOG(kMedia, "StarterTimed: start suspiciously far in the future (> %llu seconds) - (%llu / %llu)\n", secs, aStartTicks, ticksNow);
+        return 0;
     }
 
-    return aMsg;
+    ASSERT((UINT64_MAX / kMaxTicks) > Jiffies::kPerSecond); // Ensure enough precision
+    TUint64 delayJiffies = (kDelayTicks * Jiffies::kPerSecond) / freq;
+
+    if (delayJiffies <= iPipelineDelayJiffies) {
+        LOG(kMedia, "StarterTimed: pipeline delay (%ums) exceeds requested start time (%ums)\n", Jiffies::ToMs(iPipelineDelayJiffies), Jiffies::ToMs(delayJiffies));
+        return 0;
+    }
+    // iPipelineDelayJiffies will already be applied by other pipeline elements
+    delayJiffies -= iPipelineDelayJiffies;
+
+    LOG(kMedia, "StarterTimed: delay jiffies=%llu (%ums)\n", delayJiffies, Jiffies::ToMs(delayJiffies));
+    return (TUint)delayJiffies;
 }
 
 

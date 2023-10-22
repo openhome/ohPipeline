@@ -514,7 +514,7 @@ Pipeline::Pipeline(
     if (aAudioTime.Ok()) {
         ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime.Unwrap()),
                        upstream, elementsSupported, EPipelineSupportElementsMandatory);
-        ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iDrainer2, "StarterTimed"),
+        ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iStarterTimed, "StarterTimed"),
                        upstream, elementsSupported, EPipelineSupportElementsLogger);
     }
     else {

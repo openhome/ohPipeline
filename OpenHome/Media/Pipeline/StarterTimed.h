@@ -43,6 +43,8 @@ private: // from PipelineElement
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
 private:
+    TUint CalculateDelayJiffies(TUint64 aStartTicks);
+private:
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstream;
     IAudioTime& iAudioTime;
@@ -55,7 +57,6 @@ private:
     AudioFormat iFormat;
     Msg* iPending;
     TUint iJiffiesRemaining;
-    TBool iStartingStream;
 };
 
 class AudioTimeCpu : public IAudioTime
