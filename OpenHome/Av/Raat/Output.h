@@ -109,7 +109,7 @@ class RaatOutput
 {
 private:
     static const TUint kNanoSecsPerSec = 1000000000;
-    static const TUint kDefaultDelayMs = 500;
+    static const TUint kDefaultDelayMs = 750;
     static const TUint64 kDefaultDelayNs = kDefaultDelayMs * 1000 * 1000;
     static const Brn kKeyDsdEnable;
     static const TUint kValDsdDisabled;
