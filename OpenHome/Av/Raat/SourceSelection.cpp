@@ -70,13 +70,16 @@ using namespace OpenHome::Av;
 RaatSourceSelection::RaatSourceSelection(
     IMediaPlayer& aMediaPlayer,
     const Brx& aSystemName,
-    IRaatSourceObserver& aObserver)
+    IRaatSourceObserver& aObserver,
+    IRaatOutputControl& aOutputControl)
 
     : RaatPluginAsync(aMediaPlayer.ThreadPool())
     , iSystemName(aSystemName)
     , iObserver(aObserver)
+    , iOutputControl(aOutputControl)
     , iSourceIndexCurrent(0)
     , iStandby(true)
+    , iState(EState::eNotSelected)
     , iStarted(false)
     , iActivationPending(false)
     , iLock("RASS")
@@ -122,19 +125,32 @@ void RaatSourceSelection::RemoveStateListener(RAAT__SourceSelectionStateCallback
 
 void RaatSourceSelection::GetState(RAAT__SourceSelectionState *aState)
 {
-    *aState = State();
+    AutoMutex _(iLock);
+    *aState = StateLocked();
 }
 
 void RaatSourceSelection::ActivateRaatSource()
 {
-    AutoMutex _(iLock);
-    iActivationPending = true;
+    {
+        AutoMutex _(iLock);
+        if (iState == EState::eSelected) {
+            TryReportState();
+            return;
+        }
+        iActivationPending = true;
+    }
     iProxyProduct->SyncSetSourceIndex(iSourceIndexRaat);
 }
 
 void RaatSourceSelection::SetStandby()
 {
-    AutoMutex _(iLock);
+    {
+        AutoMutex _(iLock);
+        if (iState == EState::eStandby) {
+            TryReportState();
+            return;
+        }
+    }
     iProxyProduct->SyncSetStandby(true);
 }
 
@@ -161,49 +177,57 @@ void RaatSourceSelection::Initialise()
     iProxyProduct->Subscribe();
 }
 
-TBool RaatSourceSelection::IsActiveLocked() const
-{
-    return (!iStandby && (iSourceIndexCurrent == iSourceIndexRaat));
-}
-
 void RaatSourceSelection::StandbyChanged()
 {
-    AutoMutex _(iLock);
     iProxyProduct->PropertyStandby(iStandby);
-    if (iActivationPending) {
-        if (!IsActiveLocked()) {
-            return;
-        }
-        iActivationPending = false;
+
+    AutoMutex _(iLock);
+    UpdateStateLocked();
+    if (iActivationPending && (iState != EState::eSelected)) {
+        return;
     }
+    iActivationPending = false;
     TryReportState();
 }
 
 void RaatSourceSelection::SourceIndexChanged()
 {
-    AutoMutex _(iLock);
     iProxyProduct->PropertySourceIndex(iSourceIndexCurrent);
-    if (iActivationPending) {
-        if (!IsActiveLocked()) {
-            return;
-        }
-        iActivationPending = false;
+
+    AutoMutex _(iLock);
+    UpdateStateLocked();
+    if (iActivationPending && (iState != EState::eSelected)) {
+        return;
     }
+    iActivationPending = false;
     TryReportState();
 }
 
-RAAT__SourceSelectionState RaatSourceSelection::State() const
+void RaatSourceSelection::UpdateStateLocked()
 {
-    AutoMutex _(iLock);
-    RAAT__SourceSelectionState state;
-    if (IsActiveLocked()) {
-        state.status = RAAT__SOURCE_SELECTION_STATUS_SELECTED;
+    if (!iStandby && (iSourceIndexCurrent == iSourceIndexRaat)) {
+        iState = EState::eSelected;
     }
     else if (iStandby) {
-        state.status = RAAT__SOURCE_SELECTION_STATUS_STANDBY;
+        iState = EState::eStandby;
     }
     else {
+        iState = EState::eNotSelected;
+    }
+}
+
+RAAT__SourceSelectionState RaatSourceSelection::StateLocked() const
+{
+    RAAT__SourceSelectionState state;
+    state.status = RAAT__SOURCE_SELECTION_STATUS_INDETERMINATE;
+    if (iState == EState::eSelected) {
+        state.status = RAAT__SOURCE_SELECTION_STATUS_SELECTED;
+    }
+    else if (iState == EState::eNotSelected) {
         state.status = RAAT__SOURCE_SELECTION_STATUS_DESELECTED;
+    }
+    else if (iState == EState::eStandby) {
+        state.status = RAAT__SOURCE_SELECTION_STATUS_STANDBY;
     }
     return state;
 }
@@ -216,9 +240,19 @@ void RaatSourceSelection::ReportState()
         return;
     }
 
-    auto state = State();
+    AutoMutex _(iLock);
+    auto state = StateLocked();
     RAAT__source_selection_state_listeners_invoke(&iListeners, &state);
 
-    AutoMutex _(iLock);
-    IsActiveLocked() ? iObserver.RaatSourceActivated() : iObserver.RaatSourceDeactivated();
+    if (iState == EState::eSelected) {
+        iObserver.RaatSourceActivated();
+    }
+    else if (iState == EState::eNotSelected) {
+        iObserver.RaatSourceDeactivated();
+        iOutputControl.NotifyDeselected();
+    }
+    else if (iState == EState::eStandby) {
+        iObserver.RaatSourceDeactivated();
+        iOutputControl.NotifyStandby();
+    }
 }

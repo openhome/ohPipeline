@@ -8,6 +8,7 @@
 #include <OpenHome/Av/Raat/Plugin.h>
 #include <OpenHome/Av/Raat/SignalPath.h>
 #include <OpenHome/Av/Raat/Transport.h>
+#include <OpenHome/Av/Raat/SourceSelection.h>
 
 #include <vector>
 
@@ -103,6 +104,7 @@ class IRaatTime;
 class RaatOutput
     : public RaatPluginAsync 
     , public IRaatReader
+    , public IRaatOutputControl
     , private IRaatSignalPathObserver
 {
 private:
@@ -152,26 +154,29 @@ private: // from IRaatReader
     void NotifyReady() override;
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
+private: // from IRaatOutputControl
+    void NotifyStandby() override;
+    void NotifyDeselected() override;
 private: // from RaatPluginAsync
     void ReportState() override;
 private: // from IRaatSignalPathObserver
     void SignalPathChanged(const IRaatSignalPath& aSignalPath) override;
 private:
-    class SetupCb
+    class ControlCallback
     {
+    private:
+        static const int kTokenInvalid = 0;
     public:
-        static const int kTokenInvalid;
-    public:
-        SetupCb();
+        ControlCallback();
         void Set(
             RAAT__OutputSetupCallback aCbSetup, void* aCbSetupData,
             RAAT__OutputLostCallback aCbLost, void* aCbLostData);
         TUint NotifyReady();
-        void NotifyFailed();
+        void NotifyFinalise(const TChar* aReason);
     private:
         void Reset();
     private:
-        int iNextToken;
+        int iToken;
         RAAT__OutputSetupCallback iCbSetup;
         void* iCbSetupData;
         RAAT__OutputLostCallback iCbLost;
@@ -191,7 +196,7 @@ private:
     Configuration::ConfigChoice* iConfigDsdEnable;
     TUint iSubscriberIdDsdEnable;
     RAAT__Stream* iStream;
-    SetupCb iSetupCb;
+    ControlCallback iControlCallback;
     int iToken;
     RaatStreamFormat iStreamFormat;
     RaatSignalPath iSignalPath;

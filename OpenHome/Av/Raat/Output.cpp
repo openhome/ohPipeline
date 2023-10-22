@@ -327,7 +327,7 @@ void RaatOutput::SetupStream(
     ASSERT(aFormat != nullptr);
     iStreamFormat.Set(aFormat);
     iSampleRate = iStreamFormat.SampleRate();
-    iSetupCb.Set(aCbSetup, aCbSetupData, aCbLost, aCbLostData);
+    iControlCallback.Set(aCbSetup, aCbSetupData, aCbLost, aCbLostData);
     iStreamPos = 0;
 
     TryReportState();
@@ -525,7 +525,7 @@ const RaatStreamFormat& RaatOutput::StreamFormat()
 
 void RaatOutput::NotifyReady()
 {
-    iToken = iSetupCb.NotifyReady();
+    iToken = iControlCallback.NotifyReady();
 }
 
 void RaatOutput::Read(IRaatWriter& aWriter)
@@ -567,6 +567,16 @@ void RaatOutput::Interrupt()
         LOG(kRaat, "RaatOutput::Interrupt() Warning: RAAT__stream_cancel_consume_packet failed (%d)\n", ret);
     }
     RAAT__stream_decref(stream);
+}
+
+void RaatOutput::NotifyStandby()
+{
+    iControlCallback.NotifyFinalise("standby");
+}
+
+void RaatOutput::NotifyDeselected()
+{
+    iControlCallback.NotifyFinalise("source_deselected");
 }
 
 void RaatOutput::SignalPathChanged(const IRaatSignalPath& aSignalPath)
@@ -634,17 +644,15 @@ void RaatOutput::ReportState()
 }
 
 
-// RaatOutput::SetupCb
+// RaatOutput::ControlCallback
 
-const int RaatOutput::SetupCb::kTokenInvalid = 0;
-
-RaatOutput::SetupCb::SetupCb()
-    : iNextToken(kTokenInvalid+1)
+RaatOutput::ControlCallback::ControlCallback()
+    : iToken(kTokenInvalid)
 {
     Reset();
 }
 
-void RaatOutput::SetupCb::Set(
+void RaatOutput::ControlCallback::Set(
     RAAT__OutputSetupCallback aCbSetup, void* aCbSetupData,
     RAAT__OutputLostCallback aCbLost, void* aCbLostData)
 {
@@ -652,26 +660,29 @@ void RaatOutput::SetupCb::Set(
     iCbSetupData = aCbSetupData;
     iCbLost = aCbLost;
     iCbLostData = aCbLostData;
+    iToken++;
 }
 
-TUint RaatOutput::SetupCb::NotifyReady()
+TUint RaatOutput::ControlCallback::NotifyReady()
 {
-    auto token = iNextToken;
-    if (iCbSetup) {
-        token = ++iNextToken;
-        iCbSetup(iCbSetupData, RC__STATUS_SUCCESS, (int)token);
-        Reset();
+    ASSERT(iCbSetup);
+    iCbSetup(iCbSetupData, RC__STATUS_SUCCESS, iToken);
+    return iToken;
+}
+
+void RaatOutput::ControlCallback::NotifyFinalise(const TChar* aReason)
+{
+    if (iCbLost == nullptr) {
+        return;
     }
-    return token;
-}
-
-void RaatOutput::SetupCb::NotifyFailed()
-{
-    iCbLost(iCbLostData, nullptr);
+    json_t *reason = json_object();
+    json_object_set_new(reason, "reason", json_string(aReason));
+    iCbLost(iCbLostData, reason);
+    json_decref(reason);
     Reset();
 }
 
-void RaatOutput::SetupCb::Reset()
+void RaatOutput::ControlCallback::Reset()
 {
     iCbSetup = nullptr;
     iCbSetupData = nullptr;

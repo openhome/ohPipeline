@@ -33,12 +33,30 @@ public:
     virtual void RaatSourceDeactivated() = 0;
 };
 
+class IRaatOutputControl
+{
+public:
+    virtual ~IRaatOutputControl() {}
+    virtual void NotifyStandby() = 0;
+    virtual void NotifyDeselected() = 0;
+};
+
 class IMediaPlayer;
 
 class RaatSourceSelection : public RaatPluginAsync
 {
+private:
+    enum class EState {
+        eSelected,
+        eNotSelected,
+        eStandby
+    };
 public:
-    RaatSourceSelection(IMediaPlayer& aMediaPlayer, const Brx& aSystemName, IRaatSourceObserver& aObserver);
+    RaatSourceSelection(
+        IMediaPlayer& aMediaPlayer,
+        const Brx& aSystemName,
+        IRaatSourceObserver& aObserver,
+        IRaatOutputControl& aOutputControl);
     ~RaatSourceSelection();
 public:
     RAAT__SourceSelectionPlugin* Plugin();
@@ -52,7 +70,8 @@ private:
     TBool IsActiveLocked() const;
     void StandbyChanged();
     void SourceIndexChanged();
-    RAAT__SourceSelectionState State() const;
+    void UpdateStateLocked();
+    RAAT__SourceSelectionState StateLocked() const;
 private: // from RaatPluginAsync
     void ReportState() override;
 private:
@@ -60,12 +79,14 @@ private:
     RAAT__SourceSelectionStateListeners iListeners;
     Bwh iSystemName;
     IRaatSourceObserver& iObserver;
+    IRaatOutputControl& iOutputControl;
     Net::CpDeviceDv* iCpDevice;
     Net::CpProxyAvOpenhomeOrgProduct4* iProxyProduct;
     IThreadPoolHandle* iRaatCallback;
     TUint iSourceIndexRaat;
     TUint iSourceIndexCurrent;
     TBool iStandby;
+    EState iState;
     TBool iStarted;
     TBool iActivationPending;
     mutable Mutex iLock;

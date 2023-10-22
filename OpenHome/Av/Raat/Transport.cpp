@@ -448,7 +448,6 @@ void RaatTransport::RaatSourceActivated()
 void RaatTransport::RaatSourceDeactivated()
 {
     iRaatRepeatRandomAdapter.SetActive(false);
-    DoReportState("pause");
 }
 
 void RaatTransport::ToggleRepeat()

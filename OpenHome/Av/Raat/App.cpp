@@ -68,7 +68,7 @@ RaatApp::RaatApp(
         iVolume = nullptr;
     }
     iTransport = new RaatTransport(aMediaPlayer);
-    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport);
+    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport, *iOutput);
 }
 
 RaatApp::~RaatApp()
