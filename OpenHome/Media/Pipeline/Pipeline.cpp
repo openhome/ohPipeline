@@ -511,16 +511,6 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorDelay2, new DecodedAudioValidator(*upstream, "VariableDelay2"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
-    if (aAudioTime.Ok()) {
-        ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime.Unwrap()),
-                       upstream, elementsSupported, EPipelineSupportElementsMandatory);
-        ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iStarterTimed, "StarterTimed"),
-                       upstream, elementsSupported, EPipelineSupportElementsLogger);
-    }
-    else {
-        iStarterTimed = nullptr;
-        iLoggerStarterTimed = nullptr;
-    }
     ATTACH_ELEMENT(iStarvationRamper,
                    new StarvationRamper(*iMsgFactory, *upstream, *this, *iEventThread,
                                         aInitParams->StarvationRamperMinJiffies(),
@@ -546,6 +536,16 @@ Pipeline::Pipeline(
     ATTACH_ELEMENT(iDecodedAudioValidatorPhaseAdjuster,
         new DecodedAudioValidator(*upstream, "PhaseAdjuster"),
         upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    if (aAudioTime.Ok()) {
+        ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime.Unwrap()),
+                       upstream, elementsSupported, EPipelineSupportElementsMandatory);
+        ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iStarterTimed, "StarterTimed"),
+                       upstream, elementsSupported, EPipelineSupportElementsLogger);
+    }
+    else {
+        iStarterTimed = nullptr;
+        iLoggerStarterTimed = nullptr;
+    }
     IMute* muter = nullptr;
     if (aInitParams->Muter() == PipelineInitParams::MuterImpl::eRampSamples) {
         ATTACH_ELEMENT(iMuterSamples, new Muter(*iMsgFactory, *upstream, aInitParams->RampLongJiffies()),

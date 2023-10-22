@@ -98,7 +98,8 @@ Msg* StarterTimed::Pull()
 Msg* StarterTimed::ProcessMsg(MsgDelay* aMsg)
 {
     iPipelineDelayJiffies = aMsg->TotalJiffies();
-    return aMsg;
+    aMsg->RemoveRef();
+    return nullptr;
 }
 
 Msg* StarterTimed::ProcessMsg(MsgDecodedStream* aMsg)
