@@ -197,10 +197,13 @@ SourceRaat::SourceRaat(
     iDefaultMetadata.Append("</DIDL-Lite>");
 
     aMediaPlayer.Product().AddObserver(*this);
+
+    iTimer = new Timer(aMediaPlayer.Env(), MakeFunctor(*this, &SourceRaat::Start), "SourceRaat");
 }
 
 SourceRaat::~SourceRaat()
 {
+    delete iTimer;
     delete iProtocolSelector;
     delete iSignalPathObservable;
     delete iApp;
@@ -261,7 +264,7 @@ void SourceRaat::NotifyStop()
 
 void SourceRaat::Started()
 {
-    iApp->Start();
+    iTimer->FireIn(kStartupDelayMs);
 }
 
 void SourceRaat::SourceIndexChanged()
@@ -295,4 +298,9 @@ void SourceRaat::Initialise()
     iTrack = iUriProvider->SetTrack(ProtocolRaat::kUri, iDefaultMetadata);
     iPipeline.RemoveAll();
     iPipeline.Begin(iUriProvider->Mode(), iTrack->Id());
+}
+
+void SourceRaat::Start()
+{
+    iApp->Start();
 }

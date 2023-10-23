@@ -8,6 +8,7 @@
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Configuration/ConfigManager.h>
+#include <OpenHome/Private/Timer.h>
 
 namespace OpenHome {
     namespace Media {
@@ -72,6 +73,9 @@ class SourceRaat
     , public ISourceRaat
     , private IProductObserver
 {
+private:
+    static const TUint kStartupDelaySecs = 20;
+    static const TUint kStartupDelayMs = kStartupDelaySecs * 1000;
 public:
     SourceRaat(
         IMediaPlayer& aMediaPlayer,
@@ -99,6 +103,7 @@ private: // from IProductObserver
     void ProductUrisChanged() override;
 private:
     void Initialise();
+    void Start();
 private:
     IRaatSignalPathObservable* iSignalPathObservable;
     Configuration::ConfigChoice* iProtocolSelector;
@@ -107,6 +112,8 @@ private:
     ProtocolRaat* iProtocol;
     Media::Track* iTrack;
     Media::BwsTrackMetaData iDefaultMetadata;
+
+    Timer* iTimer;
 };
 
 }
