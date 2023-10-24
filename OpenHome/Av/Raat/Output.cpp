@@ -341,6 +341,7 @@ RC__Status RaatOutput::TeardownStream(int aToken)
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
     Stop();
+    iControlCallback.Reset();
     return RC__STATUS_SUCCESS;
 }
 
@@ -462,6 +463,7 @@ RC__Status RaatOutput::ForceTeardownStream()
 {
     LOG(kRaat, "RaatOutput::ForceTeardownStream()\n");
     Stop();
+    iControlCallback.Reset();
     return RC__STATUS_SUCCESS;
 }
 

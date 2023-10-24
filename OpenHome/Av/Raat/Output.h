@@ -173,7 +173,6 @@ private:
             RAAT__OutputLostCallback aCbLost, void* aCbLostData);
         TUint NotifyReady();
         void NotifyFinalise(const TChar* aReason);
-    private:
         void Reset();
     private:
         int iToken;
