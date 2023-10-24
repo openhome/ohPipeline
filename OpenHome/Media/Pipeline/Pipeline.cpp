@@ -1026,6 +1026,9 @@ void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
     iVariableDelay1->SetAnimator(aAnimator);
     iVariableDelay2->SetAnimator(aAnimator);
     iPhaseAdjuster->SetAnimator(aAnimator);
+    if (iStarterTimed != nullptr) {
+        iStarterTimed->SetAnimator(aAnimator);
+    }
     if (iMuterSamples != nullptr) {
         iMuterSamples->SetAnimator(aAnimator);
     }

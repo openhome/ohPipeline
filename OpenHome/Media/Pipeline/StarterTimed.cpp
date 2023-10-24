@@ -39,12 +39,13 @@ StarterTimed::StarterTimed(MsgFactory& aMsgFactory, IPipelineElementUpstream& aU
     , iMsgFactory(aMsgFactory)
     , iUpstream(aUpstream)
     , iAudioTime(aAudioTime)
+    , iAnimator(nullptr)
     , iLock("STim")
     , iStartTicks(0)
-    , iPipelineDelayJiffies(0)
     , iSampleRate(0)
     , iBitDepth(0)
     , iNumChannels(0)
+    , iAnimatorDelayJiffies(0)
     , iPending(nullptr)
     , iJiffiesRemaining(0)
 {
@@ -55,6 +56,11 @@ StarterTimed::~StarterTimed()
     if (iPending != nullptr) {
         iPending->RemoveRef();
     }
+}
+
+void StarterTimed::SetAnimator(IPipelineAnimator& aAnimator)
+{
+    iAnimator = &aAnimator;
 }
 
 void StarterTimed::StartAt(TUint64 aTime)
@@ -95,13 +101,6 @@ Msg* StarterTimed::Pull()
     return msg;
 }
 
-Msg* StarterTimed::ProcessMsg(MsgDelay* aMsg)
-{
-    iPipelineDelayJiffies = aMsg->TotalJiffies();
-    aMsg->RemoveRef();
-    return nullptr;
-}
-
 Msg* StarterTimed::ProcessMsg(MsgDecodedStream* aMsg)
 {
     const auto& info = aMsg->StreamInfo();
@@ -110,27 +109,19 @@ Msg* StarterTimed::ProcessMsg(MsgDecodedStream* aMsg)
     iNumChannels = info.NumChannels();
     iFormat = info.Format();
 
-    // Must calculate delay jiffies here as DecodedStream can
-    // cause TickCount to reset when it reaches RHS of pipeline
-    AutoMutex _(iLock);
-    if (iStartTicks > 0) {
-        iJiffiesRemaining = CalculateDelayJiffies(iStartTicks);
-        iStartTicks = 0;
-    }
-    else {
-        iJiffiesRemaining = 0;
-    }
+    ASSERT(iAnimator != nullptr);
+    iAnimatorDelayJiffies = iAnimator->PipelineAnimatorDelayJiffies(iFormat, iSampleRate, iBitDepth, iNumChannels);
     return aMsg;
 }
 
-Msg* StarterTimed::ProcessMsg(MsgSilence* aMsg)
+Msg* StarterTimed::ProcessMsg(MsgAudioPcm* aMsg)
 {
-    AutoMutex _(iLock);
-    if (iJiffiesRemaining == 0) {
-        return aMsg;
-    }
-    iPending = aMsg;
-    return nullptr;
+    return HandleAudioReceived(aMsg);
+}
+
+Msg* StarterTimed::ProcessMsg(MsgAudioDsd* aMsg)
+{
+    return HandleAudioReceived(aMsg);
 }
 
 TUint StarterTimed::CalculateDelayJiffies(TUint64 aStartTicks)
@@ -157,15 +148,28 @@ TUint StarterTimed::CalculateDelayJiffies(TUint64 aStartTicks)
     ASSERT((UINT64_MAX / kMaxTicks) > Jiffies::kPerSecond); // Ensure enough precision
     TUint64 delayJiffies = (kDelayTicks * Jiffies::kPerSecond) / freq;
 
-    if (delayJiffies <= iPipelineDelayJiffies) {
-        LOG(kMedia, "StarterTimed: pipeline delay (%ums) exceeds requested start time (%ums)\n", Jiffies::ToMs(iPipelineDelayJiffies), Jiffies::ToMs(delayJiffies));
+    if (delayJiffies <= iAnimatorDelayJiffies) {
+        LOG(kMedia, "StarterTimed: Animator delay (%ums) exceeds requested start time (%ums)\n", Jiffies::ToMs(iAnimatorDelayJiffies), Jiffies::ToMs(delayJiffies));
         return 0;
     }
-    // iPipelineDelayJiffies will already be applied by other pipeline elements
-    delayJiffies -= iPipelineDelayJiffies;
+    delayJiffies -= iAnimatorDelayJiffies;
 
     LOG(kMedia, "StarterTimed: delay jiffies=%llu (%ums)\n", delayJiffies, Jiffies::ToMs(delayJiffies));
     return (TUint)delayJiffies;
+}
+
+Msg* StarterTimed::HandleAudioReceived(MsgAudioDecoded* aMsg)
+{
+    AutoMutex _(iLock);
+    if (iStartTicks == 0) {
+        iJiffiesRemaining = 0;
+        return aMsg;
+    }
+
+    iJiffiesRemaining = CalculateDelayJiffies(iStartTicks);
+    iStartTicks = 0;
+    iPending = aMsg;
+    return nullptr;
 }
 
 

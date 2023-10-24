@@ -135,7 +135,8 @@ Msg* PhaseAdjuster::ProcessMsg(MsgDelay* aMsg)
         iDelayTotalJiffies = aMsg->TotalJiffies();
         TryCalculateDelay();
     }
-    return aMsg;
+    aMsg->RemoveRef();
+    return nullptr;
 }
 
 Msg* PhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)

@@ -34,26 +34,30 @@ class StarterTimed : public PipelineElement, public IPipelineElementUpstream, pu
 public:
     StarterTimed(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream, IAudioTime& aAudioTime);
     ~StarterTimed();
+public:
+    void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IStarterTimed
     void StartAt(TUint64 aTime) override;
 private: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // from PipelineElement
-    Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgSilence* aMsg) override;
+    Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
 private:
     TUint CalculateDelayJiffies(TUint64 aStartTicks);
+    Msg* HandleAudioReceived(MsgAudioDecoded* aMsg);
 private:
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstream;
     IAudioTime& iAudioTime;
+    IPipelineAnimator* iAnimator;
     Mutex iLock;
     TUint64 iStartTicks; // 0 => disabled
-    TUint iPipelineDelayJiffies;
     TUint iSampleRate;
     TUint iBitDepth;
     TUint iNumChannels;
+    TUint iAnimatorDelayJiffies;
     AudioFormat iFormat;
     Msg* iPending;
     TUint iJiffiesRemaining;
