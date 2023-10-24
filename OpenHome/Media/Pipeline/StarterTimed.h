@@ -18,6 +18,8 @@ public:
     virtual ~IAudioTime() {}
     virtual void GetTickCount(TUint aSampleRate, TUint64& aTicks, TUint& aFrequency) const = 0;
     virtual void SetTickCount(TUint64 aTicks) = 0;
+    virtual void TimerStartTimer(TUint aSampleRate, TUint64 aStartTime) = 0;
+    virtual void TimerLogTime(const TChar* aId) = 0;
 };
 
 class IStarterTimed
@@ -70,6 +72,8 @@ public:
 private: // from IAudioTime
     void GetTickCount(TUint aSampleRate, TUint64& aTicks, TUint& aFrequency) const override;
     void SetTickCount(TUint64 aTicks) override;
+    void TimerStartTimer(TUint aSampleRate, TUint64 aStartTime) override {}
+    void TimerLogTime(const TChar* aId) override {}
 private:
     OsContext* iOsCtx;
     TInt64 iTicksAdjustment;

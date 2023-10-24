@@ -1032,6 +1032,7 @@ void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
     if (iMuterSamples != nullptr) {
         iMuterSamples->SetAnimator(aAnimator);
     }
+    iPreDriver->SetAnimator(aAnimator);
     aAnimator.PipelineAnimatorGetMaxSampleRates(iMaxSampleRatePcm, iMaxSampleRateDsd);
 }
 

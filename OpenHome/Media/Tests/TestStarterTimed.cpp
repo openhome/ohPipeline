@@ -57,6 +57,8 @@ private: // from IMsgProcessor
 private: // from IAudioTime
     void GetTickCount(TUint aSampleRate, TUint64& aTicks, TUint& aFrequency) const override;
     void SetTickCount(TUint64 aTicks) override;
+    void TimerStartTimer(TUint aSampleRate, TUint64 aStartTime) override {}
+    void TimerLogTime(const TChar* aId) override {}
 private:
     enum EMsgType
     {

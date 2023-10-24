@@ -38,12 +38,18 @@ PreDriver::PreDriver(
     , iSilenceSinceAudio(false)
     , iModeHasPullableClock(false)
     , iQuit(false)
+    , iAnimator(nullptr)
 {
 }
 
 PreDriver::~PreDriver()
 {
     iShutdownSem.Wait();
+}
+
+void PreDriver::SetAnimator(IPipelineAnimator& aAnimator)
+{
+    iAnimator = &aAnimator;
 }
 
 Msg* PreDriver::Pull()
@@ -59,12 +65,10 @@ Msg* PreDriver::Pull()
             iSilenceSinceLastAudio = 0;
             LOG(kPipeline, "PreDriver: silence since last audio - %ums\n", ms);
 
+            ASSERT(iAnimator != nullptr);
+            iAnimator->PipelineAnimatorNotifyAudioReceived();
             if (iAudioTimeOpt.Ok()) {
-                TUint64 ticksNow;
-                TUint freq;
-                iAudioTimeOpt.Unwrap().GetTickCount(iSampleRate, ticksNow, freq);
-                TUint timeNowMs = (TUint)((ticksNow * 1000) / freq);
-                Log::Print("[RAAT_TIME] PreDriver::Pull()   Time now: %ums\n", timeNowMs);
+                iAudioTimeOpt.Unwrap().TimerLogTime("PreDriver");
             }
         }
         if (iQuit) {

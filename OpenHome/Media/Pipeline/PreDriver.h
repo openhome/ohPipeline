@@ -23,6 +23,8 @@ public:
         IPipelineElementUpstream& aUpstreamElement,
         Optional<IAudioTime> aAudioTimeOpt);
     virtual ~PreDriver();
+public:
+    void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // IMsgProcessor
@@ -47,6 +49,7 @@ private:
     TBool iSilenceSinceAudio;
     TBool iModeHasPullableClock;
     TBool iQuit;
+    IPipelineAnimator* iAnimator;
 };
 
 } // namespace Media
