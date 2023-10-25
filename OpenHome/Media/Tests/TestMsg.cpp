@@ -974,12 +974,12 @@ void SuiteMsgAudio::Test()
     const TUint minSamples = 16; // assumes 2 channels
     const TUint minJiffies = minSamples * jps;
     jiffies = jps;
-    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords);
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords, 2);
     TEST(jiffies == msg->Jiffies());
     TEST(jiffies == minJiffies);
     msg->RemoveRef();
     jiffies = jps * (minSamples + 1);
-    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords);
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords, 2);
     TEST(jiffies == msg->Jiffies());
     TEST(jiffies == minJiffies);
     msg->RemoveRef();
@@ -1840,7 +1840,7 @@ void SuiteMsgAudioDsd::Test()
     // MsgSilence supports dsd
     // Currently does not support Dsd
     jiffies = Jiffies::kPerMs * 3;
-    auto silence = iMsgFactory->CreateMsgSilenceDsd(jiffies, 2822400, 1, 2);
+    auto silence = iMsgFactory->CreateMsgSilenceDsd(jiffies, 2822400, 1, 2, 0);
     playable = silence->CreatePlayable();
     playable->Read(processor);
     audio.Set(processor.Buf());

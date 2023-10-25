@@ -80,7 +80,7 @@ Msg* StarterTimed::Pull()
                 msg = iMsgFactory.CreateMsgSilence(jiffies, iSampleRate, iBitDepth, iNumChannels);
             }
             else {
-                msg = iMsgFactory.CreateMsgSilenceDsd(jiffies, iSampleRate, iNumChannels, 6); // DSD sample block words
+                msg = iMsgFactory.CreateMsgSilenceDsd(jiffies, iSampleRate, iNumChannels, 6, 2); // DSD sample block words
             }
             if (iJiffiesRemaining < kMaxSilenceJiffies) {
                 iJiffiesRemaining = 0; // CreateMsgSilence rounds to nearest sample so jiffies>iJiffiesRemaining is possible in the final call

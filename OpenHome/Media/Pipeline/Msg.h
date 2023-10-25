@@ -904,8 +904,6 @@ private:
 protected:
     TUint iSize; // Jiffies
     TUint iOffset; // Jiffies
-    TUint iBlockWordsNoPad;
-    TUint iSizePadded;
     Media::Ramp iRamp;
     TUint iSampleRate;
     TUint iBitDepth;
@@ -1025,16 +1023,23 @@ public: // from MsgAudio
     MsgPlayable* CreatePlayable() override; // removes ref
 private:
     void Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels, Allocator<MsgPlayableSilence>& aAllocatorPlayable);
-    void InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords, Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayable);
+    void InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords, TUint aPadBytesPerChunk, Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayable);
 private: // from MsgAudio
     MsgAudio* Allocate() override;
     void SplitCompleted(MsgAudio& aRemaining) override;
 private: // from Msg
     Msg* Process(IMsgProcessor& aProcessor) override;
+private: // FIXME - MsgSilence should be split into MsgSilencePcm and MsgSilenceDsd
+    TUint JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesPerSampleBlockPlayable) const;
+    TUint SamplesPerBlock(TUint aBlockWords) const;
+    TUint SizeJiffiesTotal() const;
 private:
     Allocator<MsgPlayableSilence>* iAllocatorPlayablePcm;
     Allocator<MsgPlayableSilenceDsd>* iAllocatorPlayableDsd;
     TUint iSampleBlockWords;
+    TUint iBlockWordsNoPad;
+    TUint iSizeTotalJiffies;
+    TUint iJiffiesNonPlayable;
 };
 
 class IPcmProcessor;
@@ -1089,7 +1094,6 @@ protected:
     TUint iOffset; // Bytes
     Media::Ramp iRamp;
     IPipelineBufferObserver* iPipelineBufferObserver;
-    // TUint iSampleBlockWords;
 };
 
 class MsgPlayablePcm : public MsgPlayable
@@ -2042,7 +2046,7 @@ public:
     MsgAudioDsd* CreateMsgAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset, TUint aPadBytesPerChunk);
     MsgAudioDsd* CreateMsgAudioDsd(MsgAudioEncoded* aAudio, TUint aChannels, TUint aSampleRate, TUint aSampleBlockBits, TUint64 aTrackOffset, TUint aPadBytesPerChunk);
     MsgSilence* CreateMsgSilence(TUint& aSizeJiffies, TUint aSampleRate, TUint aBitDepth, TUint aChannels);
-    MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords);
+    MsgSilence* CreateMsgSilenceDsd(TUint& aSizeJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords, TUint aPadBytesPerChunk);
     MsgQuit* CreateMsgQuit();
     DecodedAudio* CreateDecodedAudio();
 public:
