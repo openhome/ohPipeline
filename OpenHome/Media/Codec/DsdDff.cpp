@@ -401,7 +401,7 @@ TBool CodecDsdDff::TrySeek(TUint aStreamId, TUint64 aSample)
 
 void CodecDsdDff::SendMsgDecodedStream(TUint64 aStartSample)
 {
-    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("DsdDff"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
+    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("DSD"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
 }
 
 void CodecDsdDff::ReadId(const Brx& aId)

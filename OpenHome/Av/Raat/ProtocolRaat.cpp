@@ -217,7 +217,6 @@ void ProtocolRaat::OutputStream(const RaatStreamFormat& aStreamFormat)
             2,
             6,
             0LL); // sample start (passed asynchronously)
-        streamInfo.SetCodec(Brn("DSD-RAAT"));
         iSupply->OutputDsdStream(
             kUri,
             0LL, // duration

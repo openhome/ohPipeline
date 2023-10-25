@@ -37,7 +37,6 @@ private:
     TUint iSampleRate;
     TUint iNumChannels;
     TUint64 iStartSample;
-    BwsCodecName iCodecName;
 
     TUint64 iTrackOffsetJiffies;
     TUint64 iTrackLengthJiffies;
@@ -58,7 +57,7 @@ CodecBase* CodecFactory::NewDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes)
 
 
 CodecDsdRaw::CodecDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes)
-    : CodecBase("DSD", kCostVeryLow)
+    : CodecBase("DSD-RAW", kCostVeryLow)
     , DsdFiller(
         (aSampleBlockWords * 4) - (aPaddingBytes * 4),  // BlockBytesInput
         (aSampleBlockWords * 4),                        // BlockBytesOutput
@@ -76,7 +75,6 @@ TBool CodecDsdRaw::Recognise(const EncodedStreamInfo& aStreamInfo)
     iSampleRate = aStreamInfo.SampleRate();
     iNumChannels = aStreamInfo.NumChannels();
     iStartSample = aStreamInfo.StartSample();
-    iCodecName.Replace(aStreamInfo.CodecName());
     return true;
 }
 
@@ -91,7 +89,7 @@ void CodecDsdRaw::StreamInitialise()
         iController->OutputDecodedStreamDsd(
             iSampleRate,
             iNumChannels,
-            iCodecName,
+            Brn("DSD"),
             iTrackLengthJiffies,
             iStartSample,
             spStereo);
