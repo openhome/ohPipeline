@@ -65,11 +65,11 @@ Msg* PreDriver::Pull()
             iSilenceSinceLastAudio = 0;
             LOG(kPipeline, "PreDriver: silence since last audio - %ums\n", ms);
 
-            ASSERT(iAnimator != nullptr);
-            iAnimator->PipelineAnimatorNotifyAudioReceived();
-            if (iAudioTimeOpt.Ok()) {
-                iAudioTimeOpt.Unwrap().TimerLogTime("PreDriver");
-            }
+            // ASSERT(iAnimator != nullptr);
+            // iAnimator->PipelineAnimatorNotifyAudioReceived();
+            // if (iAudioTimeOpt.Ok()) {
+            //     iAudioTimeOpt.Unwrap().TimerLogTime("PreDriver");
+            // }
         }
         if (iQuit) {
             iShutdownSem.Signal();
