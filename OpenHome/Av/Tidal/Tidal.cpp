@@ -25,7 +25,7 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Configuration;
 
-static const TChar* kSoundQualities[3] = {"LOW", "HIGH", "LOSSLESS"};
+static const TChar* kSoundQualities[4] = {"LOW", "HIGH", "LOSSLESS", "HI_RES"};
 static const TUint kNumSoundQualities = sizeof(kSoundQualities) / sizeof(kSoundQualities[0]);
 
 
@@ -139,7 +139,7 @@ Tidal::Tidal(Environment& aEnv,
     choices.push_back(ENABLED_YES);
     iConfigEnable = new ConfigChoice(aConfigInitialiser, kConfigKeyEnabled, choices, ENABLED_YES);
 
-    const int arr[] = {0, 1, 2};
+    const int arr[] = {0, 1, 2, 3};
     std::vector<TUint> qualities(arr, arr + sizeof(arr)/sizeof(arr[0]));
     iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 2);
     iMaxSoundQuality = kNumSoundQualities - 1;
