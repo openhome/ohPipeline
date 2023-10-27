@@ -141,7 +141,7 @@ Tidal::Tidal(Environment& aEnv,
 
     const int arr[] = {0, 1, 2, 3};
     std::vector<TUint> qualities(arr, arr + sizeof(arr)/sizeof(arr[0]));
-    iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 2);
+    iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 3);
     iMaxSoundQuality = kNumSoundQualities - 1;
     iSubscriberIdQuality = iConfigQuality->Subscribe(MakeFunctorConfigChoice(*this, &Tidal::QualityChanged));
 
