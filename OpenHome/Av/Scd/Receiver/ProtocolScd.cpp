@@ -12,6 +12,7 @@
 #include <OpenHome/Av/Debug.h>
 
 #include <memory>
+#include <algorithm>
 
 using namespace OpenHome;
 using namespace OpenHome::Scd;
