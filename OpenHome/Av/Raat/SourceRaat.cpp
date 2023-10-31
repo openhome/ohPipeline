@@ -70,9 +70,7 @@ ISource* SourceFactory::NewRoon(
     IRaatSignalPathObservable* aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion,
-    const Brx& aConfigUrl,
-    TUint aDsdSampleBlockWords,
-    TUint aDsdPadBytesPerChunk)
+    const Brx& aConfigUrl)
 { // static
     RoonProtocolSelector selector(aMediaPlayer.ConfigInitialiser());
     auto configVal = selector.Transfer();
@@ -89,7 +87,7 @@ ISource* SourceFactory::NewRoon(
             aConfigUrl);
     }
     else {
-        return SourceFactory::NewScd(aMediaPlayer, configVal, aDsdSampleBlockWords, aDsdPadBytesPerChunk);
+        return SourceFactory::NewScd(aMediaPlayer, configVal);
     }
 }
 

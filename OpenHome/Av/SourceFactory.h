@@ -39,9 +39,7 @@ public:
                                 Optional<IOhmMsgProcessor> aOhmMsgObserver);
     static ISource* NewScd(
         IMediaPlayer& aMediaPlayer,
-        Optional<Configuration::ConfigChoice> aProtocolSelector,
-        TUint aDsdSampleBlockWords,
-        TUint aDsdPadBytesPerChunk);
+        Optional<Configuration::ConfigChoice> aProtocolSelector);
     static ISource* NewRaat(
         IMediaPlayer& aMediaPlayer,
         Media::IAudioTime& aAudioTime,
@@ -57,9 +55,7 @@ public:
         IRaatSignalPathObservable* aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
-        const Brx& aConfigUrl,
-        TUint aDsdSampleBlockWords,
-        TUint aDsdPadBytesPerChunk);
+        const Brx& aConfigUrl);
 
     static const TChar* kSourceTypePlaylist;
     static const TChar* kSourceTypeRadio;

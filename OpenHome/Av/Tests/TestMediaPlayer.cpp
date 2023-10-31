@@ -554,12 +554,10 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
         iRaatSignalPathObservable != nullptr ? iRaatSignalPathObservable : new DummyRaatSignalPath(),
         Brn("12345"),
         Brn("0.0.1"),
-        Brn("http://linn.co.uk/account"),
-        kDsdSampleBlockWords,
-        kDsdPadBytesPerChunk));
+        Brn("http://linn.co.uk/account")));
     iRaatSignalPathObservable = nullptr;
 #else
-    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, nullptr, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
+    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, nullptr));
 #endif
 }
 

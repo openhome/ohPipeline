@@ -19,9 +19,7 @@ class SourceScd : public Av::Source, private IScdObserver
 public:
     SourceScd(
         Av::IMediaPlayer& aMediaPlayer,
-        Optional<Configuration::ConfigChoice> aProtocolSelector,
-        TUint aDsdSampleBlockWords,
-        TUint aDsdPadBytesPerChunk);
+        Optional<Configuration::ConfigChoice> aProtocolSelector);
     ~SourceScd();
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
@@ -48,11 +46,9 @@ using namespace OpenHome::Av;
 
 Av::ISource* Av::SourceFactory::NewScd(
     Av::IMediaPlayer& aMediaPlayer,
-    Optional<Configuration::ConfigChoice> aProtocolSelector,
-    TUint aDsdSampleBlockWords,
-    TUint aDsdPadBytesPerChunk)
+    Optional<Configuration::ConfigChoice> aProtocolSelector)
 {
-    return new SourceScd(aMediaPlayer, aProtocolSelector, aDsdSampleBlockWords, aDsdPadBytesPerChunk);
+    return new SourceScd(aMediaPlayer, aProtocolSelector);
 }
 
 const Brn Av::SourceFactory::kSourceNameScd("Roon");
@@ -61,9 +57,8 @@ const TBool SourceScd::kDefaultVisibility = false;
 
 SourceScd::SourceScd(
     Av::IMediaPlayer& aMediaPlayer,
-    Optional<Configuration::ConfigChoice> aProtocolSelector,
-    TUint aDsdSampleBlockWords,
-    TUint aDsdPadBytesPerChunk)
+    Optional<Configuration::ConfigChoice> aProtocolSelector)
+
     : Source(Av::SourceFactory::kSourceNameScd,
              Av::SourceFactory::kSourceTypeScd,
              aMediaPlayer.Pipeline(),
@@ -71,7 +66,7 @@ SourceScd::SourceScd(
     , iProtocolSelector(aProtocolSelector.Ptr())
 {
     auto& trackFactory = aMediaPlayer.TrackFactory();
-    auto protocol = new ProtocolScd(aMediaPlayer.Env(), trackFactory, aDsdSampleBlockWords, aDsdPadBytesPerChunk, *this);
+    auto protocol = new ProtocolScd(aMediaPlayer.Env(), trackFactory, *this);
     aMediaPlayer.Pipeline().Add(protocol); // ownership passed
     iUriProvider = new UriProviderScd(trackFactory);
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourceScd::Play));

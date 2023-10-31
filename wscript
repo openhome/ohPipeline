@@ -451,7 +451,6 @@ def build(bld):
             source=[
                 'OpenHome/Av/Scd/ScdMsg.cpp',
                 'OpenHome/Av/Scd/Receiver/ProtocolScd.cpp',
-                'OpenHome/Av/Scd/Receiver/SupplyScd.cpp',
                 'OpenHome/Av/Scd/Receiver/UriProviderScd.cpp',
                 'OpenHome/Av/Scd/Receiver/SourceScd.cpp'
             ],
