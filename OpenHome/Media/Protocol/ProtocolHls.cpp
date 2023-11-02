@@ -18,6 +18,7 @@
 #include <OpenHome/OsWrapper.h>
 
 #include <algorithm>
+#include <limits>
 
 namespace OpenHome {
 namespace Media {
