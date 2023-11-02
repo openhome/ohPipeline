@@ -62,10 +62,10 @@ private: // from IAudioTime
     void TimerLogTime(const TChar* /*aId*/) override {}
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override { return 0; }
-    TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override { return 0; }
+    TUint PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const override { return 0; }
     TUint PipelineAnimatorDsdBlockSizeWords() const override { return 0; }
     TUint PipelineAnimatorMaxBitDepth() const override { return 0; }
-    void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const override {}
+    void PipelineAnimatorGetMaxSampleRates(TUint& /*aPcm*/, TUint& /*aDsd*/) const override {}
     void PipelineAnimatorNotifyAudioReceived() override {}
 private:
     enum EMsgType
