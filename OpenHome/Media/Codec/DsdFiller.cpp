@@ -51,6 +51,7 @@ void DsdFiller::Flush()
 
     // iPending.MaxBytes() will be exactly iBlockBytesInput, so can safely fill
     // the remainder with silence to construct a full input sample block
+    iPending.SetBytes(iPending.MaxBytes());
     for (TUint i = iPending.Bytes(); i < iPending.MaxBytes(); i++) {
         iPending[i] = kSilenceByteDsd;
     }
