@@ -400,6 +400,20 @@ void WriterDIDLLite::WriteArtwork(const Brx& aArtwork)
 }
 
 
+// WriterDIDLLiteDefault
+
+const Brn WriterDIDLLiteDefault::kDefaultItemId("0");
+const Brn WriterDIDLLiteDefault::kDefaultParentId("0");
+
+void WriterDIDLLiteDefault::Write(const Brx& aTitle, Bwx& aBuffer)
+{
+    WriterBuffer buf(aBuffer);
+    WriterDIDLLite writer(kDefaultItemId, DIDLLite::kItemTypeTrack, kDefaultParentId, buf);
+    writer.WriteTitle(aTitle);
+    writer.WriteEnd();
+}
+
+
 // OhMetadata
 Media::Track* OhMetadata::ToTrack(const OpenHomeMetadataBuf& aMetadata,
                                   Media::TrackFactory& aTrackFactory)
