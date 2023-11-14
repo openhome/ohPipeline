@@ -158,8 +158,7 @@ void ArtworkHttpServer::NotifyObservers(const Brx& aUri)
 // ArtworkHttpSession
 
 ArtworkHttpSession::ArtworkHttpSession(Environment& aEnv, IArtworkProvider& aArtworkProvider)
-    : iEnv(aEnv)
-    , iArtworkProvider(aArtworkProvider)
+    : iArtworkProvider(aArtworkProvider)
 {
     iReadBuffer = new Srs<1024>(*this);
     iReaderUntil = new ReaderUntilS<4096>(*iReadBuffer);

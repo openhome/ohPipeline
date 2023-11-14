@@ -112,7 +112,6 @@ public:
 private: // from SocketTcpSession
     void Run() override;
 private:
-    Environment& iEnv;
     IArtworkProvider& iArtworkProvider;
     Srx* iReadBuffer;
     ReaderUntil* iReaderUntil;
