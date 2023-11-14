@@ -9,107 +9,135 @@
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
 
-#include <algorithm>
-
 using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
+// ProtocolRaat
+
+const Brn ProtocolRaat::kUri("raat://default");
+
 ProtocolRaat::ProtocolRaat(Environment& aEnv, IRaatReader& aRaatReader, Media::TrackFactory& aTrackFactory)
     : Protocol(aEnv)
-    , iLock("PRat")
+    , DsdFiller(kDsdBlockBytes, kDsdBlockBytes, kDsdChunksPerBlock)
+    , iEnv(aEnv)
     , iRaatReader(aRaatReader)
     , iTrackFactory(aTrackFactory)
-    , iSupplyPcm(nullptr)
-    , iSupplyDsd(nullptr)
     , iSupply(nullptr)
+    , iState(EStreamState::eStopped)
+    , iInterrupt(false)
+    , iSemStateChange("PRSM", 0)
+    , iLock("PRat")
 {
 }
 
 ProtocolRaat::~ProtocolRaat()
 {
-    delete iSupplyPcm;
-    delete iSupplyDsd;
+    delete iSupply;
+}
+
+TBool ProtocolRaat::IsStreaming()
+{
+    return (iState.load() != EStreamState::eStopped);
+}
+
+void ProtocolRaat::NotifySetup()
+{
+    iSetup = true;
+    iSemStateChange.Signal();
+}
+
+void ProtocolRaat::NotifyStart()
+{
+    iSetup = false;
+    iSemStateChange.Signal();
+}
+
+TUint ProtocolRaat::FlushAsync()
+{
+    if (iState.load() != EStreamState::eStreaming) {
+        return MsgFlush::kIdInvalid;
+    }
+
+    AutoMutex _(iLock);
+    if (iNextFlushId == MsgFlush::kIdInvalid) {
+        iNextFlushId = iFlushIdProvider->NextFlushId();
+    }
+    return iNextFlushId;
 }
 
 void ProtocolRaat::Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream)
 {
-    iSupplyPcm = new SupplyAggregatorBytes(aMsgFactory, aDownstream);
-    iSupplyDsd = new RaatSupplyDsd(aMsgFactory, aDownstream);
+    iSupply = new SupplyAggregatorBytes(aMsgFactory, aDownstream);
 }
 
 void ProtocolRaat::Interrupt(TBool aInterrupt)
 {
-    if (iActive) {
-        LOG(kMedia, "ProtocolRaat::Interrupt(%u)\n", aInterrupt);
-        if (aInterrupt) {
-            iStopped = true;
-            iRaatReader.Interrupt();
-        }
+    if (!iActive) {
+        return;
+    }
+    if (!aInterrupt) {
+        return;
+    }
+    LOG(kRaat, "ProtocolRaat::Interrupt(%u)\n", aInterrupt);
+    if (IsStreaming()) {
+        DoInterrupt();
     }
 }
 
 Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
 {
-    // validate that we can handle aUri
-    try {
-        iRaatUri.Parse(aUri);
-        iPcmStream = iRaatUri.Format() == Media::AudioFormat::Pcm;
-    }
-    catch (RaatUriError&) {
+    if (aUri != kUri) {
         return EProtocolErrorNotSupported;
     }
 
-    // reinitialise
-    {
-        AutoMutex _(iLock);
-        iNextFlushId = MsgFlush::kIdInvalid;
-        iStreamId = iIdProvider->NextStreamId();
-        iStopped = false;
-        iMetadataTitle.ReplaceThrow(Brx::Empty());
-        iMetadataSubtitle.ReplaceThrow(Brx::Empty());
-        iLastTrackPosSeconds = 0;
-    }
-    if (iPcmStream) {
-        iSupply = iSupplyPcm;
-        const auto bytesPerSample = (iRaatUri.BitDepth() / 8) * iRaatUri.NumChannels();
-        iMaxBytesPerAudioChunk = AudioData::kMaxBytes - (AudioData::kMaxBytes % bytesPerSample);
-    }
-    else {
-        iSupply = iSupplyDsd;
-        iMaxBytesPerAudioChunk = AudioData::kMaxBytes - (AudioData::kMaxBytes % 6);
-    }
-    OutputStream(iRaatUri.SampleStart(), 0LL);
-
-    Semaphore sem("PRat", 0);
-    iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal));
-    sem.Wait();
-    iRaatReader.NotifyReady();
-    
-    // do stuff - read from RAAT forever (until source change)
     try {
-        for (; !iStopped; ) {
-            iRaatReader.Read(*this);
+        for (;;) {
+            iState.store(EStreamState::eIdle);
+            iSemStateChange.Wait();
+            if (iInterrupt.load()) {
+                THROW(ProtocolRaatInterrupt);
+            }
+
+            const RaatStreamFormat& streamFormat = iRaatReader.StreamFormat();
+            iPcmStream = (streamFormat.Format() == AudioFormat::Pcm);
+            OutputStream(streamFormat);
+            iSupply->OutputDelay(kDefaultDelayJiffies);
+            OutputDrain();
+
+            if (iSetup) {
+                iRaatReader.NotifyReady();
+                continue;
+            }
+
+            // Stream
+            iState.store(EStreamState::eStreaming);
+            try {
+                for (;;) {
+                    iRaatReader.Read(*this);
+                }
+            }
+            catch (RaatReaderStopped&) {}
+
+            // Flush
+            DsdFiller::Flush(); // safe to call regardless of format
+            iSupply->Flush();
+
+            TUint nextFlushId;
+            {
+                AutoMutex _(iLock);
+                nextFlushId = iNextFlushId;
+                iNextFlushId = MsgFlush::kIdInvalid;
+            }
+            if (nextFlushId != MsgFlush::kIdInvalid) {
+                iSupply->OutputFlush(nextFlushId);
+            }
         }
     }
-    catch (RaatReaderStopped&) {}
+    catch (ProtocolRaatInterrupt&) {}
 
-    // cleanup
-    if (iPcmStream) {
-        iSupplyPcm->Flush();
-    }
-    else {
-        iSupplyDsd->Flush();
-    }
-    TUint nextFlushId;
-    {
-        AutoMutex _(iLock);
-        nextFlushId = iNextFlushId;
-        iStreamId = IPipelineIdProvider::kStreamIdInvalid;
-    }
-    if (nextFlushId != MsgFlush::kIdInvalid) {
-        iSupply->OutputFlush(nextFlushId);
-    }
+    iInterrupt.store(false);
+    iState.store(EStreamState::eStopped);
     return EProtocolStreamStopped;
 }
 
@@ -118,310 +146,103 @@ Media::ProtocolGetResult ProtocolRaat::Get(IWriter& /*aWriter*/, const Brx& /*aU
     return EProtocolGetErrorNotSupported;
 }
 
-TUint ProtocolRaat::TryStop(TUint aStreamId)
+TUint ProtocolRaat::TryStop(TUint /*aStreamId*/)
 {
-    AutoMutex _(iLock);
-    if (iStreamId != aStreamId) {
-        return MsgFlush::kIdInvalid;
+    if (IsStreaming()) {
+        DoInterrupt();
     }
-    if (iNextFlushId == MsgFlush::kIdInvalid) {
-        /* If a valid flushId is set then We've previously promised to send a Flush but haven't
-            got round to it yet.  Re-use the same id for any other requests that come in before
-            our main thread gets a chance to issue a Flush */
-        iNextFlushId = iFlushIdProvider->NextFlushId();
-    }
-    LOG(kMedia, "ProtocolRaat::TryStop(%u), iStreamId=%u, iNextFlushId=%u\n", aStreamId, iStreamId, iNextFlushId);
-    iStopped = true;
-    iRaatReader.Interrupt();
-    return iNextFlushId;
+    return MsgFlush::kIdInvalid;
 }
 
-void ProtocolRaat::WriteMetadata(const Brx& aTitle, const Brx& aSubtitle, TUint aPosSeconds, TUint aDurationSeconds)
+void ProtocolRaat::WriteChunkDsd(const TByte*& aSrc, TByte*& aDest)
 {
-    if (iMetadataTitle != aTitle || iMetadataSubtitle != aSubtitle) {
-        iDidlLite.SetBytes(0);
-        WriterBuffer w(iDidlLite);
-        WriterDIDLLite writer(Brn(""), DIDLLite::kItemTypeAudioItem, w);
-        writer.WriteTitle(aTitle);
-        writer.WriteArtist(aSubtitle);
-        writer.WriteEnd();
-
-        iMetadataTitle.ReplaceThrow(aTitle);
-        iMetadataSubtitle.ReplaceThrow(aSubtitle);
-
-        auto track = iTrackFactory.CreateTrack(iRaatUri.AbsoluteUri(), iDidlLite);
-        iSupply->OutputTrack(*track, aPosSeconds == 0);
-    }
-
-    // we usually get one metadata update per second but appear to sometimes miss a couple so updates to iLastTrackPosSeconds may not be smooth
-    if (iLastTrackPosSeconds >= aPosSeconds || aPosSeconds > iLastTrackPosSeconds + 4) {
-        const TUint64 jiffies = ((TUint64)Jiffies::kPerSecond) * aPosSeconds;
-        const TUint64 sampleStart = Jiffies::ToSamples(jiffies, iRaatUri.SampleRate());
-        TUint64 bytesPerSecond;
-        if (iPcmStream) {
-            bytesPerSecond = iRaatUri.SampleRate() * iRaatUri.NumChannels() * iRaatUri.BitDepth() / 8;
-        }
-        else {
-            bytesPerSecond = iRaatUri.SampleRate() * iRaatUri.NumChannels() / 8;
-            // add padding bytes
-            bytesPerSecond *= 3;
-            bytesPerSecond /= 2;
-        }
-        OutputStream(sampleStart, bytesPerSecond * aDurationSeconds);
-    }
-    iLastTrackPosSeconds = aPosSeconds;
-
-
+    *aDest++ = aSrc[0];
+    *aDest++ = aSrc[2];
+    *aDest++ = aSrc[1];
+    *aDest++ = aSrc[3];
+    aSrc += 4;
 }
 
-void ProtocolRaat::WriteDelay(TUint aJiffies)
+void ProtocolRaat::OutputDsd(const Brx& aData)
 {
-    Log::Print("FIXME - ignoring delay of %u (%ums)\n", aJiffies, Jiffies::ToMs(aJiffies));
-#if 0
-    static const TUint kMinDelayJiffies = Jiffies::kPerMs * 100;
-    if (aJiffies < kMinDelayJiffies) {
-        aJiffies = kMinDelayJiffies;
-    }
-    iSupply->OutputDelay(aJiffies);
-#endif
+    // Callback once DsdFiller has filled its output buffer
+    iSupply->OutputData(aData);
 }
 
-void ProtocolRaat::WriteData(const Brx& aData)
+void ProtocolRaat::Write(const Brx& aData)
 {
     if (iPcmStream) {
         const TByte* ptr = aData.Ptr();
         TUint remaining = aData.Bytes();
-        for (;;) {
-            const auto bytes = remaining > iMaxBytesPerAudioChunk ? iMaxBytesPerAudioChunk : remaining;
+        while (remaining > 0) {
+            const TUint bytes = (remaining > AudioData::kMaxBytes) ? AudioData::kMaxBytes : remaining;
             Brn data(ptr, bytes);
             iSupply->OutputData(data);
             remaining -= bytes;
-            if (remaining == 0) {
-                break;
-            }
             ptr += bytes;
         }
     }
     else { // DSD
-        iSupply->OutputData(aData);
+        DsdFiller::Push(aData);
     }
 }
 
-void ProtocolRaat::OutputStream(TUint64 aSampleStart, TUint64 aDurationBytes)
+void ProtocolRaat::OutputStream(const RaatStreamFormat& aStreamFormat)
 {
+    TUint streamId = iIdProvider->NextStreamId();
     if (iPcmStream) {
         SpeakerProfile sp;
         PcmStreamInfo streamInfo;
         streamInfo.Set(
-            iRaatUri.BitDepth(),
-            iRaatUri.SampleRate(),
-            iRaatUri.NumChannels(),
+            aStreamFormat.BitDepth(),
+            aStreamFormat.SampleRate(),
+            aStreamFormat.NumChannels(),
             AudioDataEndian::Little,
             sp,
-            aSampleStart);
+            0LL); // sample start (passed asynchronously)
         iSupply->OutputPcmStream(
-            iRaatUri.AbsoluteUri(),
-            aDurationBytes,
-            false /* seekable */,
-            false /* live */,
+            kUri,
+            0LL, // duration
+            false, // seekable
+            false, // live
             Media::Multiroom::Forbidden,
             *this,
-            iStreamId,
+            streamId,
             streamInfo);
     }
     else {
         DsdStreamInfo streamInfo;
-        streamInfo.Set(iRaatUri.SampleRate(), 2, 6, aSampleStart);
+        streamInfo.Set(
+            aStreamFormat.SampleRate(),
+            2,
+            6,
+            0LL); // sample start (passed asynchronously)
         iSupply->OutputDsdStream(
-            iRaatUri.AbsoluteUri(),
-            aDurationBytes,
-            false /* seekable */,
+            kUri,
+            0LL, // duration
+            false, // seekable
             *this,
-            iStreamId,
+            streamId,
             streamInfo);
     }
 }
 
-
-// RaatSupplyDsd
-
-RaatSupplyDsd::RaatSupplyDsd(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownStreamElement)
-    : iMsgFactory(aMsgFactory)
-    , iDownStreamElement(aDownStreamElement)
+void ProtocolRaat::OutputDrain()
 {
-}
-
-RaatSupplyDsd::~RaatSupplyDsd()
-{
-}
-
-void RaatSupplyDsd::Flush()
-{
-    if (iDsdDataBuf.Bytes() > 0) {
-        auto msg = iMsgFactory.CreateMsgAudioEncoded(iDsdDataBuf);
-        iDownStreamElement.Push(msg);
-        iDsdDataBuf.SetBytes(0);
+    LOG(kRaat, "ProtocolRaat::OutputDrain()\n");
+    Semaphore sem("DRAT", 0);
+    iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal));
+    try {
+        sem.Wait(ISupply::kMaxDrainMs);
     }
-    iDsdPartialBlock.ReplaceThrow(Brx::Empty());
-}
-
-void RaatSupplyDsd::OutputTrack(Track& aTrack, TBool aStartOfStream)
-{
-    auto msg = iMsgFactory.CreateMsgTrack(aTrack, aStartOfStream);
-    Output(msg);
-}
-
-void RaatSupplyDsd::OutputDrain(Functor aCallback)
-{
-    auto msg = iMsgFactory.CreateMsgDrain(aCallback);
-    Output(msg);
-}
-
-void RaatSupplyDsd::OutputDelay(TUint aJiffies)
-{
-    MsgDelay* msg = iMsgFactory.CreateMsgDelay(aJiffies);
-    Output(msg);
-}
-
-void RaatSupplyDsd::OutputStream(
-    const Brx& /*aUri*/,
-    TUint64 /*aTotalBytes*/,
-    TUint64 /*aStartPos*/,
-    TBool /*aSeekable*/,
-    TBool /*aLive*/,
-    Media::Multiroom /*aMultiroom*/,
-    IStreamHandler& /*aStreamHandler*/,
-    TUint /*aStreamId*/,
-    TUint /*aSeekPosMs*/)
-{
-    ASSERTS(); // only expect to handle DSD streams here
-}
-
-void RaatSupplyDsd::OutputPcmStream(
-    const Brx& /*aUri*/,
-    TUint64 /*aTotalBytes*/,
-    TBool /*aSeekable*/,
-    TBool /*aLive*/,
-    Media::Multiroom /*aMultiroom*/,
-    IStreamHandler& /*aStreamHandler*/,
-    TUint /*aStreamId*/,
-    const PcmStreamInfo& /*aPcmStream*/)
-{
-    ASSERTS(); // only expect to handle DSD streams here
-}
-
-void RaatSupplyDsd::OutputPcmStream(
-    const Brx& /*aUri*/,
-    TUint64 /*aTotalBytes*/,
-    TBool /*aSeekable*/,
-    TBool /*aLive*/,
-    Media::Multiroom /*aMultiroom*/,
-    IStreamHandler& /*aStreamHandler*/,
-    TUint /*aStreamId*/,
-    const PcmStreamInfo& /*aPcmStream*/,
-    RampType /*aRamp*/)
-{
-    ASSERTS(); // only expect to handle DSD streams here
-}
-
-void RaatSupplyDsd::OutputDsdStream(
-    const Brx& aUri,
-    TUint64 aTotalBytes,
-    TBool aSeekable,
-    IStreamHandler& aStreamHandler,
-    TUint aStreamId,
-    const DsdStreamInfo& aDsdStream)
-{
-    auto msg = iMsgFactory.CreateMsgEncodedStream(aUri, Brx::Empty(), aTotalBytes, 0, aStreamId, aSeekable, &aStreamHandler, aDsdStream);
-    Output(msg);
-}
-
-void RaatSupplyDsd::OutputSegment(const Brx& aId)
-{
-    auto* msg = iMsgFactory.CreateMsgStreamSegment(aId);
-    Output(msg);
-}
-
-void RaatSupplyDsd::OutputData(const Brx& aData)
-{
-    const TByte* src = aData.Ptr();
-    TUint srcRemaining = aData.Bytes();
-
-    TByte* dest = const_cast<TByte*>(iDsdDataBuf.Ptr() + iDsdDataBuf.Bytes());
-    TUint destRemaining = iDsdDataBuf.MaxBytes() - iDsdDataBuf.Bytes();
-    if (iDsdPartialBlock.Bytes() > 0) {
-        dest[0] = 0x00; // padding
-        dest[1] = iDsdPartialBlock[0];
-        dest[3] = 0x00; // padding
-        dest[4] = iDsdPartialBlock[1];
-        if (iDsdPartialBlock.Bytes() == 2) {
-            dest[2] = src[0];
-            dest[5] = src[1];
-            srcRemaining -= 2;
-            src += 2;
-        }
-        else if (iDsdPartialBlock.Bytes() == 4) {
-            dest[2] = iDsdPartialBlock[2];
-            dest[5] = iDsdPartialBlock[3];
-        }
-        dest += 6;
-        destRemaining -= 6;
-        iDsdPartialBlock.ReplaceThrow(Brx::Empty());
-    }
-
-    while (srcRemaining >= 4) {
-        while (srcRemaining >= 4 && destRemaining > 0) {
-            *dest++ = 0x00; // padding
-            *dest++ = src[0];
-            *dest++ = src[2];
-            *dest++ = 0x00; // padding
-            *dest++ = src[1];
-            *dest++ = src[3];
-            srcRemaining -= 4;
-            src += 4;
-            destRemaining -= 6;
-        }
-        iDsdDataBuf.SetBytes(iDsdDataBuf.MaxBytes() - destRemaining);
-        if (destRemaining == 0) {
-            auto msg = iMsgFactory.CreateMsgAudioEncoded(iDsdDataBuf);
-            iDownStreamElement.Push(msg);
-            iDsdDataBuf.SetBytes(0);
-            dest = const_cast<TByte*>(iDsdDataBuf.Ptr());
-            destRemaining = iDsdDataBuf.MaxBytes();
-        }
-    }
-    if (srcRemaining > 0) {
-        Brn rem(src, srcRemaining);
-        iDsdPartialBlock.ReplaceThrow(rem);
+    catch (Timeout&) {
+        LOG(kPipeline, "WARNING: ProtocolRaat: timeout draining pipeline\n");
     }
 }
 
-void RaatSupplyDsd::OutputMetadata(const Brx& aMetadata)
+void ProtocolRaat::DoInterrupt()
 {
-    MsgMetaText* msg = iMsgFactory.CreateMsgMetaText(aMetadata);
-    Output(msg);
-}
-
-void RaatSupplyDsd::OutputHalt(TUint aHaltId)
-{
-    MsgHalt* msg = iMsgFactory.CreateMsgHalt(aHaltId);
-    Output(msg);
-}
-
-void RaatSupplyDsd::OutputFlush(TUint aFlushId)
-{
-    MsgFlush* msg = iMsgFactory.CreateMsgFlush(aFlushId);
-    Output(msg);
-}
-
-void RaatSupplyDsd::OutputWait()
-{
-    MsgWait* msg = iMsgFactory.CreateMsgWait();
-    Output(msg);
-}
-
-void RaatSupplyDsd::Output(Msg* aMsg)
-{
-    // pass on any pending data
-    iDownStreamElement.Push(aMsg);
+    iInterrupt.store(true);
+    iRaatReader.Interrupt();
+    iSemStateChange.Signal();
 }

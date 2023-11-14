@@ -974,12 +974,12 @@ void SuiteMsgAudio::Test()
     const TUint minSamples = 16; // assumes 2 channels
     const TUint minJiffies = minSamples * jps;
     jiffies = jps;
-    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords);
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords, 2);
     TEST(jiffies == msg->Jiffies());
     TEST(jiffies == minJiffies);
     msg->RemoveRef();
     jiffies = jps * (minSamples + 1);
-    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords);
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords, 2);
     TEST(jiffies == msg->Jiffies());
     TEST(jiffies == minJiffies);
     msg->RemoveRef();
@@ -1840,7 +1840,7 @@ void SuiteMsgAudioDsd::Test()
     // MsgSilence supports dsd
     // Currently does not support Dsd
     jiffies = Jiffies::kPerMs * 3;
-    auto silence = iMsgFactory->CreateMsgSilenceDsd(jiffies, 2822400, 1, 2);
+    auto silence = iMsgFactory->CreateMsgSilenceDsd(jiffies, 2822400, 1, 2, 0);
     playable = silence->CreatePlayable();
     playable->Read(processor);
     audio.Set(processor.Buf());
@@ -2269,14 +2269,14 @@ void SuiteMode::Test()
 {
     Brn mode("First");
     ModeInfo mi;
-    mi.SetSupportsLatency(true);
+    mi.SetLatencyMode(Latency::Internal);
     mi.SetSupportsNextPrev(true, false);
     mi.SetSupportsRepeatRandom(true, false);
     ModeTransportControls transportControls;
     MsgMode* msg = iMsgFactory->CreateMsgMode(mode, mi, nullptr, transportControls);
     TEST(msg->Mode() == mode);
     const ModeInfo& info = msg->Info();
-    TEST( info.SupportsLatency());
+    TEST( info.LatencyMode() == Latency::Internal);
     TEST( info.SupportsNext());
     TEST(!info.SupportsPrev());
     TEST( info.SupportsRepeat());
@@ -2286,13 +2286,13 @@ void SuiteMode::Test()
 
     Brn mode2("Second");
     ModeInfo mi2;
-    mi2.SetSupportsLatency(false);
+    mi.SetLatencyMode(Latency::NotSupported);
     mi2.SetSupportsNextPrev(false, true);
     mi2.SetSupportsRepeatRandom(false, true);
     msg = iMsgFactory->CreateMsgMode(mode2, mi2, nullptr, transportControls);
     const ModeInfo& info2 = msg->Info();
     TEST(msg->Mode() == mode2);
-    TEST(!info2.SupportsLatency());
+    TEST( info2.LatencyMode() == Latency::NotSupported);
     TEST(!info2.SupportsNext());
     TEST( info2.SupportsPrev());
     TEST(!info2.SupportsRepeat());

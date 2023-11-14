@@ -11,7 +11,7 @@ using namespace OpenHome::Media;
 
 UriProviderRepeater::UriProviderRepeater(
     const TChar* aMode,
-    TBool aSupportsLatency,
+    Latency aLatencyMode,
     TrackFactory& aTrackFactory,
     Pause aPauseSupported,
     Next aNextSupported,
@@ -20,12 +20,18 @@ UriProviderRepeater::UriProviderRepeater(
     Random aRandomSupported,
     RampPauseResume aRampPauseResume,
     RampSkip aRampSkip)
-    : UriProvider(aMode,
-                  aSupportsLatency? Latency::Supported : Latency::NotSupported,
-                  aPauseSupported,
-                  aNextSupported, aPrevSupported,
-                  aRepeatSupported, aRandomSupported,
-                  aRampPauseResume, aRampSkip)
+
+    : UriProvider(
+        aMode,
+        aLatencyMode,
+        aPauseSupported,
+        aNextSupported,
+        aPrevSupported,
+        aRepeatSupported,
+        aRandomSupported,
+        aRampPauseResume,
+        aRampSkip)
+
     , iLock("UPRP")
     , iTrackFactory(aTrackFactory)
     , iTrack(nullptr)

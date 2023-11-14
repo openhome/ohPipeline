@@ -173,7 +173,7 @@ const Brn SourceFactory::kSourceNameReceiver("Songcast");
 
 UriProviderSongcast::UriProviderSongcast(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller)
     : UriProviderSingleTrack(SourceFactory::kSourceTypeReceiver,
-                             true, /* supports latency */
+                             Latency::Internal,
                              false, /* supports pause */
                              aMediaPlayer.TrackFactory())
     , iClockPuller(aClockPuller.Ptr())

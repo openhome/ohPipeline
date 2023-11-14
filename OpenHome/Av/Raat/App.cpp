@@ -28,6 +28,18 @@ void raat_thread(void* arg)
 using namespace OpenHome;
 using namespace OpenHome::Av;
 
+static void Raat_Log(RAAT__LogEntry* entry, void* /*userdata*/)
+{
+    LOG(kRaat, "RAAT: [%07d] %lld %s\n", entry->seq, entry->time, entry->message);
+}
+
+static void SetInfo(RAAT__Info* aInfo, const char* aKey, const Brx& aValue)
+{
+    Bws<RAAT__INFO_MAX_VALUE_LEN> val(aValue);
+    auto status = RAAT__info_set(aInfo, aKey, val.PtrZ());
+    ASSERT(RC__STATUS_IS_SUCCESS(status));
+}
+
 RaatApp::RaatApp(
     Environment& aEnv,
     IMediaPlayer& aMediaPlayer,
@@ -36,12 +48,16 @@ RaatApp::RaatApp(
     Media::IPullableClock& aPullableClock,
     IRaatSignalPathObservable& aSignalPathObservable,
     const Brx& aSerialNumber,
-    const Brx& aSoftwareVersion)
+    const Brx& aSoftwareVersion,
+    const Brx& aConfigUrl)
+
     : iMediaPlayer(aMediaPlayer)
     , iDevice(nullptr)
     , iInfo(nullptr)
     , iSerialNumber(aSerialNumber)
     , iSoftwareVersion(aSoftwareVersion)
+    , iConfigUrl(aConfigUrl)
+    , iStarted(false)
 {
     iTimer = new Timer(aEnv, MakeFunctor(*this, &RaatApp::StartPlugins), "RaatApp");
     iOutput = new RaatOutput(aMediaPlayer, aSourceRaat, aAudioTime, aPullableClock, aSignalPathObservable);
@@ -51,10 +67,8 @@ RaatApp::RaatApp(
     else {
         iVolume = nullptr;
     }
-    iTransport = new RaatTransport(aMediaPlayer, *iOutput);
-    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport);
-    int err = uv_thread_create(&iThread, raat_thread, this);
-    ASSERT(err == 0);
+    iTransport = new RaatTransport(aMediaPlayer);
+    iSourceSelection = new RaatSourceSelection(aMediaPlayer, SourceFactory::kSourceNameRaat, *iTransport, *iOutput);
 }
 
 RaatApp::~RaatApp()
@@ -71,6 +85,16 @@ RaatApp::~RaatApp()
     delete iOutput;
 }
 
+void RaatApp::Start()
+{
+    if (iStarted) {
+        return;
+    }
+    int err = uv_thread_create(&iThread, raat_thread, this);
+    ASSERT(err == 0);
+    iStarted = true;
+}
+
 IRaatReader& RaatApp::Reader()
 {
     ASSERT(iOutput != nullptr);
@@ -81,17 +105,6 @@ IRaatTransport& RaatApp::Transport()
 {
     ASSERT(iTransport != nullptr);
     return *iTransport;
-}
-
-static void Raat_Log(RAAT__LogEntry* entry, void* /*userdata*/) {
-    LOG(kMedia, "RAAT: [%07d] %lld %s\n", entry->seq, entry->time, entry->message);
-}
-
-static void SetInfo(RAAT__Info* aInfo, const char* aKey, const Brx& aValue)
-{
-    Bws<RAAT__INFO_MAX_VALUE_LEN> val(aValue);
-    auto status = RAAT__info_set(aInfo, aKey, val.PtrZ());
-    ASSERT(RC__STATUS_IS_SUCCESS(status));
 }
 
 void RaatApp::RaatThread()
@@ -127,9 +140,7 @@ void RaatApp::RaatThread()
 
     SetInfo(iInfo, RAAT__INFO_KEY_SERIAL, iSerialNumber);
     SetInfo(iInfo, RAAT__INFO_KEY_VERSION, iSoftwareVersion);
-    
-    // FIXME - following info is all stubbed out
-    // RAAT__INFO_KEY_CONFIG_URL
+    SetInfo(iInfo, RAAT__INFO_KEY_CONFIG_URL, iConfigUrl);
 
     RAAT__device_set_output_plugin(iDevice, iOutput->Plugin());
     if (iVolume != nullptr) {
@@ -150,6 +161,7 @@ void RaatApp::RaatThread()
 
 void RaatApp::StartPlugins()
 {
+    iOutput->Start();
     if (iVolume != nullptr) {
         iVolume->Start();
     }

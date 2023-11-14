@@ -129,7 +129,7 @@ def configure(conf):
     fixed_point_model = 'FPM_INTEL'
     if conf.options.with_default_fpm or conf.options.dest_platform in ['Linux-riscv64', 'Linux-aarch64']:
         fixed_point_model = 'FPM_DEFAULT'
-    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
+    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-arm64', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
@@ -244,6 +244,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Attenuator.cpp',
                 'OpenHome/Media/Pipeline/Ramper.cpp',
                 'OpenHome/Media/Pipeline/Reporter.cpp',
+                'OpenHome/Media/Pipeline/AsyncTrackObserver.cpp',
                 'OpenHome/Media/Pipeline/AirplayReporter.cpp',
                 'OpenHome/Media/Pipeline/SpotifyReporter.cpp',
                 'OpenHome/Media/Pipeline/RampValidator.cpp',
@@ -261,6 +262,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Waiter.cpp',
                 'OpenHome/Media/Pipeline/Pipeline.cpp',
                 'OpenHome/Media/Pipeline/ElementObserver.cpp',
+                'OpenHome/Media/ArtworkServer.cpp',
                 'OpenHome/Media/ClockPuller.cpp',
                 'OpenHome/Media/IdManager.cpp',
                 'OpenHome/Media/Filler.cpp',
@@ -274,6 +276,7 @@ def build(bld):
                 'OpenHome/Media/Codec/Id3v2.cpp',
                 'OpenHome/Media/Codec/MpegTs.cpp',
                 'OpenHome/Media/Codec/CodecController.cpp',
+                'OpenHome/Media/Codec/DsdFiller.cpp',
                 'OpenHome/Media/Protocol/Protocol.cpp',
                 'OpenHome/Media/Protocol/ProtocolHls.cpp',
                 'OpenHome/Media/Protocol/ProtocolHttp.cpp',
@@ -451,7 +454,6 @@ def build(bld):
             source=[
                 'OpenHome/Av/Scd/ScdMsg.cpp',
                 'OpenHome/Av/Scd/Receiver/ProtocolScd.cpp',
-                'OpenHome/Av/Scd/Receiver/SupplyScd.cpp',
                 'OpenHome/Av/Scd/Receiver/UriProviderScd.cpp',
                 'OpenHome/Av/Scd/Receiver/SourceScd.cpp'
             ],
@@ -490,6 +492,7 @@ def build(bld):
         bld.stlib(
                 source=[
                     'OpenHome/Av/Raat/App.cpp',
+                    'OpenHome/Av/Raat/Metadata.cpp',
                     'OpenHome/Av/Raat/Output.cpp',
                     'OpenHome/Av/Raat/Volume.cpp',
                     'OpenHome/Av/Raat/SourceSelection.cpp',
@@ -498,7 +501,7 @@ def build(bld):
                     'OpenHome/Av/Raat/ProtocolRaat.cpp',
                     'OpenHome/Av/Raat/SourceRaat.cpp'
                 ],
-                use=['OHNET', 'ohMediaPlayer', 'RAAT'],
+                use=['OHNET', 'ohMediaPlayer', 'ohPipeline', 'RAAT'],
                 target='SourceRaat')
 
     # Podcast
@@ -538,7 +541,7 @@ def build(bld):
     # DSDDFF
     bld.stlib(
             source=['OpenHome/Media/Codec/DsdRaw.cpp'],
-            use=['OHNET'],
+            use=['OHNET', 'ohPipeline'],
             target='CodecDsdRaw')
 
     # AiffBase

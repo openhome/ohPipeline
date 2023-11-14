@@ -445,7 +445,7 @@ void CodecDsdDsf::ProcessMetadataChunk()
 
 void CodecDsdDsf::SendMsgDecodedStream(TUint64 aStartSample)
 {
-    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("DsdDsf"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
+    iController->OutputDecodedStreamDsd(iSampleRate, iChannelCount, Brn("DSD"), iTrackLengthJiffies, aStartSample, DeriveProfile(iChannelCount));
 }
 
 

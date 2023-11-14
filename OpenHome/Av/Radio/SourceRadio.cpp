@@ -91,7 +91,7 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
     aMediaPlayer.Add(iUriProviderPresets);
     iCurrentMode.Set(iUriProviderPresets->Mode());
 
-    iUriProviderSingle = new UriProviderSingleTrack("Radio-Single", false, true, trackFactory);
+    iUriProviderSingle = new UriProviderSingleTrack("Radio-Single", Latency::NotSupported, true, trackFactory);
     iUriProviderSingle->SetTransportPlay(MakeFunctor(*this, &SourceRadio::Play));
     iUriProviderSingle->SetTransportPause(MakeFunctor(*this, &SourceRadio::Pause));
     iUriProviderSingle->SetTransportStop(MakeFunctor(*this, &SourceRadio::Stop));

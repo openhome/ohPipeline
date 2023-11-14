@@ -1,6 +1,7 @@
 #include <OpenHome/Media/Codec/CodecController.h>
 #include <OpenHome/Media/Codec/CodecFactory.h>
 #include <OpenHome/Media/Codec/Container.h>
+#include <OpenHome/Media/Codec/DsdFiller.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Printer.h>
@@ -11,25 +12,34 @@ namespace OpenHome {
 namespace Media {
 namespace Codec {
 
-class CodecDsdRaw : public CodecBase
+class CodecDsdRaw
+    : public CodecBase
+    , private DsdFiller
 {
+private:
+    static const TUint kInputBufferSizeMax = 4096;
 public:
     CodecDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes);
-    ~CodecDsdRaw();
 private: // from CodecBase
     TBool Recognise(const EncodedStreamInfo& aStreamInfo) override;
     void StreamInitialise() override;
     void Process() override;
     TBool TrySeek(TUint aStreamId, TUint64 aSample) override;
+private: // from DsdFiller
+    void WriteChunkDsd(const TByte*& aSrc, TByte*& aDest) override;
+    void OutputDsd(const Brx& aData) override;
 private:
-    TUint iSampleRate;
-    TUint iNumChannels;
     const TUint iSampleBlockWords;
     const TUint iPaddingBytes;
+
+    Bws<kInputBufferSizeMax> iInputBuffer;
+
+    TUint iSampleRate;
+    TUint iNumChannels;
     TUint64 iStartSample;
-    TUint64 iTrackOffset;
+
+    TUint64 iTrackOffsetJiffies;
     TUint64 iTrackLengthJiffies;
-    BwsCodecName iCodecName;
 };
 
 } // namespace Codec
@@ -47,13 +57,13 @@ CodecBase* CodecFactory::NewDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes)
 
 
 CodecDsdRaw::CodecDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes)
-    : CodecBase("DSD", kCostVeryLow)
+    : CodecBase("DSD-RAW", kCostVeryLow)
+    , DsdFiller(
+        (aSampleBlockWords * 4) - (aPaddingBytes * 4),  // BlockBytesInput
+        (aSampleBlockWords * 4),                        // BlockBytesOutput
+        4)                                              // ChunksPerBlock
     , iSampleBlockWords(aSampleBlockWords)
     , iPaddingBytes(aPaddingBytes)
-{
-}
-
-CodecDsdRaw::~CodecDsdRaw()
 {
 }
 
@@ -65,9 +75,6 @@ TBool CodecDsdRaw::Recognise(const EncodedStreamInfo& aStreamInfo)
     iSampleRate = aStreamInfo.SampleRate();
     iNumChannels = aStreamInfo.NumChannels();
     iStartSample = aStreamInfo.StartSample();
-    iCodecName.Replace(aStreamInfo.CodecName());
-    //Log::Print("CodecDsdRaw::Recognise iSampleRate %u, iNumChannels %u, iSampleBlockWords=%u, iStartSample %llu\n",
-    //           iSampleRate, iNumChannels, iSampleBlockWords, iStartSample);
     return true;
 }
 
@@ -77,9 +84,15 @@ void CodecDsdRaw::StreamInitialise()
         const TUint64 lenBytes = iController->StreamLength();
         const TUint64 numSamples = lenBytes * 8 / iNumChannels; // 1 bit per subsample
         iTrackLengthJiffies = numSamples * Jiffies::PerSample(iSampleRate);
-        iTrackOffset = (((TUint64)iStartSample) * Jiffies::kPerSecond) / iSampleRate;
+        iTrackOffsetJiffies = (((TUint64)iStartSample) * Jiffies::kPerSecond) / iSampleRate;
         SpeakerProfile spStereo;
-        iController->OutputDecodedStreamDsd(iSampleRate, iNumChannels, iCodecName, iTrackLengthJiffies, iStartSample, spStereo);
+        iController->OutputDecodedStreamDsd(
+            iSampleRate,
+            iNumChannels,
+            Brn("DSD"),
+            iTrackLengthJiffies,
+            iStartSample,
+            spStereo);
     }
     catch (SampleRateInvalid&) {
         THROW(CodecStreamCorrupt);
@@ -88,11 +101,36 @@ void CodecDsdRaw::StreamInitialise()
 
 void CodecDsdRaw::Process()
 {
-    auto msg = iController->ReadNextMsg();
-    iTrackOffset += iController->OutputAudioDsd(msg, iNumChannels, iSampleRate, iSampleBlockWords, iTrackOffset, iPaddingBytes);
+    try {
+        iInputBuffer.SetBytes(0);
+        iController->ReadNextMsg(iInputBuffer);
+        DsdFiller::Push(iInputBuffer);
+    }
+    catch (CodecStreamEnded&) {
+        DsdFiller::Flush();
+        throw; // caught by CodecController
+    }
 }
 
 TBool CodecDsdRaw::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
 {
     return false;
+}
+
+void CodecDsdRaw::WriteChunkDsd(const TByte*& aSrc, TByte*& aDest)
+{
+    // CodecDsdRaw only pads and passes the data
+    *aDest++ = 0x00;
+    *aDest++ = aSrc[0];
+    *aDest++ = aSrc[1];
+    *aDest++ = 0x00;
+    *aDest++ = aSrc[2];
+    *aDest++ = aSrc[3];
+    aSrc += 4;
+}
+
+void CodecDsdRaw::OutputDsd(const Brx& aData)
+{
+    // Called by DsdFiller once its output buffer is full
+    iTrackOffsetJiffies += iController->OutputAudioDsd(aData, iNumChannels, iSampleRate, iSampleBlockWords, iTrackOffsetJiffies, iPaddingBytes);
 }

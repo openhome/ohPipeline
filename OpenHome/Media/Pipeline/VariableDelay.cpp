@@ -221,7 +221,7 @@ Msg* VariableDelayBase::DoPull()
             silence = iMsgFactory.CreateMsgSilence(size, stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
         }
         else {
-            silence = iMsgFactory.CreateMsgSilenceDsd(size, stream.SampleRate(), stream.NumChannels(), iDsdBlockSize);
+            silence = iMsgFactory.CreateMsgSilenceDsd(size, stream.SampleRate(), stream.NumChannels(), iDsdBlockSize, 2); // FIXME - get DSD pad bytes programatically
         }
         if (iClockPuller != nullptr) {
             silence->SetObserver(*iClockPuller);

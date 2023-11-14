@@ -47,7 +47,6 @@ public:
     virtual void MoveTo(const Brx& aCommand);
     virtual void Interrupt(TBool aInterrupt);
 protected:
-    enum class Latency          { Supported, NotSupported };
     enum class Pause            { Supported, NotSupported };
     enum class Next             { Supported, NotSupported };
     enum class Prev             { Supported, NotSupported };
@@ -56,11 +55,16 @@ protected:
     enum class RampPauseResume  { Long, Short };
     enum class RampSkip         { Long, Short };
 protected:
-    UriProvider(const TChar* aMode, Latency aLatency,
-                Pause aPauseSupported, // UriProvider that supports pause may still find this over-ridden by individual streams
-                Next aNextSupported, Prev aPrevSupported,
-                Repeat aRepeatSupported, Random aRandomSupported,
-                RampPauseResume aRampPauseResume, RampSkip aRampSkip);
+    UriProvider(
+        const TChar* aMode,
+        Latency aLatency,
+        Pause aPauseSupported, // UriProvider that supports pause may still find this over-ridden by individual streams
+        Next aNextSupported,
+        Prev aPrevSupported,
+        Repeat aRepeatSupported,
+        Random aRandomSupported,
+        RampPauseResume aRampPauseResume,
+        RampSkip aRampSkip);
 private:
     BwsMode iMode;
     Media::ModeInfo iModeInfo;

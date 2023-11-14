@@ -22,6 +22,7 @@
 #include <OpenHome/Media/Pipeline/Skipper.h>
 #include <OpenHome/Media/Pipeline/Stopper.h>
 #include <OpenHome/Media/Pipeline/Reporter.h>
+#include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
 #include <OpenHome/Media/Pipeline/AirplayReporter.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Pipeline/Router.h>
@@ -470,6 +471,10 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorStopper, new DecodedAudioValidator(*upstream, "Stopper"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    ATTACH_ELEMENT(iAsyncTrackObserver, new Media::AsyncTrackObserver(*upstream, *iMsgFactory, aTrackFactory),
+                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
+    ATTACH_ELEMENT(iLoggerTrackReporter, new Logger(*iAsyncTrackObserver, "AsyncTrackObserver"),
+                   upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iAirplayReporter, new Media::AirplayReporter(*upstream, *iMsgFactory, aTrackFactory),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iSpotifyReporter, new Media::SpotifyReporter(*upstream, *iMsgFactory, aTrackFactory),
@@ -506,16 +511,6 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsRampValidator);
     ATTACH_ELEMENT(iDecodedAudioValidatorDelay2, new DecodedAudioValidator(*upstream, "VariableDelay2"),
                    upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
-    if (aAudioTime.Ok()) {
-        ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime.Unwrap()),
-                       upstream, elementsSupported, EPipelineSupportElementsMandatory);
-        ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iDrainer2, "StarterTimed"),
-                       upstream, elementsSupported, EPipelineSupportElementsLogger);
-    }
-    else {
-        iStarterTimed = nullptr;
-        iLoggerStarterTimed = nullptr;
-    }
     ATTACH_ELEMENT(iStarvationRamper,
                    new StarvationRamper(*iMsgFactory, *upstream, *this, *iEventThread,
                                         aInitParams->StarvationRamperMinJiffies(),
@@ -541,6 +536,16 @@ Pipeline::Pipeline(
     ATTACH_ELEMENT(iDecodedAudioValidatorPhaseAdjuster,
         new DecodedAudioValidator(*upstream, "PhaseAdjuster"),
         upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
+    if (aAudioTime.Ok()) {
+        ATTACH_ELEMENT(iStarterTimed, new StarterTimed(*iMsgFactory, *upstream, aAudioTime.Unwrap()),
+                       upstream, elementsSupported, EPipelineSupportElementsMandatory);
+        ATTACH_ELEMENT(iLoggerStarterTimed, new Logger(*iStarterTimed, "StarterTimed"),
+                       upstream, elementsSupported, EPipelineSupportElementsLogger);
+    }
+    else {
+        iStarterTimed = nullptr;
+        iLoggerStarterTimed = nullptr;
+    }
     IMute* muter = nullptr;
     if (aInitParams->Muter() == PipelineInitParams::MuterImpl::eRampSamples) {
         ATTACH_ELEMENT(iMuterSamples, new Muter(*iMsgFactory, *upstream, aInitParams->RampLongJiffies()),
@@ -564,7 +569,7 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerVolumeRamper, new Logger(*iVolumeRamper, "VolumeRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iPreDriver, new PreDriver(*upstream),
+    ATTACH_ELEMENT(iPreDriver, new PreDriver(*upstream, aAudioTime),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     iLoggerPreDriver = new Logger(*iPreDriver, "PreDriver");
 
@@ -677,8 +682,10 @@ Pipeline::~Pipeline()
     delete iDecodedAudioValidatorRouter;
     delete iLoggerRouter;
     delete iRouter;
+    delete iLoggerTrackReporter;
     delete iLoggerReporter;
     delete iReporter;
+    delete iAsyncTrackObserver;
     delete iAirplayReporter;
     delete iLoggerSpotifyReporter;
     delete iSpotifyReporter;
@@ -893,6 +900,11 @@ void Pipeline::AddObserver(ITrackObserver& aObserver)
     iTrackInspector->AddObserver(aObserver);
 }
 
+IAsyncTrackObserver& Pipeline::AsyncTrackObserver() const
+{
+    return *iAsyncTrackObserver;
+}
+
 IAirplayReporter& Pipeline::AirplayReporter() const
 {
     return *iAirplayReporter;
@@ -1014,9 +1026,13 @@ void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
     iVariableDelay1->SetAnimator(aAnimator);
     iVariableDelay2->SetAnimator(aAnimator);
     iPhaseAdjuster->SetAnimator(aAnimator);
+    if (iStarterTimed != nullptr) {
+        iStarterTimed->SetAnimator(aAnimator);
+    }
     if (iMuterSamples != nullptr) {
         iMuterSamples->SetAnimator(aAnimator);
     }
+    iPreDriver->SetAnimator(aAnimator);
     aAnimator.PipelineAnimatorGetMaxSampleRates(iMaxSampleRatePcm, iMaxSampleRateDsd);
 }
 

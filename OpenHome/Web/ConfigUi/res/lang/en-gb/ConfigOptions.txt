@@ -37,6 +37,7 @@ tidalhifi.com.SoundQuality
 0   Low
 1   High
 2   Lossless
+3   Hi-Res
 
 tidalhifi.com.Enabled
 0   No

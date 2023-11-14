@@ -127,6 +127,14 @@ private:
     TBool iStreamingDetailsWritten;
 };
 
+class WriterDIDLLiteDefault
+{
+private:
+    static const Brn kDefaultItemId;
+    static const Brn kDefaultParentId;
+public:
+    static void Write(const Brx& aTitle, Bwx& aBuffer);
+};
 
 typedef std::vector<std::pair<std::string, std::string>> OpenHomeMetadata;
 typedef std::vector<std::pair<Brn, Brn>> OpenHomeMetadataBuf;

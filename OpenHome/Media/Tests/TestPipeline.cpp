@@ -135,6 +135,7 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
     TUint PipelineAnimatorMaxBitDepth() const override;
     void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const override;
+    void PipelineAnimatorNotifyAudioReceived() override {}
 private: // from IVolumeRamper
     void ApplyVolumeMultiplier(TUint aValue) override;
 private:
@@ -712,8 +713,8 @@ void SuitePipeline::NotifyMode(const Brx& aMode,
 #ifdef LOG_PIPELINE_OBSERVER
     Log::Print("Pipeline report property: MODE {mode=");
     Log::Print(aMode);
-    Log::Print("; supportsLatency=%u; supportsNext=%u; supportsPrev=%u}\n",
-               aInfo.SupportsLatency(),aInfo.SupportsNext(), aInfo.SupportsPrev());
+    Log::Print("; latencyMode=%u; supportsNext=%u; supportsPrev=%u}\n",
+               aInfo.LatencyMode(),aInfo.SupportsNext(), aInfo.SupportsPrev());
 #endif
 }
 

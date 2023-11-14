@@ -14,7 +14,7 @@ class UriProviderRepeater : public UriProvider, public ITrackObserver
 public:
     UriProviderRepeater(
         const TChar* aMode,
-        TBool aSupportsLatency,
+        Latency aLatencyMode,
         TrackFactory& aTrackFactory,
         Pause aPauseSupported = Pause::NotSupported, // UriProvider that supports pause may still find this over-ridden by individual streams
         Next aNextSupported = Next::NotSupported,

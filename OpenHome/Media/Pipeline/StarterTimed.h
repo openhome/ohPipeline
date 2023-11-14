@@ -18,6 +18,8 @@ public:
     virtual ~IAudioTime() {}
     virtual void GetTickCount(TUint aSampleRate, TUint64& aTicks, TUint& aFrequency) const = 0;
     virtual void SetTickCount(TUint64 aTicks) = 0;
+    virtual void TimerStartTimer(TUint aSampleRate, TUint64 aStartTime) = 0;
+    virtual void TimerLogTime(const TChar* aId) = 0;
 };
 
 class IStarterTimed
@@ -34,27 +36,33 @@ class StarterTimed : public PipelineElement, public IPipelineElementUpstream, pu
 public:
     StarterTimed(MsgFactory& aMsgFactory, IPipelineElementUpstream& aUpstream, IAudioTime& aAudioTime);
     ~StarterTimed();
+public:
+    void SetAnimator(IPipelineAnimator& aAnimator);
 public: // from IStarterTimed
     void StartAt(TUint64 aTime) override;
 private: // from IPipelineElementUpstream
     Msg* Pull() override;
 private: // from PipelineElement
-    Msg* ProcessMsg(MsgDelay* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgSilence* aMsg) override;
+    Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
+    Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
+private:
+    TUint CalculateDelayJiffies(TUint64 aStartTicks);
+    Msg* HandleAudioReceived(MsgAudioDecoded* aMsg);
 private:
     MsgFactory& iMsgFactory;
     IPipelineElementUpstream& iUpstream;
     IAudioTime& iAudioTime;
+    IPipelineAnimator* iAnimator;
     Mutex iLock;
     TUint64 iStartTicks; // 0 => disabled
-    TUint iPipelineDelayJiffies;
     TUint iSampleRate;
     TUint iBitDepth;
     TUint iNumChannels;
+    TUint iAnimatorDelayJiffies;
+    AudioFormat iFormat;
     Msg* iPending;
     TUint iJiffiesRemaining;
-    TBool iStartingStream;
 };
 
 class AudioTimeCpu : public IAudioTime
@@ -64,6 +72,8 @@ public:
 private: // from IAudioTime
     void GetTickCount(TUint aSampleRate, TUint64& aTicks, TUint& aFrequency) const override;
     void SetTickCount(TUint64 aTicks) override;
+    void TimerStartTimer(TUint /*aSampleRate*/, TUint64 /*aStartTime*/) override {}
+    void TimerLogTime(const TChar* /*aId*/) override {}
 private:
     OsContext* iOsCtx;
     TInt64 iTicksAdjustment;

@@ -170,6 +170,7 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
     TUint PipelineAnimatorMaxBitDepth() const override;
     void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const override;
+    void PipelineAnimatorNotifyAudioReceived() override {}
 private:
     void TestDelayShorterThanMinimum();
     void TestAnimatorCalledOnStreamChange();
@@ -267,7 +268,7 @@ Msg* SuiteVariableDelay::Pull()
     case EMsgMode:
     {
         ModeInfo info;
-        info.SetSupportsLatency(iNextModeSupportsLatency);
+        info.SetLatencyMode(iNextModeSupportsLatency ? Latency::Internal : Latency::NotSupported);
         ModeTransportControls transportControls;
         return iMsgFactory->CreateMsgMode(kMode, info, iNextModeClockPuller, transportControls);
     }

@@ -59,14 +59,14 @@ inline ModeInfo::ModeInfo()
 {
     Clear();
 }
-inline ModeInfo::ModeInfo(TBool aSupportsLatency)
+inline ModeInfo::ModeInfo(Latency aLatencyMode)
 {
     Clear();
-    iSupportsLatency = aSupportsLatency;
+    iLatencyMode = aLatencyMode;
 }
-inline void ModeInfo::SetSupportsLatency(TBool aSupportsLatency)
+inline void ModeInfo::SetLatencyMode(Latency aLatencyMode)
 {
-    iSupportsLatency = aSupportsLatency;
+    iLatencyMode = aLatencyMode;
 }
 inline void ModeInfo::SetSupportsPause(TBool aSupportsPause)
 {
@@ -87,9 +87,9 @@ inline void ModeInfo::SetRampDurations(TBool aPauseResume, TBool aSkip)
     iRampPauseResumeLong = aPauseResume;
     iRampSkipLong        = aSkip;
 }
-inline TBool ModeInfo::SupportsLatency() const
+inline Latency ModeInfo::LatencyMode() const
 {
-    return iSupportsLatency;
+    return iLatencyMode;
 }
 inline TBool ModeInfo::SupportsPause() const
 {

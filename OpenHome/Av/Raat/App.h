@@ -18,6 +18,7 @@ namespace Av {
 
     class IMediaPlayer;
     class ISourceRaat;
+    class ISourceRaatStandbyControl;
     class IRaatReader;
     class IRaatTime;
     class IRaatSignalPathObservable;
@@ -38,13 +39,16 @@ public:
         Media::IPullableClock& aPullableClock,
         IRaatSignalPathObservable& aSignalPathObservable,
         const Brx& aSerialNumber,
-        const Brx& aSoftwareVersion);
+        const Brx& aSoftwareVersion,
+        const Brx& aConfigUrl);
     ~RaatApp();
+public:
+    void Start();
     IRaatReader& Reader();
     IRaatTransport& Transport();
+public:
     void RaatThread();
 private:
-    void FriendlyNameChanged(const Brx& aName);
     void StartPlugins();
 private:
     IMediaPlayer& iMediaPlayer;
@@ -58,6 +62,8 @@ private:
     RaatTransport* iTransport;
     Bwh iSerialNumber;
     Bwh iSoftwareVersion;
+    Bwh iConfigUrl;
+    TBool iStarted;
 };
 
 }

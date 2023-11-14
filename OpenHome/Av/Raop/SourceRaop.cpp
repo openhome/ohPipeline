@@ -61,7 +61,7 @@ const Brn SourceFactory::kSourceNameRaop("Net Aux");
 // UriProviderRaop
 
 UriProviderRaop::UriProviderRaop(IMediaPlayer& aMediaPlayer, Optional<Media::IClockPuller> aClockPuller)
-    : UriProviderRepeater("RAOP", true, aMediaPlayer.TrackFactory())
+    : UriProviderRepeater("RAOP", Latency::Internal, aMediaPlayer.TrackFactory())
     , iClockPuller(aClockPuller)
 {
 }

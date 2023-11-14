@@ -35,7 +35,7 @@ TestMediaPlayerThread::TestMediaPlayerThread(const TestMediaPlayerOptions& aOpti
     , iArbAnimator(kPrioritySystemHighest)
     , iArbPipeline(kPrioritySystemHighest-1)
 {
-    iLib = TestMediaPlayerInit::CreateLibrary(iOptions.Room().CString(), iOptions.Loopback().Value(), iOptions.Adapter().Value());
+    iLib = TestMediaPlayerInit::CreateLibrary(iOptions.Room().CString(), iOptions.Loopback().Value(), iOptions.Adapter().Value(), iOptions.Shell().Value());
     ThreadPriorityArbitrator& priorityArbitrator = iLib->Env().PriorityArbitrator();
     priorityArbitrator.Add(iArbAnimator);
     priorityArbitrator.Add(iArbPipeline);

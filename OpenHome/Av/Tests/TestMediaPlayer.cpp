@@ -138,7 +138,7 @@ void RebootLogger::Reboot(const Brx& aReason)
 
 void DummyRaatSignalPath::RegisterObserver(IRaatSignalPathObserver& aObserver)
 {
-    aObserver.SignalPathChanged(false/*aExakt*/, true/*aAmplifier*/, false/*aSpeaker*/);
+    aObserver.SignalPathChanged(*this);
 }
 
 
@@ -554,11 +554,10 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
         iRaatSignalPathObservable != nullptr ? iRaatSignalPathObservable : new DummyRaatSignalPath(),
         Brn("12345"),
         Brn("0.0.1"),
-        kDsdSampleBlockWords,
-        kDsdPadBytesPerChunk));
+        Brn("http://linn.co.uk/account")));
     iRaatSignalPathObservable = nullptr;
 #else
-    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, nullptr, kDsdSampleBlockWords, kDsdPadBytesPerChunk));
+    iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, nullptr));
 #endif
 }
 
@@ -719,14 +718,19 @@ void TestMediaPlayer::Disabled()
 
 // TestMediaPlayerInit
 
-OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, TBool aLoopback, TUint aAdapter)
+OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(
+    const TChar* aRoom,
+    TBool aLoopback,
+    TUint aAdapter,
+    TUint aShellPort
+)
 {
     InitialisationParams* initParams = InitialisationParams::Create();
     initParams->SetDvEnableBonjour(aRoom, true);
     if (aLoopback == true) {
         initParams->SetUseLoopbackNetworkAdapter();
     }
-    initParams->SetEnableShell(0);
+    initParams->SetEnableShell(aShellPort);
     initParams->SetIPv6Supported(false);
 #ifdef LPEC_ENABLE
     initParams->SetDvNumLpecThreads(4);
@@ -736,6 +740,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(const TChar* aRoom, T
     Debug::SetLevel(Debug::kPipeline);
     Debug::AddLevel(Debug::kSources);
     Debug::AddLevel(Debug::kMedia);
+    Debug::AddLevel(Debug::kRaat);
     Debug::AddLevel(Debug::kAdapterChange);
     //Debug::AddLevel(Debug::kSongcast);
     Debug::AddLevel(Debug::kOAuth);

@@ -103,7 +103,7 @@ Msg* PhaseAdjuster::Pull()
 
 Msg* PhaseAdjuster::ProcessMsg(MsgMode* aMsg)
 {
-    if (aMsg->Info().SupportsLatency()) {
+    if (aMsg->Info().LatencyMode() == Latency::Internal) {
         iEnabled = true;
         iRampJiffies = aMsg->Info().RampPauseResumeLong()?
                         iRampJiffiesLong : iRampJiffiesShort;
@@ -181,6 +181,9 @@ Msg* PhaseAdjuster::ProcessMsg(MsgSilence* aMsg)
 
 void PhaseAdjuster::Update(TInt aDelta)
 {
+    if (!iEnabled) {
+        return;
+    }
     TInt jiffies = 0;
     {
         AutoMutex _(iLockClockPuller);

@@ -28,6 +28,7 @@ void AirplayDidlLiteWriter::Write(IWriter& aWriter, TUint aBitDepth, TUint aChan
     writer.WriteArtist(iMetadata.Artist());
     writer.WriteAlbum(iMetadata.Album());
     writer.WriteGenre(iMetadata.Genre());
+    writer.WriteArtwork(iMetadata.ArtworkUri());
 
     WriterDIDLLite::StreamingDetails details;
     details.sampleRate = aSampleRate;

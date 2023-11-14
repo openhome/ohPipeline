@@ -83,6 +83,7 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
     TUint PipelineAnimatorMaxBitDepth() const override;
     void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const override;
+    void PipelineAnimatorNotifyAudioReceived() override {}
 private: // from IStarvationRamper
     void WaitForOccupancy(TUint aJiffies) override;
 private:
@@ -291,14 +292,14 @@ Msg* SuitePhaseAdjuster::Pull()
     case EMsgMode:
     {
         ModeInfo info;
-        info.SetSupportsLatency(iNextModeSupportsLatency);
+        info.SetLatencyMode(iNextModeSupportsLatency ? Latency::Internal : Latency::NotSupported);
         ModeTransportControls transportControls;
         return iMsgFactory->CreateMsgMode(kMode, info, iNextModeClockPuller, transportControls);
     }
     case EMsgModeSongcast:
     {
         ModeInfo info;
-        info.SetSupportsLatency(iNextModeSupportsLatency);
+        info.SetLatencyMode(iNextModeSupportsLatency ? Latency::Internal : Latency::NotSupported);
         ModeTransportControls transportControls;
         return iMsgFactory->CreateMsgMode(kModeSongcast, info, iNextModeClockPuller, transportControls);
     }

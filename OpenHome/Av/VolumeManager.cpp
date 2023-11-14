@@ -93,7 +93,7 @@ void VolumeNull::SetVolume(TUint /*aVolume*/)
 // VolumeUser
 
 const Brn VolumeUser::kStartupVolumeKey("Startup.Volume");
-const TUint VolumeUser::kLastUsedWriteDelayMs = 60 * 1000; // 1 minute
+const TUint VolumeUser::kLastUsedWriteDelayMs = 10 * 1000; // 10 seconds
 
 VolumeUser::VolumeUser(
     IVolume& aVolume,

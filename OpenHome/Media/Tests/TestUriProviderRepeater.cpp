@@ -68,7 +68,7 @@ SuiteUriProviderRepeater::SuiteUriProviderRepeater()
 void SuiteUriProviderRepeater::Setup()
 {
     iTrackFactory = new TrackFactory(iInfoAggregator, kTrackCount);
-    iUriProviderRepeater = new UriProviderRepeater("SuiteUriProviderRepeater", false, *iTrackFactory);
+    iUriProviderRepeater = new UriProviderRepeater("SuiteUriProviderRepeater", Latency::NotSupported, *iTrackFactory);
     iUriProvider = iUriProviderRepeater;
 }
 

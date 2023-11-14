@@ -20,6 +20,7 @@ class SuiteStarterTimed :
     , private IPipelineElementUpstream
     , private IMsgProcessor
     , private IAudioTime
+    , private IPipelineAnimator
 {
     static const TUint kRampDuration = Jiffies::kPerMs * 50; // shorter than production code but this is assumed to not matter
     static const TUint kExpectedFlushId = 5;
@@ -57,6 +58,15 @@ private: // from IMsgProcessor
 private: // from IAudioTime
     void GetTickCount(TUint aSampleRate, TUint64& aTicks, TUint& aFrequency) const override;
     void SetTickCount(TUint64 aTicks) override;
+    void TimerStartTimer(TUint /*aSampleRate*/, TUint64 /*aStartTime*/) override {}
+    void TimerLogTime(const TChar* /*aId*/) override {}
+private: // from IPipelineAnimator
+    TUint PipelineAnimatorBufferJiffies() const override { return 0; }
+    TUint PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint /*aSampleRate*/, TUint /*aBitDepth*/, TUint /*aNumChannels*/) const override { return 0; }
+    TUint PipelineAnimatorDsdBlockSizeWords() const override { return 0; }
+    TUint PipelineAnimatorMaxBitDepth() const override { return 0; }
+    void PipelineAnimatorGetMaxSampleRates(TUint& /*aPcm*/, TUint& /*aDsd*/) const override {}
+    void PipelineAnimatorNotifyAudioReceived() override {}
 private:
     enum EMsgType
     {
@@ -140,6 +150,7 @@ void SuiteStarterTimed::Setup()
     init.SetMsgDelayCount(2);
     iMsgFactory = new MsgFactory(iInfoAggregator, init);
     iStarterTimed = new StarterTimed(*iMsgFactory, *this, *this);
+    iStarterTimed->SetAnimator(*this);
     iStreamId = UINT_MAX;
     iTrackOffset = 0;
     iJiffiesSilence = 0;

@@ -612,7 +612,7 @@ TBool Qobuz::TryLoginLocked()
     iPathAndQuery.Append(iAppId);
     iPathAndQuery.Append("&username=");
     iLockConfig.Wait();
-    iPathAndQuery.Append(iUsername.Buffer());
+    Uri::EscapeDataString(iPathAndQuery, iUsername.Buffer());
     iPathAndQuery.Append("&password=");
     AppendMd5(iPathAndQuery, iPassword.Buffer());
     iLockConfig.Signal();
@@ -654,7 +654,13 @@ TBool Qobuz::TryLoginLocked()
             iUserId = parserUser.Num("id");
             JsonParser parserCred;
             parserCred.Parse(parserUser.String("credential"));
-            iCredentialId = parserCred.Num("id");
+
+            if (!parserCred.IsNull("id")) {
+                iCredentialId = parserCred.Num("id");
+            }
+            else {
+                LOG(kPipeline, "Qobuz: Returned user has no 'CredentialId' present. Assuming no active subscription and defaulting to '%d'\n", iCredentialId);
+            }
         }
         catch (Exception& ex) {
             LOG_ERROR(kPipeline, "Exception - %s - parsing credentialId during Qobuz login.  Login response is:\n%.*s\n", ex.Message(), PBUF(resp));

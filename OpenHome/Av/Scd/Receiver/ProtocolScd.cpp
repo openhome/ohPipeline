@@ -3,15 +3,16 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Uri.h>
+#include <OpenHome/Private/Stream.h>
 #include <OpenHome/Av/Scd/ScdMsg.h>
 #include <OpenHome/Media/Protocol/Protocol.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Av/Scd/Receiver/SupplyScd.h>
 #include <OpenHome/Av/OhMetadata.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Debug.h>
 
 #include <memory>
+#include <algorithm>
 
 using namespace OpenHome;
 using namespace OpenHome::Scd;
@@ -22,8 +23,6 @@ const TUint ProtocolScd::kVersionMinor = 0;
 
 ProtocolScd::ProtocolScd(Environment& aEnv,
                          Media::TrackFactory& aTrackFactory,
-                         TUint aDsdSampleBlockWords, 
-                         TUint aDsdPadBytesPerChunk,
                          IScdObserver& aObserver)
     : ProtocolNetwork(aEnv)
     , iLock("PSCD")
@@ -42,8 +41,6 @@ ProtocolScd::ProtocolScd(Environment& aEnv,
                   0  // Skip - currently unsupported
                   )
     , iTrackFactory(aTrackFactory)
-    , iDsdSampleBlockWords(aDsdSampleBlockWords)
-    , iDsdPadBytesPerChunk(aDsdPadBytesPerChunk)
     , iObserver(aObserver)
 {
     Debug::AddLevel(Debug::kScd);
@@ -52,7 +49,7 @@ ProtocolScd::ProtocolScd(Environment& aEnv,
 
 void ProtocolScd::Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream)
 {
-    iSupply.reset(new SupplyScd(aMsgFactory, aDownstream, iDsdSampleBlockWords, iDsdPadBytesPerChunk));
+    iSupply.reset(new SupplyAggregatorBytes(aMsgFactory, aDownstream));
 }
 
 void ProtocolScd::Interrupt(TBool aInterrupt)
@@ -206,7 +203,9 @@ void ProtocolScd::Process(ScdMsgFormat& aMsg)
                    AudioDataEndian::Big, spStereo, aMsg.SampleStart());
     iFormatPcm.SetCodec(aMsg.CodecName(), aMsg.Lossless());
     iFormatDsd.Clear();
-    const TUint bytesPerSample = aMsg.BitDepth() * aMsg.NumChannels() / 8;
+    iBitsPerSample = aMsg.BitDepth() * aMsg.NumChannels();
+    const TUint bytesPerSample = iBitsPerSample / 8;
+    iSamplesCapacity = iAudioBuf.MaxBytes() / bytesPerSample;
     iStreamBytes = aMsg.SamplesTotal() * bytesPerSample;
     iStreamMultiroom = aMsg.BroadcastAllowed()? Multiroom::Allowed : Multiroom::Forbidden;
     iStreamLive = aMsg.Live();
@@ -230,7 +229,9 @@ void ProtocolScd::Process(ScdMsgFormatDsd& aMsg)
     iFormatDsd.Set(aMsg.SampleRate(), aMsg.NumChannels(),
                    aMsg.SampleBlockBits(), aMsg.SampleStart());
     iFormatDsd.SetCodec(aMsg.CodecName());
-    iStreamBytes = aMsg.SamplesTotal() * aMsg.NumChannels() / 8; // /8 since 1 bit per subsample
+    iBitsPerSample = aMsg.NumChannels();
+    iSamplesCapacity = (iAudioBuf.MaxBytes() * 8) / iBitsPerSample;
+    iStreamBytes = (aMsg.SamplesTotal() * iBitsPerSample) / 8; // /8 since 1 bit per subsample
     iStreamMultiroom = Multiroom::Forbidden;
     iStreamLive = false;
     OutputStream();
@@ -248,11 +249,15 @@ void ProtocolScd::Process(ScdMsgAudioIn& aMsg)
         iHalted = false;
         LOG_INFO(kScd, "ScdMsgAudioIn - resuming after halt\n");
     }
-    if (iFormatPcm) {
-        iSupply->OutputData(aMsg.NumSamples(), iReaderBuf);
-    }
-    else { // is DSD
-        iSupply->OutputDataDsd(aMsg.NumSamples(), iReaderBuf);
+
+    ReaderProtocolN reader(iReaderBuf, iAudioBuf);
+    TUint remaining = aMsg.NumSamples();
+    while (remaining > 0) {
+        const TUint samples = std::min(iSamplesCapacity, remaining);
+        iAudioBuf.SetBytes(0);
+        Brn data = reader.Read((samples * iBitsPerSample) / 8);
+        iSupply->OutputData(data);
+        remaining -= samples;
     }
 }
 

@@ -5,8 +5,8 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Av/Scd/ScdMsg.h>
 #include <OpenHome/Media/Protocol/Protocol.h>
+#include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Av/Scd/Receiver/SupplyScd.h>
 
 #include <memory>
 
@@ -26,7 +26,10 @@ class ProtocolScd : public Media::ProtocolNetwork
     static const TUint kVersionMajor;
     static const TUint kVersionMinor;
 public:
-    ProtocolScd(Environment& aEnv, Media::TrackFactory& aTrackFactory, TUint aDsdSampleBlockWords, TUint aDsdPadBytesPerChunk, IScdObserver& aObserver);
+    ProtocolScd(
+        Environment& aEnv,
+        Media::TrackFactory& aTrackFactory,
+        IScdObserver& aObserver);
 private: // from Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
     void Interrupt(TBool aInterrupt) override;
@@ -55,13 +58,14 @@ private:
     Mutex iLock;
     ScdMsgFactory iScdFactory;
     Media::TrackFactory& iTrackFactory;
-    const TUint iDsdSampleBlockWords;
-    const TUint iDsdPadBytesPerChunk;
     IScdObserver& iObserver;
-    std::unique_ptr<SupplyScd> iSupply;
+    std::unique_ptr<Media::SupplyAggregator> iSupply;
     Uri iUri;
     Media::PcmStreamInfo iFormatPcm;
     Media::DsdStreamInfo iFormatDsd;
+    TUint iBitsPerSample;
+    TUint iSamplesCapacity;
+    Bws<Media::AudioData::kMaxBytes> iAudioBuf;
     TUint64 iStreamBytes;
     Media::Multiroom iStreamMultiroom;
     Media::BwsTrackMetaData iMetadata; // only required at function scope but too big for the stack

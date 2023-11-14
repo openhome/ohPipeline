@@ -8,6 +8,7 @@
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Configuration/ConfigManager.h>
+#include <OpenHome/Private/Timer.h>
 
 namespace OpenHome {
     namespace Media {
@@ -57,15 +58,24 @@ class ISourceRaat
 {
 public:
     virtual ~ISourceRaat() {}
-    virtual void Play(const Brx& aUri) = 0;
+    virtual void NotifySetup() = 0;
+    virtual void NotifyStart() = 0;
+    virtual void NotifyStop() = 0;
 };
 
 class IMediaPlayer;
 class RaatApp;
+class ProtocolRaat;
 class IRaatSignalPathObservable;
 
-class SourceRaat : public Source, public ISourceRaat, private IProductObserver
+class SourceRaat
+    : public Source
+    , public ISourceRaat
+    , private IProductObserver
 {
+private:
+    static const TUint kStartupDelaySecs = 20;
+    static const TUint kStartupDelayMs = kStartupDelaySecs * 1000;
 public:
     SourceRaat(
         IMediaPlayer& aMediaPlayer,
@@ -74,7 +84,8 @@ public:
         IRaatSignalPathObservable* aSignalPathObservable,
         Optional<Configuration::ConfigChoice> aProtocolSelector,
         const Brx& aSerialNumber,
-        const Brx& aSoftwareVersion);
+        const Brx& aSoftwareVersion,
+        const Brx& aConfigUrl);
     ~SourceRaat();
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
@@ -82,31 +93,27 @@ private: // from ISource
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
 private: // from ISourceRaat
-    void Play(const Brx& aUri) override;
+    void NotifySetup() override;
+    void NotifyStart() override;
+    void NotifyStop() override;
 private: // from IProductObserver
     void Started() override;
     void SourceIndexChanged() override;
     void SourceXmlChanged() override;
     void ProductUrisChanged() override;
 private:
-    void Play();
-    void Pause();
-    void Stop();
-    void Next();
-    void Prev();
+    void Initialise();
+    void Start();
 private:
-    Mutex iLock;
-    IMediaPlayer& iMediaPlayer;
-    Media::IAudioTime& iAudioTime;
-    Media::IPullableClock& iPullableClock;
     IRaatSignalPathObservable* iSignalPathObservable;
     Configuration::ConfigChoice* iProtocolSelector;
     UriProviderRaat* iUriProvider;
     RaatApp* iApp;
+    ProtocolRaat* iProtocol;
     Media::Track* iTrack;
     Media::BwsTrackMetaData iDefaultMetadata;
-    const Bws<64> iSerialNumber;
-    const Bws<64> iSoftwareVersion;
+
+    Timer* iTimer;
 };
 
 }
