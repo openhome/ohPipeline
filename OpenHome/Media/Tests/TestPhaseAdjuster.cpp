@@ -67,7 +67,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -99,7 +98,6 @@ private:
         EMsgMetaText,
         EMsgStreamInterrupted,
         EMsgDecodedStream,
-        EMsgBitRate,
         EMsgAudioPcm,
         EMsgAudioDsd,
         EMsgSilence,
@@ -321,8 +319,6 @@ Msg* SuitePhaseAdjuster::Pull()
         return iMsgFactory->CreateMsgMetaText(Brn("metatext"));
     case EMsgStreamInterrupted:
         return iMsgFactory->CreateMsgStreamInterrupted();
-    case EMsgBitRate:
-        return iMsgFactory->CreateMsgBitRate(100);
     case EMsgHalt:
         return iMsgFactory->CreateMsgHalt();
     case EMsgFlush:
@@ -459,12 +455,6 @@ Msg* SuitePhaseAdjuster::ProcessMsg(MsgDecodedStream* aMsg)
     const auto info = aMsg->StreamInfo();
     iStreamId = info.StreamId();
     iLastPulledStreamPos = info.SampleStart() * Jiffies::PerSample(info.SampleRate());
-    return aMsg;
-}
-
-Msg* SuitePhaseAdjuster::ProcessMsg(MsgBitRate* aMsg)
-{
-    iLastMsg = EMsgBitRate;
     return aMsg;
 }
 
@@ -623,7 +613,7 @@ void SuitePhaseAdjuster::TestAllMsgsPass()
        audio */
     static const EMsgType msgs[] = { EMsgMode, EMsgTrack, EMsgDrain, EMsgEncodedStream,
                                      EMsgMetaText, EMsgStreamInterrupted, EMsgDecodedStream,
-                                     EMsgBitRate, EMsgAudioPcm, EMsgAudioDsd, EMsgSilence,
+                                     EMsgAudioPcm, EMsgAudioDsd, EMsgSilence,
                                      EMsgHalt, EMsgFlush, EMsgWait, EMsgQuit };
     for (TUint i=0; i<sizeof(msgs)/sizeof(msgs[0]); i++) {
         PullNext(msgs[i]);

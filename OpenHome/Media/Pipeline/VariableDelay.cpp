@@ -37,7 +37,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -106,7 +105,6 @@ Msg* AudioDiscarder::ProcessMsg(MsgHalt* aMsg)                { ASSERTS(); retur
 Msg* AudioDiscarder::ProcessMsg(MsgFlush* aMsg)               { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgWait* aMsg)                { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgDecodedStream* aMsg)       { ASSERTS(); return aMsg; }
-Msg* AudioDiscarder::ProcessMsg(MsgBitRate* aMsg)             { ASSERTS(); return aMsg; }
 Msg* AudioDiscarder::ProcessMsg(MsgAudioPcm* aMsg)
 {
     return ProcessAudioDecoded(aMsg);
@@ -137,7 +135,6 @@ const TUint VariableDelayBase::kSupportedMsgTypes =   eMode
                                                     | eFlush
                                                     | eWait
                                                     | eDecodedStream
-                                                    | eBitRate
                                                     | eAudioPcm
                                                     | eAudioDsd
                                                     | eSilence

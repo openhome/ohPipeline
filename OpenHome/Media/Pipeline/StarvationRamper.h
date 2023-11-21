@@ -145,7 +145,6 @@ private: // from MsgReservoir
     Msg* ProcessMsgOut(MsgFlush* aMsg) override;
     Msg* ProcessMsgOut(MsgWait* aMsg) override;
     Msg* ProcessMsgOut(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsgOut(MsgBitRate* aMsg) override;
     Msg* ProcessMsgOut(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsgOut(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsgOut(MsgSilence* aMsg) override;

@@ -56,7 +56,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -74,7 +73,6 @@ private:
        ,EMsgMetaText
        ,EMsgStreamInterrupted
        ,EMsgDecodedStream
-       ,EMsgBitRate
        ,EMsgAudioPcm
        ,EMsgAudioDsd
        ,EMsgHalt
@@ -343,12 +341,6 @@ Msg* SuiteSeeker::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* SuiteSeeker::ProcessMsg(MsgBitRate* aMsg)
-{
-    iLastPulledMsg = EMsgBitRate;
-    return aMsg;
-}
-
 Msg* SuiteSeeker::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iLastPulledMsg = EMsgAudioPcm;
@@ -481,7 +473,6 @@ void SuiteSeeker::TestAllMsgsPassWhileNotSeeking()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgStreamInterrupted());
     iPendingMsgs.push_back(CreateDecodedStream());
     iPendingMsgs.push_back(CreateAudio());
-    iPendingMsgs.push_back(iMsgFactory->CreateMsgBitRate(999));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgHalt());
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(2));
     iPendingMsgs.push_back(iMsgFactory->CreateMsgWait());
@@ -497,7 +488,6 @@ void SuiteSeeker::TestAllMsgsPassWhileNotSeeking()
     PullNext(EMsgStreamInterrupted);
     PullNext(EMsgDecodedStream);
     PullNext(EMsgAudioPcm);
-    PullNext(EMsgBitRate);
     PullNext(EMsgHalt);
     PullNext(EMsgFlush);
     PullNext(EMsgWait);

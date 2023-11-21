@@ -537,12 +537,6 @@ Msg* Filler::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* Filler::ProcessMsg(MsgBitRate* aMsg)
-{
-    ASSERTS();
-    return aMsg;
-}
-
 Msg* Filler::ProcessMsg(MsgAudioPcm* aMsg)
 {
     ASSERTS();

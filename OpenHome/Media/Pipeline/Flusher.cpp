@@ -197,11 +197,6 @@ Msg* Flusher::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* Flusher::ProcessMsg(MsgBitRate* aMsg)
-{
-    return ProcessFlushable(aMsg);
-}
-
 Msg* Flusher::ProcessMsg(MsgAudioPcm* aMsg)
 {
     return ProcessFlushable(aMsg);

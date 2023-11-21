@@ -34,7 +34,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override                { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgWait* aMsg) override                 { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override        { ASSERTS(); return aMsg; }
-    Msg* ProcessMsg(MsgBitRate* aMsg) override              { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override             { ASSERTS(); return aMsg; }
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -787,12 +786,6 @@ Msg* StarvationRamper::ProcessMsgOut(MsgDecodedStream* aMsg)
     iFormat = streamInfo.Format();
     iCurrentRampValue = Ramp::kMax;
     return aMsg;
-}
-
-Msg* StarvationRamper::ProcessMsgOut(MsgBitRate* aMsg)
-{
-    aMsg->RemoveRef();
-    return nullptr;
 }
 
 Msg* StarvationRamper::ProcessMsgOut(MsgAudioPcm* aMsg)

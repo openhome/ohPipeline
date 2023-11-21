@@ -26,7 +26,6 @@ const TUint StarterTimed::kSupportedMsgTypes =   eMode
                                                | eFlush
                                                | eWait
                                                | eDecodedStream
-                                               | eBitRate
                                                | eAudioPcm
                                                | eAudioDsd
                                                | eSilence

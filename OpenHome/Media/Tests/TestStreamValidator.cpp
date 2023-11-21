@@ -48,7 +48,6 @@ private:
        ,EMsgFlush
        ,EMsgWait
        ,EMsgDecodedStream
-       ,EMsgBitRate
        ,EMsgAudioPcm
        ,EMsgAudioDsd
        ,EMsgSilence
@@ -83,7 +82,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -207,9 +205,6 @@ void SuiteStreamValidator::PushMsg(EMsgType aType)
     case EMsgDecodedStream:
         msg = iMsgFactory->CreateMsgDecodedStream(iNextStreamId++, kBitrate, kBitDepth, kSampleRate, kChannels, Brn("Dummy"), 0, 0, true, true, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, this, RampType::Sample);
         break;
-    case EMsgBitRate:
-        msg = iMsgFactory->CreateMsgBitRate(123);
-        break;
     case EMsgAudioPcm:
     {
         Brn audioBuf(iAudioData, sizeof(iAudioData));
@@ -256,7 +251,7 @@ void SuiteStreamValidator::MsgsPassThrough()
 {
     EMsgType types[] = { EMsgMode, EMsgTrack, EMsgDrain, EMsgEncodedStream, EMsgDelay,
                          EMsgMetaText, EMsgStreamInterrupted, EMsgHalt, EMsgFlush, EMsgWait, EMsgDecodedStream,
-                         EMsgBitRate, EMsgAudioPcm, EMsgAudioDsd, EMsgSilence, EMsgQuit };
+                         EMsgAudioPcm, EMsgAudioDsd, EMsgSilence, EMsgQuit };
     const size_t numElems = sizeof(types) / sizeof(types[0]);
     for (size_t i=0; i<numElems; i++) {
         PushMsg(types[i]);
@@ -447,12 +442,6 @@ Msg* SuiteStreamValidator::ProcessMsg(MsgWait* aMsg)
 Msg* SuiteStreamValidator::ProcessMsg(MsgDecodedStream* aMsg)
 {
     iLastMsg = EMsgDecodedStream;
-    return aMsg;
-}
-
-Msg* SuiteStreamValidator::ProcessMsg(MsgBitRate* aMsg)
-{
-    iLastMsg = EMsgBitRate;
     return aMsg;
 }
 

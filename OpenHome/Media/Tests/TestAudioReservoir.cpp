@@ -50,7 +50,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -66,7 +65,6 @@ private:
        ,EMsgAudioDsd
        ,EMsgPlayable
        ,EMsgDecodedStream
-       ,EMsgBitRate
        ,EMsgMode
        ,EMsgTrack
        ,EMsgDrain
@@ -142,7 +140,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -225,7 +222,6 @@ private:
         , EMsgFlush
         , EMsgWait
         , EMsgDecodedStream
-        , EMsgBitRate
         , EMsgAudioPcm
         , EMsgAudioDsd
         , EMsgSilence
@@ -246,7 +242,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -345,7 +340,7 @@ void SuiteAudioReservoir::Test()
 
     // Check that uninteresting msgs are passed through.
     EMsgType types[] = { EMsgMode, EMsgTrack, EMsgDrain, EMsgEncodedStream,
-                         EMsgDecodedStream, EMsgDelay, EMsgBitRate, EMsgMetaText,
+                         EMsgDecodedStream, EMsgDelay, EMsgMetaText,
                          EMsgStreamInterrupted, EMsgFlush, EMsgWait,
                          EMsgHalt, EMsgQuit };
     for (TUint i=0; i<sizeof(types)/sizeof(types[0]); i++) {
@@ -474,9 +469,6 @@ TBool SuiteAudioReservoir::EnqueueMsg(EMsgType aType)
     case EMsgDecodedStream:
         iTrackOffset = 0;
         msg = iMsgFactory->CreateMsgDecodedStream(0, 0, 16, kSampleRate, kNumChannels, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, kProfile, nullptr, RampType::Sample);
-        break;
-    case EMsgBitRate:
-        msg = iMsgFactory->CreateMsgBitRate(1);
         break;
     case EMsgMode:
         msg = iMsgFactory->CreateMsgMode(Brx::Empty());
@@ -610,12 +602,6 @@ Msg* SuiteAudioReservoir::ProcessMsg(MsgDecodedStream* aMsg)
     const auto info = aMsg->StreamInfo();
     iStreamHandler = info.StreamHandler();
     iLastPulledTrackPos = info.SampleStart() * Jiffies::PerSample(info.SampleRate());
-    return aMsg;
-}
-
-Msg* SuiteAudioReservoir::ProcessMsg(MsgBitRate* aMsg)
-{
-    iLastMsg = EMsgBitRate;
     return aMsg;
 }
 
@@ -778,7 +764,6 @@ Msg* SuiteEncodedReservoir::ProcessMsg(MsgStreamInterrupted* aMsg) { ASSERTS(); 
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgHalt* aMsg)              { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgWait* aMsg)              { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgDecodedStream* aMsg)     { ASSERTS(); return aMsg; }
-Msg* SuiteEncodedReservoir::ProcessMsg(MsgBitRate* aMsg)           { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgAudioPcm* aMsg)          { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgAudioDsd* aMsg)          { ASSERTS(); return aMsg; }
 Msg* SuiteEncodedReservoir::ProcessMsg(MsgSilence* aMsg)           { ASSERTS(); return aMsg; }
@@ -1071,12 +1056,6 @@ Msg* SuiteGorger::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* SuiteGorger::ProcessMsg(MsgBitRate* aMsg)
-{
-    iLastPulledMsg = EMsgBitRate;
-    return aMsg;
-}
-
 Msg* SuiteGorger::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iLastPulledMsg = EMsgAudioPcm;
@@ -1166,7 +1145,6 @@ void SuiteGorger::TestAllMsgsPassWhileNotGorging()
     Queue(CreateDecodedStream());
     Queue(iMsgFactory->CreateMsgMetaText(Brx::Empty()));
     Queue(iMsgFactory->CreateMsgStreamInterrupted());
-    Queue(iMsgFactory->CreateMsgBitRate(42));
     Queue(CreateAudio());
     Queue(iMsgFactory->CreateMsgHalt());
     Queue(iMsgFactory->CreateMsgWait());
@@ -1179,7 +1157,6 @@ void SuiteGorger::TestAllMsgsPassWhileNotGorging()
     PullNext(EMsgDecodedStream);
     PullNext(EMsgMetaText);
     PullNext(EMsgStreamInterrupted);
-    PullNext(EMsgBitRate);
     PullNext(EMsgAudioPcm);
     PullNext(EMsgHalt);
     PullNext(EMsgWait);

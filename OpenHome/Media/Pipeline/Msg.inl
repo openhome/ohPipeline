@@ -311,7 +311,6 @@ inline MsgFactoryInitParams::MsgFactoryInitParams()
     , iMsgFlushCount(1)
     , iMsgWaitCount(1)
     , iMsgDecodedStreamCount(1)
-    , iMsgBitRateCount(1)
     , iDecodedAudioCount(1)
     , iMsgAudioPcmCount(1)
     , iMsgAudioDsdCount(1)
@@ -374,10 +373,6 @@ inline void MsgFactoryInitParams::SetMsgWaitCount(TUint aCount)
 inline void MsgFactoryInitParams::SetMsgDecodedStreamCount(TUint aCount)
 {
     iMsgDecodedStreamCount = aCount;
-}
-inline void MsgFactoryInitParams::SetMsgBitRateCount(TUint aCount)
-{
-    iMsgBitRateCount = aCount;
 }
 inline void MsgFactoryInitParams::SetMsgAudioPcmCount(TUint aCount, TUint aDecodedAudioCount)
 {
@@ -461,10 +456,6 @@ inline TUint MsgFactory::AllocatorWaitCount() const
 inline TUint MsgFactory::AllocatorDecodedStreamCount() const
 {
     return iAllocatorMsgDecodedStream.CellsUsed();
-}
-inline TUint MsgFactory::AllocatorBitRateCount() const
-{
-    return iAllocatorMsgBitRate.CellsUsed();
 }
 inline TUint MsgFactory::AllocatorAudioPcmCount() const
 {

@@ -204,16 +204,6 @@ public:
     */
     virtual TUint64 OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk) = 0;
     /**
-     * Notify the pipeline of a change in bit rate.
-     *
-     * Use of this is optional but it may be useful for variable bit rate codecs.
-     * OutputDecodedStream must have been called at least once for the current stream
-     * before a change in bit rate can be notified.
-     *
-     * @param[in] aBitRate       Updated bit rate.
-     */
-    virtual void OutputBitRate(TUint aBitRate) = 0;
-    /**
      * Notify the pipeline of an update in meta text.
      *
      * This allows the pipeline to output additional information about a stream.
@@ -403,7 +393,6 @@ private: // ICodecController
     TUint64 OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aBitDepth, TUint64 aTrackOffset) override;
     TUint64 OutputAudioDsd(const Brx& aData, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk) override;
     TUint64 OutputAudioDsd(MsgAudioEncoded* aMsg, TUint aChannels, TUint aSampleRate, TUint aSampleBlockWords, TUint64 aTrackOffset, TUint aPadBytesPerChunk) override;
-    void OutputBitRate(TUint aBitRate) override;
     void OutputMetaText(const Brx& aMetaText) override;
     void OutputStreamInterrupted() override;
     void GetAudioBuf(TByte*& aDest, TUint& aSamples) override;
@@ -423,7 +412,6 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;

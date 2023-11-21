@@ -241,12 +241,6 @@ Msg* Sender::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* Sender::ProcessMsg(MsgBitRate* aMsg)
-{
-    aMsg->RemoveRef();
-    return nullptr;
-}
-
 Msg* Sender::ProcessMsg(MsgAudioPcm* aMsg)
 {
     ASSERT(iSampleRate != 0);
@@ -492,12 +486,6 @@ Msg* Sender::PlayableCreator::ProcessMsg(MsgWait* /*aMsg*/)
 }
 
 Msg* Sender::PlayableCreator::ProcessMsg(MsgDecodedStream* /*aMsg*/)
-{
-    ASSERTS();
-    return nullptr;
-}
-
-Msg* Sender::PlayableCreator::ProcessMsg(MsgBitRate* /*aMsg*/)
 {
     ASSERTS();
     return nullptr;
