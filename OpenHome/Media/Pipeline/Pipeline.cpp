@@ -23,7 +23,6 @@
 #include <OpenHome/Media/Pipeline/Stopper.h>
 #include <OpenHome/Media/Pipeline/Reporter.h>
 #include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
-#include <OpenHome/Media/Pipeline/AirplayReporter.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Pipeline/Router.h>
 #include <OpenHome/Media/Pipeline/Drainer.h>
@@ -475,8 +474,6 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerTrackReporter, new Logger(*iAsyncTrackObserver, "AsyncTrackObserver"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iAirplayReporter, new Media::AirplayReporter(*upstream, *iMsgFactory, aTrackFactory),
-                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iSpotifyReporter, new Media::SpotifyReporter(*upstream, *iMsgFactory, aTrackFactory),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerSpotifyReporter, new Logger(*iSpotifyReporter, "SpotifyReporter"),
@@ -686,7 +683,6 @@ Pipeline::~Pipeline()
     delete iLoggerReporter;
     delete iReporter;
     delete iAsyncTrackObserver;
-    delete iAirplayReporter;
     delete iLoggerSpotifyReporter;
     delete iSpotifyReporter;
     delete iDecodedAudioValidatorStopper;
@@ -903,16 +899,6 @@ void Pipeline::AddObserver(ITrackObserver& aObserver)
 IAsyncTrackObserver& Pipeline::AsyncTrackObserver() const
 {
     return *iAsyncTrackObserver;
-}
-
-IAirplayReporter& Pipeline::AirplayReporter() const
-{
-    return *iAirplayReporter;
-}
-
-IAirplayTrackObserver& Pipeline::AirplayTrackObserver() const
-{
-    return *iAirplayReporter;
 }
 
 ISpotifyReporter& Pipeline::SpotifyReporter() const

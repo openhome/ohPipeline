@@ -3,7 +3,6 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
-#include <OpenHome/Media/Pipeline/AirplayReporter.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
@@ -157,22 +156,6 @@ public:
      *          and metadata information to the pipeline.
      */
     IAsyncTrackObserver& AsyncTrackObserver() const;
-    /**
-     * Retrieve a sample reporter.
-     *
-     * @return  IAirplayReporter that reports the number of samples that have
-     *          passed by it since the last MsgMode.
-     */
-    IAirplayReporter& AirplayReporter() const;
-    /**
-     * Retrieve a track change observer.
-     *
-     * @return  IAirplayTrackObserver that can be notified out-of-band that the
-     *          current track has changed, allowing IPipelinePropertyObservers
-     *          to be updated without requiring a MsgTrack to be passed down
-     *          the pipeline.
-     */
-    IAirplayTrackObserver& AirplayTrackObserver() const;
     /**
      * Retrieve a sample reporter.
      *
