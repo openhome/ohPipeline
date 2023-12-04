@@ -244,6 +244,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Ramper.cpp',
                 'OpenHome/Media/Pipeline/Reporter.cpp',
                 'OpenHome/Media/Pipeline/AsyncTrackObserver.cpp',
+                'OpenHome/Media/Pipeline/AirplayReporter.cpp',
                 'OpenHome/Media/Pipeline/SpotifyReporter.cpp',
                 'OpenHome/Media/Pipeline/RampValidator.cpp',
                 'OpenHome/Media/Pipeline/Rewinder.cpp',

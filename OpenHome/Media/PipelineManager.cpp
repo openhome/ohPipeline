@@ -169,6 +169,16 @@ IAsyncTrackObserver& PipelineManager::AsyncTrackObserver() const
     return iPipeline->AsyncTrackObserver();
 }
 
+IAirplayReporter& PipelineManager::AirplayReporter() const
+{
+    return iPipeline->AirplayReporter();
+}
+
+IAirplayTrackObserver& PipelineManager::AirplayTrackObserver() const
+{
+    return iPipeline->AirplayTrackObserver();
+}
+
 ISpotifyReporter& PipelineManager::SpotifyReporter() const
 {
     return iPipeline->SpotifyReporter();
