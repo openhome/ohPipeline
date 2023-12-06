@@ -110,11 +110,6 @@ Msg* Splitter::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* Splitter::ProcessMsg(MsgBitRate* aMsg)
-{
-    return aMsg;
-}
-
 Msg* Splitter::ProcessMsg(MsgAudioPcm* aMsg)
 {
     return aMsg;
@@ -228,12 +223,6 @@ Msg* Splitter::MsgCloner::ProcessMsg(MsgWait* aMsg)
 }
 
 Msg* Splitter::MsgCloner::ProcessMsg(MsgDecodedStream* aMsg)
-{
-    aMsg->AddRef();
-    return aMsg;
-}
-
-Msg* Splitter::MsgCloner::ProcessMsg(MsgBitRate* aMsg)
 {
     aMsg->AddRef();
     return aMsg;

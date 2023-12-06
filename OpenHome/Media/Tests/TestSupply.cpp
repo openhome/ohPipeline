@@ -55,7 +55,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -79,7 +78,6 @@ private:
        ,EMsgStreamSegment
        ,EMsgMetaText
        ,EMsgStreamInterrupted
-       ,EMsgBitRate
        ,EMsgHalt
        ,EMsgFlush
        ,EMsgWait
@@ -283,13 +281,6 @@ Msg* SuiteSupply::ProcessMsg(MsgDecodedStream* aMsg)
 {
     ASSERTS(); // don't expect this type of msg at the start of the pipeline
     iLastMsg = EMsgDecodedStream;
-    return aMsg;
-}
-
-Msg* SuiteSupply::ProcessMsg(MsgBitRate* aMsg)
-{
-    ASSERTS(); // don't expect this type of msg at the start of the pipeline
-    iLastMsg = EMsgBitRate;
     return aMsg;
 }
 

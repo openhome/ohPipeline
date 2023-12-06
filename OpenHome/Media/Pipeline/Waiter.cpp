@@ -22,7 +22,6 @@ const TUint Waiter::kSupportedMsgTypes =   eMode
                                          | eFlush
                                          | eWait
                                          | eDecodedStream
-                                         | eBitRate
                                          | eAudioPcm
                                          | eAudioDsd
                                          | eSilence

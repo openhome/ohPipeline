@@ -21,7 +21,6 @@ const TUint DecodedAudioAggregator::kSupportedMsgTypes =   eMode
                                                          | eFlush
                                                          | eWait
                                                          | eDecodedStream
-                                                         | eBitRate
                                                          | eAudioPcm
                                                          | eAudioDsd
                                                          | eQuit;

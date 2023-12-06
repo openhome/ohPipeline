@@ -126,7 +126,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -574,16 +573,6 @@ Msg* MockMsgProcessor::ProcessMsg(MsgDecodedStream* aMsg)
     writerBool.WriteBool(aMsg->StreamInfo().Seekable());
     writerAscii.WriteSpace();
     writerBool.WriteBool(aMsg->StreamInfo().Live());
-    iTestPipe.Write(buf);
-    return aMsg;
-}
-
-Msg* MockMsgProcessor::ProcessMsg(MsgBitRate* aMsg)
-{
-    Bws<kMaxMsgBytes> buf("MMP::ProcessMsg MsgBitRate ");
-    WriterBuffer writerBuffer(buf);
-    WriterAscii writerAscii(writerBuffer);
-    writerAscii.WriteUint(aMsg->BitRate());
     iTestPipe.Write(buf);
     return aMsg;
 }

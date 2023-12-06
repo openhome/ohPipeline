@@ -1925,35 +1925,6 @@ Msg* MsgDecodedStream::Process(IMsgProcessor& aProcessor)
 }
 
 
-// MsgBitRate
-
-MsgBitRate::MsgBitRate(AllocatorBase& aAllocator)
-    : Msg(aAllocator)
-    , iBitRate(0)
-{
-}
-
-TUint MsgBitRate::BitRate() const
-{
-    return iBitRate;
-}
-
-void MsgBitRate::Initialise(TUint aBitRate)
-{
-    iBitRate = aBitRate;
-}
-
-void MsgBitRate::Clear()
-{
-    iBitRate = 0;
-}
-
-Msg* MsgBitRate::Process(IMsgProcessor& aProcessor)
-{
-    return aProcessor.ProcessMsg(this);
-}
-
-
 // MsgAudio
 
 void MsgAudio::SetObserver(IPipelineBufferObserver& aPipelineBufferObserver)
@@ -3262,7 +3233,6 @@ void MsgReservoir::ProcessMsgIn(MsgHalt* /*aMsg*/)              { }
 void MsgReservoir::ProcessMsgIn(MsgFlush* /*aMsg*/)             { }
 void MsgReservoir::ProcessMsgIn(MsgWait* /*aMsg*/)              { }
 void MsgReservoir::ProcessMsgIn(MsgDecodedStream* /*aMsg*/)     { }
-void MsgReservoir::ProcessMsgIn(MsgBitRate* /*aMsg*/)           { }
 void MsgReservoir::ProcessMsgIn(MsgAudioPcm* /*aMsg*/)          { }
 void MsgReservoir::ProcessMsgIn(MsgAudioDsd* /*aMsg*/)          { }
 void MsgReservoir::ProcessMsgIn(MsgSilence* /*aMsg*/)           { }
@@ -3281,7 +3251,6 @@ Msg* MsgReservoir::ProcessMsgOut(MsgHalt* aMsg)                 { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgFlush* aMsg)                { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgWait* aMsg)                 { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgDecodedStream* aMsg)        { return aMsg; }
-Msg* MsgReservoir::ProcessMsgOut(MsgBitRate* aMsg)              { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgAudioPcm* aMsg)             { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgAudioDsd* aMsg)             { return aMsg; }
 Msg* MsgReservoir::ProcessMsgOut(MsgSilence* aMsg)              { return aMsg; }
@@ -3345,8 +3314,6 @@ Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgDecodedStream* aMsg)
     iQueue.iDecodedStreamCount++;
     return aMsg;
 }
-
-Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgBitRate* aMsg)            { return aMsg; }
 
 Msg* MsgReservoir::ProcessorEnqueue::ProcessMsg(MsgAudioPcm* aMsg)
 {
@@ -3474,12 +3441,6 @@ Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgBitRate* aMsg)
-{
-    iQueue.ProcessMsgIn(aMsg);
-    return aMsg;
-}
-
 Msg* MsgReservoir::ProcessorQueueIn::ProcessMsg(MsgAudioPcm* aMsg)
 {
     (void)ProcessorEnqueue::ProcessMsg(aMsg);
@@ -3593,11 +3554,6 @@ Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgWait* aMsg)
 Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgDecodedStream* aMsg)
 {
     iQueue.iDecodedStreamCount--;
-    return iQueue.ProcessMsgOut(aMsg);
-}
-
-Msg* MsgReservoir::ProcessorQueueOut::ProcessMsg(MsgBitRate* aMsg)
-{
     return iQueue.ProcessMsgOut(aMsg);
 }
 
@@ -3732,12 +3688,6 @@ Msg* PipelineElement::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* PipelineElement::ProcessMsg(MsgBitRate* aMsg)
-{
-    CheckSupported(eBitRate);
-    return aMsg;
-}
-
 Msg* PipelineElement::ProcessMsg(MsgAudioPcm* aMsg)
 {
     CheckSupported(eAudioPcm);
@@ -3832,7 +3782,6 @@ MsgFactory::MsgFactory(IInfoAggregator& aInfoAggregator, const MsgFactoryInitPar
     , iAllocatorMsgFlush("MsgFlush", aInitParams.iMsgFlushCount, aInfoAggregator)
     , iAllocatorMsgWait("MsgWait", aInitParams.iMsgWaitCount, aInfoAggregator)
     , iAllocatorMsgDecodedStream("MsgDecodedStream", aInitParams.iMsgDecodedStreamCount, aInfoAggregator)
-    , iAllocatorMsgBitRate("MsgBitRate", aInitParams.iMsgBitRateCount, aInfoAggregator)
     , iAllocatorMsgAudioPcm("MsgAudioPcm", aInitParams.iMsgAudioPcmCount, aInfoAggregator)
     , iAllocatorMsgAudioDsd("MsgAudioDsd", aInitParams.iMsgAudioDsdCount, aInfoAggregator)
     , iAllocatorMsgSilence("MsgSilence", aInitParams.iMsgSilenceCount, aInfoAggregator)
@@ -4020,13 +3969,6 @@ MsgDecodedStream* MsgFactory::CreateMsgDecodedStream(MsgDecodedStream* aMsg, ISt
                                       stream.Seekable(), stream.Live(), stream.AnalogBypass(),
                                       stream.Format(), stream.Multiroom(), stream.Profile(), aStreamHandler,
                                       stream.Ramp());
-    return msg;
-}
-
-MsgBitRate* MsgFactory::CreateMsgBitRate(TUint aBitRate)
-{
-    auto msg = iAllocatorMsgBitRate.Allocate();
-    msg->Initialise(aBitRate);
     return msg;
 }
 

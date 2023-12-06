@@ -32,13 +32,12 @@ public:
        ,EMsgFlush               = 1 << 10
        ,EMsgWait                = 1 << 11
        ,EMsgDecodedStream       = 1 << 12
-       ,EMsgBitRate             = 1 << 13
-       ,EMsgAudioPcm            = 1 << 14
-       ,EMsgAudioDsd            = 1 << 15
-       ,EMsgSilence             = 1 << 16
-       ,EMsgAudioRamped         = 1 << 17
-       ,EMsgPlayable            = 1 << 18
-       ,EMsgQuit                = 1 << 19
+       ,EMsgAudioPcm            = 1 << 13
+       ,EMsgAudioDsd            = 1 << 14
+       ,EMsgSilence             = 1 << 15
+       ,EMsgAudioRamped         = 1 << 16
+       ,EMsgPlayable            = 1 << 17
+       ,EMsgQuit                = 1 << 18
        ,EMsgAll                 = 0x7fffffff
     };
 public:
@@ -66,7 +65,6 @@ private: // IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;

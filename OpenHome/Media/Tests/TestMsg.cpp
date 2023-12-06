@@ -248,7 +248,6 @@ public:
        ,EMsgFlush
        ,EMsgWait
        ,EMsgDecodedStream
-       ,EMsgBitRate
        ,EMsgAudioPcm
        ,EMsgAudioDsd
        ,EMsgSilence
@@ -272,7 +271,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -335,7 +333,6 @@ public:
        ,EMsgEncodedStream
        ,EMsgStreamSegment
        ,EMsgDecodedStream
-       ,EMsgBitRate
        ,EMsgMetaText
        ,EMsgStreamInterrupted
        ,EMsgHalt
@@ -369,7 +366,6 @@ private: // from MsgQueueFlushable
     void ProcessMsgIn(MsgEncodedStream* aMsg) override;
     void ProcessMsgIn(MsgStreamSegment* aMsg) override;
     void ProcessMsgIn(MsgDecodedStream* aMsg) override;
-    void ProcessMsgIn(MsgBitRate* aMsg) override;
     void ProcessMsgIn(MsgMetaText* aMsg) override;
     void ProcessMsgIn(MsgStreamInterrupted* aMsg) override;
     void ProcessMsgIn(MsgHalt* aMsg) override;
@@ -386,7 +382,6 @@ private: // from MsgQueueFlushable
     Msg* ProcessMsgOut(MsgEncodedStream* aMsg) override;
     Msg* ProcessMsgOut(MsgStreamSegment* aMsg) override;
     Msg* ProcessMsgOut(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsgOut(MsgBitRate* aMsg) override;
     Msg* ProcessMsgOut(MsgMetaText* aMsg) override;
     Msg* ProcessMsgOut(MsgStreamInterrupted* aMsg) override;
     Msg* ProcessMsgOut(MsgHalt* aMsg) override;
@@ -2691,12 +2686,6 @@ Msg* ProcessorMsgType::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* ProcessorMsgType::ProcessMsg(MsgBitRate* aMsg)
-{
-    iLastMsgType = ProcessorMsgType::EMsgBitRate;
-    return aMsg;
-}
-
 Msg* ProcessorMsgType::ProcessMsg(MsgAudioPcm* aMsg)
 {
     iLastMsgType = ProcessorMsgType::EMsgAudioPcm;
@@ -3205,13 +3194,6 @@ void SuiteMsgReservoir::Test()
     TEST(queue->DecodedStreamCount() == 1);
     TEST(queue->LastOut() == TestMsgReservoir::ENone);
 
-    static const TUint kBitRate = 12345;
-    msg = iMsgFactory->CreateMsgBitRate(kBitRate);
-    queue->Enqueue(msg);
-    TEST(queue->Jiffies() == 0);
-    TEST(queue->LastIn() == TestMsgReservoir::EMsgBitRate);
-    TEST(queue->LastOut() == TestMsgReservoir::ENone);
-
     TUint silenceSize = Jiffies::kPerMs;
     MsgAudio* audio = iMsgFactory->CreateMsgSilence(silenceSize, 44100, 8, 2);
     queue->Enqueue(audio);
@@ -3306,11 +3288,6 @@ void SuiteMsgReservoir::Test()
     TEST(queue->LastOut() == TestMsgReservoir::EMsgDecodedStream);
     TEST(queue->DecodedStreamCount() == 0);
     TEST(queue->Jiffies() == jiffies);
-    msg->RemoveRef();
-
-    msg = queue->Dequeue();
-    TEST(queue->LastIn() == TestMsgReservoir::EMsgHalt);
-    TEST(queue->LastOut() == TestMsgReservoir::EMsgBitRate);
     msg->RemoveRef();
 
     msg = queue->Dequeue();
@@ -3444,11 +3421,6 @@ void TestMsgReservoir::ProcessMsgIn(MsgDecodedStream* /*aMsg*/)
     iLastMsgIn = EMsgDecodedStream;
 }
 
-void TestMsgReservoir::ProcessMsgIn(MsgBitRate* /*aMsg*/)
-{
-    iLastMsgIn = EMsgBitRate;
-}
-
 void TestMsgReservoir::ProcessMsgIn(MsgMetaText* /*aMsg*/)
 {
     iLastMsgIn = EMsgMetaText;
@@ -3536,12 +3508,6 @@ Msg* TestMsgReservoir::ProcessMsgOut(MsgStreamSegment* aMsg)
 Msg* TestMsgReservoir::ProcessMsgOut(MsgDecodedStream* aMsg)
 {
     iLastMsgOut = EMsgDecodedStream;
-    return aMsg;
-}
-
-Msg* TestMsgReservoir::ProcessMsgOut(MsgBitRate* aMsg)
-{
-    iLastMsgOut = EMsgBitRate;
     return aMsg;
 }
 
@@ -3683,8 +3649,6 @@ Msg* SuitePipelineElement::CreateMsg(ProcessorMsgType::EMsgType aType)
         return iMsgFactory->CreateMsgWait();
     case ProcessorMsgType::EMsgDecodedStream:
         return iMsgFactory->CreateMsgDecodedStream(0, 0, 0, 0, 0, Brx::Empty(), 0, 0, false, false, false, false, AudioFormat::Pcm, Multiroom::Allowed, SpeakerProfile(), nullptr, RampType::Sample);
-    case ProcessorMsgType::EMsgBitRate:
-        return iMsgFactory->CreateMsgBitRate(1234);
     case ProcessorMsgType::EMsgAudioPcm:
     {
         const TUint kDataBytes = 256;

@@ -58,7 +58,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -363,12 +362,6 @@ Msg* SuiteSupplyAggregator::ProcessMsg(MsgWait* aMsg)
 }
 
 Msg* SuiteSupplyAggregator::ProcessMsg(MsgDecodedStream* aMsg)
-{
-    ASSERTS(); // don't expect this type of msg at the start of the pipeline
-    return aMsg;
-}
-
-Msg* SuiteSupplyAggregator::ProcessMsg(MsgBitRate* aMsg)
 {
     ASSERTS(); // don't expect this type of msg at the start of the pipeline
     return aMsg;

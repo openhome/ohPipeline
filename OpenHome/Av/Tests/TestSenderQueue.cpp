@@ -43,7 +43,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -61,7 +60,6 @@ private:
        ,EMsgMetaText
        ,EMsgStreamInterrupted
        ,EMsgDecodedStream
-       ,EMsgBitRate
        ,EMsgAudioPcm
        ,EMsgAudioDsd
        ,EMsgHalt
@@ -257,12 +255,6 @@ Msg* SuiteSenderQueue::ProcessMsg(MsgDecodedStream* aMsg)
     iStreamId = stream.StreamId();
     iStreamSampleStart = stream.SampleStart();
     iTrackOffsetPulled = iStreamSampleStart * Jiffies::PerSample(stream.SampleRate());
-    return aMsg;
-}
-
-Msg* SuiteSenderQueue::ProcessMsg(MsgBitRate* aMsg)
-{
-    iLastPulledMsg = EMsgBitRate;
     return aMsg;
 }
 
