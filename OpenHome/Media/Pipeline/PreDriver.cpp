@@ -22,13 +22,9 @@ const TUint PreDriver::kSupportedMsgTypes =   eMode
                                             | eSilence
                                             | eQuit;
 
-PreDriver::PreDriver(
-    IPipelineElementUpstream& aUpstreamElement,
-    Optional<IAudioTime> aAudioTimeOpt)
-
+PreDriver::PreDriver(IPipelineElementUpstream& aUpstreamElement)
     : PipelineElement(kSupportedMsgTypes)
     , iUpstreamElement(aUpstreamElement)
-    , iAudioTimeOpt(aAudioTimeOpt)
     , iSampleRate(0)
     , iBitDepth(0)
     , iNumChannels(0)
@@ -38,18 +34,12 @@ PreDriver::PreDriver(
     , iSilenceSinceAudio(false)
     , iModeHasPullableClock(false)
     , iQuit(false)
-    , iAnimator(nullptr)
 {
 }
 
 PreDriver::~PreDriver()
 {
     iShutdownSem.Wait();
-}
-
-void PreDriver::SetAnimator(IPipelineAnimator& aAnimator)
-{
-    iAnimator = &aAnimator;
 }
 
 Msg* PreDriver::Pull()
@@ -64,12 +54,6 @@ Msg* PreDriver::Pull()
             const TUint ms = Jiffies::ToMs(iSilenceSinceLastAudio);
             iSilenceSinceLastAudio = 0;
             LOG(kPipeline, "PreDriver: silence since last audio - %ums\n", ms);
-
-            // ASSERT(iAnimator != nullptr);
-            // iAnimator->PipelineAnimatorNotifyAudioReceived();
-            // if (iAudioTimeOpt.Ok()) {
-            //     iAudioTimeOpt.Unwrap().TimerLogTime("PreDriver");
-            // }
         }
         if (iQuit) {
             iShutdownSem.Signal();

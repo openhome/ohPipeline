@@ -82,7 +82,6 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorDsdBlockSizeWords() const override;
     TUint PipelineAnimatorMaxBitDepth() const override;
     void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const override;
-    void PipelineAnimatorNotifyAudioReceived() override {}
 private: // from IStarvationRamper
     void WaitForOccupancy(TUint aJiffies) override;
 private:

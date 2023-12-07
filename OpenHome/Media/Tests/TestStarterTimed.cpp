@@ -65,7 +65,6 @@ private: // from IPipelineAnimator
     TUint PipelineAnimatorDsdBlockSizeWords() const override { return 0; }
     TUint PipelineAnimatorMaxBitDepth() const override { return 0; }
     void PipelineAnimatorGetMaxSampleRates(TUint& /*aPcm*/, TUint& /*aDsd*/) const override {}
-    void PipelineAnimatorNotifyAudioReceived() override {}
 private:
     enum EMsgType
     {

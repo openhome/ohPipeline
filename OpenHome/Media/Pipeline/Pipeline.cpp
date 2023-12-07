@@ -569,7 +569,7 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerVolumeRamper, new Logger(*iVolumeRamper, "VolumeRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iPreDriver, new PreDriver(*upstream, aAudioTime),
+    ATTACH_ELEMENT(iPreDriver, new PreDriver(*upstream),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     iLoggerPreDriver = new Logger(*iPreDriver, "PreDriver");
 
@@ -1032,7 +1032,6 @@ void Pipeline::SetAnimator(IPipelineAnimator& aAnimator)
     if (iMuterSamples != nullptr) {
         iMuterSamples->SetAnimator(aAnimator);
     }
-    iPreDriver->SetAnimator(aAnimator);
     aAnimator.PipelineAnimatorGetMaxSampleRates(iMaxSampleRatePcm, iMaxSampleRateDsd);
 }
 

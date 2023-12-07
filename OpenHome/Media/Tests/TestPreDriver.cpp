@@ -1,6 +1,5 @@
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Media/Pipeline/PreDriver.h>
-#include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
@@ -86,7 +85,6 @@ private:
     TUint iAudioMsgSizeJiffies;
     TUint iNextMsgSilenceSize;
     TBool iNextModePullable;
-    Optional<IAudioTime> iAudioTimeOpt;
 };
 
 } // namespace Media
@@ -112,7 +110,7 @@ SuitePreDriver::SuitePreDriver()
     iAudioMsgSizeJiffies = audio->Jiffies();
     audio->RemoveRef();
     iNextMsgSilenceSize = iAudioMsgSizeJiffies;
-    iPreDriver = new PreDriver(*this, iAudioTimeOpt);
+    iPreDriver = new PreDriver(*this);
     iNextModePullable = false;
 }
 

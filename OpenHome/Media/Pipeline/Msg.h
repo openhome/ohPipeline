@@ -1908,8 +1908,6 @@ public:
      * @param[out] aDsd             Max supported rate for DSD audio
      */
     virtual void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const = 0;
-
-    virtual void PipelineAnimatorNotifyAudioReceived() = 0;
 };
 
 class IPipeline : public IPipelineElementUpstream
