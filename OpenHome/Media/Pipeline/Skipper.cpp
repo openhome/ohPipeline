@@ -207,11 +207,6 @@ Msg* Skipper::ProcessMsg(MsgDecodedStream* aMsg)
     return msg;
 }
 
-Msg* Skipper::ProcessMsg(MsgBitRate* aMsg)
-{
-    return ProcessFlushable(aMsg);
-}
-
 Msg* Skipper::ProcessMsg(MsgAudioPcm* aMsg)
 {
     return ProcessAudio(aMsg);

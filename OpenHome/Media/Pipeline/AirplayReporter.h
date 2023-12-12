@@ -23,6 +23,7 @@ public:
     virtual const Brx& Artist() const = 0;
     virtual const Brx& Album() const = 0;
     virtual const Brx& Genre() const = 0;
+    virtual const Brx& ArtworkUri() const = 0;
     virtual TUint DurationMs() const = 0;
     virtual ~IAirplayMetadata() {}
 };

@@ -261,6 +261,7 @@ def build(bld):
                 'OpenHome/Media/Pipeline/Waiter.cpp',
                 'OpenHome/Media/Pipeline/Pipeline.cpp',
                 'OpenHome/Media/Pipeline/ElementObserver.cpp',
+                'OpenHome/Media/ArtworkServer.cpp',
                 'OpenHome/Media/ClockPuller.cpp',
                 'OpenHome/Media/IdManager.cpp',
                 'OpenHome/Media/Filler.cpp',
@@ -488,7 +489,6 @@ def build(bld):
     if 'RAAT_ENABLE' in bld.env.DEFINES:
         bld.stlib(
                 source=[
-                    'OpenHome/Av/Raat/Artwork.cpp',
                     'OpenHome/Av/Raat/App.cpp',
                     'OpenHome/Av/Raat/Metadata.cpp',
                     'OpenHome/Av/Raat/Output.cpp',

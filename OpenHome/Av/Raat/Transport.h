@@ -4,8 +4,8 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Av/Raat/SourceSelection.h>
 #include <OpenHome/Av/Raat/Metadata.h>
-#include <OpenHome/Av/Raat/Artwork.h>
 #include <OpenHome/Av/TransportControl.h>
+#include <OpenHome/Media/ArtworkServer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
 #include <atomic>
@@ -222,7 +222,7 @@ private:
     RaatTransportPluginExt iPluginExt;
     RAAT__TransportControlListeners iListeners;
     RaatRepeatRandomAdapter iRaatRepeatRandomAdapter;
-    RaatArtworkHttpServer iArtworkServer;
+    Media::ArtworkHttpServer iArtworkServer;
     RaatMetadataHandler iMetadataHandler;
     RaatTransportInfo iTransportInfo;
     RaatTrackInfo::EState iState;

@@ -17,7 +17,6 @@ const TUint Ramper::kSupportedMsgTypes =   eMode
                                          | eFlush
                                          | eWait
                                          | eDecodedStream
-                                         | eBitRate
                                          | eAudioPcm
                                          | eAudioDsd
                                          | eSilence

@@ -44,7 +44,6 @@ private: // from IMsgProcessor
     Msg* ProcessMsg(MsgFlush* aMsg) override;
     Msg* ProcessMsg(MsgWait* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
-    Msg* ProcessMsg(MsgBitRate* aMsg) override;
     Msg* ProcessMsg(MsgAudioPcm* aMsg) override;
     Msg* ProcessMsg(MsgAudioDsd* aMsg) override;
     Msg* ProcessMsg(MsgSilence* aMsg) override;
@@ -194,7 +193,6 @@ Msg* SuitePipelineConfig::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-Msg* SuitePipelineConfig::ProcessMsg(MsgBitRate* aMsg)             { ASSERTS(); return aMsg; }
 Msg* SuitePipelineConfig::ProcessMsg(MsgAudioPcm* aMsg)            { ASSERTS(); return aMsg; }
 Msg* SuitePipelineConfig::ProcessMsg(MsgAudioDsd* aMsg)            { ASSERTS(); return aMsg; }
 Msg* SuitePipelineConfig::ProcessMsg(MsgSilence* aMsg)             { ASSERTS(); return aMsg; }
