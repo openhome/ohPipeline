@@ -119,19 +119,6 @@
         "dest": "dependencies/AnyPlatform/"
     },
     {
-        "name": "product3rdParty",
-        "version": "0.0.35",
-        "type": "internal",
-        "archive-filename": "${name}-${version}.zip",
-        "platform-ignore": {
-            "Core-ppc32": false,
-            "Linux-armhf": false,
-            "*": true
-        },
-        "ignore": "${platform-ignore[$platform]}",
-        "dest": "dependencies/AnyPlatform/${name}/"
-    },
-    {
         "name": "FunctionalTest",
         "type": "openhome",
         "version": "0.0.1263",
