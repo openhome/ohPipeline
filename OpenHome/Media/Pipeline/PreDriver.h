@@ -45,7 +45,6 @@ private:
     TBool iSilenceSinceAudio;
     TBool iModeHasPullableClock;
     TBool iQuit;
-    IPipelineAnimator* iAnimator;
 };
 
 } // namespace Media
