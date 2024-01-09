@@ -1362,7 +1362,8 @@ def test(tst):
     else:
         tst.executable_dep = 'TestShell'
     print('Testing using manifest:', tst.test_manifest)
-    rule = 'python {test} -m {manifest} -p {platform} -b {build_dir} -t {tool_dir}'.format(
+    rule = '{python_exe} {test} -m {manifest} -p {platform} -b {build_dir} -t {tool_dir}'.format(
+        python_exe = sys.executable,
         test        = os.path.join(tst.env.testharness_dir, 'Test'),
         manifest    = '${SRC}',
         platform    =  tst.env.dest_platform,
