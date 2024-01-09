@@ -84,7 +84,7 @@
     },
     {
         "name": "testharness",
-        "version": "0.1.62",
+        "version": "0.1.63",
         "cross-check": false,
         "type": "openhome",
         "archive-filename": "${name}-${version}.tar.gz",
