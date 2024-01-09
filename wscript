@@ -127,9 +127,9 @@ def configure(conf):
 
     # Setup Mad (mp3) lib options
     fixed_point_model = 'FPM_INTEL'
-    if conf.options.with_default_fpm or conf.options.dest_platform in ['Linux-riscv64', 'Linux-aarch64']:
+    if conf.options.with_default_fpm or conf.options.dest_platform in ['Linux-riscv64']:
         fixed_point_model = 'FPM_DEFAULT'
-    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-arm64', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
+    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-aarch64', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'

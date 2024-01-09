@@ -1,18 +1,23 @@
-[
+[   
     {
         "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.36.5151",
+        "version": "1.36.22-yocto", 
+        "archive-directory": "${binary-repo}/ohNet-yocto/",
         "archive-suffix": "-${debugmode}",
-        "main-dir": "${dest}${name}-${platform}-${debugmode}",
-        "configure-args": [
-            "--ohnet-lib-dir",
-            "${main-dir}/lib",
-            "--ohnet-include-dir",
-            "${main-dir}/include/ohnet"
-        ],
-        "source-git": "https://github.com/openhome/ohNet.git"
+        "main-dir": "${dest}${name}-${platform}-${debugmode}"
+    },
+    {   "name": "yocto_core4_sdk",
+        "type": "internal",
+        "platform-specific": true,
+        "platform-ignore": {
+            "Linux-armhf": false,
+            "*": true },
+        "ignore":	"${platform-ignore[$platform]}",
+        "version": "0.0.24",
+        "cross-check": false,
+        "archive-filename": "linn-fb-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone-${version}.sh"
     },
     {
         "name": "ohWafHelpers",
@@ -65,8 +70,9 @@
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.0.47",
+        "version": "0.0.4",
         "archive-suffix": "-${debugmode}",
+        "archive-directory": "${binary-repo}/raat-yocto/",
         "cross-check": false,
         "platform-ignore": {
             "Windows-x86": false,

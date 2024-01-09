@@ -62,6 +62,7 @@ from ci import (
     build_condition, default_platform, get_dependency_args,
     get_vsvars_environment, fetch_dependencies, python, scp)
 import platform
+import subprocess
 
 require_version(51)
 
@@ -94,6 +95,7 @@ def choose_platform(context):
             "Linux-x64": "Linux-x64",
             "Linux-ARM": "Linux-ARM",
             "Linux-armhf": "Linux-armhf",
+            "Linux-aarch64": "Linux-aarch64",
             "Linux-rpi": "Linux-rpi",
             "Linux-ppc32": "Linux-ppc32",
             "Linux-mipsel": "Linux-mipsel",
@@ -112,7 +114,7 @@ def setup_universal(context):
     env = context.env
     env.update(
         OH_PUBLISHDIR="releases@builds.openhome.org:~/www/artifacts",
-        OH_PROJECT="ohMediaPlayer",
+        OH_PROJECT="ohMediaPlayer-yocto",
         OH_DEBUG=context.options.debugmode,
         BUILDDIR='buildhudson',
         WAFLOCK='.lock-wafbuildhudson',
@@ -162,6 +164,12 @@ def configure(context):
     if platform.system() == 'Darwin':
         context.env['CC']  = 'clang'
         context.env['CXX'] = 'clang++'
+    elif 'PLATFORM' in context.env and context.env['PLATFORM'] in ['Linux-armhf']:
+        sdk_env_path = os.path.join(os.getcwd(), 'dependencies', 'Linux-armhf', 'yocto_core4_sdk', 'environment-setup-cortexa9t2hf-neon-poky-linux-gnueabi')
+        env_string = subprocess.check_output(". " + sdk_env_path + " && env", shell=True)
+        for el in env_string.decode("utf-8").split("\n"):
+            if "=" in el:
+                context.env[el.split("=")[0]] = el.split("=", 1)[1]
     python("waf", "configure", context.configure_args)
 
 
