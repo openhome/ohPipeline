@@ -161,7 +161,7 @@ const TUint TestMediaPlayer::kDsdPadBytesPerChunk;
 
 TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                                  const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
-                                 const TChar* aStoreFile, TUint aOdpPort, TUint aWebUiPort,
+                                 const TChar* aStoreFile, TUint aDefaultTidalAudioQuality, TUint aOdpPort, TUint aWebUiPort,
                                  TUint aMinWebUiResourceThreads, TUint aMaxWebUiTabs, TUint aUiSendQueueSize,
                                  TUint aUiMsgBufCount, TUint aUiMsgBufBytes)
     : iPullableClock(nullptr)
@@ -184,6 +184,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     , iUiSendQueueSize(aUiSendQueueSize)
     , iUiMsgBufCount(aUiMsgBufCount)
     , iUiMsgBufBytes(aUiMsgBufBytes)
+    , iDefaultTidalAudioQuality(aDefaultTidalAudioQuality)
 {
     Log::Print("Shell running on port %u\n", aDvStack.Env().Shell()->Port());
     iInfoLogger = new Media::AllocatorInfoLogger();
@@ -498,7 +499,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
             Log::Print("    App: ID: %.*s - ClientId = %.*s, Secret = %.*s\n", PBUF(v.AppId()), PBUF(v.ClientId()), PBUF(v.ClientSecret()));
         }
 
-        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, ssl, clientId, clientSecret, apps, *iMediaPlayer));
+        iMediaPlayer->Add(ProtocolFactory::NewTidal(aEnv, ssl, clientId, clientSecret, apps, iDefaultTidalAudioQuality, *iMediaPlayer));
     }
     // ...likewise, only add Qobuz if we have ids for login
     if (iQobuzIdSecret.Bytes() > 0) {

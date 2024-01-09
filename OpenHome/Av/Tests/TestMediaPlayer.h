@@ -134,10 +134,11 @@ private:
     static const TUint kDsdMaxSampleRate = 11289600; // DSD256
     static const TUint kDsdSampleBlockWords = 6; // Specifies if the test player outputs DSD as 16xL, 16xR [32 bits = 1 word] or 4 x (24xL, 24xR) [192 bits = 6]
     static const TUint kDsdPadBytesPerChunk = 2;
+    static const TUint kDefaultTidalAudioQuality = 13034431; // Suitably large so we're clamped to the highest. Revisit if TIDAL ever offer more than this number of qualities
 public:
     TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                     const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
-                    const TChar* aStoreFile, TUint aOdpPort=0, TUint aWebUiPort=0,
+                    const TChar* aStoreFile, TUint aDefaultTidalAudioQuality = kDefaultTidalAudioQuality,  TUint aOdpPort=0, TUint aWebUiPort=0,
                     TUint aMinWebUiResourceThreads=kMinWebUiResourceThreads, TUint aMaxWebUiTabs=kMaxWebUiTabs, TUint aUiSendQueueSize=kUiSendQueueSize, TUint aUiMsgBufCount=kUiMsgBufCount, TUint aUiMsgBufBytes=kUiMsgBufBytes);
     virtual ~TestMediaPlayer();
     void SetPullableClock(Media::IPullableClock& aPullableClock);
@@ -216,6 +217,7 @@ private:
     TUint iUiSendQueueSize;
     TUint iUiMsgBufCount;
     TUint iUiMsgBufBytes;
+    const TUint iDefaultTidalAudioQuality;
 };
 
 class TestMediaPlayerOptions
@@ -239,6 +241,7 @@ public:
     const TestFramework::OptionUint& OptionOdp() const;
     const TestFramework::OptionUint& OptionWebUi() const;
     const TestFramework::OptionUint& Shell() const;
+    const TestFramework::OptionUint& TidalDefaultAudioQuality() const;
 private:
     TestFramework::OptionParser iParser;
     TestFramework::OptionString iOptionRoom;
@@ -256,6 +259,7 @@ private:
     TestFramework::OptionUint iOptionOdp;
     TestFramework::OptionUint iOptionWebUi;
     TestFramework::OptionUint iOptionShell;
+    TestFramework::OptionUint iOptionTidalDefaultAudioQuality;
 };
 
 // Not very nice, but only to allow reusable test functions.

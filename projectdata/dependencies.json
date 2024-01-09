@@ -107,7 +107,7 @@
     },
     {
         "name": "transmute",
-        "version": "0.2.89",
+        "version": "0.2.91",
         "cross-check": false,
         "type": "internal",
         "archive-filename": "${name}-${version}.tar.gz",

@@ -1578,7 +1578,17 @@ void SuiteCodecControllerFlush::TestFlush()
 
     // Tell pipeline to flush.
     auto msgFlush = CreateFlush();
+    /*
+     * Due to threaded nature of CodecController, there is a race condition here
+     * where the Flush() call below could happen before the CodecController has
+     * processed the remaining audio from the above MsgAudioEncoded, resulting
+     * in pending MsgAudioEncoded being discarded.
+     *
+     * A Thread::Sleep() before calling Flush() below provides a basic workaround.
+     */
+    Thread::Sleep(1);
     iController->Flush(msgFlush->Id());
+
     // Pull remaining audio that was likely output on CodecController thread before flush.
     PullNext(EMsgAudioPcm);
     // Queue some more audio up. This should all be discarded until flush is received.

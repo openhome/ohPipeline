@@ -349,8 +349,6 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
 {
     TUint64 localTime = MclkToNs();
     LOG(kRaat, "RaatOutput::StartStream() aWallTime=%lld, localTime=%llu\n", aWallTime, localTime);
-    // iAudioTime.TimerStartTimer(iSampleRate, aWallTime / 1000);
-
     if (aToken != iToken) {
         return RAAT__OUTPUT_PLUGIN_STATUS_INVALID_TOKEN;
     }
