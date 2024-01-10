@@ -228,6 +228,6 @@ def integration_test_full(context):
 
 @build_step("publish", optional=True, default=False)
 def publish(context):
-    targetpath    = "{OH_PUBLISHDIR}/{OH_PROJECT}/{OH_PROJECT}-yocto-{OH_VERSION}-{OH_PLATFORM}-{OH_DEBUG}.tar.gz".format(**context.env)
+    targetpath    = "{OH_PUBLISHDIR}/{OH_PROJECT}-yocto/{OH_PROJECT}-{OH_VERSION}-{OH_PLATFORM}-{OH_DEBUG}.tar.gz".format(**context.env)
     sourcepath    = "{BUILDDIR}/{OH_PROJECT}.tar.gz".format(**context.env)
     scp(sourcepath,    targetpath)
