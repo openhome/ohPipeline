@@ -29,7 +29,6 @@ class ProtocolRaat
 {
 private:
     static const TUint kDsdBlockBytes = 4;
-    static const TUint kDsdChunksPerBlock = 1;
     static const TUint kDefaultDelayMs = 150;
     static const TUint kDefaultDelayJiffies = kDefaultDelayMs * Media::Jiffies::kPerMs;
 public:

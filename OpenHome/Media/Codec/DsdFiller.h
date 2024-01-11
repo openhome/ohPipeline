@@ -27,10 +27,7 @@ class DsdFiller
 private:
     static const TByte kSilenceByteDsd = 0x69;
 protected:
-    DsdFiller(
-        TUint aBlockBytesInput,
-        TUint aBlockBytesOutput,
-        TUint aChunksPerBlock);
+    DsdFiller(TUint aBlockBytesInput, TUint aBlockBytesOutput);
 public:
     virtual ~DsdFiller() {}
 protected:
