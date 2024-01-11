@@ -27,7 +27,7 @@ TestMediaPlayerOptions::TestMediaPlayerOptions()
     , iOptionOdp("", "--odp", 0, "Port for ODP server")
     , iOptionWebUi("", "--webui", 0, "Port for Web UI server")
     , iOptionShell("", "--shell", 0, "Port for shell")
-    , iOptionTidalDefaultAudioQuality("", "--tidalDefaultAudioQuality", kDefaultTidalMaxAudioQuality, "Default audio quality for TIDAL streaming. 0 = LOSSY ... 3 = HI_RES")
+    , iOptionTidalMaxAudioQuality("", "--tidalMaxAudioQuality", kDefaultTidalMaxAudioQuality, "Default audio quality for TIDAL streaming. 0 = LOSSY ... 3 = HI_RES")
 {
     iParser.AddOption(&iOptionRoom);
     iParser.AddOption(&iOptionName);
@@ -44,6 +44,7 @@ TestMediaPlayerOptions::TestMediaPlayerOptions()
     iParser.AddOption(&iOptionOdp);
     iParser.AddOption(&iOptionWebUi);
     iParser.AddOption(&iOptionShell);
+    iParser.AddOption(&iOptionTidalMaxAudioQuality);
 }
 
 void TestMediaPlayerOptions::AddOption(Option* aOption)
@@ -131,7 +132,7 @@ const OptionUint& TestMediaPlayerOptions::Shell() const
     return iOptionShell;
 }
 
-const OptionUint& TestMediaPlayerOptions::TidalDefaultAudioQuality() const
+const OptionUint& TestMediaPlayerOptions::TidalMaxAudioQuality() const
 {
-    return iOptionTidalDefaultAudioQuality;
+    return iOptionTidalMaxAudioQuality;
 }
