@@ -19,7 +19,7 @@ const Brn ProtocolRaat::kUri("raat://default");
 
 ProtocolRaat::ProtocolRaat(Environment& aEnv, IRaatReader& aRaatReader, Media::TrackFactory& aTrackFactory)
     : Protocol(aEnv)
-    , DsdFiller(kDsdBlockBytes, kDsdBlockBytes, kDsdChunksPerBlock)
+    , DsdFiller(kDsdBlockBytes, kDsdBlockBytes)
     , iEnv(aEnv)
     , iRaatReader(aRaatReader)
     , iTrackFactory(aTrackFactory)

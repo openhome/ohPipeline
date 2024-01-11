@@ -7,17 +7,14 @@ using namespace OpenHome::Media;
 
 // DsdFiller
 
-DsdFiller::DsdFiller(
-    TUint aBlockBytesInput,
-    TUint aBlockBytesOutput,
-    TUint aChunksPerBlock)
-
+DsdFiller::DsdFiller(TUint aBlockBytesInput, TUint aBlockBytesOutput)
     : iBlockBytesInput(aBlockBytesInput)
     , iBlockBytesOutput(aBlockBytesOutput)
-    , iChunksPerBlock(aChunksPerBlock)
+    , iChunksPerBlock(aBlockBytesInput / 4)
     , iOutputBuffer(AudioData::kMaxBytes - (AudioData::kMaxBytes % aBlockBytesOutput))
     , iPending(aBlockBytesInput)
 {
+    ASSERT(iBlockBytesInput % 4 == 0);
 }
 
 void DsdFiller::Push(const Brx& aData)

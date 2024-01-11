@@ -60,8 +60,7 @@ CodecDsdRaw::CodecDsdRaw(TUint aSampleBlockWords, TUint aPaddingBytes)
     : CodecBase("DSD-RAW", kCostVeryLow)
     , DsdFiller(
         (aSampleBlockWords * 4) - (aPaddingBytes * 4),  // BlockBytesInput
-        (aSampleBlockWords * 4),                        // BlockBytesOutput
-        4)                                              // ChunksPerBlock
+        (aSampleBlockWords * 4))                        // BlockBytesOutput
     , iSampleBlockWords(aSampleBlockWords)
     , iPaddingBytes(aPaddingBytes)
 {
@@ -120,10 +119,15 @@ TBool CodecDsdRaw::TrySeek(TUint /*aStreamId*/, TUint64 /*aSample*/)
 void CodecDsdRaw::WriteChunkDsd(const TByte*& aSrc, TByte*& aDest)
 {
     // CodecDsdRaw only pads and passes the data
-    *aDest++ = 0x00;
+    const TUint padding = iPaddingBytes / 2;
+    for (TUint i = 0; i < padding; i++) {
+        *aDest++ = 0x00;
+    }
     *aDest++ = aSrc[0];
     *aDest++ = aSrc[1];
-    *aDest++ = 0x00;
+    for (TUint i = 0; i < padding; i++) {
+        *aDest++ = 0x00;
+    }
     *aDest++ = aSrc[2];
     *aDest++ = aSrc[3];
     aSrc += 4;
