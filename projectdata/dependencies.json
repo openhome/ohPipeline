@@ -1,10 +1,18 @@
-[   
+[     
     {
         "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.36.22-yocto", 
-        "archive-directory": "${binary-repo}/ohNet-yocto/",
+        "platform-version": {
+            "*": "1.36.5141",
+            "Linux-armhf": "1.36.22-yocto"
+        },
+        "platform-suffix": {
+            "*": "",
+            "Linux-armhf": "-yocto"
+        },
+        "version": "${platform-version[$platform]}", 
+        "archive-directory": "${binary-repo}/ohNet${platform-suffix[$platform]}/",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}"
     },
@@ -15,7 +23,7 @@
             "Linux-armhf": false,
             "*": true },
         "ignore":	"${platform-ignore[$platform]}",
-        "version": "0.0.24",
+        "version": "0.0.25",
         "cross-check": false,
         "archive-filename": "linn-fb-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone-${version}.sh"
     },
