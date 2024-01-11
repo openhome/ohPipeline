@@ -137,7 +137,7 @@ Tidal::Tidal(Environment& aEnv,
     choices.push_back(ENABLED_YES);
     iConfigEnable = new ConfigChoice(aConfigInitialiser, kConfigKeyEnabled, choices, ENABLED_YES);
 
-    iMaxSoundQuality = std::min(4u, aTidalConfig.maxSoundQualityOption) - 1;
+    iMaxSoundQuality = std::min(3u, aTidalConfig.maxSoundQualityOption);
 
     std::vector<TUint> qualities(4);
     for(TUint i = 0; i <= iMaxSoundQuality; ++i) {

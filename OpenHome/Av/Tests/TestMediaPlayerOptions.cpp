@@ -44,6 +44,7 @@ TestMediaPlayerOptions::TestMediaPlayerOptions()
     iParser.AddOption(&iOptionOdp);
     iParser.AddOption(&iOptionWebUi);
     iParser.AddOption(&iOptionShell);
+    iParser.AddOption(&iOptionTidalMaxAudioQuality);
 }
 
 void TestMediaPlayerOptions::AddOption(Option* aOption)
