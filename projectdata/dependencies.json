@@ -23,7 +23,7 @@
             "Linux-armhf": false,
             "*": true },
         "ignore":	"${platform-ignore[$platform]}",
-        "version": "0.0.25",
+        "version": "0.1.28",
         "cross-check": false,
         "archive-filename": "linn-fb-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone-${version}.sh"
     },
@@ -47,13 +47,14 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.88.1276",
+        "version": "0.0.9",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
             "Core-ppc32": false,
             "*": true
         },
+        "archive-path": "${binary-repo}/${name}-yocto/${archive-filename}",
         "ignore": "${platform-ignore[$platform]}"
     },
     {
