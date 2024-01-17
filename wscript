@@ -191,7 +191,6 @@ upnp_services = [
 def build(bld):
 
     for k, v in dict(bld.env).items():
-        print(k)
         if k.startswith("YOCTO_SDK_"):
             os.environ[k[10:]] = v
 
