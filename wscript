@@ -14,7 +14,7 @@ import os.path, sys
 sys.path[0:0] = [os.path.join('dependencies', 'AnyPlatform', 'ohWafHelpers')]
 
 from filetasks import gather_files, build_tree, copy_task, find_dir_or_fail, create_copy_task
-from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform
+from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform, source_yocto_sdk
 
 def options(opt):
     opt.load('msvs')
@@ -34,6 +34,7 @@ def options(opt):
     opt.add_option('--dest-platform', action='store', default=None)
     opt.add_option('--cross', action='store', default=None)
     opt.add_option('--with-default-fpm', action='store_true', default=False)
+    opt.add_option('--yocto', action='store_true', default=False)
 
 def configure(conf):
 
@@ -52,6 +53,9 @@ def configure(conf):
             conf.options.dest_platform = guess_dest_platform()
         except KeyError:
             conf.fatal('Specify --dest-platform')
+
+    if conf.options.yocto:
+        source_yocto_sdk(conf)
 
     if is_core_platform(conf):
         guess_libosa_location(conf)
@@ -185,6 +189,11 @@ upnp_services = [
     ]
 
 def build(bld):
+
+    for k, v in dict(bld.env).items():
+        print(k)
+        if k.startswith("YOCTO_SDK_"):
+            os.environ[k[10:]] = v
 
     # Generated provider base classes
     service_gen_path = os.path.join(bld.env['SERVICE_GEN_DIR'], 'ServiceGen.py')

@@ -23,15 +23,16 @@
             "Linux-armhf": false,
             "*": true },
         "ignore":	"${platform-ignore[$platform]}",
-        "version": "0.1.28",
+        "version": "0.1.30",
         "cross-check": false,
-        "archive-filename": "linn-fb-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone-${version}.sh"
+        "archive-filename": "linn-fb-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone.sh",
+        "archive-path":     "${binary-repo}/${name}/${version}/${archive-filename}"
     },
     {
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.141",
+        "version": "0.2.143",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -47,7 +48,7 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.0.9",
+        "version": "0.0.10",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {

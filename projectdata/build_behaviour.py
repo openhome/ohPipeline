@@ -164,14 +164,10 @@ def configure(context):
     if platform.system() == 'Darwin':
         context.env['CC']  = 'clang'
         context.env['CXX'] = 'clang++'
-    elif 'PLATFORM' in context.env and context.env['PLATFORM'] in ['Linux-armhf']:
-        sdk_env_path = os.path.join(os.getcwd(), 'dependencies', 'Linux-armhf', 'yocto_core4_sdk', 'environment-setup-cortexa9t2hf-neon-poky-linux-gnueabi')
-        env_string = subprocess.check_output(". " + sdk_env_path + " && env", shell=True)
-        for el in env_string.decode("utf-8").split("\n"):
-            if "=" in el:
-                context.env[el.split("=")[0]] = el.split("=", 1)[1]
-    python("waf", "configure", context.configure_args)
-
+    if 'PLATFORM' in context.env and context.env['PLATFORM'] in ['Linux-armhf']:        
+        python("waf", "configure", "--yocto", context.configure_args)
+    else:
+        python("waf", "configure", context.configure_args)
 
 @build_step("clean", optional=True)
 def clean(context):
