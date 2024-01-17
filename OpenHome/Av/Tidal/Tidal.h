@@ -66,10 +66,9 @@ public:
 
     struct ConfigurationValues
     {
-        const Brx& clientId;                            // Used for OAuth authentication, directly by the DS
+        const Brx& clientId;        //Used for OAuth authentication, directly by the DS
         const Brx& clientSecret;
         const std::vector<OAuthAppDetails> appDetails;  // All other supported CPs
-        const TUint maxSoundQualityOption;              // Used to set the max sound quality. See Tidal.cpp for details
     };
 
 
