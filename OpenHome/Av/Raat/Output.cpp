@@ -355,7 +355,7 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     Interrupt();
     ChangeStream(aStream);
     iStreamPos = (aStreamTime == 0) ? 0 : iStreamPos;
-    const TUint64 startTicks = NsToMclk((TUint64)aWallTime);
+    const TUint64 startTicks = NsToMclk((TUint64)aWallTime - kFixedOffsetNs);
     static_cast<Media::IStarterTimed&>(iPipeline).StartAt(startTicks);
     iClockSyncStarted = false;
     iLastClockPullTicks = startTicks; // doesn't really matter - will be overridden when iClockSyncStarted is set true
