@@ -168,8 +168,7 @@ RaatOutput::RaatOutput(
     ISourceRaat&                aSourceRaat,
     Media::IAudioTime&          aAudioTime,
     Media::IPullableClock&      aPullableClock,
-    IRaatSignalPathObservable&  aSignalPathObservable,
-    Linn::DiagnosticManager&    aDiagnosticManager)
+    IRaatSignalPathObservable&  aSignalPathObservable)
 
     : RaatPluginAsync(aMediaPlayer.ThreadPool())
     , iEnv(aMediaPlayer.Env())
@@ -184,8 +183,6 @@ RaatOutput::RaatOutput(
     , iSubscriberIdDsdEnable(Configuration::IConfigManager::kSubscriptionIdInvalid)
     , iStream(nullptr)
     , iSampleRate(0)
-    , iOffsetMs((TInt)-6)
-    , iLockOffset("RAT4")
 {
     iPluginExt.iPlugin.get_info = Raat_Output_Get_Info;
     iPluginExt.iPlugin.get_supported_formats = Raat_Output_Get_Supported_Formats;
@@ -220,8 +217,6 @@ RaatOutput::RaatOutput(
         iSubscriberIdDsdEnable = iConfigDsdEnable->Subscribe(
             Configuration::MakeFunctorConfigChoice(*this, &RaatOutput::DsdEnableChanged));
     }
-
-    aDiagnosticManager.Add(*this);
 }
 
 RaatOutput::~RaatOutput()
@@ -360,16 +355,7 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     Interrupt();
     ChangeStream(aStream);
     iStreamPos = (aStreamTime == 0) ? 0 : iStreamPos;
-
-    TInt64 offsetNs = 0;
-    {
-        AutoMutex _(iLockOffset);
-        offsetNs = iOffsetMs * 1000 * 1000;
-        Log::Print("[RAAT]: Offset set to %i ms\n", iOffsetMs);
-    }
-    TInt64 startTime = aWallTime + offsetNs;
-    const TUint64 startTicks = NsToMclk((TUint64)startTime);
-
+    const TUint64 startTicks = NsToMclk((TUint64)aWallTime);
     static_cast<Media::IStarterTimed&>(iPipeline).StartAt(startTicks);
     iClockSyncStarted = false;
     iLastClockPullTicks = startTicks; // doesn't really matter - will be overridden when iClockSyncStarted is set true
@@ -597,35 +583,6 @@ void RaatOutput::SignalPathChanged(const IRaatSignalPath& aSignalPath)
     iSignalPath.Set(aSignalPath);
     TryReportState();
 }
-
-TBool RaatOutput::Test(const Brx& aString, const Brx& aInput, IWriterAscii& aWriter)
-{
-    if (aString == Brn("help")) {
-        aWriter.Write(Brn("raatOffset (input: integer) "));
-        aWriter.WriteNewline();
-        return true;
-    }
-
-    if (aString != Brn("raatOffset")) {
-        return false;
-    }
-
-    try {
-        AutoMutex _(iLockOffset);
-        iOffsetMs = Ascii::Int(aInput);
-        aWriter.Write(Brn("SUCCESS - Offset set to "));
-        aWriter.WriteInt(iOffsetMs);
-        aWriter.Write(Brn("ms"));
-        aWriter.WriteNewline();
-        return true;
-    }
-    catch (AsciiError&) {
-        aWriter.Write(Brn("ERROR - Didn't receive an integer"));
-        aWriter.WriteNewline();
-        return false;
-    }
-}
-
 
 void RaatOutput::ReportState()
 {

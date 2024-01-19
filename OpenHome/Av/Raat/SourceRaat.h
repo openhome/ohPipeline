@@ -10,8 +10,6 @@
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Private/Timer.h>
 
-#include <Linn/Diagnostic.h>
-
 namespace OpenHome {
     namespace Media {
         class TrackFactory;
@@ -87,8 +85,7 @@ public:
         Optional<Configuration::ConfigChoice> aProtocolSelector,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
-        const Brx& aConfigUrl,
-        Linn::DiagnosticManager& aDiagnosticManager);
+        const Brx& aConfigUrl);
     ~SourceRaat();
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;

@@ -2,7 +2,6 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Thread.h>
-#include <Linn/Diagnostic.h>
 
 #include <uv.h>
 #include <raat_device.h> 
@@ -41,8 +40,7 @@ public:
         IRaatSignalPathObservable& aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
-        const Brx& aConfigUrl,
-        Linn::DiagnosticManager& aDiagnosticManager);
+        const Brx& aConfigUrl);
     ~RaatApp();
 public:
     void Start();

@@ -5,9 +5,6 @@
 #include <OpenHome/Optional.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 
-namespace Linn {
-    class DiagnosticManager;
-}
 namespace OpenHome {
 namespace Net {
     class DvDevice;
@@ -50,8 +47,7 @@ public:
         IRaatSignalPathObservable* aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
-        const Brx& aConfigUrl,
-        Linn::DiagnosticManager& aDiagnosticManager);
+        const Brx& aConfigUrl);
     static ISource* NewRoon(
         IMediaPlayer& aMediaPlayer,
         Media::IAudioTime& aAudioTime,
@@ -59,8 +55,7 @@ public:
         IRaatSignalPathObservable* aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
-        const Brx& aConfigUrl,
-        Linn::DiagnosticManager& aDiagnosticManager);
+        const Brx& aConfigUrl);
 
     static const TChar* kSourceTypePlaylist;
     static const TChar* kSourceTypeRadio;
