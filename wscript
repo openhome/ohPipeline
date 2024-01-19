@@ -55,8 +55,8 @@ def configure(conf):
 
     if is_core_platform(conf):
         guess_libosa_location(conf)
-        guess_libplatform_location(conf)
 
+    guess_libplatform_location(conf)
     configure_toolchain(conf)
     guess_ohnet_location(conf)
     guess_ssl_location(conf)
@@ -499,7 +499,7 @@ def build(bld):
                     'OpenHome/Av/Raat/ProtocolRaat.cpp',
                     'OpenHome/Av/Raat/SourceRaat.cpp'
                 ],
-                use=['OHNET', 'ohMediaPlayer', 'ohPipeline', 'RAAT'],
+                use=['OHNET', 'ohMediaPlayer', 'ohPipeline', 'RAAT', 'PLATFORM'],
                 target='SourceRaat')
 
     # Podcast

@@ -545,7 +545,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
                                                  Optional<IOhmTimestamper>(iRxTimestamper),
                                                  Optional<IOhmMsgProcessor>()));
 
-#ifdef RAAT_ENABLE
+#if 0
     ASSERT(iPullableClock != nullptr);
     iMediaPlayer->Add(SourceFactory::NewRoon(
         *iMediaPlayer,

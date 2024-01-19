@@ -49,7 +49,8 @@ RaatApp::RaatApp(
     IRaatSignalPathObservable& aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion,
-    const Brx& aConfigUrl)
+    const Brx& aConfigUrl,
+    Linn::DiagnosticManager& aDiagnosticManager)
 
     : iMediaPlayer(aMediaPlayer)
     , iDevice(nullptr)
@@ -60,7 +61,7 @@ RaatApp::RaatApp(
     , iStarted(false)
 {
     iTimer = new Timer(aEnv, MakeFunctor(*this, &RaatApp::StartPlugins), "RaatApp");
-    iOutput = new RaatOutput(aMediaPlayer, aSourceRaat, aAudioTime, aPullableClock, aSignalPathObservable);
+    iOutput = new RaatOutput(aMediaPlayer, aSourceRaat, aAudioTime, aPullableClock, aSignalPathObservable, aDiagnosticManager);
     if (aMediaPlayer.ConfigManager().HasNum(VolumeConfig::kKeyLimit)) {
         iVolume = RaatVolume::New(aMediaPlayer);
     }

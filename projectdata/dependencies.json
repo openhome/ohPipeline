@@ -39,6 +39,7 @@
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
             "Core-ppc32": false,
+            "Linux-armhf": false,
             "*": true
         },
         "ignore": "${platform-ignore[$platform]}"

@@ -10,6 +10,8 @@
 #include <OpenHome/Av/Raat/Transport.h>
 #include <OpenHome/Av/Raat/SourceSelection.h>
 
+#include <Linn/Diagnostic.h>
+
 #include <vector>
 
 #include <raat_plugin_output.h>
@@ -106,6 +108,7 @@ class RaatOutput
     , public IRaatReader
     , public IRaatOutputControl
     , private IRaatSignalPathObserver
+    , public Linn::IDiagnosticTestHandler
 {
 private:
     static const TUint kNanoSecsPerSec = 1000000000;
@@ -120,7 +123,8 @@ public:
         ISourceRaat&                aSourceRaat,
         Media::IAudioTime&          aAudioTime,
         Media::IPullableClock&      aPullableClock,
-        IRaatSignalPathObservable&  aSignalPathObservable);
+        IRaatSignalPathObservable&  aSignalPathObservable,
+        Linn::DiagnosticManager&    aDiagnosticManager);
     ~RaatOutput();
 public:
     RAAT__OutputPlugin* Plugin();
@@ -161,6 +165,8 @@ private: // from RaatPluginAsync
     void ReportState() override;
 private: // from IRaatSignalPathObserver
     void SignalPathChanged(const IRaatSignalPath& aSignalPath) override;
+public: // from IDiagnosticTestHandler
+    TBool Test(const Brx& aString, const Brx& aInput, IWriterAscii& aWriter) override;
 private:
     class ControlCallback
     {
@@ -201,6 +207,8 @@ private:
     RaatSignalPath iSignalPath;
     int64_t iStreamPos;
     TUint iSampleRate;
+    TInt iOffsetMs;
+    Mutex iLockOffset;
     TUint64 iLastClockPullTicks;
     TUint iClockPull;
     TBool iClockSyncStarted;

@@ -70,7 +70,8 @@ ISource* SourceFactory::NewRoon(
     IRaatSignalPathObservable* aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion,
-    const Brx& aConfigUrl)
+    const Brx& aConfigUrl,
+    Linn::DiagnosticManager& aDiagnosticManager)
 { // static
     RoonProtocolSelector selector(aMediaPlayer.ConfigInitialiser());
     auto configVal = selector.Transfer();
@@ -84,7 +85,8 @@ ISource* SourceFactory::NewRoon(
             configVal,
             aSerialNumber,
             aSoftwareVersion,
-            aConfigUrl);
+            aConfigUrl,
+            aDiagnosticManager);
     }
     else {
         return SourceFactory::NewScd(aMediaPlayer, configVal);
@@ -98,7 +100,8 @@ ISource* SourceFactory::NewRaat(
     IRaatSignalPathObservable* aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion,
-    const Brx& aConfigUrl)
+    const Brx& aConfigUrl,
+    Linn::DiagnosticManager& aDiagnosticManager)
 { // static
     return new SourceRaat(
         aMediaPlayer,
@@ -108,7 +111,8 @@ ISource* SourceFactory::NewRaat(
         nullptr,
         aSerialNumber,
         aSoftwareVersion,
-        aConfigUrl);
+        aConfigUrl,
+        aDiagnosticManager);
 }
 
 
@@ -149,7 +153,8 @@ SourceRaat::SourceRaat(
     Optional<Configuration::ConfigChoice> aProtocolSelector,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion,
-    const Brx& aConfigUrl)
+    const Brx& aConfigUrl,
+    Linn::DiagnosticManager& aDiagnosticManager)
 
     : Source(
         SourceFactory::kSourceNameRaat,
@@ -169,7 +174,8 @@ SourceRaat::SourceRaat(
         *iSignalPathObservable,
         aSerialNumber,
         aSoftwareVersion,
-        aConfigUrl);
+        aConfigUrl,
+        aDiagnosticManager);
 
     iProtocol = new ProtocolRaat(
         aMediaPlayer.Env(),
