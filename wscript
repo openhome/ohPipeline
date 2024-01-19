@@ -56,7 +56,9 @@ def configure(conf):
     if is_core_platform(conf):
         guess_libosa_location(conf)
 
-    guess_libplatform_location(conf)
+    if is_core_platform(conf) or conf.options.dest_platform == 'Linux-armhf':
+        guess_libplatform_location(conf)
+
     configure_toolchain(conf)
     guess_ohnet_location(conf)
     guess_ssl_location(conf)
