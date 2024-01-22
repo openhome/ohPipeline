@@ -402,7 +402,7 @@ TUint64 RaatOutput::ConvertTime(TUint64 aTicksFrom, TUint aFreqFrom, TUint aFreq
     return ticks;
 }
 
-RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNewSource)
+RC__Status RaatOutput::SetRemoteTime(int /*aToken*/, int64_t aClockOffset, bool /*aNewSource*/)
 {
     // A positive value for aClockOffset indicates we are leading the master clock
     LOG(kRaat, "RaatOutput::SetRemoteTime() aClockOffset: %llius\n", (aClockOffset / 1000));
