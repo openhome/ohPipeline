@@ -358,7 +358,6 @@ RC__Status RaatOutput::StartStream(int aToken, int64_t aWallTime, int64_t aStrea
     const TUint64 startTicks = NsToMclk((TUint64)aWallTime - kFixedOffsetNs);
     static_cast<Media::IStarterTimed&>(iPipeline).StartAt(startTicks);
     iClockSyncStarted = false;
-    iLastClockPullTicks = startTicks; // doesn't really matter - will be overridden when iClockSyncStarted is set true
     iClockPull = Media::IPullableClock::kNominalFreq;
 
     iSourceRaat.NotifyStart();
@@ -405,35 +404,32 @@ TUint64 RaatOutput::ConvertTime(TUint64 aTicksFrom, TUint aFreqFrom, TUint aFreq
 
 RC__Status RaatOutput::SetRemoteTime(int aToken, int64_t aClockOffset, bool aNewSource)
 {
-    // FIXME
-    LOG(kRaat, "RaatOutput::SetRemoteTime(%d, %lld, %u)\n", aToken, aClockOffset, aNewSource);
+    // A positive value for aClockOffset indicates we are leading the master clock
+    LOG(kRaat, "RaatOutput::SetRemoteTime() aClockOffset: %llius\n", (aClockOffset / 1000));
     TUint64 ticksNow;
     TUint freq;
     iAudioTime.GetTickCount(iSampleRate, ticksNow, freq);
-    const TUint64 remoteTicksDelta = RaatOutput::ConvertTime(abs(aClockOffset), kNanoSecsPerSec, freq);
+
+    const TUint64 ticksDelta = RaatOutput::ConvertTime(abs(aClockOffset), kNanoSecsPerSec, freq);
     if (!iClockSyncStarted) {
         TUint64 remoteTicks = ticksNow;
         if (aClockOffset > 0) {
-            remoteTicks -= remoteTicksDelta;
+            remoteTicks -= ticksDelta;
         }
         else {
-            remoteTicks += remoteTicksDelta;
+            remoteTicks += ticksDelta;
         }
         iAudioTime.SetTickCount(remoteTicks);
         iClockSyncStarted = true;
-        iLastClockPullTicks = ticksNow;
     }
     else {
-        TUint64 delta = (remoteTicksDelta * iClockPull) / (ticksNow - iLastClockPullTicks);
+        const TUint64 delta = (ticksDelta * Media::IPullableClock::kNominalFreq) / (freq * kClockAdjustmentGradientSecs);
         if (aClockOffset > 0) {
-            //iClockPull -= (TUint)delta;
             iClockPull = Media::IPullableClock::kNominalFreq - (TUint)delta;
         }
         else {
-            //iClockPull += (TUint)delta;
             iClockPull = Media::IPullableClock::kNominalFreq + (TUint)delta;
         }
-        LOG(kRaat, "RaatOutput::SetRemoteTime delta=%llx, pull=%x\n", delta, iClockPull);
         iPullableClock.PullClock(iClockPull);
     }
     return RC__STATUS_SUCCESS;
