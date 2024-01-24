@@ -99,7 +99,6 @@ Protocol* ProtocolFactory::NewTidal(Environment& aEnv,
                                     const Brx& aClientId,
                                     const Brx& aClientSecret,
                                     std::vector<OAuthAppDetails>& aAppDetails,
-                                    TUint aMaxAudioQuality,
                                     Av::IMediaPlayer& aMediaPlayer)
 { // static;
     const TBool hasOAuthDeets = aClientId.Bytes() > 0; //NOTE - secret is optional, depending on the OAuth flow used.
@@ -109,8 +108,7 @@ Protocol* ProtocolFactory::NewTidal(Environment& aEnv,
     {
         aClientId,
         aClientSecret,
-        aAppDetails,
-        aMaxAudioQuality,
+        aAppDetails
     };
 
     return new ProtocolTidal(aEnv, aSsl, config, aMediaPlayer.ConfigInitialiser(), aMediaPlayer.Device(),

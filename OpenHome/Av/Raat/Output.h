@@ -111,6 +111,9 @@ private:
     static const TUint kNanoSecsPerSec = 1000000000;
     static const TUint kDefaultDelayMs = 750;
     static const TUint64 kDefaultDelayNs = kDefaultDelayMs * 1000 * 1000;
+    static const TUint kFixedOffsetMs = 6;
+    static const TUint64 kFixedOffsetNs = kFixedOffsetMs * 1000 * 1000;
+    static const TUint kClockAdjustmentGradientSecs = 5;
     static const Brn kKeyDsdEnable;
     static const TUint kValDsdDisabled;
     static const TUint kValDsdEnabled;
@@ -201,7 +204,6 @@ private:
     RaatSignalPath iSignalPath;
     int64_t iStreamPos;
     TUint iSampleRate;
-    TUint64 iLastClockPullTicks;
     TUint iClockPull;
     TBool iClockSyncStarted;
     TBool iDsdEnabled;
