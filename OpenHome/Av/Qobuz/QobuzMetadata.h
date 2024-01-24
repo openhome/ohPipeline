@@ -61,19 +61,13 @@ public:
 
     struct ParentMetadata
     {
-        static const TUint kInitialSize = 256;
-        static const TUint kMaxSize = 1024;
-
-        static const TUint kIdInitialSize = 32;
-        static const TUint kIdMaxSize = 128;
-
         ParentMetadata()
-            : title(kInitialSize, kMaxSize)
-            , artist(kInitialSize, kMaxSize)
-            , smallArtworkUri(kMaxSize) // Artwork URIscan be quite long, so just pre-allocate max size initially.
-            , largeArtworkUri(kMaxSize)
-            , artistId(kIdInitialSize, kIdMaxSize)
-            , albumId(kIdInitialSize, kIdMaxSize)
+            : title (128, 512)
+            , artist(128, 512)
+            , smallArtworkUri(1024) // Artwork URIs can be quite long, so just pre-allocate max size initially.
+            , largeArtworkUri(1024)
+            , artistId(32, 128)
+            , albumId (32, 128)
         {}
 
         Bwh title;
