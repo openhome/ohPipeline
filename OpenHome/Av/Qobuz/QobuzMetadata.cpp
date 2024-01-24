@@ -71,6 +71,19 @@ TBool QobuzMetadata::TryParseParentMetadata(const OpenHome::Brx& aJsonResponse, 
         Json::Unescape(aBuffer, Json::Encoding::Utf16);
     };
 
+    setValue(aParentMetadata.albumId, Brx::Empty());
+    setValue(aParentMetadata.artistId, Brx::Empty());
+
+    if (parser.HasKey("id")) {
+        const Brx& productType = parser.String("product_type");
+        if (productType == Brn("artist")) {
+            setValue(aParentMetadata.artistId, parser.String("id"));
+        }
+        else {
+            setValue(aParentMetadata.albumId, parser.String("id"));
+        }
+    }
+
     if (parser.HasKey("title")) {
         setValue(aParentMetadata.title, parser.String("title"));
     }
@@ -79,6 +92,17 @@ TBool QobuzMetadata::TryParseParentMetadata(const OpenHome::Brx& aJsonResponse, 
         nestedParser.Parse(parser.String("artist"));
         if (nestedParser.HasKey("name")) {
             setValue(aParentMetadata.artist, nestedParser.String("name"));
+        }
+
+        if (nestedParser.HasKey("id")) {
+            setValue(aParentMetadata.artistId, nestedParser.String("id"));
+        }
+    }
+
+    if (parser.HasKey("album")) {
+        nestedParser.Parse(parser.String("album"));
+        if (nestedParser.HasKey("id")) {
+            setValue(aParentMetadata.albumId, nestedParser.String("id"));
         }
     }
 
@@ -156,12 +180,24 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
         writer.WriteArtist(aParentMetadata.artist);
         writer.WriteArtwork(aParentMetadata.smallArtworkUri);
         writer.WriteArtwork(aParentMetadata.largeArtworkUri);
+
+        if (aParentMetadata.albumId.Bytes() > 0) {
+            writer.WriteCustomMetadata("albumId", DIDLLite::kNameSpaceLinn, aParentMetadata.albumId);
+        }
+
+        if (aParentMetadata.artistId.Bytes() > 0) {
+            writer.WriteCustomMetadata("artistId", DIDLLite::kNameSpaceLinn, aParentMetadata.artistId);
+        }
     }
     else
     {
         // If no parent metadata, details are found in an 'Album' object
         if (parserTrack.HasKey("album")) {
             nestedParser.Parse(parserTrack.String("album"));
+
+            if (nestedParser.HasKey("id")) {
+                writer.WriteCustomMetadata("albumId", DIDLLite::kNameSpaceLinn, nestedParser.String("id"));
+            }
 
             if (nestedParser.HasKey("title")) {
                 unescapeVal(nestedParser.String("title"));
@@ -173,6 +209,10 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
                 if (nestedLevel2Parser.HasKey("name")) {
                     unescapeVal(nestedLevel2Parser.String("name"));
                     writer.WriteArtist(unescapedBuf);
+                }
+
+                if (nestedLevel2Parser.HasKey("id")) {
+                    writer.WriteCustomMetadata("artistId", DIDLLite::kNameSpaceLinn, nestedLevel2Parser.String("id"));
                 }
             }
 

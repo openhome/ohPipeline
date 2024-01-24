@@ -64,17 +64,24 @@ public:
         static const TUint kInitialSize = 256;
         static const TUint kMaxSize = 1024;
 
+        static const TUint kIdInitialSize = 32;
+        static const TUint kIdMaxSize = 128;
+
         ParentMetadata()
             : title(kInitialSize, kMaxSize)
             , artist(kInitialSize, kMaxSize)
             , smallArtworkUri(kMaxSize) // Artwork URIscan be quite long, so just pre-allocate max size initially.
             , largeArtworkUri(kMaxSize)
+            , artistId(kIdInitialSize, kIdMaxSize)
+            , albumId(kIdInitialSize, kIdMaxSize)
         {}
 
         Bwh title;
         Bwh artist;
         Bwh smallArtworkUri;
         Bwh largeArtworkUri;
+        Bwh artistId;
+        Bwh albumId;
     };
 
 public:
