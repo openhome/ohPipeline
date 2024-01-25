@@ -34,6 +34,18 @@ const Brn QobuzMetadata::kIdTypeUserSpecific("users");
 const Brn QobuzMetadata::kIdTypeNone("none");
 const Brn QobuzMetadata::kGenreNone("none");
 
+// NOTE: Because we're unescaping into a fully downloaded buffer then we know
+//       that the result will always be the same (or smaller) than the original
+//       value, we can simply replace in-place without allocating new buffers
+static Brn UnescapeJsonInPlace(const Brx& aValue)
+{
+    Bwn buf;
+    buf.Set(aValue.Ptr(), aValue.Bytes(), aValue.Bytes());
+    Json::Unescape(buf, Json::Encoding::Utf16); // I think all Qobuz is now UTF-8 encoded...
+    return Brn(buf);
+}
+
+
 QobuzMetadata::QobuzMetadata(Media::TrackFactory& aTrackFactory)
     : iTrackFactory(aTrackFactory)
 {
@@ -66,54 +78,49 @@ TBool QobuzMetadata::TryParseParentMetadata(const OpenHome::Brx& aJsonResponse, 
         return false;
     }
 
-    auto setValue = [] (Bwx& aBuffer, const Brx& aValue) {
-        aBuffer.ReplaceThrow(aValue);
-        Json::Unescape(aBuffer, Json::Encoding::Utf16);
-    };
-
-    setValue(aParentMetadata.albumId, Brx::Empty());
-    setValue(aParentMetadata.artistId, Brx::Empty());
+    aParentMetadata.albumId = Brx::Empty();
+    aParentMetadata.artistId = Brx::Empty();
 
     if (parser.HasKey("id")) {
         const Brx& productType = parser.String("product_type");
         if (productType == Brn("artist")) {
-            setValue(aParentMetadata.artistId, parser.String("id"));
+            aParentMetadata.artistId = parser.String("id");
         }
         else {
-            setValue(aParentMetadata.albumId, parser.String("id"));
+            aParentMetadata.albumId = parser.String("id");
         }
     }
 
     if (parser.HasKey("title")) {
-        setValue(aParentMetadata.title, parser.String("title"));
+        aParentMetadata.title = UnescapeJsonInPlace(parser.String("title"));
     }
 
     if (parser.HasKey("artist")) {
         nestedParser.Parse(parser.String("artist"));
         if (nestedParser.HasKey("name")) {
-            setValue(aParentMetadata.artist, nestedParser.String("name"));
+            aParentMetadata.artist = UnescapeJsonInPlace(nestedParser.String("name"));
         }
 
         if (nestedParser.HasKey("id")) {
-            setValue(aParentMetadata.artistId, nestedParser.String("id"));
+            aParentMetadata.artistId = nestedParser.String("id");
         }
     }
 
     if (parser.HasKey("album")) {
         nestedParser.Parse(parser.String("album"));
         if (nestedParser.HasKey("id")) {
-            setValue(aParentMetadata.albumId, nestedParser.String("id"));
+            aParentMetadata.albumId = nestedParser.String("id");
         }
     }
 
     if (parser.HasKey("image")) {
         nestedParser.Parse(parser.String("image"));
         if (nestedParser.HasKey("small")) {
-            setValue(aParentMetadata.smallArtworkUri, nestedParser.String("small"));
+            aParentMetadata.smallArtworkUri = UnescapeJsonInPlace(nestedParser.String("small"));
         }
 
         if (nestedParser.HasKey("large")) {
-            setValue(aParentMetadata.largeArtworkUri, nestedParser.String("large"));
+            aParentMetadata.largeArtworkUri = UnescapeJsonInPlace(nestedParser.String("large"));
         }
     }
 
@@ -148,20 +155,13 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
     iTrackUri.ReplaceThrow(Brn("qobuz://track?version=2&trackId="));
     iTrackUri.AppendThrow(itemId);
 
-    Bwn unescapedBuf;
-    auto unescapeVal = [&] (const Brx& aValue) {
-        unescapedBuf.Set(aValue.Ptr(), aValue.Bytes(), aValue.Bytes());
-        Json::Unescape(unescapedBuf, Json::Encoding::Utf16);
-    };
-
     WriterBuffer w(iMetaDataDidl);
     WriterDIDLLite writer(itemId, DIDLLite::kItemTypeTrack, w);
 
     // First - grab metadata from the track object directly.
     // We can use: Title, duration & track number
     if (parserTrack.HasKey("title")) {
-        unescapeVal(parserTrack.String("title"));
-        writer.WriteTitle(unescapedBuf);
+        writer.WriteTitle(UnescapeJsonInPlace(parserTrack.String("title")));
     }
 
     if (parserTrack.HasKey("track_number")) {
@@ -200,15 +200,13 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
             }
 
             if (nestedParser.HasKey("title")) {
-                unescapeVal(nestedParser.String("title"));
-                writer.WriteAlbum(unescapedBuf);
+                writer.WriteAlbum(UnescapeJsonInPlace(nestedParser.String("title")));
             }
 
             if (nestedParser.HasKey("artist")) {
                 nestedLevel2Parser.Parse(nestedParser.String("artist"));
                 if (nestedLevel2Parser.HasKey("name")) {
-                    unescapeVal(nestedLevel2Parser.String("name"));
-                    writer.WriteArtist(unescapedBuf);
+                    writer.WriteArtist(UnescapeJsonInPlace(nestedLevel2Parser.String("name")));
                 }
 
                 if (nestedLevel2Parser.HasKey("id")) {
@@ -220,13 +218,11 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
                 nestedLevel2Parser.Parse(nestedParser.String("image"));
 
                 if (nestedLevel2Parser.HasKey("small")) {
-                    unescapeVal(nestedLevel2Parser.String("small"));
-                    writer.WriteArtwork(unescapedBuf);
+                    writer.WriteArtwork(UnescapeJsonInPlace(nestedLevel2Parser.String("small")));
                 }
 
                 if (nestedLevel2Parser.HasKey("large")) {
-                    unescapeVal(nestedLevel2Parser.String("large"));
-                    writer.WriteArtwork(unescapedBuf);
+                    writer.WriteArtwork(UnescapeJsonInPlace(nestedLevel2Parser.String("large")));
                 }
             }
         }

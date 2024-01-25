@@ -61,21 +61,12 @@ public:
 
     struct ParentMetadata
     {
-        ParentMetadata()
-            : title (128, 512)
-            , artist(128, 512)
-            , smallArtworkUri(1024) // Artwork URIs can be quite long, so just pre-allocate max size initially.
-            , largeArtworkUri(1024)
-            , artistId(32, 128)
-            , albumId (32, 128)
-        {}
-
-        Bwh title;
-        Bwh artist;
-        Bwh smallArtworkUri;
-        Bwh largeArtworkUri;
-        Bwh artistId;
-        Bwh albumId;
+        Brn title;
+        Brn artist;
+        Brn smallArtworkUri;
+        Brn largeArtworkUri;
+        Brn artistId;
+        Brn albumId;
     };
 
 public:
