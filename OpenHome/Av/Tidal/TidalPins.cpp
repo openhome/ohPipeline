@@ -58,6 +58,26 @@ static const TChar* kPinResponseAlbums = "albums";
 static const TChar* kPinResponseArtists = "artists";
 static const TChar* kPinResponsePlaylists = "playlists";
 
+// NOTE: Sometimes the TIDAL API just ignores the 'limit' and 'offset' parameters provided in the request and gives us anything
+//       Code below here ensures we correctly process the number of item(s) returned, not just what we expect to have been returned!
+//       Known effected endpoints: mixes/{id}/items - Always returns all mix items (~ 100) for artist & track radios
+static TUint GetRealFetchedItemCount(JsonParser& aParser, TUint expectedItemCount)
+{
+    if (aParser.HasKey("limit")) {
+        TUint actualReturnedNumberOfItems = static_cast<TUint>(aParser.Num("limit"));
+        if (actualReturnedNumberOfItems > expectedItemCount) {
+            Log::Print("TidalPins::GetRealFetchedItemCount - WARNING!! Asked for %u item(s) but TIDAL returned %u item(s). Processing all %u item(s), but this may take a while.\n",
+                       expectedItemCount,
+                       actualReturnedNumberOfItems,
+                       actualReturnedNumberOfItems);
+        }
+
+        return actualReturnedNumberOfItems;
+    }
+
+    return expectedItemCount;
+}
+
 
 TidalPins::TidalPins(Tidal& aTidal,
                      Environment& aEnv,
@@ -328,11 +348,14 @@ TBool TidalPins::LoadContainers(const Brx& aPath,
             if (!success) {
                 return false;
             }
-            UpdateOffset(total, end, true, shuffleLoadOrder, offset);
-            
+
             // response is list of containers, so need to loop through containers
             parser.Reset();
             parser.Parse(iJsonResponse.Buffer());
+
+            const TUint fetchedItemCount = GetRealFetchedItemCount(parser, kItemLimitPerRequest);
+            UpdateOffset(total, fetchedItemCount, end, true, shuffleLoadOrder, offset);
+            
             TUint idCount = 0;
             auto parserItems = JsonParserArray::Create(parser.String("items"));
             JsonParser parserItem;
@@ -426,10 +449,12 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
             if (!success) {
                 THROW(PinNothingToPlay);
             }
-            UpdateOffset(total, end, false, shuffleLoadOrder, offset);
 
             parser.Reset();
             parser.Parse(iJsonResponse.Buffer());
+
+            const TUint fetchedItemCount = GetRealFetchedItemCount(parser, kItemLimitPerRequest);
+            UpdateOffset(total, fetchedItemCount, end, true, shuffleLoadOrder, offset);
 
             if (parser.HasKey("items")) {
                 auto parserItems = JsonParserArray::Create(parser.String("items"));
@@ -560,9 +585,9 @@ TUint TidalPins::GetTotalItems(JsonParser& aParser,
     return total;
 }
 
-void TidalPins::UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TBool aShouldShuffleLoadOrder, TUint& aOffset)
+void TidalPins::UpdateOffset(TUint aTotalItems, TUint aFetchedCount, TUint aEndIndex, TBool aIsContainer, TBool aShouldShuffleLoadOrder, TUint& aOffset)
 {
-    aOffset += kItemLimitPerRequest;
+    aOffset += aFetchedCount;
     if (!aShouldShuffleLoadOrder) {
         return;
     }
