@@ -51,10 +51,10 @@ QobuzMetadata::QobuzMetadata(Media::TrackFactory& aTrackFactory)
 {
 }
 
-Media::Track* QobuzMetadata::TrackFromJson(TBool aHasParentMetadata, const ParentMetadata& aParentMetadata, const Brx& aTrackObj, EIdType aType)
+Media::Track* QobuzMetadata::TrackFromJson(TBool aHasParentMetadata, const ParentMetadata& aParentMetadata, const Brx& aTrackObj)
 {
     try {
-        ParseQobuzMetadata(aHasParentMetadata, aParentMetadata, aTrackObj, aType);
+        ParseQobuzMetadata(aHasParentMetadata, aParentMetadata, aTrackObj);
         return iTrackFactory.CreateTrack(iTrackUri, iMetaDataDidl);
     }
     catch (AssertionFailed&) {
@@ -127,7 +127,7 @@ TBool QobuzMetadata::TryParseParentMetadata(const OpenHome::Brx& aJsonResponse, 
     return true;
 }
 
-void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMetadata& aParentMetadata, const Brx& aTrackObj, EIdType /*aType*/)
+void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMetadata& aParentMetadata, const Brx& aTrackObj)
 {
     iTrackUri.Replace(Brx::Empty());
     iMetaDataDidl.Replace(Brx::Empty());
