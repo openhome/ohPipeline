@@ -106,7 +106,7 @@ void CodecDsdRaw::Process()
         DsdFiller::Push(iInputBuffer);
     }
     catch (CodecStreamEnded&) {
-        DsdFiller::Flush();
+        DsdFiller::Drain();
         throw; // caught by CodecController
     }
 }

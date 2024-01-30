@@ -14,8 +14,11 @@ namespace Media {
  * 
  * Clients implementing DsdFiller can specify an input and output block size, and DsdFiller
  * will fill its output buffer. It's guaranteed to call OutputDsd() with data which is exactly
- * divisible by the specified output block size. A call to Flush() constructs a full sample block
- * from any pending data by padding the remainder with DSD silence
+ * divisible by the specified output block size.
+ * 
+ * Flush() will output any whole sample blocks held in the output buffer
+ * 
+ * Drain() constructs a full sample block from any pending data by padding the remainder with DSD silence
  * 
  * Operations on the data are deferred to the implementor via WriteChunkDsd(), where clients
  * can define the specific operation to be done. (See CodecDsdRaw for an example of this - 
@@ -33,6 +36,7 @@ public:
 protected:
     void Push(const Brx& aData);
     void Flush();
+    void Drain();
 protected:
     virtual void WriteChunkDsd(const TByte*& aSrc, TByte*& aDest) = 0;
     virtual void OutputDsd(const Brx& aData) = 0;
