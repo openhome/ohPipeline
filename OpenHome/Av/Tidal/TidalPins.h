@@ -89,5 +89,22 @@ private:
     std::atomic<TBool> iInterrupted;
 };
 
+class TidalPinRefresher : public IPinMetadataRefresher
+{
+public:
+    TidalPinRefresher(Tidal& aTidal);
+    ~TidalPinRefresher();
+
+public: // IPinMetadataRefresher
+    const TChar* Mode() const override;
+    EPinMetadataStatus RefreshPinMetadata(const IPin& aPin, Pin& aUpdated) override;
+
+private:
+    EPinMetadataStatus TryRefreshMixPinMetadata(const IPin& aPin, Pin& aUpdated, const Brx& aPinPath, Tidal::AuthenticationConfig& aAuthConfig);
+
+private:
+    Tidal& iTidal;
+};
+
 };  // namespace Av
 };  // namespace OpenHome

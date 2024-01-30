@@ -673,3 +673,194 @@ TBool TidalPins::ShouldShuffleLoadOrder(TBool aPinShuffled, EShuffleMode aShuffl
             return true;
     }
 }
+
+
+// TIDALPinRefresher
+TidalPinRefresher::TidalPinRefresher(Tidal& aTidal)
+    : iTidal(aTidal)
+{ }
+
+TidalPinRefresher::~TidalPinRefresher()
+{ }
+
+
+const TChar* TidalPinRefresher::Mode() const
+{
+    return kPinModeTidal;
+}
+
+static Brn TryGetItemIdFromPinPath(const Brx& aPinPath, const Brx& aExpectedType)
+{
+    Brn segment(Brx::Empty());
+    Parser pathParser(aPinPath);
+
+    // Sadly, the pinPath is an escaped URL. We don't really want to have to unescape it, so we'll attempt to parse
+    // around the case everything is %age encoded.
+
+    // TIDAL URLs always start: https://<base_url>/<v1>/... With %age encoding, this means we want to skip the first 5
+    // '%' encoded characters. This should take us to the remainder of the URL
+    pathParser.NextNth(5, '%');
+    pathParser.Forward(2); // Consume the %age encoded HEX value for the trailing slash
+
+    // The next segments in TIDAL URLS are <item_type>/<id>....
+    segment.Set(pathParser.Next('%'));
+    if (segment != aExpectedType) {
+        LOG_ERROR(kMedia, "TidalPins::TryGetItemIdFromPinPath - Expected a type: %.*s, but found %.*s\n", PBUF(segment), PBUF(aExpectedType));
+        return Brx::Empty();
+    }
+
+    pathParser.Forward(2); // Comsume the %age encoded HEX value for the trailing slash
+
+    // Finally, this next segment should contain the item ID we're interested in.
+    segment.Set(pathParser.Next('%'));
+    return segment;
+}
+
+
+EPinMetadataStatus TidalPinRefresher::TryRefreshMixPinMetadata(const IPin& aPin, Pin& aUpdated, const Brx& aPinPath, Tidal::AuthenticationConfig& aAuthConfig)
+{
+    Brn mixId = TryGetItemIdFromPinPath(aPinPath, Brn("mixes"));
+    if (mixId.Bytes() == 0) {
+        LOG_ERROR(kMedia, "TidalPinRefresher::TryRefreshMixPinMetadata - Failed to extract TIDAL ID from pin path: %.*s\n", PBUF(aPinPath));
+        return EPinMetadataStatus::Error;
+    }
+
+    // There are 2 types of Mixes - "Daily" mixes and Artist/Track "Radios".
+    // TIDAL provides no API allowing us to confirm the status of Artist/Track "Radios". You ask for tracks and you get them back but have no idea if they
+    // are part of the radio/mix for the original track & artist.
+    // The "Daily" mixes can be accessed through the "Mix" endpoint. However, this doesn't include "My Daily Discovery" which can only be accessed using
+    // the endpoint below.
+
+    // NOTE: This endpoint doesn't respect the Limit & Offset params, but we must provide them to our internal TIDAL function call.
+    const TUint kRequestLimit = 15;
+    const TUint kRequestOffset = 0;
+    const Brn kMixRequestUrl("https://api.tidalhifi.com/v1/pages/my_collection_my_mixes?deviceType=PHONE");
+
+    WriterBwh jsonResponse(4096); // Mix response can be quite large
+
+    if (!iTidal.TryGetIdsByRequest(jsonResponse, kMixRequestUrl, kRequestLimit, kRequestOffset, aAuthConfig)) {
+        LOG_ERROR(kMedia, "TidalPinRefresher::TryRefreshMixPinMetadata - TIDAL API request failed to get user mixes!\n");
+        return EPinMetadataStatus::Unresolvable;
+    }
+
+    // The repsonse from the mix endpoint above is a pretty horrible mess of nested JSON objects, more so than their normal API endpoints
+    /* ....
+     * "rows" = JSON array of objects (only ever 1 of these...)
+     *     "modules" = JSON array of objects (only every 1 on of these...)
+     *         "pagedList" = JSON object, similar to a standard paged API response
+     *             "items" = JSON array of 'Mix' items
+     *                 [ MIX OBJECT]
+     *                 "title" = Mix Name
+     *                 "images" = JSON object of type 'Image'
+     *                     "SMALL|MEDIUM|LARGE" = Names of the available images
+     *                         "url" = Actual URL of the image
+     */
+
+    try {
+        JsonParser p;
+        Brn firstItem(Brx::Empty());
+
+        p.Parse(jsonResponse.Buffer());
+
+        if (p.HasKey("rows")) {
+            JsonParserArray ap = JsonParserArray::Create(p.String("rows"));
+            firstItem = ap.NextObject();
+            p.Parse(firstItem);
+            if (p.HasKey("modules")) {
+                ap = JsonParserArray::Create(p.String("modules"));
+                firstItem = ap.NextObject();
+                p.Parse(firstItem);
+                if (p.HasKey("pagedList")) {
+                    p.Parse(p.String("pagedList"));
+                    if (p.HasKey("items")) {
+                        Brn obj;
+                        ap = JsonParserArray::Create(p.String("items"));
+                        while(ap.TryNextObject(obj)) {
+                            // Phew - we should now have access to each of the user's Mixes now.
+                            p.Parse(obj);
+
+                            if (!p.HasKey("id")) {
+                                continue;
+                            }
+
+                            Brn jsonId = p.String("id");
+                            if (jsonId == mixId) {
+                                // Found matching mix. Really only the artwork will change, so we'll check that.
+                                // NOTE: We only care about the "SMALL" image as this is what CPs set for the pin.
+                                p.Parse(p.String("images"));
+                                p.Parse(p.String("SMALL"));
+                                Brn artwork = p.String("url");
+
+                                // Only update if the artwork has changed!
+                                if (artwork != aPin.ArtworkUri()) {
+                                    aUpdated.TryUpdate(aPin.Mode(),
+                                                       aPin.Type(),
+                                                       aPin.Uri(),
+                                                       aPin.Title(),
+                                                       aPin.Description(),
+                                                       artwork,
+                                                       aPin.Shuffle());
+                                    return EPinMetadataStatus::Changed;
+                                }
+                                else {
+                                    return EPinMetadataStatus::Same;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch (const AssertionFailed&) {
+        throw;
+    }
+
+    catch (Exception& ex) {
+        LOG_ERROR(kMedia, "TidalPinRefresher::TryRefreshMixPinMetadata - '%s' error occured when trying to refresh metadata.\n", ex.Message());
+        return EPinMetadataStatus::Error;
+    }
+
+    // By this point we'll have to assume it's an artist or track "Radio" mix where we can't confirm if it has changed.
+    return EPinMetadataStatus::Same;
+}
+
+
+
+EPinMetadataStatus TidalPinRefresher::RefreshPinMetadata(const IPin& aPin, Pin& aUpdated)
+{
+    if (aPin.Type() != Brn(kPinTypeMix)) {
+        return EPinMetadataStatus::Same; // We only support checking the status of Mix pins
+    }
+
+    PinUri pinHelper(aPin);
+
+    // First, need to grab bits and pieces from the pin URI that we'll require to refresh this item...
+    Brn path;
+    Brn version;
+    Brn tokenId;
+
+    const TBool hasPath    = pinHelper.TryGetValue(kPinKeyPath, path);
+    const TBool hasVersion = pinHelper.TryGetValue(kPinKeyVersion, version);
+    const TBool hasTokenId = pinHelper.TryGetValue(kPinKeyTokenId, tokenId);
+    const TBool isV2       = hasVersion && version == Brn("2");
+
+    // For TIDAL pins, we'll enforce that only V2+ pins can be refreshed, as these contain an OAUTH token ID.
+    // This is required because we can refresh 'Mix' types, which are specific to the user's account ID provided as part
+    // of the OAuth token!
+    if (!hasPath || !isV2 || !hasTokenId)
+    {
+        LOG_ERROR(kMedia, "TidalPinRefresher::RefreshPinMetadata - Pin has a required parameter missing.\n");
+        return EPinMetadataStatus::Error; // Can't resolve this pin as we don't have the correct information.
+    }
+
+    Tidal::AuthenticationConfig authConfig =
+        {
+            false,     //fallbackIfTokenNotPresent
+            tokenId    //oauthTokenId
+        };
+
+    return TryRefreshMixPinMetadata(aPin, aUpdated, path, authConfig);
+}
+
+

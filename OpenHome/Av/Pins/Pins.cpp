@@ -11,6 +11,7 @@
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Private/Converter.h>
+#include <OpenHome/Media/Debug.h>
 
 #include <algorithm>
 #include <iterator>
@@ -425,8 +426,9 @@ inline IPinsAccount& PinsManager::AccountSetter()
     return *iAccountSetter;
 }
 
-PinsManager::PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevice)
-    : iStore(aStore)
+PinsManager::PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevice, IThreadPool& aThreadPool, ITimerFactory& aTimerFactory, TUint aStartupRefreshDelay, TUint aRefreshPeriod)
+    : iRefreshPeriod(aRefreshPeriod)
+    , iStore(aStore)
     , iLock("Pin1")
     , iLockInvoke("Pin2")
     , iLockInvoker("Pin3")
@@ -437,8 +439,13 @@ PinsManager::PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevic
     , iAccountSetter(nullptr)
     , iPinSetObserver(nullptr)
     , iInvoke(iIdProvider)
+    , iUpdated(iIdProvider)
     , iCurrent(nullptr)
 {
+    iRefreshTimer = aTimerFactory.CreateTimer(MakeFunctor(*this, &PinsManager::RefreshAll), "PinsManager-RefreshTask");
+    iRefreshTaskHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &PinsManager::RefreshTask), "Pins-RefreshTask", ThreadPoolPriority::Low);
+
+    iRefreshTimer->FireIn(aStartupRefreshDelay);
 }
 
 PinsManager::~PinsManager()
@@ -449,10 +456,16 @@ PinsManager::~PinsManager()
             iCurrent->Cancel();
         }
     }
+
     iSemInvokerComplete.Wait();
     for (auto kvp : iInvokers) {
         delete kvp.second;
     }
+
+    iRefreshTaskHandle->Cancel();
+    iRefreshTaskHandle->Destroy();
+
+    delete iRefreshTimer;
 }
 
 void PinsManager::SetAccount(IPinsAccount& aAccount, TUint aCount)
@@ -479,6 +492,14 @@ void PinsManager::Add(IPinInvoker* aInvoker)
     if (iObserver != nullptr) {
         iObserver->NotifyModeAdded(mode);
     }
+}
+
+void PinsManager::Add(IPinMetadataRefresher* aRefresher)
+{
+    AutoMutex m(iLock);
+    Brn mode(aRefresher->Mode());
+    ASSERT(iRefreshers.find(mode) == iRefreshers.end());
+    iRefreshers.insert(std::pair<Brn, IPinMetadataRefresher*>(mode, aRefresher));
 }
 
 void PinsManager::SetObserver(IPinsObserver& aObserver)
@@ -675,6 +696,9 @@ void PinsManager::BeginInvoke()
             THROW(PinModeNotSupported);
         }
         invoker = it->second;
+
+        // Enqueue a request to refresh the pin metadata
+        iRefreshRequests.push(iInvoke.Id());
     }
     {
         AutoMutex __(iLockInvoker);
@@ -684,6 +708,7 @@ void PinsManager::BeginInvoke()
     }
     iSemInvokerComplete.Wait();
     iCurrent = invoker;
+
     Functor complete = MakeFunctor(*this, &PinsManager::NotifyInvocationCompleted);
     if (iPinSetObserver != nullptr) {
         TUint index = 0;
@@ -692,6 +717,9 @@ void PinsManager::BeginInvoke()
         }
     }
     iCurrent->BeginInvoke(iInvoke, complete);
+
+    // Fire the refresh handle to run in the background
+    iRefreshTaskHandle->TrySchedule();
 }
 
 void PinsManager::NotifyInvocationCompleted()
@@ -717,6 +745,135 @@ TBool PinsManager::TryGetIndexFromId(TUint aId, TUint& aIndex)
     }
     return true;
 }
+
+void PinsManager::RefreshAll()
+{
+    {
+        AutoMutex m(iLock);
+        for(TUint id : iPinsDevice.IdArray()) {
+            if (id != IPinIdProvider::kIdEmpty) {
+                iRefreshRequests.push(id);
+            }
+        }
+        for(TUint id: iPinsAccount.IdArray()) {
+            if (id != IPinIdProvider::kIdEmpty) {
+                iRefreshRequests.push(id);
+            }
+        }
+    }
+
+    iRefreshTaskHandle->TrySchedule();
+
+    iRefreshTimer->Cancel();
+    iRefreshTimer->FireIn(iRefreshPeriod);
+}
+
+void PinsManager::RefreshTask()
+{
+    TBool scheduleAgain = true;
+    {
+        AutoMutex m(iLock);
+        scheduleAgain = DoRefreshPinsLocked();
+    }
+
+    if (scheduleAgain) {
+        iRefreshTaskHandle->TrySchedule();
+    }
+}
+
+TBool PinsManager::DoRefreshPinsLocked()
+{
+    static const TBool kStopRefreshing    = false;
+    static const TBool kTryRefreshNextPin = true;
+
+    if (iRefreshRequests.empty()) {
+        LOG_TRACE(kMedia, "PinsManager::RefreshPins - No more work required.\n");
+        return kStopRefreshing;
+    }
+
+    TUint pinIndex  = 0;
+    const IPin* pin = nullptr;
+
+    // Collect the ID of the pin we're hoping to refresh...
+    TUint pinIdToRefresh = iRefreshRequests.front();
+    iRefreshRequests.pop();
+
+    // Attempt to resolve this to a stored pin...
+    if (IsAccountId(pinIdToRefresh)) {
+        if (iPinsAccount.Contains(pinIdToRefresh)) {
+            pin = &iPinsAccount.PinFromId(pinIdToRefresh);
+            pinIndex = iPinsAccount.IndexFromId(pinIdToRefresh);
+        }
+    }
+    else {
+        if (iPinsDevice.Contains(pinIdToRefresh)) {
+            pin = &iPinsDevice.PinFromId(pinIdToRefresh);
+            pinIndex = iPinsDevice.IndexFromId(pinIdToRefresh);
+        }
+    }
+
+    // If the pin can't be found (likely updated before we've had a chance to process things) we'll try again with the next one
+    if (pin == nullptr) {
+        // Pin can't be found.
+        LOG_ERROR(kMedia, "PinsManager::RefreshTask - Requested refresh on ID: %u, but tht pin couldn't be found.\n", pinIdToRefresh);
+        return kTryRefreshNextPin;
+    }
+
+    IPinMetadataRefresher* refresher = nullptr;
+
+    Brn mode(pin->Mode());
+    if (mode.Bytes() == 0) {
+        LOG_ERROR(kMedia, "PinsManager::RefreshTask - ID: %u - No mode provided\n", pinIdToRefresh);
+        return kTryRefreshNextPin;
+    }
+    auto it = iRefreshers.find(mode);
+    if (it == iRefreshers.end()) {
+        LOG_INFO(kMedia, "PinsManager::RefreshTask - No refresher available for pin ID: %u (Mode: %.*s)\n", pinIdToRefresh, PBUF(mode));
+        return kTryRefreshNextPin;
+    }
+    refresher = it->second;
+
+    // If we've reached this point, the refresher MUST be set
+    ASSERT(refresher);
+
+    // Clear any previous data from the updated pin and request our refresher does the job...
+    iUpdated.Clear();
+    EPinMetadataStatus result = refresher->RefreshPinMetadata(*pin, iUpdated);
+    switch(result) {
+        case EPinMetadataStatus::Same: {
+            LOG_TRACE(kMedia, "PinsManager::RefreshTask - ID: %u : Refresher indicated that the metadata is unchanged.\n", pinIdToRefresh);
+            break;
+        }
+        case EPinMetadataStatus::Changed: {
+            LOG_INFO(kMedia, "PinsManager::RefreshTask - ID: %u : Refresher indicated that the metadata has changed.\n", pinIdToRefresh);
+
+            // NOTE: Can't call 'Set' directly here as that locks itself internally. Without this we'll end up with a recursive lock being taken.
+            if (IsAccountId(pinIdToRefresh)) {
+                AccountSetter().Set(pinIndex, iUpdated.Mode(), iUpdated.Type(), iUpdated.Uri(), iUpdated.Title(), iUpdated.Description(), iUpdated.ArtworkUri(), iUpdated.Shuffle());
+            }
+            else {
+                if (iPinsDevice.Set(pinIndex, iUpdated.Mode(), iUpdated.Type(), iUpdated.Uri(), iUpdated.Title(), iUpdated.Description(), iUpdated.ArtworkUri(), iUpdated.Shuffle())) {
+                    if (iObserver != nullptr) {
+                        iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
+                    }
+                }
+            }
+            break;
+        }
+        case EPinMetadataStatus::Unresolvable: {
+            LOG_ERROR(kMedia, "PinsManager::RefreshTask - ID: %u : Refresher indicated that metadata could not be resolved. Perhaps the pinned item is no longer available?\n", pinIdToRefresh);
+            break;
+        }
+        case EPinMetadataStatus::Error: {
+            LOG_ERROR(kMedia, "PinsManager::RefreshTask - ID: %u : Refresher encountered an error when trying to refresh the pin.\n", pinIdToRefresh);
+            break;
+        }
+    }
+
+    return kTryRefreshNextPin;
+}
+
+
 
 static const Brn TryFindQueryValue(const Brx& aUri, const Brx& queryKey)
 {

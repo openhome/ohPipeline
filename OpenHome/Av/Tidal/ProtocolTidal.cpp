@@ -149,6 +149,9 @@ ProtocolTidal::ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::Configu
     if (aPinsInvocable.Ok()) {
         auto pins = new TidalPins(*iTidal, aEnv, aDevice, aTrackFactory, aCpStack, aThreadPool);
         aPinsInvocable.Unwrap().Add(pins);
+
+        auto refresher = new TidalPinRefresher(*iTidal);
+        aPinsInvocable.Unwrap().Add(refresher);
     }
 }
 
