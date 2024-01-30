@@ -64,6 +64,12 @@ void DsdFiller::Drain()
     Flush();
 }
 
+void DsdFiller::Reset()
+{
+    iOutputBuffer.SetBytes(0);
+    iPending.SetBytes(0);
+}
+
 void DsdFiller::WriteBlocks(const Brx& aData)
 {
     ASSERT(aData.Bytes() % iBlockBytesInput == 0); // Expect whole sample blocks at this point

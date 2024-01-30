@@ -37,6 +37,7 @@ protected:
     void Push(const Brx& aData);
     void Flush();
     void Drain();
+    void Reset();
 protected:
     virtual void WriteChunkDsd(const TByte*& aSrc, TByte*& aDest) = 0;
     virtual void OutputDsd(const Brx& aData) = 0;
