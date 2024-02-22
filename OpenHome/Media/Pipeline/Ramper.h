@@ -43,6 +43,7 @@ private:
     TUint iRampJiffies;
     TUint iRemainingRampSize;
     TUint iCurrentRampValue;
+    TUint iSampleRate;
     MsgQueueLite iQueue;
 };
 
