@@ -120,7 +120,7 @@ Media::ProtocolStreamResult ProtocolRaat::Stream(const Brx& aUri)
             catch (RaatReaderStopped&) {}
 
             // Flush
-            DsdFiller::Flush(); // safe to call regardless of format
+            DsdFiller::Drain(); // safe to call regardless of format
             iSupply->Flush();
 
             TUint nextFlushId;

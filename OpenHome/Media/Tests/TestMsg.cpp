@@ -969,12 +969,12 @@ void SuiteMsgAudio::Test()
     const TUint minSamples = 16; // assumes 2 channels
     const TUint minJiffies = minSamples * jps;
     jiffies = jps;
-    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords, 2);
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords, 0);
     TEST(jiffies == msg->Jiffies());
     TEST(jiffies == minJiffies);
     msg->RemoveRef();
     jiffies = jps * (minSamples + 1);
-    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords, 2);
+    msg = iMsgFactory->CreateMsgSilenceDsd(jiffies, sr, 2, sampleBlockWords, 0);
     TEST(jiffies == msg->Jiffies());
     TEST(jiffies == minJiffies);
     msg->RemoveRef();

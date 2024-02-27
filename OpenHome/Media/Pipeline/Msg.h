@@ -199,6 +199,7 @@ public:
     static TUint ToBytesSampleBlock(TUint& aJiffies, TUint aJiffiesPerSample, TUint aNumChannels, TUint aBitsPerSubsample, TUint aSamplesPerBlock);
     static void RoundDown(TUint& aJiffies, TUint aSampleRate);
     static void RoundUp(TUint& aJiffies, TUint aSampleRate);
+    static void RoundDownNonZeroSampleBlock(TUint& aJiffies, TUint aSampleBlockJiffies);
     static TUint ToSongcastTime(TUint aJiffies, TUint aSampleRate);
     static TUint64 FromSongcastTime(TUint64 aSongcastTime, TUint aSampleRate);
     static inline TUint ToMs(TUint aJiffies);
@@ -1014,17 +1015,13 @@ private: // from MsgAudio
     void SplitCompleted(MsgAudio& aRemaining) override;
 private: // from Msg
     Msg* Process(IMsgProcessor& aProcessor) override;
-private: // FIXME - MsgSilence should be split into MsgSilencePcm and MsgSilenceDsd
-    TUint JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesPerSampleBlockPlayable) const;
-    TUint SamplesPerBlock(TUint aBlockWords) const;
-    TUint SizeJiffiesTotal() const;
 private:
     Allocator<MsgPlayableSilence>* iAllocatorPlayablePcm;
     Allocator<MsgPlayableSilenceDsd>* iAllocatorPlayableDsd;
     TUint iSampleBlockWords;
-    TUint iBlockWordsNoPad;
-    TUint iSizeTotalJiffies;
-    TUint iJiffiesNonPlayable;
+    TUint iSampleBlockJiffiesTotal;
+    TUint iSampleBlockJiffiesPlayable;
+    TUint iSizeJiffiesTotal;
 };
 
 class IPcmProcessor;
