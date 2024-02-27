@@ -74,7 +74,7 @@ private:
 class RaatTrackInfo
 {
 private:
-    static const TUint kDefaultInfoSize = 128;
+    static const TUint kDefaultInfoSize = 256;
 public:
     enum class EState {
         ePlaying,
@@ -91,9 +91,9 @@ public:
     {}
 public:
     void SetState(EState aState) { iState = aState; }
-    void SetTitle(const Brx& aTitle) { iTitle.Replace(aTitle); }
-    void SetSubtitle(const Brx& aSubtitle) { iSubtitle.Replace(aSubtitle); }
-    void SetSubSubtitle(const Brx& aSubSubtitle) { iSubSubtitle.Replace(aSubSubtitle); }
+    void SetTitle(const Brx& aTitle) { ReplaceCrop(aTitle, iTitle); }
+    void SetSubtitle(const Brx& aSubtitle) { ReplaceCrop(aSubtitle, iSubtitle); }
+    void SetSubSubtitle(const Brx& aSubSubtitle) { ReplaceCrop(aSubSubtitle, iSubSubtitle); }
     void SetDurationSecs(TUint aDurationSecs) { iDurationSecs = aDurationSecs; }
     void SetPositionSecs(TUint aPositionSecs) { iPositionSecs = aPositionSecs; }
 public:
@@ -103,6 +103,8 @@ public:
     const Brx& GetSubSubtitle() const { return iSubSubtitle; }
     TUint GetDurationSecs() const { return iDurationSecs; }
     TUint GetPositionSecs() const { return iPositionSecs; }
+private:
+    static void ReplaceCrop(const Brx& aSrc, Bwx& aDest);
 private:
     EState iState;
     TUint iDurationSecs;
