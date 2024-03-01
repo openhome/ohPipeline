@@ -64,6 +64,7 @@ const Brn DIDLLite::kTagOriginalTrackNumber("upnp:originalTrackNumber");
 const Brn DIDLLite::kItemTypeTrack("object.item.audioItem.musicTrack");
 const Brn DIDLLite::kItemTypeAudioItem("object.item.audioItem");
 
+const Brn DIDLLite::kNameSpaceLinn("https://linn.co.uk");
 
 // WriterDIDLXml
 const Brn WriterDIDLXml::kNsDc("dc=\"http://purl.org/dc/elements/1.1/\"");
@@ -397,6 +398,16 @@ void WriterDIDLLite::WriteEnd()
 void WriterDIDLLite::WriteArtwork(const Brx& aArtwork)
 {
     iWriter.TryWriteTag(DIDLLite::kTagArtwork, aArtwork);
+}
+
+void WriterDIDLLite::WriteCustomMetadata(const TChar* aId, const Brx& aNamespace, const Brx& aValue)
+{
+    iWriter.TryWrite("<desc");
+    iWriter.TryWriteAttribute("id", Brn(aId));
+    iWriter.TryWriteAttribute("nameSpace", aNamespace);
+    iWriter.TryWrite(">");
+    iWriter.TryWrite(aValue);
+    iWriter.TryWrite("</desc>");
 }
 
 

@@ -61,30 +61,22 @@ public:
 
     struct ParentMetadata
     {
-        static const TUint kInitialSize = 256;
-        static const TUint kMaxSize = 1024;
-
-        ParentMetadata()
-            : title(kInitialSize, kMaxSize)
-            , artist(kInitialSize, kMaxSize)
-            , smallArtworkUri(kMaxSize) // Artwork URIscan be quite long, so just pre-allocate max size initially.
-            , largeArtworkUri(kMaxSize)
-        {}
-
-        Bwh title;
-        Bwh artist;
-        Bwh smallArtworkUri;
-        Bwh largeArtworkUri;
+        Brn title;
+        Brn artist;
+        Brn smallArtworkUri;
+        Brn largeArtworkUri;
+        Brn artistId;
+        Brn albumId;
     };
 
 public:
     QobuzMetadata(OpenHome::Media::TrackFactory& aTrackFactory);
     TBool TryParseParentMetadata(const OpenHome::Brx& aJsonResponse, ParentMetadata& aParentMetadata);
-    OpenHome::Media::Track* TrackFromJson(TBool aHasParentMetadata, const ParentMetadata& aJsonResponse, const OpenHome::Brx& aTrackObj, EIdType aType);
+    OpenHome::Media::Track* TrackFromJson(TBool aHasParentMetadata, const ParentMetadata& aJsonResponse, const OpenHome::Brx& aTrackObj);
     static const Brx& IdTypeToString(EIdType aType);
     static EIdType StringToIdType(const Brx& aString);
 private:
-    void ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMetadata& aJsonResponse, const OpenHome::Brx& aTrackObj, EIdType aType);
+    void ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMetadata& aJsonResponse, const OpenHome::Brx& aTrackObj);
 private:
     OpenHome::Media::TrackFactory& iTrackFactory;
     OpenHome::Media::BwsTrackUri iTrackUri;

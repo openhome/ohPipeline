@@ -58,6 +58,18 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
+// RaatTrackInfo
+
+void RaatTrackInfo::ReplaceCrop(const Brx& aSrc, Bwx& aDest)
+{ // static
+    Brn src(aSrc);
+    if (aSrc.Bytes() > aDest.MaxBytes()) {
+        src.Set(aSrc.Ptr(), aDest.MaxBytes());
+    }
+    aDest.ReplaceThrow(src);
+}
+
+
 // RaatTransportStatusParser
 
 const Brn RaatTransportStatusParser::kLoopDisabled("disabled");

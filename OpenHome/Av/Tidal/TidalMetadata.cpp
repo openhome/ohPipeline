@@ -137,6 +137,10 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata,
             writer.WriteAlbum(unescapedBuf);
         }
 
+        if (nestedParser.HasKey("id")) {
+            writer.WriteCustomMetadata("albumId", DIDLLite::kNameSpaceLinn, nestedParser.String("id"));
+        }
+
         TryWriteArtwork(writer, nestedParser);
     }
 
@@ -145,6 +149,10 @@ void TidalMetadata::ParseTidalMetadata(const Brx& aMetadata,
         if (nestedParser.HasKey("name")) {
             unescapeVal(nestedParser.String("name"));
             writer.WriteArtist(unescapedBuf);
+        }
+
+        if (nestedParser.HasKey("id")) {
+            writer.WriteCustomMetadata("artistId", DIDLLite::kNameSpaceLinn, nestedParser.String("id"));
         }
     }
 
