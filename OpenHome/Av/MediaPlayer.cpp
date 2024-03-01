@@ -235,7 +235,8 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
 
     TUint maxDevicePins;
     if (aInitParams->PinsEnabled(maxDevicePins)) {
-        iPinsManager = new PinsManager(aReadWriteStore, maxDevicePins);
+        TimerFactory tf(iDvStack.Env());
+        iPinsManager = new PinsManager(aReadWriteStore, maxDevicePins, *iThreadPool, tf);
         iProviderPins = new ProviderPins(aDevice, aDvStack.Env(), *iPinsManager);
         iProduct->AddAttribute("Pins");
 

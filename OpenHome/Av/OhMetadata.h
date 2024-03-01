@@ -29,6 +29,8 @@ public:
 
     static const Brn kItemTypeTrack;
     static const Brn kItemTypeAudioItem;
+
+    static const Brn kNameSpaceLinn; // Used for WriterDIDLLite::WriteCustomMetadata
 };
 
 enum class EDurationResolution
@@ -111,6 +113,7 @@ public:
     void WriteGenre(const Brx& aGenre);
     void WriteArtist(const Brx& aArtist); // TODO: This could be expanded to allow multiple calls accepting 'Roles'
     void WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aStreamingDetails, const Brx& aUri);
+    void WriteCustomMetadata(const TChar* aId, const Brx& aNamespace, const Brx& aValue); // This is used to write CP specific extensions encoded using the <desc> tag with a custom namespace
     void WriteEnd();
 
     // The following methods can be called multiple times

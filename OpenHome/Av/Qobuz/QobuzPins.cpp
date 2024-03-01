@@ -390,7 +390,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                 auto parserItems = JsonParserArray::Create(parser.String("items"));
                 Brn obj;
                 while(parserItems.TryNextObject(obj)) {
-                    track = iQobuzMetadata.TrackFromJson(hasParentMetadata, iParentMetadata, obj, aIdType);
+                    track = iQobuzMetadata.TrackFromJson(hasParentMetadata, iParentMetadata, obj);
                     if (track != nullptr) {
                         aCount++;
                         iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);
@@ -406,7 +406,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                 }
             }
             else {
-                track = iQobuzMetadata.TrackFromJson(hasParentMetadata, iParentMetadata, iJsonResponse.Buffer(), aIdType);
+                track = iQobuzMetadata.TrackFromJson(hasParentMetadata, iParentMetadata, iJsonResponse.Buffer());
                 if (track != nullptr) {
                     aCount++;
                     iCpPlaylist->SyncInsert(currId, (*track).Uri(), (*track).MetaData(), newId);

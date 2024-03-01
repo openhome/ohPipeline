@@ -4,22 +4,25 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Functor.h>
+#include <OpenHome/ThreadPool.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
+#include <OpenHome/Private/Timer.h>
 
 #include <map>
+#include <queue>
 #include <vector>
 
 EXCEPTION(PinError)
-EXCEPTION(PinInvokeError);
+EXCEPTION(PinInvokeError)
 EXCEPTION(PinIndexOutOfRange)
 EXCEPTION(PinIdNotFound)
-EXCEPTION(PinModeNotSupported);
-EXCEPTION(PinTypeNotSupported);
-EXCEPTION(PinUriError);
-EXCEPTION(PinNothingToPlay);
-EXCEPTION(PinUriMissingRequiredParameter);
-EXCEPTION(PinInterrupted);
+EXCEPTION(PinModeNotSupported)
+EXCEPTION(PinTypeNotSupported)
+EXCEPTION(PinUriError)
+EXCEPTION(PinNothingToPlay)
+EXCEPTION(PinUriMissingRequiredParameter)
+EXCEPTION(PinInterrupted)
 
 namespace OpenHome {
     class WriterJsonObject;
@@ -206,11 +209,28 @@ public:
     virtual TBool SupportsVersion(TUint version) const = 0;
 };
 
+enum class EPinMetadataStatus
+{
+    Same,         // Metadata is unchanged
+    Changed,      // Something about the metadata has changed
+    Unresolvable, // The pinned item could not be resolved to an item
+    Error,        // Something went wrong when trying to get the metadata for an item
+};
+
+class IPinMetadataRefresher
+{
+public:
+    virtual ~IPinMetadataRefresher() {}
+    virtual const TChar* Mode() const = 0;
+    virtual EPinMetadataStatus RefreshPinMetadata(const IPin& aPin, Pin& aChangedPin) = 0;
+};
+
 class IPinsInvocable
 {
 public:
     virtual ~IPinsInvocable() {}
     virtual void Add(IPinInvoker* aInvoker) = 0; // transfers ownership
+    virtual void Add(IPinMetadataRefresher* aRefresher) = 0; // transfers ownership
 };
 
 class IPinsAccountStore
@@ -240,14 +260,23 @@ class PinsManager : public IPinsManager
                   , public IPinSetObservable
                   , private IPinsAccountObserver
 {
+    static const TUint kStartupRefreshDelay = 1000 * 60 * 5; // 5mins
+    static const TUint kRefreshPeriod       = 1000 * 60 * 60 * 24; // 24hours
+
     friend class SuitePinsManager;
 public:
-    PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevice);
+    PinsManager(Configuration::IStoreReadWrite& aStore,
+                TUint aMaxDevice,
+                IThreadPool& aThreadPool,
+                ITimerFactory& aTimerFactory,
+                TUint aStartupRefreshDelay = kStartupRefreshDelay,
+                TUint aRefreshPeriod = kRefreshPeriod);
     ~PinsManager();
 public: // from IPinsAccountStore
     void SetAccount(IPinsAccount& aAccount, TUint aCount) override;
 public: // from IPinsInvocable
     void Add(IPinInvoker* aInvoker) override;
+    void Add(IPinMetadataRefresher* aRefresher) override;
 private: // from IPinsManager
     void SetObserver(IPinsObserver& aObserver) override;
     void Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
@@ -280,7 +309,11 @@ private:
     void NotifyInvocationCompleted();
     TUint TryParsePinUriVersion(const Brx&) const;
     TBool CheckPinUriHasTokenId(const Brx&) const;
+    void RefreshAll();
+    void RefreshTask();
+    TBool DoRefreshPinsLocked();
 private:
+    const TUint iRefreshPeriod;
     Configuration::IStoreReadWrite& iStore;
     Mutex iLock;
     Mutex iLockInvoke;
@@ -293,8 +326,13 @@ private:
     IPinsAccount* iAccountSetter;
     IPinSetObserver* iPinSetObserver;
     std::map<Brn, IPinInvoker*, BufferCmp> iInvokers;
+    std::map<Brn, IPinMetadataRefresher*, BufferCmp> iRefreshers;
     Pin iInvoke;
+    Pin iUpdated;
     IPinInvoker* iCurrent;
+    IThreadPoolHandle* iRefreshTaskHandle;
+    std::queue<TUint> iRefreshRequests;
+    ITimer* iRefreshTimer;
 };
 
 class AutoPinComplete
@@ -313,7 +351,7 @@ public:
     PinUri(const IPin& aPin);
     ~PinUri();
     const Brx& Mode() const;
-    const Brx& Type() const ;
+    const Brx& Type() const;
     TBool TryGetValue(const TChar* aKey, Brn& aValue) const;
     TBool TryGetValue(const Brx& aKey, Brn& aValue) const;
     TBool TryGetValue(const TChar* aKey, Bwx& aValue) const;

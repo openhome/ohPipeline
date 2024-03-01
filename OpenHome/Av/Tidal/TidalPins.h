@@ -68,7 +68,7 @@ private:
     TUint LoadTracksById(const Brx& aId, TidalMetadata::EIdType aIdType, TUint aIsContainer, TUint& aCount, TBool aPinShuffled, EShuffleMode aShuffleMode, const Tidal::AuthenticationConfig& aAuthConfig);
 private: // helpers
     TUint GetTotalItems(JsonParser& aParser, const Brx& aId, TidalMetadata::EIdType aIdType, TBool aIsContainer, TBool aShouldShuffleLoadOrder, TUint& aStartIndex, TUint& aEndIndex, const Tidal::AuthenticationConfig& aAuthConfig);
-    void UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TBool aShouldShuffleLoadOrder, TUint& aOffset);
+    void UpdateOffset(TUint aTotalItems, TUint aFetchedCount, TUint aEndIndex, TBool aIsContainer, TBool aShouldShuffleLoadOrder, TUint& aOffset);
     TBool IsValidId(const Brx& aRequest, TidalMetadata::EIdType aIdType);
     void InitPlaylist(TBool aShuffle);
     EShuffleMode GetShuffleMode(PinUri& aPinUri);
@@ -87,6 +87,23 @@ private:
     Pin iPin;
     Environment& iEnv;
     std::atomic<TBool> iInterrupted;
+};
+
+class TidalPinRefresher : public IPinMetadataRefresher
+{
+public:
+    TidalPinRefresher(Tidal& aTidal);
+    ~TidalPinRefresher();
+
+public: // IPinMetadataRefresher
+    const TChar* Mode() const override;
+    EPinMetadataStatus RefreshPinMetadata(const IPin& aPin, Pin& aUpdated) override;
+
+private:
+    EPinMetadataStatus TryRefreshMixPinMetadata(const IPin& aPin, Pin& aUpdated, const Brx& aPinPath, Tidal::AuthenticationConfig& aAuthConfig);
+
+private:
+    Tidal& iTidal;
 };
 
 };  // namespace Av

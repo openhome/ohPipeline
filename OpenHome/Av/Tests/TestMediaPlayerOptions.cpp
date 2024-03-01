@@ -7,10 +7,6 @@ using namespace OpenHome;
 using namespace OpenHome::TestFramework;
 using namespace OpenHome::Av::Test;
 
-// NOTE: We set this to a suitably high number as default so that internally TIDAL clamp to the highest available, unless otherwise specified
-//       It's really unlikely that TIDAL will offer that many qualities in the future, but we can revisit this in the future if it does
-static const TUint kDefaultTidalMaxAudioQuality = 13043431;
-
 TestMediaPlayerOptions::TestMediaPlayerOptions()
     : iOptionRoom("-r", "--room", Brn(""), "room the Product service will report")
     , iOptionName("-n", "--name", Brn("SoftPlayer"), "Product name")
@@ -27,7 +23,6 @@ TestMediaPlayerOptions::TestMediaPlayerOptions()
     , iOptionOdp("", "--odp", 0, "Port for ODP server")
     , iOptionWebUi("", "--webui", 0, "Port for Web UI server")
     , iOptionShell("", "--shell", 0, "Port for shell")
-    , iOptionTidalMaxAudioQuality("", "--tidalMaxAudioQuality", kDefaultTidalMaxAudioQuality, "Default audio quality for TIDAL streaming. 0 = LOSSY ... 3 = HI_RES")
 {
     iParser.AddOption(&iOptionRoom);
     iParser.AddOption(&iOptionName);
@@ -44,7 +39,6 @@ TestMediaPlayerOptions::TestMediaPlayerOptions()
     iParser.AddOption(&iOptionOdp);
     iParser.AddOption(&iOptionWebUi);
     iParser.AddOption(&iOptionShell);
-    iParser.AddOption(&iOptionTidalMaxAudioQuality);
 }
 
 void TestMediaPlayerOptions::AddOption(Option* aOption)
@@ -130,9 +124,4 @@ const OptionUint& TestMediaPlayerOptions::OptionWebUi() const
 const OptionUint& TestMediaPlayerOptions::Shell() const
 {
     return iOptionShell;
-}
-
-const OptionUint& TestMediaPlayerOptions::TidalMaxAudioQuality() const
-{
-    return iOptionTidalMaxAudioQuality;
 }

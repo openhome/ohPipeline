@@ -42,18 +42,30 @@ void DsdFiller::Push(const Brx& aData)
 
 void DsdFiller::Flush()
 {
-    if (iPending.Bytes() == 0) {
+    if (iOutputBuffer.Bytes() == 0) {
         return;
     }
-
-    // iPending.MaxBytes() will be exactly iBlockBytesInput, so can safely fill
-    // the remainder with silence to construct a full input sample block
-    iPending.SetBytes(iPending.MaxBytes());
-    for (TUint i = iPending.Bytes(); i < iPending.MaxBytes(); i++) {
-        iPending[i] = kSilenceByteDsd;
-    }
-    WriteBlocks(iPending);
     OutputDsd(iOutputBuffer);
+    iOutputBuffer.SetBytes(0);
+}
+
+void DsdFiller::Drain()
+{
+    if (iPending.Bytes() != 0) {
+        // iPending.MaxBytes() will be exactly iBlockBytesInput, so can safely fill
+        // the remainder with silence to construct a full input sample block
+        iPending.SetBytes(iPending.MaxBytes());
+        for (TUint i = iPending.Bytes(); i < iPending.MaxBytes(); i++) {
+            iPending[i] = kSilenceByteDsd;
+        }
+        WriteBlocks(iPending);
+        iPending.SetBytes(0);
+    }
+    Flush();
+}
+
+void DsdFiller::Reset()
+{
     iOutputBuffer.SetBytes(0);
     iPending.SetBytes(0);
 }
@@ -81,8 +93,7 @@ void DsdFiller::WriteBlocks(const Brx& aData)
         outputBlocks -= blocks;
 
         if (outputBlocks == 0) {
-            OutputDsd(iOutputBuffer);
-            iOutputBuffer.SetBytes(0);
+            Flush();
         }
     }
 }

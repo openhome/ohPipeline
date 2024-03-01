@@ -4,6 +4,7 @@
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Configuration/Tests/ConfigRamStore.h>
 #include <OpenHome/Json.h>
+#include <OpenHome/Private/TimerFactoryMock.h>
 
 #include <limits.h>
 #include <vector>
@@ -173,6 +174,8 @@ private:
     void TestInvokeUri();
     void TestInvokeUriInvalidMode();
 private:
+    IThreadPool *iThreadPool;
+    ITimerFactory *iTimerFactory;
     Configuration::ConfigRamStore* iStore;
     PinsManager* iPinsManager;
     TUint iAccountSetIndex;
@@ -738,8 +741,10 @@ SuitePinsManager::SuitePinsManager()
 
 void SuitePinsManager::Setup()
 {
+    iThreadPool = new MockThreadPoolSync();
+    iTimerFactory = new TimerFactoryMock();
     iStore = new Configuration::ConfigRamStore();
-    iPinsManager = new PinsManager(*iStore, kMaxDevicePins);
+    iPinsManager = new PinsManager(*iStore, kMaxDevicePins, *iThreadPool, *iTimerFactory);
 
     // We don't test activity stat callbacks fully.  Registering an observer
     // at least confirms that it doesn't crash in normal use.
@@ -766,6 +771,8 @@ void SuitePinsManager::TearDown()
 {
     delete iPinsManager;
     delete iStore;
+    delete iTimerFactory;
+    delete iThreadPool;
 }
 
 void SuitePinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,

@@ -35,6 +35,7 @@ Ramper::Ramper(IPipelineElementUpstream& aUpstreamElement,
     , iRampJiffies(aRampJiffiesLong)
     , iRemainingRampSize(0)
     , iCurrentRampValue(Ramp::kMin)
+    , iSampleRate(0)
 {
 }
 
@@ -66,6 +67,7 @@ Msg* Ramper::ProcessMsg(MsgMode* aMsg)
 Msg* Ramper::ProcessMsg(MsgHalt* aMsg)
 {
     iRamping = false;
+    iSampleRate = 0;
     return aMsg;
 }
 
@@ -86,6 +88,7 @@ Msg* Ramper::ProcessMsg(MsgDecodedStream* aMsg)
 
     iStreamId = info.StreamId();
     iFormat = info.Format();
+    iSampleRate = info.SampleRate();
 
     return aMsg;
 }
@@ -141,7 +144,7 @@ TBool Ramper::IsRampApplicable(const DecodedStreamInfo& aInfo)
         return true;
     }
 
-    if (aInfo.Format() == AudioFormat::Dsd) {
+    if (aInfo.Format() == AudioFormat::Dsd && aInfo.SampleRate() != iSampleRate) {
         return true;
     }
 

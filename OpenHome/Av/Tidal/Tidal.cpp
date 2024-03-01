@@ -26,6 +26,8 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Configuration;
 
 static const TChar* kSoundQualities[4] = {"LOW", "HIGH", "LOSSLESS", "HI_RES"};
+static const TUint kNumSoundQualities = sizeof(kSoundQualities) / sizeof(kSoundQualities[0]);
+
 
 // Staging = XXXX.stage.tidal.com
 const Brn Tidal::kHost("api.tidal.com");
@@ -137,17 +139,10 @@ Tidal::Tidal(Environment& aEnv,
     choices.push_back(ENABLED_YES);
     iConfigEnable = new ConfigChoice(aConfigInitialiser, kConfigKeyEnabled, choices, ENABLED_YES);
 
-    iMaxSoundQuality = std::min(static_cast<TUint>(3), aTidalConfig.maxSoundQualityOption);
-    Log::Print("TIDAL: MaxSoundQuality limited to: %u\n", iMaxSoundQuality);
-
-    std::vector<TUint> qualities;
-    qualities.reserve(4);
-    for(TUint i = 0; i <= iMaxSoundQuality; ++i) {
-        qualities.emplace_back(i);
-    }
-
-    const TUint defaultOption = qualities.back();
-    iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, defaultOption);
+    const int arr[] = {0, 1, 2, 3};
+    std::vector<TUint> qualities(arr, arr + sizeof(arr)/sizeof(arr[0]));
+    iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 3);
+    iMaxSoundQuality = kNumSoundQualities - 1;
     iSubscriberIdQuality = iConfigQuality->Subscribe(MakeFunctorConfigChoice(*this, &Tidal::QualityChanged));
 
     iPollHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &Tidal::DoPollForToken), "Tidal-POLL", ThreadPoolPriority::Low);

@@ -501,6 +501,18 @@ void Jiffies::RoundUp(TUint& aJiffies, TUint aSampleRate)
     aJiffies -= aJiffies % jiffiesPerSample;
 }
 
+void Jiffies::RoundDownNonZeroSampleBlock(TUint& aJiffies, TUint aSampleBlockJiffies)
+{
+    TUint jiffies = aJiffies;
+    jiffies -= jiffies % aSampleBlockJiffies;
+    if (jiffies == 0) {
+        jiffies = aJiffies;
+        jiffies += aSampleBlockJiffies - 1;
+        jiffies -= jiffies % aSampleBlockJiffies;
+    }
+    aJiffies = jiffies;
+}
+
 TUint Jiffies::ToSongcastTime(TUint aJiffies, TUint aSampleRate)
 { // static
     return static_cast<TUint>((static_cast<TUint64>(aJiffies) * SongcastTicksPerSecond(aSampleRate)) / kPerSecond);
@@ -2459,39 +2471,21 @@ MsgSilence::MsgSilence(AllocatorBase& aAllocator)
 
 MsgPlayable* MsgSilence::CreatePlayable()
 {
+    const TUint kJiffiesPerSample = Jiffies::PerSample(iSampleRate);
+    const TUint kBytes = Jiffies::ToBytes(iSizeJiffiesTotal, kJiffiesPerSample, iNumChannels, iBitDepth);
+    if (kBytes > 0) {
+        ASSERT(iSizeJiffiesTotal % iSampleBlockJiffiesTotal == 0);
+    }
+
     if (iAllocatorPlayablePcm != nullptr) {
-
-        TUint offsetJiffies = iOffset;
-        const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-        (void)Jiffies::ToBytes(offsetJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
-        TUint sizeJiffies = iSize + (iOffset - offsetJiffies);
-        const TUint sizeBytes = Jiffies::ToBytes(sizeJiffies, jiffiesPerSample, iNumChannels, iBitDepth);
-
         MsgPlayableSilence* playable = iAllocatorPlayablePcm->Allocate();
-        Optional<IPipelineBufferObserver> bufferObserver(nullptr);
-        playable->Initialise(sizeBytes, iSize, iSampleRate, iBitDepth, iNumChannels, iRamp, bufferObserver);
+        playable->Initialise(kBytes, iSize, iSampleRate, iBitDepth, iNumChannels, iRamp, nullptr);
         RemoveRef();
         return playable;
     }
     else {
-        // (Mostly) taken from MsgAudioPcm::CreatePlayable(). Round down size and offset if they don't fall on a sample block boundary.
-        const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-        const TUint jiffiesPerSampleBlockPlayable = SamplesPerBlock(iBlockWordsNoPad) * jiffiesPerSample;
-        const TUint samplesPerBlockTotal = SamplesPerBlock(iSampleBlockWords);
-
-        // Calculate offset jiffies.
-        TUint offsetJiffiesTotal = JiffiesPlayableToJiffiesTotal(iOffset, jiffiesPerSampleBlockPlayable);
-        // Calculate offset bytes.
-        (void)Jiffies::ToBytesSampleBlock(offsetJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, samplesPerBlockTotal);
-
-        // Calculate size jiffies.
-        TUint sizeJiffiesTotal = iSizeTotalJiffies + (iOffset - offsetJiffiesTotal);
-        // Calculate size bytes.
-        const TUint sizeBytes = Jiffies::ToBytesSampleBlock(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, samplesPerBlockTotal);
-
         MsgPlayableSilenceDsd* playable = iAllocatorPlayableDsd->Allocate();
-        Optional<IPipelineBufferObserver> bufferObserver(nullptr);
-        playable->Initialise(sizeBytes, iSize, iSampleRate, iBitDepth, iNumChannels, iSampleBlockWords, iRamp, bufferObserver);
+        playable->Initialise(kBytes, iSize, iSampleRate, iBitDepth, iNumChannels, iSampleBlockWords, iRamp, nullptr);
         RemoveRef();
         return playable;
     }
@@ -2500,6 +2494,12 @@ MsgPlayable* MsgSilence::CreatePlayable()
 MsgAudio* MsgSilence::Clone()
 {
     MsgSilence* clone = static_cast<MsgSilence*>(MsgAudio::Clone());
+
+    clone->iSampleBlockJiffiesPlayable = iSampleBlockJiffiesPlayable;
+    clone->iSampleBlockJiffiesTotal = iSampleBlockJiffiesTotal;
+    clone->iSizeJiffiesTotal = iSizeJiffiesTotal;
+    clone->iSampleBlockWords = iSampleBlockWords;
+
     if (iAllocatorPlayablePcm != nullptr) {
         clone->iAllocatorPlayablePcm = iAllocatorPlayablePcm;
     }
@@ -2522,6 +2522,20 @@ Msg* MsgSilence::Process(IMsgProcessor& aProcessor)
 void MsgSilence::SplitCompleted(MsgAudio& aRemaining)
 {
     MsgSilence& remaining = static_cast<MsgSilence&>(aRemaining);
+
+    remaining.iSampleBlockJiffiesPlayable = iSampleBlockJiffiesPlayable;
+    remaining.iSampleBlockJiffiesTotal = iSampleBlockJiffiesTotal;
+    remaining.iSampleBlockWords = iSampleBlockWords;
+
+    const TUint kSampleBlockJiffiesRemaining = iSize % iSampleBlockJiffiesPlayable;
+    iSize -= kSampleBlockJiffiesRemaining;
+    iSizeJiffiesTotal = iSize / iSampleBlockJiffiesPlayable;
+    iSizeJiffiesTotal *= iSampleBlockJiffiesTotal;
+
+    remaining.iSize += kSampleBlockJiffiesRemaining;
+    remaining.iSizeJiffiesTotal = remaining.iSize / iSampleBlockJiffiesPlayable;
+    remaining.iSizeJiffiesTotal *= iSampleBlockJiffiesTotal;
+
     if (iAllocatorPlayablePcm != nullptr) {
         remaining.iAllocatorPlayablePcm = iAllocatorPlayablePcm;
     }
@@ -2535,72 +2549,40 @@ void MsgSilence::Initialise(TUint& aJiffies, TUint aSampleRate, TUint aBitDepth,
     MsgAudio::Initialise(aSampleRate, aBitDepth, aChannels);
     iAllocatorPlayablePcm = &aAllocatorPlayable;
     iAllocatorPlayableDsd = nullptr;
-    TUint jiffies = aJiffies;
-    Jiffies::RoundDown(jiffies, aSampleRate);
-    if (jiffies == 0) {
-        Jiffies::RoundUp(aJiffies, aSampleRate);
-    }
-    else {
-        aJiffies = jiffies;
-    }
+    iSampleBlockWords = 0;
+
+    iSampleBlockJiffiesPlayable = Jiffies::PerSample(aSampleRate);
+    iSampleBlockJiffiesTotal = iSampleBlockJiffiesPlayable;
+    Jiffies::RoundDownNonZeroSampleBlock(aJiffies, iSampleBlockJiffiesPlayable);
     iSize = aJiffies;
+    iSizeJiffiesTotal = iSize;
     iOffset = 0;
 }
 
 void MsgSilence::InitialiseDsd(TUint& aJiffies, TUint aSampleRate, TUint aChannels, TUint aSampleBlockWords, TUint aPadBytesPerChunk, Allocator<MsgPlayableSilenceDsd>& aAllocatorPlayable)
 {
-    iSampleBlockWords = aSampleBlockWords;
-    iBlockWordsNoPad = aSampleBlockWords - aPadBytesPerChunk;
     ASSERT(aSampleBlockWords != 0);
     MsgAudio::Initialise(aSampleRate, 1, aChannels);
     iAllocatorPlayableDsd = &aAllocatorPlayable;
     iAllocatorPlayablePcm = nullptr;
-    TUint jiffies = aJiffies;
-    Jiffies::RoundDown(jiffies, aSampleRate);
-    if (jiffies == 0) {
-        Jiffies::RoundUp(jiffies, aSampleRate);
-    }
-    const TUint jiffiesPerSample = Jiffies::PerSample(aSampleRate);
-    TUint bytes = Jiffies::ToBytes(jiffies, jiffiesPerSample, aChannels, 1);
-    TUint rounded = bytes - bytes % (aSampleBlockWords * 4);
-    if (rounded == 0) {
-        rounded = bytes + (aSampleBlockWords * 4) - 1;
-        rounded -= rounded % (aSampleBlockWords * 4);
-    }
-    const TUint numSamples = (rounded * 8) / aChannels;
-    aJiffies = numSamples * jiffiesPerSample;
+    iSampleBlockWords = aSampleBlockWords;
+
+    const TUint kPaddingBytesTotal = aPadBytesPerChunk * 4;
+    const TUint kSampleBlockBytesTotal = iSampleBlockWords * 4;
+    ASSERT(kSampleBlockBytesTotal > kPaddingBytesTotal);
+    const TUint kSampleBlockBytesPlayable = kSampleBlockBytesTotal - kPaddingBytesTotal;
+    const TUint kSampleBlockSamplesTotal = (kSampleBlockBytesTotal * 8) / iNumChannels;
+    const TUint kSampleBlockSamplesPlayable = (kSampleBlockBytesPlayable * 8) / iNumChannels;
+
+    const TUint kJiffiesPerSample = Jiffies::PerSample(aSampleRate);
+    iSampleBlockJiffiesTotal = kSampleBlockSamplesTotal * kJiffiesPerSample;
+    iSampleBlockJiffiesPlayable = kSampleBlockSamplesPlayable * kJiffiesPerSample;
+    Jiffies::RoundDownNonZeroSampleBlock(aJiffies, iSampleBlockJiffiesPlayable);
     iSize = aJiffies;
-    iSizeTotalJiffies = SizeJiffiesTotal();
-    iJiffiesNonPlayable = iSizeTotalJiffies - iSize;
     iOffset = 0;
-}
 
-TUint MsgSilence::JiffiesPlayableToJiffiesTotal(TUint aJiffies, TUint aJiffiesPerSampleBlockPlayable) const
-{
-    TUint jiffiesTotal = aJiffies - (aJiffies % aJiffiesPerSampleBlockPlayable);
-    ASSERT(jiffiesTotal % iBlockWordsNoPad == 0);
-    jiffiesTotal /= iBlockWordsNoPad;
-    jiffiesTotal *= iSampleBlockWords;
-    return jiffiesTotal;
-}
-
-TUint MsgSilence::SamplesPerBlock(TUint aBlockWords) const
-{
-    return ((aBlockWords * 4) * 8) / iNumChannels; // Dsd is 1 Subsample per bit
-}
-
-TUint MsgSilence::SizeJiffiesTotal() const
-{
-    const TUint jiffiesPerSample = Jiffies::PerSample(iSampleRate);
-    const TUint jiffiesPerSampleBlockPlayable = SamplesPerBlock(iBlockWordsNoPad) * jiffiesPerSample;
-    const TUint samplesPerBlockTotal = SamplesPerBlock(iSampleBlockWords);
-    // Calculate offset jiffies playable.
-    const TUint offsetJiffiesPlayable = iOffset - (iOffset % jiffiesPerSampleBlockPlayable);
-    // Calculate size jiffies.
-    const TUint sizeJiffiesPlayable = iSize + (iOffset - offsetJiffiesPlayable);
-    TUint sizeJiffiesTotal = JiffiesPlayableToJiffiesTotal(sizeJiffiesPlayable, jiffiesPerSampleBlockPlayable);
-    (void)Jiffies::ToBytesSampleBlock(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, samplesPerBlockTotal);
-    return sizeJiffiesTotal;
+    iSizeJiffiesTotal = iSize / iSampleBlockJiffiesPlayable;
+    iSizeJiffiesTotal *= iSampleBlockJiffiesTotal;
 }
 
 
@@ -2934,15 +2916,19 @@ void MsgPlayableSilenceDsd::Initialise(TUint aSizeBytes, TUint aJiffies, TUint a
 void MsgPlayableSilenceDsd::ReadBlock(IDsdProcessor& aProcessor)
 {
     static TByte silence[DecodedAudio::kMaxBytes];
-    (void)memset(silence, 0x69, sizeof silence);
-    TUint remainingBytes = iSize;
+    (void)memset(silence, 0x69, sizeof(silence));
+
+    const TUint kSampleBlockBytes = iSampleBlockWords * 4;
+    ASSERT(iSize % kSampleBlockBytes == 0);
+    ASSERT(DecodedAudio::kMaxBytes % kSampleBlockBytes == 0);
+
+    TUint remaining = iSize;
     do {
-        TUint bytes = (remainingBytes > DecodedAudio::kMaxBytes ? DecodedAudio::kMaxBytes : remainingBytes);
-        bytes -= (bytes % (iSampleBlockWords * 4));
+        TUint bytes = (remaining > DecodedAudio::kMaxBytes ? DecodedAudio::kMaxBytes : remaining);
         Brn audioBuf(silence, bytes);
         aProcessor.ProcessFragment(audioBuf, iNumChannels, iSampleBlockWords);
-        remainingBytes -= bytes;
-    } while (remainingBytes > 0);
+        remaining -= bytes;
+    } while (remaining > 0);
 }
 
 MsgPlayable* MsgPlayableSilenceDsd::Allocate()
