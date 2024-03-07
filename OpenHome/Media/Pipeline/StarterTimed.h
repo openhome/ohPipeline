@@ -61,6 +61,8 @@ private:
     AudioFormat iFormat;
     Msg* iPending;
     TUint iJiffiesRemaining;
+    TUint iDsdSampleBlockWords;
+    TUint iDsdPadBytesPerChunk;
 };
 
 class AudioTimeCpu : public IAudioTime

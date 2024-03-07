@@ -161,7 +161,8 @@ VariableDelayBase::VariableDelayBase(MsgFactory& aMsgFactory, IPipelineElementUp
     , iWaitForAudioBeforeGeneratingSilence(false)
     , iPendingStream(nullptr)
     , iTargetFlushId(MsgFlush::kIdInvalid)
-    , iDsdBlockSize(0)
+    , iDsdSampleBlockWords(0)
+    , iDsdPadBytesPerChunk(0)
 {
     ResetStatusAndRamp();
 }
@@ -177,7 +178,7 @@ void VariableDelayBase::SetAnimator(IPipelineAnimator& aAnimator)
 {
     iAnimator = &aAnimator;
     try {
-        iDsdBlockSize = aAnimator.PipelineAnimatorDsdBlockSizeWords();
+        aAnimator.PipelineAnimatorDsdBlockConfiguration(iDsdSampleBlockWords, iDsdPadBytesPerChunk);
     }
     catch (FormatUnsupported&) {}
 }
@@ -218,7 +219,7 @@ Msg* VariableDelayBase::DoPull()
             silence = iMsgFactory.CreateMsgSilence(size, stream.SampleRate(), stream.BitDepth(), stream.NumChannels());
         }
         else {
-            silence = iMsgFactory.CreateMsgSilenceDsd(size, stream.SampleRate(), stream.NumChannels(), iDsdBlockSize, 2); // FIXME - get DSD pad bytes programatically
+            silence = iMsgFactory.CreateMsgSilenceDsd(size, stream.SampleRate(), stream.NumChannels(), iDsdSampleBlockWords, iDsdPadBytesPerChunk); // FIXME - get DSD pad bytes programatically
         }
         if (iClockPuller != nullptr) {
             silence->SetObserver(*iClockPuller);

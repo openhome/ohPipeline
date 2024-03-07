@@ -59,7 +59,7 @@ private: // from IUrlBlockWriter
 private: // from IPipelineAnimator
     TUint PipelineAnimatorBufferJiffies() const override;
     TUint PipelineAnimatorDelayJiffies(AudioFormat aFormat, TUint aSampleRate, TUint aBitDepth, TUint aNumChannels) const override;
-    TUint PipelineAnimatorDsdBlockSizeWords() const override;
+    void PipelineAnimatorDsdBlockConfiguration(TUint& aSampleBlockWords, TUint& aPadBytesPerChunk) const override;
     TUint PipelineAnimatorMaxBitDepth() const override;
     void PipelineAnimatorGetMaxSampleRates(TUint& aPcm, TUint& aDsd) const override;
 private: // from IVolumeRamper
@@ -236,9 +236,10 @@ TUint SuitePipelineConfig::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/,
     return 0;
 }
 
-TUint SuitePipelineConfig::PipelineAnimatorDsdBlockSizeWords() const
+void SuitePipelineConfig::PipelineAnimatorDsdBlockConfiguration(TUint& aSampleBlockWords, TUint& aPadBytesPerChunk) const
 {
-    return 1;
+    aSampleBlockWords = 1;
+    aPadBytesPerChunk = 0;
 }
 
 TUint SuitePipelineConfig::PipelineAnimatorMaxBitDepth() const

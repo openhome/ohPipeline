@@ -94,7 +94,8 @@ private:
     BwsMode iMode;
     MsgDecodedStream* iPendingStream;
     TUint iTargetFlushId;
-    TUint iDsdBlockSize;
+    TUint iDsdSampleBlockWords;
+    TUint iDsdPadBytesPerChunk;
 };
 
 class VariableDelayLeft : public VariableDelayBase
