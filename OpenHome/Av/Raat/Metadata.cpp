@@ -171,7 +171,7 @@ RaatMetadataHandler::RaatMetadataHandler(
 RaatMetadataHandler::~RaatMetadataHandler()
 {
     if (iMetadata != nullptr) {
-        iTrackObserver.MetadataChanged(nullptr); // observer must remove any metadata reference before we call the d'tor for iAllocatorMetadata
+        iTrackObserver.MetadataChanged(kMode, nullptr); // observer must remove any metadata reference before we call the d'tor for iAllocatorMetadata
         iMetadata->RemoveReference();
     }
 }
@@ -223,7 +223,7 @@ void RaatMetadataHandler::ArtworkChanged(const Brx& aUri)
 {
     if (iMetadata != nullptr) {
         iMetadata->SetArtworkUri(aUri);
-        iTrackObserver.MetadataChanged(iMetadata);
+        iTrackObserver.MetadataChanged(kMode, iMetadata);
     }
 }
 
@@ -231,7 +231,7 @@ void RaatMetadataHandler::TrackInfoChanged(const RaatTrackInfo& aTrackInfo)
 {
     if (iTrackPositionSecs != aTrackInfo.GetPositionSecs()) {
         iTrackPositionSecs = aTrackInfo.GetPositionSecs();
-        iTrackObserver.TrackPositionChanged(iTrackPositionSecs * kMsPerSec);
+        iTrackObserver.TrackPositionChanged(kMode, iTrackPositionSecs * kMsPerSec);
     }
 
     RaatMetadataAllocated* metadata = iAllocatorMetadata.Allocate();
@@ -250,6 +250,6 @@ void RaatMetadataHandler::TrackInfoChanged(const RaatTrackInfo& aTrackInfo)
 
     iMetadata = metadata;
     iMetadata->AddReference();
-    iTrackObserver.MetadataChanged(iMetadata);
-    iTrackObserver.TrackOffsetChanged(iTrackPositionSecs * kMsPerSec);
+    iTrackObserver.MetadataChanged(kMode, iMetadata);
+    iTrackObserver.TrackOffsetChanged(kMode, iTrackPositionSecs * kMsPerSec);
 }

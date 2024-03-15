@@ -53,15 +53,15 @@ public:
     /*
      * Call when new metadata is available
      */
-    virtual void MetadataChanged(IAsyncMetadataAllocated* aMetadata) = 0;
+    virtual void MetadataChanged(const Brx& aMode, IAsyncMetadataAllocated* aMetadata) = 0;
     /*
      * Call when the track offset has actively changed (e.g., due to a seek)
      */
-    virtual void TrackOffsetChanged(TUint aOffsetMs) = 0;
+    virtual void TrackOffsetChanged(const Brx& aMode, TUint aOffsetMs) = 0;
     /*
      * Call to update the current playback position, so that action can be taken if loss of sync is detected
      */
-    virtual void TrackPositionChanged(TUint aPositionMs) = 0;
+    virtual void TrackPositionChanged(const Brx& aMode, TUint aPositionMs) = 0;
 
     virtual ~IAsyncTrackObserver() {}
 };
@@ -106,9 +106,9 @@ public: // from IPipelineElementUpstream
     Msg* Pull() override;
 public: // from IAsyncTrackObserver
     void AddClient(IAsyncTrackClient& aClient) override;
-    void MetadataChanged(IAsyncMetadataAllocated* aMetadata) override;
-    void TrackOffsetChanged(TUint aOffsetMs) override;
-    void TrackPositionChanged(TUint aPositionMs) override;
+    void MetadataChanged(const Brx& aMode, IAsyncMetadataAllocated* aMetadata) override;
+    void TrackOffsetChanged(const Brx& aMode, TUint aOffsetMs) override;
+    void TrackPositionChanged(const Brx& aMode, TUint aPositionMs) override;
 private: // PipelineElement
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgTrack* aMsg) override;

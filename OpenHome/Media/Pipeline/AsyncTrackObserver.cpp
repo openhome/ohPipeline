@@ -161,9 +161,16 @@ void AsyncTrackObserver::AddClient(IAsyncTrackClient& aClient)
     iClients.push_back(&aClient);
 }
 
-void AsyncTrackObserver::MetadataChanged(IAsyncMetadataAllocated* aMetadata)
+void AsyncTrackObserver::MetadataChanged(const Brx& aMode, IAsyncMetadataAllocated* aMetadata)
 {
     AutoMutex _(iLock);
+    if (iClient == nullptr) {
+        return;
+    }
+    if (iClient->Mode() != aMode) {
+        return;
+    }
+
     if (iMetadata != aMetadata) {
         if (iMetadata != nullptr) {
             iMetadata->RemoveReference(); // Any pending metadata is now invalid
@@ -182,16 +189,30 @@ void AsyncTrackObserver::MetadataChanged(IAsyncMetadataAllocated* aMetadata)
     // If this metadata arrives mid-track (i.e., because retrieval of the new metadata has been delayed, or the metadata has actually changed mid-track) the start sample for the new MsgDecodedStream should already be (roughly) correct without any extra book-keeping, as long as calls to ::TrackPosition() are being made, which update iStartOffset to avoid any playback time sync issues.
 }
 
-void AsyncTrackObserver::TrackOffsetChanged(TUint aOffsetMs)
+void AsyncTrackObserver::TrackOffsetChanged(const Brx& aMode, TUint aOffsetMs)
 {
     AutoMutex _(iLock);
+    if (iClient == nullptr) {
+        return;
+    }
+    if (iClient->Mode() != aMode) {
+        return;
+    }
+
     iStartOffset.SetMs(aOffsetMs);
     iMsgDecodedStreamPending = true;
 }
 
-void AsyncTrackObserver::TrackPositionChanged(TUint aPositionMs)
+void AsyncTrackObserver::TrackPositionChanged(const Brx& aMode, TUint aPositionMs)
 {
     AutoMutex _(iLock);
+    if (iClient == nullptr) {
+        return;
+    }
+    if (iClient->Mode() != aMode) {
+        return;
+    }
+
     const TUint offsetDiffAbs = iStartOffset.AbsoluteDifference(aPositionMs);
     if (offsetDiffAbs > kTrackOffsetChangeThresholdMs) {
         iMsgDecodedStreamPending = true;
