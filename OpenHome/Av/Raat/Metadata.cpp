@@ -22,7 +22,7 @@ RaatMetadata::RaatMetadata(
 
     : iTitle(aTitle)
     , iSubtitle(aSubtitle)
-    , iSubSubtitle(aSubtitle)
+    , iSubSubtitle(aSubSubtitle)
 {
 }
 

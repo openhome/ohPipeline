@@ -1,6 +1,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
 #include <algorithm>
+#include <stdlib.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
@@ -162,7 +163,7 @@ void AsyncTrackObserver::TrackPositionChanged(const IAsyncTrackPosition& aPositi
         return;
     }
 
-    const TUint kPositionDeltaMs = abs(aPosition.PositionMs() - iLastKnownPositionMs);
+    const TUint kPositionDeltaMs = (TUint)abs((TInt)aPosition.PositionMs() - (TInt)iLastKnownPositionMs);
     if (kPositionDeltaMs > kPositionDeltaThresholdMs) {
         iDecodedStreamPending = true; // Loss of sync detected
     }
