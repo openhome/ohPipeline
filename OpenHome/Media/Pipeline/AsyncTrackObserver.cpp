@@ -1,80 +1,83 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
-
-#include <OpenHome/Private/Printer.h>
+#include <algorithm>
+#include <stdlib.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
 
-// AsyncStartOffset
 
-AsyncStartOffset::AsyncStartOffset()
-    : iOffsetMs(0)
+// AsyncMetadataRequests
+
+TBool AsyncMetadataRequests::Exists(const Brx& aMode)
 {
+    auto it = std::find_if(iRequests.begin(), iRequests.end(), [&](const std::unique_ptr<Brx>& aPtr) {
+        return *aPtr == aMode;
+    });
+    return (it != iRequests.end());
 }
 
-void AsyncStartOffset::SetMs(TUint aOffsetMs)
+void AsyncMetadataRequests::Add(const Brx& aMode)
 {
-    iOffsetMs = aOffsetMs;
+    ASSERT(!Exists(aMode));
+    iRequests.push_back(std::unique_ptr<Brx>(new Brh(aMode)));
 }
 
-TUint64 AsyncStartOffset::OffsetSample(TUint aSampleRate) const
+void AsyncMetadataRequests::Remove(const Brx& aMode)
 {
-    return (static_cast<TUint64>(iOffsetMs) * aSampleRate) / 1000;
-}
-
-TUint AsyncStartOffset::OffsetMs() const
-{
-    return iOffsetMs;
-}
-
-TUint AsyncStartOffset::AbsoluteDifference(TUint aOffsetMs) const
-{
-    TUint offsetDiff = 0;
-    if (iOffsetMs >= aOffsetMs) {
-        offsetDiff = iOffsetMs - aOffsetMs;
+    if (!Exists(aMode)) {
+        return;
     }
-    else {
-        offsetDiff = aOffsetMs - iOffsetMs;
-    }
-    return offsetDiff;
+    iRequests.remove_if([&](const std::unique_ptr<Brx>& aPtr) {
+        return (*aPtr == aMode);
+    });
+}
+
+void AsyncMetadataRequests::Trim(const Brx& aMode)
+{
+    iRequests.remove_if([&](const std::unique_ptr<Brx>& aPtr) {
+        return (*aPtr != aMode);
+    });
+}
+
+void AsyncMetadataRequests::Clear()
+{
+    iRequests.clear();
 }
 
 
 // AsyncTrackObserver
 
-const TUint AsyncTrackObserver::kSupportedMsgTypes =   eMode
-                                                  | eTrack
-                                                  | eDrain
-                                                  | eDelay
-                                                  | eMetatext
-                                                  | eStreamInterrupted
-                                                  | eHalt
-                                                  | eFlush
-                                                  | eWait
-                                                  | eDecodedStream
-                                                  | eAudioPcm
-                                                  | eAudioDsd
-                                                  | eSilence
-                                                  | eQuit;
+const TUint AsyncTrackObserver::kSupportedMsgTypes = eMode
+                                                   | eTrack
+                                                   | eDrain
+                                                   | eDelay
+                                                   | eMetatext
+                                                   | eStreamInterrupted
+                                                   | eHalt
+                                                   | eFlush
+                                                   | eWait
+                                                   | eDecodedStream
+                                                   | eAudioPcm
+                                                   | eAudioDsd
+                                                   | eSilence
+                                                   | eQuit;
 
 AsyncTrackObserver::AsyncTrackObserver(
-    IPipelineElementUpstream&   aUpstreamElement,
-    MsgFactory&                 aMsgFactory,
-    TrackFactory&               aTrackFactory)
+    IPipelineElementUpstream& aUpstreamElement,
+    MsgFactory& aMsgFactory,
+    TrackFactory& aTrackFactory)
 
     : PipelineElement(kSupportedMsgTypes)
     , iUpstreamElement(aUpstreamElement)
     , iMsgFactory(aMsgFactory)
     , iTrackFactory(aTrackFactory)
     , iClient(nullptr)
-    , iMetadata(nullptr)
     , iDecodedStream(nullptr)
-    , iInterceptMode(false)
-    , iMsgDecodedStreamPending(false)
-    , iGeneratedTrackPending(false)
+    , iDecodedStreamPending(false)
     , iPipelineTrackSeen(false)
-    , iTrackDurationMs(0)
+    , iDurationMs(0)
+    , iLastKnownPositionMs(0)
     , iLock("ASTR")
 {
 }
@@ -82,9 +85,6 @@ AsyncTrackObserver::AsyncTrackObserver(
 AsyncTrackObserver::~AsyncTrackObserver()
 {
     AutoMutex _(iLock);
-    if (iMetadata != nullptr) {
-        iMetadata->RemoveReference();
-    }
     if (iDecodedStream != nullptr) {
         iDecodedStream->RemoveRef();
     }
@@ -92,210 +92,140 @@ AsyncTrackObserver::~AsyncTrackObserver()
 
 Msg* AsyncTrackObserver::Pull()
 {
-    Msg* msg = nullptr;
-    while (msg == nullptr) {
+    {
+        AutoMutex _(iLock);
+        if (iClient != nullptr && iPipelineTrackSeen && iDecodedStream != nullptr) {
+            if (iRequests.Exists(iClient->Mode())) {
+                BwsTrackMetaData buf;
+                WriterBuffer writer(buf);
+                iClient->WriteMetadata(iTrackUri, iDecodedStream->StreamInfo(), writer);
 
-        if (!iInterceptMode) {
-            msg = iUpstreamElement.Pull();
-            msg = msg->Process(*this);
+                Track* track = iTrackFactory.CreateTrack(iTrackUri, buf);
+                Msg* msg = iMsgFactory.CreateMsgTrack(*track, false);
+                track->RemoveRef();
 
-            if (iInterceptMode) {
-                AutoMutex _(iLock);
-                iMsgDecodedStreamPending = true;
+                iRequests.Remove(iClient->Mode());
+                return msg;
             }
-            return msg;
-        }
-
-        /*  Cannot hold iLock during a Pull() as it can block
-         *  - Acquire iLock and perform checks before deciding whether to Pull()
-         *  - Release iLock during Pull()
-         *  - Re-acquire iLock when processing the message
-         */
-        {
-            AutoMutex _(iLock);
-
-            /*  Must have seen a MsgTrack and MsgDecoded stream arrive
-             *  via pipeline before reporting any changes
-             */
-            if (iPipelineTrackSeen && iDecodedStream != nullptr) {
-                if (iGeneratedTrackPending) {
-
-                    BwsTrackMetaData metadata;
-                    if (iMetadata != nullptr) {
-                        WriterBuffer writerBuffer(metadata);
-                        iClient->WriteMetadata(
-                            iTrackUri,
-                            iMetadata->Metadata(),
-                            iDecodedStream->StreamInfo(),
-                            writerBuffer);
-                    }
-
-                    Track* track = iTrackFactory.CreateTrack(iTrackUri, metadata);
-                    auto trackMsg = iMsgFactory.CreateMsgTrack(*track, false);
-                    track->RemoveRef();
-
-                    iGeneratedTrackPending = false;
-                    return trackMsg;
-                }
-                else if (iMsgDecodedStreamPending) {
-                    auto streamMsg = CreateMsgDecodedStreamLocked();
-                    UpdateDecodedStream(*streamMsg);
-
-                    iMsgDecodedStreamPending = false;
-                    return iDecodedStream;
-                }
+            if (iDecodedStreamPending) {
+                auto& boundary = iClient->GetTrackBoundary();
+                iDurationMs = boundary.DurationMs();
+                iLastKnownPositionMs = boundary.OffsetMs();
+                UpdateDecodedStreamLocked();
+                iDecodedStreamPending = false;
+                return iDecodedStream;
             }
-        }
-
-        msg = iUpstreamElement.Pull();
-        {
-            AutoMutex _(iLock);
-            msg = msg->Process(*this);
         }
     }
-    return msg;
+
+    Msg* msg = iUpstreamElement.Pull();
+    return msg->Process(*this);
 }
 
 void AsyncTrackObserver::AddClient(IAsyncTrackClient& aClient)
 {
+    AutoMutex _(iLock);
     iClients.push_back(&aClient);
 }
 
-void AsyncTrackObserver::MetadataChanged(IAsyncMetadataAllocated* aMetadata)
+void AsyncTrackObserver::TrackMetadataChanged(const Brx& aMode)
 {
     AutoMutex _(iLock);
-    if (iMetadata != aMetadata) {
-        if (iMetadata != nullptr) {
-            iMetadata->RemoveReference(); // Any pending metadata is now invalid
-            iMetadata = nullptr;
-        }
-        iMetadata = aMetadata;
+    if (iRequests.Exists(aMode)) {
+        return;
     }
-    if (iMetadata != nullptr) {
-        iTrackDurationMs = iMetadata->Metadata().DurationMs();
-    }
-    iGeneratedTrackPending = true;
-    iMsgDecodedStreamPending = true;
-
-    // If this metadata is being delivered as part of a track change, any start offset (be it zero or non-zero) will be updated via call to ::TrackOffsetChanged(). ::TrackOffsetChanged() will also be called if a seek occurred.
-
-    // If this metadata arrives mid-track (i.e., because retrieval of the new metadata has been delayed, or the metadata has actually changed mid-track) the start sample for the new MsgDecodedStream should already be (roughly) correct without any extra book-keeping, as long as calls to ::TrackPosition() are being made, which update iStartOffset to avoid any playback time sync issues.
+    iRequests.Add(aMode);
+    iDecodedStreamPending = true;
 }
 
-void AsyncTrackObserver::TrackOffsetChanged(TUint aOffsetMs)
+void AsyncTrackObserver::TrackBoundaryChanged(const IAsyncTrackBoundary& aBoundary)
 {
     AutoMutex _(iLock);
-    iStartOffset.SetMs(aOffsetMs);
-    iMsgDecodedStreamPending = true;
+    if (iClient == nullptr) {
+        return;
+    }
+    if (aBoundary.Mode() != iClient->Mode()) {
+        return;
+    }
+
+    iDurationMs = aBoundary.DurationMs();
+    iLastKnownPositionMs = aBoundary.OffsetMs();
+    iDecodedStreamPending = true;
 }
 
-void AsyncTrackObserver::TrackPositionChanged(TUint aPositionMs)
+void AsyncTrackObserver::TrackPositionChanged(const IAsyncTrackPosition& aPosition)
 {
     AutoMutex _(iLock);
-    const TUint offsetDiffAbs = iStartOffset.AbsoluteDifference(aPositionMs);
-    if (offsetDiffAbs > kTrackOffsetChangeThresholdMs) {
-        iMsgDecodedStreamPending = true;
+    if (iClient == nullptr) {
+        return;
     }
-    iStartOffset.SetMs(aPositionMs);
+    if (aPosition.Mode() != iClient->Mode()) {
+        return;
+    }
+
+    const TUint kPositionDeltaMs = (TUint)abs((TInt)aPosition.PositionMs() - (TInt)iLastKnownPositionMs);
+    if (kPositionDeltaMs > kPositionDeltaThresholdMs) {
+        iDecodedStreamPending = true; // Loss of sync detected
+    }
+    iLastKnownPositionMs = aPosition.PositionMs();
 }
 
 Msg* AsyncTrackObserver::ProcessMsg(MsgMode* aMsg)
 {
+    AutoMutex _(iLock);
+    iClient = nullptr;
+    if (iDecodedStream != nullptr) {
+        iDecodedStream->RemoveRef();
+        iDecodedStream = nullptr;
+    }
+    iDecodedStreamPending = false;
+    iPipelineTrackSeen = false;
+    iDurationMs = 0;
+    iLastKnownPositionMs = 0;
+
     for (auto* client : iClients) {
         if (aMsg->Mode() == client->Mode()) {
-
-            /*  If iInterceptMode is already true, this must have been called with
-             *  iLock held, so we can safely reset internal members that require locking
-             */
-            if (iInterceptMode) {
-                iMsgDecodedStreamPending = true;
-            }
-            iInterceptMode = true;
             iClient = client;
-            ClearDecodedStream();
-            iPipelineTrackSeen = false;
-            return aMsg;
         }
     }
 
-    iInterceptMode = false;
-    iClient = nullptr;
+    // Remove requests that don't belong to this mode
+    iClient == nullptr ? iRequests.Clear() : iRequests.Trim(iClient->Mode());
+    return aMsg;
+}
 
+Msg* AsyncTrackObserver::ProcessMsg(MsgTrack* aMsg)
+{
+    AutoMutex _(iLock);
+    if (iClient == nullptr) {
+        return aMsg;
+    }
+    iTrackUri.Replace(aMsg->Track().Uri());
+    iPipelineTrackSeen = true;
     return aMsg;
 }
 
 Msg* AsyncTrackObserver::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    if (!iInterceptMode) {
+    AutoMutex _(iLock);
+    if (iClient == nullptr) {
         return aMsg;
     }
-
-    const DecodedStreamInfo& info = aMsg->StreamInfo();
-    ASSERT(info.SampleRate() != 0);
-    ASSERT(info.NumChannels() != 0);
-
-    UpdateDecodedStream(*aMsg);
-    iMsgDecodedStreamPending = true;
-
-    // The client wishes this decoded stream to be output
-    if (iClient->ForceDecodedStream()) { // safe to access iClient as already checked iInterceptMode
-        return aMsg;
+    if (iDecodedStream != nullptr) {
+        iDecodedStream->RemoveRef();
     }
-
-    // Output generated MsgDecodedStream instead of this decoded stream
-    aMsg->RemoveRef();
-    return nullptr;
-}
-
-Msg* AsyncTrackObserver::ProcessMsg(MsgTrack* aMsg)
-{
-    if (!iInterceptMode) {
-        return aMsg;
-    }
-
-    // Cache URI for re-use in out-of-band MsgTracks
-    iTrackUri.Replace(aMsg->Track().Uri());
-
-    // Ensures in-band MsgTrack is output before any are generated from out-of-band notifications
-    iPipelineTrackSeen = true;
-    iGeneratedTrackPending = true;
+    iDecodedStream = aMsg;
+    iDecodedStream->AddRef();
+    iDecodedStreamPending = true;
     return aMsg;
 }
 
-void AsyncTrackObserver::ClearDecodedStream()
-{
-    if (iDecodedStream != nullptr) {
-        iDecodedStream->RemoveRef();
-        iDecodedStream = nullptr;
-    }
-}
-
-void AsyncTrackObserver::UpdateDecodedStream(MsgDecodedStream& aMsg)
-{
-    ClearDecodedStream();
-    iDecodedStream = &aMsg;
-    iDecodedStream->AddRef();
-}
-
-TUint64 AsyncTrackObserver::TrackLengthJiffiesLocked() const
+void AsyncTrackObserver::UpdateDecodedStreamLocked()
 {
     ASSERT(iDecodedStream != nullptr);
     const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
-    const TUint64 trackLengthJiffies = (static_cast<TUint64>(iTrackDurationMs)*info.SampleRate()*Jiffies::PerSample(info.SampleRate()))/1000;
-    return trackLengthJiffies;
-}
-
-MsgDecodedStream* AsyncTrackObserver::CreateMsgDecodedStreamLocked() const
-{
-    ASSERT(iDecodedStream != nullptr);
-    const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
-
-    /*  Audio for current track was likely pushed into the pipeline
-     *  before track offset/duration is known - use updated values here
-     */
-
-    const TUint64 trackLengthJiffies = TrackLengthJiffiesLocked();
-    const TUint64 startOffset = iStartOffset.OffsetSample(info.SampleRate());
+    const TUint64 kTrackLengthJiffies = (TUint64)(static_cast<TUint64>(iDurationMs) * static_cast<TUint64>(Jiffies::kPerMs));
+    const TUint64 kOffsetSamples = (TUint64)((static_cast<TUint64>(iLastKnownPositionMs) * static_cast<TUint64>(info.SampleRate())) / 1000llu);
 
     MsgDecodedStream* msg = iMsgFactory.CreateMsgDecodedStream(
         info.StreamId(),
@@ -304,8 +234,8 @@ MsgDecodedStream* AsyncTrackObserver::CreateMsgDecodedStreamLocked() const
         info.SampleRate(),
         info.NumChannels(),
         info.CodecName(),
-        trackLengthJiffies,
-        startOffset,
+        kTrackLengthJiffies,
+        kOffsetSamples,
         info.Lossless(),
         info.Seekable(),
         info.Live(),
@@ -316,5 +246,7 @@ MsgDecodedStream* AsyncTrackObserver::CreateMsgDecodedStreamLocked() const
         info.StreamHandler(),
         info.Ramp());
 
-    return msg;
+    iDecodedStream->RemoveRef();
+    iDecodedStream = msg;
+    iDecodedStream->AddRef();
 }

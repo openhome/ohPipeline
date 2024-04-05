@@ -10,93 +10,79 @@ namespace OpenHome {
 namespace Av {
 
 class RaatMetadata
-    : public Media::IAsyncMetadata
 {
 public:
     RaatMetadata();
+    RaatMetadata(
+        const Brx& aTitle,
+        const Brx& aSubtitle,
+        const Brx& aSubSubtitle);
 public:
-    void SetTitle(const Brx& aTitle);
-    void SetSubtitle(const Brx& Subtitle);
-    void SetSubSubtitle(const Brx& SubSubtitle);
-    void SetArtworkUri(const Brx& aUri);
-    void SetDurationMs(TUint aDurationMs);
-
     const Brx& Title() const;
     const Brx& Subtitle() const;
     const Brx& SubSubtitle() const;
-    const Brx& ArtworkUri() const;
-
-    void Clear();
+public:
     TBool operator==(const RaatMetadata& aMetadata) const;
-
-public: // from IAsyncMetadata
-    TUint DurationMs() const override;
+    void operator=(const RaatMetadata& aMetadata);
 private:
     Bwh iTitle;
     Bwh iSubtitle;
     Bwh iSubSubtitle;
-    Bwh iArtworkUri;
+};
+
+class RaatTrackBoundary : public Media::IAsyncTrackBoundary
+{
+public:
+    RaatTrackBoundary();
+public:
+    void Set(TUint aOffsetMs, TUint aDurationMs);
+public: // IAsyncTrackBoundary
+    const Brx& Mode() const override;
+    TUint OffsetMs() const override;
+    TUint DurationMs() const override;
+private:
+    TUint iOffsetMs;
     TUint iDurationMs;
 };
 
-class RaatMetadataAllocated
-    : public Media::Allocated
-    , public Media::IAsyncMetadataAllocated
+class RaatTrackPosition : public Media::IAsyncTrackPosition
 {
 public:
-    RaatMetadataAllocated(Media::AllocatorBase& aAllocator);
-public:
-    void SetTitle(const Brx& aTitle);
-    void SetSubtitle(const Brx& Subtitle);
-    void SetSubSubtitle(const Brx& SubSubtitle);
-    void SetArtworkUri(const Brx& aUri);
-    void SetDurationMs(TUint aDurationMs);
-
-    TBool operator==(const RaatMetadataAllocated& aMetadata) const;
-public: // from IAsyncMetadataAllocated
-    const Media::IAsyncMetadata& Metadata() const override;
-    void AddReference() override;
-    void RemoveReference() override;
-private: // from Allocated
-    void Clear() override;
+    RaatTrackPosition(TUint aPositionMs);
+public: // IAsyncTrackPosition
+    const Brx& Mode() const override;
+    TUint PositionMs() const override;
 private:
-    RaatMetadata iMetadata;
+    TUint iPositionMs;
 };
 
 class RaatTrackInfo;
 class RaatMetadataHandler
-    : public Media::IAsyncTrackClient
-    , public Media::IArtworkServerObserver
-{
-private:
-    static const Brn kMode;
-    static const TUint kMsPerSec = 1000;
-    static const TUint kMaxMetadataCount = 2;
-public:
-    RaatMetadataHandler(
-        Media::IAsyncTrackObserver& aAsyncTrackObserver,
-        IInfoAggregator&            aInfoAggregator,
-        Media::IArtworkServer&      aArtworkServer);
-    ~RaatMetadataHandler();
+    : public Media::IArtworkServerObserver
+    , public Media::IAsyncTrackClient
 
-public: // from IAsyncTrackClient
-    const Brx& Mode() const override;
-    TBool ForceDecodedStream() const override;
-    void WriteMetadata(
-        const Brx&                      aTrackUri,
-        const Media::IAsyncMetadata&    aMetadata,
-        const Media::DecodedStreamInfo& aStreamInfo,
-        IWriter&                        aWriter) override;
-public: // from IArtworkServerObserver
-    void ArtworkChanged(const Brx& aUri) override;
+{
+public:
+    static const Brn kMode;
+private:
+    static const TUint kMsPerSec = 1000;
+public:
+    RaatMetadataHandler(Media::IAsyncTrackObserver& aAsyncTrackObserver, Media::IArtworkServer& aArtworkServer);
 public:
     void TrackInfoChanged(const RaatTrackInfo& aTrackInfo);
+public: // from IArtworkServerObserver
+    void ArtworkChanged(const Brx& aUri) override;
+public: // from IAsyncTrackClient
+    const Brx& Mode() const override;
+    void WriteMetadata(const Brx& aTrackUri, const Media::DecodedStreamInfo& aStreamInfo, IWriter& aWriter) override;
+    const Media::IAsyncTrackBoundary& GetTrackBoundary() override;
 private:
-    Media::IAsyncTrackObserver&             iTrackObserver;
-    Media::Allocator<RaatMetadataAllocated> iAllocatorMetadata;
-    Media::IArtworkServer&                  iArtworkServer;
-    RaatMetadataAllocated*                  iMetadata;
-    TUint                                   iTrackPositionSecs;
+    Media::IAsyncTrackObserver& iTrackObserver;
+    Media::IArtworkServer& iArtworkServer;
+    Mutex iLock;
+    RaatMetadata iMetadata;
+    RaatTrackBoundary iBoundary;
+    Bwh iArtworkUri;
 };
 
 

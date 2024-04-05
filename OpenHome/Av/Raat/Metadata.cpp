@@ -9,60 +9,21 @@ using namespace OpenHome::Media;
 // RaatMetadata
 
 RaatMetadata::RaatMetadata()
-    : iDurationMs(0)
+    : iTitle(Brx::Empty())
+    , iSubtitle(Brx::Empty())
+    , iSubSubtitle(Brx::Empty())
 {
-    Clear();
 }
 
-void RaatMetadata::SetTitle(const Brx& aTitle)
-{
-    iTitle.Grow(aTitle.Bytes());
-    iTitle.Replace(aTitle);
-}
+RaatMetadata::RaatMetadata(
+    const Brx& aTitle,
+    const Brx& aSubtitle,
+    const Brx& aSubSubtitle)
 
-void RaatMetadata::SetSubtitle(const Brx& aSubtitle)
+    : iTitle(aTitle)
+    , iSubtitle(aSubtitle)
+    , iSubSubtitle(aSubSubtitle)
 {
-    iSubtitle.Grow(aSubtitle.Bytes());
-    iSubtitle.Replace(aSubtitle);
-}
-
-void RaatMetadata::SetSubSubtitle(const Brx& aSubSubtitle)
-{
-    iSubSubtitle.Grow(aSubSubtitle.Bytes());
-    iSubSubtitle.Replace(aSubSubtitle);
-}
-
-void RaatMetadata::SetArtworkUri(const Brx& aUri)
-{
-    iArtworkUri.Grow(aUri.Bytes());
-    iArtworkUri.Replace(aUri);
-}
-
-void RaatMetadata::SetDurationMs(TUint aDurationMs)
-{
-    iDurationMs = aDurationMs;
-}
-
-void RaatMetadata::Clear()
-{
-    iTitle.SetBytes(0);
-    iSubtitle.SetBytes(0);
-    iSubSubtitle.SetBytes(0);
-    iArtworkUri.SetBytes(0);
-    iDurationMs = 0;
-}
-
-TBool RaatMetadata::operator==(const RaatMetadata& aMetadata) const
-{
-    /* This function is used to determine if the metadata has changed
-     * Raat track info and artwork arrive asynchronously so here we
-     * only check if track info has changed and allow artwork to arrive
-     * and be processed independently
-     */
-    return aMetadata.iTitle == iTitle
-        && aMetadata.iSubtitle == iSubtitle
-        && aMetadata.iSubSubtitle == iSubSubtitle
-        && aMetadata.iDurationMs == iDurationMs;
 }
 
 const Brx& RaatMetadata::Title() const
@@ -80,72 +41,76 @@ const Brx& RaatMetadata::SubSubtitle() const
     return iSubSubtitle;
 }
 
-const Brx& RaatMetadata::ArtworkUri() const
+TBool RaatMetadata::operator==(const RaatMetadata& aMetadata) const
 {
-    return iArtworkUri;
+    /* This function is used to determine if the metadata has changed
+     * Raat track info and artwork arrive asynchronously so here we
+     * only check if track info has changed and allow artwork to arrive
+     * and be processed independently
+     */
+    return aMetadata.iTitle == iTitle
+        && aMetadata.iSubtitle == iSubtitle
+        && aMetadata.iSubSubtitle == iSubSubtitle;
 }
 
-TUint RaatMetadata::DurationMs() const
+void RaatMetadata::operator=(const RaatMetadata& aMetadata)
+{
+    iTitle.Grow(aMetadata.Title().Bytes());
+    iTitle.Replace(aMetadata.Title());
+
+    iSubtitle.Grow(aMetadata.Subtitle().Bytes());
+    iSubtitle.Replace(aMetadata.Subtitle());
+
+    iSubSubtitle.Grow(aMetadata.SubSubtitle().Bytes());
+    iSubSubtitle.Replace(aMetadata.SubSubtitle());
+}
+
+
+// RaatTrackBoundary
+
+RaatTrackBoundary::RaatTrackBoundary()
+    : iOffsetMs(0)
+    , iDurationMs(0)
+{
+}
+
+void RaatTrackBoundary::Set(TUint aOffsetMs, TUint aDurationMs)
+{
+    iOffsetMs = aOffsetMs;
+    iDurationMs = aDurationMs;
+}
+
+const Brx& RaatTrackBoundary::Mode() const
+{
+    return RaatMetadataHandler::kMode;
+}
+
+TUint RaatTrackBoundary::OffsetMs() const
+{
+    return iOffsetMs;
+}
+
+TUint RaatTrackBoundary::DurationMs() const
 {
     return iDurationMs;
 }
 
 
-// RaatMetadataAllocated
+// RaatTrackPosition
 
-RaatMetadataAllocated::RaatMetadataAllocated(OpenHome::Media::AllocatorBase& aAllocator)
-    : Allocated(aAllocator)
+RaatTrackPosition::RaatTrackPosition(TUint aPositionMs)
+    : iPositionMs(aPositionMs)
 {
 }
 
-void RaatMetadataAllocated::SetTitle(const Brx& aTitle)
+const Brx& RaatTrackPosition::Mode() const
 {
-    iMetadata.SetTitle(aTitle);
+    return RaatMetadataHandler::kMode;
 }
 
-void RaatMetadataAllocated::SetSubtitle(const Brx& aSubtitle)
+TUint RaatTrackPosition::PositionMs() const
 {
-    iMetadata.SetSubtitle(aSubtitle);
-}
-
-void RaatMetadataAllocated::SetSubSubtitle(const Brx& aSubSubtitle)
-{
-    iMetadata.SetSubSubtitle(aSubSubtitle);
-}
-
-void RaatMetadataAllocated::SetArtworkUri(const Brx& aUri)
-{
-    iMetadata.SetArtworkUri(aUri);
-}
-
-void RaatMetadataAllocated::SetDurationMs(TUint aDurationMs)
-{
-    iMetadata.SetDurationMs(aDurationMs);
-}
-
-TBool RaatMetadataAllocated::operator==(const RaatMetadataAllocated& aMetadata) const
-{
-    return (static_cast<const RaatMetadata&>(aMetadata.Metadata()) == iMetadata);
-}
-
-const Media::IAsyncMetadata& RaatMetadataAllocated::Metadata() const
-{
-    return iMetadata;
-}
-
-void RaatMetadataAllocated::AddReference()
-{
-    AddRef();
-}
-
-void RaatMetadataAllocated::RemoveReference()
-{
-    RemoveRef();
-}
-
-void RaatMetadataAllocated::Clear()
-{
-    iMetadata.Clear();
+    return iPositionMs;
 }
 
 
@@ -153,27 +118,53 @@ void RaatMetadataAllocated::Clear()
 
 const Brn RaatMetadataHandler::kMode("RAAT");
 
-RaatMetadataHandler::RaatMetadataHandler(
-    IAsyncTrackObserver&    aTrackObserver,
-    IInfoAggregator&        aInfoAggregator,
-    IArtworkServer&         aArtworkServer)
-
+RaatMetadataHandler::RaatMetadataHandler(IAsyncTrackObserver& aTrackObserver, IArtworkServer& aArtworkServer)
     : iTrackObserver(aTrackObserver)
-    , iAllocatorMetadata("RaatMetadata", kMaxMetadataCount, aInfoAggregator)
     , iArtworkServer(aArtworkServer)
-    , iMetadata(nullptr)
-    , iTrackPositionSecs(0)
+    , iLock("RAMD")
 {
     iTrackObserver.AddClient(*this);
     iArtworkServer.AddObserver(*this);
 }
 
-RaatMetadataHandler::~RaatMetadataHandler()
+void RaatMetadataHandler::TrackInfoChanged(const RaatTrackInfo& aTrackInfo)
 {
-    if (iMetadata != nullptr) {
-        iTrackObserver.MetadataChanged(nullptr); // observer must remove any metadata reference before we call the d'tor for iAllocatorMetadata
-        iMetadata->RemoveReference();
+    AutoMutex _(iLock);
+    const TUint kPositionMs = aTrackInfo.GetPositionSecs() * kMsPerSec;
+    const TUint kDurationMs = aTrackInfo.GetDurationSecs() * kMsPerSec;
+    if (kDurationMs != 0 && kDurationMs != iBoundary.DurationMs()) {
+        iBoundary.Set(kPositionMs, kDurationMs);
+        iTrackObserver.TrackBoundaryChanged(iBoundary);
     }
+    else {
+        iTrackObserver.TrackPositionChanged(RaatTrackPosition(kPositionMs));
+    }
+    iBoundary.Set(kPositionMs, iBoundary.DurationMs());
+
+    RaatMetadata metadata(
+        aTrackInfo.GetTitle(),
+        aTrackInfo.GetSubtitle(),
+        aTrackInfo.GetSubSubtitle());
+
+    if (iMetadata == metadata) {
+        return;
+    }
+
+    iMetadata = metadata;
+    iTrackObserver.TrackMetadataChanged(kMode);
+}
+
+void RaatMetadataHandler::ArtworkChanged(const Brx& aUri)
+{
+    AutoMutex _(iLock);
+    if (aUri == Brx::Empty()) {
+        iArtworkUri.SetBytes(0);
+    }
+    else {
+        iArtworkUri.Grow(aUri.Bytes());
+        iArtworkUri.Replace(aUri);
+    }
+    iTrackObserver.TrackMetadataChanged(kMode);
 }
 
 const Brx& RaatMetadataHandler::Mode() const
@@ -181,75 +172,33 @@ const Brx& RaatMetadataHandler::Mode() const
     return kMode;
 }
 
-TBool RaatMetadataHandler::ForceDecodedStream() const
+void RaatMetadataHandler::WriteMetadata(const Brx& aTrackUri, const DecodedStreamInfo& aStreamInfo, IWriter& aWriter)
 {
-    /* Force initial decoded stream to be output, even though it may be incomplete (missing start offset etc.,)
-     * Ensures pipeline has the minimum information to be setup correctly (sample rate)
-     * Required for clocking/tick count setup
-     */
-    return true;
-}
-
-void RaatMetadataHandler::WriteMetadata(
-    const Brx&                      aTrackUri,
-    const Media::IAsyncMetadata&    aMetadata,
-    const Media::DecodedStreamInfo& aStreamInfo,
-    IWriter&                        aWriter)
-{
+    AutoMutex _(iLock);
     static const Brn kItemId("0");
     static const Brn kParentId("0");
     static const Brn kProtocolInfo("raat:*:audio/L16:*");
 
     WriterDIDLLite writer(kItemId, DIDLLite::kItemTypeTrack, kParentId, aWriter);
-    const auto& metadata = static_cast<const RaatMetadata&>(aMetadata);
-
-    writer.WriteTitle(metadata.Title());
-    writer.WriteArtist(metadata.Subtitle());
-    writer.WriteAlbum(metadata.SubSubtitle());
-    writer.WriteArtwork(metadata.ArtworkUri());
+    writer.WriteTitle(iMetadata.Title());
+    writer.WriteArtist(iMetadata.Subtitle());
+    writer.WriteAlbum(iMetadata.SubSubtitle());
+    writer.WriteArtwork(iArtworkUri);
 
     WriterDIDLLite::StreamingDetails details;
     details.sampleRate = aStreamInfo.SampleRate();
     details.numberOfChannels = aStreamInfo.NumChannels();
     details.bitDepth = aStreamInfo.BitDepth();
-    details.duration = metadata.DurationMs();
+    details.duration = iBoundary.DurationMs();
     details.durationResolution = EDurationResolution::Milliseconds;
 
     writer.WriteStreamingDetails(kProtocolInfo, details, aTrackUri);
     writer.WriteEnd();
 }
 
-void RaatMetadataHandler::ArtworkChanged(const Brx& aUri)
+const IAsyncTrackBoundary& RaatMetadataHandler::GetTrackBoundary()
 {
-    if (iMetadata != nullptr) {
-        iMetadata->SetArtworkUri(aUri);
-        iTrackObserver.MetadataChanged(iMetadata);
-    }
+    AutoMutex _(iLock);
+    return iBoundary;
 }
 
-void RaatMetadataHandler::TrackInfoChanged(const RaatTrackInfo& aTrackInfo)
-{
-    if (iTrackPositionSecs != aTrackInfo.GetPositionSecs()) {
-        iTrackPositionSecs = aTrackInfo.GetPositionSecs();
-        iTrackObserver.TrackPositionChanged(iTrackPositionSecs * kMsPerSec);
-    }
-
-    RaatMetadataAllocated* metadata = iAllocatorMetadata.Allocate();
-    metadata->SetTitle(aTrackInfo.GetTitle());
-    metadata->SetSubtitle(aTrackInfo.GetSubtitle());
-    metadata->SetSubSubtitle(aTrackInfo.GetSubSubtitle());
-    metadata->SetDurationMs(aTrackInfo.GetDurationSecs() * kMsPerSec);
-
-    if (iMetadata != nullptr) {
-        if (*iMetadata == *metadata) {
-            metadata->RemoveReference();
-            return;
-        }
-        iMetadata->RemoveReference();
-    }
-
-    iMetadata = metadata;
-    iMetadata->AddReference();
-    iTrackObserver.MetadataChanged(iMetadata);
-    iTrackObserver.TrackOffsetChanged(iTrackPositionSecs * kMsPerSec);
-}

@@ -1889,10 +1889,12 @@ public:
     /**
      * Report sample packing requirements for DSD
      *
-     * @return     Granularity of DSD data.  (Effectively, the points that audio can be split at.)
-     *             Throws FormatUnsupported if DSD is not supported.
+     * @param[out] aSampleBlockWords    Granularity of DSD data.  (Effectively, the points that audio can be split at.)
+     * @param[out] aPadBytesPerChunk    Number of padding bytes for every 1 word block of playable DSD audio
+     *
+     * Throws FormatUnsupported if DSD is not supported.
      */
-    virtual TUint PipelineAnimatorDsdBlockSizeWords() const = 0;
+    virtual void PipelineAnimatorDsdBlockConfiguration(TUint& aSampleBlockWords, TUint& aPadBytesPerChunk) const = 0;
     /**
      * Report the maximum bit depth supported.
      *

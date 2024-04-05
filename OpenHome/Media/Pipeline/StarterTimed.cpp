@@ -47,6 +47,8 @@ StarterTimed::StarterTimed(MsgFactory& aMsgFactory, IPipelineElementUpstream& aU
     , iAnimatorDelayJiffies(0)
     , iPending(nullptr)
     , iJiffiesRemaining(0)
+    , iDsdSampleBlockWords(0)
+    , iDsdPadBytesPerChunk(0)
 {
 }
 
@@ -60,6 +62,10 @@ StarterTimed::~StarterTimed()
 void StarterTimed::SetAnimator(IPipelineAnimator& aAnimator)
 {
     iAnimator = &aAnimator;
+    try {
+        aAnimator.PipelineAnimatorDsdBlockConfiguration(iDsdSampleBlockWords, iDsdPadBytesPerChunk);
+    }
+    catch (FormatUnsupported&) {}
 }
 
 void StarterTimed::StartAt(TUint64 aTime)
@@ -79,7 +85,7 @@ Msg* StarterTimed::Pull()
                 msg = iMsgFactory.CreateMsgSilence(jiffies, iSampleRate, iBitDepth, iNumChannels);
             }
             else {
-                msg = iMsgFactory.CreateMsgSilenceDsd(jiffies, iSampleRate, iNumChannels, 6, 2); // DSD sample block words
+                msg = iMsgFactory.CreateMsgSilenceDsd(jiffies, iSampleRate, iNumChannels, iDsdSampleBlockWords, iDsdPadBytesPerChunk);
             }
             if (iJiffiesRemaining < kMaxSilenceJiffies) {
                 iJiffiesRemaining = 0; // CreateMsgSilence rounds to nearest sample so jiffies>iJiffiesRemaining is possible in the final call
