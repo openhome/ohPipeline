@@ -280,9 +280,10 @@ TUint AnimatorBasic::PipelineAnimatorDelayJiffies(AudioFormat /*aFormat*/, TUint
     return 0;
 }
 
-TUint AnimatorBasic::PipelineAnimatorDsdBlockSizeWords() const
+void AnimatorBasic::PipelineAnimatorDsdBlockConfiguration(TUint& aSampleBlockWords, TUint& aPadBytesPerChunk) const
 {
-    return 1;
+    aSampleBlockWords = 1;
+    aPadBytesPerChunk = 0;
 }
 
 TUint AnimatorBasic::PipelineAnimatorMaxBitDepth() const

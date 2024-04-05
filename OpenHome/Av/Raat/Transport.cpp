@@ -331,7 +331,6 @@ RaatTransport::RaatTransport(IMediaPlayer& aMediaPlayer)
     , iArtworkServer(aMediaPlayer.Env())
     , iMetadataHandler(
         aMediaPlayer.Pipeline().AsyncTrackObserver(),
-        *(aMediaPlayer.Env().InfoAggregator()),
         iArtworkServer)
     , iState(RaatTrackInfo::EState::eUndefined)
     , iLockStatus("RTTR")

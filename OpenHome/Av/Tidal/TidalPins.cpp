@@ -454,7 +454,7 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
             parser.Parse(iJsonResponse.Buffer());
 
             const TUint fetchedItemCount = GetRealFetchedItemCount(parser, kItemLimitPerRequest);
-            UpdateOffset(total, fetchedItemCount, end, true, shuffleLoadOrder, offset);
+            UpdateOffset(total, fetchedItemCount, end, false, shuffleLoadOrder, offset);
 
             if (parser.HasKey("items")) {
                 auto parserItems = JsonParserArray::Create(parser.String("items"));

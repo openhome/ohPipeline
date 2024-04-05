@@ -3,32 +3,26 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
+#include <list>
+
 namespace OpenHome {
 namespace Media {
 
-
-/* IAsyncMetadata
- * Interface to provide the minimum information required by IAsyncTrackObserver
- * Clients should implement and extend as necessary
- */
-class IAsyncMetadata
+class IAsyncTrackBoundary
 {
 public:
+    virtual ~IAsyncTrackBoundary() {}
+    virtual const Brx& Mode() const = 0;
+    virtual TUint OffsetMs() const = 0;
     virtual TUint DurationMs() const = 0;
-
-    virtual ~IAsyncMetadata() {}
 };
 
-/* IAsyncMetadataAllocated
- * Reference-counted object to wrap IAsyncMetadata
- */
-class IAsyncMetadataAllocated
+class IAsyncTrackPosition
 {
 public:
-    virtual const IAsyncMetadata& Metadata() const = 0;
-    virtual void AddReference() = 0;
-    virtual void RemoveReference() = 0;
-    virtual ~IAsyncMetadataAllocated() {}
+    virtual ~IAsyncTrackPosition() {}
+    virtual const Brx& Mode() const = 0;
+    virtual TUint PositionMs() const = 0;
 };
 
 /* IAsyncTrackClient
@@ -39,48 +33,43 @@ public:
 class IAsyncTrackClient
 {
 public:
-    virtual const Brx& Mode() const = 0;
-    virtual TBool ForceDecodedStream() const = 0;
-    virtual void WriteMetadata(const Brx& aTrackUri, const IAsyncMetadata& aMetadata, const DecodedStreamInfo& aStreamInfo, IWriter& aWriter) = 0;
-
     virtual ~IAsyncTrackClient() {}
+    virtual const Brx& Mode() const = 0;
+    virtual void WriteMetadata(const Brx& aTrackUri, const DecodedStreamInfo& aStreamInfo, IWriter& aWriter) = 0;
+    virtual const IAsyncTrackBoundary& GetTrackBoundary() = 0;
 };
 
 class IAsyncTrackObserver
 {
 public:
+    virtual ~IAsyncTrackObserver() {}
     virtual void AddClient(IAsyncTrackClient& aClient) = 0;
     /*
      * Call when new metadata is available
      */
-    virtual void MetadataChanged(IAsyncMetadataAllocated* aMetadata) = 0;
+    virtual void TrackMetadataChanged(const Brx& aMode) = 0;
     /*
-     * Call when the track offset has actively changed (e.g., due to a seek)
+     * Call when the track offset or duration has changed (e.g., following new metadata or a seek)
      */
-    virtual void TrackOffsetChanged(TUint aOffsetMs) = 0;
+    virtual void TrackBoundaryChanged(const IAsyncTrackBoundary& aBoundary) = 0;
     /*
      * Call to update the current playback position, so that action can be taken if loss of sync is detected
      */
-    virtual void TrackPositionChanged(TUint aPositionMs) = 0;
-
-    virtual ~IAsyncTrackObserver() {}
+    virtual void TrackPositionChanged(const IAsyncTrackPosition& aPosition) = 0;
 };
 
-/**
- * Helper class to store start offset expressed in milliseconds or samples.
- * Each call to either of the Set() methods overwrites any value set (be it in
- * milliseconds or samples) in a previous call.
- */
-class AsyncStartOffset
+class AsyncMetadataRequests
 {
 public:
-    AsyncStartOffset();
-    void SetMs(TUint aOffsetMs);
-    TUint64 OffsetSample(TUint aSampleRate) const;
-    TUint OffsetMs() const;
-    TUint AbsoluteDifference(TUint aOffsetMs) const;
+    AsyncMetadataRequests() {}
+public:
+    TBool Exists(const Brx& aMode);
+    void Add(const Brx& aMode);
+    void Remove(const Brx& aMode);
+    void Trim(const Brx& aMode);
+    void Clear();
 private:
-    TUint iOffsetMs;
+    std::list<std::unique_ptr<Brx>> iRequests;
 };
 
 /* AsyncTrackObserver
@@ -94,47 +83,42 @@ class AsyncTrackObserver
 {
 private:
     static const TUint kSupportedMsgTypes;
-    static const TUint kTrackOffsetChangeThresholdMs = 2000;
+    static const TUint kPositionDeltaThresholdMs = 2000;
 public:
     AsyncTrackObserver(
-        IPipelineElementUpstream&   aUpstreamElement,
-        MsgFactory&                 aMsgFactory,
-        TrackFactory&               aTrackFactory);
+        IPipelineElementUpstream& aUpstreamElement,
+        MsgFactory& aMsgFactory,
+        TrackFactory& aTrackFactory);
 
     ~AsyncTrackObserver();
 public: // from IPipelineElementUpstream
     Msg* Pull() override;
 public: // from IAsyncTrackObserver
     void AddClient(IAsyncTrackClient& aClient) override;
-    void MetadataChanged(IAsyncMetadataAllocated* aMetadata) override;
-    void TrackOffsetChanged(TUint aOffsetMs) override;
-    void TrackPositionChanged(TUint aPositionMs) override;
+    void TrackMetadataChanged(const Brx& aMode) override;
+    void TrackBoundaryChanged(const IAsyncTrackBoundary& aBoundary) override;
+    void TrackPositionChanged(const IAsyncTrackPosition& aPosition) override;
 private: // PipelineElement
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgTrack* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
 private:
-    void ClearDecodedStream();
-    void UpdateDecodedStream(MsgDecodedStream& aMsg);
-    TUint64 TrackLengthJiffiesLocked() const;
-    MsgDecodedStream* CreateMsgDecodedStreamLocked() const;
+    void UpdateDecodedStreamLocked();
 private:
     IPipelineElementUpstream& iUpstreamElement;
     MsgFactory& iMsgFactory;
     TrackFactory& iTrackFactory;
     IAsyncTrackClient* iClient;
-    IAsyncMetadataAllocated* iMetadata;
     MsgDecodedStream* iDecodedStream;
-    TBool iInterceptMode;
-    TBool iMsgDecodedStreamPending;
-    TBool iGeneratedTrackPending;
+    TBool iDecodedStreamPending;
     TBool iPipelineTrackSeen;
-    TUint iTrackDurationMs;
+    TUint iDurationMs;
+    TUint iLastKnownPositionMs;
     mutable Mutex iLock;
 
+    AsyncMetadataRequests iRequests;
     std::vector<IAsyncTrackClient*> iClients;
     BwsTrackUri iTrackUri;
-    AsyncStartOffset iStartOffset;
 };
 
 } // namespace Media
