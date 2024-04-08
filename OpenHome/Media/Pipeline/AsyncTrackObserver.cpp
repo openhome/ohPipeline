@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <stdlib.h>
 
+#include <OpenHome/Private/Printer.h>
+
 using namespace OpenHome;
 using namespace OpenHome::Media;
 
@@ -19,12 +21,14 @@ TBool AsyncMetadataRequests::Exists(const Brx& aMode)
 
 void AsyncMetadataRequests::Add(const Brx& aMode)
 {
+    Log::Print("[METADATA DEBUG] - AsyncMetadataRequests::Add(): aMode: %.*s\n", PBUF(aMode));
     ASSERT(!Exists(aMode));
     iRequests.push_back(std::unique_ptr<Brx>(new Brh(aMode)));
 }
 
 void AsyncMetadataRequests::Remove(const Brx& aMode)
 {
+    Log::Print("[METADATA DEBUG] - AsyncMetadataRequests::Remove(): aMode: %.*s, Exists: %s\n", PBUF(aMode), PBool(Exists(aMode)));
     if (!Exists(aMode)) {
         return;
     }
@@ -35,6 +39,7 @@ void AsyncMetadataRequests::Remove(const Brx& aMode)
 
 void AsyncMetadataRequests::Trim(const Brx& aMode)
 {
+    Log::Print("[METADATA DEBUG] - AsyncMetadataRequests::Trim(): aMode: %.*s, Exists: %s\n", PBUF(aMode), PBool(Exists(aMode)));
     iRequests.remove_if([&](const std::unique_ptr<Brx>& aPtr) {
         return (*aPtr != aMode);
     });
@@ -42,6 +47,7 @@ void AsyncMetadataRequests::Trim(const Brx& aMode)
 
 void AsyncMetadataRequests::Clear()
 {
+    Log::Print("[METADATA DEBUG] - AsyncMetadataRequests::Clear()\n");
     iRequests.clear();
 }
 
