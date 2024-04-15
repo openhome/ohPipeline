@@ -23,6 +23,7 @@ public:
     const Brx& SubSubtitle() const;
 public:
     TBool operator==(const RaatMetadata& aMetadata) const;
+    TBool operator!=(const RaatMetadata& aMetadata) const;
     void operator=(const RaatMetadata& aMetadata);
 private:
     Bwh iTitle;

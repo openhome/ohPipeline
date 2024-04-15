@@ -49,9 +49,9 @@ public:
      */
     virtual void TrackMetadataChanged(const Brx& aMode) = 0;
     /*
-     * Call when the track offset or duration has changed (e.g., following new metadata or a seek)
+     * Call when the track offset or duration has changed (e.g., following a seek)
      */
-    virtual void TrackBoundaryChanged(const IAsyncTrackBoundary& aBoundary) = 0;
+    virtual void TrackBoundaryChanged(const Brx& aMode) = 0;
     /*
      * Call to update the current playback position, so that action can be taken if loss of sync is detected
      */
@@ -96,14 +96,14 @@ public: // from IPipelineElementUpstream
 public: // from IAsyncTrackObserver
     void AddClient(IAsyncTrackClient& aClient) override;
     void TrackMetadataChanged(const Brx& aMode) override;
-    void TrackBoundaryChanged(const IAsyncTrackBoundary& aBoundary) override;
+    void TrackBoundaryChanged(const Brx& aMode) override;
     void TrackPositionChanged(const IAsyncTrackPosition& aPosition) override;
 private: // PipelineElement
     Msg* ProcessMsg(MsgMode* aMsg) override;
     Msg* ProcessMsg(MsgTrack* aMsg) override;
     Msg* ProcessMsg(MsgDecodedStream* aMsg) override;
 private:
-    void UpdateDecodedStreamLocked();
+    void UpdateDecodedStreamLocked(const IAsyncTrackBoundary& aBoundary);
 private:
     IPipelineElementUpstream& iUpstreamElement;
     MsgFactory& iMsgFactory;
@@ -112,7 +112,6 @@ private:
     MsgDecodedStream* iDecodedStream;
     TBool iDecodedStreamPending;
     TBool iPipelineTrackSeen;
-    TUint iDurationMs;
     TUint iLastKnownPositionMs;
     mutable Mutex iLock;
 

@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <stdlib.h>
 
-#include <OpenHome/Private/Printer.h>
-
 using namespace OpenHome;
 using namespace OpenHome::Media;
 
@@ -21,14 +19,12 @@ TBool AsyncMetadataRequests::Exists(const Brx& aMode)
 
 void AsyncMetadataRequests::Add(const Brx& aMode)
 {
-    Log::Print("[METADATA DEBUG] - AsyncMetadataRequests::Add(): aMode: %.*s\n", PBUF(aMode));
     ASSERT(!Exists(aMode));
     iRequests.push_back(std::unique_ptr<Brx>(new Brh(aMode)));
 }
 
 void AsyncMetadataRequests::Remove(const Brx& aMode)
 {
-    Log::Print("[METADATA DEBUG] - AsyncMetadataRequests::Remove(): aMode: %.*s, Exists: %s\n", PBUF(aMode), PBool(Exists(aMode)));
     if (!Exists(aMode)) {
         return;
     }
@@ -39,7 +35,6 @@ void AsyncMetadataRequests::Remove(const Brx& aMode)
 
 void AsyncMetadataRequests::Trim(const Brx& aMode)
 {
-    Log::Print("[METADATA DEBUG] - AsyncMetadataRequests::Trim(): aMode: %.*s, Exists: %s\n", PBUF(aMode), PBool(Exists(aMode)));
     iRequests.remove_if([&](const std::unique_ptr<Brx>& aPtr) {
         return (*aPtr != aMode);
     });
@@ -47,7 +42,6 @@ void AsyncMetadataRequests::Trim(const Brx& aMode)
 
 void AsyncMetadataRequests::Clear()
 {
-    Log::Print("[METADATA DEBUG] - AsyncMetadataRequests::Clear()\n");
     iRequests.clear();
 }
 
@@ -82,7 +76,6 @@ AsyncTrackObserver::AsyncTrackObserver(
     , iDecodedStream(nullptr)
     , iDecodedStreamPending(false)
     , iPipelineTrackSeen(false)
-    , iDurationMs(0)
     , iLastKnownPositionMs(0)
     , iLock("ASTR")
 {
@@ -115,9 +108,7 @@ Msg* AsyncTrackObserver::Pull()
             }
             if (iDecodedStreamPending) {
                 auto& boundary = iClient->GetTrackBoundary();
-                iDurationMs = boundary.DurationMs();
-                iLastKnownPositionMs = boundary.OffsetMs();
-                UpdateDecodedStreamLocked();
+                UpdateDecodedStreamLocked(boundary);
                 iDecodedStreamPending = false;
                 return iDecodedStream;
             }
@@ -144,18 +135,15 @@ void AsyncTrackObserver::TrackMetadataChanged(const Brx& aMode)
     iDecodedStreamPending = true;
 }
 
-void AsyncTrackObserver::TrackBoundaryChanged(const IAsyncTrackBoundary& aBoundary)
+void AsyncTrackObserver::TrackBoundaryChanged(const Brx& aMode)
 {
     AutoMutex _(iLock);
     if (iClient == nullptr) {
         return;
     }
-    if (aBoundary.Mode() != iClient->Mode()) {
+    if (aMode != iClient->Mode()) {
         return;
     }
-
-    iDurationMs = aBoundary.DurationMs();
-    iLastKnownPositionMs = aBoundary.OffsetMs();
     iDecodedStreamPending = true;
 }
 
@@ -186,7 +174,6 @@ Msg* AsyncTrackObserver::ProcessMsg(MsgMode* aMsg)
     }
     iDecodedStreamPending = false;
     iPipelineTrackSeen = false;
-    iDurationMs = 0;
     iLastKnownPositionMs = 0;
 
     for (auto* client : iClients) {
@@ -226,12 +213,13 @@ Msg* AsyncTrackObserver::ProcessMsg(MsgDecodedStream* aMsg)
     return aMsg;
 }
 
-void AsyncTrackObserver::UpdateDecodedStreamLocked()
+void AsyncTrackObserver::UpdateDecodedStreamLocked(const IAsyncTrackBoundary& aBoundary)
 {
     ASSERT(iDecodedStream != nullptr);
     const DecodedStreamInfo& info = iDecodedStream->StreamInfo();
-    const TUint64 kTrackLengthJiffies = (TUint64)(static_cast<TUint64>(iDurationMs) * static_cast<TUint64>(Jiffies::kPerMs));
-    const TUint64 kOffsetSamples = (TUint64)((static_cast<TUint64>(iLastKnownPositionMs) * static_cast<TUint64>(info.SampleRate())) / 1000llu);
+    const TUint64 kTrackLengthJiffies = (TUint64)(static_cast<TUint64>(aBoundary.DurationMs()) * static_cast<TUint64>(Jiffies::kPerMs));
+    const TUint64 kOffsetSamples = (TUint64)((static_cast<TUint64>(aBoundary.OffsetMs()) * static_cast<TUint64>(info.SampleRate())) / 1000llu);
+    iLastKnownPositionMs = aBoundary.OffsetMs();
 
     MsgDecodedStream* msg = iMsgFactory.CreateMsgDecodedStream(
         info.StreamId(),

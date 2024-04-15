@@ -397,9 +397,7 @@ void WriterDIDLLite::WriteEnd()
 
 void WriterDIDLLite::WriteArtwork(const Brx& aArtwork)
 {
-    Log::Print("[METADATA DEBUG] - WriterDIDLLite::WriteArtwork()...\n");
     iWriter.TryWriteTag(DIDLLite::kTagArtwork, aArtwork);
-    Log::Print("[METADATA DEBUG] - WriterDIDLLite::WriteArtwork() done\n");
 }
 
 void WriterDIDLLite::WriteCustomMetadata(const TChar* aId, const Brx& aNamespace, const Brx& aValue)
