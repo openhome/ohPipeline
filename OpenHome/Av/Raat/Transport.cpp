@@ -29,8 +29,7 @@ RC__Status Raat_RaatTransport_Get_Info(void * /*self*/, json_t **out_info)
 
 RC__Status Raat_RaatTransport_Add_Control_Listener(void *self, RAAT__TransportControlCallback cb, void *cb_userdata)
 {
-    Transport(self)->AddControlListener(cb, cb_userdata);
-    return RC__STATUS_SUCCESS;
+    return Transport(self)->AddControlListener(cb, cb_userdata);
 }
 
 RC__Status Raat_RaatTransport_Remove_Control_Listener(void *self, RAAT__TransportControlCallback cb, void *cb_userdata)
@@ -357,9 +356,9 @@ RAAT__TransportPlugin* RaatTransport::Plugin()
     return (RAAT__TransportPlugin*)&iPluginExt;
 }
 
-void RaatTransport::AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)
+RC__Status RaatTransport::AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)
 {
-    RAAT__transport_control_listeners_add(&iListeners, aCb, aCbUserdata);
+    return RAAT__transport_control_listeners_add(&iListeners, aCb, aCbUserdata);
 }
 
 void RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)

@@ -28,8 +28,7 @@ extern "C"
 extern "C"
 RC__Status Raat_Volume_Add_State_Listener(void *self, RAAT__VolumeStateCallback cb, void *cb_userdata)
 {
-    Volume(self)->AddStateListener(cb, cb_userdata);
-    return RC__STATUS_SUCCESS;
+    return Volume(self)->AddStateListener(cb, cb_userdata);
 }
 
 extern "C"
@@ -123,9 +122,9 @@ RAAT__VolumePlugin* RaatVolume::Plugin()
     return (RAAT__VolumePlugin*)&iPluginExt;
 }
 
-void RaatVolume::AddStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata)
+RC__Status RaatVolume::AddStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata)
 {
-    (void)RAAT__volume_state_listeners_add(&iListeners, aCb, aCbUserdata);
+    return RAAT__volume_state_listeners_add(&iListeners, aCb, aCbUserdata);
 }
 
 void RaatVolume::RemoveStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata)

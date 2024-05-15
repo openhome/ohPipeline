@@ -32,7 +32,7 @@ public:
     static RaatVolume* New(IMediaPlayer& aMediaPlayer);
     ~RaatVolume();
     RAAT__VolumePlugin* Plugin();
-    void AddStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata);
+    RC__Status AddStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata);
     void RemoveStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata);
     void GetState(RAAT__VolumeState *aState);
     RC__Status SetVolume(TUint aVolume);

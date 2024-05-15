@@ -60,7 +60,7 @@ public:
     ~RaatSourceSelection();
 public:
     RAAT__SourceSelectionPlugin* Plugin();
-    void AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
+    RC__Status AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
     void RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
     void GetState(RAAT__SourceSelectionState *aState);
     void ActivateRaatSource();
