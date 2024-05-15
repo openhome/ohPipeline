@@ -29,19 +29,13 @@ RC__Status Raat_RaatTransport_Get_Info(void * /*self*/, json_t **out_info)
 
 RC__Status Raat_RaatTransport_Add_Control_Listener(void *self, RAAT__TransportControlCallback cb, void *cb_userdata)
 {
-    auto ret = Transport(self)->AddControlListener(cb, cb_userdata);
-    if (ret != RC__STATUS_SUCCESS) {
-        OpenHome::Log::Print("[RAAT DEBUG] - Raat_RaatTransport_Add_Control_Listener() ERROR: returned RC__STATUS_SUCCESS - actual '%s'\n", RC__status_to_string(ret));
-    }
+    Transport(self)->AddControlListener(cb, cb_userdata);
     return RC__STATUS_SUCCESS;
 }
 
 RC__Status Raat_RaatTransport_Remove_Control_Listener(void *self, RAAT__TransportControlCallback cb, void *cb_userdata)
 {
-    auto ret = Transport(self)->RemoveControlListener(cb, cb_userdata);
-    if (ret != RC__STATUS_SUCCESS) {
-        OpenHome::Log::Print("[RAAT DEBUG] - Raat_RaatTransport_Remove_Control_Listener() ERROR: returned RC__STATUS_SUCCESS - actual '%s'\n", RC__status_to_string(ret));
-    }
+    Transport(self)->RemoveControlListener(cb, cb_userdata);
     return RC__STATUS_SUCCESS;
 }
 
@@ -363,14 +357,14 @@ RAAT__TransportPlugin* RaatTransport::Plugin()
     return (RAAT__TransportPlugin*)&iPluginExt;
 }
 
-RC__Status RaatTransport::AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)
+void RaatTransport::AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)
 {
-    return RAAT__transport_control_listeners_add(&iListeners, aCb, aCbUserdata);
+    RAAT__transport_control_listeners_add(&iListeners, aCb, aCbUserdata);
 }
 
-RC__Status RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)
+void RaatTransport::RemoveControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata)
 {
-    return RAAT__transport_control_listeners_remove(&iListeners, aCb, aCbUserdata);
+    RAAT__transport_control_listeners_remove(&iListeners, aCb, aCbUserdata);
 }
 
 void RaatTransport::UpdateStatus(json_t *aStatus)
