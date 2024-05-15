@@ -29,8 +29,7 @@ RC__Status Raat_SourceSelection_Get_Info(void * /*self*/, json_t **out_info)
 extern "C"
 RC__Status Raat_SourceSelection_Add_State_Listener(void *self, RAAT__SourceSelectionStateCallback cb, void *cb_userdata)
 {
-    SourceSelection(self)->AddStateListener(cb, cb_userdata);
-    return RC__STATUS_SUCCESS;
+    return SourceSelection(self)->AddStateListener(cb, cb_userdata);
 }
 
 extern "C"
@@ -113,9 +112,9 @@ RAAT__SourceSelectionPlugin* RaatSourceSelection::Plugin()
     return (RAAT__SourceSelectionPlugin*)&iPluginExt;
 }
 
-void RaatSourceSelection::AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
+RC__Status RaatSourceSelection::AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
 {
-    (void)RAAT__source_selection_state_listeners_add(&iListeners, aCb, aCbUserdata);
+    return RAAT__source_selection_state_listeners_add(&iListeners, aCb, aCbUserdata);
 }
 
 void RaatSourceSelection::RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
