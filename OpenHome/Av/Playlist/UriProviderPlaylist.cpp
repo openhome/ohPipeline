@@ -191,6 +191,9 @@ void UriProviderPlaylist::MoveTo(const Brx& aCommand)
     else if (aCommand.BeginsWith(kCommandIndex)) {
         track = ProcessCommandIndex(aCommand);
     }
+    else if (TryProcessCommandTrack(aCommand, track)) {
+        // nothing to do - TryProcessCommandTrack already populated 'track'
+    }
     else {
         try {
             JsonParser parser;
@@ -306,6 +309,27 @@ void UriProviderPlaylist::ProcessCommandPlaylist(const Brx& aCommand)
     }
 
     iPlaylistLoader->LoadPlaylist(id, insertAfterId);
+}
+
+TBool UriProviderPlaylist::TryProcessCommandTrack(const Brx& aCommand, Track*& aTrack)
+{
+    Brn uri;
+    Brn metadata;
+    if (!FillerCommandTrack::TryGetTrackFromCommand(aCommand, uri, metadata)) {
+        return false;
+    }
+    // append track to end of playlist, deleting first track to make space if necessary
+    std::vector<TUint32> idArray;
+    TUint seq;
+    iDbWriter.GetIdArray(idArray, seq);
+    const TUint tracksMax = iDbWriter.TracksMax();
+    if (idArray.size() == tracksMax) {
+        iDbWriter.DeleteId(idArray[0]);
+    }
+    TUint id;
+    iDbWriter.Insert(idArray[idArray.size() - 1], uri, metadata, id);
+    aTrack = iDbReader.TrackRef(id);
+    return true;
 }
 
 void UriProviderPlaylist::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfter)

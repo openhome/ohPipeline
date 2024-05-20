@@ -72,6 +72,7 @@ private:
     Media::Track* ProcessCommandId(const Brx& aCommand);
     Media::Track* ProcessCommandIndex(const Brx& aCommand);
     void ProcessCommandPlaylist(const Brx& aCommand);
+    TBool TryProcessCommandTrack(const Brx& aCommand, Media::Track*& aTrack);
 private:
     enum EPendingDirection
     {
