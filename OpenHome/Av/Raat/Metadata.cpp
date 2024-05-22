@@ -53,6 +53,11 @@ TBool RaatMetadata::operator==(const RaatMetadata& aMetadata) const
         && aMetadata.iSubSubtitle == iSubSubtitle;
 }
 
+TBool RaatMetadata::operator!=(const RaatMetadata& aMetadata) const
+{
+    return !(aMetadata == *this);
+}
+
 void RaatMetadata::operator=(const RaatMetadata& aMetadata)
 {
     iTitle.Grow(aMetadata.Title().Bytes());
@@ -129,40 +134,50 @@ RaatMetadataHandler::RaatMetadataHandler(IAsyncTrackObserver& aTrackObserver, IA
 
 void RaatMetadataHandler::TrackInfoChanged(const RaatTrackInfo& aTrackInfo)
 {
-    AutoMutex _(iLock);
     const TUint kPositionMs = aTrackInfo.GetPositionSecs() * kMsPerSec;
-    const TUint kDurationMs = aTrackInfo.GetDurationSecs() * kMsPerSec;
-    if (kDurationMs != 0 && kDurationMs != iBoundary.DurationMs()) {
-        iBoundary.Set(kPositionMs, kDurationMs);
-        iTrackObserver.TrackBoundaryChanged(iBoundary);
-    }
-    else {
-        iTrackObserver.TrackPositionChanged(RaatTrackPosition(kPositionMs));
-    }
-    iBoundary.Set(kPositionMs, iBoundary.DurationMs());
-
     RaatMetadata metadata(
         aTrackInfo.GetTitle(),
         aTrackInfo.GetSubtitle(),
         aTrackInfo.GetSubSubtitle());
 
-    if (iMetadata == metadata) {
-        return;
+    TBool metadataChanged = false;
+    TBool durationChanged = false;
+    {
+        AutoMutex _(iLock);
+        if (iMetadata != metadata) {
+            iMetadata = metadata;
+            metadataChanged = true;
+        }
+
+        const TUint kDurationMs = (aTrackInfo.GetDurationSecs() > 0) ? (aTrackInfo.GetDurationSecs() * kMsPerSec) : iBoundary.DurationMs();
+        if (kDurationMs != iBoundary.DurationMs()) {
+            durationChanged = true;
+        }
+        iBoundary.Set(kPositionMs, kDurationMs);
     }
 
-    iMetadata = metadata;
-    iTrackObserver.TrackMetadataChanged(kMode);
+    if (metadataChanged) {
+        iTrackObserver.TrackMetadataChanged(kMode);
+    }
+    else if (durationChanged) {
+        iTrackObserver.TrackBoundaryChanged(kMode);
+    }
+    else {
+        iTrackObserver.TrackPositionChanged(RaatTrackPosition(kPositionMs));
+    }
 }
 
 void RaatMetadataHandler::ArtworkChanged(const Brx& aUri)
 {
-    AutoMutex _(iLock);
-    if (aUri == Brx::Empty()) {
-        iArtworkUri.SetBytes(0);
-    }
-    else {
-        iArtworkUri.Grow(aUri.Bytes());
-        iArtworkUri.Replace(aUri);
+    {
+        AutoMutex _(iLock);
+        if (aUri == Brx::Empty()) {
+            iArtworkUri.SetBytes(0);
+        }
+        else {
+            iArtworkUri.Grow(aUri.Bytes());
+            iArtworkUri.Replace(aUri);
+        }
     }
     iTrackObserver.TrackMetadataChanged(kMode);
 }

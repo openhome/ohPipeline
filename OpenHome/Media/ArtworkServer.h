@@ -97,7 +97,8 @@ private:
     Mutex iLock;
     Mutex iLockObservers;
 
-    Bws<64> iBaseUri;
+    Bwh iBaseUri;
+    Bwh iUri;
 
     std::unique_ptr<SocketTcpServer> iServer;
     std::unique_ptr<ArtworkResource> iResource;

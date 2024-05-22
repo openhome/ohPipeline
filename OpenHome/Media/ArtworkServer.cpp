@@ -42,18 +42,17 @@ ArtworkHttpServer::~ArtworkHttpServer()
 
 void ArtworkHttpServer::SetArtwork(const Brx& aData, const Brx& aType)
 {
-    Bws<128> uri;
     {
         AutoMutex _(iLock);
         Bws<32> path;
         CreateResourcePath(aType, path);
-
-        uri.Append(iBaseUri);
-        uri.Append(path);
-
         iResource.reset(new ArtworkResource(path, aData));
+
+        iUri.Grow(iBaseUri.Bytes() + path.Bytes());
+        iUri.Replace(iBaseUri);
+        iUri.Append(path);
     }
-    NotifyObservers(uri);
+    NotifyObservers(iUri);
 }
 
 void ArtworkHttpServer::ClearArtwork()
@@ -131,6 +130,7 @@ void ArtworkHttpServer::CurrentAdapterChanged()
         uri.Append("http://");
         Endpoint ep(iServer->Port(), iServer->Interface());
         ep.AppendEndpoint(uri);
+        iBaseUri.Grow(uri.Bytes());
         iBaseUri.Replace(uri);
     }
 }
