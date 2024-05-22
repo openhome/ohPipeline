@@ -202,8 +202,8 @@ public:
     ~RaatTransport();
 public:
     RAAT__TransportPlugin* Plugin();
-    void AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
-    void RemoveControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
+    RC__Status AddControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
+    RC__Status RemoveControlListener(RAAT__TransportControlCallback aCb, void *aCbUserdata);
     void UpdateStatus(json_t *aStatus);
     void UpdateArtwork(const char *mime_type, void *data, size_t data_len);
 private:
