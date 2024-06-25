@@ -106,7 +106,11 @@ void UriProviderSingleTrack::MovePrevious()
 
 void UriProviderSingleTrack::MoveTo(const Brx& aCommand)
 {
-    if (aCommand.Bytes() != 0) {
+    Brn uri, metadata;
+    if (FillerCommandTrack::TryGetTrackFromCommand(aCommand, uri, metadata)) {
+        SetTrack(uri, metadata);
+    }
+    else if (aCommand.Bytes() != 0) {
         THROW(FillerInvalidCommand);
     }
     AutoMutex a(iLock);
