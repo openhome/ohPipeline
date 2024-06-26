@@ -4,7 +4,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Functor.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/Net/Private/Service.h>
 #include <OpenHome/Net/Private/CpiService.h>
 #include <OpenHome/Net/Private/CpiSubscription.h>
