@@ -8,7 +8,7 @@
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Av/RebootHandler.h>

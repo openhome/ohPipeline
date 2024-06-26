@@ -1,7 +1,7 @@
 #include <OpenHome/Av/Tidal/TidalMetadata.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Converter.h>
 #include <OpenHome/Private/Debug.h>
