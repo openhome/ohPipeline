@@ -6,7 +6,7 @@
 #include <OpenHome/Net/Private/DviService.h>
 #include <OpenHome/Net/Private/DviSubscription.h>
 #include <OpenHome/Net/Private/Service.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 
 #include <atomic>
 #include <map>

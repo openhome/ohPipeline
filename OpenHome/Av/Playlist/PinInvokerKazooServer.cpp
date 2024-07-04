@@ -1,7 +1,7 @@
 #include <OpenHome/Av/Playlist/PinInvokerKazooServer.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Av/OhMetadata.h>
@@ -407,7 +407,7 @@ void PinInvokerKazooServer::AddTrack(TUint& aInsertAfterId)
                 }
                 try {
                     for (;;) {
-                        Brn val = parserArray3.NextStringEscaped(Json::Encoding::Utf16);
+                        Brn val = parserArray3.NextStringEscaped(eJsonEncodingUtf16);
                         metadata.push_back(std::pair<Brn, Brn>(key, val));
                     }
                 }

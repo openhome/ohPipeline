@@ -29,20 +29,13 @@ RC__Status Raat_SourceSelection_Get_Info(void * /*self*/, json_t **out_info)
 extern "C"
 RC__Status Raat_SourceSelection_Add_State_Listener(void *self, RAAT__SourceSelectionStateCallback cb, void *cb_userdata)
 {
-    auto ret = SourceSelection(self)->AddStateListener(cb, cb_userdata);
-    if (ret != RC__STATUS_SUCCESS) {
-        OpenHome::Log::Print("[RAAT DEBUG] - Raat_SourceSelection_Add_State_Listener() ERROR: returned RC__STATUS_SUCCESS - actual '%s'\n", RC__status_to_string(ret));
-    }
-    return RC__STATUS_SUCCESS;
+    return SourceSelection(self)->AddStateListener(cb, cb_userdata);
 }
 
 extern "C"
 RC__Status Raat_SourceSelection_Remove_State_Listener(void *self, RAAT__SourceSelectionStateCallback cb, void *cb_userdata)
 {
-    auto ret = SourceSelection(self)->RemoveStateListener(cb, cb_userdata);
-    if (ret != RC__STATUS_SUCCESS) {
-        OpenHome::Log::Print("[RAAT DEBUG] - Raat_SourceSelection_Remove_State_Listener() ERROR: returned RC__STATUS_SUCCESS - actual '%s'\n", RC__status_to_string(ret));
-    }
+    SourceSelection(self)->RemoveStateListener(cb, cb_userdata);
     return RC__STATUS_SUCCESS;
 }
 
@@ -124,9 +117,9 @@ RC__Status RaatSourceSelection::AddStateListener(RAAT__SourceSelectionStateCallb
     return RAAT__source_selection_state_listeners_add(&iListeners, aCb, aCbUserdata);
 }
 
-RC__Status RaatSourceSelection::RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
+void RaatSourceSelection::RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
 {
-    return RAAT__source_selection_state_listeners_remove(&iListeners, aCb, aCbUserdata);
+    (void)RAAT__source_selection_state_listeners_remove(&iListeners, aCb, aCbUserdata);
 }
 
 void RaatSourceSelection::GetState(RAAT__SourceSelectionState *aState)

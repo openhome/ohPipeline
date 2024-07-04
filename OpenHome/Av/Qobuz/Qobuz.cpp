@@ -15,7 +15,7 @@
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/md5.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Media/PipelineObserver.h>

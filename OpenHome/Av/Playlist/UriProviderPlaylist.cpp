@@ -12,7 +12,7 @@
 #include <OpenHome/Av/Playlist/Playlist.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Media/Pipeline/TrackInspector.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;

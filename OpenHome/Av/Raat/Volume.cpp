@@ -28,20 +28,13 @@ extern "C"
 extern "C"
 RC__Status Raat_Volume_Add_State_Listener(void *self, RAAT__VolumeStateCallback cb, void *cb_userdata)
 {
-    auto ret = Volume(self)->AddStateListener(cb, cb_userdata);
-    if (ret != RC__STATUS_SUCCESS) {
-        OpenHome::Log::Print("[RAAT DEBUG] - Raat_Volume_Add_State_Listener() ERROR: returned RC__STATUS_SUCCESS - actual '%s'\n", RC__status_to_string(ret));
-    }
-    return RC__STATUS_SUCCESS;
+    return Volume(self)->AddStateListener(cb, cb_userdata);
 }
 
 extern "C"
 RC__Status Raat_Volume_Remove_State_Listener(void *self, RAAT__VolumeStateCallback cb, void *cb_userdata)
 {
-    auto ret = Volume(self)->RemoveStateListener(cb, cb_userdata);
-    if (ret != RC__STATUS_SUCCESS) {
-        OpenHome::Log::Print("[RAAT DEBUG] - Raat_Volume_Remove_State_Listener() ERROR: returned RC__STATUS_SUCCESS - actual '%s'\n", RC__status_to_string(ret));
-    }
+    Volume(self)->RemoveStateListener(cb, cb_userdata);
     return RC__STATUS_SUCCESS;
 }
 
@@ -134,9 +127,9 @@ RC__Status RaatVolume::AddStateListener(RAAT__VolumeStateCallback aCb, void *aCb
     return RAAT__volume_state_listeners_add(&iListeners, aCb, aCbUserdata);
 }
 
-RC__Status RaatVolume::RemoveStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata)
+void RaatVolume::RemoveStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata)
 {
-    return RAAT__volume_state_listeners_remove(&iListeners, aCb, aCbUserdata);
+    (void)RAAT__volume_state_listeners_remove(&iListeners, aCb, aCbUserdata);
 }
 
 void RaatVolume::GetState(RAAT__VolumeState *aState)

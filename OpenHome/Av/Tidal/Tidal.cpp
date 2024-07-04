@@ -14,7 +14,7 @@
 #include <OpenHome/Av/Debug.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Private/Converter.h>
 #include <OpenHome/ThreadPool.h>
