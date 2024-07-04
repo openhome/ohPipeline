@@ -113,6 +113,7 @@ def choose_platform(context):
 def setup_universal(context):
     env = context.env
     env.update(
+        OH_BUILDARTIFACTS="core.linn.co.uk/artifacts/artifacts",
         OH_PUBLISHDIR="releases@builds.openhome.org:~/www/artifacts",
         OH_PROJECT="ohMediaPlayer",
         OH_DEBUG=context.options.debugmode,
@@ -177,7 +178,11 @@ def clean(context):
 
 @build_step("build", optional=True)
 def build(context):
-    python("waf", "build")
+    tarFile = '{OH_PROJECT}_ARTIFACTS.tar.gz'.format(**context.env)
+    python("waf", "build")    
+    subprocess.check_output(['tar', 'czf', tarFile, context.env['BUILDDIR']])
+    targetpath    = "{OH_BUILDARTIFACTS}/{OH_PROJECT}-yocto/{OH_PROJECT}-{OH_VERSION}-{OH_PLATFORM}-{OH_DEBUG}_ARTIFACTS.tar.gz".format(**context.env)
+    scp(tarFile,    targetpath)
 
 
 @build_step("bundle", optional=True)
