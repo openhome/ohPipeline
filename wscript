@@ -54,14 +54,12 @@ def configure(conf):
         except KeyError:
             conf.fatal('Specify --dest-platform')
 
-    if conf.env.dest_platform in ['Linux-armhf']:
+    if conf.options.dest_platform in ['Linux-armhf']:
         if not conf.options.legacy:
             print("Yocto-based build, sourcing appropriate SDK...")
             source_yocto_sdk(conf)
         else:
             print("Legacy build, using linaro toolchain")
-    else:
-        print(conf.options.dest_platform + " is not a yocto based platform")
 
     if is_core_platform(conf):
         guess_libosa_location(conf)
