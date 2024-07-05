@@ -3,16 +3,7 @@
         "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "platform-version": {
-            "*": "1.36.5141",
-            "Linux-armhf": "1.36.30-yocto"
-        },
-        "platform-suffix": {
-            "*": "",
-            "Linux-armhf": "-yocto"
-        },
-        "version": "${platform-version[$platform]}", 
-        "archive-directory": "${binary-repo}/ohNet${platform-suffix[$platform]}/",
+        "version": "1.36.5437",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}"
     },
@@ -32,7 +23,7 @@
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.143",
+        "version": "0.2.144",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -48,7 +39,7 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.0.22",
+        "version": "0.90.1291",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
@@ -74,7 +65,7 @@
         "name": "libressl",
         "type": "internal",
         "platform-specific": true,
-        "version": "0.1.37",
+        "version": "0.1.136",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
     },
     {

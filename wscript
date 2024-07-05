@@ -34,7 +34,7 @@ def options(opt):
     opt.add_option('--dest-platform', action='store', default=None)
     opt.add_option('--cross', action='store', default=None)
     opt.add_option('--with-default-fpm', action='store_true', default=False)
-    opt.add_option('--yocto', action='store_true', default=False)
+    opt.add_option('--legacy', action='store_true', default=False)
 
 def configure(conf):
 
@@ -54,7 +54,7 @@ def configure(conf):
         except KeyError:
             conf.fatal('Specify --dest-platform')
 
-    if conf.options.yocto:
+    if conf.env.dest_platform in ['Linux-armhf'] and not conf.options.legacy:
         source_yocto_sdk(conf)
 
     if is_core_platform(conf):

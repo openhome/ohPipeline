@@ -164,11 +164,8 @@ def fetch(context):
 def configure(context):
     if platform.system() == 'Darwin':
         context.env['CC']  = 'clang'
-        context.env['CXX'] = 'clang++'
-    if 'PLATFORM' in context.env and context.env['PLATFORM'] in ['Linux-armhf']:        
-        python("waf", "configure", "--yocto", context.configure_args)
-    else:
-        python("waf", "configure", context.configure_args)
+        context.env['CXX'] = 'clang++' 
+    python("waf", "configure", context.configure_args)
 
 @build_step("clean", optional=True)
 def clean(context):
