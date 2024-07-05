@@ -46,7 +46,7 @@
             "Core-ppc32": false,
             "*": true
         },
-        "archive-path": "${binary-repo}/${name}-yocto/${archive-filename}",
+        "archive-path": "${binary-repo}/${name}/${archive-filename}",
         "ignore": "${platform-ignore[$platform]}"
     },
     {
