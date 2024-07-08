@@ -315,7 +315,7 @@ def build(bld):
             ],
             use=['SSL', 'ohNetCore', 'OHNET'],
             target='ohPipeline')
-    main.cxxflags = ['-Wno-error=deprecated-declarations']
+    # main.cxxflags = ['-Wno-error=deprecated-declarations']
 
     # Library
     bld.stlib(
