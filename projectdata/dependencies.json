@@ -23,7 +23,7 @@
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.144",
+        "version": "0.2.152",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -65,7 +65,7 @@
         "name": "libressl",
         "type": "internal",
         "platform-specific": true,
-        "version": "0.1.136",
+        "version": "0.1.140",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
     },
     {
