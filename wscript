@@ -1166,7 +1166,6 @@ def build(bld):
     bld.program(
             source='OpenHome/Av/Tests/TestCredentialsMain.cpp',
             use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
-            shlib=['m'],
             target='TestCredentials',
             install_path=None)
     bld.program(
