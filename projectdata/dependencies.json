@@ -74,7 +74,8 @@
         "platform-specific": true,
         "platform-version": {
             "*": "0.1.140",
-            "Windows-x86": "0.1.37"
+            "Windows-x86": "0.1.37",
+            "Core-ppc32": "0.1.37"
         },
         "version": "${platform-version[$platform]}",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
