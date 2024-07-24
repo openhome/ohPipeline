@@ -8,7 +8,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Av/Trim.h>
 #include <OpenHome/Av/VolumeOffsets.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 
 EXCEPTION(InvalidVolumeLimit);
 

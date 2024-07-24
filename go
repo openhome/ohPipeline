@@ -31,4 +31,4 @@ else
   export PYTHONPATH=$OHDEVTOOLS_ROOT:$PYTHONPATH
 fi
 cd "$PROJECT_ROOT"
-python -u -m go $@
+/usr/bin/python3 -u -m go $@

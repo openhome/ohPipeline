@@ -140,7 +140,7 @@ public:
     RC__Status StopStream(int aToken);
     RC__Status ForceTeardownStream();
     RC__Status AddListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata);
-    RC__Status RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata);
+    void RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata);
     void GetDelay(int aToken, int64_t* aDelayNs);
 private:
     TUint64 MclkToNs();

@@ -33,7 +33,7 @@ public:
     ~RaatVolume();
     RAAT__VolumePlugin* Plugin();
     RC__Status AddStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata);
-    RC__Status RemoveStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata);
+    void RemoveStateListener(RAAT__VolumeStateCallback aCb, void *aCbUserdata);
     void GetState(RAAT__VolumeState *aState);
     RC__Status SetVolume(TUint aVolume);
     void SetMute(TBool aValue);

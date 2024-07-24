@@ -3,7 +3,7 @@
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Configuration/Tests/ConfigRamStore.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/Private/TimerFactoryMock.h>
 
 #include <limits.h>
@@ -1186,7 +1186,7 @@ void SuitePinsManager::TestWriteJson()
     Manager()->WriteJson(writer, ids);
 
     auto parserArray = JsonParserArray::Create(writer.Buffer());
-    TEST(parserArray.Type() == JsonParserArray::ValType::Object);
+    TEST(parserArray.Type() == eJsonValTypeObject);
 
     Brn obj = parserArray.NextObject();
     Bwh objW(obj);

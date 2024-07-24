@@ -1,9 +1,9 @@
-[
+[     
     {
         "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.36.5151",
+        "version": "1.37.5449",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
@@ -14,11 +14,23 @@
         ],
         "source-git": "https://github.com/openhome/ohNet.git"
     },
+    {   "name": "yocto_core4_sdk",
+        "type": "internal",
+        "platform-specific": true,
+        "platform-ignore": {
+            "Linux-armhf": false,
+            "*": true },
+        "ignore":	"${platform-ignore[$platform]}",
+        "version": "0.1.32",
+        "cross-check": false,
+        "archive-filename": "linn-fb-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone.sh",
+        "archive-path":     "${binary-repo}/${name}/${version}/${archive-filename}"
+    },
     {
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.139",
+        "version": "0.2.154",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -34,13 +46,14 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.88.1276",
+        "version": "0.90.1293",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
             "Core-ppc32": false,
             "*": true
         },
+        "archive-path": "${binary-repo}/${name}/${archive-filename}",
         "ignore": "${platform-ignore[$platform]}"
     },
     {
@@ -59,14 +72,20 @@
         "name": "libressl",
         "type": "internal",
         "platform-specific": true,
-        "version": "0.1.37",
+        "platform-version": {
+            "*": "0.1.140",
+            "Windows-x86": "0.1.37",
+            "Core-ppc32": "0.1.37"
+        },
+        "version": "${platform-version[$platform]}",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
     },
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.0.47",
+        "version": "1.1.57",
         "archive-suffix": "-${debugmode}",
+        "archive-directory": "${binary-repo}/raat/",
         "cross-check": false,
         "platform-ignore": {
             "Windows-x86": false,
@@ -78,7 +97,7 @@
     },
     {
         "name": "testharness",
-        "version": "0.1.61",
+        "version": "0.1.66",
         "cross-check": false,
         "type": "openhome",
         "archive-filename": "${name}-${version}.tar.gz",

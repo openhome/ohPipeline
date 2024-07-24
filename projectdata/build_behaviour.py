@@ -62,6 +62,7 @@ from ci import (
     build_condition, default_platform, get_dependency_args,
     get_vsvars_environment, fetch_dependencies, python, scp)
 import platform
+import subprocess
 
 require_version(51)
 
@@ -94,6 +95,7 @@ def choose_platform(context):
             "Linux-x64": "Linux-x64",
             "Linux-ARM": "Linux-ARM",
             "Linux-armhf": "Linux-armhf",
+            "Linux-aarch64": "Linux-aarch64",
             "Linux-rpi": "Linux-rpi",
             "Linux-ppc32": "Linux-ppc32",
             "Linux-mipsel": "Linux-mipsel",
@@ -111,6 +113,7 @@ def choose_platform(context):
 def setup_universal(context):
     env = context.env
     env.update(
+        OH_BUILDARTIFACTS="core.linn.co.uk/artifacts/artifacts",
         OH_PUBLISHDIR="releases@builds.openhome.org:~/www/artifacts",
         OH_PROJECT="ohMediaPlayer",
         OH_DEBUG=context.options.debugmode,
@@ -161,9 +164,8 @@ def fetch(context):
 def configure(context):
     if platform.system() == 'Darwin':
         context.env['CC']  = 'clang'
-        context.env['CXX'] = 'clang++'
+        context.env['CXX'] = 'clang++' 
     python("waf", "configure", context.configure_args)
-
 
 @build_step("clean", optional=True)
 def clean(context):
@@ -173,7 +175,11 @@ def clean(context):
 
 @build_step("build", optional=True)
 def build(context):
-    python("waf", "build")
+    tarFile = '{OH_PROJECT}_ARTIFACTS.tar.gz'.format(**context.env)
+    python("waf", "build")    
+    subprocess.check_output(['tar', 'czf', tarFile, context.env['BUILDDIR']])
+    targetpath    = "{OH_BUILDARTIFACTS}/{OH_PROJECT}/{OH_PROJECT}-{OH_VERSION}-{OH_PLATFORM}-{OH_DEBUG}_ARTIFACTS.tar.gz".format(**context.env)
+    scp(tarFile,    targetpath)
 
 
 @build_step("bundle", optional=True)

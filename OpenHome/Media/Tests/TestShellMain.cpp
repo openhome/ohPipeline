@@ -47,7 +47,6 @@ SIMPLE_TEST_DECLARATION(TestTrackInspector);
 SIMPLE_TEST_DECLARATION(TestUriProviderRepeater);
 SIMPLE_TEST_DECLARATION(TestVariableDelay);
 SIMPLE_TEST_DECLARATION(TestWaiter);
-SIMPLE_TEST_DECLARATION(TestJson);
 SIMPLE_TEST_DECLARATION(TestThreadPool);
 SIMPLE_TEST_DECLARATION(TestPins);
 SIMPLE_TEST_DECLARATION(TestOhMetadata);
@@ -128,7 +127,6 @@ void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], N
     shellTests.push_back(ShellTest("TestUdpServer", ShellTestUdpServer));
     shellTests.push_back(ShellTest("TestUpnpErrors", ShellTestUpnpErrors));
     shellTests.push_back(ShellTest("TestDvOdp", ShellTestDvOdp));
-    shellTests.push_back(ShellTest("TestJson", ShellTestJson));
     shellTests.push_back(ShellTest("TestThreadPool", ShellTestThreadPool));
     shellTests.push_back(ShellTest("TestPins", ShellTestPins));
     shellTests.push_back(ShellTest("TestOhMetadata", ShellTestOhMetadata));

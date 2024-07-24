@@ -105,6 +105,7 @@ Protocol::AutoStream::~AutoStream()
 
 ProtocolNetwork::ProtocolNetwork(Environment& aEnv)
     : Protocol(aEnv)
+    , iTcpClient()
     , iReaderBuf(iTcpClient)
     , iWriterBuf(iTcpClient)
     , iLock("PRNW")

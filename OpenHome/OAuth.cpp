@@ -1,4 +1,4 @@
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/OAuth.h>
 #include <OpenHome/Av/Debug.h>
 #include <OpenHome/OsWrapper.h>

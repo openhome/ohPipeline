@@ -3,7 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/SocketSsl.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Ascii.h>

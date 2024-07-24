@@ -14,7 +14,7 @@ import os.path, sys
 sys.path[0:0] = [os.path.join('dependencies', 'AnyPlatform', 'ohWafHelpers')]
 
 from filetasks import gather_files, build_tree, copy_task, find_dir_or_fail, create_copy_task
-from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform
+from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform, source_yocto_sdk
 
 def options(opt):
     opt.load('msvs')
@@ -34,6 +34,7 @@ def options(opt):
     opt.add_option('--dest-platform', action='store', default=None)
     opt.add_option('--cross', action='store', default=None)
     opt.add_option('--with-default-fpm', action='store_true', default=False)
+    opt.add_option('--legacy', action='store_true', default=False)
 
 def configure(conf):
 
@@ -52,6 +53,13 @@ def configure(conf):
             conf.options.dest_platform = guess_dest_platform()
         except KeyError:
             conf.fatal('Specify --dest-platform')
+
+    if conf.options.dest_platform in ['Linux-armhf']:
+        if not conf.options.legacy:
+            print("Yocto-based build, sourcing appropriate SDK...")
+            source_yocto_sdk(conf)
+        else:
+            print("Legacy build, using linaro toolchain")
 
     if is_core_platform(conf):
         guess_libosa_location(conf)
@@ -127,9 +135,9 @@ def configure(conf):
 
     # Setup Mad (mp3) lib options
     fixed_point_model = 'FPM_INTEL'
-    if conf.options.with_default_fpm:
+    if conf.options.with_default_fpm or conf.options.dest_platform in ['Linux-riscv64']:
         fixed_point_model = 'FPM_DEFAULT'
-    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-arm64', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
+    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-aarch64', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
@@ -151,7 +159,8 @@ def configure(conf):
         conf.env.DEFINES_VORBIS = ['BIG_ENDIAN', 'BYTE_ORDER=BIG_ENDIAN']
     conf.env.INCLUDES_VORBIS = [
         'thirdparty/Tremor',
-        ]
+        ]        
+
 
 class GeneratedFile(object):
     def __init__(self, xml, domain, type, version, target):
@@ -184,6 +193,10 @@ upnp_services = [
     ]
 
 def build(bld):
+
+    for k, v in dict(bld.env).items():
+        if k.startswith("YOCTO_SDK_"):
+            os.environ[k[10:]] = v
 
     # Generated provider base classes
     service_gen_path = os.path.join(bld.env['SERVICE_GEN_DIR'], 'ServiceGen.py')
@@ -224,7 +237,7 @@ def build(bld):
             bld.read_stlib(lib, paths=[bld.env['STLIBPATH_OHNET']])
 
     # Library
-    bld.stlib(
+    main = bld.stlib(
             source=[
                 'OpenHome/Media/Pipeline/VolumeRamper.cpp',
                 'OpenHome/Media/Pipeline/AudioDumper.cpp',
@@ -302,6 +315,7 @@ def build(bld):
             ],
             use=['SSL', 'ohNetCore', 'OHNET'],
             target='ohPipeline')
+    # main.cxxflags = ['-Wno-error=deprecated-declarations']
 
     # Library
     bld.stlib(
@@ -335,7 +349,6 @@ def build(bld):
                 'OpenHome/Av/DeviceAnnouncerMdns.cpp',
                 'Generated/DvAvOpenhomeOrgConfig2.cpp',
                 'OpenHome/AESHelpers.cpp',
-                'OpenHome/Json.cpp',
                 'OpenHome/OAuth.cpp',
                 'Generated/DvAvOpenhomeOrgOAuth1.cpp',
                 'OpenHome/Av/Utils/FormUrl.cpp',
@@ -860,7 +873,6 @@ def build(bld):
                 'OpenHome/Tests/TestSocket.cpp',
                 'OpenHome/Av/Tests/TestCredentials.cpp',
                 'Generated/CpAvOpenhomeOrgCredentials1.cpp',
-                'OpenHome/Tests/TestJson.cpp',
                 'OpenHome/Tests/TestObservable.cpp',
                 'OpenHome/Tests/TestAESHelpers.cpp',
                 'OpenHome/Tests/TestThreadPool.cpp',
@@ -1192,11 +1204,6 @@ def build(bld):
             target='TestObservable',
             install_path=None)
     bld.program(
-            source='OpenHome/Tests/TestJsonMain.cpp',
-            use=['OHNET', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
-            target='TestJson',
-            install_path=None)
-    bld.program(
             source='OpenHome/Tests/TestAESHelpersMain.cpp',
             use=['OHNET', 'SSL', 'ohMediaPlayer', 'ohMediaPlayerTestUtils'],
             target='TestAESHelpers',
@@ -1360,7 +1367,8 @@ def test(tst):
     else:
         tst.executable_dep = 'TestShell'
     print('Testing using manifest:', tst.test_manifest)
-    rule = 'python {test} -m {manifest} -p {platform} -b {build_dir} -t {tool_dir}'.format(
+    rule = '{python_exe} {test} -m {manifest} -p {platform} -b {build_dir} -t {tool_dir}'.format(
+        python_exe = sys.executable,
         test        = os.path.join(tst.env.testharness_dir, 'Test'),
         manifest    = '${SRC}',
         platform    =  tst.env.dest_platform,

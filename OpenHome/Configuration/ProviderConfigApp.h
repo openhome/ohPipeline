@@ -4,7 +4,7 @@
 #include <OpenHome/Av/ProviderFactory.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Json.h>
+#include <OpenHome/Private/Json.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
 

@@ -41,7 +41,7 @@ const Brn ProviderConfigApp::KeysWriter::kKeyOptional("optional");
 
 ProviderConfigApp::KeysWriter::KeysWriter()
     : iWriterBuf(kBufGranularity)
-    , iWriterArray(iWriterBuf, WriterJsonArray::WriteOnEmpty::eEmptyArray)
+    , iWriterArray(iWriterBuf, eJsonWriteOnEmptyEmptyArray)
 {
 }
 

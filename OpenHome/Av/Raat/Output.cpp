@@ -96,10 +96,7 @@ RC__Status Raat_Output_Add_Message_Listener(void *self, RAAT__OutputMessageCallb
 
 RC__Status Raat_Output_Remove_Message_Listener(void *self, RAAT__OutputMessageCallback cb, void *cb_userdata)
 {
-    auto ret = Output(self)->RemoveListener(cb, cb_userdata);
-    if (ret != RC__STATUS_SUCCESS) {
-        OpenHome::Log::Print("[RAAT DEBUG] - Raat_Output_Remove_Message_Listener() ERROR: returned RC__STATUS_SUCCESS - actual '%s'\n", RC__status_to_string(ret));
-    }
+    Output(self)->RemoveListener(cb, cb_userdata);
     return RC__STATUS_SUCCESS;
 }
 
@@ -463,11 +460,10 @@ RC__Status RaatOutput::AddListener(RAAT__OutputMessageCallback aCb, void* aCbUse
     return err;
 }
 
-RC__Status RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
+void RaatOutput::RemoveListener(RAAT__OutputMessageCallback aCb, void* aCbUserdata)
 {
     LOG(kRaat, "RaatOutput::RemoveListener\n");
-    auto err = RAAT__output_message_listeners_remove(&iListeners, aCb, aCbUserdata);
-    return err;
+    (void)RAAT__output_message_listeners_remove(&iListeners, aCb, aCbUserdata);
 }
 
 void RaatOutput::GetDelay(int /*aToken*/, int64_t* aDelay)
