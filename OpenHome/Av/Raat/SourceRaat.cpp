@@ -296,6 +296,7 @@ void SourceRaat::Initialise()
     iTrack = iUriProvider->SetTrack(ProtocolRaat::kUri, iDefaultMetadata);
     iPipeline.RemoveAll();
     iPipeline.Begin(iUriProvider->Mode(), iTrack->Id());
+    iPipeline.Play();
 }
 
 void SourceRaat::Start()
