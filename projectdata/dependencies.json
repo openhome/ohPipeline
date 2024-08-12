@@ -21,7 +21,7 @@
             "Linux-armhf": false,
             "*": true },
         "ignore":	"${platform-ignore[$platform]}",
-        "version": "0.1.32",
+        "version": "0.1.47",
         "cross-check": false,
         "archive-filename": "linn-fb-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone.sh",
         "archive-path":     "${binary-repo}/${name}/${version}/${archive-filename}"
@@ -83,7 +83,7 @@
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.1.57",
+        "version": "1.1.58",
         "archive-suffix": "-${debugmode}",
         "archive-directory": "${binary-repo}/raat/",
         "cross-check": false,
