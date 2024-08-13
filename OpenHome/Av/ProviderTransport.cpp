@@ -6,7 +6,7 @@
 #include <OpenHome/Media/Pipeline/Seeker.h> // for Seeker exceptions
 #include <OpenHome/Media/Pipeline/Pipeline.h> // for PipelineStreamNotPausable
 #include <OpenHome/PowerManager.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/Private/Timer.h>
 
 using namespace OpenHome;
@@ -42,7 +42,7 @@ ProviderTransport::ProviderTransport(Environment& aEnv,
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
     , iModeIsPausable(false)
     , iModes(kModesGranularity)
-    , iWriterModes(iModes, eJsonWriteOnEmptyEmptyArray)
+    , iWriterModes(iModes, WriterJsonArray::WriteOnEmpty::eEmptyArray)
 {
     EnablePropertyModes();
     EnablePropertyCanSkipNext();

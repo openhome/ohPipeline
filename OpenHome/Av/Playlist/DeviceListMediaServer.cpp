@@ -1,7 +1,7 @@
 #include <OpenHome/Av/Playlist/DeviceListMediaServer.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Av/OhMetadata.h>

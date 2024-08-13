@@ -2,7 +2,7 @@
 #include <OpenHome/Net/Odp/Odp.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/Net/Private/Service.h>
 #include <OpenHome/Net/Private/CpiService.h>
 #include <OpenHome/Net/Private/CpiSubscription.h>

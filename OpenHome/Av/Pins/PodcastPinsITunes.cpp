@@ -8,7 +8,7 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Converter.h>
@@ -746,7 +746,7 @@ Brn ITunesMetadata::FirstIdFromJson(const Brx& aJsonResponse)
             THROW(ITunesResponseInvalid);
         }
         auto parserArray = JsonParserArray::Create(parser.String("results"));
-        if (parserArray.Type() == eJsonValTypeNull) {
+        if (parserArray.Type() == JsonParserArray::ValType::Null) {
             THROW(ITunesResponseInvalid);
         }
         parser.Parse(parserArray.NextObject());

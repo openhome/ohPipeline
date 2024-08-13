@@ -4,7 +4,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <Generated/DvAvOpenhomeOrgPins1.h>
 #include <OpenHome/Av/Pins/Pins.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Timer.h>
@@ -81,7 +81,7 @@ void ProviderPins::Start()
     iStarted = true;
 
     WriterBwh modes(1024);
-    WriterJsonArray writer(modes, eJsonWriteOnEmptyEmptyArray);
+    WriterJsonArray writer(modes, WriterJsonArray::WriteOnEmpty::eEmptyArray);
     for (auto mode : iModes) {
         writer.WriteString(mode);
     }
@@ -142,7 +142,7 @@ void ProviderPins::IdArrayModerationCallback()
 void ProviderPins::UpdateIdArrayLocked()
 {
     iWriterIdArray.Reset();
-    WriterJsonArray writer(iWriterIdArray, eJsonWriteOnEmptyEmptyArray);
+    WriterJsonArray writer(iWriterIdArray, WriterJsonArray::WriteOnEmpty::eEmptyArray);
     for (auto id : iIdArrayDevice) {
         writer.WriteInt(id);
     }

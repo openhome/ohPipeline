@@ -10,7 +10,7 @@
 #include <OpenHome/Private/Timer.h>
 #include <OpenHome/Net/Private/DviService.h>
 #include <OpenHome/Net/Private/Service.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Net/Private/DviStack.h>
@@ -386,7 +386,7 @@ void DviOdp::Action()
     try {
         iArgs.clear();
         auto parserArgs = JsonParserArray::Create(args);
-        if (parserArgs.Type() != eJsonValTypeNull) {
+        if (parserArgs.Type() != JsonParserArray::ValType::Null) {
             try {
                 for (;;) {
                     JsonParser parserArg;

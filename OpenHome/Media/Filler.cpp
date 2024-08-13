@@ -4,7 +4,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Parser.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/IdManager.h>
 #include <OpenHome/Media/Protocol/Protocol.h>

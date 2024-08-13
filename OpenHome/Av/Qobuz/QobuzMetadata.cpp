@@ -1,7 +1,7 @@
 #include <OpenHome/Av/Qobuz/QobuzMetadata.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Converter.h>
 #include <OpenHome/Private/Debug.h>
@@ -41,7 +41,7 @@ static Brn UnescapeJsonInPlace(const Brx& aValue)
 {
     Bwn buf;
     buf.Set(aValue.Ptr(), aValue.Bytes(), aValue.Bytes());
-    Json::Unescape(buf, eJsonEncodingUtf16); // I think all Qobuz is now UTF-8 encoded...
+    Json::Unescape(buf, Json::Encoding::Utf16); // I think all Qobuz is now UTF-8 encoded...
     return Brn(buf);
 }
 

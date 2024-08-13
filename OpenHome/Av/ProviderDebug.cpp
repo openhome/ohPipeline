@@ -11,7 +11,7 @@
 #include <OpenHome/Private/Timer.h>
 #include <OpenHome/Net/Private/Discovery.h>
 #include <OpenHome/Net/Core/OhNet.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 
 #include <utility>
 #include <vector>

@@ -13,7 +13,7 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Private/Parser.h>

@@ -3,7 +3,7 @@
 #include <OpenHome/Configuration/IStore.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/File.h>
-#include <OpenHome/Private/Json.h>
+#include <OpenHome/Json.h>
 
 #include <functional>
 #include <list>
