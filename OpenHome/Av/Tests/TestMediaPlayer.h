@@ -8,7 +8,6 @@
 #include <OpenHome/Av/Utils/DriverSongcastSender.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Media/Pipeline/StarterTimed.h>
-#include <OpenHome/Media/UriProviderSingleTrack.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Debug.h>

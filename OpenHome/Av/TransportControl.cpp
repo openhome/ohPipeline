@@ -1,7 +1,9 @@
 #include <OpenHome/Av/TransportControl.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
+#include <OpenHome/Json.h>
 #include <OpenHome/Private/Thread.h>
+#include <OpenHome/Private/Parser.h>
 
 #include <vector>
 
@@ -63,4 +65,29 @@ void TransportRepeatRandom::DoNotifyRandomChangedLocked(ITransportRepeatRandomOb
 void TransportRepeatRandom::DoNotifyRepeatChangedLocked(ITransportRepeatRandomObserver& aObserver)
 {
     aObserver.TransportRepeatChanged(iRepeat);
+}
+
+
+// PlayAsCommandTrack
+
+const Brn PlayAsCommandTrack::kCommandTrack("track=");
+
+TBool PlayAsCommandTrack::TryGetTrackFromCommand(const Brx& aCommand, Brn& aUri, Brn& aMetadata)
+{
+    if (!aCommand.BeginsWith(kCommandTrack)) {
+        return false;
+    }
+
+    Parser parserCmd(aCommand);
+    parserCmd.Next('=');
+    Brn json = parserCmd.NextToEnd();
+    Bwn jsonW(json.Ptr(), json.Bytes(), json.Bytes());
+    JsonParser parserJson;
+    parserJson.ParseAndUnescape(jsonW);
+    aUri.Set(parserJson.StringOptional("uri"));
+    if (aUri.Bytes() == 0) {
+        return false;
+    }
+    aMetadata.Set(parserJson.StringOptional("metadata"));
+    return true;
 }

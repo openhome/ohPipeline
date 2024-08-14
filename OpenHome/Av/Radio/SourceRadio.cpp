@@ -13,6 +13,7 @@
 #include <OpenHome/Media/UriProviderSingleTrack.h>
 #include <OpenHome/Av/SourceFactory.h>
 #include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/TransportControl.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Private/Printer.h>
@@ -47,6 +48,30 @@ ISource* SourceFactory::NewRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInP
 
 const TChar* SourceFactory::kSourceTypeRadio = "Radio";
 const Brn SourceFactory::kSourceNameRadio("Radio");
+
+
+// UriProviderRadioSingle
+
+UriProviderRadioSingle::UriProviderRadioSingle(TrackFactory& aTrackFactory)
+    : UriProviderSingleTrack("Radio-Single", Latency::NotSupported, true, aTrackFactory)
+{
+}
+
+UriProviderRadioSingle::~UriProviderRadioSingle()
+{
+}
+
+void UriProviderRadioSingle::MoveTo(const Brx& aCommand)
+{
+    Brn uri, metadata;
+    if (PlayAsCommandTrack::TryGetTrackFromCommand(aCommand, uri, metadata)) {
+        SetTrack(uri, metadata);
+    }
+    else {
+        UriProviderSingleTrack::MoveTo(aCommand);
+    }
+}
+
 
 // SourceRadio
 
@@ -91,7 +116,7 @@ SourceRadio::SourceRadio(IMediaPlayer& aMediaPlayer, const Brx& aTuneInPartnerId
     aMediaPlayer.Add(iUriProviderPresets);
     iCurrentMode.Set(iUriProviderPresets->Mode());
 
-    iUriProviderSingle = new UriProviderSingleTrack("Radio-Single", Latency::NotSupported, true, trackFactory);
+    iUriProviderSingle = new UriProviderRadioSingle(trackFactory);
     iUriProviderSingle->SetTransportPlay(MakeFunctor(*this, &SourceRadio::Play));
     iUriProviderSingle->SetTransportPause(MakeFunctor(*this, &SourceRadio::Pause));
     iUriProviderSingle->SetTransportStop(MakeFunctor(*this, &SourceRadio::Stop));

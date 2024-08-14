@@ -166,13 +166,6 @@ private:
     TUint iPrefetchTrackId;
 };
 
-class FillerCommandTrack
-{
-    static const Brn kCommandTrack;
-public:
-    static TBool TryGetTrackFromCommand(const Brx& aCommand, Brn& aUri, Brn& aMetadata);
-};
-
 } // namespace Media
 } // namespace OpenHome
 

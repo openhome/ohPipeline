@@ -13,6 +13,7 @@
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Media/Pipeline/TrackInspector.h>
 #include <OpenHome/Json.h>
+#include <OpenHome/Av/TransportControl.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -315,7 +316,7 @@ TBool UriProviderPlaylist::TryProcessCommandTrack(const Brx& aCommand, Track*& a
 {
     Brn uri;
     Brn metadata;
-    if (!FillerCommandTrack::TryGetTrackFromCommand(aCommand, uri, metadata)) {
+    if (!PlayAsCommandTrack::TryGetTrackFromCommand(aCommand, uri, metadata)) {
         return false;
     }
     // append track to end of playlist, deleting first track to make space if necessary

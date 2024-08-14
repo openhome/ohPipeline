@@ -602,28 +602,3 @@ TUint Filler::NullTrackStreamHandler::TryStop(TUint /*aStreamId*/)
 void Filler::NullTrackStreamHandler::NotifyStarving(const Brx& /*aMode*/, TUint /*aStreamId*/, TBool /*aStarving*/)
 {
 }
-
-
-// FillerCommandTrack
-
-const Brn FillerCommandTrack::kCommandTrack("track=");
-
-TBool FillerCommandTrack::TryGetTrackFromCommand(const Brx& aCommand, Brn& aUri, Brn& aMetadata)
-{
-    if (!aCommand.BeginsWith(kCommandTrack)) {
-        return false;
-    }
-
-    Parser parserCmd(aCommand);
-    parserCmd.Next('=');
-    Brn json = parserCmd.NextToEnd();
-    Bwn jsonW(json.Ptr(), json.Bytes(), json.Bytes());
-    JsonParser parserJson;
-    parserJson.ParseAndUnescape(jsonW);
-    aUri.Set(parserJson.StringOptional("uri"));
-    if (aUri.Bytes() == 0) {
-        return false;
-    }
-    aMetadata.Set(parserJson.StringOptional("metadata"));
-    return true;
-}

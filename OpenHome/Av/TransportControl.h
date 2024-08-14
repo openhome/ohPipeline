@@ -55,5 +55,12 @@ private:
     FunctorGeneric<ITransportRepeatRandomObserver&> iRandomNotifyFunc;
 };
 
+class PlayAsCommandTrack
+{
+    static const Brn kCommandTrack;
+public:
+    static TBool TryGetTrackFromCommand(const Brx& aCommand, Brn& aUri, Brn& aMetadata);
+};
+
 } // namespace Av
 } // namespace OpenHome

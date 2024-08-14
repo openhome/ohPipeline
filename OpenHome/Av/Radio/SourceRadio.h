@@ -7,6 +7,7 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
+#include <OpenHome/Media/UriProviderSingleTrack.h>
 
 namespace OpenHome {
     class Environment;
@@ -18,7 +19,7 @@ namespace Net {
 namespace Media {
     class PipelineManager;
     class MimeTypeList;
-    class UriProviderSingleTrack;
+    class TrackFactory;
 }
 namespace Av {
 
@@ -36,6 +37,15 @@ public:
     virtual void SeekAbsolute(TUint aSeconds) = 0;
     virtual void SeekRelative(TInt aSeconds) = 0;
     virtual void RefreshPresets() = 0;
+};
+
+class UriProviderRadioSingle : public Media::UriProviderSingleTrack
+{
+public:
+    UriProviderRadioSingle(Media::TrackFactory& aTrackFactory);
+    ~UriProviderRadioSingle();
+private: // from UriProvider
+    void MoveTo(const Brx& aCommand) override;
 };
 
 class ProviderRadio;
@@ -90,7 +100,7 @@ private: // from IProductObserver
 private:
     Mutex iLock;
     UriProviderRadio* iUriProviderPresets;
-    Media::UriProviderSingleTrack* iUriProviderSingle;
+    UriProviderRadioSingle* iUriProviderSingle;
     Brn iCurrentMode;
     ProviderRadio* iProviderRadio;
     PresetDatabase* iPresetDatabase;

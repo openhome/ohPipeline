@@ -5,7 +5,6 @@
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Av/VolumeManager.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Media/UriProviderSingleTrack.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Av/KvpStore.h>
