@@ -3,7 +3,7 @@
 #include <OpenHome/UnixTimestamp.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/TestFramework.h>
-#include <openHome/Private/SuiteUnitTest.h>
+#include <OpenHome/Private/SuiteUnitTest.h>
 #include <OpenHome/Media/Protocol/MPEGDash.h>
 
 using namespace OpenHome;
