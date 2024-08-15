@@ -39,6 +39,7 @@ public:
     static Protocol* NewTidal(Environment& aEnv, SslContext& aSsl, const Brx& aClientId, const Brx& aClientSecret, std::vector<OAuthAppDetails>& aAppDetails, Av::IMediaPlayer& aMediaPlayer);
     static Protocol* NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av::IMediaPlayer& aMediaPlayer, const Brx& aUserAgent); // UA is optional so can be empty
     static Protocol* NewCalmRadio(Environment& aEnv, SslContext& aSsl, const Brx& aUserAgent, Av::IMediaPlayer& aMediaPlayer); // UA is optional so can be empty
+    static Protocol* NewDash(Environment& aEnv, SslContext& aSsl, Av::IMediaPlayer& aMediaPlayer);
 };
 
 } // namespace Media

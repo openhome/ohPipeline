@@ -298,7 +298,7 @@ def build(bld):
                 'OpenHome/Media/Protocol/Rtsp.cpp',
                 'OpenHome/Media/Protocol/ProtocolRtsp.cpp',
                 'OpenHome/Media/Protocol/ContentAudio.cpp',
-                'OpenHome/Media/Protocol/ContentMpd.cpp',
+                'OpenHome/Media/Protocol/MPEGDash.cpp',
                 'OpenHome/Media/UriProviderRepeater.cpp',
                 'OpenHome/Media/UriProviderSingleTrack.cpp',
                 'OpenHome/Media/PipelineManager.cpp',
@@ -885,7 +885,7 @@ def build(bld):
                 'OpenHome/Av/Tests/TestSenderQueue.cpp',
                 'OpenHome/Net/Odp/Tests/TestDvOdp.cpp',
                 'OpenHome/Tests/TestOAuth.cpp',
-                'OpenHome/Media/Tests/TestContentMpd.cpp',
+                'OpenHome/Media/Tests/TestMPEGDash.cpp',
             ],
             use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'SSL'],
             target='ohMediaPlayerTestUtils')
@@ -1176,10 +1176,10 @@ def build(bld):
             target='TestOAuth',
             install_path=None)
     bld.program(
-            source='OpenHome/Media/Tests/TestContentMpdMain.cpp',
-            use=['OHNET', 'ohPipeline', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
-            target="TestContentMpd",
-            install_path=None)
+        source='OpenHome/Media/Tests/TestMPEGDashMain.cpp',
+        use=['OHNET', 'ohPipeline', 'ohMediaPlayer', 'ohMediaPlayerTestUtils', 'SSL'],
+        target="TestMPEGDash",
+        install_path=None)
     bld.program(
             source='OpenHome/Tests/TestHttps.cpp',
             use=['OHNET', 'ohMediaPlayer', 'SSL'],

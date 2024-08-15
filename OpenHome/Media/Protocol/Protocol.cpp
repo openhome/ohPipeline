@@ -5,7 +5,6 @@
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Media/Debug.h>
-#include <OpenHome/Media/Protocol/ContentMpd.h>
 
 #include <algorithm>
 
