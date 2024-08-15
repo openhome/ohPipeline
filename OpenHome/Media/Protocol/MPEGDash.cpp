@@ -830,7 +830,7 @@ private:
 
 DefaultAdaptationSetVisitor::DefaultAdaptationSetVisitor()
     : iSelectedIndex(-1)
-    , iSelectedPriority(std::min(0u, MPDAdaptationSet::kDefaultSelectionPriority - 1))
+    , iSelectedPriority(std::min(0lu, (MPDAdaptationSet::kDefaultSelectionPriority - 1)))
     , iXml(Brx::Empty())
 { }
 
