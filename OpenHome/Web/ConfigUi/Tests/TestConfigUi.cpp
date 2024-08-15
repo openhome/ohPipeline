@@ -952,7 +952,8 @@ SuiteConfigUiMediaPlayer::SuiteConfigUiMediaPlayer(OpenHome::Net::CpStack& aCpSt
 void SuiteConfigUiMediaPlayer::InitialiseMediaPlayer(const OpenHome::Brx& aUdn, const TChar* aRoom, const TChar* aProductName, const OpenHome::Brx& aTuneInPartnerId, const OpenHome::Brx& aTidalId, const OpenHome::Brx& aQobuzIdSecret, const OpenHome::Brx& aUserAgent)
 {
     const TChar* storeFile = ""; // No persistent store.
-    iMediaPlayer = new Av::Test::TestMediaPlayer(iDvStack, iCpStack, aUdn, aRoom, aProductName, aTuneInPartnerId, aTidalId, aQobuzIdSecret, aUserAgent, storeFile);
+    const TBool kDashEnabled = false; // No dash support
+    iMediaPlayer = new Av::Test::TestMediaPlayer(iDvStack, iCpStack, aUdn, aRoom, aProductName, aTuneInPartnerId, aTidalId, aQobuzIdSecret, aUserAgent, storeFile, kDashEnabled);
 }
 
 void SuiteConfigUiMediaPlayer::PopulateUriList()
