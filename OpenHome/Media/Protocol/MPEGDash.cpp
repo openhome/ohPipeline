@@ -830,9 +830,9 @@ private:
 
 DefaultAdaptationSetVisitor::DefaultAdaptationSetVisitor()
     : iSelectedIndex(-1)
-    , iSelectedPriority(std::min(0lu, (MPDAdaptationSet::kDefaultSelectionPriority - 1)))
+    , iSelectedPriority(0)
     , iXml(Brx::Empty())
-{ }
+{  }
 
 
 TInt DefaultAdaptationSetVisitor::AdaptationSetIndex() const
