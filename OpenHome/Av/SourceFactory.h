@@ -44,7 +44,7 @@ public:
         IMediaPlayer& aMediaPlayer,
         Media::IAudioTime& aAudioTime,
         Media::IPullableClock& aPullableClock,
-        IRaatSignalPathObservable* aSignalPathObservable,
+        IRaatSignalPathObservable& aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
         const Brx& aConfigUrl);
@@ -52,7 +52,7 @@ public:
         IMediaPlayer& aMediaPlayer,
         Media::IAudioTime& aAudioTime,
         Media::IPullableClock& aPullableClock,
-        IRaatSignalPathObservable* aSignalPathObservable,
+        IRaatSignalPathObservable& aSignalPathObservable,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
         const Brx& aConfigUrl);

@@ -81,7 +81,7 @@ public:
         IMediaPlayer& aMediaPlayer,
         Media::IAudioTime& aAudioTime,
         Media::IPullableClock& aPullableClock,
-        IRaatSignalPathObservable* aSignalPathObservable,
+        IRaatSignalPathObservable& aSignalPathObservable,
         Optional<Configuration::ConfigChoice> aProtocolSelector,
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
@@ -105,7 +105,6 @@ private:
     void Initialise();
     void Start();
 private:
-    IRaatSignalPathObservable* iSignalPathObservable;
     Configuration::ConfigChoice* iProtocolSelector;
     UriProviderRaat* iUriProvider;
     RaatApp* iApp;

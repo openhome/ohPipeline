@@ -553,15 +553,17 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 
 #ifdef RAAT_ENABLE
     ASSERT(iPullableClock != nullptr);
+    if (iRaatSignalPathObservable == nullptr) {
+        iRaatSignalPathObservable = new DummyRaatSignalPath();
+    }
     iMediaPlayer->Add(SourceFactory::NewRoon(
         *iMediaPlayer,
         *iAudioTime,
         *iPullableClock,
-        iRaatSignalPathObservable != nullptr ? iRaatSignalPathObservable : new DummyRaatSignalPath(),
+        *iRaatSignalPathObservable,
         Brn("12345"),
         Brn("0.0.1"),
         Brn("http://linn.co.uk/account")));
-    iRaatSignalPathObservable = nullptr;
 #else
     iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, nullptr));
 #endif

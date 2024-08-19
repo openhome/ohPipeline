@@ -67,7 +67,7 @@ ISource* SourceFactory::NewRoon(
     IMediaPlayer& aMediaPlayer,
     Media::IAudioTime& aAudioTime,
     Media::IPullableClock& aPullableClock,
-    IRaatSignalPathObservable* aSignalPathObservable,
+    IRaatSignalPathObservable& aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion,
     const Brx& aConfigUrl)
@@ -95,7 +95,7 @@ ISource* SourceFactory::NewRaat(
     IMediaPlayer& aMediaPlayer,
     Media::IAudioTime& aAudioTime,
     Media::IPullableClock& aPullableClock,
-    IRaatSignalPathObservable* aSignalPathObservable,
+    IRaatSignalPathObservable& aSignalPathObservable,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion,
     const Brx& aConfigUrl)
@@ -145,7 +145,7 @@ SourceRaat::SourceRaat(
     IMediaPlayer& aMediaPlayer,
     Media::IAudioTime& aAudioTime,
     Media::IPullableClock& aPullableClock,
-    IRaatSignalPathObservable* aSignalPathObservable,
+    IRaatSignalPathObservable& aSignalPathObservable,
     Optional<Configuration::ConfigChoice> aProtocolSelector,
     const Brx& aSerialNumber,
     const Brx& aSoftwareVersion,
@@ -156,7 +156,6 @@ SourceRaat::SourceRaat(
         SourceFactory::kSourceTypeRaat,
         aMediaPlayer.Pipeline(),
         false) // not visible by default
-    , iSignalPathObservable(aSignalPathObservable)
     , iProtocolSelector(aProtocolSelector.Ptr())
     , iTrack(nullptr)
 {
@@ -166,7 +165,7 @@ SourceRaat::SourceRaat(
         *this,
         aAudioTime,
         aPullableClock,
-        *iSignalPathObservable,
+        aSignalPathObservable,
         aSerialNumber,
         aSoftwareVersion,
         aConfigUrl);
@@ -203,7 +202,6 @@ SourceRaat::~SourceRaat()
 {
     delete iTimer;
     delete iProtocolSelector;
-    delete iSignalPathObservable;
     delete iApp;
     if (iTrack != nullptr) {
         iTrack->RemoveRef();
