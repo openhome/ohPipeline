@@ -19,47 +19,43 @@ static inline OpenHome::Av::RaatSourceSelection* SourceSelection(void *self)
     return ext->iSelf;
 }
 
-extern "C"
-RC__Status Raat_SourceSelection_Get_Info(void * /*self*/, json_t **out_info)
+extern "C" {
+
+RC__Status RaatSourceSelectionGetInfo(void * /*self*/, json_t **out_info)
 {
     *out_info = nullptr;
     return RC__STATUS_SUCCESS;
 }
 
-extern "C"
-RC__Status Raat_SourceSelection_Add_State_Listener(void *self, RAAT__SourceSelectionStateCallback cb, void *cb_userdata)
+RC__Status RaatSourceSelectionAddStateListener(void *self, RAAT__SourceSelectionStateCallback cb, void *cb_userdata)
 {
     return SourceSelection(self)->AddStateListener(cb, cb_userdata);
 }
 
-extern "C"
-RC__Status Raat_SourceSelection_Remove_State_Listener(void *self, RAAT__SourceSelectionStateCallback cb, void *cb_userdata)
+RC__Status RaatSourceSelectionRemoveStateListener(void *self, RAAT__SourceSelectionStateCallback cb, void *cb_userdata)
 {
-    SourceSelection(self)->RemoveStateListener(cb, cb_userdata);
-    return RC__STATUS_SUCCESS;
+    return SourceSelection(self)->RemoveStateListener(cb, cb_userdata);
 }
 
-extern "C"
-RC__Status Raat_SourceSelection_Get_State(void *self, RAAT__SourceSelectionState *out_state)
+RC__Status RaatSourceSelectionGetState(void *self, RAAT__SourceSelectionState *out_state)
 {
     SourceSelection(self)->GetState(out_state);
     return RC__STATUS_SUCCESS;
 }
 
-extern "C"
-void Raat_SourceSelection_Request_Source(void *self, RAAT__SourceSelectionRequestSourceCallback cb_result, void *cb_userdata)
+void RaatSourceSelectionRequestSource(void *self, RAAT__SourceSelectionRequestSourceCallback cb_result, void *cb_userdata)
 {
-    SourceSelection(self)->ActivateRaatSource();
+    SourceSelection(self)->SetSource();
     cb_result(cb_userdata, RC__STATUS_SUCCESS, nullptr);
 }
 
-extern "C"
-void Raat_SourceSelection_Request_Standby(void *self, RAAT__SourceSelectionRequestStandbyCallback cb_result, void *cb_userdata)
+void RaatSourceSelectionRequestStandby(void *self, RAAT__SourceSelectionRequestStandbyCallback cb_result, void *cb_userdata)
 {
     SourceSelection(self)->SetStandby();
     cb_result(cb_userdata, RC__STATUS_SUCCESS, nullptr);
 }
 
+}
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -76,23 +72,21 @@ RaatSourceSelection::RaatSourceSelection(
     , iSystemName(aSystemName)
     , iObserver(aObserver)
     , iOutputControl(aOutputControl)
-    , iSourceIndexCurrent(0)
-    , iStandby(true)
-    , iState(EState::eNotSelected)
-    , iStarted(false)
-    , iActivationPending(false)
+    , iStateSource(EStateSource::eUndefined)
+    , iStateStandby(EStateStandby::eUndefined)
+    , iSourceIndexRaat(0)
     , iLock("RASS")
 {
     auto ret = RAAT__source_selection_state_listeners_init(&iListeners, RC__allocator_malloc());
     ASSERT(ret == RC__STATUS_SUCCESS);
 
     (void)memset(&iPluginExt, 0, sizeof iPluginExt);
-    iPluginExt.iPlugin.get_info = Raat_SourceSelection_Get_Info;
-    iPluginExt.iPlugin.add_state_listener = Raat_SourceSelection_Add_State_Listener;
-    iPluginExt.iPlugin.remove_state_listener = Raat_SourceSelection_Remove_State_Listener;
-    iPluginExt.iPlugin.get_state = Raat_SourceSelection_Get_State;
-    iPluginExt.iPlugin.request_source = Raat_SourceSelection_Request_Source;
-    iPluginExt.iPlugin.request_standby = Raat_SourceSelection_Request_Standby;
+    iPluginExt.iPlugin.get_info = RaatSourceSelectionGetInfo;
+    iPluginExt.iPlugin.add_state_listener = RaatSourceSelectionAddStateListener;
+    iPluginExt.iPlugin.remove_state_listener = RaatSourceSelectionRemoveStateListener;
+    iPluginExt.iPlugin.get_state = RaatSourceSelectionGetState;
+    iPluginExt.iPlugin.request_source = RaatSourceSelectionRequestSource;
+    iPluginExt.iPlugin.request_standby = RaatSourceSelectionRequestStandby;
     iPluginExt.iSelf = this;
 
     iCpDevice = Net::CpDeviceDv::New(aMediaPlayer.CpStack(), aMediaPlayer.Device());
@@ -107,54 +101,9 @@ RaatSourceSelection::~RaatSourceSelection()
     iCpDevice->RemoveRef();
 }
 
-RAAT__SourceSelectionPlugin* RaatSourceSelection::Plugin()
+void RaatSourceSelection::Start()
 {
-    return (RAAT__SourceSelectionPlugin*)&iPluginExt;
-}
-
-RC__Status RaatSourceSelection::AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
-{
-    return RAAT__source_selection_state_listeners_add(&iListeners, aCb, aCbUserdata);
-}
-
-void RaatSourceSelection::RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
-{
-    (void)RAAT__source_selection_state_listeners_remove(&iListeners, aCb, aCbUserdata);
-}
-
-void RaatSourceSelection::GetState(RAAT__SourceSelectionState *aState)
-{
-    AutoMutex _(iLock);
-    *aState = StateLocked();
-}
-
-void RaatSourceSelection::ActivateRaatSource()
-{
-    {
-        AutoMutex _(iLock);
-        if (iState == EState::eSelected) {
-            TryReportState();
-            return;
-        }
-        iActivationPending = true;
-    }
-    iProxyProduct->SyncSetSourceIndex(iSourceIndexRaat);
-}
-
-void RaatSourceSelection::SetStandby()
-{
-    {
-        AutoMutex _(iLock);
-        if (iState == EState::eStandby) {
-            TryReportState();
-            return;
-        }
-    }
-    iProxyProduct->SyncSetStandby(true);
-}
-
-void RaatSourceSelection::Initialise()
-{
+    // Get RAAT source index
     TUint count;
     iProxyProduct->SyncSourceCount(count);
     for (TUint index = count-1; ; index--) {
@@ -169,89 +118,119 @@ void RaatSourceSelection::Initialise()
         }
         ASSERT(index != 0); // no RAAT source registered
     }
+
+    // Register callbacks
     Functor cb = MakeFunctor(*this, &RaatSourceSelection::StandbyChanged);
     iProxyProduct->SetPropertyStandbyChanged(cb);
     cb = MakeFunctor(*this, &RaatSourceSelection::SourceIndexChanged);
     iProxyProduct->SetPropertySourceIndexChanged(cb);
     iProxyProduct->Subscribe();
+
+    // Start plugin
+    RaatPluginAsync::Start();
+}
+
+RAAT__SourceSelectionPlugin* RaatSourceSelection::Plugin()
+{
+    return (RAAT__SourceSelectionPlugin*)&iPluginExt;
+}
+
+RC__Status RaatSourceSelection::AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
+{
+    return RAAT__source_selection_state_listeners_add(&iListeners, aCb, aCbUserdata);
+}
+
+RC__Status RaatSourceSelection::RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata)
+{
+    return RAAT__source_selection_state_listeners_remove(&iListeners, aCb, aCbUserdata);
+}
+
+void RaatSourceSelection::GetState(RAAT__SourceSelectionState *aState)
+{
+    AutoMutex _(iLock);
+    *aState = GetStateLocked();
+}
+
+void RaatSourceSelection::SetSource()
+{
+    {
+        // Some trickery here to prevent reporting our state until we've both come
+        // out of standby and selected RAAT as the current source
+        AutoMutex _(iLock);
+        if (iStateStandby == EStateStandby::eEnabled) {
+            iStateStandby = EStateStandby::eUndefined;
+        }
+        if (iStateSource == EStateSource::eNotSelected) {
+            iStateSource = EStateSource::eUndefined;
+        }
+    }
+
+    iProxyProduct->SyncSetSourceIndex(iSourceIndexRaat);
+}
+
+void RaatSourceSelection::SetStandby()
+{
+    iProxyProduct->SyncSetStandby(true);
 }
 
 void RaatSourceSelection::StandbyChanged()
 {
-    iProxyProduct->PropertyStandby(iStandby);
+    TBool standbyEnabled = false;
+    iProxyProduct->PropertyStandby(standbyEnabled);
 
     AutoMutex _(iLock);
-    UpdateStateLocked();
-    if (iActivationPending && (iState != EState::eSelected)) {
-        return;
+    iStateStandby = standbyEnabled ? EStateStandby::eEnabled : EStateStandby::eDisabled;
+
+    if (iStateStandby == EStateStandby::eEnabled) {
+        iObserver.RaatSourceDeactivated();
     }
-    iActivationPending = false;
     TryReportState();
 }
 
 void RaatSourceSelection::SourceIndexChanged()
 {
-    iProxyProduct->PropertySourceIndex(iSourceIndexCurrent);
+    TUint sourceIndexCurrent = 0;
+    iProxyProduct->PropertySourceIndex(sourceIndexCurrent);
 
     AutoMutex _(iLock);
-    UpdateStateLocked();
-    if (iActivationPending && (iState != EState::eSelected)) {
-        return;
+    iStateSource = (sourceIndexCurrent == iSourceIndexRaat) ? EStateSource::eSelected : EStateSource::eNotSelected;
+    if (iStateSource == EStateSource::eSelected) {
+        iObserver.RaatSourceActivated();
     }
-    iActivationPending = false;
+    if (iStateSource == EStateSource::eNotSelected) {
+        iObserver.RaatSourceDeactivated();
+        iOutputControl.NotifyDeselected();
+    }
     TryReportState();
-}
-
-void RaatSourceSelection::UpdateStateLocked()
-{
-    if (!iStandby && (iSourceIndexCurrent == iSourceIndexRaat)) {
-        iState = EState::eSelected;
-    }
-    else if (iStandby) {
-        iState = EState::eStandby;
-    }
-    else {
-        iState = EState::eNotSelected;
-    }
-}
-
-RAAT__SourceSelectionState RaatSourceSelection::StateLocked() const
-{
-    RAAT__SourceSelectionState state;
-    state.status = RAAT__SOURCE_SELECTION_STATUS_INDETERMINATE;
-    if (iState == EState::eSelected) {
-        state.status = RAAT__SOURCE_SELECTION_STATUS_SELECTED;
-    }
-    else if (iState == EState::eNotSelected) {
-        state.status = RAAT__SOURCE_SELECTION_STATUS_DESELECTED;
-    }
-    else if (iState == EState::eStandby) {
-        state.status = RAAT__SOURCE_SELECTION_STATUS_STANDBY;
-    }
-    return state;
 }
 
 void RaatSourceSelection::ReportState()
 {
-    if (!iStarted) {
-        Initialise();
-        iStarted = true;
-        return;
-    }
-
     AutoMutex _(iLock);
-    auto state = StateLocked();
-    RAAT__source_selection_state_listeners_invoke(&iListeners, &state);
 
-    if (iState == EState::eSelected) {
-        iObserver.RaatSourceActivated();
-    }
-    else if (iState == EState::eNotSelected) {
-        iObserver.RaatSourceDeactivated();
-        iOutputControl.NotifyDeselected();
-    }
-    else if (iState == EState::eStandby) {
-        iObserver.RaatSourceDeactivated();
-        iOutputControl.NotifyStandby();
-    }
+    // Wait for both standby state and source state to be defined before reporting
+    if (iStateStandby == EStateStandby::eUndefined || iStateSource == EStateSource::eUndefined) {
+        return;
+    } 
+
+    auto state = GetStateLocked();
+    RAAT__source_selection_state_listeners_invoke(&iListeners, &state);
 }
+
+RAAT__SourceSelectionState RaatSourceSelection::GetStateLocked() const
+{
+    RAAT__SourceSelectionState state;
+    state.status = RAAT__SOURCE_SELECTION_STATUS_INDETERMINATE;
+
+    if (iStateStandby == EStateStandby::eEnabled) {
+        state.status = RAAT__SOURCE_SELECTION_STATUS_STANDBY;
+    }
+    else if (iStateSource == EStateSource::eSelected) {
+        state.status = RAAT__SOURCE_SELECTION_STATUS_SELECTED;
+    }
+    else if (iStateSource == EStateSource::eNotSelected) {
+        state.status = RAAT__SOURCE_SELECTION_STATUS_DESELECTED;
+    }
+    return state;
+}
+

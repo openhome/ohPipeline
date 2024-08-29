@@ -557,11 +557,6 @@ void RaatOutput::Interrupt()
     RAAT__stream_decref(stream);
 }
 
-void RaatOutput::NotifyStandby()
-{
-    iControlCallback.NotifyFinalise("standby");
-}
-
 void RaatOutput::NotifyDeselected()
 {
     iControlCallback.NotifyFinalise("source_deselected");

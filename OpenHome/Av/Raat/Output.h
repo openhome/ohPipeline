@@ -158,7 +158,6 @@ private: // from IRaatReader
     void Read(IRaatWriter& aWriter) override;
     void Interrupt() override;
 private: // from IRaatOutputControl
-    void NotifyStandby() override;
     void NotifyDeselected() override;
 private: // from RaatPluginAsync
     void ReportState() override;

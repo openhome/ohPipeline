@@ -37,7 +37,6 @@ class IRaatOutputControl
 {
 public:
     virtual ~IRaatOutputControl() {}
-    virtual void NotifyStandby() = 0;
     virtual void NotifyDeselected() = 0;
 };
 
@@ -46,10 +45,15 @@ class IMediaPlayer;
 class RaatSourceSelection : public RaatPluginAsync
 {
 private:
-    enum class EState {
+    enum class EStateStandby {
+        eEnabled,
+        eDisabled,
+        eUndefined
+    };
+    enum class EStateSource {
         eSelected,
         eNotSelected,
-        eStandby
+        eUndefined
     };
 public:
     RaatSourceSelection(
@@ -59,37 +63,34 @@ public:
         IRaatOutputControl& aOutputControl);
     ~RaatSourceSelection();
 public:
+    void Start();
+public:
     RAAT__SourceSelectionPlugin* Plugin();
     RC__Status AddStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
-    void RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
+    RC__Status RemoveStateListener(RAAT__SourceSelectionStateCallback aCb, void *aCbUserdata);
     void GetState(RAAT__SourceSelectionState *aState);
-    void ActivateRaatSource();
+    void SetSource();
     void SetStandby();
 private:
-    void Initialise();
-    TBool IsActiveLocked() const;
     void StandbyChanged();
     void SourceIndexChanged();
-    void UpdateStateLocked();
-    RAAT__SourceSelectionState StateLocked() const;
 private: // from RaatPluginAsync
     void ReportState() override;
 private:
-    RaatSourceSelectionPluginExt iPluginExt;
-    RAAT__SourceSelectionStateListeners iListeners;
+    RAAT__SourceSelectionState GetStateLocked() const;
+private:
     Bwh iSystemName;
     IRaatSourceObserver& iObserver;
     IRaatOutputControl& iOutputControl;
+    EStateSource iStateSource;
+    EStateStandby iStateStandby;
+    TUint iSourceIndexRaat;
+    mutable Mutex iLock;
+
+    RAAT__SourceSelectionStateListeners iListeners;
+    RaatSourceSelectionPluginExt iPluginExt;
     Net::CpDeviceDv* iCpDevice;
     Net::CpProxyAvOpenhomeOrgProduct4* iProxyProduct;
-    IThreadPoolHandle* iRaatCallback;
-    TUint iSourceIndexRaat;
-    TUint iSourceIndexCurrent;
-    TBool iStandby;
-    EState iState;
-    TBool iStarted;
-    TBool iActivationPending;
-    mutable Mutex iLock;
 };
 
 }
