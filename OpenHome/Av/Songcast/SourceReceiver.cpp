@@ -17,8 +17,8 @@
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Pipeline/Logger.h>
 #include <OpenHome/Av/Songcast/OhmMsg.h>
-#include <OpenHome/Av/Songcast/Splitter.h>
-#include <OpenHome/Av/Songcast/SenderThread.h>
+#include <OpenHome/Av/Songcast/EnableProcessor.h>
+#include <OpenHome/Media/SenderThread.h>
 #include <OpenHome/Av/Songcast/Sender.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Configuration/ConfigManager.h>
@@ -134,12 +134,13 @@ private:
     void FriendlyNameChanged(const Brx& aName);
 private:
     Mutex iLock;
-    SenderThread* iSenderThread;
+    Media::SenderThread* iSenderThread;
     Sender* iSender;
     Product& iProduct;
     IFriendlyNameObservable& iFriendlyNameObservable;
     Media::Logger* iLoggerSender;
-    Splitter* iSplitter;
+    Media::IBranchEnableProcessor* iEnableProcessor;
+    Media::IBranch* iBranch;
     Media::Logger* iLoggerSplitter;
     TUint iFriendlyNameId;
 };
@@ -524,12 +525,13 @@ SongcastSender::SongcastSender(IMediaPlayer& aMediaPlayer, ZoneHandler& aZoneHan
     iLoggerSender = new Logger("Sender", *iSender);
     //iLoggerSender->SetEnabled(true);
     //iLoggerSender->SetFilter(Logger::EMsgAll);
-    iSenderThread = new SenderThread(*iLoggerSender, pipeline.Factory(), priorityStarvationRamper-1);
-    iSplitter = new Splitter(*iSenderThread, aMode);
-    iLoggerSplitter = new Logger(*iSplitter, "Splitter");
-    iSplitter->SetUpstream(pipeline.InsertElements(*iLoggerSplitter));
-    //iLoggerSplitter->SetEnabled(true);
-    //iLoggerSplitter->SetFilter(Logger::EMsgAll);
+    iSenderThread = new SenderThread(*iLoggerSender, "SongcastSender", pipeline.Factory(), priorityStarvationRamper-1);
+    iEnableProcessor = new SongcastEnableProcessor(aMode);
+    //iBranch = Branch::Create(*iSenderThread, nullptr, iEnableProcessor, nullptr);
+    //auto& brancher = pipeline.GetBranchController().GetBrancher(Brn("BrancherSongcast"));
+    //brancher.SetBranch(*iBranch);
+    //pipeline.GetBranchController().SetEnabled(Brn("BrancherSongcast"), true);
+
     aMediaPlayer.AddAttribute("Sender");
     pipeline.AddObserver(*this);
     iProduct.AddObserver(*this);
@@ -539,8 +541,8 @@ SongcastSender::SongcastSender(IMediaPlayer& aMediaPlayer, ZoneHandler& aZoneHan
 SongcastSender::~SongcastSender()
 {
     iFriendlyNameObservable.DeregisterFriendlyNameObserver(iFriendlyNameId);
-    delete iLoggerSplitter;
-    delete iSplitter;
+    delete iBranch;
+    delete iEnableProcessor;
     delete iSenderThread;
     delete iLoggerSender;
     delete iSender;

@@ -7,6 +7,7 @@
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
+#include <OpenHome/Media/BranchController.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/MuteManager.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
@@ -295,7 +296,7 @@ public:
      * playing this new track.
      */
     void Prev();
-    IPipelineElementUpstream& InsertElements(IPipelineElementUpstream& aTail);
+    IBranchController& GetBranchController() const;
     TUint SenderMinLatencyMs() const;
     void GetThreadPriorityRange(TUint& aMin, TUint& aMax) const;
     void GetThreadPriorities(TUint& aFiller, TUint& aFlywheelRamper, TUint& aStarvationRamper, TUint& aCodec, TUint& aEvent);

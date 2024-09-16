@@ -1,6 +1,6 @@
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Private/SuiteUnitTest.h>
-#include <OpenHome/Av/Songcast/SenderThread.h>
+#include <OpenHome/Media/SenderThread.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 
@@ -10,10 +10,9 @@
 using namespace OpenHome;
 using namespace OpenHome::TestFramework;
 using namespace OpenHome::Media;
-using namespace OpenHome::Av;
 
 namespace OpenHome {
-namespace Av {
+namespace Media {
 
 class SuiteSenderQueue : public SuiteUnitTest, private IMsgProcessor
 {
@@ -112,7 +111,7 @@ private:
     TUint iLastStreamInterruptedJiffies;
 };
 
-} // namespace Av
+} // namespace Media
 } // namespace OpenHome
 
 const SpeakerProfile SuiteSenderQueue::kProfile(2);

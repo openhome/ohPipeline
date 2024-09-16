@@ -1,4 +1,4 @@
-#include <OpenHome/Av/Songcast/SenderThread.h>
+#include <OpenHome/Media/SenderThread.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Debug.h>
@@ -10,7 +10,6 @@
 #include <vector>
 
 using namespace OpenHome;
-using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
 
@@ -93,12 +92,12 @@ private:
     TUint iCountStream;
 };
 
-class ProcessorMode : public ISongcastMsgPruner
+class ProcessorMode : public ISenderMsgPruner
 {
 public:
     ProcessorMode(TUint& aCountMode, TUint& aCountTrack, TUint& aCountDelay,
                  TUint& aCountMetaText, TUint& aCountHalt, TUint& aCountStream);
-public: // from ISongcastMsgPruner
+public: // from ISenderMsgPruner
     TBool IsComplete() const override;
 private:
     Msg* RemoveIfNotLatestMode(Msg* aMsg);
@@ -131,12 +130,12 @@ private:
     TUint& iCountStream;
 };
 
-class ProcessorTrack : public ISongcastMsgPruner
+class ProcessorTrack : public ISenderMsgPruner
 {
 public:
     ProcessorTrack(TUint& aCountTrack, TUint& aCountMetaText,
                    TUint& aCountHalt, TUint& aCountStream);
-public: // from ISongcastMsgPruner
+public: // from ISenderMsgPruner
     TBool IsComplete() const override;
 private:
     Msg* RemoveIfNotLatestTrack(Msg* aMsg);
@@ -167,11 +166,11 @@ private:
     TUint& iCountStream;
 };
 
-class ProcessorStream: public ISongcastMsgPruner
+class ProcessorStream: public ISenderMsgPruner
 {
 public:
     ProcessorStream( TUint& aCountMetaText, TUint& aCountHalt, TUint& aCountStream);
-public: // from ISongcastMsgPruner
+public: // from ISenderMsgPruner
     TBool IsComplete() const override;
 private:
     Msg* RemoveIfNotLatestStream(Msg* aMsg);
@@ -201,11 +200,11 @@ private:
     TUint& iCountStream;
 };
 
-class ProcessorDelayMetaTextHalt : public ISongcastMsgPruner
+class ProcessorDelayMetaTextHalt : public ISenderMsgPruner
 {
 public:
     ProcessorDelayMetaTextHalt(TUint& aCountDelay, TUint& aCountMetaText, TUint& aCountHalt);
-public: // from ISongcastMsgPruner
+public: // from ISenderMsgPruner
     TBool IsComplete() const override;
 private:
     Msg* RemoveIfNotLatest(Msg* aMsg, TUint& aCount);
@@ -570,7 +569,7 @@ TUint SenderMsgQueue::Count() const
 
 void SenderMsgQueue::Prune()
 {
-    LOG_INFO(kPipeline, "WARNING: Songcast sender - SenderMsgQueue::Prune() discarding audio\n")
+    LOG_INFO(kPipeline, "WARNING: SenderMsgQueue::Prune() discarding audio\n")
     ProcessorMsgAudioPrune audioPruner;
     auto elem = iHead;
     ASSERT(elem != nullptr); // why are we being asked to prune if the queue is empty?
@@ -652,7 +651,7 @@ void SenderMsgQueue::Prune()
     Process(procDmh, prev, elem, next);
 }
 
-void SenderMsgQueue::Process(ISongcastMsgPruner& aProcessor, Element*& aPrev, Element*& aElem, Element*& aNext)
+void SenderMsgQueue::Process(ISenderMsgPruner& aProcessor, Element*& aPrev, Element*& aElem, Element*& aNext)
 {
     for (; !aProcessor.IsComplete();) {
         aElem->iMsg = aElem->iMsg->Process(aProcessor);
@@ -689,18 +688,20 @@ void SenderMsgQueue::HandleMsgRemoved(Element* aPrev, Element* aElem, Element* a
 
 // SenderThread
 
-const TUint SenderThread::kMaxMsgBacklog = 100;
+SenderThread::SenderThread(
+    IPipelineElementDownstream& aDownstream,
+    const TChar*                aId,
+    MsgFactory&                 aFactory,
+    TUint                       aThreadPriority,
+    TUint                       aMaxMsgBacklog)
 
-SenderThread::SenderThread(IPipelineElementDownstream& aDownstream,
-                           MsgFactory& aFactory,
-                           TUint aThreadPriority)
     : iDownstream(aDownstream)
-    , iLock("SCST")
-    , iQueue(aFactory, kMaxMsgBacklog)
-    , iShutdownSem("SGSN", 0)
+    , iLock("SNDT")
+    , iQueue(aFactory, aMaxMsgBacklog)
+    , iShutdownSem("SNDS", 0)
     , iQuit(false)
 {
-    iThread = new ThreadFunctor("SongcastSender", MakeFunctor(*this, &SenderThread::Run), aThreadPriority);
+    iThread = new ThreadFunctor(aId, MakeFunctor(*this, &SenderThread::Run), aThreadPriority);
     iThread->Start();
 }
 

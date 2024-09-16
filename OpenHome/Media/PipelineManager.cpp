@@ -343,9 +343,9 @@ void PipelineManager::Prev()
     iFiller->Prev(iMode);
 }
 
-IPipelineElementUpstream& PipelineManager::InsertElements(IPipelineElementUpstream& aTail)
+IBranchController& PipelineManager::GetBranchController() const
 {
-    return iPipeline->InsertElements(aTail);
+    return iPipeline->GetBranchController();
 }
 
 TUint PipelineManager::SenderMinLatencyMs() const

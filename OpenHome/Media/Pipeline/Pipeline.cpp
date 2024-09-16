@@ -25,7 +25,7 @@
 #include <OpenHome/Media/Pipeline/AsyncTrackObserver.h>
 #include <OpenHome/Media/Pipeline/AirplayReporter.h>
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
-#include <OpenHome/Media/Pipeline/Router.h>
+#include <OpenHome/Media/Pipeline/Brancher.h>
 #include <OpenHome/Media/Pipeline/Drainer.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
 #include <OpenHome/Media/Pipeline/Logger.h>
@@ -339,6 +339,7 @@ Pipeline::Pipeline(
     iMsgFactory = new MsgFactory(aInfoAggregator, msgInit);
 
     iEventThread = new PipelineElementObserverThread(aInitParams->ThreadPriorityEvent());
+    iBranchController = new BranchController();
     IPipelineElementDownstream* downstream = nullptr;
     IPipelineElementUpstream* upstream = nullptr;
     const auto elementsSupported = aInitParams->SupportElements();
@@ -485,16 +486,16 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerReporter, new Logger(*iReporter, "Reporter"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iRouter, new Router(*upstream),
+    ATTACH_ELEMENT(iBrancherSongcast, new Brancher(*upstream, Brn("BrancherSongcast"), IBrancher::EPriority::Default),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerRouter, new Logger(*iRouter, "Router"),
+    ATTACH_ELEMENT(iLoggerBrancherSongcast, new Logger(*iBrancherSongcast, "BrancherSongcast"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
+    ATTACH_ELEMENT(iDecodedAudioValidatorBrancher, new DecodedAudioValidator(*upstream, "BrancherSongcast"),
+                   upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     ATTACH_ELEMENT(iAttenuator, new Attenuator(*upstream),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerAttenuator, new Logger(*iAttenuator, "Attenuator"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iDecodedAudioValidatorRouter, new DecodedAudioValidator(*upstream, "Router"),
-                   upstream, elementsSupported, EPipelineSupportElementsDecodedAudioValidator);
     ATTACH_ELEMENT(iDrainer2, new DrainerRight(*iMsgFactory, *upstream),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerDrainer2, new Logger(*iDrainer2, "DrainerRight"),
@@ -569,6 +570,10 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerVolumeRamper, new Logger(*iVolumeRamper, "VolumeRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
+    ATTACH_ELEMENT(iBrancherBluez, new Brancher(*upstream, Brn("BrancherBluez"), IBrancher::EPriority::Exclusive),
+                   upstream, elementsSupported, EPipelineSupportElementsMandatory);
+    ATTACH_ELEMENT(iLoggerBrancherBluez, new Logger(*iBrancherBluez, "BrancherBluez"),
+                   upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iPreDriver, new PreDriver(*upstream),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     iLoggerPreDriver = new Logger(*iPreDriver, "PreDriver");
@@ -584,6 +589,9 @@ Pipeline::Pipeline(
     iMuteCounted = new MuteCounted(*muter);
 
     gPipeline = this;
+
+    iBranchController->AttachBrancher(*iBrancherSongcast);
+    iBranchController->AttachBrancher(*iBrancherBluez);
 
     //iAudioDumper->SetEnabled(true);
 
@@ -603,7 +611,7 @@ Pipeline::Pipeline(
     //iLoggerStopper->SetEnabled(true);
     //iLoggerSpotifyReporter->SetEnabled(true);
     //iLoggerReporter->SetEnabled(true);
-    //iLoggerRouter->SetEnabled(true);
+    //iLoggerBrancherSongcast->SetEnabled(true);
     //iLoggerAttenuator->SetEnabled(true);
     //iLoggerDrainer2->SetEnabled(true);
     //iLoggerVariableDelay2->SetEnabled(true);
@@ -611,6 +619,7 @@ Pipeline::Pipeline(
     //iLoggerPhaseAdjuster->SetEnabled(true);
     //iLoggerMuter->SetEnabled(true);
     //iLoggerVolumeRamper->SetEnabled(true);
+    //iLoggerBrancherBluez->SetEnabled(true);
 
     // A logger that is enabled will block waiting for MsgQuit in its dtor
     // ~Pipeline (below) relies on this to synchronise its destruction
@@ -633,7 +642,7 @@ Pipeline::Pipeline(
     //iLoggerStopper->SetFilter(Logger::EMsgAll);
     //iLoggerSpotifyReporter->SetFilter(Logger::EMsgAll);
     //iLoggerReporter->SetFilter(Logger::EMsgAll);
-    //iLoggerRouter->SetFilter(Logger::EMsgAll);
+    //iLoggerBrancherSongcast->SetFilter(Logger::EMsgAll);
     //iLoggerAttenuator->SetFilter(Logger::EMsgAll);
     //iLoggerDrainer2->SetFilter(Logger::EMsgAll);
     //iLoggerVariableDelay2->SetFilter(Logger::EMsgAll);
@@ -641,6 +650,7 @@ Pipeline::Pipeline(
     //iLoggerPhaseAdjuster->SetFilter(Logger::EMsgAll);
     //iLoggerMuter->SetFilter(Logger::EMsgAll);
     //iLoggerVolumeRamper->SetFilter(Logger::EMsgAll);
+    //iLoggerBrancherBluez->SetFilter(Logger::EMsgAll);
     //iLoggerPreDriver->SetFilter(Logger::EMsgAll);
 }
 
@@ -651,10 +661,16 @@ Pipeline::~Pipeline()
     Quit();
     iEventThread->Stop();
 
+    // iBranchController->RemoveBrancher(Brn("BrancherSongcast"));
+    iBranchController->RemoveBrancher(Brn("BrancherBluez"));
+
+
     // loggers (if non-null) and iPreDriver will block until they receive the Quit msg
     delete iMuteCounted;
     delete iLoggerPreDriver;
     delete iPreDriver;
+    delete iLoggerBrancherBluez;
+    delete iBrancherBluez;
     delete iLoggerVolumeRamper;
     delete iVolumeRamper;
     delete iDecodedAudioValidatorMuter;
@@ -679,9 +695,9 @@ Pipeline::~Pipeline()
     delete iLoggerStarterTimed;
     delete iLoggerDrainer2;
     delete iDrainer2;
-    delete iDecodedAudioValidatorRouter;
-    delete iLoggerRouter;
-    delete iRouter;
+    delete iDecodedAudioValidatorBrancher;
+    delete iLoggerBrancherSongcast;
+    delete iBrancherSongcast;
     delete iLoggerTrackReporter;
     delete iLoggerReporter;
     delete iReporter;
@@ -735,6 +751,7 @@ Pipeline::~Pipeline()
     delete iAudioDumper;
     delete iLoggerEncodedAudioReservoir;
     delete iEncodedAudioReservoir;
+    delete iBranchController;
     delete iEventThread;
     delete iMsgFactory;
     delete iInitParams;
@@ -930,9 +947,9 @@ IClockPuller& Pipeline::GetPhaseAdjuster()
     return *iPhaseAdjuster;
 }
 
-IPipelineElementUpstream& Pipeline::InsertElements(IPipelineElementUpstream& aTail)
+IBranchController& Pipeline::GetBranchController() const
 {
-    return iRouter->InsertElements(aTail);
+    return *iBranchController;
 }
 
 TUint Pipeline::SenderMinLatencyMs() const
