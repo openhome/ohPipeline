@@ -93,8 +93,10 @@ private:
     void Action();
     void Subscribe();
     void Unsubscribe();
-    void ParseDeviceAndService();
-    void ParseDeviceAndService(Brn& aDeviceId,
+    void ParseDeviceAndService(DviDevice*& aDevice, DviService*& aService);
+    void ParseDeviceAndService(DviDevice*& aDevice,
+                               DviService*& aService,
+                               Brn& aDeviceId,
                                Brn& aDeviceAlias,
                                Brn& aServiceDomain,
                                Brn& aServiceName,
@@ -135,8 +137,6 @@ private:
     IWriter* iWriter;
     JsonParser iParserReq;
     std::map<Brn, Brn, BufferCmp> iArgs;
-    DviDevice* iDevice;
-    DviService* iService;
     TUint iServiceVersion;
     WriterJsonObject iWriterResponse;
     WriterJsonArray iWriterResponseArgs;

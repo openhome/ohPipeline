@@ -85,15 +85,15 @@ IPropertyWriter* PropertyWriterFactoryOdp::ClaimWriter(const IDviSubscriptionUse
     }
     iWriter = &iSession.WriteLock();
     try {
-        iWriterNotify.Set(*iWriter);
-        iWriterNotify.WriteString(Odp::kKeyType, Odp::kTypeNotify);
-        iWriterNotify.WriteString(Odp::kKeySid, aSid);
         auto subscription = iSubscriptionManager.Find(aSid);
         if (subscription == nullptr) {
             LOG_ERROR(kOdp, "PropertyWriterFactoryOdp::ClaimWriter - subscription %.*s not found\n", PBUF(aSid));
             THROW(WriterError);
         }
         AutoSubscriptionRef __(*subscription);
+        iWriterNotify.Set(*iWriter);
+        iWriterNotify.WriteString(Odp::kKeyType, Odp::kTypeNotify);
+        iWriterNotify.WriteString(Odp::kKeySid, aSid);
         DviService* service = subscription->ServiceLocked();
         if (service != nullptr) {
             AutoServiceRef ___(service);
@@ -373,7 +373,9 @@ void DviOdp::LogParseErrorThrow(const TChar* aEx, const Brx& aJson)
 
 void DviOdp::Action()
 {
-    ParseDeviceAndService();
+    DviDevice* unused;
+    DviService* service;
+    ParseDeviceAndService(unused, service);
     Brn actionName;
     try {
         actionName.Set(iParserReq.String(Odp::kKeyAction));
@@ -415,7 +417,7 @@ void DviOdp::Action()
     iWriter = &iSession.WriteLock();
     AutoOdpSession _(iSession);
     try {
-        iService->InvokeDirect(*this, actionName);
+        service->InvokeDirect(*this, actionName);
     }
     catch (InvocationError&) {
     }
@@ -431,13 +433,15 @@ void DviOdp::Action()
 
 void DviOdp::Subscribe()
 {
+    DviDevice* device = nullptr;
+    DviService* service = nullptr;
     Brn deviceId;
     Brn deviceAlias;
     Brn serviceDomain;
     Brn serviceName;
     TUint serviceVersion = kServiceVersionInvalid;
     try {
-        ParseDeviceAndService(deviceId, deviceAlias, serviceDomain, serviceName, serviceVersion);
+        ParseDeviceAndService(device, service, deviceId, deviceAlias, serviceDomain, serviceName, serviceVersion);
     }
     catch (OdpError&) {
         iWriter = &iSession.WriteLock();
@@ -445,8 +449,8 @@ void DviOdp::Subscribe()
         iResponseStarted = true;
         WriterJsonObject writer(*iWriter);
         writer.WriteString(Odp::kKeyType, Odp::kTypeSubscribeResponse);
-        if (iDevice != nullptr) {
-            writer.WriteString(Odp::kKeyId, iDevice->Udn());
+        if (device != nullptr) {
+            writer.WriteString(Odp::kKeyId, device->Udn());
         }
         writer.WriteString(Odp::kKeyDevice, deviceAlias);
         auto writerService = writer.CreateObject(Odp::kKeyService);
@@ -457,11 +461,11 @@ void DviOdp::Subscribe()
         auto writerErr = writer.CreateObject(Odp::kKeyError);
         TUint code = kErrCodeSubscriptionUnknown;
         Brn desc(kErrMsgSubscriptionUnknown);
-        if (iDevice == nullptr) {
+        if (device == nullptr) {
             code = kErrCodeSubscriptionNoDevice;
             desc.Set(kErrMsgSubscriptionNoDevice);
         }
-        else if (iService == nullptr) {
+        else if (service == nullptr) {
             code = kErrCodeSubscriptionNoService;
             desc.Set(kErrMsgSubscriptionNoService);
         }
@@ -487,8 +491,8 @@ void DviOdp::Subscribe()
 
     // create subscription
     Brh sid;
-    iDevice->CreateSid(sid);
-    auto subscription = new DviSubscription(iDvStack, *iDevice, *iPropertyWriterFactory, nullptr, sid);
+    device->CreateSid(sid);
+    auto subscription = new DviSubscription(iDvStack, *device, *iPropertyWriterFactory, nullptr, sid);
     iDvStack.SubscriptionManager().AddSubscription(*subscription);
 
     // respond to subscription request
@@ -497,7 +501,7 @@ void DviOdp::Subscribe()
     iResponseStarted = true;
     WriterJsonObject writer(*iWriter);
     writer.WriteString(Odp::kKeyType, Odp::kTypeSubscribeResponse);
-    writer.WriteString(Odp::kKeyId, iDevice->Udn());
+    writer.WriteString(Odp::kKeyId, device->Udn());
     writer.WriteString(Odp::kKeyDevice, deviceAlias);
     auto writerService = writer.CreateObject(Odp::kKeyService);
     writerService.WriteString(Odp::kKeyDomain, serviceDomain);
@@ -516,7 +520,7 @@ void DviOdp::Subscribe()
     iWriter = nullptr;
 
     // Start subscription, prompting delivery of the first update (covering all state variables)
-    iService->AddSubscription(subscription);
+    service->AddSubscription(subscription);
 }
 
 void DviOdp::Unsubscribe()
@@ -530,7 +534,15 @@ void DviOdp::Unsubscribe()
         THROW(OdpError);
     }
 
-    iService->RemoveSubscription(sid);
+    auto subscription = iDvStack.SubscriptionManager().Find(sid);
+    if (subscription != nullptr) {
+        AutoSubscriptionRef _(*subscription);
+        auto service = subscription->Service();
+        if (service != nullptr) {
+            AutoServiceRef __(service);
+            service->RemoveSubscription(sid);
+        }
+    }
 
     iWriter = &iSession.WriteLock();
     AutoOdpSession _(iSession);
@@ -546,21 +558,22 @@ void DviOdp::Unsubscribe()
     iWriter = nullptr;
 }
 
-void DviOdp::ParseDeviceAndService()
+void DviOdp::ParseDeviceAndService(DviDevice*& aDevice, DviService*& aService)
 {
     Brn deviceId;
     Brn deviceAlias;
     Brn serviceDomain;
     Brn serviceName;
     TUint serviceVersion;
-    ParseDeviceAndService(deviceId, deviceAlias, serviceDomain, serviceName, serviceVersion);
+    ParseDeviceAndService(aDevice, aService, deviceId, deviceAlias, serviceDomain, serviceName, serviceVersion);
 }
 
-void DviOdp::ParseDeviceAndService(Brn& aDeviceId, Brn& aDeviceAlias,
+void DviOdp::ParseDeviceAndService(DviDevice*& aDevice, DviService*& aService,
+                                   Brn& aDeviceId, Brn& aDeviceAlias,
                                    Brn& aServiceDomain, Brn& aServiceName, TUint& aServiceVersion)
 {
-    iDevice = nullptr;
-    iService = nullptr;
+    aDevice = nullptr;
+    aService = nullptr;
     iServiceVersion = kServiceVersionInvalid;
 
     try {
@@ -569,12 +582,12 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceId, Brn& aDeviceAlias,
         for (auto it = deviceMap.begin(); it != deviceMap.end(); ++it) {
             auto device = it->second;
             if (device->Udn() == aDeviceId) {
-                iDevice = device;
+                aDevice = device;
                 break;
             }
         }
         iDvStack.DeviceMap().ClearMap(deviceMap);
-        if (iDevice == nullptr) {
+        if (aDevice == nullptr) {
             LOG_ERROR(kOdp, "Odp: device %.*s not present\n", PBUF(aDeviceId));
             THROW(OdpError);
         }
@@ -583,7 +596,7 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceId, Brn& aDeviceAlias,
         // ignore - udn was added in v3 of protocol so may be omitted by older control points
     }
 
-    if (iDevice != nullptr) {
+    if (aDevice != nullptr) {
         // no real benefit in checking that any supplied alias is consistent with the udn (id)
         aDeviceAlias.Set(iParserReq.StringOptional(Odp::kKeyDevice));
     }
@@ -598,14 +611,14 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceId, Brn& aDeviceAlias,
                 if (deviceAlias != nullptr) {
                     Brn deviceAliasBuf(deviceAlias);
                     if (deviceAliasBuf == alias) {
-                        iDevice = device;
+                        aDevice = device;
                         aDeviceAlias.Set(deviceAliasBuf);
                         break;
                     }
                 }
             }
             iDvStack.DeviceMap().ClearMap(deviceMap);
-            if (iDevice == nullptr) {
+            if (aDevice == nullptr) {
                 LOG_ERROR(kOdp, "Odp: device %.*s not present\n", PBUF(alias));
                 THROW(OdpError);
             }
@@ -641,18 +654,18 @@ void DviOdp::ParseDeviceAndService(Brn& aDeviceId, Brn& aDeviceAlias,
             LOG_ERROR(kOdp, "Odp: incomplete service description - %.*s\n", PBUF(serviceBuf));
             THROW(OdpError);
         }
-        const TUint count = iDevice->ServiceCount();
+        const TUint count = aDevice->ServiceCount();
         for (TUint i=0; i<count; i++) {
-            DviService& service = iDevice->Service(i);
+            DviService& service = aDevice->Service(i);
             if (service.ServiceType().Name() == aServiceName) {
                 if (aServiceDomain.Bytes() == 0 ||
                     service.ServiceType().Domain() == aServiceDomain) { // use of domain added in v3
-                    iService = &service;
+                    aService = &service;
                     break;
                 }
             }
         }
-        if (iService == nullptr) {
+        if (aService == nullptr) {
             LOG_ERROR(kOdp, "Odp: service %.*s not present\n", PBUF(serviceBuf));
             THROW(OdpError);
         }
