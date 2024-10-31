@@ -136,6 +136,7 @@ ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
     , iDefault(aDefault)
     , iMapper(nullptr)
     , iMutex("CVCM")
+    , iChoicesAreDynamic(false)
 {
     Init();
 }
@@ -149,6 +150,35 @@ ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
     , iDefault(aDefault)
     , iMapper(&aMapper)
     , iMutex("CVCM")
+    , iChoicesAreDynamic(false)
+{
+    Init();
+}
+
+ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
+                           TBool aChoicesAreDynamic, const std::vector<TUint>& aChoices,
+                           TUint aDefault, TBool aRebootRequired, 
+                           ConfigValAccess aAccess)
+    : ConfigVal(aManager, aKey, aRebootRequired, aAccess)
+    , iChoices(aChoices)
+    , iDefault(aDefault)
+    , iMapper(nullptr)
+    , iMutex("CVCM")
+    , iChoicesAreDynamic(aChoicesAreDynamic)
+{
+    Init();
+}
+
+ConfigChoice::ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
+                           TBool aChoicesAreDynamic, const std::vector<TUint>& aChoices,
+                           TUint aDefault, IConfigChoiceMapper& aMapper,
+                           TBool aRebootRequired, ConfigValAccess aAccess)
+    : ConfigVal(aManager, aKey, aRebootRequired, aAccess)
+    , iChoices(aChoices)
+    , iDefault(aDefault)
+    , iMapper(&aMapper)
+    , iMutex("CVCM")
+    , iChoicesAreDynamic(aChoicesAreDynamic)
 {
     Init();
 }
@@ -203,12 +233,18 @@ void ConfigChoice::Init()
     TUint initialVal = Converter::BeUint32At(initialBuf, 0);
 
     if (!IsValid(initialVal)) {
-        // Bad value. Write default to store (so that there is no assertion in
-        // future) and ASSERT() here to highlight programmer error.
+        // Invalid initial value. Write default value to the store 
         KvpChoice kvp(iKey, iDefault);
         Write(kvp);
-        Log::Print("ConfigChoice::Init invalid initial value: %u\n", initialVal);
-        ASSERTS();
+        if (iChoicesAreDynamic) {
+            // Don't assert if the choices are dynamic as an invalid initial value is an acceptable scenario
+            Log::Print("ConfigChoice::Init [%.*s] initial value (%u) not in the dynamic choice list, replace with the default value (%d) \n", PBUF(iKey), initialVal, iDefault);
+        }
+        else {
+            // ASSERT() here to highlight programmer error. Valid default already writen to store to ensure that there is no assertion in future
+            Log::Print("ConfigChoice::Init [%.*s] invalid initial value: %u\n", PBUF(iKey), initialVal);
+            ASSERTS();
+        }
     }
 
     iSelected = initialVal;
@@ -269,6 +305,22 @@ void ConfigChoice::Write(KeyValuePair<TUint>& aKvp)
     iConfigManager.ToStore(iKey, valBuf);
 }
 
+// ConfigChoiceDynamic
+
+ConfigChoiceDynamic::ConfigChoiceDynamic(IConfigInitialiser& aManager, const Brx& aKey,
+                           const std::vector<TUint>& aChoices, TUint aDefault,
+                           TBool aRebootRequired, ConfigValAccess aAccess)
+    : ConfigChoice(aManager, aKey, true, aChoices, aDefault, aRebootRequired, aAccess)
+{
+}
+
+ConfigChoiceDynamic::ConfigChoiceDynamic(IConfigInitialiser& aManager, const Brx& aKey,
+                           const std::vector<TUint>& aChoices, TUint aDefault,
+                           IConfigChoiceMapper& aMapper, TBool aRebootRequired,
+                           ConfigValAccess aAccess)
+    : ConfigChoice(aManager, aKey, true, aChoices, aDefault, aMapper, aRebootRequired, aAccess)
+{
+}
 
 // ConfigTextBase
 
