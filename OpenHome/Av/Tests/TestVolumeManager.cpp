@@ -14,6 +14,7 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Av/StringIds.h>
+#include <OpenHome/Net/Private/Globals.h>
 
 #include <limits>
 
@@ -1011,7 +1012,7 @@ void SuiteVolumeUser::Setup()
     choices.push_back(eStringIdYes);
     choices.push_back(eStringIdNo);
     iConfigStartupEnabled = new Configuration::ConfigChoice(*iConfigManager, VolumeConfig::kKeyStartupEnabled, choices, eStringIdYes);
-    iPowerManager = new PowerManager(*iConfigManager);
+    iPowerManager = new PowerManager(*gEnv, *iConfigManager);
     iLastVolume = new StoreInt(*iStore, *iPowerManager, kPowerPriorityLowest, Brn("SuiteVolumeUser.LastVolume"), 0);
     iUser = new VolumeUser(*iVolume, *iConfigManager, *iPowerManager, iEnv, *iLastVolume, 100, kMilliDbPerStep);
 }
@@ -2020,7 +2021,7 @@ void SuiteVolumeMuteUser::Setup()
 {
     iStore = new Configuration::ConfigRamStore();
     iConfigManager = new Configuration::ConfigManager(*iStore);
-    iPowerManager = new PowerManager(*iConfigManager);
+    iPowerManager = new PowerManager(*gEnv, *iConfigManager);
     iMute = new MockMute();
     iMuteUser = new MuteUser(*iMute, *iPowerManager);
 }
@@ -2378,7 +2379,7 @@ void SuiteVolumeConfig::Setup()
 {
     iStore = new Configuration::ConfigRamStore();
     iConfig = new Configuration::ConfigManager(*iStore);
-    iPowerManager = new PowerManager(nullptr);
+    iPowerManager = new PowerManager(*gEnv, nullptr);
 }
 
 void SuiteVolumeConfig::TearDown()
@@ -2463,7 +2464,7 @@ void SuiteVolumeManager::Setup()
     iConfigText2 = new Configuration::ConfigText(*iConfig, Brn("Product.Name"), 1, 32, Brn("Product.Name"));
     iConfigText3 = new Configuration::ConfigText(*iConfig, Brn("Source.StartupName"), 1, 32, Brn("Last Used"));
 
-    iPowerManager = new PowerManager(nullptr);
+    iPowerManager = new PowerManager(*gEnv, nullptr);
     iProduct = new Product(iDvStack.Env(), *iDvDevice, *iReadStore, *iStore, *iConfig, *iConfig, *iPowerManager);
     iSource = new MockSource(kSystemName, &kType);
     iProduct->AddSource(iSource);

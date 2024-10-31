@@ -13,6 +13,7 @@
 #include <Generated/CpAvOpenhomeOrgCredentials1.h>
 #include <OpenHome/Net/Private/Error.h>
 #include <OpenHome/Private/Thread.h>
+#include <OpenHome/Net/Private/Globals.h>
 
 #include <limits.h>
 #include "openssl/bio.h"
@@ -200,7 +201,7 @@ SuiteCredentials::SuiteCredentials(CpStack& aCpStack, DvStack& aDvStack)
     iCpDevice = CpDeviceDv::New(aCpStack, *iDvDevice);
     iConfigRamStore = new ConfigRamStore();
     iConfigManager = new ConfigManager(*iConfigRamStore);
-    iPowerManager = new PowerManager(*iConfigManager);
+    iPowerManager = new PowerManager(*gEnv, *iConfigManager);
     iCredentials = new Credentials(aDvStack.Env(), *iDvDevice, iConfigManager->Store(), udn, *iConfigManager, *iPowerManager, kKeyBits);
     iDummy = new DummyCredential(*iCredentials, iCredChanged, iStatusChanged);
     iCredentials->Add(iDummy);

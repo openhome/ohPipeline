@@ -7,6 +7,7 @@
 #include <OpenHome/Debug-ohMediaPlayer.h>
 #include <OpenHome/Private/Arch.h>
 #include <OpenHome/Private/Converter.h>
+#include <OpenHome/Private/Timer.h>
 #include <OpenHome/Configuration/ConfigManager.h>
 
 using namespace OpenHome;
@@ -17,8 +18,9 @@ using namespace OpenHome::Configuration;
 const Brn PowerManager::kConfigKey("Device.StartupMode");
 const TUint PowerManager::kConfigIdStartupStandbyEnabled = 0;
 const TUint PowerManager::kConfigIdStartupStandbyDisabled  = 1;
+const TUint PowerManager::kPowerDownTimeoutMs = 5000; // time after which we infer that power down has failed
 
-PowerManager::PowerManager(Optional<IConfigInitialiser> aConfigInit)
+PowerManager::PowerManager(Environment& aEnv, Optional<IConfigInitialiser> aConfigInit)
     : iNextPowerId(0)
     , iNextStandbyId(0)
     , iNextFsFlushId(0)
@@ -35,10 +37,12 @@ PowerManager::PowerManager(Optional<IConfigInitialiser> aConfigInit)
         iConfigStartupStandby = nullptr;
         iStandby = Standby::On;
     }
+    iPowerDownChecker = new Timer(aEnv, MakeFunctor(*this, &PowerManager::PowerDownFailed), "PowerManager");
 }
 
 PowerManager::~PowerManager()
 {
+    delete iPowerDownChecker;
     AutoMutex _(iLock);
     ASSERT(iPowerObservers.empty());
     ASSERT(iFsFlushObservers.empty());
@@ -73,6 +77,7 @@ void PowerManager::NotifyPowerDown()
             LOG(kPowerManager, "PowerManager::NotifyPowerDown %u, %s\n", ++i, (*it)->ClientId());
         }
     }
+    iPowerDownChecker->FireIn(kPowerDownTimeoutMs);
     LOG(kPowerManager, "<PowerManager::NotifyPowerDown\n");
 }
 
@@ -250,6 +255,12 @@ void PowerManager::StartupStandbyExecute(Standby aMode)
     else {
         StandbyDisable(iLastDisableReason);
     }
+}
+
+void PowerManager::PowerDownFailed()
+{
+    Log::Print("NotifyPowerDown() called but device is still running %ums later\n", kPowerDownTimeoutMs);
+    ASSERTS();
 }
 
 

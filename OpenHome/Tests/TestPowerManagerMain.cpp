@@ -1,11 +1,11 @@
 #include <OpenHome/Private/TestFramework.h>
+#include <OpenHome/Private/Env.h>
 
-extern void TestPowerManager();
+extern void TestPowerManager(OpenHome::Environment& aEnv);
 
 void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], Net::InitialisationParams* aInitParams)
 {
-    (void)Net::UpnpLibrary::InitialiseMinimal(aInitParams);
-    TestPowerManager();
-    delete aInitParams;
+    auto env = Net::UpnpLibrary::Initialise(aInitParams);
+    TestPowerManager(*env);
     Net::UpnpLibrary::Close();
 }

@@ -111,7 +111,7 @@ private:
 class SuitePowerManager : public SuiteUnitTest, private IStandbyHandlerObserver, public INonCopyable
 {
 public:
-    SuitePowerManager();
+    SuitePowerManager(Environment& aEnv);
 private: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
@@ -139,6 +139,7 @@ private:
     void TestShutdownNoCallbackOnDuplicateStateSet();
     void TestStandbyHandlerPriorities();
 private:
+    Environment& iEnv;
     ConfigStartupStandby* iDummyConfigManager;
     PowerManager* iPowerManager;
     MockTicker* iMockTicker;
@@ -151,13 +152,14 @@ private:
 class SuiteStoreVal : public SuiteUnitTest
 {
 protected:
-    SuiteStoreVal(const TChar* aName);
+    SuiteStoreVal(Environment& aEnv, const TChar* aName);
 protected: // from SuiteUnitTest
     void Setup();
     void TearDown();
 protected:
     static const TUint kPowerPriority = kPowerPriorityNormal;
     static const Brn kKey;
+    Environment& iEnv;
     ConfigRamStore* iStore;
     ConfigStartupStandby* iDummyConfigManager;
     PowerManager* iPowerManager;
@@ -166,7 +168,7 @@ protected:
 class SuiteStoreValOrdering : public SuiteUnitTest, private INonCopyable
 {
 protected:
-    SuiteStoreValOrdering(const TChar* aName);
+    SuiteStoreValOrdering(Environment& aEnv, const TChar* aName);
 protected: // from SuiteUnitTest
     void Setup();
     void TearDown();
@@ -186,6 +188,7 @@ protected:
     static const Brn kKey1;
     static const Brn kKey2;
     static const Brn kKey3;
+    Environment& iEnv;
     MockTicker* iTicker;
     OrderingRamStore* iStore;
     ConfigStartupStandby* iDummyConfigManager;
@@ -195,7 +198,7 @@ protected:
 class SuiteStoreInt : public SuiteStoreVal
 {
 public:
-    SuiteStoreInt();
+    SuiteStoreInt(Environment& aEnv);
     static TInt IntFromStore(IStoreReadOnly& aStore, const Brx& aKey);
 private: // from SuiteUnitTest
     void Setup();
@@ -217,7 +220,7 @@ private:
 class SuiteStoreIntOrdering : public SuiteStoreValOrdering
 {
 public:
-    SuiteStoreIntOrdering();
+    SuiteStoreIntOrdering(Environment& aEnv);
 private: // from SuiteUnitTest
     void Setup();
     void TearDown();
@@ -232,7 +235,7 @@ private:
 class SuiteStoreText : public SuiteStoreVal
 {
 public:
-    SuiteStoreText();
+    SuiteStoreText(Environment& aEnv);
 private: // from SuiteUnitTest
     void Setup();
     void TearDown();
@@ -254,7 +257,7 @@ private:
 class SuiteStoreTextOrdering : public SuiteStoreValOrdering
 {
 public:
-    SuiteStoreTextOrdering();
+    SuiteStoreTextOrdering(Environment& aEnv);
 private: // from SuiteUnitTest
     void Setup();
     void TearDown();
@@ -467,8 +470,9 @@ void ConfigStartupStandby::ResetToDefaults()
 
 // SuitePowerManager
 
-SuitePowerManager::SuitePowerManager()
+SuitePowerManager::SuitePowerManager(Environment& aEnv)
     : SuiteUnitTest("SuitePowerManager")
+    , iEnv(aEnv)
 {
     AddTest(MakeFunctor(*this, &SuitePowerManager::TestPowerDownNothingRegistered), "TestPowerDownNothingRegistered");
     AddTest(MakeFunctor(*this, &SuitePowerManager::TestPriorityLowest), "TestPriorityLowest");
@@ -495,7 +499,7 @@ SuitePowerManager::SuitePowerManager()
 void SuitePowerManager::Setup()
 {
     iDummyConfigManager = new ConfigStartupStandby();
-    iPowerManager = new PowerManager(*iDummyConfigManager);
+    iPowerManager = new PowerManager(iEnv, *iDummyConfigManager);
     iMockTicker = new MockTicker();
     iHandler1 = new HelperPowerHandler(*iMockTicker);
     iHandler2 = new HelperPowerHandler(*iMockTicker);
@@ -796,8 +800,9 @@ void SuitePowerManager::TestStandbyHandlerPriorities()
 
 const Brn SuiteStoreVal::kKey("store.val.key");
 
-SuiteStoreVal::SuiteStoreVal(const TChar* aName)
+SuiteStoreVal::SuiteStoreVal(Environment& aEnv, const TChar* aName)
     : SuiteUnitTest(aName)
+    , iEnv(aEnv)
 {
 }
 
@@ -805,7 +810,7 @@ void SuiteStoreVal::Setup()
 {
     iStore = new ConfigRamStore();
     iDummyConfigManager = new ConfigStartupStandby();
-    iPowerManager = new PowerManager(*iDummyConfigManager);
+    iPowerManager = new PowerManager(iEnv, *iDummyConfigManager);
 }
 
 void SuiteStoreVal::TearDown()
@@ -841,8 +846,9 @@ const Brn SuiteStoreValOrdering::kKey1("store.val.key1");
 const Brn SuiteStoreValOrdering::kKey2("store.val.key2");
 const Brn SuiteStoreValOrdering::kKey3("store.val.key3");
 
-SuiteStoreValOrdering::SuiteStoreValOrdering(const TChar* aName)
+SuiteStoreValOrdering::SuiteStoreValOrdering(Environment& aEnv, const TChar* aName)
     : SuiteUnitTest(aName)
+    , iEnv(aEnv)
 {
     AddTest(MakeFunctor(*this, &SuiteStoreValOrdering::TestPriorityPassedCorrectly), "TestPriorityPassedCorrectly");
 }
@@ -852,7 +858,7 @@ void SuiteStoreValOrdering::Setup()
     iTicker = new MockTicker();
     iStore = new OrderingRamStore(*iTicker);
     iDummyConfigManager = new ConfigStartupStandby();
-    iPowerManager = new PowerManager(*iDummyConfigManager);
+    iPowerManager = new PowerManager(iEnv, *iDummyConfigManager);
 }
 
 void SuiteStoreValOrdering::TearDown()
@@ -882,8 +888,8 @@ void SuiteStoreValOrdering::TestPriorityPassedCorrectly()
 
 // SuiteStoreInt
 
-SuiteStoreInt::SuiteStoreInt()
-    : SuiteStoreVal("SuiteStoreInt")
+SuiteStoreInt::SuiteStoreInt(Environment& aEnv)
+    : SuiteStoreVal(aEnv, "SuiteStoreInt")
 {
     AddTest(MakeFunctor(*this, &SuiteStoreInt::TestValueFromStore), "TestValueFromStore");
     AddTest(MakeFunctor(*this, &SuiteStoreInt::TestValueWrittenToStoreWhenChanged), "TestValueWrittenToStoreWhenChanged");
@@ -1016,8 +1022,8 @@ void SuiteStoreInt::TestNormalShutdown()
 
 // SuiteStoreIntOrdering
 
-SuiteStoreIntOrdering::SuiteStoreIntOrdering()
-    : SuiteStoreValOrdering("SuiteStoreIntOrdering")
+SuiteStoreIntOrdering::SuiteStoreIntOrdering(Environment& aEnv)
+    : SuiteStoreValOrdering(aEnv, "SuiteStoreIntOrdering")
 {
 }
 
@@ -1045,8 +1051,8 @@ void SuiteStoreIntOrdering::TearDown()
 
 const Brn SuiteStoreText::kDefault("abcdefghijklmnopqrstuvwxyz");
 
-SuiteStoreText::SuiteStoreText()
-    : SuiteStoreVal("SuiteStoreText")
+SuiteStoreText::SuiteStoreText(Environment& aEnv)
+    : SuiteStoreVal(aEnv, "SuiteStoreText")
 {
     AddTest(MakeFunctor(*this, &SuiteStoreText::TestValueFromStore), "TestValueFromStore");
     AddTest(MakeFunctor(*this, &SuiteStoreText::TestValueWrittenToStoreWhenChanged), "TestValueWrittenToStoreWhenChanged");
@@ -1201,8 +1207,8 @@ const Brn SuiteStoreTextOrdering::kVal1("abc");
 const Brn SuiteStoreTextOrdering::kVal2("def");
 const Brn SuiteStoreTextOrdering::kVal3("ghi");
 
-SuiteStoreTextOrdering::SuiteStoreTextOrdering()
-    : SuiteStoreValOrdering("SuiteStoreTextOrdering")
+SuiteStoreTextOrdering::SuiteStoreTextOrdering(Environment& aEnv)
+    : SuiteStoreValOrdering(aEnv, "SuiteStoreTextOrdering")
 {
 }
 
@@ -1227,13 +1233,13 @@ void SuiteStoreTextOrdering::TearDown()
 
 
 
-void TestPowerManager()
+void TestPowerManager(Environment& aEnv)
 {
     Runner runner("PowerManager tests\n");
-    runner.Add(new SuitePowerManager());
-    runner.Add(new SuiteStoreInt());
-    runner.Add(new SuiteStoreIntOrdering());
-    runner.Add(new SuiteStoreText());
-    runner.Add(new SuiteStoreTextOrdering());
+    runner.Add(new SuitePowerManager(aEnv));
+    runner.Add(new SuiteStoreInt(aEnv));
+    runner.Add(new SuiteStoreIntOrdering(aEnv));
+    runner.Add(new SuiteStoreText(aEnv));
+    runner.Add(new SuiteStoreTextOrdering(aEnv));
     runner.Run();
 }

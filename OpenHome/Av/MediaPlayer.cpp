@@ -190,7 +190,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
                                                    iReadWriteStore); // must be created before any config values
     }
     Optional<IConfigInitialiser> configInit(aInitParams->ConfigStartupMode() ? iConfigManager : nullptr);
-    iPowerManager = new OpenHome::PowerManager(configInit);
+    iPowerManager = new OpenHome::PowerManager(iDvStack.Env(), configInit);
     iThreadPool = new OpenHome::ThreadPool(aInitParams->ThreadPoolCountHigh(),
                                            aInitParams->ThreadPoolCountMedium(),
                                            aInitParams->ThreadPoolCountLow());

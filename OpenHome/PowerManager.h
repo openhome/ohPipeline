@@ -128,6 +128,7 @@ public:
 class PowerManagerObserver;
 class StandbyObserver;
 class FsFlushObserver;
+class Timer;
 
 class PowerManager : public IPowerManager
 {
@@ -137,8 +138,9 @@ class PowerManager : public IPowerManager
     static const Brn kConfigKey;
     static const TUint kConfigIdStartupStandbyEnabled;
     static const TUint kConfigIdStartupStandbyDisabled;
+    static const TUint kPowerDownTimeoutMs;
 public:
-    PowerManager(Optional<Configuration::IConfigInitialiser> aConfigInit);
+    PowerManager(Environment& aEnv, Optional<Configuration::IConfigInitialiser> aConfigInit);
     ~PowerManager();
     void Start();
 public: // from IPowerManager
@@ -162,11 +164,13 @@ private:
     void DeregisterFsFlush(TUint aId);
     void StartupStandbyChanged(Configuration::KeyValuePair<TUint>& aKvp);
     void StartupStandbyExecute(Standby aMode);
+    void PowerDownFailed();
 private:
     typedef std::list<PowerManagerObserver*> PriorityList;  // efficient insertion and removal
     PriorityList iPowerObservers;
     std::vector<StandbyObserver*> iStandbyObservers;
     std::vector<FsFlushObserver*> iFsFlushObservers;
+    Timer* iPowerDownChecker;
     TUint iNextPowerId;
     TUint iNextStandbyId;
     TUint iNextFsFlushId;
