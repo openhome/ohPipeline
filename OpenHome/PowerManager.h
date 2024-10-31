@@ -128,6 +128,7 @@ public:
 class PowerManagerObserver;
 class StandbyObserver;
 class FsFlushObserver;
+class Environment;
 class Timer;
 
 class PowerManager : public IPowerManager
