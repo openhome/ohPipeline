@@ -363,6 +363,18 @@ public:
     void Set(TUint aVal);   // THROWS ConfigInvalidSelection
     TBool HasInternalMapping() const;
     IConfigChoiceMapper& Mapper() const;
+protected:
+    // use ConfigChoiceDynamic if you want to create a ConfigChoice parameter with a dynamic choice list
+    ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
+                 TBool aChoicesAreDynamic, const std::vector<TUint>& aChoices,
+                 TUint aDefault, TBool aRebootRequired = false,
+                 ConfigValAccess aAccess = ConfigValAccess::Public);
+    // use ConfigChoiceDynamic if you want to create a ConfigChoice parameter with a dynamic choice list
+    ConfigChoice(IConfigInitialiser& aManager, const Brx& aKey,
+                 TBool aChoicesAreDynamic, const std::vector<TUint>& aChoices, 
+                 TUint aDefault, IConfigChoiceMapper& aMapper,
+                 TBool aRebootRequired = false,
+                 ConfigValAccess aAccess = ConfigValAccess::Public);
 private:
     void Init();
     TBool IsValid(TUint aVal) const;
@@ -382,6 +394,7 @@ private:
     TUint iSelected;
     IConfigChoiceMapper* iMapper;
     mutable Mutex iMutex;
+    TBool iChoicesAreDynamic;
 };
 
 inline TBool ConfigChoice::operator==(const ConfigChoice& aChoice) const
@@ -396,6 +409,25 @@ inline TBool ConfigChoice::operator==(const ConfigChoice& aChoice) const
     AutoMutex a(iMutex);
     return choicesEqual && (iSelected == aChoice.iSelected);
 }
+
+/*
+ * Identical to Config choice except that the initial value may be invalid
+ * as the choice list is dynamic. If this is the case the device will not
+ * assert but the store value will be replaced with the valid default value
+ */
+class ConfigChoiceDynamic : public ConfigChoice
+{
+public:
+    ConfigChoiceDynamic(IConfigInitialiser& aManager, const Brx& aKey,
+                 const std::vector<TUint>& aChoices, TUint aDefault,
+                 TBool aRebootRequired = false,
+                 ConfigValAccess aAccess = ConfigValAccess::Public);
+    ConfigChoiceDynamic(IConfigInitialiser& aManager, const Brx& aKey,
+                 const std::vector<TUint>& aChoices, TUint aDefault,
+                 IConfigChoiceMapper& aMapper,
+                 TBool aRebootRequired = false,
+                 ConfigValAccess aAccess = ConfigValAccess::Public);
+};
 
 /*
  * Helper function for creating a FunctorConfigChoice.
