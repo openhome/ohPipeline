@@ -261,6 +261,19 @@ private:
     TBool iMetadataRetrieved;
 };
 
+class Mpeg4ContainerInfo;
+
+class Mpeg4BoxMoof : public Mpeg4BoxSwitcher
+{
+public:
+    Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo&);
+public: // from Mpeg4BoxSwitcher
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+    void Reset() override;
+private:
+    Mpeg4ContainerInfo& iContainerInfo;
+};
+
 class SeekTable;
 
 class Mpeg4BoxStts : public IMpeg4BoxRecognisable
@@ -433,6 +446,87 @@ private:
     TUint iSampleSize;
 };
 
+class Mpeg4BoxTfhd : public IMpeg4BoxRecognisable
+{
+private:
+    static const TUint kFlagBaseDataOffsetPresent;
+    static const TUint kFlagSampleDescriptionIndexPresent;
+    static const TUint kFlagDefaultSampleDurationPresent;
+    static const TUint kFlagDefaultSampleSizePresent;
+    static const TUint kFlagDefaultSampleFlagsPresent;
+
+public:
+    Mpeg4BoxTfhd(SampleSizeTable&, Mpeg4ContainerInfo&);
+public: // from IMpeg4BoxRecognisable
+    Msg* Process() override;
+    TBool Complete() const override;
+    void Reset() override;
+    TBool Recognise(const Brx& aBoxId) const override;
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+private:
+    enum EState
+    {
+        eNone,
+        eFlags,
+        eBaseDataOffset,
+        eDefaultSampleSize,
+        eComplete,
+    };
+private:
+    SampleSizeTable& iSampleSizeTable;
+    Mpeg4ContainerInfo& iContainerInfo;
+    IMsgAudioEncodedCache* iCache;
+    EState iState;
+    TUint iBytes;
+    TUint iOffset;
+    TByte iFlags;
+    Bws<4> iBuf;
+    Bws<8> iBuf64;
+};
+
+class Mpeg4BoxTrun : public IMpeg4BoxRecognisable
+{
+private:
+    static const TUint kVersion = 0;
+
+    static const TUint kFlagDataOffsetPresent;
+    static const TUint kFlagFirstSampleFlagsPresent;
+    static const TUint kFlagSampleDurationPresent;
+    static const TUint kFlagSampleSizePresent;
+public:
+    Mpeg4BoxTrun(SampleSizeTable&, SeekTable&, Mpeg4ContainerInfo&);
+public: // from IMpeg4BoxRecognisable
+    Msg* Process() override;
+    TBool Complete() const override;
+    void Reset() override;
+    TBool Recognise(const Brx& aBoxId) const override;
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+private:
+    enum EState
+    {
+        eNone,
+        eVersionAndFlags,
+        eSampleCount,
+        eDataOffset,
+        eEntries,
+        eComplete,
+    };
+private:
+    SampleSizeTable& iSampleSizeTable;
+    SeekTable& iSeekTable;
+    Mpeg4ContainerInfo& iContainerInfo;
+    IMsgAudioEncodedCache* iCache;
+    EState iState;
+    TUint iBytes;
+    TUint iOffset;
+    TByte iFlags;
+    TUint iEntryBytes;
+    TUint iSampleCount;
+    TUint iSamplesRead;
+    Bws<4> iBuf;
+    Bws<16> iEntryBuf;
+};
+
 class IMpeg4DurationSettable
 {
 public:
@@ -471,6 +565,69 @@ private:
     TUint iOffset;
     Bws<4> iBuf32;
     Bws<8> iBuf64;
+    TUint iVersion;
+};
+
+class Mpeg4BoxTkhd : public IMpeg4BoxRecognisable
+{
+private:
+    static const TUint kVersion32 = 0;
+    static const TUint kVersion64 = 1;
+public:
+    Mpeg4BoxTkhd(IMpeg4DurationSettable& aDurationSettable);
+public: // from IMpeg4BoxRecognisable
+    Msg* Process() override;
+    TBool Complete() const override;
+    void Reset() override;
+    TBool Recognise(const Brx& aBoxId) const override;
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+private:
+    enum EState
+    {
+        eNone,
+        eFlagsAndVersion,
+        eDuration,
+        eComplete,
+    };
+private:
+    IMpeg4DurationSettable& iDurationSettable;
+    IMsgAudioEncodedCache* iCache;
+    EState iState;
+    TUint iBytes;
+    TUint iOffset;
+    Bws<4> iBuf32;
+    Bws<8> iBuf64;
+    TUint iVersion;
+};
+
+class Mpeg4BoxMehd : public IMpeg4BoxRecognisable
+{
+private:
+    static const TUint kVersion32 = 0;
+    static const TUint kVersion64 = 1;
+public:
+    Mpeg4BoxMehd(IMpeg4DurationSettable& aDurationSettable);
+public: // from IMpeg4BoxRecognisable
+    Msg* Process() override;
+    TBool Complete() const override;
+    void Reset() override;
+    TBool Recognise(const Brx& aBoxId) const override;
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+private:
+    enum EState
+    {
+        eNone,
+        eVersion,
+        eFragmentDuration,
+        eComplete,
+    };
+private:
+    IMpeg4DurationSettable& iDurationSettable;
+    IMsgAudioEncodedCache* iCache;
+    EState iState;
+    TUint iBytes;
+    TUint iOffset;
+    Bws<4> iBuf;
     TUint iVersion;
 };
 
@@ -745,7 +902,15 @@ class Mpeg4OutOfBandReader;
 class Mpeg4BoxMdat : public IMpeg4BoxRecognisable, public IMpeg4ChunkSeekObserver, private INonCopyable
 {
 public:
-    Mpeg4BoxMdat(Mpeg4BoxSwitcherRoot& aBoxSwitcher, IMpeg4MetadataChecker& aMetadataChecker, IMpeg4MetadataProvider& aMetadataProvider, IMpeg4ChunkSeekObservable& aChunkSeeker, IBoxOffsetProvider& aOffsetProvider, SeekTable& aSeekTable, SampleSizeTable& aSampleSizeTable, Mpeg4OutOfBandReader& aOutOfBandReader);
+    Mpeg4BoxMdat(Mpeg4BoxSwitcherRoot& aBoxSwitcher,
+                 IMpeg4MetadataChecker& aMetadataChecker,
+                 IMpeg4MetadataProvider& aMetadataProvider,
+                 IMpeg4ChunkSeekObservable& aChunkSeeker,
+                 IBoxOffsetProvider& aOffsetProvider,
+                 SeekTable& aSeekTable,
+                 SampleSizeTable& aSampleSizeTable,
+                 Mpeg4ContainerInfo& aContainerInfo,
+                 Mpeg4OutOfBandReader& aOutOfBandReader);
 public: // from IMpeg4BoxRecognisable
     Msg* Process() override;
     TBool Complete() const override;
@@ -775,6 +940,7 @@ private:
     IBoxOffsetProvider& iOffsetProvider;
     SeekTable& iSeekTable;
     SampleSizeTable& iSampleSizeTable;
+    Mpeg4ContainerInfo& iContainerInfo;
     Mpeg4OutOfBandReader& iOutOfBandReader;
     IMsgAudioEncodedCache* iCache;
     MsgAudioEncodedRecogniser iAudioEncodedRecogniser;
@@ -799,6 +965,8 @@ public:
     void Clear();
     void AddSampleSize(TUint aSampleSize);
     TUint SampleSize(TUint aIndex) const;
+    TUint DefaultSampleSize() const;
+    void SetDefaultSampleSize(TUint aDefaultSampleSize);
     TUint Count() const;
     void WriteInit();
     void Write(IWriter& aWriter, TUint aMaxBytes);
@@ -806,6 +974,7 @@ public:
 private:
     std::vector<TUint> iTable;
     TUint iWriteIndex;
+    TUint iDefaultSampleSize;
 };
 
 // FIXME - should probably also include stss here.
@@ -934,6 +1103,36 @@ private:
     TBool iMetadataAvailable;
 };
 
+class Mpeg4ContainerInfo
+{
+public:
+    enum class EProcessingMode
+    {
+        Complete,   // 'moov' based stream
+        Fragmented  // 'moof' based stream
+    };
+
+public:
+    Mpeg4ContainerInfo();
+
+public:
+    TBool CanProcess(TUint64 aFileOffset) const;
+    EProcessingMode ProcessingMode() const;
+
+    void SetFragmented(TUint aMoofBoxSize);
+    void SetBaseDataOffset(TUint64 aBaseDataOffset);
+    void SetDefaultBaseIsMoof();
+    void SetDataOffset(TUint64 aDataOffset);
+
+    void Reset();
+private:
+    EProcessingMode iProcessingMode;
+    TUint iMoofBoxSize;
+    TUint64 iBaseDataOffset;
+    TUint64 iDataOffset;
+    TBool iDefaultBaseIsMoof;
+};
+
 class Mpeg4Container : public ContainerBase, public IMpeg4MetadataProvider, public IMpeg4ChunkSeekObservable
 {
 public:
@@ -963,6 +1162,7 @@ private:
     Mpeg4CodecInfo iCodecInfo;
     SampleSizeTable iSampleSizeTable;
     SeekTable iSeekTable;
+    Mpeg4ContainerInfo iContainerInfo;
     Mpeg4OutOfBandReader* iOutOfBandReader;
     IMpeg4ChunkSeekObserver* iSeekObserver;
     Bws<4> iRecogBuf;

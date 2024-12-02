@@ -506,6 +506,26 @@ TBool Mpeg4BoxMoov::Recognise(const Brx& aBoxId) const
 }
 
 
+// Mpeg4BoxMoof
+
+Mpeg4BoxMoof::Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo& aContainerInfo)
+    : Mpeg4BoxSwitcher(aProcessorFactory, Brn("moof"))
+    , iContainerInfo(aContainerInfo)
+{ }
+
+void Mpeg4BoxMoof::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    Mpeg4BoxSwitcher::Set(aCache, aBoxBytes);
+    iContainerInfo.SetFragmented(aBoxBytes + 8); // Include size + 'moof' bytes here
+}
+
+void Mpeg4BoxMoof::Reset()
+{
+    Mpeg4BoxSwitcher::Reset();
+    iContainerInfo.Reset();
+}
+
+
 
 // Mpeg4BoxStts
 
@@ -1000,41 +1020,41 @@ Msg* Mpeg4BoxStsz::Process()
             iOffset += iBuf.Bytes();
             const TUint entries = Converter::BeUint32At(iBuf, 0);
 
-            if (entries > 0) {
-                if (iSampleSizeTable.Count() > 0) {
-                    // Table already initialised.
-                    // Can't currently play all files with >1 "trak" atoms, so
-                    // give up on this file.
+            // NOTE: Previously we'd only continue here if entries > 0.
+            //       However, in the case of 'moof' based streams, each 'moof' box containers
+            //       the details for that particular fragment. Checking if entries > 0 is no
+            //       longer valud at this point.
 
-                    // FIXME - See #4779.
-                    iCache->Discard(iBytes - iOffset);
-                    iOffset = iBytes;
-                    THROW(MediaMpeg4FileInvalid);
-                }
+            if (iSampleSizeTable.Count() > 0) {
+                // Table already initialised.
+                // Can't currently play all files with >1 "trak" atoms, so
+                // give up on this file.
 
-                iSampleSizeTable.Init(entries);
-
-                // If iSampleSize == 0, there follows an array of sample size entries.
-                // If iSampleSize > 0, there are <entries> entries each of size <iSampleSize> (and no array follows).
-                if (iSampleSize > 0) {
-                    // Sample size table currently doesn't support a cheap way of having
-                    // a fixed iSampleSize, so just perform a pseudo-population of it here.
-                    for (TUint i=0; i<entries; i++) {
-                        iSampleSizeTable.AddSampleSize(iSampleSize);
-                    }
-                    iState = eComplete;
-                }
-                else {
-                    // Array of sample size entries follows; prepare to read it.
-                    iCache->Inspect(iBuf, iBuf.MaxBytes());
-                    iState = eEntry;
-                }
-            }
-            else {
-                // Can't play a file with no sample size entries.
+                // FIXME - See #4779.
                 iCache->Discard(iBytes - iOffset);
                 iOffset = iBytes;
                 THROW(MediaMpeg4FileInvalid);
+            }
+
+            iSampleSizeTable.Init(entries);
+
+            // If iSampleSize == 0, there follows an array of sample size entries.
+            // If iSampleSize > 0, there are <entries> entries each of size <iSampleSize> (and no array follows).
+            if (iSampleSize > 0) {
+                // Sample size table currently doesn't support a cheap way of having
+                // a fixed iSampleSize, so just perform a pseudo-population of it here.
+                for (TUint i=0; i<entries; i++) {
+                    iSampleSizeTable.AddSampleSize(iSampleSize);
+                }
+                iState = eComplete;
+            }
+            else if (entries == 0) { // Spec Link (8.7.3.2.2)
+                iState = eComplete;
+            }
+            else {
+                // Array of sample size entries follows; prepare to read it.
+                iCache->Inspect(iBuf, iBuf.MaxBytes());
+                iState = eEntry;
             }
         }
         else if (iState == eEntry) {
@@ -1086,6 +1106,369 @@ void Mpeg4BoxStsz::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
     iCache = &aCache;
     iBytes = aBoxBytes;
 }
+
+
+// Mpeg4BoxTfhd
+
+const TUint Mpeg4BoxTfhd::kFlagBaseDataOffsetPresent           = 1 << 0;
+const TUint Mpeg4BoxTfhd::kFlagSampleDescriptionIndexPresent   = 1 << 1;
+const TUint Mpeg4BoxTfhd::kFlagDefaultSampleDurationPresent    = 1 << 2;
+const TUint Mpeg4BoxTfhd::kFlagDefaultSampleSizePresent        = 1 << 3;
+const TUint Mpeg4BoxTfhd::kFlagDefaultSampleFlagsPresent       = 1 << 4;
+
+Mpeg4BoxTfhd::Mpeg4BoxTfhd(SampleSizeTable& aSampleSizeTable, Mpeg4ContainerInfo& aContainerInfo)
+    : iSampleSizeTable(aSampleSizeTable)
+    , iContainerInfo(aContainerInfo)
+{
+    Reset();
+}
+
+Msg* Mpeg4BoxTfhd::Process()
+{
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                return msg;
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Inspect(iBuf, iBuf.MaxBytes());
+            iState = eFlags;
+        }
+        else if (iState == eFlags) {
+            iOffset += iBuf.Bytes();
+
+            const TUint flags = Converter::BeUint32At(iBuf, 0);
+
+            iFlags |= (flags & 0x000001) ? kFlagBaseDataOffsetPresent         : 0;
+            iFlags |= (flags & 0x000002) ? kFlagSampleDescriptionIndexPresent : 0;
+            iFlags |= (flags & 0x000008) ? kFlagDefaultSampleDurationPresent  : 0;
+            iFlags |= (flags & 0x000010) ? kFlagDefaultSampleSizePresent      : 0;
+            iFlags |= (flags & 0x000020) ? kFlagDefaultSampleFlagsPresent     : 0;
+
+            // NOTE: duration_is_empty flag is currently ignored and unused
+
+            const TBool defaultBaseIsMoof     = flags & 0x020000;
+            const TBool baseDataOffsetPresent = iFlags & kFlagBaseDataOffsetPresent;
+
+            if (defaultBaseIsMoof && baseDataOffsetPresent == 0) {
+                iContainerInfo.SetDefaultBaseIsMoof();
+            }
+
+            TUint bytesToDiscard = 4; // Ignore 'TrackId;
+            iOffset += 4;
+
+            if (baseDataOffsetPresent) {
+                iCache->Discard(bytesToDiscard);
+                iCache->Inspect(iBuf64, iBuf64.MaxBytes());
+                iState = eBaseDataOffset;
+                continue;
+            }
+
+            if (iFlags & kFlagSampleDescriptionIndexPresent) {
+                // SampleDescriptionIndex is currently ignored.
+                iOffset        += 4;
+                bytesToDiscard += 4;
+            }
+
+            if (iFlags & kFlagDefaultSampleDurationPresent) {
+                // DefaultSampleDuration is currently ignored
+                iOffset        += 4;
+                bytesToDiscard += 4;
+            }
+
+            if (iFlags & kFlagDefaultSampleSizePresent) {
+                iCache->Discard(bytesToDiscard);
+                iCache->Inspect(iBuf, iBuf.MaxBytes());
+                iState = eDefaultSampleSize;
+                continue;
+            }
+
+            if (iFlags & kFlagDefaultSampleFlagsPresent) {
+                // DefaultSampleFlags is currently ignored
+                iOffset        += 4;
+                bytesToDiscard += 4;
+            }
+
+            iCache->Discard(bytesToDiscard);
+            iState = eComplete;
+        }
+
+        else if (iState == eBaseDataOffset) {
+            ASSERT(iFlags & kFlagBaseDataOffsetPresent);
+
+            iOffset += iBuf64.Bytes();
+
+            iContainerInfo.SetBaseDataOffset(Converter::BeUint64At(iBuf64, 0));
+
+            TUint bytesToDiscard = 0;
+            if (iFlags & kFlagSampleDescriptionIndexPresent) {
+                // SampleDescriptionIndex is currently ignored.
+                iOffset        += 4;
+                bytesToDiscard += 4;
+            }
+
+            if (iFlags & kFlagDefaultSampleDurationPresent) {
+                // DefaultSampleDuration is currently ignored
+                iOffset        += 4;
+                bytesToDiscard += 4;
+            }
+
+            if (iFlags & kFlagDefaultSampleSizePresent) {
+                iCache->Discard(bytesToDiscard);
+                iCache->Inspect(iBuf, iBuf.MaxBytes());
+                iState = eDefaultSampleSize;
+                continue;
+            }
+
+            if (iFlags & kFlagDefaultSampleFlagsPresent) {
+                // DefaultSampleFlags is currently ignored
+                iOffset        += 4;
+                bytesToDiscard += 4;
+            }
+
+            iCache->Discard(bytesToDiscard);
+            iState = eComplete;
+        }
+        else if (iState == eDefaultSampleSize) {
+            ASSERT(iFlags & kFlagDefaultSampleSizePresent);
+
+            iOffset += iBuf.MaxBytes();
+
+            iSampleSizeTable.SetDefaultSampleSize(Converter::BeUint32At(iBuf, 0));
+
+            if (iFlags & kFlagDefaultSampleFlagsPresent) {
+                // DefaultSampleFlags is currently ignored
+                iOffset += 4;
+                iCache->Discard(4);
+            }
+
+            iState = eComplete;
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxTfhd::Complete() const
+{
+    ASSERT(iOffset <= iBytes);
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxTfhd::Reset()
+{
+    iCache  = nullptr;
+    iState  = eNone;
+    iBytes  = 0;
+    iOffset = 0;
+    iFlags  = 0;
+
+    iSampleSizeTable.SetDefaultSampleSize(0);
+    iBuf.SetBytes(0);
+    iBuf64.SetBytes(0);
+}
+
+TBool Mpeg4BoxTfhd::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("tfhd");
+}
+
+void Mpeg4BoxTfhd::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
+
+
+// Mpeg4BoxTrun
+
+const TUint Mpeg4BoxTrun::kFlagDataOffsetPresent       = 1 << 0;
+const TUint Mpeg4BoxTrun::kFlagFirstSampleFlagsPresent = 1 << 1;
+const TUint Mpeg4BoxTrun::kFlagSampleDurationPresent   = 1 << 2;
+const TUint Mpeg4BoxTrun::kFlagSampleSizePresent       = 1 << 3;
+
+Mpeg4BoxTrun::Mpeg4BoxTrun(SampleSizeTable& aSampleSizeTable, SeekTable& aSeekTable, Mpeg4ContainerInfo& aContainerInfo)
+    : iSampleSizeTable(aSampleSizeTable)
+    , iSeekTable(aSeekTable)
+    , iContainerInfo(aContainerInfo)
+{
+    Reset();
+}
+
+Msg* Mpeg4BoxTrun::Process()
+{
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                return msg;
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Inspect(iBuf, iBuf.MaxBytes());
+            iState = eVersionAndFlags;
+        }
+        else if (iState == eVersionAndFlags) {
+            iOffset += iBuf.Bytes();
+
+            const TUint versionAndFlags = Converter::BeUint32At(iBuf, 0);
+            const TUint flags           =  versionAndFlags & 0x0FFF;
+            // const TUint version         = (versionAndFlags & 0xF000) >> 24; // Unused, only need to read the sample_composition_time entry which we ignore
+
+            iFlags |= (flags & 0x000001) ? kFlagDataOffsetPresent       : 0;
+            iFlags |= (flags & 0x000004) ? kFlagFirstSampleFlagsPresent : 0;
+            iFlags |= (flags & 0x000100) ? kFlagSampleDurationPresent   : 0;
+            iFlags |= (flags & 0x000200) ? kFlagSampleSizePresent       : 0;
+
+            const TBool sampleFlagsPresent           = flags & 0x000400;
+            const TBool sampleCompositionTimePresent = flags & 0x000800;
+
+            // Work out the size of each sample entry, as each of the 4 fields are optional...
+            if (iFlags & kFlagSampleDurationPresent) {
+                iEntryBytes += 4;
+            }
+
+            if (iFlags & kFlagSampleSizePresent) {
+                iEntryBytes += 4;
+            }
+
+            if (sampleFlagsPresent) {
+                iEntryBytes += 4;
+            }
+
+            if (sampleCompositionTimePresent) {
+                iEntryBytes += 4;
+            }
+
+            if (iEntryBytes == 0) {
+                LOG_ERROR(kCodec, "Mpeg4BoxTrun::Process - Sample entries MUST contain at least 1 of the optional fields\n");
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            iCache->Inspect(iBuf, iBuf.MaxBytes()); // Set to read sample_count
+            iState = eSampleCount;
+        }
+        else if (iState == eSampleCount) {
+            iOffset += iBuf.Bytes();
+
+            iSampleCount = Converter::BeUint32At(iBuf, 0);
+            if (iSampleCount == 0) {
+                LOG_ERROR(kCodec, "Mpeg4BoxTrun::Process - Run reports 0 samples. We don't support this type of MPEG stream.\n");
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            iSampleSizeTable.Clear();
+            iSampleSizeTable.Init(iSampleCount);
+
+            if (iFlags & kFlagDataOffsetPresent) {
+                iCache->Inspect(iBuf, iBuf.MaxBytes());
+                iState = eDataOffset;
+                continue;
+            }
+
+            if (iFlags & kFlagFirstSampleFlagsPresent) {
+                // FirstSampleFlags are currently ignored
+                iCache->Discard(4);
+                iOffset += 4;
+            }
+
+            iCache->Inspect(iEntryBuf, iEntryBytes);
+            iState = eEntries;
+        }
+        else if (iState == eDataOffset) {
+            ASSERT(iFlags & kFlagDataOffsetPresent);
+
+            iOffset += iBuf.Bytes();
+
+            iContainerInfo.SetDataOffset((TUint64)Converter::BeUint32At(iBuf, 0));
+
+            if (iFlags & kFlagFirstSampleFlagsPresent) {
+                // FirstSampleFlags are currently ignored
+                iCache->Discard(4);
+                iOffset += 4;
+            }
+
+            iCache->Inspect(iEntryBuf, iEntryBytes);
+            iState = eEntries;
+        }
+        else if (iState == eEntries) {
+            TUint offset = 0;
+            TUint sampleSize = iSampleSizeTable.DefaultSampleSize();
+
+            if (iFlags & kFlagSampleDurationPresent) {
+                // Unused
+                offset += 4;
+            }
+
+            if (iFlags & kFlagSampleSizePresent) {
+                sampleSize = Converter::BeUint32At(iEntryBuf, offset);
+                offset += 4;
+            }
+
+            // Sample flags & composition time are unused, so we don't bother trying to read them.
+
+            iSampleSizeTable.AddSampleSize(sampleSize);
+
+            iSamplesRead += 1;
+            iOffset      += iEntryBytes;
+
+            if (iSamplesRead == iSampleCount) {
+                iState = eComplete;
+            }
+            else {
+                iCache->Inspect(iEntryBuf, iEntryBytes);
+            }
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxTrun::Complete() const
+{
+    ASSERT(iOffset <= iBytes);
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxTrun::Reset()
+{
+    iCache       = nullptr;
+    iState       = eNone;
+    iBytes       = 0;
+    iOffset      = 0;
+    iFlags       = 0;
+    iEntryBytes  = 0;
+    iSampleCount = 0;
+    iSamplesRead = 0;
+
+    iBuf.SetBytes(0);
+}
+
+TBool Mpeg4BoxTrun::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("trun");
+}
+
+void Mpeg4BoxTrun::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
+
 
 // Mpeg4BoxMdhd
 
@@ -1152,7 +1535,12 @@ Msg* Mpeg4BoxMdhd::Process()
                 iOffset += iBuf64.Bytes();
                 duration = Converter::BeUint64At(iBuf64, 0);
             }
-            iDurationSettable.SetDuration(duration);
+
+            // NOTE: For 'moof' based streams, the duration might be present in 'tkhd' or 'mehd' boxes
+            //       and so what we read here is 0. We don't want to set it unless there's something reasonable.
+            if (duration > 0) {
+                iDurationSettable.SetDuration(duration);
+            }
 
             if (iOffset < iBytes) {
                 const TUint discard = iBytes - iOffset;
@@ -1199,6 +1587,219 @@ void Mpeg4BoxMdhd::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
     iCache = &aCache;
     iBytes = aBoxBytes;
 }
+
+
+// Mpeg4BoxTkhd
+
+Mpeg4BoxTkhd::Mpeg4BoxTkhd(IMpeg4DurationSettable& aDurationSettable) :
+    iDurationSettable(aDurationSettable)
+{
+    Reset();
+}
+
+Msg* Mpeg4BoxTkhd::Process()
+{
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                return msg;
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Inspect(iBuf32, iBuf32.MaxBytes());  // Set to read version.
+            iState = eFlagsAndVersion;
+        }
+        else if (iState == eFlagsAndVersion) {
+            iOffset += iBuf32.Bytes();
+
+            TUint discard               = 0;
+            const TUint versionAndFlags = Converter::BeUint32At(iBuf32, 0);
+            const TUint flags           = (versionAndFlags & 0x0FFF);
+            iVersion                    = (versionAndFlags & 0xF000) >> 24; // NOTE: We ignore the flags here.
+
+            if ((flags & 0x000001) == 0) {
+                // Track is disabled. Ignore!
+                iCache->Discard(iBytes - iOffset);
+                iOffset = iBytes;
+                iState = eComplete;
+            }
+            else {
+                discard = iVersion == kVersion32 ? 8
+                                                 : 16; // Discard creation time and modification time.
+                discard += 4;                          // Discard track_id
+                discard += 4;                          // Discard __reserved__
+            }
+
+            iCache->Discard(discard);
+            iOffset += discard;
+
+            // Set to read duration...
+            if (iVersion == kVersion32) {
+                iCache->Inspect(iBuf32, iBuf32.MaxBytes());
+            }
+            else {
+                iCache->Inspect(iBuf64, iBuf64.Bytes());
+            }
+
+            iState = eDuration;
+        }
+        else if (iState == eDuration) {
+            TUint64 duration = 0;
+            if (iVersion == kVersion32) {
+                iOffset += iBuf32.Bytes();
+                duration = Converter::BeUint32At(iBuf32, 0);
+            }
+            else {
+                iOffset += iBuf64.Bytes();
+                duration = Converter::BeUint64At(iBuf64, 0);
+            }
+
+            // NOTE: This box + field are optional, so we only want to set it if
+            //       present to a reasonable value...
+            if (duration > 0) {
+                iDurationSettable.SetDuration(duration);
+            }
+
+            // Discard the rest of the box
+            if (iOffset < iBytes) {
+                const TUint discard = iBytes - iOffset;
+                iCache->Discard(discard);
+                iOffset += discard;
+
+            }
+            iState = eComplete;
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxTkhd::Complete() const
+{
+    ASSERT(iOffset <= iBytes);
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxTkhd::Reset()
+{
+    iCache = nullptr;
+    iState = eNone;
+    iBytes = 0;
+    iOffset = 0;
+    iBuf32.SetBytes(0);
+    iBuf64.SetBytes(0);
+    iVersion = 0;
+}
+
+TBool Mpeg4BoxTkhd::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("tkhd");
+}
+
+void Mpeg4BoxTkhd::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
+
+
+// Mpeg4BoxMehd
+
+Mpeg4BoxMehd::Mpeg4BoxMehd(IMpeg4DurationSettable& aDurationSettable) :
+    iDurationSettable(aDurationSettable)
+{
+    Reset();
+}
+
+Msg* Mpeg4BoxMehd::Process()
+{
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                return msg;
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Inspect(iBuf, 4);  // Set to read version - 4 bytes (32bit uint)
+            iState = eVersion;
+        }
+        else if (iState == eVersion) {
+            iOffset += iBuf.Bytes();
+
+            iVersion = Converter::BeUint32At(iBuf, 0);
+
+            const TUint bytesToRead = iVersion == kVersion32 ? 4 : 8;
+
+            iCache->Inspect(iBuf, bytesToRead);
+            iState = eFragmentDuration;
+        }
+        else if (iState == eFragmentDuration) {
+            iOffset += iBuf.Bytes();
+
+            TUint64 duration = 0;
+            if (iVersion == kVersion32) {
+                duration = Converter::BeUint32At(iBuf, 0);
+            }
+            else {
+                duration = Converter::BeUint64At(iBuf, 0);
+            }
+
+            // NOTE: This entire box is optional, so if box is present then the value
+            //       should be set to a non-zero value
+            if (duration == 0) {
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            iDurationSettable.SetDuration(duration);
+
+            iState = eComplete;
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxMehd::Complete() const
+{
+    ASSERT(iOffset <= iBytes);
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxMehd::Reset()
+{
+    iCache = nullptr;
+    iState = eNone;
+    iBytes = 0;
+    iOffset = 0;
+    iBuf.SetBytes(0);
+    iVersion = 0;
+}
+
+TBool Mpeg4BoxMehd::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("mehd");
+}
+
+void Mpeg4BoxMehd::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
+
 
 // Mpeg4BoxCodecBase
 
@@ -1862,13 +2463,22 @@ void Mpeg4CodecInfo::SetCodecInfo(MsgAudioEncoded* aMsg)
 
 // Mpeg4BoxMdat
 
-Mpeg4BoxMdat::Mpeg4BoxMdat(Mpeg4BoxSwitcherRoot& aBoxSwitcher, IMpeg4MetadataChecker& aMetadataChecker, IMpeg4MetadataProvider& aMetadataProvider, IMpeg4ChunkSeekObservable& aChunkSeeker, IBoxOffsetProvider& aOffsetProvider, SeekTable& aSeekTable, SampleSizeTable& aSampleSizeTable, Mpeg4OutOfBandReader& aOutOfBandReader)
+Mpeg4BoxMdat::Mpeg4BoxMdat(Mpeg4BoxSwitcherRoot& aBoxSwitcher,
+                           IMpeg4MetadataChecker& aMetadataChecker,
+                           IMpeg4MetadataProvider& aMetadataProvider,
+                           IMpeg4ChunkSeekObservable& aChunkSeeker,
+                           IBoxOffsetProvider& aOffsetProvider,
+                           SeekTable& aSeekTable,
+                           SampleSizeTable& aSampleSizeTable,
+                           Mpeg4ContainerInfo& aContainerInfo,
+                           Mpeg4OutOfBandReader& aOutOfBandReader)
     : iBoxSwitcher(aBoxSwitcher)
     , iMetadataChecker(aMetadataChecker)
     , iMetadataProvider(aMetadataProvider)
     , iOffsetProvider(aOffsetProvider)
     , iSeekTable(aSeekTable)
     , iSampleSizeTable(aSampleSizeTable)
+    , iContainerInfo(aContainerInfo)
     , iOutOfBandReader(aOutOfBandReader)
     , iLock("MP4D")
 {
@@ -2048,7 +2658,15 @@ void Mpeg4BoxMdat::ChunkSeek(TUint aChunk)
 
 TUint Mpeg4BoxMdat::BytesUntilChunk() const
 {
-    const TUint64 chunkOffset = iSeekTable.GetOffset(iChunk);
+    const TBool isFragmentedStream = iContainerInfo.ProcessingMode() == Mpeg4ContainerInfo::EProcessingMode::Fragmented;
+    if (isFragmentedStream && !iContainerInfo.CanProcess(iFileReadOffset)) {
+        LOG_ERROR(kCodec, "Mpeg4BoxMdat::BytesUntilChunk - Attempting to stream a 'moof' based stream that relies on data offsets which is unsupported\n");
+        THROW(MediaMpeg4FileInvalid);
+    }
+
+    const TUint64 chunkOffset = isFragmentedStream ? iFileReadOffset
+                                                   : iSeekTable.GetOffset(iChunk);
+
     if (chunkOffset < iFileReadOffset) {
         THROW(MediaMpeg4FileInvalid);
     }
@@ -2060,22 +2678,38 @@ TUint Mpeg4BoxMdat::BytesUntilChunk() const
 
 TUint Mpeg4BoxMdat::ChunkBytes() const
 {
-    if (iChunk >= iSeekTable.ChunkCount()) {
-        THROW(MediaMpeg4FileInvalid);
-    }
-    const TUint chunkSamples = iSeekTable.SamplesPerChunk(iChunk);
-    const TUint startSample = iSeekTable.StartSample(iChunk); // NOTE: this assumes first sample == 0 (which is valid with how our tables are setup), but in MPEG4 spec, first sample == 1.
-    TUint chunkBytes = 0;
-    // Samples start from 1. However, tables here are indexed from 0.
-    for (TUint i = startSample; i < startSample + chunkSamples; i++) {
-        const TUint sampleBytes = iSampleSizeTable.SampleSize(i);
+    TUint chunkBytes               = 0;
+    const TBool isFragmentedStream = iContainerInfo.ProcessingMode() == Mpeg4ContainerInfo::EProcessingMode::Fragmented;
 
-        if ((std::numeric_limits<TUint>::max() - chunkBytes) < sampleBytes) {
-            // Wrapping will occur.
+    if (isFragmentedStream) {
+        for (TUint i = 0; i < iSampleSizeTable.Count(); i += 1) {
+            const TUint sampleBytes = iSampleSizeTable.SampleSize(i);
+
+            if ((std::numeric_limits<TUint>::max() - chunkBytes) < sampleBytes) {
+                // Wrapping will occur.
+                THROW(MediaMpeg4FileInvalid);
+            }
+            chunkBytes += sampleBytes;
+        }
+    }
+    else {
+        if (iChunk >= iSeekTable.ChunkCount()) {
             THROW(MediaMpeg4FileInvalid);
         }
-        chunkBytes += sampleBytes;
+        const TUint chunkSamples = iSeekTable.SamplesPerChunk(iChunk);
+        const TUint startSample = iSeekTable.StartSample(iChunk); // NOTE: this assumes first sample == 0 (which is valid with how our tables are setup), but in MPEG4 spec, first sample == 1.
+        // Samples start from 1. However, tables here are indexed from 0.
+        for (TUint i = startSample; i < startSample + chunkSamples; i++) {
+            const TUint sampleBytes = iSampleSizeTable.SampleSize(i);
+
+            if ((std::numeric_limits<TUint>::max() - chunkBytes) < sampleBytes) {
+                // Wrapping will occur.
+                THROW(MediaMpeg4FileInvalid);
+            }
+            chunkBytes += sampleBytes;
+        }
     }
+
     return chunkBytes;
 }
 
@@ -2129,6 +2763,16 @@ TUint32 SampleSizeTable::SampleSize(TUint aIndex) const
         THROW(MediaMpeg4FileInvalid);
     }
     return iTable[aIndex];
+}
+
+TUint32 SampleSizeTable::DefaultSampleSize() const
+{
+    return iDefaultSampleSize;
+}
+
+void SampleSizeTable::SetDefaultSampleSize(TUint aDefaultSampleSize)
+{
+    iDefaultSampleSize = aDefaultSampleSize;
 }
 
 TUint32 SampleSizeTable::Count() const
@@ -2863,6 +3507,69 @@ void Mpeg4MetadataChecker::MetadataRetrieved()
 }
 
 
+// Mpeg4ContainerInfo
+
+Mpeg4ContainerInfo::Mpeg4ContainerInfo()
+{
+    Reset();
+}
+
+Mpeg4ContainerInfo::EProcessingMode Mpeg4ContainerInfo::ProcessingMode() const
+{
+    return iProcessingMode;
+}
+
+TBool Mpeg4ContainerInfo::CanProcess(TUint64 aFileOffset) const
+{
+    if (iProcessingMode == EProcessingMode::Complete) {
+        return true;
+    }
+
+    // NOTE: For fragmented streams we only support containers who only provide complete stream data
+    //       as part of the 'mdat' box. This means that the dataOffset must point to the first byte
+    //       of stream data inside of the 'mdat' box.
+    //       This is signalled by:
+    //       A) Have 'DefaultBaseIsMoof' set + baseDataOffset == 0
+    //       B) Have a total data offset == first byte of data inside 'mdat' box
+    //       C) baseDataOffset + dataOffset == current FileReadOffset (When DefaultBaseIsMoof is not set, but implied by the values of baseDataOffset + dataOffset)
+    const TUint conditionA = iDefaultBaseIsMoof && iBaseDataOffset == 0 && (iDataOffset == 0 || iDataOffset == iMoofBoxSize + 8);
+    const TUint conditionB = (iBaseDataOffset + iDataOffset) == (iMoofBoxSize + 8);
+    const TUint conditionC = (iBaseDataOffset + iDataOffset) == aFileOffset;
+
+    return conditionA || conditionB || conditionC;
+}
+
+void Mpeg4ContainerInfo::SetFragmented(TUint aMoofBoxSize)
+{
+    iProcessingMode = EProcessingMode::Fragmented;
+    iMoofBoxSize    = aMoofBoxSize;
+}
+
+void Mpeg4ContainerInfo::SetBaseDataOffset(TUint64 aBaseDataOffset)
+{
+    iBaseDataOffset = aBaseDataOffset;
+}
+
+void Mpeg4ContainerInfo::SetDefaultBaseIsMoof()
+{
+    iDefaultBaseIsMoof = true;
+}
+
+void Mpeg4ContainerInfo::SetDataOffset(TUint64 aDataOffset)
+{
+    iDataOffset = aDataOffset;
+}
+
+void Mpeg4ContainerInfo::Reset()
+{
+    iProcessingMode    = EProcessingMode::Complete;
+    iMoofBoxSize       = 0;
+    iBaseDataOffset    = 0;
+    iDataOffset        = 0;
+    iDefaultBaseIsMoof = false;
+}
+
+
 // Mpeg4Container
 
 Mpeg4Container::Mpeg4Container(IMimeTypeList& aMimeTypeList)
@@ -2900,7 +3607,17 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxStsz(iSampleSizeTable));
     iProcessorFactory.Add(new Mpeg4BoxMdhd(iDurationInfo));
     iProcessorFactory.Add(
-        new Mpeg4BoxMdat(iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, *iOutOfBandReader));
+        new Mpeg4BoxMdat(iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, iContainerInfo, *iOutOfBandReader));
+
+    // 'Moof' specific boxes
+    iProcessorFactory.Add(new Mpeg4BoxTkhd(iDurationInfo));
+    iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("mvex")));
+    iProcessorFactory.Add(new Mpeg4BoxMehd(iDurationInfo));
+
+    iProcessorFactory.Add(new Mpeg4BoxMoof(iProcessorFactory, iContainerInfo));
+    iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("traf")));
+    iProcessorFactory.Add(new Mpeg4BoxTfhd(iSampleSizeTable, iContainerInfo));
+    iProcessorFactory.Add(new Mpeg4BoxTrun(iSampleSizeTable, iSeekTable, iContainerInfo));
 
     ASSERT(iSeekObserver != nullptr);
 
@@ -2949,6 +3666,7 @@ void Mpeg4Container::Reset()
     iCodecInfo.Reset();
     iSampleSizeTable.Clear();
     iSeekTable.Deinitialise();
+    iContainerInfo.Reset();
     iRecognitionStarted = false;
     iRecognitionSuccess = false;
 }
