@@ -540,6 +540,13 @@ public:
     Mpeg4BoxCodecAlac(IStreamInfoSettable& aStreamInfoSettable, ICodecInfoSettable& aCodecInfoSettable);
 };
 
+class Mpeg4BoxCodecFlac : public Mpeg4BoxCodecBase
+{
+public:
+    Mpeg4BoxCodecFlac(IStreamInfoSettable& aStreamInfoSettable, ICodecInfoSettable& aCodecInfoSettable);
+};
+
+
 class Mpeg4BoxEsds : public IMpeg4BoxRecognisable
 {
 private:
@@ -597,6 +604,37 @@ private:
     TUint iBytes;
     TUint iOffset;
     Bws<1> iBuf;
+};
+
+
+class Mpeg4BoxDfla : public IMpeg4BoxRecognisable
+{
+private:
+    static const TUint kVersion = 0;
+public:
+    Mpeg4BoxDfla(ICodecInfoSettable& aCodecInfoSettable);
+public: // from IMpeg4BoxRecognisable
+    Msg* Process() override;
+    TBool Complete() const override;
+    void Reset() override;
+    TBool Recognise(const Brx& aBoxId) const override;
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+private:
+    enum EState
+    {
+        eNone,
+        eVersion,
+        eCodecInfo,
+        eComplete,
+    };
+private:
+    ICodecInfoSettable& iCodecInfoSettable;
+    IMsgAudioEncodedCache* iCache;
+    MsgAudioEncodedRecogniser iAudioEncodedRecogniser;
+    EState iState;
+    TUint iBytes;
+    TUint iOffset;
+    Bws<4> iBuf;
 };
 
 class Mpeg4BoxStsd : public IMpeg4BoxRecognisable

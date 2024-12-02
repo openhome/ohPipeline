@@ -1365,6 +1365,14 @@ Mpeg4BoxCodecAlac::Mpeg4BoxCodecAlac(IStreamInfoSettable& aStreamInfoSettable,
     iProcessorFactory.Add(new Mpeg4BoxAlac(aCodecInfoSettable));
 }
 
+// Mpeg4BoxCodecFlac
+
+Mpeg4BoxCodecFlac::Mpeg4BoxCodecFlac(IStreamInfoSettable& aStreamInfoSettable, ICodecInfoSettable& aCodecInfoSettable)
+    : Mpeg4BoxCodecBase(Brn("fLaC"), aStreamInfoSettable)
+{
+    iProcessorFactory.Add(new Mpeg4BoxDfla(aCodecInfoSettable));
+}
+
 // Mpeg4BoxEsds
 
 Mpeg4BoxEsds::Mpeg4BoxEsds(ICodecInfoSettable& aCodecInfoSettable) :
@@ -1522,6 +1530,92 @@ void Mpeg4BoxAlac::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
     iBytes = aBoxBytes;
 }
 
+
+// Mpeg4BoxDfla
+Mpeg4BoxDfla::Mpeg4BoxDfla(ICodecInfoSettable& aCodecInfoSettable)
+    : iCodecInfoSettable(aCodecInfoSettable)
+
+{
+    Reset();
+}
+
+Msg* Mpeg4BoxDfla::Process()
+{
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                msg = msg->Process(iAudioEncodedRecogniser);
+                if (msg != nullptr) {
+                    return msg;
+                }
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Inspect(iBuf, iBuf.MaxBytes());  // Set to read version.
+            iState = eVersion;
+        }
+        else if (iState == eVersion) {
+            iOffset += iBuf.Bytes();
+            const TUint version = Converter::BeUint32At(iBuf, 0);
+            if (version != kVersion) {
+                LOG_ERROR(kCodec, "MpegBoxDfla::Process() - Encountered version '%u'. We only support version(s): 0\n", version);
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            const TUint remaining = iBytes - iOffset;
+            iCache->Accumulate(remaining);
+
+            iState = eCodecInfo;
+        }
+        else if (iState == eCodecInfo) {
+            MsgAudioEncoded* msg = iAudioEncodedRecogniser.AudioEncoded();
+            ASSERT(msg != nullptr);
+            iOffset += msg->Bytes();
+            iCodecInfoSettable.SetCodecInfo(msg);
+
+            iState = eComplete;
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxDfla::Complete() const
+{
+    ASSERT(iOffset <= iBytes);
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxDfla::Reset()
+{
+    iCache  = nullptr;
+    iState  = eNone;
+    iBytes  = 0;
+    iOffset = 0;
+
+    iBuf.SetBytes(0);
+    iAudioEncodedRecogniser.Reset();
+}
+
+TBool Mpeg4BoxDfla::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("dfLa");
+}
+
+void Mpeg4BoxDfla::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
+
+
 // Mpeg4BoxStsd
 
 Mpeg4BoxStsd::Mpeg4BoxStsd(IStreamInfoSettable& aStreamInfoSettable,
@@ -1533,6 +1627,8 @@ Mpeg4BoxStsd::Mpeg4BoxStsd(IStreamInfoSettable& aStreamInfoSettable,
             new Mpeg4BoxCodecMp4a(aStreamInfoSettable, aCodecInfoSettable));
     iProcessorFactory.Add(
             new Mpeg4BoxCodecAlac(aStreamInfoSettable, aCodecInfoSettable));
+    iProcessorFactory.Add(
+            new Mpeg4BoxCodecFlac(aStreamInfoSettable, aCodecInfoSettable));
 }
 
 Msg* Mpeg4BoxStsd::Process()
@@ -2911,21 +3007,34 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
             // However, need to know size of it for codecs to unpack it into a buffer, and it's generally small (< 50 bytes) and a one-off per stream so it isn't a huge performance hit.
             MsgAudioEncoded* codecInfo = iCodecInfo.CodecInfo();
 
-            Mpeg4Info info(iStreamInfo.Codec(), iStreamInfo.SampleRate(),
-                    iDurationInfo.Timescale(), iStreamInfo.Channels(),
-                    iStreamInfo.BitDepth(), iDurationInfo.Duration(), codecInfo->Bytes());
+            // NOTE: Some codecs provide the required stream & seek information encoded as part of their own data.
+            //       For these, we don't want to emit anything extra.
+            const TBool requiresMpeg4InfoHeader = iStreamInfo.Codec() != Brn("fLaC");
 
-            Mpeg4InfoWriter writer(info);
-            Bws<Mpeg4InfoWriter::kMaxBytes> infoBuf;
-            WriterBuffer writerBuf(infoBuf);
-            writer.Write(writerBuf);
+            if (requiresMpeg4InfoHeader) {
+                Mpeg4Info info(iStreamInfo.Codec(), iStreamInfo.SampleRate(),
+                               iDurationInfo.Timescale(), iStreamInfo.Channels(),
+                               iStreamInfo.BitDepth(), iDurationInfo.Duration(), codecInfo->Bytes());
 
-            // Need to create MsgAudioEncoded w/ data for codec.
-            msg = iMsgFactory->CreateMsgAudioEncoded(infoBuf);
-            msg->Add(codecInfo);
+                Mpeg4InfoWriter writer(info);
+                Bws<Mpeg4InfoWriter::kMaxBytes> infoBuf;
+                WriterBuffer writerBuf(infoBuf);
+                writer.Write(writerBuf);
 
-            iSampleSizeTable.WriteInit();
-            iMdataState = eMdataSizeTab;
+                // Need to create MsgAudioEncoded w/ data for codec.
+                msg = iMsgFactory->CreateMsgAudioEncoded(infoBuf);
+                msg->Add(codecInfo);
+
+                iSampleSizeTable.WriteInit();
+                iMdataState = eMdataSizeTab;
+            }
+            else {
+                // Make sure to include the codec name at the beginning to ensure our codecs will recognise it property
+                msg = iMsgFactory->CreateMsgAudioEncoded(iStreamInfo.Codec());
+                msg->Add(codecInfo);
+                iMdataState = eMdataComplete;
+            }
+
         }
         break;
 
