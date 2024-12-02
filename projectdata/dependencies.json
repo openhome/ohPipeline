@@ -38,7 +38,7 @@
     {
         "name": "TestTones",
         "type": "external",
-        "version": "1.10",
+        "version": "1.11",
         "cross-check": false,
         "archive-path": "s3://linn-artifacts-private/testtones/TestTones-${version}.zip",
         "dest": "dependencies/AnyPlatform/TestTones/"
