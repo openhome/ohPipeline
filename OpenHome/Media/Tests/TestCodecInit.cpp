@@ -29,9 +29,11 @@ AudioFileCollection* TestCodecFiles()
     // AAC encoders can add/drop samples from start of files.
     minFiles.push_back(AudioFileDescriptor(Brn("10s-stereo-44k-aac.m4a"), 44100, 443392, 16, 2, AudioFileDescriptor::kCodecAac, true));
     // AAC, but laid out as a fragmented stream ('moof' based)
+#ifdef ENABLE_MPEG_MOOF_SUPPORT
     // NOTE: This is the same as 10s-stereo-44k-aac.m4a, ran through FFMPEG with the following command line:
     // ffmpeg.exe -i .\10s-stereo-44k-aac.m4a -c:v copy -movflags isml+empty_moov .\10s-stereo-44k-aac-moof.m4a
     minFiles.push_back(AudioFileDescriptor(Brn("10s-stereo-44k-aac-moof.m4a"), 44100, 443392, 16, 2, AudioFileDescriptor::kCodecAac, true));
+#endif
     // AAC stream, wrapped in ADTS header, inside MPEG transport stream packets (i.e., HLS)
     minFiles.push_back(AudioFileDescriptor(Brn("10s-stereo-44k-adts-mpegts.ts"), 44100, 441000+1368, 16, 2, AudioFileDescriptor::kCodecAdts, false));
     // FLAC encoded inside a MPEG container

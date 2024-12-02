@@ -3610,6 +3610,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
         new Mpeg4BoxMdat(iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, iContainerInfo, *iOutOfBandReader));
 
     // 'Moof' specific boxes
+#ifdef ENABLE_MPEG_MOOF_SUPPORT
     iProcessorFactory.Add(new Mpeg4BoxTkhd(iDurationInfo));
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("mvex")));
     iProcessorFactory.Add(new Mpeg4BoxMehd(iDurationInfo));
@@ -3618,6 +3619,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("traf")));
     iProcessorFactory.Add(new Mpeg4BoxTfhd(iSampleSizeTable, iContainerInfo));
     iProcessorFactory.Add(new Mpeg4BoxTrun(iSampleSizeTable, iSeekTable, iContainerInfo));
+#endif
 
     ASSERT(iSeekObserver != nullptr);
 
