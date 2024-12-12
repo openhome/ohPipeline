@@ -45,6 +45,9 @@ namespace Media {
     class IPullableClock;
     class AllocatorInfoLogger;
     class AudioTimeCpu;
+namespace Codec {
+    class IMpegDRMProvider;
+}
 }
 namespace Configuration {
     class ConfigRamStore;
@@ -216,6 +219,7 @@ private:
     TUint iUiSendQueueSize;
     TUint iUiMsgBufCount;
     TUint iUiMsgBufBytes;
+    Optional<Media::Codec::IMpegDRMProvider> iMpegDRMProvider;
 };
 
 class TestMediaPlayerOptions

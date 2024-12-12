@@ -17,9 +17,9 @@ using namespace OpenHome;
 using namespace OpenHome::Media;
 using namespace OpenHome::Media::Codec;
 
-ContainerBase* ContainerFactory::NewMpeg4(IMimeTypeList& aMimeTypeList)
+ContainerBase* ContainerFactory::NewMpeg4(IMimeTypeList& aMimeTypeList, Optional<IMpegDRMProvider> aDRMProvider)
 { // static
-    return new Mpeg4Container(aMimeTypeList);
+    return new Mpeg4Container(aMimeTypeList, aDRMProvider);
 }
 
 
@@ -2463,27 +2463,57 @@ void Mpeg4CodecInfo::SetCodecInfo(MsgAudioEncoded* aMsg)
 
 // Mpeg4BoxMdat
 
-Mpeg4BoxMdat::Mpeg4BoxMdat(Mpeg4BoxSwitcherRoot& aBoxSwitcher,
+Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
+                           Mpeg4BoxSwitcherRoot& aBoxSwitcher,
                            IMpeg4MetadataChecker& aMetadataChecker,
                            IMpeg4MetadataProvider& aMetadataProvider,
                            IMpeg4ChunkSeekObservable& aChunkSeeker,
                            IBoxOffsetProvider& aOffsetProvider,
                            SeekTable& aSeekTable,
                            SampleSizeTable& aSampleSizeTable,
+                           Mpeg4ProtectionDetails& aProtectionDetails,
                            Mpeg4ContainerInfo& aContainerInfo,
                            Mpeg4OutOfBandReader& aOutOfBandReader)
-    : iBoxSwitcher(aBoxSwitcher)
+    : iDRMProvider(aDRMProvider)
+    , iBoxSwitcher(aBoxSwitcher)
     , iMetadataChecker(aMetadataChecker)
     , iMetadataProvider(aMetadataProvider)
     , iOffsetProvider(aOffsetProvider)
     , iSeekTable(aSeekTable)
     , iSampleSizeTable(aSampleSizeTable)
+    , iProtectionDetails(aProtectionDetails)
     , iContainerInfo(aContainerInfo)
     , iOutOfBandReader(aOutOfBandReader)
     , iLock("MP4D")
 {
     aChunkSeeker.RegisterChunkSeekObserver(*this);
+
+    if (iDRMProvider.Ok()) {
+        iSampleBuf     = new Bwh(EncodedAudio::kMaxBytes);
+        iDecryptionBuf = new Bwh(EncodedAudio::kMaxBytes);
+    }
+    else {
+        iSampleBuf     = nullptr;
+        iDecryptionBuf = nullptr;
+    }
+
     Reset();
+}
+
+Mpeg4BoxMdat::~Mpeg4BoxMdat()
+{
+    if (iSampleBuf) {
+        delete iSampleBuf;
+    }
+
+    if (iDecryptionBuf) {
+        delete iDecryptionBuf;
+    }
+
+    if (iChunkMsg) {
+        iChunkMsg->RemoveRef();
+        iChunkMsg = nullptr;
+    }
 }
 
 Msg* Mpeg4BoxMdat::Process()
@@ -2601,7 +2631,23 @@ Msg* Mpeg4BoxMdat::Process()
                     iCache->Accumulate(readBytes);
                     iState = eChunk;
                 }
-                return msg;
+
+
+                // If the content is encrypted, we need to decrypt here before passing on...
+                if (iProtectionDetails.IsProtected() && iProtectionDetails.HasPerSampleIVs()) {
+                    if (!iDRMProvider.Ok()) {
+                        LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process - Encountered an encrypted stream but have no means to decrypt content.\n");
+                        THROW(CodecStreamFeatureUnsupported);
+                    }
+
+
+                    ASSERT(iChunkMsg == nullptr);
+                    iChunkMsg = msg;
+                    iState    = eProtectedChunk;
+                }
+                else {
+                    return msg;
+                }
             }
         }
         else {
@@ -2632,6 +2678,19 @@ void Mpeg4BoxMdat::Reset()
     iOffset = 0;
     iBoxStartOffset = 0;
     iFileReadOffset = 0;
+
+    if (iChunkMsg) {
+        iChunkMsg->RemoveRef();
+        iChunkMsg = nullptr;
+    }
+
+    if (iSampleBuf) {
+        iSampleBuf->SetBytes(0);
+    }
+
+    if (iDecryptionBuf) {
+        iDecryptionBuf->SetBytes(0);
+    }
 }
 
 TBool Mpeg4BoxMdat::Recognise(const Brx& aBoxId) const
@@ -3507,6 +3566,103 @@ void Mpeg4MetadataChecker::MetadataRetrieved()
 }
 
 
+// Mpeg4ProtectionDetails
+
+const TUint Mpeg4ProtectionDetails::kInitialSampleIVBufferSize = 1024 * 2; // 2KB
+const TUint Mpeg4ProtectionDetails::kSampleIVBufferGrowthSize  = 1024 * 1; // 1KB
+
+Mpeg4ProtectionDetails::Mpeg4ProtectionDetails()
+    : iIsProtected(false)
+    , iPerSampleIVSize(0)
+    , iSampleIVs(kInitialSampleIVBufferSize, kSampleIVBufferGrowthSize)
+{ }
+
+TBool Mpeg4ProtectionDetails::IsProtected() const
+{
+    return iIsProtected;
+}
+
+const Brx& Mpeg4ProtectionDetails::KID() const
+{
+    return iKID;
+}
+
+TUint Mpeg4ProtectionDetails::PerSampleIVSizeBytes() const
+{
+    return iPerSampleIVSize;
+}
+
+TBool Mpeg4ProtectionDetails::HasPerSampleIVs() const
+{
+    return iSampleIVs.Buffer().Bytes() > 0;
+}
+
+void Mpeg4ProtectionDetails::SetProtected()
+{
+    iIsProtected = true;
+}
+
+void Mpeg4ProtectionDetails::SetPerSampleIVSize(TUint aPerSampleIVSize)
+{
+    iPerSampleIVSize = aPerSampleIVSize;
+}
+
+void Mpeg4ProtectionDetails::SetKID(const Brx& aKID)
+{
+    iKID.ReplaceThrow(aKID);
+}
+
+void Mpeg4ProtectionDetails::AddSampleIV(const Brx& aIV)
+{
+    iSampleIVs.Write(aIV);
+}
+
+const Brx& Mpeg4ProtectionDetails::GetSampleIV(TUint aSampleIndex)
+{
+    const TUint offset = aSampleIndex * iPerSampleIVSize;
+    if (offset >= iSampleIVs.Buffer().Bytes()) {
+        // TODO: Do we assert here or return an empty IV??
+        return Brx::Empty();
+    }
+
+    Brn iv(iSampleIVs.Buffer().Ptr() + offset, iPerSampleIVSize);
+    AlignIV16(iIVBuffer, iv);
+
+    return iIVBuffer;
+}
+
+void Mpeg4ProtectionDetails::Reset()
+{
+    iIsProtected = false;
+
+    iPerSampleIVSize = 0;
+
+    iKID.SetBytes(0);
+    iIVBuffer.SetBytes(0);
+
+    ClearSampleIVs();
+}
+
+void Mpeg4ProtectionDetails::ClearSampleIVs()
+{
+    iSampleIVs.Reset();
+}
+
+void Mpeg4ProtectionDetails::AlignIV16(Bwx& aBuffer, const Brx& aIV)
+{
+    ASSERT_VA(aBuffer.MaxBytes() >= 16, "%s\n", "A minimum of 16byte buffer is required for this.");
+    ASSERT_VA(aIV.Bytes() == 8 || aIV.Bytes() == 16, "%s\n", "An 8 or 16byte IV is required for this.");
+
+    // Spec Link: 23001-7 (9.1)
+    // If IV_SIZE is 16, then IV specifies the entire 128-bit IV value
+    // If IV_SIZE is 8, then the 128-bit IV value is made of the IV value copied to bytes 0 to 7 and then 8 to 15 are set to zero.
+    aBuffer.Replace(aIV);
+
+    while(aBuffer.Bytes() < 16) {
+        aBuffer.Append((TByte)0);
+    }
+}
+
 // Mpeg4ContainerInfo
 
 Mpeg4ContainerInfo::Mpeg4ContainerInfo()
@@ -3572,8 +3728,9 @@ void Mpeg4ContainerInfo::Reset()
 
 // Mpeg4Container
 
-Mpeg4Container::Mpeg4Container(IMimeTypeList& aMimeTypeList)
+Mpeg4Container::Mpeg4Container(IMimeTypeList& aMimeTypeList, Optional<IMpegDRMProvider> aDRMProvider)
     : ContainerBase(Brn("MP4"))
+    , iDRMProvider(aDRMProvider)
     , iBoxRoot(iProcessorFactory)
     , iBoxRootOutOfBand(iProcessorFactory) // Share factory; okay here as neither should access the same box simultaneously.
     , iOutOfBandReader(nullptr)
@@ -3607,7 +3764,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxStsz(iSampleSizeTable));
     iProcessorFactory.Add(new Mpeg4BoxMdhd(iDurationInfo));
     iProcessorFactory.Add(
-        new Mpeg4BoxMdat(iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, iContainerInfo, *iOutOfBandReader));
+        new Mpeg4BoxMdat(iDRMProvider, iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, iProtectionDetails, iContainerInfo, *iOutOfBandReader));
 
     // 'Moof' specific boxes
 #ifdef ENABLE_MPEG_MOOF_SUPPORT

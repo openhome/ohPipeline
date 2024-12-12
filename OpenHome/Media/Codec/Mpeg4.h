@@ -275,6 +275,7 @@ private:
 };
 
 class SeekTable;
+class Mpeg4ProtectionDetails;
 
 class Mpeg4BoxStts : public IMpeg4BoxRecognisable
 {
@@ -899,18 +900,31 @@ public:
 
 class Mpeg4OutOfBandReader;
 
+class IMpegDRMProvider
+{
+public:
+    virtual ~IMpegDRMProvider() {};
+    virtual TBool Decrypt(const Brx& aKID,
+                          const Brx& aEncryptedData,
+                          const Brx& aIV,
+                          Bwx& aDecryptBuffer) = 0;
+};
+
 class Mpeg4BoxMdat : public IMpeg4BoxRecognisable, public IMpeg4ChunkSeekObserver, private INonCopyable
 {
 public:
-    Mpeg4BoxMdat(Mpeg4BoxSwitcherRoot& aBoxSwitcher,
+    Mpeg4BoxMdat(Optional<IMpegDRMProvider> iDRMProvider,
+                 Mpeg4BoxSwitcherRoot& aBoxSwitcher,
                  IMpeg4MetadataChecker& aMetadataChecker,
                  IMpeg4MetadataProvider& aMetadataProvider,
                  IMpeg4ChunkSeekObservable& aChunkSeeker,
                  IBoxOffsetProvider& aOffsetProvider,
                  SeekTable& aSeekTable,
                  SampleSizeTable& aSampleSizeTable,
+                 Mpeg4ProtectionDetails& aProtectionDetails,
                  Mpeg4ContainerInfo& aContainerInfo,
                  Mpeg4OutOfBandReader& aOutOfBandReader);
+    ~Mpeg4BoxMdat();
 public: // from IMpeg4BoxRecognisable
     Msg* Process() override;
     TBool Complete() const override;
@@ -931,15 +945,18 @@ private:
         eTransmitMetadata,
         eChunkReadSetup,
         eChunk,
+        eProtectedChunk,
         eComplete,
     };
 private:
+    Optional<IMpegDRMProvider> iDRMProvider;
     Mpeg4BoxSwitcherRoot& iBoxSwitcher;
     IMpeg4MetadataChecker& iMetadataChecker;
     IMpeg4MetadataProvider& iMetadataProvider;
     IBoxOffsetProvider& iOffsetProvider;
     SeekTable& iSeekTable;
     SampleSizeTable& iSampleSizeTable;
+    Mpeg4ProtectionDetails& iProtectionDetails;
     Mpeg4ContainerInfo& iContainerInfo;
     Mpeg4OutOfBandReader& iOutOfBandReader;
     IMsgAudioEncodedCache* iCache;
@@ -954,6 +971,12 @@ private:
     TUint64 iBoxStartOffset;
     TUint64 iFileReadOffset;
     Mutex iLock;
+
+    // Protection Support
+    TUint iSampleIndex;
+    Bwh* iDecryptionBuf;
+    Bwh* iSampleBuf;
+    MsgAudioEncoded* iChunkMsg;
 };
 
 class SampleSizeTable
@@ -1103,6 +1126,41 @@ private:
     TBool iMetadataAvailable;
 };
 
+class Mpeg4ProtectionDetails
+{
+public:
+    static const TUint kInitialSampleIVBufferSize;
+    static const TUint kSampleIVBufferGrowthSize;
+
+public:
+    Mpeg4ProtectionDetails();
+
+public:
+    TBool IsProtected() const;
+    const Brx& KID() const;
+    TUint PerSampleIVSizeBytes() const;
+    const Brx& GetSampleIV(TUint aSampleIndex);
+    TBool HasPerSampleIVs() const;
+
+    void SetProtected();
+    void SetPerSampleIVSize(TUint aPerSampleIVSize);
+    void SetKID(const Brx& aKID);
+    void AddSampleIV(const Brx& aIV);
+
+    void Reset();
+    void ClearSampleIVs();
+
+private:
+    void AlignIV16(Bwx& aBuffer, const Brx& aIV);
+
+private:
+    TBool iIsProtected;
+    TUint iPerSampleIVSize;
+    Bws<128> iKID;
+    Bws<16> iIVBuffer;
+    WriterBwh iSampleIVs;
+};
+
 class Mpeg4ContainerInfo
 {
 public:
@@ -1136,7 +1194,7 @@ private:
 class Mpeg4Container : public ContainerBase, public IMpeg4MetadataProvider, public IMpeg4ChunkSeekObservable
 {
 public:
-    Mpeg4Container(IMimeTypeList& aMimeTypeList);
+    Mpeg4Container(IMimeTypeList& aMimeTypeList, Optional<IMpegDRMProvider> aDRMProvider);
     ~Mpeg4Container();
 public: // from ContainerBase
     void Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFactory, IContainerSeekHandler& aSeekHandler, IContainerUrlBlockWriter& aUrlBlockWriter, IContainerStopper& aContainerStopper) override;
@@ -1153,6 +1211,7 @@ private: // from IMpeg4MetadataProvider
 private: // from IMpeg4ChunkSeekObservable
     void RegisterChunkSeekObserver(IMpeg4ChunkSeekObserver& aChunkSeekObserver) override;
 private:
+    Optional<IMpegDRMProvider> iDRMProvider;
     Mpeg4BoxProcessorFactory iProcessorFactory;
     Mpeg4BoxSwitcherRoot iBoxRoot;  // Pull directly from this. All other processors should reside inside a factory that lives within this.
     Mpeg4BoxSwitcherRoot iBoxRootOutOfBand;
@@ -1162,6 +1221,7 @@ private:
     Mpeg4CodecInfo iCodecInfo;
     SampleSizeTable iSampleSizeTable;
     SeekTable iSeekTable;
+    Mpeg4ProtectionDetails iProtectionDetails;
     Mpeg4ContainerInfo iContainerInfo;
     Mpeg4OutOfBandReader* iOutOfBandReader;
     IMpeg4ChunkSeekObserver* iSeekObserver;

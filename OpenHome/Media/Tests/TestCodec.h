@@ -16,6 +16,7 @@ namespace Media {
 namespace Codec {
     class ContainerController;
     class CodecController;
+    class IMpegDRMProvider;
 
 class AudioFileDescriptor
 {
@@ -163,6 +164,7 @@ private:
     Logger* iLoggerCodecController;
     TestCodecFlushIdProvider* iFlushIdProvider;
     TestCodecFiller* iFiller;
+    Optional<IMpegDRMProvider> iDRMProvider;
 };
 
 typedef TestCodecMinimalPipeline* (*CreateTestCodecPipelineFunc)(Environment& aEnv, IMsgProcessor& aMsgProcessor);

@@ -446,7 +446,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 {
     // Add containers
     iMediaPlayer->Add(Codec::ContainerFactory::NewId3v2());
-    iMediaPlayer->Add(Codec::ContainerFactory::NewMpeg4(iMediaPlayer->MimeTypes()));
+    iMediaPlayer->Add(Codec::ContainerFactory::NewMpeg4(iMediaPlayer->MimeTypes(), iMpegDRMProvider));
     iMediaPlayer->Add(Codec::ContainerFactory::NewMpegTs(iMediaPlayer->MimeTypes()));
 
     // Add codecs
