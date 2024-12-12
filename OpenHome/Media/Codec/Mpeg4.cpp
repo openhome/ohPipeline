@@ -2826,6 +2826,7 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
     , iContainerInfo(aContainerInfo)
     , iOutOfBandReader(aOutOfBandReader)
     , iLock("MP4D")
+    , iChunkMsg(nullptr)
 {
     aChunkSeeker.RegisterChunkSeekObserver(*this);
 
