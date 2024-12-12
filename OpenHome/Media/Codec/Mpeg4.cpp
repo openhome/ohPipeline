@@ -1295,9 +1295,8 @@ const TUint Mpeg4BoxTrun::kFlagFirstSampleFlagsPresent = 1 << 1;
 const TUint Mpeg4BoxTrun::kFlagSampleDurationPresent   = 1 << 2;
 const TUint Mpeg4BoxTrun::kFlagSampleSizePresent       = 1 << 3;
 
-Mpeg4BoxTrun::Mpeg4BoxTrun(SampleSizeTable& aSampleSizeTable, SeekTable& aSeekTable, Mpeg4ContainerInfo& aContainerInfo)
+Mpeg4BoxTrun::Mpeg4BoxTrun(SampleSizeTable& aSampleSizeTable, Mpeg4ContainerInfo& aContainerInfo)
     : iSampleSizeTable(aSampleSizeTable)
-    , iSeekTable(aSeekTable)
     , iContainerInfo(aContainerInfo)
 {
     Reset();
@@ -2805,6 +2804,7 @@ void Mpeg4CodecInfo::SetCodecInfo(MsgAudioEncoded* aMsg)
 // Mpeg4BoxMdat
 
 Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
+                           MsgFactory& aMsgFactory,
                            Mpeg4BoxSwitcherRoot& aBoxSwitcher,
                            IMpeg4MetadataChecker& aMetadataChecker,
                            IMpeg4MetadataProvider& aMetadataProvider,
@@ -2816,6 +2816,7 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
                            Mpeg4ContainerInfo& aContainerInfo,
                            Mpeg4OutOfBandReader& aOutOfBandReader)
     : iDRMProvider(aDRMProvider)
+    , iMsgFactory(aMsgFactory)
     , iBoxSwitcher(aBoxSwitcher)
     , iMetadataChecker(aMetadataChecker)
     , iMetadataProvider(aMetadataProvider)
@@ -2990,6 +2991,98 @@ Msg* Mpeg4BoxMdat::Process()
                 else {
                     return msg;
                 }
+            }
+        }
+        else if (iState == eProtectedChunk) {
+            iDecryptionBuf->SetBytes(0);
+
+            // First - we need to consume as much audio as possible from the audio stream
+            if (iChunkMsg) {
+                MsgAudioEncoded* remaining = nullptr;
+
+                const TUint chunkBytesLeftToRead = iChunkMsg->Bytes();
+                const TUint maxBytesToRead       = iSampleBuf->BytesRemaining();
+                const TUint bytesToRead          = std::min(chunkBytesLeftToRead, maxBytesToRead);
+
+                if (bytesToRead < iChunkMsg->Bytes()) {
+                    remaining = iChunkMsg->Split(bytesToRead);
+                }
+
+                ASSERT(iSampleBuf->BytesRemaining() >= bytesToRead);
+
+                TByte* ptr = const_cast<TByte*>(iSampleBuf->Ptr() + iSampleBuf->Bytes());
+                iChunkMsg->CopyTo(ptr);
+
+                iSampleBuf->SetBytes(iSampleBuf->Bytes() + bytesToRead);
+
+                iChunkMsg->RemoveRef();
+                iChunkMsg = remaining;
+            }
+
+            ReaderBuffer sampleReader(*iSampleBuf);
+
+            // Next, we must read each sample in turn, decrypting as we go to fill out our output buffer...
+            while (true) {
+
+                // If we've read all available samples from this chunk so we're finished...
+                if (iSampleIndex >= iSampleSizeTable.Count()) {
+                    ASSERT(iOffset <= iBytes);
+                    if (iOffset == iBytes) {
+                        iState = eComplete;
+                    }
+                    else {
+                        iChunk++;
+                        iChunkBytesRemaining = ChunkBytes();
+                        iState = eChunkReadSetup;
+                    }
+                    break;
+                }
+
+                const TUint sampleBytes = iSampleSizeTable.SampleSize(iSampleIndex);
+                const Brx&  sampleData  = sampleReader.Read(sampleBytes);
+
+                const TBool hasReadFullSample = sampleData.Bytes() == sampleBytes;
+                const TBool hasSpaceToDecrypt = iDecryptionBuf->BytesRemaining() >= sampleData.Bytes();
+
+                if (!hasReadFullSample || !hasSpaceToDecrypt) {
+                    iSampleBuf->Replace(sampleData);
+
+                    if (iChunkMsg == nullptr) {
+                        if (iChunkBytesRemaining > 0) {
+                            iState = eChunk;
+                        }
+                        else {
+                            ASSERT(iOffset <= iBytes);
+                            if (iOffset == iBytes) {
+                                iState = eComplete;
+                            }
+                            else {
+                                iChunk++;
+                                iChunkBytesRemaining = ChunkBytes();
+                                iState = eChunkReadSetup;
+                            }
+                        }
+                    }
+
+                    break;
+                }
+
+                const Brx& KID = iProtectionDetails.KID();
+                const Brx&  IV = iProtectionDetails.GetSampleIV(iSampleIndex);
+
+                ASSERT(iDRMProvider.Ok());
+
+                if (!iDRMProvider.Unwrap().Decrypt(KID, sampleData, IV, *iDecryptionBuf)) {
+                    LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process() - Failed to decrypt content\n");
+                    THROW(CodecStreamCorrupt);
+                }
+
+                iSampleIndex += 1;
+
+            }
+
+            if (iDecryptionBuf->Bytes() > 0) {
+                return iMsgFactory.CreateMsgAudioEncoded(*iDecryptionBuf);
             }
         }
         else {
@@ -4106,7 +4199,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxStsz(iSampleSizeTable));
     iProcessorFactory.Add(new Mpeg4BoxMdhd(iDurationInfo));
     iProcessorFactory.Add(
-        new Mpeg4BoxMdat(iDRMProvider, iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, iProtectionDetails, iContainerInfo, *iOutOfBandReader));
+        new Mpeg4BoxMdat(iDRMProvider, aMsgFactory, iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, iProtectionDetails, iContainerInfo, *iOutOfBandReader));
 
     // 'Moof' specific boxes
 #ifdef ENABLE_MPEG_MOOF_SUPPORT

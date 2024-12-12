@@ -495,7 +495,7 @@ private:
     static const TUint kFlagSampleDurationPresent;
     static const TUint kFlagSampleSizePresent;
 public:
-    Mpeg4BoxTrun(SampleSizeTable&, SeekTable&, Mpeg4ContainerInfo&);
+    Mpeg4BoxTrun(SampleSizeTable&, Mpeg4ContainerInfo&);
 public: // from IMpeg4BoxRecognisable
     Msg* Process() override;
     TBool Complete() const override;
@@ -514,7 +514,6 @@ private:
     };
 private:
     SampleSizeTable& iSampleSizeTable;
-    SeekTable& iSeekTable;
     Mpeg4ContainerInfo& iContainerInfo;
     IMsgAudioEncodedCache* iCache;
     EState iState;
@@ -1009,6 +1008,7 @@ class Mpeg4BoxMdat : public IMpeg4BoxRecognisable, public IMpeg4ChunkSeekObserve
 {
 public:
     Mpeg4BoxMdat(Optional<IMpegDRMProvider> iDRMProvider,
+                 MsgFactory& aMsgFactory,
                  Mpeg4BoxSwitcherRoot& aBoxSwitcher,
                  IMpeg4MetadataChecker& aMetadataChecker,
                  IMpeg4MetadataProvider& aMetadataProvider,
@@ -1045,6 +1045,7 @@ private:
     };
 private:
     Optional<IMpegDRMProvider> iDRMProvider;
+    MsgFactory& iMsgFactory;
     Mpeg4BoxSwitcherRoot& iBoxSwitcher;
     IMpeg4MetadataChecker& iMetadataChecker;
     IMpeg4MetadataProvider& iMetadataProvider;
