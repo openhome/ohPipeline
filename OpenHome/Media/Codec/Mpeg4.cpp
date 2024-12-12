@@ -1974,6 +1974,329 @@ Mpeg4BoxCodecFlac::Mpeg4BoxCodecFlac(IStreamInfoSettable& aStreamInfoSettable, I
     iProcessorFactory.Add(new Mpeg4BoxDfla(aCodecInfoSettable));
 }
 
+// Mpeg4BoxSchm
+
+Mpeg4BoxSchm::Mpeg4BoxSchm()
+{
+    Reset();
+}
+
+Msg* Mpeg4BoxSchm::Process()
+{
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                return msg;
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Inspect(iBuf, iBuf.MaxBytes());
+            iState = eFlags;
+        }
+        else if (iState == eFlags) {
+            iOffset += iBuf.Bytes();
+
+            iCache->Inspect(iBuf, iBuf.MaxBytes()); // Set to read Scheme Type
+            iState = eSchemeType;
+        }
+        else if (iState == eSchemeType) {
+            iOffset += iBuf.Bytes();
+
+            // NOTE: We currently only support cenc encryption
+            const Brn kSupported("cenc");
+            if (iBuf.Equals(kSupported) == false) {
+                Log::Print("Mpeg4::Mpeg4BoxSchim - Encountered a protected container with encryption format: %.*s which is unsupported.\n", PBUF(iBuf));
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            TUint bytesToDiscard = 4; // Skip over scheme version
+            iOffset += 4;
+
+            bytesToDiscard += (iBytes - iOffset); // Skip over the schemeURL (if present)
+            iOffset = iBytes;
+
+            iCache->Discard(bytesToDiscard);
+
+            iState = eComplete;
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxSchm::Complete() const
+{
+    ASSERT(iOffset <= iBytes);
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxSchm::Reset()
+{
+    iCache  = nullptr;
+    iState  = eNone;
+    iBytes  = 0;
+    iOffset = 0;
+    iBuf.SetBytes(0);
+}
+
+TBool Mpeg4BoxSchm::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("schm");
+}
+
+void Mpeg4BoxSchm::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
+
+
+// Mpeg4BoxTenc
+
+Mpeg4BoxTenc::Mpeg4BoxTenc(Mpeg4ProtectionDetails& aProtectionDetails)
+    : iProtectionDetails(aProtectionDetails)
+{
+    Reset();
+}
+
+Msg* Mpeg4BoxTenc::Process()
+{
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                return msg;
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Inspect(iBuf, iBuf.MaxBytes());
+            iState = eFlagsAndVersion;
+        }
+        else if (iState == eFlagsAndVersion) {
+            iOffset += iBuf.Bytes();
+
+            const TUint versionAndFlags = Converter::BeUint32At(iBuf, 0);
+            const TUint version         = (versionAndFlags & 0xF000) >> 24; // Unused, only need to read the sample_composition_time entry which we ignore
+
+            if (version != 0) {
+                // NOTE: We don't currently support tracks that are non-version 0 here so just throw,.
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            // Discard the reserved byte + the optional version > 1 byte
+            iOffset += 2;
+            iCache->Discard(2);
+
+            iCache->Inspect(iBuf8, iBuf8.MaxBytes());
+            iState = eIsProtected;
+        }
+        else if (iState == eIsProtected) {
+            iOffset += iBuf8.Bytes();
+
+            const TUint isProtectedValue = iBuf8.At(0);
+
+            if (isProtectedValue == 0x0) {
+                // Do nothing here...
+            }
+            else if (isProtectedValue == 0x1) {
+                iProtectionDetails.SetProtected();
+            }
+            else {
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            iCache->Inspect(iBuf8, iBuf8.MaxBytes());
+            iState = eDefaultPerSampleIVSize;
+        }
+        else if (iState == eDefaultPerSampleIVSize) {
+            iOffset += iBuf8.Bytes();
+
+            iProtectionDetails.SetPerSampleIVSize((TUint)iBuf8.At(0));
+
+            if (iBytes - iOffset > iKIDBuf.MaxBytes()) {
+                LOG_ERROR(kCodec, "Mpeg4BoxTenc::Process - Provided KID is larger than space we have allocated. KID should be %u bytes, we were given %u\n", iKIDBuf.MaxBytes(), (iBytes - iOffset));
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            iCache->Inspect(iKIDBuf, iKIDBuf.MaxBytes());
+            iState = eDefaultKID;
+        }
+        else if (iState == eDefaultKID) {
+            iOffset += iKIDBuf.Bytes();
+
+            iProtectionDetails.SetKID(iKIDBuf);
+
+            if (iProtectionDetails.IsProtected() && iProtectionDetails.PerSampleIVSizeBytes() == 0) {
+                Log::Print("Mpeg4BoxTenc::Process - Content is encrypted with scheme requiring a ConstantIV. This is not something we support.\n");
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            iState = eComplete;
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxTenc::Complete() const
+{
+    ASSERT(iOffset <= iBytes);
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxTenc::Reset()
+{
+    iCache  = nullptr;
+    iState  = eNone;
+    iBytes  = 0;
+    iOffset = 0;
+
+    iBuf.SetBytes(0);
+    iKIDBuf.SetBytes(0);
+    iProtectionDetails.Reset();
+}
+
+TBool Mpeg4BoxTenc::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("tenc");
+}
+
+void Mpeg4BoxTenc::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
+
+
+// Mpeg4BoxSenc
+
+Mpeg4BoxSenc::Mpeg4BoxSenc(Mpeg4ProtectionDetails& aProtectionDetails)
+    : iProtectionDetails(aProtectionDetails)
+{
+    Reset();
+}
+
+Msg* Mpeg4BoxSenc::Process()
+{
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                return msg;
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Inspect(iBuf, iBuf.MaxBytes());
+            iState = eFlagsAndVersion;
+        }
+        else if (iState == eFlagsAndVersion) {
+            iOffset += iBuf.Bytes();
+
+            const TUint versionAndFlags = Converter::BeUint32At(iBuf, 0);
+            const TUint version         = (versionAndFlags & 0xF000) >> 24; // Unused, only need to read the sample_composition_time entry which we ignore
+            const TUint flags           = (versionAndFlags & 0x0FFF);
+
+            // NOTE: We only support version 0 here.
+            if (version != 0) {
+                LOG_ERROR(kCodec, "Mpeg4BoxSenc::Process - Found box with version: %u when we only support verison 0\n", version);
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            const TBool senc_use_subsamples = flags & 0x000002;
+            if (senc_use_subsamples) {
+                LOG_ERROR(kCodec, "Mpeg4BoxSenc::Process - Found box that requires subsample encryption that we don't support.\n");
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            iCache->Inspect(iBuf, iBuf.MaxBytes());
+            iState = eSampleCount;
+        }
+        else if (iState == eSampleCount) {
+            iOffset += iBuf.Bytes();
+
+            iSampleCount = Converter::BeUint32At(iBuf, 0);
+
+            if (iSampleCount == 0) {
+                iState = eComplete;
+            }
+            else {
+                if (iProtectionDetails.PerSampleIVSizeBytes() > iBuf64.MaxBytes())  {
+                    LOG_ERROR(kCodec, "Mpeg4BoxSenc::Process - Need %u byte(s) to read IV, we only have capacity of: %u\n", iProtectionDetails.PerSampleIVSizeBytes(), iBuf64.MaxBytes());
+                    THROW(MediaMpeg4FileInvalid);
+                }
+
+                iCache->Inspect(iBuf64, iProtectionDetails.PerSampleIVSizeBytes());
+                iState = eSampleIV;
+            }
+        }
+        else if (iState == eSampleIV) {
+            iOffset += iBuf64.Bytes();
+
+            iSampleCount -= 1;
+
+            iProtectionDetails.AddSampleIV(iBuf64);
+
+            if (iSampleCount == 0) {
+                iState = eComplete;
+            }
+            else {
+                iCache->Inspect(iBuf64, iProtectionDetails.PerSampleIVSizeBytes());
+            }
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxSenc::Complete() const
+{
+    ASSERT(iOffset <= iBytes);
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxSenc::Reset()
+{
+    iCache       = nullptr;
+    iState       = eNone;
+    iBytes       = 0;
+    iOffset      = 0;
+    iSampleCount = 0;
+
+    iBuf.SetBytes(0);
+    iBuf64.SetBytes(0);
+    iProtectionDetails.ClearSampleIVs();
+}
+
+TBool Mpeg4BoxSenc::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("senc");
+}
+
+void Mpeg4BoxSenc::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
+
 // Mpeg4BoxEsds
 
 Mpeg4BoxEsds::Mpeg4BoxEsds(ICodecInfoSettable& aCodecInfoSettable) :

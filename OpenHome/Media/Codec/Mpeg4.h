@@ -705,6 +705,94 @@ public:
 };
 
 
+class Mpeg4BoxSchm : public IMpeg4BoxRecognisable
+{
+public:
+    Mpeg4BoxSchm();
+public: // from IMpeg4BoxRecognisable
+    Msg* Process() override;
+    TBool Complete() const override;
+    void Reset() override;
+    TBool Recognise(const Brx& aBoxId) const override;
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+private:
+    enum EState
+    {
+        eNone,
+        eFlags,
+        eSchemeType,
+        eComplete,
+    };
+private:
+    IMsgAudioEncodedCache* iCache;
+    EState iState;
+    TUint iBytes;
+    TUint iOffset;
+    Bws<4> iBuf;
+};
+
+
+class Mpeg4BoxTenc : public IMpeg4BoxRecognisable
+{
+public:
+    Mpeg4BoxTenc(Mpeg4ProtectionDetails& aProtectionDetails);
+public: // from IMpeg4BoxRecognisable
+    Msg* Process() override;
+    TBool Complete() const override;
+    void Reset() override;
+    TBool Recognise(const Brx& aBoxId) const override;
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+private:
+    enum EState
+    {
+        eNone,
+        eFlagsAndVersion,
+        eIsProtected,
+        eDefaultPerSampleIVSize,
+        eDefaultKID,
+        eComplete,
+    };
+private:
+    Mpeg4ProtectionDetails& iProtectionDetails;
+    IMsgAudioEncodedCache* iCache;
+    EState iState;
+    TUint iBytes;
+    TUint iOffset;
+    Bws<4> iBuf;
+    Bws<1> iBuf8;
+    Bws<16> iKIDBuf;
+};
+
+class Mpeg4BoxSenc : public IMpeg4BoxRecognisable
+{
+public:
+    Mpeg4BoxSenc(Mpeg4ProtectionDetails& aProtectionDetails);
+public: // from IMpeg4BoxRecognisable
+    Msg* Process() override;
+    TBool Complete() const override;
+    void Reset() override;
+    TBool Recognise(const Brx& aBoxId) const override;
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+private:
+    enum EState
+    {
+        eNone,
+        eFlagsAndVersion,
+        eSampleCount,
+        eSampleIV,
+        eComplete,
+    };
+private:
+    Mpeg4ProtectionDetails& iProtectionDetails;
+    IMsgAudioEncodedCache* iCache;
+    EState iState;
+    TUint iBytes;
+    TUint iOffset;
+    TUint iSampleCount;
+    Bws<4> iBuf;
+    Bws<8> iBuf64;
+};
+
 class Mpeg4BoxEsds : public IMpeg4BoxRecognisable
 {
 private:
