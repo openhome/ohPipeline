@@ -704,6 +704,11 @@ public:
     Mpeg4BoxCodecFlac(IStreamInfoSettable& aStreamInfoSettable, ICodecInfoSettable& aCodecInfoSettable);
 };
 
+class Mpeg4BoxCodecMp4aProtected : public Mpeg4BoxCodecBase
+{
+public:
+    Mpeg4BoxCodecMp4aProtected(IStreamInfoSettable& aStreamInfoSettable, Mpeg4ProtectionDetails& aProtectionDetails);
+};
 
 class Mpeg4BoxSchm : public IMpeg4BoxRecognisable
 {
@@ -888,7 +893,9 @@ class Mpeg4BoxStsd : public IMpeg4BoxRecognisable
 private:
     static const TUint kVersion = 0;
 public:
-    Mpeg4BoxStsd(IStreamInfoSettable& aStreamInfoSettable, ICodecInfoSettable& aCodecInfoSettable);
+    Mpeg4BoxStsd(IStreamInfoSettable& aStreamInfoSettable,
+                 ICodecInfoSettable& aCodecInfoSettable,
+                 Mpeg4ProtectionDetails& aProtectionDetails);
 public: // from IMpeg4BoxRecognisable
     Msg* Process() override;
     TBool Complete() const override;

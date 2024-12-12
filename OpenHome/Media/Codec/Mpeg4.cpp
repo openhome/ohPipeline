@@ -1974,6 +1974,18 @@ Mpeg4BoxCodecFlac::Mpeg4BoxCodecFlac(IStreamInfoSettable& aStreamInfoSettable, I
     iProcessorFactory.Add(new Mpeg4BoxDfla(aCodecInfoSettable));
 }
 
+// Mpeg4BoxCodecMp4aProtected
+
+Mpeg4BoxCodecMp4aProtected::Mpeg4BoxCodecMp4aProtected(IStreamInfoSettable& aStreamInfoSettable,
+                                                       Mpeg4ProtectionDetails& aProtectionDetails)
+    : Mpeg4BoxCodecBase(Brn("enca"), aStreamInfoSettable)
+{
+    iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("sinf")));
+    iProcessorFactory.Add(new Mpeg4BoxSchm());
+    iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("schi")));
+    iProcessorFactory.Add(new Mpeg4BoxTenc(aProtectionDetails));
+}
+
 // Mpeg4BoxSchm
 
 Mpeg4BoxSchm::Mpeg4BoxSchm()
@@ -2543,9 +2555,13 @@ void Mpeg4BoxDfla::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
 // Mpeg4BoxStsd
 
 Mpeg4BoxStsd::Mpeg4BoxStsd(IStreamInfoSettable& aStreamInfoSettable,
-        ICodecInfoSettable& aCodecInfoSettable) :
-        iCache(nullptr), iProcessor(nullptr), iState(eNone), iBytes(0), iOffset(
-                0)
+                           ICodecInfoSettable& aCodecInfoSettable,
+                           Mpeg4ProtectionDetails& aProtectionDetails)
+    : iCache(nullptr)
+    , iProcessor(nullptr)
+    , iState(eNone)
+    , iBytes(0)
+    , iOffset(0)
 {
     iProcessorFactory.Add(
             new Mpeg4BoxCodecMp4a(aStreamInfoSettable, aCodecInfoSettable));
@@ -2553,6 +2569,8 @@ Mpeg4BoxStsd::Mpeg4BoxStsd(IStreamInfoSettable& aStreamInfoSettable,
             new Mpeg4BoxCodecAlac(aStreamInfoSettable, aCodecInfoSettable));
     iProcessorFactory.Add(
             new Mpeg4BoxCodecFlac(aStreamInfoSettable, aCodecInfoSettable));
+    iProcessorFactory.Add(
+            new Mpeg4BoxCodecMp4aProtected(aStreamInfoSettable, aProtectionDetails));
 }
 
 Msg* Mpeg4BoxStsd::Process()
@@ -4079,7 +4097,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("minf")));
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("stbl")));
     iProcessorFactory.Add(new Mpeg4BoxMoov(iProcessorFactory, iMetadataChecker));
-    iProcessorFactory.Add(new Mpeg4BoxStsd(iStreamInfo, iCodecInfo));
+    iProcessorFactory.Add(new Mpeg4BoxStsd(iStreamInfo, iCodecInfo, iProtectionDetails));
     iProcessorFactory.Add(new Mpeg4BoxStts(iSeekTable));
     iProcessorFactory.Add(new Mpeg4BoxStsc(iSeekTable));
     iProcessorFactory.Add(new Mpeg4BoxStco(iSeekTable));
@@ -4100,6 +4118,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxTfhd(iSampleSizeTable, iContainerInfo));
     iProcessorFactory.Add(new Mpeg4BoxTrun(iSampleSizeTable, iSeekTable, iContainerInfo));
 #endif
+    iProcessorFactory.Add(new Mpeg4BoxSenc(iProtectionDetails));
 
     ASSERT(iSeekObserver != nullptr);
 
