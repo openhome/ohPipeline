@@ -14,7 +14,8 @@
         ],
         "source-git": "https://github.com/openhome/ohNet.git"
     },
-    {   "name": "yocto_core4_sdk",
+    {
+        "name": "yocto_core4_sdk",
         "type": "internal",
         "platform-specific": true,
         "platform-ignore": {
@@ -94,7 +95,7 @@
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.1.60",
+        "version": "1.1.64",
         "archive-suffix": "-${debugmode}",
         "archive-directory": "${binary-repo}/raat/",
         "cross-check": false,
