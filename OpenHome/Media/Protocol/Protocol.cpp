@@ -502,11 +502,6 @@ void ProtocolManager::Add(ContentProcessor* aProcessor)
     aProcessor->Initialise(*this);
 }
 
-void ProtocolManager::Add(IDRMProvider* aProvider)
-{
-    iAudioProcessor->Add(aProvider);
-}
-
 void ProtocolManager::Interrupt(TBool aInterrupt)
 {
     /* Deliberately don't take iLock.  Avoids any possibility of deadlock with protocols

@@ -52,11 +52,6 @@ ContentAudio::~ContentAudio()
     delete iSupply;
 }
 
-void ContentAudio::Add(IDRMProvider* aProvider)
-{
-    iDRMProviders.push_back(std::move(aProvider));
-}
-
 
 TBool ContentAudio::Recognise(const Brx& /*aUri*/, const Brx& /*aMimeType*/, const Brx& /*aData*/)
 {
@@ -83,22 +78,8 @@ ProtocolStreamResult ContentAudio::Stream(IReader& aReader, TUint64 aTotalBytes)
         for (;;) {
             Brn buf = aReader.Read(kMaxReadBytes);
 
-            TBool wasDRMProtected = false;
             WriterSupply ws(*iSupply);
-
-            for(auto s : iDRMProviders) {
-                if (s->IsActive()) {
-                    wasDRMProtected = true;
-                    // TODO / FIXME - Get the result of this!!
-                    (void)s->TryGetAudioFrom(buf, ws);
-                    break;
-                }
-            }
-
-            if (!wasDRMProtected) {
-                ws.Write(buf);
-            }
-
+            ws.Write(buf);
             ws.WriteFlush();
 
             if (aTotalBytes > 0) {

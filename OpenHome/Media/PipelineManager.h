@@ -34,7 +34,6 @@ class ContentProcessor;
 class UriProvider;
 class IVolumeRamper;
 class IVolumeMuterStepped;
-class IDRMProvider;
 class IAudioTime;
 
 class PriorityArbitratorPipeline : public IPriorityArbitrator, private INonCopyable
@@ -125,13 +124,6 @@ public:
      * @param[in] aContentProcessor   Ownership transfers to PipelineManager.
      */
     void Add(ContentProcessor* aContentProcessor);
-    /**
-     * Add a DRM provider to the pipeline to handle protected content
-     *
-     * Must be called before Start().
-     * @param[in] aProvider  Ownership transfers to PipelineManager
-     */
-    void Add(IDRMProvider* aProvider);
     /**
      * Add a uri provider to the pipeline.
      *
