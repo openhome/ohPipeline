@@ -31,6 +31,7 @@
 #include <OpenHome/Net/Odp/DviServerOdp.h>
 #include <OpenHome/Net/Odp/DviProtocolOdp.h>
 #include <OpenHome/Private/Debug.h>
+#include <OpenHome/Media/Codec/Mpeg4.h>
 
 #include <vector>
 
@@ -177,6 +178,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     , iRxTimestamper(nullptr)
     , iStoreFileWriter(nullptr)
     , iEnableDash(aEnableDash)
+    , iMpegDRMProvider(nullptr)
     , iOdpPort(aOdpPort)
     , iOdpZeroConf(nullptr)
     , iServerOdp(nullptr)
@@ -412,6 +414,11 @@ void TestMediaPlayer::RunWithSemaphore()
     storePrinter.Print();
 }
 
+void TestMediaPlayer::EnableMpegDRM(Codec::IMpegDRMProvider* aDRMProvider)
+{
+    iMpegDRMProvider = aDRMProvider;
+}
+
 PipelineManager& TestMediaPlayer::Pipeline()
 {
     return iMediaPlayer->Pipeline();
@@ -444,9 +451,11 @@ void TestMediaPlayer::TryRegisterVorbis()
 
 void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 {
+    Optional<Codec::IMpegDRMProvider> mpegDRMProvider = iMpegDRMProvider;
+
     // Add containers
     iMediaPlayer->Add(Codec::ContainerFactory::NewId3v2());
-    iMediaPlayer->Add(Codec::ContainerFactory::NewMpeg4(iMediaPlayer->MimeTypes(), iMpegDRMProvider));
+    iMediaPlayer->Add(Codec::ContainerFactory::NewMpeg4(iMediaPlayer->MimeTypes(), mpegDRMProvider));
     iMediaPlayer->Add(Codec::ContainerFactory::NewMpegTs(iMediaPlayer->MimeTypes()));
 
     // Add codecs

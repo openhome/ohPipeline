@@ -310,6 +310,11 @@ void MediaPlayer::Add(Codec::CodecBase* aCodec)
     iPipeline->Add(aCodec);
 }
 
+void MediaPlayer::Add(IDashDRMProvider* aProvider)
+{
+    iPipeline->Add(aProvider);
+}
+
 void MediaPlayer::Add(Protocol* aProtocol)
 {
     iPipeline->Add(aProtocol);

@@ -1512,7 +1512,6 @@ TBool MPDSegmentStream::TrySetInitialSegmentNumber()
 
 
 
-
 // ContentMPD
 class ContentMPD : public Media::ContentProcessor
 {
@@ -1522,6 +1521,8 @@ public:
 
 public:
     MPDDocument& MPD();
+
+    void Initialise(IProtocolManager* aProtocolManager);
 
 private: // ContentProcessor
     TBool Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aData) override;
@@ -1535,12 +1536,14 @@ private:
     ITimer* iExpiryTimer;
     WriterBwh iBuffer;
     MPDDocument iDocument;
+    IProtocolManager* iProtocolManager;   // Not owned
 };
 
 
 
 ContentMPD::ContentMPD(ITimerFactory& aTimerFactory)
     : iBuffer(1024)
+    , iProtocolManager(nullptr)
 {
     iExpiryTimer = aTimerFactory.CreateTimer(MakeFunctor(*this, &ContentMPD::OnMPDDocumentExpiryTimerFired), "ContentMPD-Expiry");
 }
@@ -1555,6 +1558,11 @@ ContentMPD::~ContentMPD()
 MPDDocument& ContentMPD::MPD()
 {
     return iDocument;
+}
+
+void ContentMPD::Initialise(IProtocolManager* aProtocolManager)
+{
+    iProtocolManager = aProtocolManager;
 }
 
 TBool ContentMPD::Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aData)
@@ -1616,10 +1624,37 @@ ProtocolStreamResult ContentMPD::Stream(IReader& aReader, TUint64 aTotalBytes)
     }
 
     // If the Document is content protected, we probably should grab the details here
-    // and seed the DRMProvider with all the required information???
+    // and seed the DRMProvider with all the required information
+    if (iDocument.IsContentProtected()) {
+        LOG(kMedia, "ContentMPD::Stream - MPD reports DRM protection\n");
 
-    // TODO: Actually do the content protection, unless we want to do that as part of the
-    //       Segment stream / Protocol module itself???
+        const ContentProtection& cp = iDocument.ContentProtectionDetails();
+        if (!cp.IsMPEG4Protection()) {
+            LOG_ERROR(kMedia, "ContentMPD::Stream  - Unknown DRM scheme: %.*s. Content not playable.\n", PBUF(cp.iSchemeIdUri));
+            return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+        }
+
+        LOG(kMedia, "ContentMPD::Stream - DRM Type: MP4 (Kind:'%.*s')\n", PBUF(cp.iValue));
+
+        ASSERT(iProtocolManager);
+        const std::vector<IDashDRMProvider*>& drmProviders = iProtocolManager->GetDashDRMProviders();
+        IDashDRMProvider* activeDRMProvider = nullptr;
+
+        for(TUint i = 0; i < drmProviders.size(); i += 1) {
+            if (drmProviders[i]->TryRecognise(cp)) {
+                activeDRMProvider = drmProviders[i];
+                break;
+            }
+        }
+
+        if (activeDRMProvider == nullptr) {
+            LOG_ERROR(kMedia, "ContentMPD::Stream - MPD is content protected, but were unable to find a DRM provider that could handle it.\n");
+            return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+        }
+    }
+    else {
+        LOG(kMedia, "ContentMPD::Stream - MPD contains no DRM protection\n");
+    }
 
 
     // TODO: We need to get some sort of thing to indicate when the DASH streams have changed.
@@ -1724,6 +1759,7 @@ ProtocolDash::ProtocolDash(Environment& aEnv, SslContext& aSsl, Av::IMediaPlayer
     , iDechunker(iReaderUntil)
 {
     TimerFactory timerFactory(aEnv);
+
     iContentProcessor = new ContentMPD(timerFactory);
 
     iReaderResponse.AddHeader(iHeaderContentType);
@@ -1745,6 +1781,7 @@ ProtocolDash::~ProtocolDash()
 void ProtocolDash::Initialise(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownstream)
 {
     iSupply = new Supply(aMsgFactory, aDownstream);
+    iContentProcessor->Initialise(iProtocolManager);
 }
 
 void ProtocolDash::Interrupt(TBool aInterrupt)
@@ -1797,12 +1834,6 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
     MPDSegment segment(iSegmentUrlBuffer);
     MPDDocument& document = iContentProcessor->MPD();
 
-    // TODO: Correct we have the correct type of document depending on if we've enabled support for stuff
-    if (document.IsStatic()) {
-        LOG_ERROR(kMedia, "ProtocolDash::Stream - Dash Manifest is of type: 'Static', which we currently do not support.\n");
-        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-    }
-
     if (!iSegmentStream.TrySet(document)) {
         LOG_ERROR(kMedia, "ProtocolDash::Stream - Failed to construct segment stream around provided MPD document\n");
         return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
@@ -1810,7 +1841,7 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
 
     // TODO: Check that we have the correct type of stream depending on if we've enabled support for it.
 
-    LOG(kMedia, "ProtocolDash::Stream - Manifest Type: 'Dynamic'\n");
+    LOG(kMedia, "ProtocolDash::Stream - Manifest Type: '%s'\n", document.IsStatic() ? "Static" : "Dynamic");
 
     while ( !iStopped) {
         try {
@@ -2028,3 +2059,4 @@ ProtocolStreamResult ProtocolDash::StreamSegment(MPDSegment& aSegment)
     ContentProcessor* contentProcessor = iProtocolManager->GetAudioProcessor();
     return contentProcessor->Stream(*this, iHeaderContentLength.ContentLength());
 }
+

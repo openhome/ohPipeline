@@ -2903,7 +2903,12 @@ Msg* Mpeg4BoxMdat::Process()
                 iChunkBytesRemaining = ChunkBytes();
                 iState = eChunkReadSetup;
             }
-            return msg;
+
+            // Need to check for nullptr here as if there is no codec info, we've nothing to output.
+            // This often happens with fragmented streams when we transition to the second 'moof' fragment.
+            if (msg != nullptr) {
+                return msg;
+            }
         }
         else if (iState == eChunkReadSetup) {
 
@@ -3074,7 +3079,7 @@ Msg* Mpeg4BoxMdat::Process()
 
                 if (!iDRMProvider.Unwrap().Decrypt(KID, sampleData, IV, *iDecryptionBuf)) {
                     LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process() - Failed to decrypt content\n");
-                    THROW(CodecStreamCorrupt);
+                    THROW(MediaMpeg4FileInvalid);
                 }
 
                 iSampleIndex += 1;
@@ -3097,7 +3102,11 @@ Msg* Mpeg4BoxMdat::Process()
 TBool Mpeg4BoxMdat::Complete() const
 {
     ASSERT(iOffset <= iBytes);
-    return iOffset == iBytes;
+
+    const TBool finishedReading    = iOffset == iBytes;
+    const TBool finishedDecrypting = iChunkMsg == nullptr;
+
+    return finishedReading && finishedDecrypting;
 }
 
 void Mpeg4BoxMdat::Reset()
@@ -3113,6 +3122,7 @@ void Mpeg4BoxMdat::Reset()
     iOffset = 0;
     iBoxStartOffset = 0;
     iFileReadOffset = 0;
+    iSampleIndex = 0;
 
     if (iChunkMsg) {
         iChunkMsg->RemoveRef();
@@ -3240,6 +3250,7 @@ void SampleSizeTable::Init(TUint aMaxEntries)
 void SampleSizeTable::Clear()
 {
     iTable.clear();
+    iDefaultSampleSize = 0;
 }
 
 void SampleSizeTable::AddSampleSize(TUint aSize)
@@ -4210,7 +4221,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxMoof(iProcessorFactory, iContainerInfo));
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("traf")));
     iProcessorFactory.Add(new Mpeg4BoxTfhd(iSampleSizeTable, iContainerInfo));
-    iProcessorFactory.Add(new Mpeg4BoxTrun(iSampleSizeTable, iSeekTable, iContainerInfo));
+    iProcessorFactory.Add(new Mpeg4BoxTrun(iSampleSizeTable, iContainerInfo));
 #endif
     iProcessorFactory.Add(new Mpeg4BoxSenc(iProtectionDetails));
 
@@ -4262,6 +4273,7 @@ void Mpeg4Container::Reset()
     iSampleSizeTable.Clear();
     iSeekTable.Deinitialise();
     iContainerInfo.Reset();
+    iProtectionDetails.Reset();
     iRecognitionStarted = false;
     iRecognitionSuccess = false;
 }

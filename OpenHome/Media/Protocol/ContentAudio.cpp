@@ -52,7 +52,6 @@ ContentAudio::~ContentAudio()
     delete iSupply;
 }
 
-
 TBool ContentAudio::Recognise(const Brx& /*aUri*/, const Brx& /*aMimeType*/, const Brx& /*aData*/)
 {
     /* Assume that this processor will be offered content last.
@@ -79,6 +78,7 @@ ProtocolStreamResult ContentAudio::Stream(IReader& aReader, TUint64 aTotalBytes)
             Brn buf = aReader.Read(kMaxReadBytes);
 
             WriterSupply ws(*iSupply);
+
             ws.Write(buf);
             ws.WriteFlush();
 

@@ -117,6 +117,11 @@ void PipelineManager::Add(ContentProcessor* aContentProcessor)
     iProtocolManager->Add(aContentProcessor);
 }
 
+void PipelineManager::Add(IDashDRMProvider* aProvider)
+{
+    iProtocolManager->Add(aProvider);
+}
+
 void PipelineManager::Add(UriProvider* aUriProvider)
 {
     iUriProviders.push_back(aUriProvider);

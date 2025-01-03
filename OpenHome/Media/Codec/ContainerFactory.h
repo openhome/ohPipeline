@@ -1,6 +1,8 @@
 #pragma once
 #include <OpenHome/Optional.h>
 
+#include <OpenHome/Optional.h>
+
 namespace OpenHome {
 namespace Media {
     class IMimeTypeList;

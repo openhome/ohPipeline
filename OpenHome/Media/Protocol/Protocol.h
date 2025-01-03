@@ -48,8 +48,9 @@ public:
     virtual void NotifyServer(const Brx& aServer) = 0; // not allowed to throw
 };
 
-
+class IDashDRMProvider;
 class ContentProcessor;
+
 class IProtocolManager : public IProtocolSet
 {
 public:
@@ -57,6 +58,7 @@ public:
     // In the case of these methods, returning a pointer DOES NOT imply ownership.
     virtual ContentProcessor* GetContentProcessor(const Brx& aUri, const Brx& aMimeType, const Brx& aData) const = 0;
     virtual ContentProcessor* GetAudioProcessor() const = 0;
+    virtual const std::vector<IDashDRMProvider*>& GetDashDRMProviders() const = 0;
     virtual TBool Get(IWriter& aWriter, const Brx& aUri, TUint64 aOffset, TUint aBytes) = 0;
 };
 
@@ -261,6 +263,7 @@ public:
     virtual ~ProtocolManager();
     void Add(Protocol* aProtocol);
     void Add(ContentProcessor* aProcessor);
+    void Add(IDashDRMProvider* aProvider);
 public: // from IUriStreamer
     ProtocolStreamResult DoStream(Track& aTrack) override;
     void Interrupt(TBool aInterrupt) override;
@@ -270,6 +273,7 @@ private: // from IProtocolManager
     ProtocolStreamResult Stream(const Brx& aUri) override;
     ContentProcessor* GetContentProcessor(const Brx& aUri, const Brx& aMimeType, const Brx& aData) const override;
     ContentProcessor* GetAudioProcessor() const override;
+    const std::vector<IDashDRMProvider*>& GetDashDRMProviders() const override;
     TBool Get(IWriter& aWriter, const Brx& aUri, TUint64 aOffset, TUint aBytes) override;
 private:
     IPipelineElementDownstream& iDownstream;
@@ -279,6 +283,7 @@ private:
     mutable Mutex iLock;
     std::vector<Protocol*> iProtocols;
     std::vector<ContentProcessor*> iContentProcessors;
+    std::vector<IDashDRMProvider*> iDRMProviders;
     ContentAudio* iAudioProcessor;
 
 };
