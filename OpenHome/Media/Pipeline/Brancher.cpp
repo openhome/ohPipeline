@@ -35,7 +35,8 @@ void Branch::Push(Msg* aMsg)
     iDownstream.Push(aMsg);
 }
 
-Msg* Branch::PreProcess(Msg* aMsg) {
+Msg* Branch::PreProcess(Msg* aMsg)
+{
     if (iPreProcessor != nullptr) {
         return aMsg->Process(*iPreProcessor);
     }
@@ -43,14 +44,16 @@ Msg* Branch::PreProcess(Msg* aMsg) {
 
 }
 
-Msg* Branch::PostProcess(Msg* aMsg) {
+Msg* Branch::PostProcess(Msg* aMsg)
+{
     if (iPostProcessor != nullptr) {
         return aMsg->Process(*iPostProcessor);
     }
     return aMsg;
 }
 
-TBool Branch::ProcessEnable(Msg* aMsg) {
+TBool Branch::ProcessEnable(Msg* aMsg)
+{
     if (iEnableProcessor != nullptr) {
         return iEnableProcessor->Peek(*aMsg);
     }

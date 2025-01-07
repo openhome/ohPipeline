@@ -570,9 +570,9 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerVolumeRamper, new Logger(*iVolumeRamper, "VolumeRamper"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iBrancherBluez, new Brancher(*upstream, Brn("BrancherBluez"), IBrancher::EPriority::Exclusive),
+    ATTACH_ELEMENT(iBrancherBluetooth, new Brancher(*upstream, Brn("BrancherBluetooth"), IBrancher::EPriority::Exclusive),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
-    ATTACH_ELEMENT(iLoggerBrancherBluez, new Logger(*iBrancherBluez, "BrancherBluez"),
+    ATTACH_ELEMENT(iLoggerBrancherBluetooth, new Logger(*iBrancherBluetooth, "BrancherBluetooth"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
     ATTACH_ELEMENT(iPreDriver, new PreDriver(*upstream),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
@@ -591,7 +591,7 @@ Pipeline::Pipeline(
     gPipeline = this;
 
     iBranchController->AttachBrancher(*iBrancherSongcast);
-    iBranchController->AttachBrancher(*iBrancherBluez);
+    iBranchController->AttachBrancher(*iBrancherBluetooth);
 
     //iAudioDumper->SetEnabled(true);
 
@@ -619,7 +619,7 @@ Pipeline::Pipeline(
     //iLoggerPhaseAdjuster->SetEnabled(true);
     //iLoggerMuter->SetEnabled(true);
     //iLoggerVolumeRamper->SetEnabled(true);
-    //iLoggerBrancherBluez->SetEnabled(true);
+    //iLoggerBrancherBluetooth->SetEnabled(true);
 
     // A logger that is enabled will block waiting for MsgQuit in its dtor
     // ~Pipeline (below) relies on this to synchronise its destruction
@@ -650,7 +650,7 @@ Pipeline::Pipeline(
     //iLoggerPhaseAdjuster->SetFilter(Logger::EMsgAll);
     //iLoggerMuter->SetFilter(Logger::EMsgAll);
     //iLoggerVolumeRamper->SetFilter(Logger::EMsgAll);
-    //iLoggerBrancherBluez->SetFilter(Logger::EMsgAll);
+    //iLoggerBrancherBluetooth->SetFilter(Logger::EMsgAll);
     //iLoggerPreDriver->SetFilter(Logger::EMsgAll);
 }
 
@@ -662,15 +662,15 @@ Pipeline::~Pipeline()
     iEventThread->Stop();
 
     // iBranchController->RemoveBrancher(Brn("BrancherSongcast"));
-    iBranchController->RemoveBrancher(Brn("BrancherBluez"));
+    iBranchController->RemoveBrancher(Brn("BrancherBluetooth"));
 
 
     // loggers (if non-null) and iPreDriver will block until they receive the Quit msg
     delete iMuteCounted;
     delete iLoggerPreDriver;
     delete iPreDriver;
-    delete iLoggerBrancherBluez;
-    delete iBrancherBluez;
+    delete iLoggerBrancherBluetooth;
+    delete iBrancherBluetooth;
     delete iLoggerVolumeRamper;
     delete iVolumeRamper;
     delete iDecodedAudioValidatorMuter;

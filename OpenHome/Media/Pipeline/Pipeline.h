@@ -349,8 +349,8 @@ private:
     DecodedAudioValidator* iDecodedAudioValidatorMuter;
     VolumeRamper* iVolumeRamper;
     Logger* iLoggerVolumeRamper;
-    Brancher* iBrancherBluez;
-    Logger* iLoggerBrancherBluez;
+    Brancher* iBrancherBluetooth;
+    Logger* iLoggerBrancherBluetooth;
     PreDriver* iPreDriver;
     Logger* iLoggerPreDriver;
     IPipelineElementDownstream* iPipelineStart;
