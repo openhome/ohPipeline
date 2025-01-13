@@ -65,16 +65,18 @@ void PowerManager::NotifyPowerDown()
 {
     // FIXME - the caller of power down should provide some kind of interrupt
     // for stopping any non-essential store tasks in progress
-    AutoMutex _(iLock);
-    LOG(kPowerManager, ">PowerManager::NotifyPowerDown. iPowerDown: %s, iPowerObservers.size(): %u\n", PBool(iPowerDown), iPowerObservers.size());
-    if (!iPowerDown)
     {
-        iPowerDown = true;
-        TUint i = 0;
-        for (auto it = iPowerObservers.cbegin(); it != iPowerObservers.cend(); ++it) {
-            IPowerHandler& handler = (*it)->PowerHandler();
-            handler.PowerDown();
-            LOG(kPowerManager, "PowerManager::NotifyPowerDown %u, %s\n", ++i, (*it)->ClientId());
+        AutoMutex _(iLock);
+        LOG(kPowerManager, ">PowerManager::NotifyPowerDown. iPowerDown: %s, iPowerObservers.size(): %u\n", PBool(iPowerDown), iPowerObservers.size());
+        if (!iPowerDown)
+        {
+            iPowerDown = true;
+            TUint i = 0;
+            for (auto it = iPowerObservers.cbegin(); it != iPowerObservers.cend(); ++it) {
+                IPowerHandler& handler = (*it)->PowerHandler();
+                handler.PowerDown();
+                LOG(kPowerManager, "PowerManager::NotifyPowerDown %u, %s\n", ++i, (*it)->ClientId());
+            }
         }
     }
     iPowerDownChecker->FireIn(kPowerDownTimeoutMs);
@@ -260,7 +262,19 @@ void PowerManager::StartupStandbyExecute(Standby aMode)
 void PowerManager::PowerDownFailed()
 {
     Log::Print("NotifyPowerDown() called but device is still running %ums later\n", kPowerDownTimeoutMs);
-    ASSERTS();
+
+    AutoMutex _(iLock);
+    LOG(kPowerManager, ">PowerManager::PowerDownFailed. iPowerObservers.size(): %u\n", iPowerObservers.size());
+    if (iPowerDown) {
+        iPowerDown = false;
+        TUint i = 0;
+        for (auto it = iPowerObservers.cbegin(); it != iPowerObservers.cend(); ++it) {
+            IPowerHandler& handler = (*it)->PowerHandler();
+            handler.PowerUp();
+            LOG(kPowerManager, "PowerManager::NotifyPowerDown %u, %s\n", ++i, (*it)->ClientId());
+        }
+    }
+    LOG(kPowerManager, "<PowerManager::PowerDownFailed\n");
 }
 
 
