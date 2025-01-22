@@ -2827,6 +2827,7 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
     , iContainerInfo(aContainerInfo)
     , iOutOfBandReader(aOutOfBandReader)
     , iLock("MP4D")
+    , iLoggedMissingEncryptionError(false)
     , iChunkMsg(nullptr)
 {
     aChunkSeeker.RegisterChunkSeekObserver(*this);
@@ -2984,8 +2985,13 @@ Msg* Mpeg4BoxMdat::Process()
                 // If the content is encrypted, we need to decrypt here before passing on...
                 if (iProtectionDetails.IsProtected() && iProtectionDetails.HasPerSampleIVs()) {
                     if (!iDRMProvider.Ok()) {
-                        LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process - Encountered an encrypted stream but have no means to decrypt content.\n");
-                        THROW(CodecStreamFeatureUnsupported);
+                        if (!iLoggedMissingEncryptionError) {
+                            iLoggedMissingEncryptionError = true;
+                            LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process - Encountered an encrypted stream but have no means to decrypt content.\n");
+                        }
+
+                        msg->RemoveRef(); // Discard msg, no longer needed.
+                        THROW(CodecStreamCorrupt);
                     }
 
 
@@ -3123,6 +3129,7 @@ void Mpeg4BoxMdat::Reset()
     iBoxStartOffset = 0;
     iFileReadOffset = 0;
     iSampleIndex = 0;
+    iLoggedMissingEncryptionError = false;
 
     if (iChunkMsg) {
         iChunkMsg->RemoveRef();

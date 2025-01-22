@@ -1067,6 +1067,7 @@ private:
     TUint64 iBoxStartOffset;
     TUint64 iFileReadOffset;
     Mutex iLock;
+    TBool iLoggedMissingEncryptionError;
 
     // Protection Support
     TUint iSampleIndex;

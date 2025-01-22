@@ -1804,28 +1804,17 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
         return EProtocolErrorNotSupported;
     }
 
-    iStarted        = false;
-    iStopped        = false;
-    iNextFlushId    = MsgFlush::kIdInvalid;
+    iStarted         = false;
+    iStopped         = false;
+    iNextFlushId     = MsgFlush::kIdInvalid;
     iCurrentStreamId = IPipelineIdProvider::kStreamIdInvalid;
-
-    // DEBUG - Copied from ProtocolQobuz
-    //iTotalBytes = iSeekPos = iOffset = 0;
-    //iStreamId = IPipelineIdProvider::kStreamIdInvalid;
-    //iSeekable = iSeek = iStarted = iStopped = false;
-    //iContentProcessor = nullptr;
-    //iNextFlushId = MsgFlush::kIdInvalid;
-    //iQobuz->Interrupt(false);
-    // -----
 
     // Check that the Uri matches that of the content processor (? Not sure if this is actually required cause I think
     // the way the pipeline works, this would be the same?)
-
     if (!iContentProcessor) {
         LOG_ERROR(kMedia, "ProtocolDash::Stream - No content processor!\n");
         return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
     }
-
 
     // NOTE: This needs to be here to ensure that we have a consistent messaging for the entire MPD file
     iCurrentStreamId = iIdProvider->NextStreamId();
@@ -1840,10 +1829,11 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
     }
 
     // TODO: Check that we have the correct type of stream depending on if we've enabled support for it.
-
     LOG(kMedia, "ProtocolDash::Stream - Manifest Type: '%s'\n", document.IsStatic() ? "Static" : "Dynamic");
 
-    while ( !iStopped) {
+    ProtocolStreamResult streamResult = EProtocolStreamSuccess;
+
+    while (!iStopped && streamResult == EProtocolStreamSuccess) {
         try {
             if (!iSegmentStream.TryGetNextSegment(segment)) {
                 break;
@@ -1851,15 +1841,18 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
         }
         catch (SegmentStreamError&) {
             LOG_ERROR(kMedia, "ProtocolDash::Stream - SegmentStream error when fetching next segment\n");
-            return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+            streamResult = ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+            continue;
         }
         catch (SegmentStreamExpired&) {
             LOG(kMedia, "ProtocolDash::Stream - SegmentStream indicated that our MPD has expired.\n");
-            return ProtocolStreamResult::EProtocolStreamErrorRecoverable;
+            streamResult = ProtocolStreamResult::EProtocolStreamErrorRecoverable;
+            continue;
         }
         catch (SegmentStreamUnsupported&) {
             LOG_ERROR(kMedia, "ProtocolDash::Stream - Given MPD document provides segments in an unsupported format.\n");
-            return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+            streamResult =  ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+            continue;
         }
 
         // Segment present - lets stream!
@@ -1873,10 +1866,7 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
             LOG_TRACE(kMedia, "ProtocolDash::Steam - Segment Url: %.*s\n", PBUF(segment.iUrlBuffer));
         }
 
-        ProtocolStreamResult segmentResult = StreamSegment(segment);
-        if (segmentResult != EProtocolStreamSuccess) {
-            return segmentResult;
-        }
+        streamResult = StreamSegment(segment);
     }
 
     // End of stream. Also check for the stopped condition. This trumps all
@@ -1903,9 +1893,7 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
         return ProtocolStreamResult::EProtocolStreamErrorRecoverable;
     }
 
-    // Otherwise, assume we've finished the manifest so it has been a success(?)
-    // FIXME: 'Static' manifests will probably be the only things that reach this point.
-    return ProtocolStreamResult::EProtocolStreamSuccess;
+    return streamResult;
 }
 
 ProtocolGetResult ProtocolDash::Get(IWriter& aWriter, const Brx& aUri, TUint64 aOffset, TUint aBytes)
@@ -1972,7 +1960,6 @@ void ProtocolDash::ReadInterrupt()
 {
     iDechunker.ReadInterrupt();
 }
-
 
 ProtocolStreamResult ProtocolDash::StreamSegment(MPDSegment& aSegment)
 {
