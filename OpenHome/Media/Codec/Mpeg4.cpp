@@ -2901,7 +2901,12 @@ Msg* Mpeg4BoxMdat::Process()
             MsgAudioEncoded* msg = iMetadataProvider.GetMetadata();
             if (iMetadataProvider.Complete()) {
                 iChunk = 0;
-                iChunkBytesRemaining = ChunkBytes();
+
+                if (!ChunkBytes(&iChunkBytesRemaining)) {
+                    msg->RemoveRef();
+                    THROW(MediaMpeg4FileInvalid);
+                }
+
                 iState = eChunkReadSetup;
             }
 
@@ -2919,7 +2924,11 @@ Msg* Mpeg4BoxMdat::Process()
                     LOG(kCodec, "Mpeg4BoxMdat::Process seek occured iSeekChunk: %u\n", iSeekChunk);
                     // Chunk has changed due to seek.
                     iChunk = iSeekChunk;
-                    iChunkBytesRemaining = ChunkBytes();
+
+                    if (!ChunkBytes(&iChunkBytesRemaining)) {
+                        THROW(MediaMpeg4FileInvalid);
+                    }
+
                     iFileReadOffset = iBoxStartOffset+Mpeg4BoxHeaderReader::kHeaderBytes;
                     iOffset = iFileReadOffset - Mpeg4BoxHeaderReader::kHeaderBytes - iBoxStartOffset;
 
@@ -2970,7 +2979,12 @@ Msg* Mpeg4BoxMdat::Process()
                     }
                     else {
                         iChunk++;
-                        iChunkBytesRemaining = ChunkBytes();
+
+                        if (!ChunkBytes(&iChunkBytesRemaining)) {
+                            msg->RemoveRef();
+                            THROW(MediaMpeg4FileInvalid);
+                        }
+
                         iState = eChunkReadSetup;
                     }
                 }
@@ -3043,7 +3057,11 @@ Msg* Mpeg4BoxMdat::Process()
                     }
                     else {
                         iChunk++;
-                        iChunkBytesRemaining = ChunkBytes();
+
+                        if (!ChunkBytes(&iChunkBytesRemaining)) {
+                            THROW(MediaMpeg4FileInvalid);
+                        }
+
                         iState = eChunkReadSetup;
                     }
                     break;
@@ -3069,7 +3087,11 @@ Msg* Mpeg4BoxMdat::Process()
                             }
                             else {
                                 iChunk++;
-                                iChunkBytesRemaining = ChunkBytes();
+
+                                if (!ChunkBytes(&iChunkBytesRemaining)) {
+                                    THROW(MediaMpeg4FileInvalid);
+                                }
+
                                 iState = eChunkReadSetup;
                             }
                         }
@@ -3187,7 +3209,7 @@ TUint Mpeg4BoxMdat::BytesUntilChunk() const
     return bytes;
 }
 
-TUint Mpeg4BoxMdat::ChunkBytes() const
+TBool Mpeg4BoxMdat::ChunkBytes(TUint *aChunkBytes) const
 {
     TUint chunkBytes               = 0;
     const TBool isFragmentedStream = iContainerInfo.ProcessingMode() == Mpeg4ContainerInfo::EProcessingMode::Fragmented;
@@ -3198,14 +3220,16 @@ TUint Mpeg4BoxMdat::ChunkBytes() const
 
             if ((std::numeric_limits<TUint>::max() - chunkBytes) < sampleBytes) {
                 // Wrapping will occur.
-                THROW(MediaMpeg4FileInvalid);
+                *aChunkBytes = 0;
+                return false;
             }
             chunkBytes += sampleBytes;
         }
     }
     else {
         if (iChunk >= iSeekTable.ChunkCount()) {
-            THROW(MediaMpeg4FileInvalid);
+            *aChunkBytes = 0;
+            return false;
         }
         const TUint chunkSamples = iSeekTable.SamplesPerChunk(iChunk);
         const TUint startSample = iSeekTable.StartSample(iChunk); // NOTE: this assumes first sample == 0 (which is valid with how our tables are setup), but in MPEG4 spec, first sample == 1.
@@ -3215,13 +3239,15 @@ TUint Mpeg4BoxMdat::ChunkBytes() const
 
             if ((std::numeric_limits<TUint>::max() - chunkBytes) < sampleBytes) {
                 // Wrapping will occur.
-                THROW(MediaMpeg4FileInvalid);
+                *aChunkBytes = 0;
+                return false;
             }
             chunkBytes += sampleBytes;
         }
     }
 
-    return chunkBytes;
+    *aChunkBytes = chunkBytes;
+    return true;
 }
 
 TUint Mpeg4BoxMdat::BytesToRead() const

@@ -1030,7 +1030,7 @@ private: // from IMpeg4ChunkSeekObserver
     void ChunkSeek(TUint aChunk) override;
 private:
     TUint BytesUntilChunk() const;
-    TUint ChunkBytes() const;
+    TBool ChunkBytes(TUint *aChunkBytes) const;
     TUint BytesToRead() const;
 private:
     enum EState
