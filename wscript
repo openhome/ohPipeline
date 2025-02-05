@@ -190,6 +190,7 @@ upnp_services = [
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Transport1.xml',     'av.openhome.org', 'Transport',         '1', 'AvOpenhomeOrgTransport1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Pins1.xml',          'av.openhome.org', 'Pins',              '1', 'AvOpenhomeOrgPins1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/OAuth1.xml',         'av.openhome.org', 'OAuth',             '1', 'AvOpenhomeOrgOAuth1'),
+        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Reaction1.xml',      'av.openhome.org', 'Reaction',          '1', 'AvOpenhomeOrgReaction1'),
     ]
 
 def build(bld):
@@ -333,6 +334,9 @@ def build(bld):
                 'OpenHome/Av/ProviderInfo.cpp',
                 'Generated/DvAvOpenhomeOrgTransport1.cpp',
                 'Generated/CpAvOpenhomeOrgTransport1.cpp',
+                'Generated/CpAvOpenhomeOrgReaction1.cpp',
+                'Generated/DvAvOpenhomeOrgReaction1.cpp',
+                'OpenHome/Av/ProviderReaction.cpp',
                 'OpenHome/Av/TransportControl.cpp',
                 'OpenHome/Av/ProviderTransport.cpp',
                 'OpenHome/Av/Pins/TransportPins.cpp',

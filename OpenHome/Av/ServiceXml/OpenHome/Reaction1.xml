@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scpd xmlns="urn:schemas-upnp-org:service-1-0">
+    <specVersion>
+        <major>1</major>
+        <minor>0</minor>
+    </specVersion>
+    <actionList>
+        <action>
+            <name>GetCanReact</name>
+            <argumentList>
+                <argument>
+                    <name>CanReact</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>A_ARG_TYPE_Bool</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>GetCurrentReaction</name>
+            <argumentList>
+                <argument>
+                    <name>Reaction</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>GetAvailableReactions</name>
+            <argumentList>
+                <argument>
+                    <name>AvailableReactions</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+
+        <action>
+            <name>SetReaction</name>
+            <argumentList>
+                <argument>
+                    <name>Reaction</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>A_ARG_TYPE_String</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>ClearReaction</name>
+        </action>
+        
+    </actionList>
+    <serviceStateTable>
+        <stateVariable sendEvents="yes">
+            <name>CanReact</name>
+            <dataType>boolean</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="yes">
+            <name>CurrentReaction</name>
+            <dataType>string</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="yes">
+            <name>AvailableReactions</name>
+            <dataType>string</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="no">
+            <name>A_ARG_TYPE_String</name>
+            <dataType>string</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="no">
+            <name>A_ARG_TYPE_Bool</name>
+            <dataType>boolean</dataType>
+        </stateVariable>
+    </serviceStateTable>
+</scpd>

@@ -76,6 +76,8 @@ class ProviderPins;
 class TransportPins;
 class DeviceAnnouncerMdns;
 class IRadioPresets;
+class ProviderReaction;
+class IReactionHandler;
 
 class IMediaPlayer
 {
@@ -107,6 +109,7 @@ public:
     virtual void Add(Media::IDashDRMProvider* aProvider) = 0;
     virtual void Add(ISource* aSource) = 0;
     virtual void Add(Media::UriProvider* aUriProvider) = 0;
+    virtual void Add(Av::IReactionHandler *aReactionHandler) = 0;
     virtual void AddAttribute(const TChar* aAttribute) = 0;
     virtual ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) = 0; // must be called before Start()
     virtual IUnixTimestamp& UnixTimestamp() = 0;
@@ -203,6 +206,7 @@ public: // from IMediaPlayer
     void Add(Media::Protocol* aProtocol) override;
     void Add(ISource* aSource) override;
     void Add(Media::UriProvider* aUriProvider) override;
+    void Add(Av::IReactionHandler *aReactionHandler) override;
     void AddAttribute(const TChar* aAttribute) override;
     ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) override; // must be called before Start()
     IUnixTimestamp& UnixTimestamp() override;
@@ -251,6 +255,7 @@ private:
     Av::TransportPins* iTransportPins;
     DeviceAnnouncerMdns* iDeviceAnnouncerMdns;
     IRadioPresets* iRadioPresets;
+    Av::ProviderReaction *iProviderReaction;
 };
 
 } // namespace Av
