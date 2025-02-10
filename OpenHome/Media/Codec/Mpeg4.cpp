@@ -1401,9 +1401,10 @@ Msg* Mpeg4BoxTrun::Process()
                 ASSERT(Complete());
                 iState = eComplete;
             }
-
-            iCache->Inspect(iEntryBuf, iEntryBytes);
-            iState = eEntries;
+            else {
+                iCache->Inspect(iEntryBuf, iEntryBytes);
+                iState = eEntries;
+            }
 
         }
         else if (iState == eDataOffset) {
@@ -1424,9 +1425,10 @@ Msg* Mpeg4BoxTrun::Process()
                 ASSERT(Complete());
                 iState = eComplete;
             }
-
-            iCache->Inspect(iEntryBuf, iEntryBytes);
-            iState = eEntries;
+            else {
+                iCache->Inspect(iEntryBuf, iEntryBytes);
+                iState = eEntries;
+            }
         }
         else if (iState == eEntries) {
             TUint offset = 0;
