@@ -1083,6 +1083,7 @@ public:
     ~SampleSizeTable();
     void Init(TUint aMaxEntries);
     void Clear();
+    void Reset();
     void AddSampleSize(TUint aSampleSize);
     TUint SampleSize(TUint aIndex) const;
     TUint DefaultSampleSize() const;
