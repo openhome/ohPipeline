@@ -101,6 +101,24 @@ def configure(conf):
         'thirdparty/flac-1.2.1/include',
         ]
 
+    # Setup OPUS lib options
+    # NOTE: OPUS is currently in development so not enabled for products yet, only in SoftPlayers.
+    if conf.options.dest_platform in ['Windows-x86', 'Windows-x64', 'Linux-x86', 'Linux-x64', 'Mac-x64']:
+        conf.env.DEFINES_OPUS = ['CODEC_OPUS_ENABLED']
+    else:
+        conf.env.DEFINES_OPUS = []
+
+    conf.env.DEFINES_OPUS.append('OPUS_BUILD')           # Required to get Opus to build
+    conf.env.DEFINES_OPUS.append('FIXED_POINT')          # Recommended for platforms without FPU support. If we switch include paths need changed
+    conf.env.DEFINES_OPUS.append('USE_ALLOCA')           # ALLOCA used as some of our platforms / toolchain versions don't support variable length arrays (Default)
+    conf.env.INCLUDES_OPUS = [
+        'thirdparty/opus-1.5.2/src',
+        'thirdparty/opus-1.5.2/include',
+        'thirdparty/opus-1.5.2/silk',
+        'thirdparty/opus-1.5.2/silk/fixed',
+        'thirdparty/opus-1.5.2/celt',
+        ]
+
     # Setup Apple ALAC
     # Using http://svn.macosforge.org/repository/alac/trunk
     # Revision: 4
@@ -608,6 +626,125 @@ def build(bld):
             shlib=['m'],
             target='CodecFlac')
 
+
+    # Opus
+    bld.stlib(
+            source=[
+                'OpenHome/Media/Codec/Opus.cpp',
+
+                # Opus has 2 internal codecs...
+                # CELT
+                'thirdparty/opus-1.5.2/celt/bands.c',
+                'thirdparty/opus-1.5.2/celt/celt.c',
+                'thirdparty/opus-1.5.2/celt/celt_decoder.c',
+                'thirdparty/opus-1.5.2/celt/cwrs.c',
+                'thirdparty/opus-1.5.2/celt/entcode.c',
+                'thirdparty/opus-1.5.2/celt/entdec.c',
+                'thirdparty/opus-1.5.2/celt/entenc.c',
+                'thirdparty/opus-1.5.2/celt/kiss_fft.c',
+                'thirdparty/opus-1.5.2/celt/laplace.c',
+                'thirdparty/opus-1.5.2/celt/mathops.c',
+                'thirdparty/opus-1.5.2/celt/mdct.c',
+                'thirdparty/opus-1.5.2/celt/modes.c',
+                'thirdparty/opus-1.5.2/celt/pitch.c',
+                'thirdparty/opus-1.5.2/celt/celt_lpc.c',
+                'thirdparty/opus-1.5.2/celt/quant_bands.c',
+                'thirdparty/opus-1.5.2/celt/rate.c',
+                'thirdparty/opus-1.5.2/celt/vq.c',
+
+                # SILK
+                'thirdparty/opus-1.5.2/silk/CNG.c',
+                'thirdparty/opus-1.5.2/silk/code_signs.c',
+                'thirdparty/opus-1.5.2/silk/init_decoder.c',
+                'thirdparty/opus-1.5.2/silk/decode_core.c',
+                'thirdparty/opus-1.5.2/silk/decode_frame.c',
+                'thirdparty/opus-1.5.2/silk/decode_parameters.c',
+                'thirdparty/opus-1.5.2/silk/decode_indices.c',
+                'thirdparty/opus-1.5.2/silk/decode_pulses.c',
+                'thirdparty/opus-1.5.2/silk/decoder_set_fs.c',
+                'thirdparty/opus-1.5.2/silk/dec_API.c',
+                'thirdparty/opus-1.5.2/silk/enc_API.c',
+                'thirdparty/opus-1.5.2/silk/encode_indices.c',
+                'thirdparty/opus-1.5.2/silk/encode_pulses.c',
+                'thirdparty/opus-1.5.2/silk/gain_quant.c',
+                'thirdparty/opus-1.5.2/silk/interpolate.c',
+                'thirdparty/opus-1.5.2/silk/LP_variable_cutoff.c',
+                'thirdparty/opus-1.5.2/silk/NLSF_decode.c',
+                'thirdparty/opus-1.5.2/silk/NSQ.c',
+                'thirdparty/opus-1.5.2/silk/NSQ_del_dec.c',
+                'thirdparty/opus-1.5.2/silk/PLC.c',
+                'thirdparty/opus-1.5.2/silk/shell_coder.c',
+                'thirdparty/opus-1.5.2/silk/tables_gain.c',
+                'thirdparty/opus-1.5.2/silk/tables_LTP.c',
+                'thirdparty/opus-1.5.2/silk/tables_NLSF_CB_NB_MB.c',
+                'thirdparty/opus-1.5.2/silk/tables_NLSF_CB_WB.c',
+                'thirdparty/opus-1.5.2/silk/tables_other.c',
+                'thirdparty/opus-1.5.2/silk/tables_pitch_lag.c',
+                'thirdparty/opus-1.5.2/silk/tables_pulses_per_block.c',
+                'thirdparty/opus-1.5.2/silk/VAD.c',
+                'thirdparty/opus-1.5.2/silk/control_audio_bandwidth.c',
+                'thirdparty/opus-1.5.2/silk/quant_LTP_gains.c',
+                'thirdparty/opus-1.5.2/silk/VQ_WMat_EC.c',
+                'thirdparty/opus-1.5.2/silk/HP_variable_cutoff.c',
+                'thirdparty/opus-1.5.2/silk/NLSF_encode.c',
+                'thirdparty/opus-1.5.2/silk/NLSF_VQ.c',
+                'thirdparty/opus-1.5.2/silk/NLSF_unpack.c',
+                'thirdparty/opus-1.5.2/silk/NLSF_del_dec_quant.c',
+                'thirdparty/opus-1.5.2/silk/process_NLSFs.c',
+                'thirdparty/opus-1.5.2/silk/stereo_LR_to_MS.c',
+                'thirdparty/opus-1.5.2/silk/stereo_MS_to_LR.c',
+                'thirdparty/opus-1.5.2/silk/check_control_input.c',
+                'thirdparty/opus-1.5.2/silk/control_SNR.c',
+                'thirdparty/opus-1.5.2/silk/init_encoder.c',
+                'thirdparty/opus-1.5.2/silk/control_codec.c',
+                'thirdparty/opus-1.5.2/silk/A2NLSF.c',
+                'thirdparty/opus-1.5.2/silk/ana_filt_bank_1.c',
+                'thirdparty/opus-1.5.2/silk/biquad_alt.c',
+                'thirdparty/opus-1.5.2/silk/bwexpander_32.c',
+                'thirdparty/opus-1.5.2/silk/bwexpander.c',
+                'thirdparty/opus-1.5.2/silk/debug.c',
+                'thirdparty/opus-1.5.2/silk/decode_pitch.c',
+                'thirdparty/opus-1.5.2/silk/inner_prod_aligned.c',
+                'thirdparty/opus-1.5.2/silk/lin2log.c',
+                'thirdparty/opus-1.5.2/silk/log2lin.c',
+                'thirdparty/opus-1.5.2/silk/LPC_analysis_filter.c',
+                'thirdparty/opus-1.5.2/silk/LPC_inv_pred_gain.c',
+                'thirdparty/opus-1.5.2/silk/table_LSF_cos.c',
+                'thirdparty/opus-1.5.2/silk/NLSF2A.c',
+                'thirdparty/opus-1.5.2/silk/NLSF_stabilize.c',
+                'thirdparty/opus-1.5.2/silk/NLSF_VQ_weights_laroia.c',
+                'thirdparty/opus-1.5.2/silk/pitch_est_tables.c',
+                'thirdparty/opus-1.5.2/silk/resampler.c',
+                'thirdparty/opus-1.5.2/silk/resampler_down2_3.c',
+                'thirdparty/opus-1.5.2/silk/resampler_down2.c',
+                'thirdparty/opus-1.5.2/silk/resampler_private_AR2.c',
+                'thirdparty/opus-1.5.2/silk/resampler_private_down_FIR.c',
+                'thirdparty/opus-1.5.2/silk/resampler_private_IIR_FIR.c',
+                'thirdparty/opus-1.5.2/silk/resampler_private_up2_HQ.c',
+                'thirdparty/opus-1.5.2/silk/resampler_rom.c',
+                'thirdparty/opus-1.5.2/silk/sigm_Q15.c',
+                'thirdparty/opus-1.5.2/silk/sort.c',
+                'thirdparty/opus-1.5.2/silk/sum_sqr_shift.c',
+                'thirdparty/opus-1.5.2/silk/stereo_decode_pred.c',
+                'thirdparty/opus-1.5.2/silk/stereo_encode_pred.c',
+                'thirdparty/opus-1.5.2/silk/stereo_find_predictor.c',
+                'thirdparty/opus-1.5.2/silk/stereo_quant_pred.c',
+                'thirdparty/opus-1.5.2/silk/LPC_fit.c',
+
+                # OPUS
+                'thirdparty/opus-1.5.2/src/extensions.c',
+                'thirdparty/opus-1.5.2/src/mapping_matrix.c',
+                'thirdparty/opus-1.5.2/src/opus.c',
+                'thirdparty/opus-1.5.2/src/opus_compare.c',
+                'thirdparty/opus-1.5.2/src/opus_decoder.c',
+                'thirdparty/opus-1.5.2/src/opus_multistream.c',
+                'thirdparty/opus-1.5.2/src/opus_multistream_decoder.c',
+                'thirdparty/opus-1.5.2/src/opus_projection_decoder.c',
+            ],
+            use=['OPUS', 'OHNET'],
+            shlib=['m'],
+            target='CodecOpus')
+
     # AlacAppleBase
     bld.stlib(
             source=[
@@ -891,7 +1028,7 @@ def build(bld):
                 'OpenHome/Tests/TestOAuth.cpp',
                 'OpenHome/Media/Tests/TestMPEGDash.cpp',
             ],
-            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'SSL'],
+            use=['ConfigUi', 'WebAppFramework', 'ohMediaPlayer', 'WebAppFramework', 'CodecFlac', 'CodecOpus', 'CodecWav', 'CodecPcm', 'CodecDsdDsf', 'CodecDsdDff', 'CodecDsdRaw',  'CodecAlac', 'CodecAlacApple', 'CodecAifc', 'CodecAiff', 'CodecAacFdkAdts', 'CodecAacFdkMp4', 'CodecMp3', 'CodecVorbis', 'Odp', 'TestFramework', 'OHNET', 'SSL'],
             target='ohMediaPlayerTestUtils')
 
     bld.program(
@@ -1343,6 +1480,7 @@ def bundle(ctx):
                  'CodecDsdDff',
                  'CodecDsdRaw',
                  'CodecFlac',
+                 'CodecOpus',
                  'CodecMp3',
                  'CodecVorbis',
                  'CodecWav',

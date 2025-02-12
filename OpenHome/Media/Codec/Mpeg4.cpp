@@ -2004,6 +2004,14 @@ Mpeg4BoxCodecFlac::Mpeg4BoxCodecFlac(IStreamInfoSettable& aStreamInfoSettable, I
     iProcessorFactory.Add(new Mpeg4BoxDfla(aCodecInfoSettable));
 }
 
+// Mpeg4BoxCodecOpus
+
+Mpeg4BoxCodecOpus::Mpeg4BoxCodecOpus(IStreamInfoSettable& aStreamInfoSettable, ICodecInfoSettable& aCodecInfoSettable)
+    : Mpeg4BoxCodecBase(Brn("Opus"), aStreamInfoSettable)
+{
+    iProcessorFactory.Add(new Mpeg4BoxDops(aCodecInfoSettable));
+}
+
 // Mpeg4BoxCodecMp4aProtected
 
 Mpeg4BoxCodecMp4aProtected::Mpeg4BoxCodecMp4aProtected(IStreamInfoSettable& aStreamInfoSettable,
@@ -2581,6 +2589,78 @@ void Mpeg4BoxDfla::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
     iBytes = aBoxBytes;
 }
 
+// Mpeg4BoxDops
+Mpeg4BoxDops::Mpeg4BoxDops(ICodecInfoSettable& aCodecInfoSettable)
+    : iCodecInfoSettable(aCodecInfoSettable)
+
+{
+    Reset();
+}
+
+Msg* Mpeg4BoxDops::Process()
+{
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                msg = msg->Process(iAudioEncodedRecogniser);
+                if (msg != nullptr) {
+                    return msg;
+                }
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Accumulate(iBytes - iOffset);
+            iState = eCodecInfo;
+        }
+        else if (iState == eCodecInfo) {
+            MsgAudioEncoded* msg = iAudioEncodedRecogniser.AudioEncoded();
+            ASSERT(msg != nullptr);
+            iOffset += msg->Bytes();
+            iCodecInfoSettable.SetCodecInfo(msg);
+
+            iState = eComplete;
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxDops::Complete() const
+{
+    ASSERT(iOffset <= iBytes);
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxDops::Reset()
+{
+    iCache  = nullptr;
+    iState  = eNone;
+    iBytes  = 0;
+    iOffset = 0;
+
+    iBuf.SetBytes(0);
+    iAudioEncodedRecogniser.Reset();
+}
+
+TBool Mpeg4BoxDops::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("dOps");
+}
+
+void Mpeg4BoxDops::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
+
+
 
 // Mpeg4BoxStsd
 
@@ -2599,6 +2679,8 @@ Mpeg4BoxStsd::Mpeg4BoxStsd(IStreamInfoSettable& aStreamInfoSettable,
             new Mpeg4BoxCodecAlac(aStreamInfoSettable, aCodecInfoSettable));
     iProcessorFactory.Add(
             new Mpeg4BoxCodecFlac(aStreamInfoSettable, aCodecInfoSettable));
+    iProcessorFactory.Add(
+            new Mpeg4BoxCodecOpus(aStreamInfoSettable, aCodecInfoSettable));
     iProcessorFactory.Add(
             new Mpeg4BoxCodecMp4aProtected(aStreamInfoSettable, aProtectionDetails));
 }
@@ -4420,6 +4502,7 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
             const TBool hasCodecInfo       = codecInfo != nullptr;
 
             if (!isFragmentedStream) {
+                ASSERT_VA(hasCodecInfo, "%s\n", "Mpeg4Container::GetMetadata - Complete stream but no codec info.\n");
                 ASSERT_VA(hasCodecInfo, "%s\n", "Mpeg4Container::GetMetadata - Complete stream but no codec info.\n");
             }
 
