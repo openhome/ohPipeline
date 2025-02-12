@@ -1348,9 +1348,17 @@ Msg* Mpeg4BoxTrun::Process()
                 iEntryBytes += 4;
             }
 
-            if (iEntryBytes == 0) {
-                LOG_ERROR(kCodec, "Mpeg4BoxTrun::Process - Sample entries MUST contain at least 1 of the optional fields\n");
-                THROW(MediaMpeg4FileInvalid);
+            const TBool entriesAreEmpty      = iEntryBytes == 0;
+            const TBool hasDefaultSampleSize = iSampleSizeTable.DefaultSampleSize() > 0;
+
+            if (entriesAreEmpty) {
+                if (hasDefaultSampleSize) {
+                    LOG_TRACE(kCodec, "Mpeg4BoxTrun::Process - Sample table is empty, each sample will be use default sample size of: %u\n", iSampleSizeTable.DefaultSampleSize());
+                }
+                else {
+                    LOG_ERROR(kCodec, "Mpeg4BoxTrun::Process - Sample entires have no fields and no default sample size has been set!\n");
+                    THROW(MediaMpeg4FileInvalid);
+                }
             }
 
             iCache->Inspect(iBuf, iBuf.MaxBytes()); // Set to read sample_count
@@ -1368,6 +1376,15 @@ Msg* Mpeg4BoxTrun::Process()
             iSampleSizeTable.Clear();
             iSampleSizeTable.Init(iSampleCount);
 
+            const TBool entriesUseDefaultSize = iEntryBytes == 0;
+            if (entriesUseDefaultSize) {
+                ASSERT(iSampleSizeTable.DefaultSampleSize() > 0);
+                const TUint defaultSampleSize = iSampleSizeTable.DefaultSampleSize();
+                for(TUint i = 0; i < iSampleCount; i += 1) {
+                    iSampleSizeTable.AddSampleSize(defaultSampleSize);
+                }
+            }
+
             if (iFlags & kFlagDataOffsetPresent) {
                 iCache->Inspect(iBuf, iBuf.MaxBytes());
                 iState = eDataOffset;
@@ -1380,8 +1397,15 @@ Msg* Mpeg4BoxTrun::Process()
                 iOffset += 4;
             }
 
-            iCache->Inspect(iEntryBuf, iEntryBytes);
-            iState = eEntries;
+            if (entriesUseDefaultSize) {
+                ASSERT(Complete());
+                iState = eComplete;
+            }
+            else {
+                iCache->Inspect(iEntryBuf, iEntryBytes);
+                iState = eEntries;
+            }
+
         }
         else if (iState == eDataOffset) {
             ASSERT(iFlags & kFlagDataOffsetPresent);
@@ -1396,8 +1420,15 @@ Msg* Mpeg4BoxTrun::Process()
                 iOffset += 4;
             }
 
-            iCache->Inspect(iEntryBuf, iEntryBytes);
-            iState = eEntries;
+            const TBool entriesUseDefaultSize = iEntryBytes == 0;
+            if (entriesUseDefaultSize) {
+                ASSERT(Complete());
+                iState = eComplete;
+            }
+            else {
+                iCache->Inspect(iEntryBuf, iEntryBytes);
+                iState = eEntries;
+            }
         }
         else if (iState == eEntries) {
             TUint offset = 0;
@@ -3283,6 +3314,11 @@ void SampleSizeTable::Init(TUint aMaxEntries)
 void SampleSizeTable::Clear()
 {
     iTable.clear();
+}
+
+void SampleSizeTable::Reset()
+{
+    Clear();
     iDefaultSampleSize = 0;
 }
 
@@ -4303,7 +4339,7 @@ void Mpeg4Container::Reset()
     iDurationInfo.Reset();
     iStreamInfo.Reset();
     iCodecInfo.Reset();
-    iSampleSizeTable.Clear();
+    iSampleSizeTable.Reset();
     iSeekTable.Deinitialise();
     iContainerInfo.Reset();
     iProtectionDetails.Reset();
