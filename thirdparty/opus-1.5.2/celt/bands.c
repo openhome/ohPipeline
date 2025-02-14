@@ -43,6 +43,39 @@
 #include "quant_bands.h"
 #include "pitch.h"
 
+
+/*Compute floor(sqrt(_val)) with exact arithmetic.
+  _val must be greater than 0.
+  This has been tested on all possible 32-bit inputs greater than 0.*/
+// NOTE: This has been moved from mathops.c and marked static to prevent conflicts
+//       when linking against something that includes the WMA codec as this function 
+//       symbol conflicts.
+static unsigned isqrt32(opus_uint32 _val){
+  unsigned b;
+  unsigned g;
+  int      bshift;
+  /*Uses the second method from
+     http://www.azillionmonkeys.com/qed/sqroot.html
+    The main idea is to search for the largest binary digit b such that
+     (g+b)*(g+b) <= _val, and add it to the solution g.*/
+  g=0;
+  bshift=(EC_ILOG(_val)-1)>>1;
+  b=1U<<bshift;
+  do{
+    opus_uint32 t;
+    t=(((opus_uint32)g<<1)+b)<<bshift;
+    if(t<=_val){
+      g+=b;
+      _val-=t;
+    }
+    b>>=1;
+    bshift--;
+  }
+  while(bshift>=0);
+  return g;
+}
+
+
 int hysteresis_decision(opus_val16 val, const opus_val16 *thresholds, const opus_val16 *hysteresis, int N, int prev)
 {
    int i;
