@@ -40,6 +40,8 @@
 /*Compute floor(sqrt(_val)) with exact arithmetic.
   _val must be greater than 0.
   This has been tested on all possible 32-bit inputs greater than 0.*/
+/*
+NOTE: Removed by Linn. See header for details
 unsigned isqrt32(opus_uint32 _val){
   unsigned b;
   unsigned g;
@@ -47,7 +49,7 @@ unsigned isqrt32(opus_uint32 _val){
   /*Uses the second method from
      http://www.azillionmonkeys.com/qed/sqroot.html
     The main idea is to search for the largest binary digit b such that
-     (g+b)*(g+b) <= _val, and add it to the solution g.*/
+     (g+b)*(g+b) <= _val, and add it to the solution g.*
   g=0;
   bshift=(EC_ILOG(_val)-1)>>1;
   b=1U<<bshift;
@@ -64,6 +66,7 @@ unsigned isqrt32(opus_uint32 _val){
   while(bshift>=0);
   return g;
 }
+*/
 
 #ifdef FIXED_POINT
 
