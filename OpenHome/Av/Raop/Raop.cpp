@@ -322,16 +322,33 @@ void RaopDiscoverySession::WriteFply(Brn aData)
     const TByte cfply2[] = {
                     0x02, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x14
     };
+    static const TUint kFply1VarCountIdx = 14;
+    static const TUint kFply2SuffixOffset = 0x90;
+    static const TUint kFply2SuffixBytes = 0x14;
 
     Bws<200> fply(Brn("FPLY"));
-    if(aData[6] == 1) {     // respond to first POST
+
+
+    if (aData.Bytes() > kFply1VarCountIdx && aData[6] == 1) {
+        // Respond to first POST.
         fply.Append(cfply1, sizeof(cfply1));
-        fply[13] = aData[14];       // copy current variable count
+        fply[13] = aData[kFply1VarCountIdx]; // Copy current variable count.
+    }
+    else if (aData.Bytes() > kFply2SuffixOffset + kFply2SuffixBytes) {
+        fply.Append(cfply2, sizeof(cfply2));
+        fply.Append(&aData[kFply2SuffixOffset], kFply2SuffixBytes); // Data is same as last 0x14 bytes of iTunes data.
     }
     else {
-        fply.Append(cfply2, sizeof(cfply2));
-        fply.Append(&aData[0x90], 0x14);    // data is same as last 0x14 bytes of iTunes data
+        // Unrecognised request.
+        LOG(kMedia, "RaopDiscoverySession::WriteFply bytes: %u, data:\n", aData.Bytes());
+        const auto bytes = std::min<TUint>(aData.Bytes(), 256);
+        for (TUint i = 0; i < bytes; i++) {
+            LOG(kMedia, " %02x", aData[i]);
+        }
+        LOG(kMedia, "\n");
+        ASSERTS();
     }
+
     iWriterAscii->Write(RtspHeader::kContentLength);
     iWriterAscii->Write(Brn(": "));
     iWriterAscii->WriteUint(fply.Bytes());
