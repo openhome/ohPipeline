@@ -1,3 +1,7 @@
+#ifndef CODEC_OPUS_ENABLED
+#define CODEC_OPUS_ENABLED
+#endif
+
 #ifdef CODEC_OPUS_ENABLED
 
 #include <OpenHome/Media/Codec/CodecController.h>
@@ -41,7 +45,7 @@ private:
     OpusDecoder* iDecoder;
     SampleSizeTable iSampleSizeTable;
     SeekTable iSeekTable;
-    Bws<48000 * 2 * sizeof(TInt)> iInBuf;
+    Bws<1024> iInBuf;
     Bws<48000 * 2 * sizeof(TInt)> iDecodedBuf;
 
     TUint iSampleRate;
@@ -51,6 +55,7 @@ private:
     TUint iSamplesDecoded;
     TUint64 iTrackOffset;
     TUint64 iTrackLengthJiffies;
+    TUint64 iSamplesToSkip;
 
 };
 
@@ -91,6 +96,25 @@ static const AudioDataEndian kAudioEndianess = AudioDataEndian::Little;
 
 
 // CodecOpus
+
+// NOTE: Our current Opus support is pretty based and only covers Opus audio encoded
+//       in a fragmented MPEG stream. Opus has a slightly different format under this
+//       scenario and so the 'Opus' and 'dOps' box are used to detect the required details
+//       about the incoming audio. This particular flavour of Opus does not contain any
+//       seek information and so this must be provided by other parts of the MPEG stream.
+//       We are required to implement the decode & seek support manually without the aid
+//       of any supporting libraries.
+//
+//       Standard .Opus files contain far more information with regards to playback and would
+//       allow us to make use of the 'libOpusFile' library. This provides a standard Xiph
+//       codec implementation (see Flac, Vorbis) which handles seeking and playback on our
+//       behalf.
+//
+//       In the future, should we want to support raw .opus files, we'll need to reconsider
+//       how this class is implemented in order to handle both cases of the audio format.
+//       (Furthermore, libOpusFile also depends on Vorbis codecs so might not be compatible
+//       with our current codec structure.)
+
 CodecOpus::CodecOpus(IMimeTypeList& aMimeTypeList)
     : CodecBase("Opus")
     , iName("Opus")
@@ -100,7 +124,7 @@ CodecOpus::CodecOpus(IMimeTypeList& aMimeTypeList)
     ASSERT(iDecoder != nullptr);
     ASSERT(err == OPUS_OK)
 
-    aMimeTypeList.Add("audio/x-opus");
+    aMimeTypeList.Add("audio/x-opus-mpeg");
 }
 
 CodecOpus::~CodecOpus()
@@ -118,7 +142,7 @@ TBool CodecOpus::Recognise(const EncodedStreamInfo& aStreamInfo)
     iController->Read(buf, buf.MaxBytes());
     const TChar* ptr = reinterpret_cast<const TChar*>(buf.Ptr());
     if(buf.Bytes() >= 4) {
-        if(strncmp(ptr, "Opus", 4) == 0) {
+        if(strncmp(ptr, "dOps", 4) == 0) {
             return true;
         }
     }
@@ -136,6 +160,7 @@ void CodecOpus::StreamInitialise()
     iTrackLengthJiffies = 0;
     iTrackOffset = 0;
     iSamplesDecoded = 0;
+    iSamplesToSkip = 0;
 
     // Use iInBuf for gathering initialisation data, as it doesn't need to be used for audio until Process() starts being called.
     Mpeg4Info info;
@@ -206,9 +231,34 @@ void CodecOpus::Process()
             THROW(CodecStreamCorrupt);
         }
 
-        iDecodedBuf.SetBytes(outputSamples * sizeof(TInt16) * iChannelCount);
 
-        iTrackOffset += iController->OutputAudioPcm(iDecodedBuf, iChannelCount, iSampleRate, iBitDepth, kAudioEndianess, iTrackOffset);
+        // iSamplesToSkip > 0 means we've likely had to SEEK our way through the content.
+        if (iSamplesToSkip > 0) {
+
+            // If we've to skip more samples than the samples we've just decoded, don't output any audio
+            // at all.
+            if (iSamplesToSkip >= (TUint64)outputSamples) {
+                iSamplesToSkip -= outputSamples;
+            }
+            else {
+                const TUint samplesToSkip     = (TUint)iSamplesToSkip;
+                const TUint remainingSamples  = (TUint)outputSamples - samplesToSkip;
+                const TUint sampleSizeInBytes = sizeof(TInt16) * iChannelCount;
+
+                const TByte* startingOffset = iDecodedBuf.Ptr() + (samplesToSkip * sampleSizeInBytes);
+                const TUint  sampleBytes    = remainingSamples * sampleSizeInBytes;
+
+                iSamplesToSkip = 0;
+
+                const Brn audioToOutput(startingOffset, sampleBytes);
+                iTrackOffset += iController->OutputAudioPcm(audioToOutput, iChannelCount, iSampleRate, iBitDepth, kAudioEndianess, iTrackOffset);
+            }
+        }
+        else {
+            iDecodedBuf.SetBytes(outputSamples * sizeof(TInt16) * iChannelCount);
+
+            iTrackOffset += iController->OutputAudioPcm(iDecodedBuf, iChannelCount, iSampleRate, iBitDepth, kAudioEndianess, iTrackOffset);
+        }
 
         iSamplesDecoded += 1;
     }
@@ -238,8 +288,48 @@ void CodecOpus::Process()
 
 TBool CodecOpus::TrySeek(TUint aStreamId, TUint64 aSample)
 {
-    (void)aStreamId;
-    (void)aSample;
+    // NOTE: We only support seeking Opus when it's part of a fragmented MPEG stream.
+    if (!iSeekTable.IsFragmentedStream()) {
+        LOG_ERROR(kCodec, "CodecOpus::TrySeek - ATTEMPTING TO SEEK A NON-FRAGMENTED FILE. This is not supported.\n");
+        return false;
+    }
+
+    const TUint seekPositionSeconds = (TUint)(aSample / iSampleRate);
+
+    TUint fragmentIndex   = 0;
+    TUint accumulatedTime = 0;
+    TUint64 samplesToSkip = aSample;
+
+    for(fragmentIndex = 0; fragmentIndex < iSeekTable.ChunkCount(); fragmentIndex += 1) {
+        const TUint segmentDuration = iSeekTable.SamplesPerChunk(fragmentIndex);
+
+        const TBool segmentContainsSeekPosition = (accumulatedTime + segmentDuration) > seekPositionSeconds;
+        if (segmentContainsSeekPosition) {
+            break;
+        }
+
+        accumulatedTime += segmentDuration;
+
+        const TUint64 segmentSamples = segmentDuration * iSampleRate;
+        samplesToSkip -= segmentSamples;
+    }
+
+    Log::Print("CodecOpus::TrySeek - Seeking to fragment %u, skipping %lu samples from fragment.\n", fragmentIndex, samplesToSkip);
+
+    iSamplesToSkip  = samplesToSkip;
+    iSamplesDecoded = 0;
+
+    iTrackOffset = (aSample * Jiffies::kPerSecond) / iSampleRate;
+
+    iSampleSizeTable.Clear();
+    iSeekTable.Deinitialise();
+
+    if (iController->TrySeekTo(aStreamId, fragmentIndex)) {
+        iController->OutputDecodedStream(iBitRate, iBitDepth, iSampleRate, iChannelCount, kCodecOpus, iTrackLengthJiffies, aSample, false, DeriveProfile(iChannelCount));
+        iTrackOffset = aSample;
+
+        return true;
+    }
 
     return false;
 }
