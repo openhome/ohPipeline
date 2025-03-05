@@ -261,21 +261,59 @@ private:
     TBool iMetadataRetrieved;
 };
 
+class SeekTable;
 class Mpeg4ContainerInfo;
 
 class Mpeg4BoxMoof : public Mpeg4BoxSwitcher
 {
 public:
-    Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo&);
+    Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo&, IBoxOffsetProvider&, SeekTable& aSeekTable);
 public: // from Mpeg4BoxSwitcher
     void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
     void Reset() override;
 private:
     Mpeg4ContainerInfo& iContainerInfo;
+    IBoxOffsetProvider& iBoxOffsetProvider;
+    SeekTable& iSeekTable;
 };
 
-class SeekTable;
+
 class Mpeg4ProtectionDetails;
+
+class Mpeg4BoxSidx : public IMpeg4BoxRecognisable
+{
+public:
+    Mpeg4BoxSidx(SeekTable& aSeekTable);
+public: // from IMpeg4BoxRecognisable
+    Msg* Process() override;
+    TBool Complete() const override;
+    void Reset() override;
+    TBool Recognise(const Brx& aBoxId) const override;
+    void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
+private:
+    enum EState
+    {
+        eNone,
+        eVersion,
+        eTimescale,
+        eFirstOffset,
+        eSegmentCount,
+        eSegment,
+        eComplete,
+    };
+private:
+    SeekTable& iSeekTable;
+    IMsgAudioEncodedCache* iCache;
+    EState iState;
+    TUint iBytes;
+    TUint iOffset;
+    Bws<12> iBuf;
+    TUint iVersion;
+    TUint iTimescale;
+    TUint64 iFirstOffset;
+    TUint iSegmentsTotal;
+    TUint iSegmentsLeftToParse;
+};
 
 class Mpeg4BoxStts : public IMpeg4BoxRecognisable
 {
@@ -654,6 +692,7 @@ class Mpeg4BoxCodecBase : public IMpeg4BoxRecognisable
 {
 protected:
     Mpeg4BoxCodecBase(const Brx& aCodecId, IStreamInfoSettable& aStreamInfoSettable);
+    Mpeg4BoxCodecBase(const Brx& aCodecId, const Brx& aCodecBoxId, IStreamInfoSettable& aStreamInfoSettable);
 public: // from IMpeg4BoxRecognisable
     Msg* Process() override;
     TBool Complete() const override;
@@ -675,6 +714,7 @@ protected:
     Mpeg4BoxProcessorFactory iProcessorFactory;
 private:
     const Bws<IStreamInfoSettable::kCodecBytes> iId;
+    const Bws<IStreamInfoSettable::kCodecBytes> iBoxId;
     IStreamInfoSettable& iStreamInfoSettable;
     IMsgAudioEncodedCache* iCache;
     IMpeg4BoxProcessor* iProcessor;
@@ -1150,6 +1190,7 @@ public:
     void SetSamplesPerChunk(TUint aFirstChunk, TUint aSamplesPerChunk, TUint aSampleDescriptionIndex);
     void SetAudioSamplesPerSample(TUint32 aSampleCount, TUint32 aAudioSamples);
     void SetOffset(TUint64 aOffset);    // FIXME - rename to AddOffset()? and similar with above methods?
+    void SetIsFragmentedStream(TBool aIsFragmented);
     TUint ChunkCount() const;
     TUint AudioSamplesPerSample() const;
     TUint SamplesPerChunk(TUint aChunkIndex) const;
@@ -1157,6 +1198,7 @@ public:
     TUint64 Offset(TUint64& aAudioSample, TUint64& aSample);    // FIXME - aSample should be TUint.
     // FIXME - See if it's possible to split this class into its 3 separate components, to simplify it.
     TUint64 GetOffset(TUint aChunkIndex) const;
+    TBool IsFragmentedStream() const;
     void WriteInit();
     void Write(IWriter& aWriter, TUint aMaxBytes);   // Serialise.
     TBool WriteComplete() const;
@@ -1169,6 +1211,7 @@ private:
     TUint Chunk(TUint64 aCodecSample) const;
     TUint CodecSampleFromChunk(TUint aChunk) const;
     TUint AudioSampleFromCodecSample(TUint aCodecSample) const;
+
 private:
     typedef struct {
         TUint   iFirstChunk;
@@ -1186,6 +1229,7 @@ private:
     TUint iSpcWriteIndex;
     TUint iAspsWriteIndex;
     TUint iOffsetsWriteIndex;
+    TBool iIsFragmentedStream;
 };
 
 class SeekTableInitialiser : public INonCopyable
@@ -1309,11 +1353,13 @@ public:
 public:
     TBool CanProcess(TUint64 aFileOffset) const;
     EProcessingMode ProcessingMode() const;
+    TUint64 FirstMoofStart() const;
 
     void SetFragmented(TUint aMoofBoxSize);
     void SetBaseDataOffset(TUint64 aBaseDataOffset);
     void SetDefaultBaseIsMoof();
     void SetDataOffset(TUint64 aDataOffset);
+    void SetFirstMoofStart(TUint64 aOffset);
 
     void Reset();
 private:
@@ -1321,6 +1367,7 @@ private:
     TUint iMoofBoxSize;
     TUint64 iBaseDataOffset;
     TUint64 iDataOffset;
+    TUint64 iFirstMoofOffset;
     TBool iDefaultBaseIsMoof;
 };
 

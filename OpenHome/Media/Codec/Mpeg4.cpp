@@ -508,15 +508,19 @@ TBool Mpeg4BoxMoov::Recognise(const Brx& aBoxId) const
 
 // Mpeg4BoxMoof
 
-Mpeg4BoxMoof::Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo& aContainerInfo)
+Mpeg4BoxMoof::Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo& aContainerInfo, IBoxOffsetProvider& aBoxOffsetProvider, SeekTable& aSeekTable)
     : Mpeg4BoxSwitcher(aProcessorFactory, Brn("moof"))
     , iContainerInfo(aContainerInfo)
+    , iBoxOffsetProvider(aBoxOffsetProvider)
+    , iSeekTable(aSeekTable)
 { }
 
 void Mpeg4BoxMoof::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
 {
     Mpeg4BoxSwitcher::Set(aCache, aBoxBytes);
     iContainerInfo.SetFragmented(aBoxBytes + 8); // Include size + 'moof' bytes here
+    iContainerInfo.SetFirstMoofStart(iBoxOffsetProvider.BoxOffset());
+    iSeekTable.SetIsFragmentedStream(true);
 }
 
 void Mpeg4BoxMoof::Reset()
@@ -525,6 +529,180 @@ void Mpeg4BoxMoof::Reset()
     iContainerInfo.Reset();
 }
 
+// Mpeg4BoxSidx
+
+Mpeg4BoxSidx::Mpeg4BoxSidx(SeekTable& aSeekTable)
+    : iSeekTable(aSeekTable)
+    , iCache(nullptr)
+    , iBytes(0)
+    , iOffset(0)
+{
+}
+
+Msg* Mpeg4BoxSidx::Process()
+{
+    // Table of audio samples per sample - used to convert audio samples to codec samples.
+
+    while (!Complete()) {
+        if (iState != eNone) {
+            Msg* msg = iCache->Pull();
+            if (msg != nullptr) {
+                return msg;
+            }
+        }
+
+        if (iState == eNone) {
+            iCache->Inspect(iBuf, 4);
+            iState = eVersion;
+        }
+        else if (iState == eVersion) {
+            iOffset += iBuf.Bytes();
+            iVersion = Converter::BeUint32At(iBuf, 0);
+
+            if (iVersion < 0 || iVersion > 1) {
+                Log::Print("Mpeg4BoxSidx::Process - Unsupported version (%u) found.\n", iVersion);
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            // Skip reference ID
+            iCache->Discard(4);
+            iOffset += 4;
+
+            iCache->Inspect(iBuf, 4);
+            iState = eTimescale;
+        }
+        else if (iState == eTimescale) {
+            iOffset += iBuf.Bytes();
+            iTimescale = Converter::BeUint32At(iBuf, 0);
+
+            if (iVersion == 0) {
+                iCache->Discard(4); // Skip earliest_presentation_time;
+                iOffset += 4;
+
+                iCache->Inspect(iBuf, 4);
+            }
+            else {
+                iCache->Discard(8);
+                iOffset += 8;
+
+                iCache->Inspect(iBuf, 8);
+            }
+
+            iState = eFirstOffset;
+        }
+        else if (iState == eFirstOffset) {
+            iOffset += iBuf.Bytes();
+
+            if (iVersion == 0) {
+                iFirstOffset = (TUint64)Converter::BeUint32At(iBuf, 0);
+            }
+            else {
+                iFirstOffset = Converter::BeUint64At(iBuf, 0);
+            }
+
+            iCache->Discard(2); // Skip reserved
+            iOffset += 2;
+
+            iCache->Inspect(iBuf, 2);
+            iState = eSegmentCount;
+        }
+        else if (iState == eSegmentCount) {
+            iOffset += iBuf.Bytes();
+
+            iSegmentsTotal       = Converter::BeUint16At(iBuf, 0);
+            iSegmentsLeftToParse = iSegmentsTotal;
+
+            if (iSegmentsLeftToParse > 0) {
+                iCache->Inspect(iBuf, 12);
+                iState = eSegment;
+            }
+            else {
+                iState = eComplete;
+            }
+        }
+        else if (iState == eSegment) {
+            iOffset += iBuf.Bytes();
+
+            const TUint part1 = Converter::BeUint32At(iBuf, 0);
+            const TUint part2 = Converter::BeUint32At(iBuf, 4);
+            //const TUint part3 = Converter::BeUint32At(iBuf, 8);
+
+            // Part1:
+            // - ReferenceType  = Bit (1)
+            // - ReferencedSize = unsigned int (31)
+            //const TUint referenceType  = (part1 & 0x80000000) >> 31;
+            const TUint referencedSize = (part1 & 0x7FFFFFFF);
+
+            // Part2:
+            // subSegmentDuration = unsigned int (32)
+            const TUint subSegmentDuration = part2;
+
+            // Part3:
+            // - StartsWithSAP = Bit (1)
+            // - SAPType       = unsigned int (3)
+            // - SAPDeltaTime  = unsigned int (28)
+            //const TUint startsWithSAP = (part3 & 0x80000000) >> 31;
+            //const TUint SAPType       = (part3 & 0x70000000) >> 28;
+            //const TUint SAPDeltaTime  = (part3 & 0x0FFFFFFF);
+
+            // NOTE: Here we set:
+            // - FirstChunk             = Segment index
+            // - SamplesPerChunk        = SegmentDuration
+            // - SampleDescriptionIndex = 0 (Ignored)
+            const TUint segmentDuration = subSegmentDuration / iTimescale;
+            iSeekTable.SetSamplesPerChunk(iSegmentsTotal - iSegmentsLeftToParse,
+                                          segmentDuration,
+                                          0);
+
+            iSeekTable.SetOffset(referencedSize);
+
+            iSegmentsLeftToParse -= 1;
+
+            if (iSegmentsLeftToParse > 0) {
+                iCache->Inspect(iBuf, 12);
+            }
+            else {
+                iState = eComplete;
+            }
+        }
+        else {
+            // Unhandled state.
+            ASSERTS();
+        }
+    }
+
+    return nullptr;
+}
+
+TBool Mpeg4BoxSidx::Complete() const
+{
+    return iOffset == iBytes;
+}
+
+void Mpeg4BoxSidx::Reset()
+{
+    iCache = nullptr;
+    iState = eNone;
+    iBytes = 0;
+    iOffset = 0;
+    iVersion = 0;
+    iTimescale = 0;
+    iFirstOffset = 0;
+    iSegmentsTotal = 0;
+    iSegmentsLeftToParse = 0;
+}
+
+TBool Mpeg4BoxSidx::Recognise(const Brx& aBoxId) const
+{
+    return aBoxId == Brn("sidx");
+}
+
+void Mpeg4BoxSidx::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
+{
+    ASSERT(iCache == nullptr);
+    iCache = &aCache;
+    iBytes = aBoxBytes;
+}
 
 
 // Mpeg4BoxStts
@@ -1833,9 +2011,18 @@ void Mpeg4BoxMehd::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
 
 // Mpeg4BoxCodecBase
 
-Mpeg4BoxCodecBase::Mpeg4BoxCodecBase(const Brx& aCodecId,
-        IStreamInfoSettable& aStreamInfoSettable) :
-        iId(aCodecId), iStreamInfoSettable(aStreamInfoSettable)
+Mpeg4BoxCodecBase::Mpeg4BoxCodecBase(const Brx& aCodecId, IStreamInfoSettable& aStreamInfoSettable)
+    : iId(aCodecId)
+    , iBoxId(aCodecId)
+    , iStreamInfoSettable(aStreamInfoSettable)
+{
+    Reset();
+}
+
+Mpeg4BoxCodecBase::Mpeg4BoxCodecBase(const Brx& aCodecId, const Brx& aCodecBoxId, IStreamInfoSettable& aStreamInfoSettable)
+    : iId(aCodecId)
+    , iBoxId(aCodecBoxId)
+    , iStreamInfoSettable(aStreamInfoSettable)
 {
     Reset();
 }
@@ -1967,7 +2154,7 @@ void Mpeg4BoxCodecBase::Reset()
 
 TBool Mpeg4BoxCodecBase::Recognise(const Brx& aBoxId) const
 {
-    return aBoxId == iId;
+    return aBoxId == iBoxId;
 }
 
 void Mpeg4BoxCodecBase::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
@@ -2006,8 +2193,14 @@ Mpeg4BoxCodecFlac::Mpeg4BoxCodecFlac(IStreamInfoSettable& aStreamInfoSettable, I
 
 // Mpeg4BoxCodecOpus
 
+// NOTE: Opus under MPEG is a totally different format from bog-standard Opus files.
+//       Therefore, while we recognise this as "Opus" content, we need to provide a different identifier
+//       to processing so we know how to decode this.
+//       CodecID: dOps (Opus under MPEG)
+//       BoxId:   Opus
+
 Mpeg4BoxCodecOpus::Mpeg4BoxCodecOpus(IStreamInfoSettable& aStreamInfoSettable, ICodecInfoSettable& aCodecInfoSettable)
-    : Mpeg4BoxCodecBase(Brn("Opus"), aStreamInfoSettable)
+    : Mpeg4BoxCodecBase(Brn("dOps"), Brn("Opus"), aStreamInfoSettable)
 {
     iProcessorFactory.Add(new Mpeg4BoxDops(aCodecInfoSettable));
 }
@@ -3299,7 +3492,23 @@ void Mpeg4BoxMdat::ChunkSeek(TUint aChunk)
     AutoMutex a(iLock);
     iSeek = true;
     iSeekChunk = aChunk;
-    iState = eChunkReadSetup;
+
+    if (iContainerInfo.ProcessingMode() == Mpeg4ContainerInfo::EProcessingMode::Fragmented) {
+        // For fragmented files, we are likely moving to a completely different fragment in the file,
+        // not the same one we are currently in. Therefore, we need to ensure that we mark ourselves here
+        // as "Complete" so that we'll pull the next box through at the seeked position.
+
+        iOffset = iBytes;
+        if (iChunkMsg != nullptr) {
+            iChunkMsg->RemoveRef();
+            iChunkMsg = nullptr;
+        }
+
+        iState = eComplete;
+    }
+    else {
+        iState = eChunkReadSetup;
+    }
 }
 
 TUint Mpeg4BoxMdat::BytesUntilChunk() const
@@ -3506,6 +3715,7 @@ void SeekTable::Deinitialise()
     iSamplesPerChunk.clear();
     iAudioSamplesPerSample.clear();
     iOffsets.clear();
+    iIsFragmentedStream = false;
 }
 
 void SeekTable::SetSamplesPerChunk(TUint aFirstChunk, TUint aSamplesPerChunk,
@@ -3526,6 +3736,11 @@ void SeekTable::SetAudioSamplesPerSample(TUint32 aSampleCount,
 void SeekTable::SetOffset(TUint64 aOffset)
 {
     iOffsets.push_back(aOffset);
+}
+
+void SeekTable::SetIsFragmentedStream(TBool aIsFragmented)
+{
+    iIsFragmentedStream = aIsFragmented;
 }
 
 TUint SeekTable::ChunkCount() const
@@ -3620,9 +3835,19 @@ TUint64 SeekTable::Offset(TUint64& aAudioSample, TUint64& aSample)
 
 TUint64 SeekTable::GetOffset(TUint aChunkIndex) const
 {
+    if (aChunkIndex >= iOffsets.size()) {
+        Log::Print("SOMETHING EWAN HAS DONE HAS GONE WRONG\n");
+    }
+
     ASSERT(aChunkIndex < iOffsets.size());
     return iOffsets[aChunkIndex];
 }
+
+TBool SeekTable::IsFragmentedStream() const
+{
+    return iIsFragmentedStream;
+}
+
 
 void SeekTable::WriteInit()
 {
@@ -3635,6 +3860,8 @@ void SeekTable::Write(IWriter& aWriter, TUint aMaxBytes)
 {
     TUint bytesLeftToWrite = aMaxBytes;
     WriterBinary writerBin(aWriter);
+
+    writerBin.WriteUint8(iIsFragmentedStream ? 1 : 0);
 
     const TUint samplesPerChunkCount = iSamplesPerChunk.size();
     if (iSpcWriteIndex == 0) {
@@ -3886,6 +4113,10 @@ void SeekTableInitialiser::Init()
 {
     ASSERT(!iInitialised);
     ReaderBinary readerBin(iReader);
+
+    const TBool isFragmentedStream = readerBin.ReadUintBe(1) == 1 ? true : false;
+    iSeekTable.SetIsFragmentedStream(isFragmentedStream);
+
     const TUint samplesPerChunkCount = readerBin.ReadUintBe(4);
     iSeekTable.InitialiseSamplesPerChunk(samplesPerChunkCount);
     for (TUint i = 0; i < samplesPerChunkCount; i++) {
@@ -4292,6 +4523,11 @@ TBool Mpeg4ContainerInfo::CanProcess(TUint64 aFileOffset) const
     return conditionA || conditionB || conditionC;
 }
 
+TUint64 Mpeg4ContainerInfo::FirstMoofStart() const
+{
+    return iFirstMoofOffset;
+}
+
 void Mpeg4ContainerInfo::SetFragmented(TUint aMoofBoxSize)
 {
     iProcessingMode = EProcessingMode::Fragmented;
@@ -4313,12 +4549,20 @@ void Mpeg4ContainerInfo::SetDataOffset(TUint64 aDataOffset)
     iDataOffset = aDataOffset;
 }
 
+void Mpeg4ContainerInfo::SetFirstMoofStart(TUint64 aOffset)
+{
+    if (iFirstMoofOffset == 0) {
+        iFirstMoofOffset = aOffset;
+    }
+}
+
 void Mpeg4ContainerInfo::Reset()
 {
     iProcessingMode    = EProcessingMode::Complete;
     iMoofBoxSize       = 0;
     iBaseDataOffset    = 0;
     iDataOffset        = 0;
+    iFirstMoofOffset   = 0;
     iDefaultBaseIsMoof = false;
 }
 
@@ -4364,12 +4608,15 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
         new Mpeg4BoxMdat(iDRMProvider, aMsgFactory, iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, iProtectionDetails, iContainerInfo, *iOutOfBandReader));
 
     // 'Moof' specific boxes
+#define ENABLE_MPEG_MOOF_SUPPORT
 #ifdef ENABLE_MPEG_MOOF_SUPPORT
+    iProcessorFactory.Add(new Mpeg4BoxSidx(iSeekTable));
+
     iProcessorFactory.Add(new Mpeg4BoxTkhd(iDurationInfo));
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("mvex")));
     iProcessorFactory.Add(new Mpeg4BoxMehd(iDurationInfo));
 
-    iProcessorFactory.Add(new Mpeg4BoxMoof(iProcessorFactory, iContainerInfo));
+    iProcessorFactory.Add(new Mpeg4BoxMoof(iProcessorFactory, iContainerInfo, static_cast<IBoxOffsetProvider&>(iBoxRoot), iSeekTable));
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("traf")));
     iProcessorFactory.Add(new Mpeg4BoxTfhd(iSampleSizeTable, iContainerInfo));
     iProcessorFactory.Add(new Mpeg4BoxTrun(iSampleSizeTable, iContainerInfo));
@@ -4436,19 +4683,42 @@ void Mpeg4Container::Init(TUint64 aStreamBytes)
 
 TBool Mpeg4Container::TrySeek(TUint aStreamId, TUint64 aOffset)
 {
-    // As TrySeek requires a byte offset, any codec that uses an Mpeg4 stream MUST find the appropriate seek offset (in bytes) and pass that via TrySeek().
-    // i.e., aOffset MUST match a chunk offset.
+    if (iContainerInfo.ProcessingMode() == Mpeg4ContainerInfo::EProcessingMode::Fragmented) {
+        // Fragmented streams are based on the SIDX.
+        // This defines how large each fragment/segment is starting from the position of the first MOOF box encountered in the stream
+        const TUint fragmentIndex = (TUint)aOffset;
+        if (fragmentIndex >= iSeekTable.ChunkCount()) {
+            LOG_ERROR(kCodec, "Mpeg4Container::TrySeek - Index of: %u doesn't exist. We have %u available.\n", fragmentIndex, iSeekTable.ChunkCount());
+        }
 
-    const TUint chunkCount = iSeekTable.ChunkCount();
-    for (TUint i = 0; i < chunkCount; i++) {
-        if (iSeekTable.GetOffset(i) == aOffset) {
-            const TBool seek = iSeekHandler->TrySeekTo(aStreamId, aOffset);
-            if (seek) {
-                iSeekObserver->ChunkSeek(i);
+        TUint64 offset = iContainerInfo.FirstMoofStart();
+        for(TUint i = 0; i < fragmentIndex; i += 1) {
+            offset += iSeekTable.GetOffset(i);
+        }
+
+        const TBool seek = iSeekHandler->TrySeekTo(aStreamId, offset);
+        if (seek) {
+            iSeekObserver->ChunkSeek(0); // The value here doesn't really matter for fragmented files, but we still need to call the function
+            iBoxRoot.Reset();
+        }
+        return seek;
+    }
+    else {
+        // As TrySeek requires a byte offset, any codec that uses an Mpeg4 stream MUST find the appropriate seek offset (in bytes) and pass that via TrySeek().
+        // i.e., aOffset MUST match a chunk offset.
+
+        const TUint chunkCount = iSeekTable.ChunkCount();
+        for (TUint i = 0; i < chunkCount; i++) {
+            if (iSeekTable.GetOffset(i) == aOffset) {
+                const TBool seek = iSeekHandler->TrySeekTo(aStreamId, aOffset);
+                if (seek) {
+                    iSeekObserver->ChunkSeek(i);
+                }
+                return seek;
             }
-            return seek;
         }
     }
+
     ASSERTS();
     return false;
 }
@@ -4509,7 +4779,7 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
             // NOTE: Some codecs provide the required stream & seek information encoded as part of their own data.
             //       For these, we don't want to emit anything extra.
             const TBool codecMpeg4InfoHeader     = iStreamInfo.Codec() != Brn("fLaC");
-            const TBool codecRequiresSampleTable = iStreamInfo.Codec() == Brn("Opus");
+            const TBool codecRequiresSampleTable = iStreamInfo.Codec() == Brn("dOps");
             const TBool codecRequiresSeekTable   = false;
 
             const TBool doMpeg4Info   = (!isFragmentedStream || (isFragmentedStream && hasCodecInfo)) && codecMpeg4InfoHeader;
