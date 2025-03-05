@@ -141,7 +141,6 @@ private:
     Media::Logger* iLoggerSender;
     Media::IBranchEnableProcessor* iEnableProcessor;
     Media::IBranch* iBranch;
-    Media::Logger* iLoggerSplitter;
     TUint iFriendlyNameId;
 };
 
