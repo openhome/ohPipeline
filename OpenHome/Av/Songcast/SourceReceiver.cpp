@@ -526,10 +526,9 @@ SongcastSender::SongcastSender(IMediaPlayer& aMediaPlayer, ZoneHandler& aZoneHan
     //iLoggerSender->SetFilter(Logger::EMsgAll);
     iSenderThread = new SenderThread(*iLoggerSender, "SongcastSender", pipeline.Factory(), priorityStarvationRamper-1);
     iEnableProcessor = new SongcastEnableProcessor(aMode);
-    //iBranch = Branch::Create(*iSenderThread, nullptr, iEnableProcessor, nullptr);
-    //auto& brancher = pipeline.GetBranchController().GetBrancher(Brn("BrancherSongcast"));
-    //brancher.SetBranch(*iBranch);
-    //pipeline.GetBranchController().SetEnabled(Brn("BrancherSongcast"), true);
+    iBranch = Branch::Create(*iSenderThread, nullptr, iEnableProcessor, nullptr);
+    pipeline.GetBranchController().GetBrancher(Brn("BrancherSongcast")).SetBranch(*iBranch);
+    pipeline.GetBranchController().SetEnabled(Brn("BrancherSongcast"), true);
 
     aMediaPlayer.AddAttribute("Sender");
     pipeline.AddObserver(*this);
