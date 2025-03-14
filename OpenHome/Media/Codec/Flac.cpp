@@ -9,6 +9,8 @@
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Media/MimeTypeList.h>
 
+#include <OpenHome/Media/Codec/Mpeg4.h>
+
 #include <algorithm>
 #include <string.h>
 
@@ -294,6 +296,7 @@ FLAC__StreamDecoderReadStatus CodecFlac::CallbackRead(const FLAC__StreamDecoder*
                                                       TUint8 aBuffer[], TUint *aBytes)
 {
     Bwn buf(aBuffer, *aBytes);
+
     try {
         iController->Read(buf, *aBytes);
         *aBytes = buf.Bytes();

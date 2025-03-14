@@ -29,6 +29,7 @@
 #include <OpenHome/Av/Pins/TransportPins.h>
 #include <OpenHome/SocketSsl.h>
 #include <OpenHome/Av/DeviceAnnouncerMdns.h>
+#include <OpenHome/Av/ProviderReaction.h>
 
 #include <memory>
 
@@ -179,6 +180,7 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     , iTransportPins(nullptr)
     , iDeviceAnnouncerMdns(nullptr)
     , iRadioPresets(nullptr)
+    , iProviderReaction(nullptr)
 {
     iUnixTimestamp = new OpenHome::UnixTimestamp(iDvStack.Env());
     iKvpStore = new KvpStore(aStaticDataSource);
@@ -246,11 +248,16 @@ MediaPlayer::MediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, Net::Dv
     if (aDvStack.Env().MdnsProvider() != nullptr) {
         iDeviceAnnouncerMdns = new DeviceAnnouncerMdns(aDvStack, aDevice, *iFriendlyNameManager);
     }
+
+    iProviderReaction = new ProviderReaction(aDevice, *iPipeline);
+    iProduct->AddAttribute("Reaction");
 }
 
 MediaPlayer::~MediaPlayer()
 {
     ASSERT(!iDevice.Enabled());
+
+    delete iProviderReaction;
 
     /* ProviderOAuth will observe changes in service's enabled state from
      * credentials service. Need to unsubscribe first before freeing credentials */
@@ -310,7 +317,7 @@ void MediaPlayer::Add(Codec::CodecBase* aCodec)
     iPipeline->Add(aCodec);
 }
 
-void MediaPlayer::Add(IDRMProvider* aProvider)
+void MediaPlayer::Add(IDashDRMProvider* aProvider)
 {
     iPipeline->Add(aProvider);
 }
@@ -328,6 +335,11 @@ void MediaPlayer::Add(ISource* aSource)
     if (iConfigStartupSource == nullptr && iProduct->SourceCount() > 1) {
         iConfigStartupSource = new ConfigStartupSource(*iConfigManager);
     }
+}
+
+void MediaPlayer::Add(IReactionHandler *aHandler)
+{
+    iProviderReaction->AddHandler(aHandler);
 }
 
 void MediaPlayer::AddAttribute(const TChar* aAttribute)

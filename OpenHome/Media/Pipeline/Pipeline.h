@@ -11,6 +11,7 @@
 #include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
 #include <OpenHome/Media/MuteManager.h>
+#include <OpenHome/Media/BranchController.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
 
 EXCEPTION(PipelineStreamNotPausable)
@@ -216,7 +217,7 @@ public:
     ISpotifyReporter& SpotifyReporter() const;
     ISpotifyTrackObserver& SpotifyTrackObserver() const;
     IClockPuller& GetPhaseAdjuster();
-    IPipelineElementUpstream& InsertElements(IPipelineElementUpstream& aTail);
+    IBranchController& GetBranchController() const;
     TUint SenderMinLatencyMs() const;
     void GetThreadPriorityRange(TUint& aMin, TUint& aMax) const;
     void GetThreadPriorities(TUint& aFlywheelRamper, TUint& aStarvationRamper, TUint& aCodec, TUint& aEvent);
@@ -266,6 +267,7 @@ private:
     Mutex iLock;
     MsgFactory* iMsgFactory;
     PipelineElementObserverThread* iEventThread;
+    BranchController* iBranchController;
     AudioDumper* iAudioDumper;
     EncodedAudioReservoir* iEncodedAudioReservoir;
     Logger* iLoggerEncodedAudioReservoir;
@@ -319,11 +321,11 @@ private:
     Media::AirplayReporter* iAirplayReporter;
     Media::SpotifyReporter* iSpotifyReporter;
     Logger* iLoggerSpotifyReporter;
-    Router* iRouter;
-    Logger* iLoggerRouter;
+    Brancher* iBrancherSongcast;
+    Logger* iLoggerBrancherSongcast;
     Attenuator* iAttenuator;
     Logger* iLoggerAttenuator;
-    DecodedAudioValidator* iDecodedAudioValidatorRouter;
+    DecodedAudioValidator* iDecodedAudioValidatorBrancher;
     DrainerRight* iDrainer2;
     Logger* iLoggerDrainer2;
     VariableDelayRight* iVariableDelay2;
@@ -347,6 +349,8 @@ private:
     DecodedAudioValidator* iDecodedAudioValidatorMuter;
     VolumeRamper* iVolumeRamper;
     Logger* iLoggerVolumeRamper;
+    Brancher* iBrancherBluetooth;
+    Logger* iLoggerBrancherBluetooth;
     PreDriver* iPreDriver;
     Logger* iLoggerPreDriver;
     IPipelineElementDownstream* iPipelineStart;

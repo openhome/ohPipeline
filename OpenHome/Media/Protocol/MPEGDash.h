@@ -333,6 +333,13 @@ private:
     TUint iSegmentNumber;
 };
 
+class IDashDRMProvider
+{
+public:
+    virtual ~IDashDRMProvider() { }
+    virtual TBool TryRecognise(const ContentProtection& aContentProtection) = 0;
+};
+
 
 
 } // namespace Media

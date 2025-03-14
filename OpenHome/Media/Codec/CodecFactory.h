@@ -20,6 +20,9 @@ public:
     static CodecBase* NewAiff(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewAlacApple(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewFlac(IMimeTypeList& aMimeTypeList);
+#ifdef CODEC_OPUS_ENABLED
+    static CodecBase* NewOpus(IMimeTypeList& aMimeTypeList);
+#endif
     static CodecBase* NewMp3(IMimeTypeList& aMimeTypeList);
     static CodecBase* NewDsdDsf(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, TUint aPaddingBytes);
     static CodecBase* NewDsdDff(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, TUint aPaddingBytes);

@@ -1,3 +1,4 @@
+#include <OpenHome/Media/Protocol/MPEGDash.h>
 #include <OpenHome/Media/Protocol/Protocol.h>
 #include <OpenHome/Media/Protocol/ContentAudio.h>
 #include <OpenHome/Exception.h>
@@ -486,6 +487,10 @@ ProtocolManager::~ProtocolManager()
     for (TUint i = 0; i < count; i++) {
         delete iContentProcessors[i];
     }
+    count = iDRMProviders.size();
+    for(TUint i = 0; i < count; i += 1) {
+        delete iDRMProviders[i];
+    }
 
     delete iAudioProcessor;
 }
@@ -502,10 +507,12 @@ void ProtocolManager::Add(ContentProcessor* aProcessor)
     aProcessor->Initialise(*this);
 }
 
-void ProtocolManager::Add(IDRMProvider* aProvider)
+void ProtocolManager::Add(IDashDRMProvider* aProvider)
 {
-    iAudioProcessor->Add(aProvider);
+    iDRMProviders.push_back(aProvider);
+
 }
+
 
 void ProtocolManager::Interrupt(TBool aInterrupt)
 {
@@ -564,6 +571,11 @@ ContentProcessor* ProtocolManager::GetContentProcessor(const Brx& aUri, const Br
 ContentProcessor* ProtocolManager::GetAudioProcessor() const
 {
     return iAudioProcessor;
+}
+
+const std::vector<IDashDRMProvider*>& ProtocolManager::GetDashDRMProviders() const
+{
+    return iDRMProviders;
 }
 
 TBool ProtocolManager::Get(IWriter& aWriter, const Brx& aUri, TUint64 aOffset, TUint aBytes)

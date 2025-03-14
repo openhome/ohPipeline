@@ -3,7 +3,7 @@
         "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.38.5579",
+        "version": "1.39.5615",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
@@ -14,7 +14,8 @@
         ],
         "source-git": "https://github.com/openhome/ohNet.git"
     },
-    {   "name": "yocto_core4_sdk",
+    {
+        "name": "yocto_core4_sdk",
         "type": "internal",
         "platform-specific": true,
         "platform-ignore": {
@@ -25,6 +26,17 @@
         "cross-check": false,
         "archive-filename": "linn-fb-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone.sh",
         "archive-path":     "${binary-repo}/${name}/${version}/${archive-filename}"
+    },
+    {
+        "name": "buildroot_core4_staging",
+        "type": "internal",
+        "platform-specific": true,
+        "platform-ignore": {
+            "Linux-armhf": false,
+            "*": true },
+        "ignore":	"${platform-ignore[$platform]}",
+        "version": "0.2.47",
+        "archive-filename": "${name}-${platform}-${version}.tar.gz"
     },
     {
         "name": "ohWafHelpers",
@@ -38,7 +50,7 @@
     {
         "name": "TestTones",
         "type": "external",
-        "version": "1.9",
+        "version": "1.12",
         "cross-check": false,
         "archive-path": "s3://linn-artifacts-private/testtones/TestTones-${version}.zip",
         "dest": "dependencies/AnyPlatform/TestTones/"
@@ -46,7 +58,7 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.90.1313",
+        "version": "0.92.1323",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
@@ -73,7 +85,7 @@
         "type": "internal",
         "platform-specific": true,
         "platform-version": {
-            "*": "0.1.140",
+            "*": "0.1.37",
             "Windows-x86": "0.1.37",
             "Core-ppc32": "0.1.37"
         },
@@ -83,7 +95,7 @@
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.1.58",
+        "version": "1.1.64",
         "archive-suffix": "-${debugmode}",
         "archive-directory": "${binary-repo}/raat/",
         "cross-check": false,

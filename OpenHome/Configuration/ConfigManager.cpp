@@ -239,6 +239,7 @@ void ConfigChoice::Init()
         if (iChoicesAreDynamic) {
             // Don't assert if the choices are dynamic as an invalid initial value is an acceptable scenario
             Log::Print("ConfigChoice::Init [%.*s] initial value (%u) not in the dynamic choice list, replace with the default value (%d) \n", PBUF(iKey), initialVal, iDefault);
+            iSelected = iDefault;
         }
         else {
             // ASSERT() here to highlight programmer error. Valid default already writen to store to ensure that there is no assertion in future
@@ -246,8 +247,9 @@ void ConfigChoice::Init()
             ASSERTS();
         }
     }
-
-    iSelected = initialVal;
+    else {
+        iSelected = initialVal;
+    }
 
     iConfigManager.Add(*this);
     AddInitialSubscribers();

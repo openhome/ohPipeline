@@ -331,7 +331,7 @@ void TestCodecMinimalPipeline::RegisterPlugins()
 {
     // Add containers
     iContainer->AddContainer(new Id3v2());
-    iContainer->AddContainer(new Mpeg4Container(*this));
+    iContainer->AddContainer(new Mpeg4Container(*this, iDRMProvider));
     iContainer->AddContainer(new MpegTsContainer(*this));
 
     // Add codecs

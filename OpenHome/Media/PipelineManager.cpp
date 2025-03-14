@@ -117,7 +117,7 @@ void PipelineManager::Add(ContentProcessor* aContentProcessor)
     iProtocolManager->Add(aContentProcessor);
 }
 
-void PipelineManager::Add(IDRMProvider* aProvider)
+void PipelineManager::Add(IDashDRMProvider* aProvider)
 {
     iProtocolManager->Add(aProvider);
 }
@@ -343,9 +343,9 @@ void PipelineManager::Prev()
     iFiller->Prev(iMode);
 }
 
-IPipelineElementUpstream& PipelineManager::InsertElements(IPipelineElementUpstream& aTail)
+IBranchController& PipelineManager::GetBranchController() const
 {
-    return iPipeline->InsertElements(aTail);
+    return iPipeline->GetBranchController();
 }
 
 TUint PipelineManager::SenderMinLatencyMs() const

@@ -102,7 +102,7 @@ private: // from IProductObserver
     void SourceXmlChanged() override;
     void ProductUrisChanged() override;
 private:
-    void Initialise();
+    void InitialiseSourceRaat();
     void Start();
 private:
     Configuration::ConfigChoice* iProtocolSelector;

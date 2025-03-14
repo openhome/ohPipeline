@@ -7,6 +7,7 @@
 #include <OpenHome/Media/Pipeline/SpotifyReporter.h>
 #include <OpenHome/Media/Pipeline/StarterTimed.h>
 #include <OpenHome/Media/Pipeline/StarvationRamper.h>
+#include <OpenHome/Media/BranchController.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Media/MuteManager.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
@@ -34,7 +35,7 @@ class ContentProcessor;
 class UriProvider;
 class IVolumeRamper;
 class IVolumeMuterStepped;
-class IDRMProvider;
+class IDashDRMProvider;
 class IAudioTime;
 
 class PriorityArbitratorPipeline : public IPriorityArbitrator, private INonCopyable
@@ -125,13 +126,7 @@ public:
      * @param[in] aContentProcessor   Ownership transfers to PipelineManager.
      */
     void Add(ContentProcessor* aContentProcessor);
-    /**
-     * Add a DRM provider to the pipeline to handle protected content
-     *
-     * Must be called before Start().
-     * @param[in] aProvider  Ownership transfers to PipelineManager
-     */
-    void Add(IDRMProvider* aProvider);
+    void Add(IDashDRMProvider* aProvider);
     /**
      * Add a uri provider to the pipeline.
      *
@@ -301,7 +296,7 @@ public:
      * playing this new track.
      */
     void Prev();
-    IPipelineElementUpstream& InsertElements(IPipelineElementUpstream& aTail);
+    IBranchController& GetBranchController() const;
     TUint SenderMinLatencyMs() const;
     void GetThreadPriorityRange(TUint& aMin, TUint& aMax) const;
     void GetThreadPriorities(TUint& aFiller, TUint& aFlywheelRamper, TUint& aStarvationRamper, TUint& aCodec, TUint& aEvent);

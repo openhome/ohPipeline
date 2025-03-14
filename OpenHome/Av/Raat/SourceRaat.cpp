@@ -211,7 +211,7 @@ SourceRaat::~SourceRaat()
 void SourceRaat::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 {
     SourceBase::Activate(aAutoPlay, aPrefetchAllowed); // FIXME - remove this if we find no work to do here
-    Initialise();
+    InitialiseSourceRaat();
 }
 
 void SourceRaat::PipelineStopped()
@@ -235,7 +235,7 @@ void SourceRaat::StandbyEnabled()
 void SourceRaat::NotifySetup()
 {
     EnsureActiveNoPrefetch();
-    Initialise();
+    InitialiseSourceRaat();
     iProtocol->NotifySetup();
     iPipeline.Play();
 }
@@ -278,7 +278,7 @@ void SourceRaat::ProductUrisChanged()
     // deliberately blank - we implement IProductObserver for Started() only
 }
 
-void SourceRaat::Initialise()
+void SourceRaat::InitialiseSourceRaat()
 {
     if (iProtocol->IsStreaming()) {
         return;

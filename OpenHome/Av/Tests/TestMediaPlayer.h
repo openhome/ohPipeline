@@ -45,6 +45,10 @@ namespace Media {
     class IPullableClock;
     class AllocatorInfoLogger;
     class AudioTimeCpu;
+
+namespace Codec {
+    class IMpegDRMProvider;
+}
 }
 namespace Configuration {
     class ConfigRamStore;
@@ -150,6 +154,7 @@ public:
     TUint DsdMaxSampleRate() const;
     TUint DsdSampleBlockWords() const;
     TUint DsdPadBytesPerChunk() const;
+    void EnableMpegDRM(Media::Codec::IMpegDRMProvider* aDrmProvider);
 protected:
     virtual void TryRegisterVorbis();
     virtual void RegisterPlugins(Environment& aEnv);
@@ -208,6 +213,7 @@ private:
     Configuration::ConfigRamStore* iConfigRamStore;
     Configuration::StoreFileWriterJson* iStoreFileWriter;
     TBool iEnableDash;
+    Media::Codec::IMpegDRMProvider* iMpegDRMProvider; // Not owned
     TUint iOdpPort;
     OpenHome::Net::OdpZeroConf* iOdpZeroConf;
     OpenHome::Net::DviServerOdp* iServerOdp;
