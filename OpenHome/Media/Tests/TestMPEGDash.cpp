@@ -1064,6 +1064,7 @@ private:
 private:
     void TestStaticSegmentList();
     void TestDynamicSegmentTemplate();
+    void TestSeeking();
 };
 
 class FixedUnixTimestamp : public IUnixTimestamp
@@ -1083,6 +1084,7 @@ void SuiteMPDSegmentStream::Test()
 {
     TestStaticSegmentList();
     TestDynamicSegmentTemplate();
+    TestSeeking();
 }
 
 void SuiteMPDSegmentStream::TestStaticSegmentList()
@@ -1218,6 +1220,62 @@ void SuiteMPDSegmentStream::TestDynamicSegmentTemplate()
     TEST(segment.iRangeStart == -1);
     TEST(segment.iRangeEnd   == -1);
 }
+
+void SuiteMPDSegmentStream::TestSeeking()
+{
+    const TUint kTimestamp = 1723638296; // Wed Aug 14 2024 12:24:56 (GMT)
+
+
+    Bws<Uri::kMaxUriBytes> uriBuffer;
+    MPDDocument document;
+    MPDSegment segment(uriBuffer);
+    FixedUnixTimestamp timestamp(kTimestamp);
+    MPDSegmentStream subject(timestamp);
+
+    {
+        // TEMPLATE MANIFEST
+        // NO SEEKING
+        const Brn kManifest("<?xml version=\"1.0\" encoding=\"utf-8\"?><MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"urn:mpeg:dash:schema:mpd:2011\" xmlns:dvb=\"urn:dvb:dash:dash-extensions:2014-1\" xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd\" type=\"dynamic\" availabilityStartTime=\"1969-12-31T23:59:44Z\" minimumUpdatePeriod=\"PT6H\" timeShiftBufferDepth=\"PT6H\" maxSegmentDuration=\"PT7S\" minBufferTime=\"PT3.200S\" profiles=\"urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014\" publishTime=\"1850-05-10T09:00:00\"><UTCTiming schemeIdUri=\"urn:mpeg:dash:utc:http-iso:2014\" value=\"http://time.akamai.com/?iso\" /><BaseURL dvb:weight=\"1\" serviceLocation=\"ak\">http://dash.uk.live.example.com/radio/station/dash/</BaseURL><Period id=\"1\" start=\"PT0S\"><AdaptationSet group=\"1\" contentType=\"audio\" lang=\"en\" minBandwidth=\"48000\" maxBandwidth=\"96000\" segmentAlignment=\"true\" audioSamplingRate=\"48000\" mimeType=\"audio/mp4\" codecs=\"mp4a.40.5\" startWithSAP=\"1\"><AudioChannelConfiguration schemeIdUri=\"urn:mpeg:dash:23003:3:audio_channel_configuration:2011\" value=\"2\"/><Role schemeIdUri=\"urn:mpeg:dash:role:2011\" value=\"main\"/><SegmentTemplate timescale=\"48000\" initialization=\"stream-$RepresentationID$.dash\" media=\"stream-$RepresentationID$-$Number$.m4s\" startNumber=\"1\" duration=\"307200\"/><Representation id=\"audio=48000\" bandwidth=\"48000\"/><Representation id=\"audio=96000\" bandwidth=\"96000\"/></AdaptationSet><AdaptationSet group=\"1\" contentType=\"audio\" lang=\"en\" minBandwidth=\"128000\" maxBandwidth=\"320000\" segmentAlignment=\"true\" audioSamplingRate=\"48000\" mimeType=\"audio/mp4\" codecs=\"mp4a.40.2\" startWithSAP=\"1\"><AudioChannelConfiguration schemeIdUri=\"urn:mpeg:dash:23003:3:audio_channel_configuration:2011\" value=\"2\"/><Role schemeIdUri=\"urn:mpeg:dash:role:2011\" value=\"main\"/><SegmentTemplate timescale=\"48000\" initialization=\"stream-$RepresentationID$.dash\" media=\"stream-$RepresentationID$-$Number$.m4s\" startNumber=\"1\" duration=\"307200\"/><Representation id=\"audio=128000\" bandwidth=\"128000\"/><Representation id=\"audio=320000\" bandwidth=\"320000\"/></AdaptationSet></Period></MPD>");
+
+        TEST(document.TrySet(kManifest));
+        TEST(subject.TrySet(document));
+
+        TEST(subject.TrySeekByOffset(0) == false);
+        TEST(subject.TrySeekByOffset(13043431) == false);
+    }
+
+    {
+        // LIST MANIFEST
+        const Brn kManifest("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><MPD mediaPresentationDuration=\"PT154.63926696777344S\" minBufferTime=\"PT2S\" profiles=\"urn:mpeg:dash:profile:isoff-on-demand:2011\" type=\"static\" xmlns=\"urn:mpeg:dash:schema:mpd:2011\" xmlns:amz=\"urn:amazon:music:3p:music:2020\" xmlns:amz-music=\"urn:amazon:music:drm:2019\" xmlns:cenc=\"urn:mpeg:cenc:2013\" xmlns:mspr=\"urn:microsoft:playready\"><Period id=\"0\"><AdaptationSet contentType=\"audio\" id=\"1\" selectionPriority=\"1000\" subsegmentAlignment=\"true\"><ContentProtection cenc:default_KID=\"5e8ae77a-5b13-4eca-a354-9164f1d30567\" schemeIdUri=\"urn:mpeg:dash:mp4protection:2011\" value=\"cenc\"/><ContentProtection schemeIdUri=\"urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed\"><cenc:pssh>AABBCCDD__WWXXYYZZ</cenc:pssh><amz:LicenseUrl>https://example.com/drm/widevine/license</amz:LicenseUrl></ContentProtection><SupplementalProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:ProgramLoudness\" value=\"-8.3 LUFS\"/><SupplementalProperty schemeIdUri=\"amz-music:trackType\" value=\"SD\"/><SupplementalProperty schemeIdUri=\"urn:mpeg:mpegB:cicp:AnchorLoudness\" value=\"-8.3 LUFS\"/><Representation audioSamplingRate=\"48000\" bandwidth=\"51352\" codecs=\"opus\" id=\"1\" mimeType=\"audio/mp4\" qualityRanking=\"3\"><AudioChannelConfiguration schemeIdUri=\"urn:mpeg:dash:23003:3:audio_channel_configuration:2011\" value=\"2\"/><SupplementalProperty schemeIdUri=\"tag:amazon.com,2019:dash:StreamName\" value=\"SD\"/><BaseURL>https://example.come/audio/stream?id=ABCED&amp;ql=SD_LOW</BaseURL><SegmentList duration=\"480000\" timescale=\"48000\"><Initialization range=\"0-1031\"/><SegmentURL mediaRange=\"1256-61511\"/><SegmentURL mediaRange=\"61512-121647\"/><SegmentURL mediaRange=\"121648-181783\"/><SegmentURL mediaRange=\"181784-245972\"/><SegmentURL mediaRange=\"245973-310161\"/><SegmentURL mediaRange=\"310162-374350\"/><SegmentURL mediaRange=\"374351-438539\"/><SegmentURL mediaRange=\"438540-502728\"/><SegmentURL mediaRange=\"502729-566917\"/><SegmentURL mediaRange=\"566918-631106\"/></SegmentList></Representation></AdaptationSet></Period></MPD>");
+
+        TEST(document.TrySet(kManifest));
+        TEST(subject.TrySet(document));
+
+        // Get the "init" segment out of the way
+        TEST(subject.TryGetNextSegment(segment));
+
+        // Seek right to the start of the audio in the file
+        TEST(subject.TrySeekByOffset(1256));
+        TEST(subject.TryGetNextSegment(segment));
+        TEST(segment.iRangeStart == 1256);
+        TEST(segment.iRangeEnd   == 61511);
+
+        // Middle of a random fragment
+        TEST(subject.TrySeekByOffset(246691));
+        TEST(subject.TryGetNextSegment(segment));
+        TEST(segment.iRangeStart == 246691);
+        TEST(segment.iRangeEnd   == 310161);
+
+        // Very end of a previous fragment. Ensures we request data from the
+        // next fragment to prevent very small byte requests and that we have
+        // enough audio in order to continue playing.
+        TEST(subject.TrySeekByOffset(438539));
+        TEST(subject.TryGetNextSegment(segment));
+        TEST(segment.iRangeStart == 438539);
+        TEST(segment.iRangeEnd   == 502728);
+    }
+}
+
 
 extern void TestMPEGDash(Environment& /*aEnv*/)
 {

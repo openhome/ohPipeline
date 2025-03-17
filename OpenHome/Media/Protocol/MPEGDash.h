@@ -151,8 +151,8 @@ struct MPDSegment
 {
     MPDSegment(Bwx& aUrlBuffer) : iUrlBuffer(aUrlBuffer), iRangeStart(-1), iRangeEnd(-1) { }
     Bwx& iUrlBuffer;
-    TInt iRangeStart;
-    TInt iRangeEnd;
+    TInt64 iRangeStart;
+    TInt64 iRangeEnd;
 };
 
 
@@ -307,11 +307,11 @@ public:
 public:
     TBool TryGetNextSegment(MPDSegment& aSegement);
 
+    TBool TrySeekByOffset(TUint64 aOffset);
     /*
     // Seeking support??
     // ---
     TBool TrySeekByTime(TUint aCurrentTimestamp);
-    TBool TrySeekByBytes(TUint64 aBytes);
     // ----
     */
 
@@ -331,6 +331,8 @@ private:
     ESegmentType iSegmentType;
     TBool iNeedsInitialisationSegment;
     TUint iSegmentNumber;
+    TBool iSeek;
+    TUint64 iSeekPosition;
 };
 
 class IDashDRMProvider
