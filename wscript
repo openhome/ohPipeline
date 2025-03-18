@@ -54,7 +54,7 @@ def configure(conf):
         except KeyError:
             conf.fatal('Specify --dest-platform')
 
-    if conf.options.dest_platform in ['Linux-armhf']:
+    if conf.options.dest_platform in ['Linux-armhf', 'Linux-aarch64']:
         if not conf.options.legacy:
             print("Yocto-based build, sourcing appropriate SDK...")
             source_yocto_sdk(conf)
@@ -127,7 +127,7 @@ def configure(conf):
     # thirdparty/apple_alac/codec/EndianPortable.c attempts to define TARGET_RT_LITTLE_ENDIAN for little endian platforms (leaving it unset implies big endian).
     if conf.options.dest_platform in ['Windows-x86', 'Windows-x64']:
         conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # Could define TARGET_OS_WIN32, but that is ultimately used by EndianPortable.c to set TARGET_RT_LITTLE_ENDIAN.
-    elif conf.options.dest_platform in ['Linux-armhf', 'Linux-rpi']:
+    elif conf.options.dest_platform in ['Linux-armhf', 'Linux-rpi', 'Linux-aarch64']:
         conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # EndianPortable.c does not handle '__arm__', so define TARGET_RT_LITTLE_ENDIAN here.
     conf.env.INCLUDES_ALAC_APPLE = [
         'thirdparty/apple_alac/codec/',
