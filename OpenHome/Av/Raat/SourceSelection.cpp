@@ -62,6 +62,18 @@ using namespace OpenHome::Av;
 
 // RaatSourceSelection
 
+const std::map<RaatSourceSelection::EStateStandby, Brn> RaatSourceSelection::kStandbyStringMap = {
+    { RaatSourceSelection::EStateStandby::eEnabled, Brn("Enabled") },
+    { RaatSourceSelection::EStateStandby::eDisabled, Brn("Disabled") },
+    { RaatSourceSelection::EStateStandby::eUndefined, Brn("Undefined") }
+};
+
+const std::map<RaatSourceSelection::EStateSource, Brn> RaatSourceSelection::kSourceStringMap = {
+    { RaatSourceSelection::EStateSource::eSelected, Brn("Selected") },
+    { RaatSourceSelection::EStateSource::eNotSelected, Brn("NotSelected") },
+    { RaatSourceSelection::EStateSource::eUndefined, Brn("Undefined") }
+};
+
 RaatSourceSelection::RaatSourceSelection(
     IMediaPlayer& aMediaPlayer,
     const Brx& aSystemName,
@@ -157,12 +169,14 @@ void RaatSourceSelection::SetSource()
         // Some trickery here to prevent reporting our state until we've both come
         // out of standby and selected RAAT as the current source
         AutoMutex _(iLock);
+        Log::Print("[RAAT DEBUG] >>> RaatSourceSelection::SetSource - iStateStandby: %.*s, iStateSource: %.*s\n", PBUF(kStandbyStringMap.at(iStateStandby)), PBUF(kSourceStringMap.at(iStateSource)));
         if (iStateStandby == EStateStandby::eEnabled) {
             iStateStandby = EStateStandby::eUndefined;
         }
         if (iStateSource == EStateSource::eNotSelected) {
             iStateSource = EStateSource::eUndefined;
         }
+        Log::Print("[RAAT DEBUG] <<< RaatSourceSelection::SetSource - iStateStandby: %.*s, iStateSource: %.*s\n", PBUF(kStandbyStringMap.at(iStateStandby)), PBUF(kSourceStringMap.at(iStateSource)));
     }
 
     iProxyProduct->SyncSetSourceIndex(iSourceIndexRaat);
@@ -170,6 +184,7 @@ void RaatSourceSelection::SetSource()
 
 void RaatSourceSelection::SetStandby()
 {
+    Log::Print("[RAAT DEBUG] RaatSourceSelection::SetStandby - iStateStandby: %.*s, iStateSource: %.*s\n", PBUF(kStandbyStringMap.at(iStateStandby)), PBUF(kSourceStringMap.at(iStateSource)));
     iProxyProduct->SyncSetStandby(true);
 }
 
@@ -179,7 +194,9 @@ void RaatSourceSelection::StandbyChanged()
     iProxyProduct->PropertyStandby(standbyEnabled);
 
     AutoMutex _(iLock);
+    Log::Print("[RAAT DEBUG] >>> RaatSourceSelection::StandbyChanged - iStateStandby: %.*s, iStateSource: %.*s\n", PBUF(kStandbyStringMap.at(iStateStandby)), PBUF(kSourceStringMap.at(iStateSource)));
     iStateStandby = standbyEnabled ? EStateStandby::eEnabled : EStateStandby::eDisabled;
+    Log::Print("[RAAT DEBUG] <<< RaatSourceSelection::StandbyChanged - iStateStandby: %.*s, iStateSource: %.*s\n", PBUF(kStandbyStringMap.at(iStateStandby)), PBUF(kSourceStringMap.at(iStateSource)));
 
     if (iStateStandby == EStateStandby::eEnabled) {
         iObserver.RaatSourceDeactivated();
@@ -193,7 +210,9 @@ void RaatSourceSelection::SourceIndexChanged()
     iProxyProduct->PropertySourceIndex(sourceIndexCurrent);
 
     AutoMutex _(iLock);
+    Log::Print("[RAAT DEBUG] >>> RaatSourceSelection::SourceIndexChanged - iStateStandby: %.*s, iStateSource: %.*s\n", PBUF(kStandbyStringMap.at(iStateStandby)), PBUF(kSourceStringMap.at(iStateSource)));
     iStateSource = (sourceIndexCurrent == iSourceIndexRaat) ? EStateSource::eSelected : EStateSource::eNotSelected;
+    Log::Print("[RAAT DEBUG] <<< RaatSourceSelection::SourceIndexChanged - iStateStandby: %.*s, iStateSource: %.*s\n", PBUF(kStandbyStringMap.at(iStateStandby)), PBUF(kSourceStringMap.at(iStateSource)));
     if (iStateSource == EStateSource::eSelected) {
         iObserver.RaatSourceActivated();
     }
@@ -207,12 +226,14 @@ void RaatSourceSelection::SourceIndexChanged()
 void RaatSourceSelection::ReportState()
 {
     AutoMutex _(iLock);
-
+    Log::Print("[RAAT DEBUG] >>> RaatSourceSelection::ReportState - iStateStandby: %.*s, iStateSource: %.*s\n", PBUF(kStandbyStringMap.at(iStateStandby)), PBUF(kSourceStringMap.at(iStateSource)));
     // Wait for both standby state and source state to be defined before reporting
     if (iStateStandby == EStateStandby::eUndefined || iStateSource == EStateSource::eUndefined) {
+        Log::Print("[RAAT DEBUG] <<< RaatSourceSelection::ReportState - Waiting for state\n");
         return;
     } 
 
+    Log::Print("[RAAT DEBUG] <<< RaatSourceSelection::ReportState - Do report state\n");
     auto state = GetStateLocked();
     RAAT__source_selection_state_listeners_invoke(&iListeners, &state);
 }
