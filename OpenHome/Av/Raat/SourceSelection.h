@@ -55,6 +55,8 @@ private:
         eNotSelected,
         eUndefined
     };
+    static const std::map<EStateStandby, Brn> kStandbyStringMap;
+    static const std::map<EStateSource, Brn> kSourceStringMap;
 public:
     RaatSourceSelection(
         IMediaPlayer& aMediaPlayer,
