@@ -492,15 +492,11 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
         {
             // Can't hold lock while outputting to supply as may block pipeline
             // if callbacks come in, so do admin here before outputting msgs.
-            TUint flushId = MsgFlush::kIdInvalid;
             TBool waiting = false;
             TBool stopped = false;
             TBool discontinuity = false;
             {
                 AutoMutex a(iLockRaop);
-
-                flushId = iNextFlushId;
-                iNextFlushId = MsgFlush::kIdInvalid;
 
                 if (iStopped) {
                     stopped = true;
@@ -524,13 +520,12 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
                     // Pipeline has already starved, so should be no need to
                     // output a drain msg here (as should be no glitching).
                 }
-            }
-
-            // Output any pending flush.
-            if (flushId != MsgFlush::kIdInvalid) {
-                iSupply->Flush();
-                iSupply->OutputFlush(flushId);
-                RepairReset();
+                if (iNextFlushId != MsgFlush::kIdInvalid) {
+                    iSupply->Flush(); // can block but won't in this case - pipeline will already be flushing
+                    iSupply->OutputFlush(iNextFlushId);
+                    RepairReset();
+                    iNextFlushId = MsgFlush::kIdInvalid;
+                }
             }
 
             if (stopped) {
@@ -570,20 +565,17 @@ ProtocolStreamResult ProtocolRaop::Stream(const Brx& aUri)
         // Check if session still active.
         if (!iDiscovery.Active()) {
             LOG(kMedia, "ProtocolRaop::Stream() no active session\n");
-            TUint flushId = MsgFlush::kIdInvalid;
             {
                 AutoMutex a(iLockRaop);
                 iActive = false;
                 iStopped = true;
-                flushId = iNextFlushId;
+                iSupply->Flush();
+                if (iNextFlushId != MsgFlush::kIdInvalid) {
+                    iSupply->OutputFlush(iNextFlushId);
+                }
                 iNextFlushId = MsgFlush::kIdInvalid;
             }
 
-            // Output any pending flush ID, then wait for pipeline to drain.
-            iSupply->Flush();
-            if (flushId != MsgFlush::kIdInvalid) {
-                iSupply->OutputFlush(flushId);
-            }
             RepairReset();
             iDiscovery.Close();
             StopServers();
