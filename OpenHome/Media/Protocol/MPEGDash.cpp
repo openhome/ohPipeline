@@ -1203,10 +1203,14 @@ TBool MPDRepresentation::TrySet(const Brx& aXml)
 
 
 // MPDSegmentStream
+static const TUint kBoundaryThreshold = 128;
+
 MPDSegmentStream::MPDSegmentStream(IUnixTimestamp& aUnixTimestamp)
     : iTimestamp(aUnixTimestamp)
     , iCurrentDocument(nullptr)
     , iSegmentType(ESegmentType::Unknown)
+    , iSeek(false)
+    , iSeekPosition(0)
 { }
 
 TBool MPDSegmentStream::TryGetNextSegment(MPDSegment& aSegment)
@@ -1231,11 +1235,93 @@ TBool MPDSegmentStream::TryGetNextSegment(MPDSegment& aSegment)
         // Otherwise, we'll fall through and get the next segment
     }
 
-    const TBool result = TryGetMediaSegment(aSegment);
-    iSegmentNumber += 1;
+    if (iSeek) {
+        // NOTE: This code currently assumes we are streaming with a 'List' type
+        if (iSegmentType != ESegmentType::List) {
+            return false;
+        }
 
-    return result;
+        // Reset us back to the initial segment to allow us to find the containing segment.
+        iSegmentNumber = 0;
+
+        TBool success = false;
+
+        while(true) {
+            if (!TryGetMediaSegment(aSegment)) {
+                break;
+            }
+
+            iSegmentNumber += 1;
+
+            const TBool hasRangeStart      = aSegment.iRangeStart != -1;
+            const TBool hasRangeEnd        = aSegment.iRangeEnd   != -1;
+            const TBool hasRanges          = hasRangeStart && hasRangeEnd;
+            const TBool isWithinLowerBound = hasRangeStart && (TUint64)aSegment.iRangeStart <= iSeekPosition;
+            const TBool isWithinUpperBound = hasRangeEnd   && iSeekPosition <= (TUint64)aSegment.iRangeEnd;
+
+            const TBool segmentContainsSeekPosition =     !hasRanges
+                                                      || (!hasRangeStart     && isWithinUpperBound)
+                                                      || (!hasRangeEnd       && isWithinLowerBound)
+                                                      || (isWithinLowerBound && isWithinUpperBound);
+
+            if (segmentContainsSeekPosition) {
+                success = true;
+
+                aSegment.iRangeStart = (TInt64)iSeekPosition;
+
+                // If we happen to be right at the very end of a segment, we should start to request the next
+                // part right away to ensure we have enough audio to keep playing
+                const TUint64 diff = aSegment.iRangeEnd - aSegment.iRangeStart;
+                if (diff <= kBoundaryThreshold) {
+                    success = TryGetMediaSegment(aSegment);
+                    if (success) {
+                        aSegment.iRangeStart = (TUint)iSeekPosition;
+                    }
+                }
+
+                break;
+            }
+        }
+
+        iSeek         = false;
+        iSeekPosition = 0;
+
+        if (!success) {
+            LOG_ERROR(kMedia, "MPDSegmentStream::TryGetNextSegment - Failed to seek to desired position\n");
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
+    else {
+        const TBool result = TryGetMediaSegment(aSegment);
+        iSegmentNumber += 1;
+        return result;
+    }
 }
+
+TBool MPDSegmentStream::TrySeekByOffset(TUint64 aOffset)
+{
+    const TBool hasXml             = iSegmentXml.Bytes() > 0;
+    const TBool hasDocument        = iCurrentDocument != nullptr;
+    if (!hasXml || !hasDocument) {
+        LOG_ERROR(kMedia, "MPDSegmentStream::TrySeekByOffset - Unable to seek as no document or xml present\n");
+        return false;
+    }
+
+    const TBool isSeekableByOffset = iSegmentType == ESegmentType::List;
+    if (!isSeekableByOffset) {
+        LOG_ERROR(kMedia, "MPDSegmentStream::TrySeekByOffset - Segment not of type 'List' so doesn't support seeking by offset.\n");
+        return false;
+    }
+
+    iSeek         = true;
+    iSeekPosition = aOffset;
+
+    return true;
+}
+
 
 TBool MPDSegmentStream::TryGetInitialisationSegment(MPDSegment& aSegment)
 {
