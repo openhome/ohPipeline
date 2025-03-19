@@ -14,7 +14,7 @@ import os.path, sys
 sys.path[0:0] = [os.path.join('dependencies', 'AnyPlatform', 'ohWafHelpers')]
 
 from filetasks import gather_files, build_tree, copy_task, find_dir_or_fail, create_copy_task
-from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform, source_yocto_sdk
+from utilfuncs import invoke_test, guess_host_platform, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform, source_yocto_sdk
 
 def options(opt):
     opt.load('msvs')
@@ -60,6 +60,8 @@ def configure(conf):
             source_yocto_sdk(conf)
         else:
             print("Legacy build, using linaro toolchain")
+
+    conf.env.LINN_HOST_PLATFORM = guess_host_platform();
 
     if is_core_platform(conf):
         guess_libosa_location(conf)
