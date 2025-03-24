@@ -105,11 +105,7 @@ def configure(conf):
 
     # Setup OPUS lib options
     # NOTE: OPUS is currently in development so not enabled for products yet, only in SoftPlayers.
-    if conf.options.dest_platform in ['Windows-x86', 'Windows-x64', 'Linux-x86', 'Linux-x64', 'Mac-x64']:
-        conf.env.DEFINES_OPUS = ['CODEC_OPUS_ENABLED']
-    else:
-        conf.env.DEFINES_OPUS = []
-
+    conf.env.DEFINES_OPUS = []
     conf.env.DEFINES_OPUS.append('OPUS_BUILD')           # Required to get Opus to build
     conf.env.DEFINES_OPUS.append('FIXED_POINT')          # Recommended for platforms without FPU support. If we switch include paths need changed
     conf.env.DEFINES_OPUS.append('USE_ALLOCA')           # ALLOCA used as some of our platforms / toolchain versions don't support variable length arrays (Default)
