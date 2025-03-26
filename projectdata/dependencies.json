@@ -42,7 +42,7 @@
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.154",
+        "version": "0.2.160",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -67,6 +67,17 @@
         },
         "archive-path": "${binary-repo}/${name}/${archive-filename}",
         "ignore": "${platform-ignore[$platform]}"
+    },
+    {
+        "name": "libplatform-host",
+        "real-name": "libplatform",
+        "type": "internal",
+        "version": "0.92.1323",
+        "cross-check": false,
+        "platform-specific": false,
+        "archive-filename": "${real-name}-${version}-${host-platform}-${debugmode}.tar.gz",
+        "archive-path": "${binary-repo}/${real-name}/${archive-filename}",
+        "dest": "dependencies/${host-platform}/${name}"
     },
     {
         "name": "libosa",

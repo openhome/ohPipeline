@@ -14,7 +14,7 @@ import os.path, sys
 sys.path[0:0] = [os.path.join('dependencies', 'AnyPlatform', 'ohWafHelpers')]
 
 from filetasks import gather_files, build_tree, copy_task, find_dir_or_fail, create_copy_task
-from utilfuncs import invoke_test, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform, source_yocto_sdk
+from utilfuncs import invoke_test, guess_host_platform, guess_dest_platform, configure_toolchain, guess_ohnet_location, guess_location, guess_ssl_location, guess_raat_location, guess_libplatform_location, guess_libosa_location, is_core_platform, source_yocto_sdk
 
 def options(opt):
     opt.load('msvs')
@@ -54,12 +54,14 @@ def configure(conf):
         except KeyError:
             conf.fatal('Specify --dest-platform')
 
-    if conf.options.dest_platform in ['Linux-armhf']:
+    if conf.options.dest_platform in ['Linux-armhf', 'Linux-aarch64']:
         if not conf.options.legacy:
             print("Yocto-based build, sourcing appropriate SDK...")
             source_yocto_sdk(conf)
         else:
             print("Legacy build, using linaro toolchain")
+
+    conf.env.LINN_HOST_PLATFORM = guess_host_platform();
 
     if is_core_platform(conf):
         guess_libosa_location(conf)
@@ -103,11 +105,7 @@ def configure(conf):
 
     # Setup OPUS lib options
     # NOTE: OPUS is currently in development so not enabled for products yet, only in SoftPlayers.
-    if conf.options.dest_platform in ['Windows-x86', 'Windows-x64', 'Linux-x86', 'Linux-x64', 'Mac-x64']:
-        conf.env.DEFINES_OPUS = ['CODEC_OPUS_ENABLED']
-    else:
-        conf.env.DEFINES_OPUS = []
-
+    conf.env.DEFINES_OPUS = []
     conf.env.DEFINES_OPUS.append('OPUS_BUILD')           # Required to get Opus to build
     conf.env.DEFINES_OPUS.append('FIXED_POINT')          # Recommended for platforms without FPU support. If we switch include paths need changed
     conf.env.DEFINES_OPUS.append('USE_ALLOCA')           # ALLOCA used as some of our platforms / toolchain versions don't support variable length arrays (Default)
@@ -127,7 +125,7 @@ def configure(conf):
     # thirdparty/apple_alac/codec/EndianPortable.c attempts to define TARGET_RT_LITTLE_ENDIAN for little endian platforms (leaving it unset implies big endian).
     if conf.options.dest_platform in ['Windows-x86', 'Windows-x64']:
         conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # Could define TARGET_OS_WIN32, but that is ultimately used by EndianPortable.c to set TARGET_RT_LITTLE_ENDIAN.
-    elif conf.options.dest_platform in ['Linux-armhf', 'Linux-rpi']:
+    elif conf.options.dest_platform in ['Linux-armhf', 'Linux-rpi', 'Linux-aarch64']:
         conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # EndianPortable.c does not handle '__arm__', so define TARGET_RT_LITTLE_ENDIAN here.
     conf.env.INCLUDES_ALAC_APPLE = [
         'thirdparty/apple_alac/codec/',

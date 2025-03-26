@@ -1,9 +1,3 @@
-#ifndef CODEC_OPUS_ENABLED
-#define CODEC_OPUS_ENABLED
-#endif
-
-#ifdef CODEC_OPUS_ENABLED
-
 #include <OpenHome/Media/Codec/CodecController.h>
 #include <OpenHome/Media/Codec/CodecFactory.h>
 #include <OpenHome/Media/Codec/Container.h>
@@ -408,5 +402,3 @@ TBool CodecOpus::ValidateCodecInformation(const Brx& aCodecInfo) const
 
     return valid;
 }
-
-#endif // CODEC_OPUS_ENABLED
