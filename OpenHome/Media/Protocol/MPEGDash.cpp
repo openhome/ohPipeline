@@ -1920,7 +1920,6 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
         return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
     }
 
-    // TODO: Check that we have the correct type of stream depending on if we've enabled support for it.
     LOG(kMedia, "ProtocolDash::Stream - Manifest Type: '%s'\n", document.IsStatic() ? "Static" : "Dynamic");
 
     ProtocolStreamResult streamResult = EProtocolStreamSuccess;
