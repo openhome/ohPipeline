@@ -1623,6 +1623,7 @@ private:
     WriterBwh iBuffer;
     MPDDocument iDocument;
     IProtocolManager* iProtocolManager;   // Not owned
+    TUint iDocumentId;
 };
 
 
@@ -1630,6 +1631,7 @@ private:
 ContentMPD::ContentMPD(ITimerFactory& aTimerFactory)
     : iBuffer(1024)
     , iProtocolManager(nullptr)
+    , iDocumentId(0)
 {
     iExpiryTimer = aTimerFactory.CreateTimer(MakeFunctor(*this, &ContentMPD::OnMPDDocumentExpiryTimerFired), "ContentMPD-Expiry");
 }
@@ -1743,12 +1745,13 @@ ProtocolStreamResult ContentMPD::Stream(IReader& aReader, TUint64 aTotalBytes)
     }
 
 
-    // TODO: We need to get some sort of thing to indicate when the DASH streams have changed.
-    //       I'm thinking something like... dash://<MD5 of the MPD uri> ???
-    //       For now we can just use a hardcoded string to get things "working".
-    const Brn kDebugStreamUrl("dash://DEBUG_TEST_STREAM");
+    iDocumentId += 1;
 
-    return iProtocolSet->Stream(kDebugStreamUrl);
+    Bws<32> streamUrl;
+    streamUrl.Append("dash://");
+    Ascii::AppendDec(streamUrl, iDocumentId);
+
+    return iProtocolSet->Stream(streamUrl);
 }
 
 void ContentMPD::Reset()
