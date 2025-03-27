@@ -3413,7 +3413,21 @@ Msg* Mpeg4BoxMdat::Process()
 
                 if (!iDRMProvider.Unwrap().Decrypt(KID, sampleData, IV, *iDecryptionBuf)) {
                     LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process() - Failed to decrypt content\n");
-                    THROW(MediaMpeg4FileInvalid);
+
+                    // Need to drain whatever is left so we don't continue to read and process...
+                    const TUint bytesRemaining = iBytes - (TUint)iOffset;
+                    iOffset = iBytes;
+                    iState = eComplete;
+
+                    iCache->Discard(bytesRemaining);
+
+                    if (iChunkMsg) {
+                        iChunkMsg->RemoveRef();
+                        iChunkMsg = nullptr;
+                    }
+
+                    // Finally indicate the stream is corrupt to cause the pipeline to stop this track.
+                    THROW(CodecStreamCorrupt);
                 }
 
                 iSampleIndex += 1;
