@@ -1809,6 +1809,7 @@ private:
     ISupply* iSupply;
     Bwh iSegmentUrlBuffer;
     Uri iUri;
+    Uri iUriNext;
     TBool iStarted;
     TBool iStopped;
     TUint iNextFlushId;
@@ -1819,6 +1820,7 @@ private:
     ReaderUntilS<2048> iReaderUntil;
     ReaderHttpResponse iReaderResponse;
     ReaderHttpChunked iDechunker;
+    HttpHeaderConnection iHeaderConnection;
     HttpHeaderContentType iHeaderContentType;
     HttpHeaderContentLength iHeaderContentLength;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
@@ -1854,6 +1856,7 @@ ProtocolDash::ProtocolDash(Environment& aEnv, SslContext& aSsl, Av::IMediaPlayer
     iReaderResponse.AddHeader(iHeaderContentType);
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
+    iReaderResponse.AddHeader(iHeaderConnection);
 
     // TODO: Perhaps we should expose this as a property we get rather than register internally?
     //       Having said that, this Protocol is a bit useless without the content processor working
@@ -2053,13 +2056,23 @@ void ProtocolDash::ReadInterrupt()
 ProtocolStreamResult ProtocolDash::StreamSegment(MPDSegment& aSegment)
 {
     iDechunker.ReadFlush();
-    Close(); // TODO: I wonder if we could use a Keep-Alive on the socket??
+
+    iUriNext.Replace(aSegment.iUrlBuffer);
+
+    const TBool isEndpointSame    = iUri.Host() == iUriNext.Host();
+    const TBool shouldCloseSocket = iHeaderConnection.Close() || !isEndpointSame;
+    const TBool requiresConnect   = shouldCloseSocket;
 
     // Configure us to use the URL for the segment!
     iUri.Replace(aSegment.iUrlBuffer);
 
-    iSocket.SetSecure(false);
 
+    if (shouldCloseSocket) {
+        Close();
+        iSocket.SetSecure(false);
+    }
+
+    // Decide what port to use
     TUint port = 80; // Default to HTTP
     if (iUri.Port() != -1) {
         port = iUri.Port();
@@ -2067,14 +2080,19 @@ ProtocolStreamResult ProtocolDash::StreamSegment(MPDSegment& aSegment)
     else {
         if (iUri.Scheme() == Brn("https")) {
             port = 443;
-            iSocket.SetSecure(true);
         }
     }
 
-    // Connect....
-    if (!Connect(iUri, port)) {
-        LOG_ERROR(kMedia, "ProtocolDash::StreamSegment - Connection failure.\n");
-        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+    if (requiresConnect) {
+        if (port == 443) {
+            iSocket.SetSecure(true);
+        }
+
+        // Connect....
+        if (!Connect(iUri, port)) {
+            LOG_ERROR(kMedia, "ProtocolDash::StreamSegment - Connection failure.\n");
+            return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+        }
     }
 
     // Send off the request...
