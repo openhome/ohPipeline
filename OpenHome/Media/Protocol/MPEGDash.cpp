@@ -2080,15 +2080,7 @@ ProtocolStreamResult ProtocolDash::StreamSegment(MPDSegment& aSegment)
         iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
         Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
 
-        // TODO: UserAgent support??
-        /*
-        if (iUserAgent.Bytes() > 0) {
-            iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);
-        }
-        */
-
-        // TODO: KeepAlives??
-        Http::WriteHeaderConnectionClose(iWriterRequest);
+        Http::WriteHeaderUserAgent(iWriterRequest, iEnv);
 
         if (aSegment.iRangeStart != -1) {
             if (aSegment.iRangeEnd != -1) {
