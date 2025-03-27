@@ -1951,7 +1951,7 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
 
         const TBool isRangeRequest = segment.iRangeEnd != -1;
         if (isRangeRequest) {
-            LOG_TRACE(kMedia, "ProtocolDash::Stream - Segment Url: %.*s (%u - %u)", PBUF(segment.iUrlBuffer), segment.iRangeStart, segment.iRangeEnd);
+            LOG_TRACE(kMedia, "ProtocolDash::Stream - Segment Url: %.*s (%lld - %lld)\n", PBUF(segment.iUrlBuffer), segment.iRangeStart, segment.iRangeEnd);
         }
         else {
             LOG_TRACE(kMedia, "ProtocolDash::Steam - Segment Url: %.*s\n", PBUF(segment.iUrlBuffer));
