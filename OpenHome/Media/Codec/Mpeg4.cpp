@@ -3335,6 +3335,17 @@ Msg* Mpeg4BoxMdat::Process()
                 const TUint maxBytesToRead       = iSampleBuf->BytesRemaining();
                 const TUint bytesToRead          = std::min(chunkBytesLeftToRead, maxBytesToRead);
 
+                if (bytesToRead == 0) {
+                    Log::Print("--------\n");
+                    Log::Print("SPLIT ON 0\n");
+                    Log::Print("Chunk Bytes Left To Read: %u\n", chunkBytesLeftToRead);
+                    Log::Print("Max Bytes to Read: %u\n", maxBytesToRead);
+                    Log::Print("Bytes To Read: %u\n", bytesToRead);
+
+                    ASSERT(false);
+                }
+
+
                 if (bytesToRead < iChunkMsg->Bytes()) {
                     remaining = iChunkMsg->Split(bytesToRead);
                 }
