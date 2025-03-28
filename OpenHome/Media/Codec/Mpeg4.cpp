@@ -3139,8 +3139,8 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
     aChunkSeeker.RegisterChunkSeekObserver(*this);
 
     if (iDRMProvider.Ok()) {
-        iSampleBuf     = new Bwh(EncodedAudio::kMaxBytes);
-        iDecryptionBuf = new Bwh(EncodedAudio::kMaxBytes);
+        iSampleBuf     = new Bwh(1024 * 12);
+        iDecryptionBuf = new Bwh(1024 * 12);
     }
     else {
         iSampleBuf     = nullptr;
@@ -3279,20 +3279,7 @@ Msg* Mpeg4BoxMdat::Process()
                 iChunkBytesRemaining -= msg->Bytes();
 
                 if (iChunkBytesRemaining == 0) {
-                    ASSERT(iOffset <= iBytes);
-                    if (iOffset == iBytes) {
-                        iState = eComplete;
-                    }
-                    else {
-                        iChunk++;
-
-                        if (!ChunkBytes(&iChunkBytesRemaining)) {
-                            msg->RemoveRef();
-                            THROW(MediaMpeg4FileInvalid);
-                        }
-
-                        iState = eChunkReadSetup;
-                    }
+                    MoveToNextChunkIfPossible();
                 }
                 else {
                     // Bytes remaining from this chunk; set to read next block but remain in this state.
@@ -3325,26 +3312,24 @@ Msg* Mpeg4BoxMdat::Process()
             }
         }
         else if (iState == eProtectedChunk) {
-            iDecryptionBuf->SetBytes(0);
 
-            // First - we need to consume as much audio as possible from the audio stream
+            // Reset the state of our decryption buffer. If we have more data present than an emitted MsgAudioEncoded
+            // move the contents to the start of the buffer, otherwise we clear.
+            if (iDecryptionBuf->Bytes() > AudioData::kMaxBytes) {
+                const Brn remaining(iDecryptionBuf->Ptr() + AudioData::kMaxBytes, iDecryptionBuf->Bytes() - AudioData::kMaxBytes);
+                iDecryptionBuf->Replace(remaining);
+            }
+            else {
+                iDecryptionBuf->SetBytes(0);
+            }
+
+            // Next - consume as much audio as possible from the audio stream.
             if (iChunkMsg) {
                 MsgAudioEncoded* remaining = nullptr;
 
                 const TUint chunkBytesLeftToRead = iChunkMsg->Bytes();
                 const TUint maxBytesToRead       = iSampleBuf->BytesRemaining();
                 const TUint bytesToRead          = std::min(chunkBytesLeftToRead, maxBytesToRead);
-
-                if (bytesToRead == 0) {
-                    Log::Print("--------\n");
-                    Log::Print("SPLIT ON 0\n");
-                    Log::Print("Chunk Bytes Left To Read: %u\n", chunkBytesLeftToRead);
-                    Log::Print("Max Bytes to Read: %u\n", maxBytesToRead);
-                    Log::Print("Bytes To Read: %u\n", bytesToRead);
-
-                    ASSERT(false);
-                }
-
 
                 if (bytesToRead < iChunkMsg->Bytes()) {
                     remaining = iChunkMsg->Split(bytesToRead);
@@ -3361,29 +3346,18 @@ Msg* Mpeg4BoxMdat::Process()
                 iChunkMsg = remaining;
             }
 
+            // This assumes WideVine DRM has been applied. For this, we must decrypt each MPEG sample in turn.
+            // Sadly, we must buffer the FULL sample as WideVine does not support partial sample decryptions.
             ReaderBuffer sampleReader(*iSampleBuf);
 
-            // Next, we must read each sample in turn, decrypting as we go to fill out our output buffer...
             while (true) {
-
-                // If we've read all available samples from this chunk so we're finished...
-                if (iSampleIndex >= iSampleSizeTable.Count()) {
-                    ASSERT(iOffset <= iBytes);
-                    if (iOffset == iBytes) {
-                        iState = eComplete;
-                    }
-                    else {
-                        iChunk++;
-
-                        if (!ChunkBytes(&iChunkBytesRemaining)) {
-                            THROW(MediaMpeg4FileInvalid);
-                        }
-
-                        iState = eChunkReadSetup;
-                    }
+                const TBool hasReadAllSamples = iSampleIndex >= iSampleSizeTable.Count();
+                if (hasReadAllSamples) {
+                    MoveToNextChunkIfPossible();
                     break;
                 }
 
+                // Otherwise, we attempt to decrypt the current sample.
                 const TUint sampleBytes = iSampleSizeTable.SampleSize(iSampleIndex);
                 const Brx&  sampleData  = sampleReader.Read(sampleBytes);
 
@@ -3398,19 +3372,7 @@ Msg* Mpeg4BoxMdat::Process()
                             iState = eChunk;
                         }
                         else {
-                            ASSERT(iOffset <= iBytes);
-                            if (iOffset == iBytes) {
-                                iState = eComplete;
-                            }
-                            else {
-                                iChunk++;
-
-                                if (!ChunkBytes(&iChunkBytesRemaining)) {
-                                    THROW(MediaMpeg4FileInvalid);
-                                }
-
-                                iState = eChunkReadSetup;
-                            }
+                            MoveToNextChunkIfPossible();
                         }
                     }
 
@@ -3446,7 +3408,8 @@ Msg* Mpeg4BoxMdat::Process()
             }
 
             if (iDecryptionBuf->Bytes() > 0) {
-                return iMsgFactory.CreateMsgAudioEncoded(*iDecryptionBuf);
+                const Brn outputData(iDecryptionBuf.Ptr(), std::min(iDecryptionBuf->Bytes(), AudioData::kMaxBytes));
+                return iMsgFactory.CreateMsgAudioEncoded(outputData);
             }
         }
         else {
@@ -3463,7 +3426,7 @@ TBool Mpeg4BoxMdat::Complete() const
     ASSERT(iOffset <= iBytes);
 
     const TBool finishedReading    = iOffset == iBytes;
-    const TBool finishedDecrypting = iChunkMsg == nullptr;
+    const TBool finishedDecrypting = iChunkMsg == nullptr && iDecryptionBuf && (iDecryptionBuf->Bytes() < AudioData::kMaxBytes);
 
     return finishedReading && finishedDecrypting;
 }
@@ -3608,6 +3571,26 @@ TUint Mpeg4BoxMdat::BytesToRead() const
     }
     return bytes;
 }
+
+void Mpeg4BoxMdat::MoveToNextChunkIfPossible()
+{
+    ASSERT(iOffset <= iBytes); // We should not have read more than the box contents
+
+    const TBool boxFinished = iOffset == iBytes;
+    if (boxFinished) {
+        iState = eComplete;
+    }
+    else {
+        iChunk += 1;
+
+        if (!ChunkBytes(&iChunkBytesRemaining)) {
+            THROW(MediaMpeg4FileInvalid);
+        }
+
+        iState = eChunkReadSetup;
+    }
+}
+
 
 // SampleSizeTable
 
