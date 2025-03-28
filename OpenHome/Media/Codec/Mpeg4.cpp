@@ -3109,6 +3109,13 @@ void Mpeg4CodecInfo::SetCodecInfo(MsgAudioEncoded* aMsg)
 
 // Mpeg4BoxMdat
 
+// :MpegWideVineDRM
+// At present, we currently only support WideVine DRM. That requires us to decrypt each MPEG audio-sample in turn.
+// Some of the 96/24 FLAC tracks have audio samples over 9216 bytes in length, which is the current maximum size of
+// MsgAuioEncoded. Therefore, require internal buffers to be slightly larger than this value to accomodate the decryption.
+// This complicates the checks upon reaching the end of chunks & the box data itself.
+#define MDAT_HAS_DECRYPTED_AUDIO_TO_EMIT (iDecryptionBuf != nullptr && iDecryptionBuf->Bytes() > AudioData::kMaxBytes)
+
 Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
                            MsgFactory& aMsgFactory,
                            Mpeg4BoxSwitcherRoot& aBoxSwitcher,
@@ -3313,9 +3320,9 @@ Msg* Mpeg4BoxMdat::Process()
         }
         else if (iState == eProtectedChunk) {
 
-            // Reset the state of our decryption buffer. If we have more data present than an emitted MsgAudioEncoded
-            // move the contents to the start of the buffer, otherwise we clear.
-            if (iDecryptionBuf->Bytes() > AudioData::kMaxBytes) {
+            // :MpegWideVineDRM
+            // Reset the state of our decryption buffer.
+            if (MDAT_HAS_DECRYPTED_AUDIO_TO_EMIT) {
                 const Brn remaining(iDecryptionBuf->Ptr() + AudioData::kMaxBytes, iDecryptionBuf->Bytes() - AudioData::kMaxBytes);
                 iDecryptionBuf->Replace(remaining);
             }
@@ -3323,7 +3330,7 @@ Msg* Mpeg4BoxMdat::Process()
                 iDecryptionBuf->SetBytes(0);
             }
 
-            // Next - consume as much audio as possible from the audio stream.
+            // Next - consume as much audio as possible from the audio stream, while we have space.
             if (iChunkMsg) {
                 MsgAudioEncoded* remaining = nullptr;
 
@@ -3346,8 +3353,8 @@ Msg* Mpeg4BoxMdat::Process()
                 iChunkMsg = remaining;
             }
 
-            // This assumes WideVine DRM has been applied. For this, we must decrypt each MPEG sample in turn.
-            // Sadly, we must buffer the FULL sample as WideVine does not support partial sample decryptions.
+            // : MpegWideVineDRM
+            // Read and decrypt MPEG samples one-by-one until we've filled up our available buffer space.
             ReaderBuffer sampleReader(*iSampleBuf);
 
             while (true) {
@@ -3356,9 +3363,15 @@ Msg* Mpeg4BoxMdat::Process()
                     MoveToNextChunkIfPossible();
                     break;
                 }
-
                 // Otherwise, we attempt to decrypt the current sample.
                 const TUint sampleBytes = iSampleSizeTable.SampleSize(iSampleIndex);
+                if (sampleBytes > iDecryptionBuf->MaxBytes()) {
+                    Log::Print("Mpeg4BoxMdat::Process() - ERROR  :: Very large sample detected. We can handle %u bytes, sample was %u bytes\n", iDecryptionBuf->MaxBytes(), sampleBytes);
+                    DrainOnError();
+                    THROW(CodecStreamCorrupt);
+                }
+
+                // Otherwise, we attempt to decrypt the current sample.
                 const Brx&  sampleData  = sampleReader.Read(sampleBytes);
 
                 const TBool hasReadFullSample = sampleData.Bytes() == sampleBytes;
@@ -3386,20 +3399,7 @@ Msg* Mpeg4BoxMdat::Process()
 
                 if (!iDRMProvider.Unwrap().Decrypt(KID, sampleData, IV, *iDecryptionBuf)) {
                     LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process() - Failed to decrypt content\n");
-
-                    // Need to drain whatever is left so we don't continue to read and process...
-                    const TUint bytesRemaining = iBytes - (TUint)iOffset;
-                    iOffset = iBytes;
-                    iState = eComplete;
-
-                    iCache->Discard(bytesRemaining);
-
-                    if (iChunkMsg) {
-                        iChunkMsg->RemoveRef();
-                        iChunkMsg = nullptr;
-                    }
-
-                    // Finally indicate the stream is corrupt to cause the pipeline to stop this track.
+                    DrainOnError();
                     THROW(CodecStreamCorrupt);
                 }
 
@@ -3408,7 +3408,9 @@ Msg* Mpeg4BoxMdat::Process()
             }
 
             if (iDecryptionBuf->Bytes() > 0) {
-                const Brn outputData(iDecryptionBuf.Ptr(), std::min(iDecryptionBuf->Bytes(), AudioData::kMaxBytes));
+                // :MpegWideVineDRM
+                // The decryption buffer may contain more data than a MsgAudioEncoded message can handle,
+                const Brn outputData(iDecryptionBuf->Ptr(), std::min(iDecryptionBuf->Bytes(), AudioData::kMaxBytes));
                 return iMsgFactory.CreateMsgAudioEncoded(outputData);
             }
         }
@@ -3426,7 +3428,7 @@ TBool Mpeg4BoxMdat::Complete() const
     ASSERT(iOffset <= iBytes);
 
     const TBool finishedReading    = iOffset == iBytes;
-    const TBool finishedDecrypting = iChunkMsg == nullptr && iDecryptionBuf && (iDecryptionBuf->Bytes() < AudioData::kMaxBytes);
+    const TBool finishedDecrypting = iChunkMsg == nullptr && !MDAT_HAS_DECRYPTED_AUDIO_TO_EMIT;
 
     return finishedReading && finishedDecrypting;
 }
@@ -3576,18 +3578,41 @@ void Mpeg4BoxMdat::MoveToNextChunkIfPossible()
 {
     ASSERT(iOffset <= iBytes); // We should not have read more than the box contents
 
-    const TBool boxFinished = iOffset == iBytes;
-    if (boxFinished) {
-        iState = eComplete;
-    }
-    else {
-        iChunk += 1;
-
-        if (!ChunkBytes(&iChunkBytesRemaining)) {
-            THROW(MediaMpeg4FileInvalid);
+    if (!MDAT_HAS_DECRYPTED_AUDIO_TO_EMIT) {
+        const TBool boxFinished = iOffset == iBytes;
+        if (boxFinished) {
+            iState = eComplete;
         }
+        else {
+            iChunk += 1;
 
-        iState = eChunkReadSetup;
+            if (!ChunkBytes(&iChunkBytesRemaining)) {
+                THROW(MediaMpeg4FileInvalid);
+            }
+
+            iState = eChunkReadSetup;
+        }
+    }
+}
+
+void Mpeg4BoxMdat::DrainOnError()
+{
+    // Required to ensure that we don't continue to try and read / decrypt / process the box upon an error.
+    const TUint bytesRemaining = iBytes - (TUint)iOffset;
+    iOffset = iBytes;
+    iCache->Discard(bytesRemaining);
+
+    iState = eComplete;
+
+    iSampleIndex = 0;
+
+    if (iDecryptionBuf) {
+        iDecryptionBuf->SetBytes(0);
+    }
+
+    if (iChunkMsg) {
+        iChunkMsg->RemoveRef();
+        iChunkMsg = nullptr;
     }
 }
 

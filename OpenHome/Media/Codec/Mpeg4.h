@@ -1108,6 +1108,7 @@ private:
     TBool ChunkBytes(TUint *aChunkBytes) const;
     TUint BytesToRead() const;
     void MoveToNextChunkIfPossible();
+    void DrainOnError();
 private:
     enum EState
     {
