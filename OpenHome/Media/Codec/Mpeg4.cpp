@@ -3142,7 +3142,6 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
     , iOutOfBandReader(aOutOfBandReader)
     , iStopper(aContainerStopper)
     , iLock("MP4D")
-    , iLoggedMissingEncryptionError(false)
     , iChunkMsg(nullptr)
 {
     aChunkSeeker.RegisterChunkSeekObserver(*this);
