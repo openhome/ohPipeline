@@ -1093,7 +1093,8 @@ public:
                  SampleSizeTable& aSampleSizeTable,
                  Mpeg4ProtectionDetails& aProtectionDetails,
                  Mpeg4ContainerInfo& aContainerInfo,
-                 Mpeg4OutOfBandReader& aOutOfBandReader);
+                 Mpeg4OutOfBandReader& aOutOfBandReader,
+                 IContainerStopper& aStopper);
     ~Mpeg4BoxMdat();
 public: // from IMpeg4BoxRecognisable
     Msg* Process() override;
@@ -1108,7 +1109,7 @@ private:
     TBool ChunkBytes(TUint *aChunkBytes) const;
     TUint BytesToRead() const;
     void MoveToNextChunkIfPossible();
-    void DrainOnError();
+    void OnErrorEncountered();
 private:
     enum EState
     {
@@ -1132,6 +1133,7 @@ private:
     Mpeg4ProtectionDetails& iProtectionDetails;
     Mpeg4ContainerInfo& iContainerInfo;
     Mpeg4OutOfBandReader& iOutOfBandReader;
+    IContainerStopper& iStopper;
     IMsgAudioEncodedCache* iCache;
     MsgAudioEncodedRecogniser iAudioEncodedRecogniser;
     EState iState;
@@ -1144,7 +1146,6 @@ private:
     TUint64 iBoxStartOffset;
     TUint64 iFileReadOffset;
     Mutex iLock;
-    TBool iLoggedMissingEncryptionError;
 
     // Protection Support
     TUint iSampleIndex;
