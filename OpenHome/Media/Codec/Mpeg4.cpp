@@ -3127,7 +3127,8 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
                            SampleSizeTable& aSampleSizeTable,
                            Mpeg4ProtectionDetails& aProtectionDetails,
                            Mpeg4ContainerInfo& aContainerInfo,
-                           Mpeg4OutOfBandReader& aOutOfBandReader)
+                           Mpeg4OutOfBandReader& aOutOfBandReader,
+                           IContainerStopper& aContainerStopper)
     : iDRMProvider(aDRMProvider)
     , iMsgFactory(aMsgFactory)
     , iBoxSwitcher(aBoxSwitcher)
@@ -3139,8 +3140,8 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
     , iProtectionDetails(aProtectionDetails)
     , iContainerInfo(aContainerInfo)
     , iOutOfBandReader(aOutOfBandReader)
+    , iStopper(aContainerStopper)
     , iLock("MP4D")
-    , iLoggedMissingEncryptionError(false)
     , iChunkMsg(nullptr)
 {
     aChunkSeeker.RegisterChunkSeekObserver(*this);
@@ -3299,12 +3300,10 @@ Msg* Mpeg4BoxMdat::Process()
                 // If the content is encrypted, we need to decrypt here before passing on...
                 if (iProtectionDetails.IsProtected() && iProtectionDetails.HasPerSampleIVs()) {
                     if (!iDRMProvider.Ok()) {
-                        if (!iLoggedMissingEncryptionError) {
-                            iLoggedMissingEncryptionError = true;
-                            LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process - Encountered an encrypted stream but have no means to decrypt content.\n");
-                        }
-
+                        LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process - Encountered an encrypted stream but have no means to decrypt content.\n");
                         msg->RemoveRef(); // Discard msg, no longer needed.
+
+                        OnErrorEncountered();
                         THROW(CodecStreamCorrupt);
                     }
 
@@ -3367,7 +3366,7 @@ Msg* Mpeg4BoxMdat::Process()
                 const TUint sampleBytes = iSampleSizeTable.SampleSize(iSampleIndex);
                 if (sampleBytes > iDecryptionBuf->MaxBytes()) {
                     Log::Print("Mpeg4BoxMdat::Process() - ERROR  :: Very large sample detected. We can handle %u bytes, sample was %u bytes\n", iDecryptionBuf->MaxBytes(), sampleBytes);
-                    DrainOnError();
+                    OnErrorEncountered();
                     THROW(CodecStreamCorrupt);
                 }
 
@@ -3399,7 +3398,7 @@ Msg* Mpeg4BoxMdat::Process()
 
                 if (!iDRMProvider.Unwrap().Decrypt(KID, sampleData, IV, *iDecryptionBuf)) {
                     LOG_ERROR(kCodec, "Mpeg4BoxMdat::Process() - Failed to decrypt content\n");
-                    DrainOnError();
+                    OnErrorEncountered();
                     THROW(CodecStreamCorrupt);
                 }
 
@@ -3447,7 +3446,6 @@ void Mpeg4BoxMdat::Reset()
     iBoxStartOffset = 0;
     iFileReadOffset = 0;
     iSampleIndex = 0;
-    iLoggedMissingEncryptionError = false;
 
     if (iChunkMsg) {
         iChunkMsg->RemoveRef();
@@ -3595,25 +3593,31 @@ void Mpeg4BoxMdat::MoveToNextChunkIfPossible()
     }
 }
 
-void Mpeg4BoxMdat::DrainOnError()
+void Mpeg4BoxMdat::OnErrorEncountered()
 {
-    // Required to ensure that we don't continue to try and read / decrypt / process the box upon an error.
-    const TUint bytesRemaining = iBytes - (TUint)iOffset;
+    // Ensure we don't continue to process any more of this box...
     iOffset = iBytes;
-    iCache->Discard(bytesRemaining);
+    iState  = eComplete;
 
-    iState = eComplete;
+    // Ensure we request the container to stop and reset. This clears out any pending
+    // accumulates / discards...
+    iStopper.ContainerTryStop();
 
+    // Reset our processing...
     iSampleIndex = 0;
 
+    // Clear out any pending decrypted content to ensure that we signal completed...
     if (iDecryptionBuf) {
         iDecryptionBuf->SetBytes(0);
     }
 
+    // Clear out any dangling message references if we're in the middle of a decyrption cycle...
     if (iChunkMsg) {
         iChunkMsg->RemoveRef();
-        iChunkMsg = nullptr;
+        iChunkMsg = 0;
     }
+
+    ASSERT(Complete());
 }
 
 
@@ -4638,7 +4642,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxStsz(iSampleSizeTable));
     iProcessorFactory.Add(new Mpeg4BoxMdhd(iDurationInfo));
     iProcessorFactory.Add(
-        new Mpeg4BoxMdat(iDRMProvider, aMsgFactory, iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, iProtectionDetails, iContainerInfo, *iOutOfBandReader));
+        new Mpeg4BoxMdat(iDRMProvider, aMsgFactory, iBoxRootOutOfBand, iMetadataChecker, *this, *this, iBoxRoot, iSeekTable, iSampleSizeTable, iProtectionDetails, iContainerInfo, *iOutOfBandReader, aContainerStopper));
 
     // 'Moof' specific boxes
     iProcessorFactory.Add(new Mpeg4BoxSidx(iSeekTable));
