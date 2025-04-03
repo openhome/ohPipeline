@@ -26,7 +26,8 @@ ProtocolRaat::ProtocolRaat(Environment& aEnv, IRaatReader& aRaatReader, Media::T
     , iSupply(nullptr)
     , iState(EStreamState::eStopped)
     , iInterrupt(false)
-    , iSemStateChange("PRSM", 0)
+    , iSemStateChange("PRS1", 0)
+    , iSemDrain("PRS2", 0)
     , iLock("PRat")
 {
 }
@@ -230,10 +231,10 @@ void ProtocolRaat::OutputStream(const RaatStreamFormat& aStreamFormat)
 void ProtocolRaat::OutputDrain()
 {
     LOG(kRaat, "ProtocolRaat::OutputDrain()\n");
-    Semaphore sem("DRAT", 0);
-    iSupply->OutputDrain(MakeFunctor(sem, &Semaphore::Signal));
+    iSemDrain.Clear();
+    iSupply->OutputDrain(MakeFunctor(iSemDrain, &Semaphore::Signal));
     try {
-        sem.Wait(ISupply::kMaxDrainMs);
+        iSemDrain.Wait(ISupply::kMaxDrainMs);
     }
     catch (Timeout&) {
         LOG(kPipeline, "WARNING: ProtocolRaat: timeout draining pipeline\n");

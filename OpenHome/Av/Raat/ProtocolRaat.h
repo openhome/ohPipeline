@@ -71,6 +71,7 @@ private:
     std::atomic<EStreamState> iState;
     std::atomic<TBool> iInterrupt;
     Semaphore iSemStateChange;
+    Semaphore iSemDrain;
     Mutex iLock;
 
     TUint iNextFlushId;
