@@ -1910,10 +1910,15 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
 
     // NOTE: This needs to be here to ensure that we have a consistent messaging for the entire MPD file
     iCurrentStreamId = iIdProvider->NextStreamId();
-    iSupply->OutputStream(iUri.AbsoluteUri(), 0, 0, false, true, Multiroom::Allowed, *this, iCurrentStreamId);
+
+    MPDDocument& document = iContentProcessor->MPD();
+
+    const TBool isLive = document.IsStatic() == false;
+
+    iSupply->OutputStream(iUri.AbsoluteUri(), 0, 0, false, isLive, Multiroom::Allowed, *this, iCurrentStreamId);
 
     MPDSegment segment(iSegmentUrlBuffer);
-    MPDDocument& document = iContentProcessor->MPD();
+
 
     if (!iSegmentStream.TrySet(document)) {
         LOG_ERROR(kMedia, "ProtocolDash::Stream - Failed to construct segment stream around provided MPD document\n");
