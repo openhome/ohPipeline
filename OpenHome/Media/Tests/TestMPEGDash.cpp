@@ -1112,7 +1112,7 @@ void SuiteMPDSegmentStream::TestStaticSegmentList()
     // Remaining Audio segments...
     TEST(subject.TryGetNextSegment(segment));
     TEST(segment.iUrlBuffer  == kExpectedStreamUri);
-    TEST(segment.iRangeStart == 1256);
+    TEST(segment.iRangeStart == 1032); // We adjust the start to be at the end of the "init" segment
     TEST(segment.iRangeEnd   == 61511);
 
     TEST(subject.TryGetNextSegment(segment));
