@@ -1322,6 +1322,39 @@ TBool MPDSegmentStream::TrySeekByOffset(TUint64 aOffset)
     return true;
 }
 
+TUint64 MPDSegmentStream::AudioBytes() const
+{
+    // No current document
+    if (iSegmentXml.Bytes() == 0 || iSegmentType == ESegmentType::Unknown || !iCurrentDocument) {
+        return 0;
+    }
+
+    // Dynamic stream, so unknown content length.
+    if (iCurrentDocument->IsStatic() == false) {
+        return 0;
+    }
+
+    if (iSegmentType == ESegmentType::List) {
+        Brn attributeValue;
+        Brn elementXml;
+        Brn xmlToParse(iSegmentXml);
+        TUint64 fileBytes = 0;
+
+        while(XmlParserBasic::TryGetElement(kMPDTagSegmentUrlName, xmlToParse, xmlToParse, elementXml)) {
+            if (XmlParserBasic::TryFindAttribute(kMPDTagSegmentUrlName, "mediaRange", elementXml, attributeValue)) {
+                Parser p(attributeValue);
+                (void)p.Next('-');
+                fileBytes = Ascii::Uint64(p.Remaining());
+            }
+        }
+
+        return fileBytes;
+    }
+    else {
+        LOG_ERROR(kMedia, "MPDSegmentStream::AudioBytes - Called on segment type not currently implemented.\n");
+        return 0;
+    }
+}
 
 TBool MPDSegmentStream::TryGetInitialisationSegment(MPDSegment& aSegment)
 {
@@ -1437,7 +1470,18 @@ TBool MPDSegmentStream::TryGetMediaSegment(MPDSegment& aSegment)
 
             if (XmlParserBasic::TryFindAttribute(kMPDTagSegmentUrlName, "mediaRange", elementXml, attributeValue)) {
                 Parser p(attributeValue);
-                aSegment.iRangeStart = Ascii::Int(p.Next('-'));
+                // NOTE: Sometimes, the 'Init' segment range and the first 'segment' index aren't a continuous range.
+                //       Therefore, we need to ensure that any data between the end of the 'Init' segment and the first
+                //       segment is included, otherwise we might miss required information from the encoded audio.
+                const TBool requiresRangeAdjust = iSegmentNumber == 0 && TryGetInitialisationSegment(aSegment);
+                if (requiresRangeAdjust) {
+                    aSegment.iRangeStart = aSegment.iRangeEnd + 1;
+                    (void)p.Next('-');
+                }
+                else {
+                    aSegment.iRangeStart = Ascii::Int(p.Next('-'));
+                }
+
                 aSegment.iRangeEnd   = Ascii::Int(p.Remaining());
             }
 
@@ -1913,9 +1957,12 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
 
     MPDDocument& document = iContentProcessor->MPD();
 
-    const TBool isLive = document.IsStatic() == false;
+    const TBool isLiveStream = document.IsStatic() == false;
+    const TBool isSeekable   = false; //document.IsStatic(); NOTE: Seeking in fragmented tracks is currently disabled
+    const TUint64 totalBytes = iSegmentStream.AudioBytes();
 
-    iSupply->OutputStream(iUri.AbsoluteUri(), 0, 0, false, isLive, Multiroom::Allowed, *this, iCurrentStreamId);
+    // NOTE: This needs to be here to ensure that we have a consistent messaging for the entire MPD file
+    iSupply->OutputStream(iUri.AbsoluteUri(), totalBytes, 0, isSeekable, isLiveStream, Multiroom::Allowed, *this, iCurrentStreamId);
 
     MPDSegment segment(iSegmentUrlBuffer);
 

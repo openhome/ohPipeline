@@ -305,6 +305,8 @@ public:
     MPDSegmentStream(IUnixTimestamp& aTimestamp);
 
 public:
+    TUint64 AudioBytes() const;
+
     TBool TryGetNextSegment(MPDSegment& aSegement);
 
     TBool TrySeekByOffset(TUint64 aOffset);
