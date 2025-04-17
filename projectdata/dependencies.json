@@ -19,20 +19,35 @@
         "type": "internal",
         "platform-specific": true,
         "platform-ignore": {
-            "Linux-armhf": false,
-            "*": true },
-        "ignore":	"${platform-ignore[$platform]}",
-        "version": "0.1.47",
+            "armhf-kirkstone-linux": false,
+            "*": true
+        },
+        "ignore": "${platform-ignore[$platform]}",
+        "version": "0.1.5",
         "cross-check": false,
-        "archive-filename": "linn-fb-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone.sh",
-        "archive-path":     "${binary-repo}/${name}/${version}/${archive-filename}"
+        "archive-filename": "linn-wayland-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone.sh",
+        "archive-path": "${binary-repo}/${name}/${version}/linn-imx6dl/${archive-filename}"
+    },
+    {
+        "name": "yocto_core5_sdk",
+        "type": "internal",
+        "platform-specific": true,
+        "platform-ignore": {
+            "aarch64-kirkstone-linux": false,
+            "*": true
+        },
+        "ignore": "${platform-ignore[$platform]}",
+        "version": "0.1.5",
+        "cross-check": false,
+        "archive-filename": "linn-wayland-glibc-x86_64-linn-image-core-armv8a-imx8mp-lpddr4-evk-linn-toolchain-5.15-kirkstone.sh",
+        "archive-path": "${binary-repo}/${name}/${version}/imx8mp-lpddr4-evk-linn/${archive-filename}"
     },
     {
         "name": "buildroot_core4_staging",
         "type": "internal",
         "platform-specific": true,
         "platform-ignore": {
-            "Linux-armhf": false,
+            "armhf-buildroot-linux": false,
             "*": true },
         "ignore":	"${platform-ignore[$platform]}",
         "version": "0.2.47",
@@ -42,7 +57,7 @@
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.160",
+        "version": "0.2.161",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -58,7 +73,7 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.92.1323",
+        "version": "0.93.11-yocto",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
@@ -72,7 +87,7 @@
         "name": "libplatform-host",
         "real-name": "libplatform",
         "type": "internal",
-        "version": "0.92.1323",
+        "version": "0.93.11-yocto",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "${real-name}-${version}-${host-platform}-${debugmode}.tar.gz",
@@ -96,9 +111,12 @@
         "type": "internal",
         "platform-specific": true,
         "platform-version": {
-            "*": "0.1.37",
+            "armhf-buildroot-linux": "0.1.17-yocto",
+            "armhf-kirkstone-linux": "0.1.17-yocto",
+            "aarch64-kirkstone-linux": "0.1.17-yocto",
             "Windows-x86": "0.1.37",
-            "Core-ppc32": "0.1.37"
+            "Core-ppc32": "0.1.37",
+            "*": "0.1.17-yocto"
         },
         "version": "${platform-version[$platform]}",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
@@ -106,14 +124,16 @@
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.1.64",
+        "version": "1.1.4-yocto",
         "archive-suffix": "-${debugmode}",
         "archive-directory": "${binary-repo}/raat/",
         "cross-check": false,
         "platform-ignore": {
             "Windows-x86": false,
             "Linux-x64": false,
-            "Linux-armhf": false,
+            "armhf-buildroot-linux": false,
+            "armhf-kirkstone-linux": false,
+            "aarch64-kirkstone-linux": false,
             "*": true
         },
         "ignore": "${platform-ignore[$platform]}"
