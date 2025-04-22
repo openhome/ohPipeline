@@ -3,7 +3,7 @@
         "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.39.5615",
+        "version": "1.38.12-yocto",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
@@ -124,7 +124,7 @@
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.1.4-yocto",
+        "version": "1.1.6-yocto",
         "archive-suffix": "-${debugmode}",
         "archive-directory": "${binary-repo}/raat/",
         "cross-check": false,
