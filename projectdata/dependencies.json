@@ -51,7 +51,7 @@
             "*": true },
         "ignore":	"${platform-ignore[$platform]}",
         "version": "0.2.47",
-        "archive-filename": "${name}-${platform}-${version}.tar.gz"
+        "archive-filename": "${name}-Linux-armhf-${version}.tar.gz"
     },
     {
         "name": "ohWafHelpers",
