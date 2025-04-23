@@ -57,7 +57,7 @@
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.161",
+        "version": "0.2.162",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -73,7 +73,7 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.93.11-yocto",
+        "version": "0.93.12-yocto",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
@@ -87,7 +87,7 @@
         "name": "libplatform-host",
         "real-name": "libplatform",
         "type": "internal",
-        "version": "0.93.11-yocto",
+        "version": "0.93.12-yocto",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "${real-name}-${version}-${host-platform}-${debugmode}.tar.gz",
