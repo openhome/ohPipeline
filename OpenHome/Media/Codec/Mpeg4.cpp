@@ -4718,6 +4718,75 @@ void Mpeg4Container::Init(TUint64 aStreamBytes)
 TBool Mpeg4Container::TrySeek(TUint aStreamId, TUint64 aOffset)
 {
     if (iContainerInfo.ProcessingMode() == Mpeg4ContainerInfo::EProcessingMode::Fragmented) {
+        Log::Print("Mpeg4Container::TrySeek - Seeking not available for fragmented streams");
+        return false;
+
+        /* @FragmentedStreamSeeking
+         *
+         * Fragmented MPEG streams need to seek in a 2-stage process.
+         * Stage 1) Find the fragment containing the seek position
+         * Stage 2) Find the position within that fragment to obtain the exact stream position.
+         *
+         * Stage 1
+         * -------
+         * We must obtain the full MOOF header boxes as well as the MDAT box for the fragment containing the
+         * seek position. This is because the MOOF header boxes may require sample size information required
+         * by the codec or may contain DRM encryption keys.
+         *
+         * Fragmented MPEG streams contain a prelude SIDX box. This gives you the duration and size of each
+         * fragment in the following file. The size of of the fragment includes the MOOF header + MDAT box
+         * containing the audio data. Fragments can be a variable duration.
+         *
+         * MPEG Stream
+         * ===========
+         * ... |  Fragment 1 |  Fragment 2 |  Fragment 3
+         * ... | MOOF | MDAT | MOOF | MDAT | MOOF | MDAT
+         *
+         * SIDX Table
+         * ==========
+         * IDX | Duration | Size (in bytes)
+         *  0  |  10sec   |   100
+         *  1  |  15 sec  |   150
+         *
+         * In addition to this information, we require to know the offset to the start of the MOOF box in the
+         * first fragment. Combining this with a summation of the fragment sizes provides you with the exact
+         * byte position in the stream to the start of the containing fragment.
+         *
+         * Eg (using the above steam)
+         * - First MOOF   = 1024
+         * - Seek position = 22
+         *
+         * Fragment containing seek position is IDX 1 (IDX 0 has 10 seconds followed by IDX 1 of 15 seconds making
+         * 25 seconds of audio in total).
+         *
+         * Fragment IDX 1 comes after Fragment IDX 0 which is 100 bytes in length.
+         *
+         * Therefore stream position = First MOOF + (Size of previous fragments)
+         *                           = 1024 + 100
+         *                           = 1124
+         *
+         * Stage 2
+         * -------
+         * Now we know what fragment, we need to now how far through that fragment we want to be. This is where the
+         * problems happen. Ideally, this is handled at the codec level. There, they can determin how many samples
+         * occur before the seek position and discard those. Opus does this.
+         *
+         * However, some codecs do not offer this flexibility. For example, FLAC provides us with an exact stream position
+         * that it expects us to move to. What complicates things here is that the position that FLAC provides us is the
+         * position within the MDAT boxes, ignoring the MOOF header boxes. So we'd need to store additional information, such
+         * as the offsets to each MDAT box.
+         *
+         * In order to achieve this, it's likely we'd need to store the entire stream in memory. That would allow us to quickly
+         * scan through the stream, tally up the sizes of the MOOF header boxes and use that in our calculations. Doing so
+         * in devices like ours is very tough as we only ever buffer small chunks of the file at any given point. Having to
+         * potentially scan the file and download is as well is simply not possible at this moment in time. And thus we simply
+         * can't currently support seeking.
+         */
+
+        // The code below works as expected for Opus. It assumes that the codec can tell
+        // the MPEG code exactly which fragment to seek to and then can internally throw
+        // away as many samples as required to complete the seek.
+        /*
         // Fragmented streams are based on the SIDX.
         // This defines how large each fragment/segment is starting from the position of the first MOOF box encountered in the stream
         const TUint fragmentIndex = (TUint)aOffset;
@@ -4736,6 +4805,7 @@ TBool Mpeg4Container::TrySeek(TUint aStreamId, TUint64 aOffset)
             iBoxRoot.Reset();
         }
         return seek;
+        */
     }
     else {
         // As TrySeek requires a byte offset, any codec that uses an Mpeg4 stream MUST find the appropriate seek offset (in bytes) and pass that via TrySeek().

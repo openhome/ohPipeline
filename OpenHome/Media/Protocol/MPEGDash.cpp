@@ -1958,8 +1958,10 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
     MPDDocument& document = iContentProcessor->MPD();
 
     const TBool isLiveStream = document.IsStatic() == false;
-    const TBool isSeekable   = false; //document.IsStatic(); NOTE: Seeking in fragmented tracks is currently disabled
     const TUint64 totalBytes = iSegmentStream.AudioBytes();
+
+    // @FragmentedStreamSeeking
+    const TBool isSeekable   = false; //document.IsStatic(); NOTE: Seeking in fragmented tracks is currently disabled
 
     // NOTE: This needs to be here to ensure that we have a consistent messaging for the entire MPD file
     iSupply->OutputStream(iUri.AbsoluteUri(), totalBytes, 0, isSeekable, isLiveStream, Multiroom::Allowed, *this, iCurrentStreamId);

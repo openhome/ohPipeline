@@ -275,6 +275,9 @@ void CodecFlac::Process()
 
 TBool CodecFlac::TrySeek(TUint aStreamId, TUint64 aSample)
 {
+    // @FragmentedStreamSeeking
+    // The below code DOES NOT work for MPEG fragmented streams
+
     iStreamId = aStreamId;
     iSampleStart = aSample;
     FLAC__bool ret = FLAC__stream_decoder_seek_absolute(iDecoder, aSample);
