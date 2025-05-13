@@ -282,6 +282,9 @@ void CodecOpus::Process()
 
 TBool CodecOpus::TrySeek(TUint aStreamId, TUint64 aSample)
 {
+    (void)aStreamId;
+    (void)aSample;
+
     Log::Print("CodecOpus::TrySeek - Seeking is not availabler\n");
     return false;
 
