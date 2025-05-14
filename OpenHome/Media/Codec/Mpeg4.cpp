@@ -27,16 +27,16 @@ ContainerBase* ContainerFactory::NewMpeg4(IMimeTypeList& aMimeTypeList, Optional
 // Mpeg4Info
 
 Mpeg4Info::Mpeg4Info() :
-        iSampleRate(0), iTimescale(0), iChannels(0), iBitDepth(0), iDuration(0)
+        iSampleRate(0), iTimescale(0), iChannels(0), iBitDepth(0), iDuration(0), iIsFragmentedStream(false)
 {
 }
 
 Mpeg4Info::Mpeg4Info(const Brx& aCodec, TUint aSampleRate, TUint aTimescale,
         TUint aChannels, TUint aBitDepth, TUint64 aDuration,
-        TUint aStreamDescriptorBytes) :
+        TUint aStreamDescriptorBytes, TBool aIsFragmented) :
         iCodec(aCodec), iSampleRate(aSampleRate), iTimescale(aTimescale), iChannels(
                 aChannels), iBitDepth(aBitDepth), iDuration(aDuration), iStreamDescBytes(
-                        aStreamDescriptorBytes)
+                aStreamDescriptorBytes), iIsFragmentedStream(aIsFragmented)
 {
 }
 
@@ -84,6 +84,11 @@ TUint Mpeg4Info::StreamDescriptorBytes() const
     return iStreamDescBytes;
 }
 
+TBool Mpeg4Info::IsFragmentedStream() const
+{
+    return iIsFragmentedStream;
+}
+
 void Mpeg4Info::SetCodec(const Brx& aCodec)
 {
     iCodec.Replace(aCodec);
@@ -118,6 +123,11 @@ void Mpeg4Info::SetDuration(TUint64 aDuration)
 void Mpeg4Info::SetStreamDescriptorBytes(TUint aBytes)
 {
     iStreamDescBytes = aBytes;
+}
+
+void Mpeg4Info::SetIsFragmentedStream()
+{
+    iIsFragmentedStream = true;
 }
 
 // Mpeg4InfoReader
@@ -155,6 +165,11 @@ void Mpeg4InfoReader::Read(IMpeg4InfoWritable& aInfo)
         const TUint streamDescriptorBytes = readerBin.ReadUintBe(4);
         aInfo.SetStreamDescriptorBytes(streamDescriptorBytes);
 
+        const TUint isFragmented = readerBin.ReadUintBe(4);
+        if (isFragmented != 0) {
+            aInfo.SetIsFragmentedStream();
+        }
+
         //ASSERT(aInfo.Initialised());
     } catch (ReaderError&) {
         THROW(MediaMpeg4FileInvalid);
@@ -179,6 +194,7 @@ void Mpeg4InfoWriter::Write(IWriter& aWriter) const
     writer.WriteUint32Be(iInfo.BitDepth());
     writer.WriteUint64Be(iInfo.Duration());
     writer.WriteUint32Be(iInfo.StreamDescriptorBytes());
+    writer.WriteUint32Be(iInfo.IsFragmentedStream() ? 1 : 0);
     aWriter.WriteFlush();   // FIXME - required?
 }
 
@@ -508,11 +524,11 @@ TBool Mpeg4BoxMoov::Recognise(const Brx& aBoxId) const
 
 // Mpeg4BoxMoof
 
-Mpeg4BoxMoof::Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo& aContainerInfo, IBoxOffsetProvider& aBoxOffsetProvider, SeekTable& aSeekTable)
+Mpeg4BoxMoof::Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo& aContainerInfo, IBoxOffsetProvider& aBoxOffsetProvider, IStreamInfoSettable& aStreamInfo)
     : Mpeg4BoxSwitcher(aProcessorFactory, Brn("moof"))
     , iContainerInfo(aContainerInfo)
     , iBoxOffsetProvider(aBoxOffsetProvider)
-    , iSeekTable(aSeekTable)
+    , iStreamInfo(aStreamInfo)
 { }
 
 void Mpeg4BoxMoof::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
@@ -520,7 +536,7 @@ void Mpeg4BoxMoof::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
     Mpeg4BoxSwitcher::Set(aCache, aBoxBytes);
     iContainerInfo.SetFragmented(aBoxBytes + 8); // Include size + 'moof' bytes here
     iContainerInfo.SetFirstMoofStart(iBoxOffsetProvider.BoxOffset());
-    iSeekTable.SetIsFragmentedStream(true);
+    iStreamInfo.SetIsFragmentedStream();
 }
 
 void Mpeg4BoxMoof::Reset()
@@ -3022,7 +3038,7 @@ void Mpeg4Duration::SetDuration(TUint64 aDuration)
 // Mpeg4StreamInfo
 
 Mpeg4StreamInfo::Mpeg4StreamInfo() :
-        iChannels(0), iBitDepth(0), iSampleRate(0)
+        iChannels(0), iBitDepth(0), iSampleRate(0), iIsFragmentedStream(false)
 {
 }
 
@@ -3032,6 +3048,7 @@ void Mpeg4StreamInfo::Reset()
     iBitDepth = 0;
     iSampleRate = 0;
     iCodec.SetBytes(0);
+    iIsFragmentedStream = false;
 }
 
 TUint Mpeg4StreamInfo::Channels() const
@@ -3054,6 +3071,11 @@ const Brx& Mpeg4StreamInfo::Codec() const
     return iCodec;
 }
 
+TBool Mpeg4StreamInfo::IsFragmentedStream() const
+{
+    return iIsFragmentedStream;
+}
+
 void Mpeg4StreamInfo::SetChannels(TUint aChannels)
 {
     iChannels = aChannels;
@@ -3072,6 +3094,11 @@ void Mpeg4StreamInfo::SetSampleRate(TUint aSampleRate)
 void Mpeg4StreamInfo::SetCodec(const Brx& aCodec)
 {
     iCodec.Replace(aCodec);
+}
+
+void Mpeg4StreamInfo::SetIsFragmentedStream()
+{
+    iIsFragmentedStream = true;
 }
 
 // Mpeg4CodecInfo
@@ -3752,7 +3779,6 @@ void SeekTable::Deinitialise()
     iSamplesPerChunk.clear();
     iAudioSamplesPerSample.clear();
     iOffsets.clear();
-    iIsFragmentedStream = false;
 }
 
 void SeekTable::SetSamplesPerChunk(TUint aFirstChunk, TUint aSamplesPerChunk,
@@ -3773,11 +3799,6 @@ void SeekTable::SetAudioSamplesPerSample(TUint32 aSampleCount,
 void SeekTable::SetOffset(TUint64 aOffset)
 {
     iOffsets.push_back(aOffset);
-}
-
-void SeekTable::SetIsFragmentedStream(TBool aIsFragmented)
-{
-    iIsFragmentedStream = aIsFragmented;
 }
 
 TUint SeekTable::ChunkCount() const
@@ -3880,25 +3901,17 @@ TUint64 SeekTable::GetOffset(TUint aChunkIndex) const
     return iOffsets[aChunkIndex];
 }
 
-TBool SeekTable::IsFragmentedStream() const
-{
-    return iIsFragmentedStream;
-}
-
-
 void SeekTable::WriteInit()
 {
-    iSpcWriteIndex = 0;
-    iAspsWriteIndex = 0;
-    iOffsetsWriteIndex = 0;
+    iSpcWriteIndex      = 0;
+    iAspsWriteIndex     = 0;
+    iOffsetsWriteIndex  = 0;
 }
 
 void SeekTable::Write(IWriter& aWriter, TUint aMaxBytes)
 {
     TUint bytesLeftToWrite = aMaxBytes;
     WriterBinary writerBin(aWriter);
-
-    writerBin.WriteUint8(iIsFragmentedStream ? 1 : 0);
 
     const TUint samplesPerChunkCount = iSamplesPerChunk.size();
     if (iSpcWriteIndex == 0) {
@@ -4150,9 +4163,6 @@ void SeekTableInitialiser::Init()
 {
     ASSERT(!iInitialised);
     ReaderBinary readerBin(iReader);
-
-    const TBool isFragmentedStream = readerBin.ReadUintBe(1) == 1 ? true : false;
-    iSeekTable.SetIsFragmentedStream(isFragmentedStream);
 
     const TUint samplesPerChunkCount = readerBin.ReadUintBe(4);
     iSeekTable.InitialiseSamplesPerChunk(samplesPerChunkCount);
@@ -4651,7 +4661,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("mvex")));
     iProcessorFactory.Add(new Mpeg4BoxMehd(iDurationInfo));
 
-    iProcessorFactory.Add(new Mpeg4BoxMoof(iProcessorFactory, iContainerInfo, static_cast<IBoxOffsetProvider&>(iBoxRoot), iSeekTable));
+    iProcessorFactory.Add(new Mpeg4BoxMoof(iProcessorFactory, iContainerInfo, static_cast<IBoxOffsetProvider&>(iBoxRoot), iStreamInfo));
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("traf")));
     iProcessorFactory.Add(new Mpeg4BoxTfhd(iSampleSizeTable, iContainerInfo));
     iProcessorFactory.Add(new Mpeg4BoxTrun(iSampleSizeTable, iContainerInfo));
@@ -4894,7 +4904,7 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
             if (doMpeg4Info) {
                 Mpeg4Info info(iStreamInfo.Codec(), iStreamInfo.SampleRate(),
                                iDurationInfo.Timescale(), iStreamInfo.Channels(),
-                               iStreamInfo.BitDepth(), iDurationInfo.Duration(), codecInfo->Bytes());
+                               iStreamInfo.BitDepth(), iDurationInfo.Duration(), codecInfo->Bytes(), iStreamInfo.IsFragmentedStream());
 
                 Mpeg4InfoWriter writer(info);
                 Bws<Mpeg4InfoWriter::kMaxBytes> infoBuf;
