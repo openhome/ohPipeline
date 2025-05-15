@@ -1356,6 +1356,16 @@ TUint64 MPDSegmentStream::AudioBytes() const
     }
 }
 
+TBool MPDSegmentStream::IsDynamic() const
+{
+    if (iSegmentXml.Bytes() == 0 || iSegmentType == ESegmentType::Unknown || !iCurrentDocument) {
+        return 0;
+    }
+    else {
+        return iCurrentDocument->IsStatic() == false;
+    }
+}
+
 TBool MPDSegmentStream::TryGetInitialisationSegment(MPDSegment& aSegment)
 {
     switch(iSegmentType) {

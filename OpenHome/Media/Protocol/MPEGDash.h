@@ -305,6 +305,7 @@ public:
     MPDSegmentStream(IUnixTimestamp& aTimestamp);
 
 public:
+    TBool IsDynamic() const;
     TUint64 AudioBytes() const;
 
     TBool TryGetNextSegment(MPDSegment& aSegement);
