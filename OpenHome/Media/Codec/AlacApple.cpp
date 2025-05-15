@@ -249,8 +249,6 @@ void CodecAlacApple::Process()
     else {
         if (iIsFragmentedStream) {
             // We've reached the end of a fragment.
-            iOutBuf.SetBytes(0);
-
             CodecBufferedReader codecBufReader(*iController, iInBuf);
             ReadSampleAndSeekTables(codecBufReader);
 
