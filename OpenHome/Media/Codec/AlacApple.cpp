@@ -31,10 +31,13 @@ private: // from CodecBase
     TBool TrySeek(TUint aStreamId, TUint64 aSample);
     void StreamCompleted();
 private:
+    void ReadSampleAndSeekTables(CodecBufferedReader& aReader);
+private:
     static const TUint kMaxRecogBytes = 6 * 1024; // copied from previous CodecController behaviour
     Bws<kMaxRecogBytes> iRecogBuf;
     SampleSizeTable iSampleSizeTable;
     SeekTable iSeekTable;
+    TBool iIsFragmentedStream;
     TUint iCurrentSample;       // Sample count is 32 bits in stsz box.
 };
 
@@ -92,7 +95,8 @@ void CodecAlacApple::StreamInitialise()
 
     CodecAlacAppleBase::Initialise();
 
-    iCurrentSample = 0;
+    iCurrentSample      = 0;
+    iIsFragmentedStream = false;
 
     // Apple's implementation requires a 24-byte config and ignores first 4 bytes from current config taken from Mpeg4Container.
     static const TUint kConfigBytes = 24;
@@ -110,6 +114,11 @@ void CodecAlacApple::StreamInitialise()
             THROW(CodecStreamCorrupt);
         }
 
+        iIsFragmentedStream = info.IsFragmentedStream();
+        if (iIsFragmentedStream) {
+            LOG(kCodec, "CodecAlac::StreamInitialise - Playing fragmented stream\n");
+        }
+
         codecBufReader.Read(4);
         config.Append(codecBufReader.Read(kConfigBytes));
 
@@ -118,20 +127,7 @@ void CodecAlacApple::StreamInitialise()
             codecBufReader.Read(skip);
         }
 
-        // Read sample size table.
-        ReaderBinary readerBin(codecBufReader);
-        iSampleSizeTable.Clear();
-        const TUint sampleCount = readerBin.ReadUintBe(4);
-        iSampleSizeTable.Init(sampleCount);
-        for (TUint i=0; i<sampleCount; i++) {
-            const TUint sampleSize = readerBin.ReadUintBe(4);
-            iSampleSizeTable.AddSampleSize(sampleSize);
-        }
-
-        // Read seek table.
-        iSeekTable.Deinitialise();
-        SeekTableInitialiser seekTableInitialiser(iSeekTable, codecBufReader);
-        seekTableInitialiser.Init();
+        ReadSampleAndSeekTables(codecBufReader);
     }
     catch (MediaMpeg4FileInvalid&) {
         THROW(CodecStreamCorrupt);
@@ -227,11 +223,10 @@ void CodecAlacApple::StreamCompleted()
 void CodecAlacApple::Process()
 {
     //LOG(kCodec, "CodecAlac::Process\n");
+    iInBuf.SetBytes(0);
 
     if (iCurrentSample < iSampleSizeTable.Count()) {
         // Read in a single alac sample.
-        iInBuf.SetBytes(0);
-
         try {
             LOG(kCodec, "CodecAlac::Process  iCurrentSample: %u, size: %u, inBuf.MaxBytes(): %u\n", iCurrentSample, iSampleSizeTable.SampleSize(iCurrentSample), iInBuf.MaxBytes());
             TUint sampleSize = iSampleSizeTable.SampleSize(iCurrentSample);
@@ -252,6 +247,35 @@ void CodecAlacApple::Process()
         }
     }
     else {
-        THROW(CodecStreamEnded);
+        if (iIsFragmentedStream) {
+            // We've reached the end of a fragment.
+            iOutBuf.SetBytes(0);
+
+            CodecBufferedReader codecBufReader(*iController, iInBuf);
+            ReadSampleAndSeekTables(codecBufReader);
+
+            iCurrentSample = 0;
+        }
+        else {
+            THROW(CodecStreamEnded);
+        }
     }
+}
+
+void CodecAlacApple::ReadSampleAndSeekTables(CodecBufferedReader& aReader)
+{
+    // Read sample size table.
+    ReaderBinary readerBin(aReader);
+    iSampleSizeTable.Clear();
+    const TUint sampleCount = readerBin.ReadUintBe(4);
+    iSampleSizeTable.Init(sampleCount);
+    for (TUint i=0; i<sampleCount; i++) {
+        const TUint sampleSize = readerBin.ReadUintBe(4);
+        iSampleSizeTable.AddSampleSize(sampleSize);
+    }
+
+    // Read seek table.
+    iSeekTable.Deinitialise();
+    SeekTableInitialiser seekTableInitialiser(iSeekTable, aReader);
+    seekTableInitialiser.Init();
 }

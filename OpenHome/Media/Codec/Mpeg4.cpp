@@ -4893,7 +4893,7 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
             // NOTE: Some codecs provide the required stream & seek information encoded as part of their own data.
             //       For these, we don't want to emit anything extra.
             const TBool codecMpeg4InfoHeader     = iStreamInfo.Codec() != Brn("fLaC");
-            const TBool codecRequiresSampleTable = iStreamInfo.Codec() == Brn("dOps");
+            const TBool codecRequiresSampleTable = iStreamInfo.Codec() == Brn("dOps") || iStreamInfo.Codec() == Brn("mp4a") || iStreamInfo.Codec() == Brn("alac");
             const TBool codecRequiresSeekTable   = false;
 
             const TBool doMpeg4Info   = (!isFragmentedStream || (isFragmentedStream && hasCodecInfo)) && codecMpeg4InfoHeader;
