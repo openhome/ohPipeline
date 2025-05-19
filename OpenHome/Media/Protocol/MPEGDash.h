@@ -80,6 +80,8 @@ public:
     TUint Duration() const;
     TUint StartNumber() const;
 
+    TUint SegmentDurationInSeconds() const;
+
 private:
     Brn iInitialization;
     Brn iMedia;
@@ -326,7 +328,7 @@ private:
     TBool TryGetMediaSegment(MPDSegment& aSegment);
 
     TBool TrySetInitialSegmentNumber();
-
+    TBool TryGetSegmentTemplateStartingNumber(SegmentTemplate& aSegment, TUint& aResult);
 private:
     IUnixTimestamp& iTimestamp;
     MPDDocument* iCurrentDocument; // NOT OWNED

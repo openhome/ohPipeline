@@ -573,6 +573,11 @@ TUint SegmentTemplate::StartNumber() const
     return iStartNumber;
 }
 
+TUint SegmentTemplate::SegmentDurationInSeconds() const
+{
+    return static_cast<TUint>(floor(((double)iDuration) / ((double)iTimescale)));
+}
+
 
 // static
 TBool SegmentTemplate::TryFormatTemplateUrl(Bwx& aUrlBuf, const Brx& aTemplateUrl, const SegmentTemplateParams& aTemplateParams)
@@ -1512,6 +1517,21 @@ TBool MPDSegmentStream::TryGetMediaSegment(MPDSegment& aSegment)
 
             iCurrentDocument->GetBaseUrl(aSegment.iUrlBuffer);
 
+            TUint segmentNumberAtNow = 0;
+            do {
+                if (!TryGetSegmentTemplateStartingNumber(segment, segmentNumberAtNow)) {
+                    return false;
+                }
+
+                if (iSegmentNumber > segmentNumberAtNow) {
+                    Log::Print("MPDG::HandleSegmentTemplate - Segment number is higher than the segment number associated with our current point in time. Waiting for segment to become available.\n");
+
+                    const TUint segmentDurationInSeconds = segment.SegmentDurationInSeconds();
+                    Thread::Sleep(segmentDurationInSeconds * 1000);
+                }
+            } while (iSegmentNumber >= segmentNumberAtNow);
+
+
             const MPDRepresentation& representation = iCurrentDocument->Period().AdaptationSet().Representation();
             SegmentTemplateParams templateParams {
                 representation.Id(),            // RepresentationId
@@ -1533,9 +1553,6 @@ TBool MPDSegmentStream::TryGetMediaSegment(MPDSegment& aSegment)
         }
     }
 }
-
-
-
 
 TBool MPDSegmentStream::TrySet(MPDDocument& aDocument)
 {
@@ -1609,7 +1626,6 @@ TBool MPDSegmentStream::TrySetInitialSegmentNumber()
         return true;
     }
 
-
     // Dynamic documents are a little tricker. Their starting segment number if based off a number of factors
     // provided by the MPD Document.
     // Spec Link: 5.3.9.5.3
@@ -1620,8 +1636,32 @@ TBool MPDSegmentStream::TrySetInitialSegmentNumber()
         return false;
     }
 
-    // TODO: Perhaps this should be placed on the Document itself???
-    //       This could also implement the code to handle a start time.
+    SegmentTemplate segment(iSegmentXml);
+    if(!TryGetSegmentTemplateStartingNumber(segment, iSegmentNumber)) {
+        return false;
+    }
+
+    // NOTE: Based on a very small sample size, we want to sit roughly 10 seconds behind what is currently live. This appears to be
+    //       what the BBC do with BBC Sounds and in doing so, we achieve ~1-2 seconds worth of sync with their "live" stream.
+    //       This also gives us enough buffered audio space to reduce the likelyhood of us requesting a segment before it becomes
+    //       available! :^)
+    static const TUint kSecondsToLagBehindLive = 10;
+    const TUint segmentDuration                = segment.SegmentDurationInSeconds();
+    const TUint segmentLag                     = kSecondsToLagBehindLive / segmentDuration;
+
+    // NOTE: Segments can never be negative..
+    if (iSegmentNumber < segmentLag) {
+        iSegmentNumber = 0;
+    }
+    else {
+        iSegmentNumber -= segmentLag;
+    }
+
+    return true;
+}
+
+TBool MPDSegmentStream::TryGetSegmentTemplateStartingNumber(SegmentTemplate& aSegment, TUint& aSegmentStartNumber)
+{
     Brn attributeValue;
     if (!XmlParserBasic::TryFindAttribute(kMPDTagRoot, MPDDocument::kAttributeAvailabilityStartTime, iCurrentDocument->Xml(), attributeValue)) {
         // required in dynamic documents!!
@@ -1637,16 +1677,13 @@ TBool MPDSegmentStream::TrySetInitialSegmentNumber()
         return false;
     }
 
-    const TInt64 availabilityStartTime = pit.ConvertToUnixTimestamp();
-
-    SegmentTemplate segment(iSegmentXml);
-
     // Sepc Link: Annex A (Specificially A.3.2 onwards)
-    TUint timeNow             = iTimestamp.Now();
-    TUint timeDifference      = static_cast<TUint>(timeNow - availabilityStartTime);
-    double segmentScaleFactor = ((double)segment.Duration()) / ((double)segment.Timescale());
-    iSegmentNumber            = static_cast<TUint>(floor((segment.StartNumber() + timeDifference) / segmentScaleFactor));
+    const TInt64 availabilityStartTime = pit.ConvertToUnixTimestamp();
+    const TUint timeNow                = iTimestamp.Now();
+    const TUint timeDifference         = static_cast<TUint>(timeNow - availabilityStartTime);
+    const double segmentScaleFactor    = ((double)aSegment.Duration()) / ((double)aSegment.Timescale());
 
+    aSegmentStartNumber = static_cast<TUint>(floor((aSegment.StartNumber() + timeDifference) / segmentScaleFactor));
     return true;
 }
 
@@ -2018,10 +2055,28 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
             LOG_TRACE(kMedia, "ProtocolDash::Stream - Segment Url: %.*s (%lld - %lld)\n", PBUF(segment.iUrlBuffer), segment.iRangeStart, segment.iRangeEnd);
         }
         else {
-            LOG_TRACE(kMedia, "ProtocolDash::Steam - Segment Url: %.*s\n", PBUF(segment.iUrlBuffer));
+            LOG_TRACE(kMedia, "ProtocolDash::Stream - Segment Url: %.*s\n", PBUF(segment.iUrlBuffer));
         }
 
-        streamResult = StreamSegment(segment);
+        TUint tries;
+        const TUint maxTries = 3;
+        for (tries = 0; tries < maxTries; tries += 1) {
+            streamResult = StreamSegment(segment);
+
+            if (streamResult != ProtocolStreamResult::EProtocolStreamErrorRecoverable) {
+                break;
+            }
+
+            // This is a last chance wait. The SegmentStream class should wait an appropriate length of time
+            // that we never really reach this code.
+            Log::Print("ProtocolDash::Stream - Desired segment not yet available. Attempt %u/%u\n", tries, maxTries);
+            Thread::Sleep(1000);
+        }
+
+        if (tries == maxTries && streamResult == EProtocolStreamErrorRecoverable) {
+            Log::Print("ProtocolDash::Stream - Desired segment did not become available after %u attempt(s)\n", tries);
+            streamResult = EProtocolStreamErrorUnrecoverable;
+        }
     }
 
     // End of stream. Also check for the stopped condition. This trumps all
@@ -2198,14 +2253,22 @@ ProtocolStreamResult ProtocolDash::StreamSegment(MPDSegment& aSegment)
 
     const TUint responseCode = iReaderResponse.Status().Code();
     LOG(kMedia, "ProtocolDash::StreamSegment - Read response code: %u\n", responseCode);
-    if (responseCode != HttpStatus::kPartialContent.Code() && responseCode != HttpStatus::kOk.Code()) {
+
+    if (iSegmentStream.IsDynamic() && responseCode == 404) {
+        // For dynamic streams, this suggests that we're requesting a segment from the future. I struggle to hit the case
+        // with the current Filler implementation for fetching segments, but in theory this could happen and so we must
+        // account for it.
+
+        return ProtocolStreamResult::EProtocolStreamErrorRecoverable;
+    }
+    else if (responseCode != HttpStatus::kPartialContent.Code() && responseCode != HttpStatus::kOk.Code()) {
         return EProtocolStreamErrorUnrecoverable;
     }
+    else {
+        iDechunker.SetChunked(iHeaderTransferEncoding.IsChunked());
 
-
-    iDechunker.SetChunked(iHeaderTransferEncoding.IsChunked());
-
-    ContentProcessor* contentProcessor = iProtocolManager->GetAudioProcessor();
-    return contentProcessor->Stream(*this, iHeaderContentLength.ContentLength());
+        ContentProcessor* contentProcessor = iProtocolManager->GetAudioProcessor();
+        return contentProcessor->Stream(*this, iHeaderContentLength.ContentLength());
+    }
 }
 
