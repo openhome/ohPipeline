@@ -5,6 +5,7 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/UnixTimestamp.h>
+#include <OpenHome/Media/Protocol/Protocol.h>
 
 // Ex ---
 
@@ -291,7 +292,6 @@ private:
     Bws<Uri::kMaxUriBytes> iUrlBuf; // Needed when we're appending so we can reuse iBaseUrl.AbsoluteUri() as this is cleared during the start of Replace(...)
 };
 
-
 class MPDSegmentStream
 {
 private:
@@ -321,7 +321,7 @@ public:
     */
 
 public: // FIXME: Maybe should be internal to the MPDDocument??
-    TBool TrySet(MPDDocument& aDocument); // FIXME: Do we need the const here? Perhaps it could be constructed with the document and then have some sort of generational counter to ensure we're still valid??
+    TBool TrySet(MPDDocument& aDocument, TBool aIsUpdate); // FIXME: Do we need the const here? Perhaps it could be constructed with the document and then have some sort of generational counter to ensure we're still valid??
 
 private:
     TBool TryGetInitialisationSegment(MPDSegment& aSegment);
