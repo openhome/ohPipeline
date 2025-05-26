@@ -25,12 +25,14 @@ private: // from CodecBase
     TBool TrySeek(TUint aStreamId, TUint64 aSample);
     //void StreamCompleted();
 private:
+    void ReadSampleAndSeekTables(CodecBufferedReader& aReader);
     void ProcessMpeg4();
     TUint SkipEsdsTag(IReader& aReader, TByte& aDescLen);
 private:
     Bws<kMaxRecogBytes> iRecogBuf;
     SampleSizeTable iSampleSizeTable;
     SeekTable iSeekTable;
+    TBool iIsFragmentedStream;
     TUint iCurrentCodecSample;  // Sample count is 32 bits in stsz box.
     Bwh iAudioSpecificConfig;
 };
@@ -113,6 +115,7 @@ void CodecAacFdkMp4::StreamInitialise()
     CodecAacFdkBase::StreamInitialise();
 
     iCurrentCodecSample = 0;
+    iIsFragmentedStream = false;
     iAudioSpecificConfig.SetBytes(0);
 
     // Use iInBuf for gathering initialisation data, as it doesn't need to be used for audio until Process() starts being called.
@@ -246,22 +249,16 @@ void CodecAacFdkMp4::StreamInitialise()
             codecBufReader.Read(skip);
         }
 
+        iIsFragmentedStream = info.IsFragmentedStream();
+        if (iIsFragmentedStream) {
+            LOG(kCodec, "CodecAacFdkMp4::StreamInitialise - Playing fragmented stream\n");
+        }
+
+
         InitialiseDecoderMp4(iAudioSpecificConfig);
 
         // Read sample size table.
-        ReaderBinary readerBin(codecBufReader);
-        iSampleSizeTable.Clear();
-        const TUint sampleCount = readerBin.ReadUintBe(4);
-        iSampleSizeTable.Init(sampleCount);
-        for (TUint i=0; i<sampleCount; i++) {
-            const TUint sampleSize = readerBin.ReadUintBe(4);
-            iSampleSizeTable.AddSampleSize(sampleSize);
-        }
-
-        // Read seek table.
-        iSeekTable.Deinitialise();
-        SeekTableInitialiser seekTableInitialiser(iSeekTable, codecBufReader);
-        seekTableInitialiser.Init();
+        ReadSampleAndSeekTables(codecBufReader);
     }
     catch (MediaMpeg4FileInvalid&) {
         THROW(CodecStreamCorrupt);
@@ -345,11 +342,10 @@ void CodecAacFdkMp4::Process()
 
 void CodecAacFdkMp4::ProcessMpeg4() 
 {
+    iInBuf.SetBytes(0);
+
     if (iCurrentCodecSample < iSampleSizeTable.Count()) {
-
         // Read in a single aac sample.
-        iInBuf.SetBytes(0);
-
         try {
             LOG_TRACE(kCodec, "CodecAacFdkMp4::Process  iCurrentCodecSample: %u, size: %u, inBuf.MaxBytes(): %u\n", iCurrentCodecSample, iSampleSizeTable.SampleSize(iCurrentCodecSample), iInBuf.MaxBytes());
             TUint sampleSize = iSampleSizeTable.SampleSize(iCurrentCodecSample);
@@ -373,8 +369,36 @@ void CodecAacFdkMp4::ProcessMpeg4()
         }
     }
     else {
-        iStreamEnded = true;
+        if (iIsFragmentedStream) {
+            // We've reached the end of a fragment.
+            iOutBuf.SetBytes(0);
+
+            CodecBufferedReader codecBufReader(*iController, iInBuf);
+            ReadSampleAndSeekTables(codecBufReader);
+
+            iCurrentCodecSample = 0;
+        }
+        else {
+            iStreamEnded = true;
+        }
     }
 
     FlushOutput();
+}
+
+void CodecAacFdkMp4::ReadSampleAndSeekTables(CodecBufferedReader& aReader)
+{
+    ReaderBinary readerBin(aReader);
+    iSampleSizeTable.Clear();
+    const TUint sampleCount = readerBin.ReadUintBe(4);
+    iSampleSizeTable.Init(sampleCount);
+    for (TUint i=0; i<sampleCount; i++) {
+        const TUint sampleSize = readerBin.ReadUintBe(4);
+        iSampleSizeTable.AddSampleSize(sampleSize);
+    }
+
+    // Read seek table.
+    iSeekTable.Deinitialise();
+    SeekTableInitialiser seekTableInitialiser(iSeekTable, aReader);
+    seekTableInitialiser.Init();
 }

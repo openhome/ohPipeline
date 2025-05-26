@@ -4,18 +4,19 @@
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Parser.h>
+#include <OpenHome/Private/Converter.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Media/Protocol/MPEGDash.h>
 #include <OpenHome/Net/Private/XmlParser.h>
 #include <OpenHome/Media/Supply.h>
 #include <OpenHome/Av/MediaPlayer.h>
-#include <OpenHome/Media/Protocol/Protocol.h>
 #include <OpenHome/Media/Protocol/ProtocolFactory.h>
 #include <OpenHome/Media/Pipeline/Pipeline.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Time.h>
 #include <OpenHome/Private/Timer.h>
+#include <OpenHome/Av/Radio/ContentProcessorFactory.h>
 
 #include <math.h>
 #include <limits.h>
@@ -571,6 +572,11 @@ TUint SegmentTemplate::Timescale() const
 TUint SegmentTemplate::StartNumber() const
 {
     return iStartNumber;
+}
+
+TUint SegmentTemplate::SegmentDurationInSeconds() const
+{
+    return static_cast<TUint>(floor(((double)iDuration) / ((double)iTimescale)));
 }
 
 
@@ -1356,6 +1362,16 @@ TUint64 MPDSegmentStream::AudioBytes() const
     }
 }
 
+TBool MPDSegmentStream::IsDynamic() const
+{
+    if (iSegmentXml.Bytes() == 0 || iSegmentType == ESegmentType::Unknown || !iCurrentDocument) {
+        return 0;
+    }
+    else {
+        return iCurrentDocument->IsStatic() == false;
+    }
+}
+
 TBool MPDSegmentStream::TryGetInitialisationSegment(MPDSegment& aSegment)
 {
     switch(iSegmentType) {
@@ -1502,6 +1518,21 @@ TBool MPDSegmentStream::TryGetMediaSegment(MPDSegment& aSegment)
 
             iCurrentDocument->GetBaseUrl(aSegment.iUrlBuffer);
 
+            TUint segmentNumberAtNow = 0;
+            do {
+                if (!TryGetSegmentTemplateStartingNumber(segment, segmentNumberAtNow)) {
+                    return false;
+                }
+
+                if (iSegmentNumber > segmentNumberAtNow) {
+                    Log::Print("MPDG::HandleSegmentTemplate - Segment number is higher than the segment number associated with our current point in time. Waiting for segment to become available.\n");
+
+                    const TUint segmentDurationInSeconds = segment.SegmentDurationInSeconds();
+                    Thread::Sleep(segmentDurationInSeconds * 1000);
+                }
+            } while (iSegmentNumber >= segmentNumberAtNow);
+
+
             const MPDRepresentation& representation = iCurrentDocument->Period().AdaptationSet().Representation();
             SegmentTemplateParams templateParams {
                 representation.Id(),            // RepresentationId
@@ -1524,17 +1555,24 @@ TBool MPDSegmentStream::TryGetMediaSegment(MPDSegment& aSegment)
     }
 }
 
-
-
-
-TBool MPDSegmentStream::TrySet(MPDDocument& aDocument)
+TBool MPDSegmentStream::TrySet(MPDDocument& aDocument, TBool aIsUpdate)
 {
-    iCurrentDocument            = nullptr;
-    iSegmentType                = ESegmentType::Unknown;
-    iSegmentNumber              = 0;
-    iNeedsInitialisationSegment = true;
+    // If were updating an existing manifest, we don't want to reset the internals.
+    if (!aIsUpdate) {
+        iSegmentType                = ESegmentType::Unknown;
+        iSegmentNumber              = 0;
+        iNeedsInitialisationSegment = true;
 
-    iSegmentXml.Set(Brx::Empty());
+        iSegmentXml.Set(Brx::Empty());
+    }
+    else {
+        if (iCurrentDocument == nullptr) {
+            LOG_ERROR(kMedia, "MPDSegmentStream::TryStream - Attempting to update with a new manifest, but there is no existing one.\n");
+            return false;
+        }
+    }
+
+    iCurrentDocument = nullptr;
 
     if (aDocument.HasExpired()) {
         LOG_ERROR(kMedia, "MPDSegmentStream::TryStream - Passed an expired manifest!\n");
@@ -1545,8 +1583,6 @@ TBool MPDSegmentStream::TrySet(MPDDocument& aDocument)
 
     // TODO: Need to check we only have a single period and exit otherwise as this
     //       is something we don't currently support.
-
-    // TODO: Do we need to ensure that we set the starting number, or is this done on the initial setup thing??
 
     iCurrentDocument = &aDocument;
 
@@ -1585,8 +1621,14 @@ TBool MPDSegmentStream::TrySet(MPDDocument& aDocument)
         return false;
     }
 
-
-    return TrySetInitialSegmentNumber();
+    if (aIsUpdate) {
+        // NOTE: We don't really check if it's the same manifest, or the new one contains all the bits and pieces
+        //       we actually need. Perhaps we should do something like that in the future....
+        return true;
+    }
+    else {
+        return TrySetInitialSegmentNumber();
+    }
 }
 
 
@@ -1599,7 +1641,6 @@ TBool MPDSegmentStream::TrySetInitialSegmentNumber()
         return true;
     }
 
-
     // Dynamic documents are a little tricker. Their starting segment number if based off a number of factors
     // provided by the MPD Document.
     // Spec Link: 5.3.9.5.3
@@ -1610,8 +1651,32 @@ TBool MPDSegmentStream::TrySetInitialSegmentNumber()
         return false;
     }
 
-    // TODO: Perhaps this should be placed on the Document itself???
-    //       This could also implement the code to handle a start time.
+    SegmentTemplate segment(iSegmentXml);
+    if(!TryGetSegmentTemplateStartingNumber(segment, iSegmentNumber)) {
+        return false;
+    }
+
+    // NOTE: Based on a very small sample size, we want to sit roughly 10 seconds behind what is currently live. This appears to be
+    //       what the BBC do with BBC Sounds and in doing so, we achieve ~1-2 seconds worth of sync with their "live" stream.
+    //       This also gives us enough buffered audio space to reduce the likelyhood of us requesting a segment before it becomes
+    //       available! :^)
+    static const TUint kSecondsToLagBehindLive = 10;
+    const TUint segmentDuration                = segment.SegmentDurationInSeconds();
+    const TUint segmentLag                     = kSecondsToLagBehindLive / segmentDuration;
+
+    // NOTE: Segments can never be negative..
+    if (iSegmentNumber < segmentLag) {
+        iSegmentNumber = 0;
+    }
+    else {
+        iSegmentNumber -= segmentLag;
+    }
+
+    return true;
+}
+
+TBool MPDSegmentStream::TryGetSegmentTemplateStartingNumber(SegmentTemplate& aSegment, TUint& aSegmentStartNumber)
+{
     Brn attributeValue;
     if (!XmlParserBasic::TryFindAttribute(kMPDTagRoot, MPDDocument::kAttributeAvailabilityStartTime, iCurrentDocument->Xml(), attributeValue)) {
         // required in dynamic documents!!
@@ -1627,16 +1692,13 @@ TBool MPDSegmentStream::TrySetInitialSegmentNumber()
         return false;
     }
 
-    const TInt64 availabilityStartTime = pit.ConvertToUnixTimestamp();
-
-    SegmentTemplate segment(iSegmentXml);
-
     // Sepc Link: Annex A (Specificially A.3.2 onwards)
-    TUint timeNow             = iTimestamp.Now();
-    TUint timeDifference      = static_cast<TUint>(timeNow - availabilityStartTime);
-    double segmentScaleFactor = ((double)segment.Duration()) / ((double)segment.Timescale());
-    iSegmentNumber            = static_cast<TUint>(floor((segment.StartNumber() + timeDifference) / segmentScaleFactor));
+    const TInt64 availabilityStartTime = pit.ConvertToUnixTimestamp();
+    const TUint timeNow                = iTimestamp.Now();
+    const TUint timeDifference         = static_cast<TUint>(timeNow - availabilityStartTime);
+    const double segmentScaleFactor    = ((double)aSegment.Duration()) / ((double)aSegment.Timescale());
 
+    aSegmentStartNumber = static_cast<TUint>(floor((aSegment.StartNumber() + timeDifference) / segmentScaleFactor));
     return true;
 }
 
@@ -1646,174 +1708,80 @@ TBool MPDSegmentStream::TrySetInitialSegmentNumber()
 class ContentMPD : public Media::ContentProcessor
 {
 public:
-    ContentMPD(ITimerFactory& aTimerFactory);
-    ~ContentMPD();
-
-public:
-    MPDDocument& MPD();
-
-    void Initialise(IProtocolManager* aProtocolManager);
+    ContentMPD();
 
 private: // ContentProcessor
     TBool Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aData) override;
     ProtocolStreamResult Stream(IReader& aReader, TUint64 aTotalBytes) override;
     void Reset() override;
 
-private:
-    void OnMPDDocumentExpiryTimerFired();
 
 private:
-    ITimer* iExpiryTimer;
-    WriterBwh iBuffer;
-    MPDDocument iDocument;
-    IProtocolManager* iProtocolManager;   // Not owned
-    TUint iDocumentId;
+    Brn iManifestUri;
+    Bwh iStreamUri;
 };
 
 
-
-ContentMPD::ContentMPD(ITimerFactory& aTimerFactory)
-    : iBuffer(1024)
-    , iProtocolManager(nullptr)
-    , iDocumentId(0)
+ContentProcessor* Av::ContentProcessorFactory::NewMPD()
 {
-    iExpiryTimer = aTimerFactory.CreateTimer(MakeFunctor(*this, &ContentMPD::OnMPDDocumentExpiryTimerFired), "ContentMPD-Expiry");
+    return new ContentMPD();
 }
 
-ContentMPD::~ContentMPD()
+ContentMPD::ContentMPD()
+    : iStreamUri(2048)
+{ }
+
+TBool ContentMPD::Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& /*aData*/)
 {
-    iExpiryTimer->Cancel();
-    delete iExpiryTimer;
-}
-
-
-MPDDocument& ContentMPD::MPD()
-{
-    return iDocument;
-}
-
-void ContentMPD::Initialise(IProtocolManager* aProtocolManager)
-{
-    iProtocolManager = aProtocolManager;
-}
-
-TBool ContentMPD::Recognise(const Brx& aUri, const Brx& aMimeType, const Brx& aData)
-{
-    (void)aUri;
-    (void)aData;
-
-    // Some servers provide a straight up content type which is nice of them.
-    if (aMimeType == kMimeType) {
-        return true;
-    }
+    TBool isDashManifest = aMimeType == kMimeType;
 
     // Some servers provide multiple header values to define the encoding + content type.
-    Parser p(aMimeType);
-    Brn val = p.Next(';');
+    if (!isDashManifest) {
+        Parser p(aMimeType);
+        Brn val = p.Next(';');
 
-    while(val.Bytes() > 0) {
-        if (val == kMimeType) {
-            return true;
+        while(val.Bytes() > 0 && !isDashManifest) {
+            isDashManifest = val == kMimeType;
+            val.Set(p.Next(';'));
         }
 
-        val.Set(p.Next(';'));
+        if (!isDashManifest) {
+            isDashManifest = p.Remaining() == kMimeType;
+        }
     }
 
-    return p.Remaining() == kMimeType;
+    if (isDashManifest) {
+        iManifestUri.Set(aUri);
+    }
+
+    return isDashManifest;
 }
 
-ProtocolStreamResult ContentMPD::Stream(IReader& aReader, TUint64 aTotalBytes)
+ProtocolStreamResult ContentMPD::Stream(IReader& /*aReader*/, TUint64 /*aTotalBytes*/)
 {
-    // MPD requires us to have the entire document in memory for us to parse and extract the bits and pieces we need out from it.
-    try {
-        while(iBuffer.Buffer().Bytes() < aTotalBytes) {
-            iBuffer.Write(aReader.Read(1024));
-        }
-    }
-    catch (ReaderError&) {
-        LOG_ERROR(kMedia, "ContentMPD::Stream - ReaderError when downloading MPD.\n");
-        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-    }
+    if (iManifestUri.Bytes() > 0) {
+        iStreamUri.SetBytes(0);
 
-    // Next, we need to check that the data returned is infact an actual MPD document and something that we can parse!
-    if (!iDocument.TrySet(iBuffer.Buffer())) {
-        LOG_ERROR(kMedia, "ContentMPD::Stream - Failed to parse MPD document.\n");
-        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-    }
+        iStreamUri.Append("dash://");
 
-    // If we have a dynamic manifest, then we must set a timer to expire if after the specific time.
-    if (!iDocument.IsStatic()) {
-        LOG(kMedia, "ContentMPD::Stream - Manifest type: Dynamic\n");
+        WriterBuffer w(iStreamUri);
+        Converter::ToBase64(w, iManifestUri);
+        w.WriteFlush();
 
-        TUint expirySeconds = static_cast<TUint>(iDocument.MinimumUpdatePeriod());
-        if (expirySeconds == 0) {
-            LOG(kMedia, "ContentMPD::Stream - WARN: Manifest did not specify a minimum update period!\n");
-        }
-        else {
-            LOG(kMedia, "ContentMPD::Stream - Minimum Update Period: %lus\n", expirySeconds);
-            iExpiryTimer->FireIn(expirySeconds * 1000);
-        }
-    }
-
-    // If the Document is content protected, we probably should grab the details here
-    // and seed the DRMProvider with all the required information
-    if (iDocument.IsContentProtected()) {
-        LOG(kMedia, "ContentMPD::Stream - MPD reports DRM protection\n");
-
-        const ContentProtection& cp = iDocument.ContentProtectionDetails();
-        if (!cp.IsMPEG4Protection()) {
-            LOG_ERROR(kMedia, "ContentMPD::Stream  - Unknown DRM scheme: %.*s. Content not playable.\n", PBUF(cp.iSchemeIdUri));
-            return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-        }
-
-        LOG(kMedia, "ContentMPD::Stream - DRM Type: MP4 (Kind:'%.*s')\n", PBUF(cp.iValue));
-
-        ASSERT(iProtocolManager);
-        const std::vector<IDashDRMProvider*>& drmProviders = iProtocolManager->GetDashDRMProviders();
-        IDashDRMProvider* activeDRMProvider = nullptr;
-
-        for(TUint i = 0; i < drmProviders.size(); i += 1) {
-            if (drmProviders[i]->TryRecognise(cp)) {
-                activeDRMProvider = drmProviders[i];
-                break;
-            }
-        }
-
-        if (activeDRMProvider == nullptr) {
-            LOG_ERROR(kMedia, "ContentMPD::Stream - MPD is content protected, but were unable to find a DRM provider that could handle it.\n");
-            return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-        }
+        return iProtocolSet->Stream(iStreamUri);
     }
     else {
-        LOG(kMedia, "ContentMPD::Stream - MPD contains no DRM protection\n");
+        return EProtocolStreamErrorUnrecoverable;
     }
-
-
-    iDocumentId += 1;
-
-    Bws<32> streamUrl;
-    streamUrl.Append("dash://");
-    Ascii::AppendDec(streamUrl, iDocumentId);
-
-    return iProtocolSet->Stream(streamUrl);
 }
 
 void ContentMPD::Reset()
 {
     ContentProcessor::Reset();
 
-    iExpiryTimer->Cancel();
-    (void)iDocument.TrySet(Brx::Empty());
-    iBuffer.Reset();
+    iStreamUri.SetBytes(0);
+    iManifestUri.Set(Brx::Empty());
 }
-
-void ContentMPD::OnMPDDocumentExpiryTimerFired()
-{
-    LOG(kMedia, "ContentMPD - Document Expiry Timer Fired!\n");
-    iDocument.SetExpired();
-}
-
-
 
 
 // ProtocolDash
@@ -1847,8 +1815,13 @@ private: // IReader
 private:
     ProtocolStreamResult StreamSegment(MPDSegment& aSegment);
 
+    void MakeRequest(TUint aPort);
+    TBool FetchManifest();
+    TBool TryConnectSocket(const Brx& aUri, TUint& port);
+    void OnManifestExpiryTimerFired();
+    ProtocolStreamResult StreamManifest();
+
 private:
-    ContentMPD* iContentProcessor; // NOT OWNED
     MPDSegmentStream iSegmentStream;
     ISupply* iSupply;
     Bwh iSegmentUrlBuffer;
@@ -1858,16 +1831,18 @@ private:
     TBool iStopped;
     TUint iNextFlushId;
     TUint iCurrentStreamId;
-
-    // Required HTTP stuff...
     WriterHttpRequest iWriterRequest;
     ReaderUntilS<2048> iReaderUntil;
     ReaderHttpResponse iReaderResponse;
-    ReaderHttpChunked iDechunker;
+    ReaderHttpEntity iReaderEntity;
     HttpHeaderConnection iHeaderConnection;
     HttpHeaderContentType iHeaderContentType;
     HttpHeaderContentLength iHeaderContentLength;
     HttpHeaderTransferEncoding iHeaderTransferEncoding;
+    Bwh iCurrentManifestUri;
+    ITimer *iManifestExpiryTimer;
+    WriterBwh iManifest;
+    MPDDocument iMPD;
 };
 
 }; // namespace Media
@@ -1891,33 +1866,31 @@ ProtocolDash::ProtocolDash(Environment& aEnv, SslContext& aSsl, Av::IMediaPlayer
     , iWriterRequest(iSocket)
     , iReaderUntil(iReaderBuf)
     , iReaderResponse(aEnv, iReaderUntil)
-    , iDechunker(iReaderUntil)
+    , iReaderEntity(iReaderUntil)
+
+    , iCurrentManifestUri(2048)
+    , iManifest(1024)
 {
     TimerFactory timerFactory(aEnv);
-
-    iContentProcessor = new ContentMPD(timerFactory);
+    iManifestExpiryTimer = timerFactory.CreateTimer(MakeFunctor(*this, &ProtocolDash::OnManifestExpiryTimerFired), "ProtocolDash::ManifestExpiry");
 
     iReaderResponse.AddHeader(iHeaderContentType);
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
     iReaderResponse.AddHeader(iHeaderConnection);
-
-    // TODO: Perhaps we should expose this as a property we get rather than register internally?
-    //       Having said that, this Protocol is a bit useless without the content processor working
-    // FIXME: Could this class be a protocol AND a content processor??
-    aMediaPlayer.Pipeline()
-                .Add(iContentProcessor); // NOTE: Ownership transfered
 }
 
 ProtocolDash::~ProtocolDash()
 {
+    iManifestExpiryTimer->Cancel();
+    delete iManifestExpiryTimer;
+
     delete iSupply;
 }
 
 void ProtocolDash::Initialise(MsgFactory& aMsgFactory, IPipelineElementDownstream& aDownstream)
 {
     iSupply = new Supply(aMsgFactory, aDownstream);
-    iContentProcessor->Initialise(iProtocolManager);
 }
 
 void ProtocolDash::Interrupt(TBool aInterrupt)
@@ -1945,74 +1918,73 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
     iNextFlushId     = MsgFlush::kIdInvalid;
     iCurrentStreamId = IPipelineIdProvider::kStreamIdInvalid;
 
-    // Check that the Uri matches that of the content processor (? Not sure if this is actually required cause I think
-    // the way the pipeline works, this would be the same?)
-    if (!iContentProcessor) {
-        LOG_ERROR(kMedia, "ProtocolDash::Stream - No content processor!\n");
-        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+
+    // First - a DASH URL is dash://<Base64(manifest_uri)>
+    const Brn prefix("dash://");
+    iCurrentManifestUri.Replace(aUri.Split(prefix.Bytes()));
+    Converter::FromBase64(iCurrentManifestUri);
+
+    if (iCurrentManifestUri.Bytes() == 0) {
+        return EProtocolStreamErrorUnrecoverable;
     }
 
-    // NOTE: This needs to be here to ensure that we have a consistent messaging for the entire MPD file
-    iCurrentStreamId = iIdProvider->NextStreamId();
-
-    MPDDocument& document = iContentProcessor->MPD();
-
-    const TBool isLiveStream = document.IsStatic() == false;
-    const TUint64 totalBytes = iSegmentStream.AudioBytes();
-
-    // @FragmentedStreamSeeking
-    const TBool isSeekable   = false; //document.IsStatic(); NOTE: Seeking in fragmented tracks is currently disabled
-
-    // NOTE: This needs to be here to ensure that we have a consistent messaging for the entire MPD file
-    iSupply->OutputStream(iUri.AbsoluteUri(), totalBytes, 0, isSeekable, isLiveStream, Multiroom::Allowed, *this, iCurrentStreamId);
-
+    ProtocolStreamResult res = EProtocolStreamErrorRecoverable;
     MPDSegment segment(iSegmentUrlBuffer);
 
+    while(res == EProtocolStreamErrorRecoverable) {
+        if (!FetchManifest()) {
+            res = EProtocolStreamErrorUnrecoverable;
+        }
 
-    if (!iSegmentStream.TrySet(document)) {
-        LOG_ERROR(kMedia, "ProtocolDash::Stream - Failed to construct segment stream around provided MPD document\n");
-        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-    }
-
-    LOG(kMedia, "ProtocolDash::Stream - Manifest Type: '%s'\n", document.IsStatic() ? "Static" : "Dynamic");
-
-    ProtocolStreamResult streamResult = EProtocolStreamSuccess;
-
-    while (!iStopped && streamResult == EProtocolStreamSuccess) {
-        try {
-            if (!iSegmentStream.TryGetNextSegment(segment)) {
-                break;
+        // Parse manifest, hopefully, into something we can use.
+        if (res != EProtocolStreamErrorUnrecoverable) {
+            if (!iMPD.TrySet(iManifest.Buffer())) {
+                res = EProtocolStreamErrorUnrecoverable;
             }
         }
-        catch (SegmentStreamError&) {
-            LOG_ERROR(kMedia, "ProtocolDash::Stream - SegmentStream error when fetching next segment\n");
-            streamResult = ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-            continue;
-        }
-        catch (SegmentStreamExpired&) {
-            LOG(kMedia, "ProtocolDash::Stream - SegmentStream indicated that our MPD has expired.\n");
-            streamResult = ProtocolStreamResult::EProtocolStreamErrorRecoverable;
-            continue;
-        }
-        catch (SegmentStreamUnsupported&) {
-            LOG_ERROR(kMedia, "ProtocolDash::Stream - Given MPD document provides segments in an unsupported format.\n");
-            streamResult =  ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-            continue;
+
+        // Set expiry timer, if required.
+        if (res != EProtocolStreamErrorUnrecoverable && iMPD.IsStatic() == false) {
+            LOG(kMedia, "ProtocolDash::Stream - Manifest type: Dynamic\n");
+            const TUint expirySeconds = static_cast<TUint>(iMPD.MinimumUpdatePeriod());
+            if (expirySeconds == 0) {
+                LOG_WARNING(kMedia, "ProtocolDash::Stream - WARN: Manifest did not specify a minimum update period!\n");
+            }
+            else {
+                LOG(kMedia, "ProtocolDash::Stream - Minimum Update Period: %lus\n", expirySeconds);
+                iManifestExpiryTimer->FireIn(expirySeconds * 1000);
+            }
         }
 
-        // Segment present - lets stream!
-        LOG(kMedia, "ProtocolDash::Stream - Next segment...\n");
+        // Configure emitting a stream message. If we've already started, then we don't emit a new stream message
+        // as it's likely the manifest has previously expired and we've refreshed it.
+        if (res != EProtocolStreamErrorUnrecoverable && !iStarted) {
+            const TBool isLiveStream = iMPD.IsStatic() == false;
+            const TUint64 totalBytes = iSegmentStream.AudioBytes();
 
-        const TBool isRangeRequest = segment.iRangeEnd != -1;
-        if (isRangeRequest) {
-            LOG_TRACE(kMedia, "ProtocolDash::Stream - Segment Url: %.*s (%lld - %lld)\n", PBUF(segment.iUrlBuffer), segment.iRangeStart, segment.iRangeEnd);
-        }
-        else {
-            LOG_TRACE(kMedia, "ProtocolDash::Steam - Segment Url: %.*s\n", PBUF(segment.iUrlBuffer));
+            // @FragmentedStreamSeeking
+            const TBool isSeekable = false; //document.IsStatic(); NOTE: Seeking in fragmented tracks is currently disabled
+
+            iCurrentStreamId = iIdProvider->NextStreamId();
+            iSupply->OutputStream(iUri.AbsoluteUri(), totalBytes, 0, isSeekable, isLiveStream, Multiroom::Allowed, *this, iCurrentStreamId);
         }
 
-        streamResult = StreamSegment(segment);
+        if (res != EProtocolStreamErrorUnrecoverable) {
+            const TBool isUpdate = iStarted;
+            if (!iSegmentStream.TrySet(iMPD, isUpdate)) {
+                LOG_ERROR(kMedia, "ProtocolDash::Stream - Failed to construct segment stream around MPD document\n");
+                res = EProtocolStreamErrorUnrecoverable;
+            }
+        }
+
+        iStarted = true;
+
+        if (res != EProtocolStreamErrorUnrecoverable) {
+            res = StreamManifest();
+        }
     }
+
+    iStarted = false;
 
     // End of stream. Also check for the stopped condition. This trumps all
     TBool wasStopped = false;
@@ -2032,13 +2004,9 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
     if (wasStopped) {
         return ProtocolStreamResult::EProtocolStreamStopped;
     }
-
-    // Expired, so need to fetch a new one
-    if (document.HasExpired()) {
-        return ProtocolStreamResult::EProtocolStreamErrorRecoverable;
+    else {
+        return res;
     }
-
-    return streamResult;
 }
 
 ProtocolGetResult ProtocolDash::Get(IWriter& aWriter, const Brx& aUri, TUint64 aOffset, TUint aBytes)
@@ -2053,7 +2021,8 @@ ProtocolGetResult ProtocolDash::Get(IWriter& aWriter, const Brx& aUri, TUint64 a
 void ProtocolDash::Deactivated()
 {
     iProtocolManager->GetAudioProcessor()->Reset();
-    iDechunker.ReadFlush();
+    iReaderEntity.ReadFlush();
+    iManifestExpiryTimer->Cancel();
     Close();
 }
 
@@ -2093,32 +2062,30 @@ TUint ProtocolDash::TryStop(TUint aStreamId)
 
 Brn ProtocolDash::Read(TUint aBytes)
 {
-    return iDechunker.Read(aBytes);
+    return iReaderEntity.Read(aBytes);
 }
 
 void ProtocolDash::ReadFlush()
 {
-    iDechunker.ReadFlush();
+    iReaderEntity.ReadFlush();
 }
 
 void ProtocolDash::ReadInterrupt()
 {
-    iDechunker.ReadInterrupt();
+    iReaderEntity.ReadInterrupt();
 }
 
-ProtocolStreamResult ProtocolDash::StreamSegment(MPDSegment& aSegment)
-{
-    iDechunker.ReadFlush();
 
-    iUriNext.Replace(aSegment.iUrlBuffer);
+TBool ProtocolDash::TryConnectSocket(const Brx& aUri, TUint& aPort)
+{
+    iUriNext.Replace(aUri);
 
     const TBool isEndpointSame    = iUri.Host() == iUriNext.Host();
     const TBool shouldCloseSocket = iHeaderConnection.Close() || !isEndpointSame;
     const TBool requiresConnect   = shouldCloseSocket;
+    TBool result                  = true;
 
-    // Configure us to use the URL for the segment!
-    iUri.Replace(aSegment.iUrlBuffer);
-
+    iUri.Replace(aUri);
 
     if (shouldCloseSocket) {
         Close();
@@ -2126,76 +2093,180 @@ ProtocolStreamResult ProtocolDash::StreamSegment(MPDSegment& aSegment)
     }
 
     // Decide what port to use
-    TUint port = 80; // Default to HTTP
+    aPort = 80; // Default to HTTP
     if (iUri.Port() != -1) {
-        port = iUri.Port();
+        aPort = iUri.Port();
     }
     else {
         if (iUri.Scheme() == Brn("https")) {
-            port = 443;
+            aPort = 443;
         }
     }
 
     if (requiresConnect) {
-        if (port == 443) {
+        if (aPort == 443) {
             iSocket.SetSecure(true);
         }
 
-        // Connect....
-        if (!Connect(iUri, port)) {
-            LOG_ERROR(kMedia, "ProtocolDash::StreamSegment - Connection failure.\n");
-            return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-        }
+        result = Connect(iUri, aPort);
     }
 
-    // Send off the request...
-    try {
-        LOG(kMedia, "ProtocolDash::StreamSegment - Send request\n");
-        iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
-        Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
-
-        Http::WriteHeaderUserAgent(iWriterRequest, iEnv);
-
-        if (aSegment.iRangeStart != -1) {
-            if (aSegment.iRangeEnd != -1) {
-                Http::WriteHeaderRange(iWriterRequest, aSegment.iRangeStart, aSegment.iRangeEnd);
-            }
-            else {
-                Http::WriteHeaderRangeFirstOnly(iWriterRequest, aSegment.iRangeStart);
-            }
-        }
-
-        iWriterRequest.WriteFlush();
-    }
-    catch(WriterError&) {
-        LOG_ERROR(kMedia, "ProtocolDash::StreamSegment - Failed to write segment request\n");
-        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-    }
-
-
-    // Wait for & read the result....
-    try {
-        LOG(kMedia, "ProtocolDash::StreamSegment - Read response\n");
-        iReaderResponse.Read();
-    }
-    catch (AssertionFailed&) {
-        throw;
-    }
-    catch (Exception& ex) {
-        LOG_ERROR(kMedia, "ProtocolDash::StreamSegment - Failed to read response(%s)\n", ex.Message());
-        return ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
-    }
-
-    const TUint responseCode = iReaderResponse.Status().Code();
-    LOG(kMedia, "ProtocolDash::StreamSegment - Read response code: %u\n", responseCode);
-    if (responseCode != HttpStatus::kPartialContent.Code() && responseCode != HttpStatus::kOk.Code()) {
-        return EProtocolStreamErrorUnrecoverable;
-    }
-
-
-    iDechunker.SetChunked(iHeaderTransferEncoding.IsChunked());
-
-    ContentProcessor* contentProcessor = iProtocolManager->GetAudioProcessor();
-    return contentProcessor->Stream(*this, iHeaderContentLength.ContentLength());
+    return result;
 }
 
+TBool ProtocolDash::FetchManifest()
+{
+    iReaderEntity.ReadFlush();
+
+    TUint port    = 0;
+    TBool success = false;
+
+    if (TryConnectSocket(iCurrentManifestUri, port)) {
+        try {
+            iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
+            Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
+            Http::WriteHeaderUserAgent(iWriterRequest, iEnv);
+
+            iWriterRequest.WriteFlush();
+
+            iReaderResponse.Read();
+            if (iReaderResponse.Status().IndicatesSuccess()) {
+                iReaderEntity.ReadAll(iManifest, iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
+                success = true;
+            }
+        }
+        catch (AssertionFailed&) {
+            throw;
+        }
+        catch (ReaderError&) {
+            LOG_ERROR(kMedia, "ProtocolDash::FetchManifest - Failed to read response.\n");
+        }
+        catch (WriterError&) {
+            LOG_ERROR(kMedia, "ProtocolDash::FetchManifest - Failed to make request.\n");
+        }
+    }
+
+    return success;
+}
+
+ProtocolStreamResult ProtocolDash::StreamManifest()
+{
+    MPDSegment segment(iSegmentUrlBuffer);
+    ProtocolStreamResult streamResult = EProtocolStreamSuccess;
+
+    while (!iStopped && streamResult == EProtocolStreamSuccess) {
+        try {
+            if (!iSegmentStream.TryGetNextSegment(segment)) {
+                break;
+            }
+        }
+        catch (SegmentStreamError&) {
+            LOG_ERROR(kMedia, "ProtocolDash::StreamManifest - SegmentStream error when fetching next segment\n");
+            streamResult = ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+        }
+        catch (SegmentStreamExpired&) {
+            LOG(kMedia, "ProtocolDash::StreamManifest - SegmentStream indicated that our MPD has expired.\n");
+            streamResult = ProtocolStreamResult::EProtocolStreamErrorRecoverable;
+        }
+        catch (SegmentStreamUnsupported&) {
+            LOG_ERROR(kMedia, "ProtocolDash::StreamManifest - Given MPD document provides segments in an unsupported format.\n");
+            streamResult = ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+        }
+
+        if (streamResult == EProtocolStreamSuccess) {
+            LOG(kMedia, "ProtocolDash::StreamManifest - Next segment...\n");
+
+            const TBool isRangeRequest = segment.iRangeEnd != -1;
+            if (isRangeRequest) {
+                LOG_TRACE(kMedia, "ProtocolDash::StreamManifest - Segment Url: %.*s (%lld - %lld)\n", PBUF(segment.iUrlBuffer), segment.iRangeStart, segment.iRangeEnd);
+            }
+            else {
+                LOG_TRACE(kMedia, "ProtocolDash::StreamManifest - Segment Url: %.*s\n", PBUF(segment.iUrlBuffer));
+            }
+
+            TUint tries;
+            const TUint maxTries = 3;
+            for (tries = 0; tries < maxTries; tries += 1) {
+                streamResult = StreamSegment(segment);
+
+                if (streamResult != ProtocolStreamResult::EProtocolStreamErrorRecoverable) {
+                    break;
+                }
+
+                // This is a last chance wait. The SegmentStream class should wait an appropriate length of time
+                // that we never really reach this code.
+                Log::Print("ProtocolDash::StreamManifest - Desired segment not yet available. Attempt %u/%u\n", tries, maxTries);
+                Thread::Sleep(1000);
+            }
+
+            if (tries == maxTries && streamResult == EProtocolStreamErrorRecoverable) {
+                Log::Print("ProtocolDash::StreamManifest - Desired segment did not become available after %u attempt(s)\n", tries);
+                streamResult = EProtocolStreamErrorUnrecoverable;
+            }
+        }
+    }
+
+    return streamResult;
+}
+
+ProtocolStreamResult ProtocolDash::StreamSegment(MPDSegment& aSegment)
+{
+    iReaderEntity.ReadFlush();
+
+    TUint port                  = 0;
+    ProtocolStreamResult result = EProtocolStreamErrorUnrecoverable;
+
+    if (TryConnectSocket(aSegment.iUrlBuffer, port)) {
+        try {
+            iWriterRequest.WriteMethod(Http::kMethodGet, iUri.PathAndQuery(), Http::eHttp11);
+            Http::WriteHeaderHostAndPort(iWriterRequest, iUri.Host(), port);
+            Http::WriteHeaderUserAgent(iWriterRequest, iEnv);
+
+            if (aSegment.iRangeStart != -1) {
+                if (aSegment.iRangeEnd != -1) {
+                    Http::WriteHeaderRange(iWriterRequest, aSegment.iRangeStart, aSegment.iRangeEnd);
+                }
+                else {
+                    Http::WriteHeaderRangeFirstOnly(iWriterRequest, aSegment.iRangeStart);
+                }
+            }
+
+            iWriterRequest.WriteFlush();
+
+            iReaderResponse.Read();
+
+            const TUint responseCode = iReaderResponse.Status().Code();
+            LOG(kMedia, "ProtocolDash::StreamSegment - Read response code: %u\n", responseCode);
+
+            if (iReaderResponse.Status().IndicatesSuccess()) {
+                iReaderEntity.Set(iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
+
+                result = iProtocolManager->GetAudioProcessor()
+                             ->Stream(*this, iHeaderContentLength.ContentLength());
+            }
+            else if (iSegmentStream.IsDynamic() && responseCode == 404) {
+                // For dynamic streams, this suggests that we're requesting a segment from the future. I struggle to hit the case
+                // with the current Filler implementation for fetching segments, but in theory this could happen and so we must
+                // account for it.
+                result = ProtocolStreamResult::EProtocolStreamErrorRecoverable;
+            }
+        }
+        catch (AssertionFailed&) {
+            throw;
+        }
+        catch (ReaderError&) {
+            LOG_ERROR(kMedia, "ProtocolDash::StreamSegment - Failed to read response.\n");
+        }
+        catch (WriterError&) {
+            LOG_ERROR(kMedia, "ProtocolDash::StreamSegment - Failed to make request.\n");
+        }
+    }
+
+    return result;
+}
+
+void ProtocolDash::OnManifestExpiryTimerFired()
+{
+    LOG(kMedia, "ProtocolDash::OnManifestExpiryTimerFired - WARN: Manifest has expired. Needs refreshed.\n");
+    iMPD.SetExpired();
+}
