@@ -40,7 +40,8 @@ const TChar* SocketUdpServer::kAdapterCookie = "SocketUdpServer";
 
 SocketUdpServer::SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority, TUint aPort, TIpAddress aInterface)
     : iEnv(aEnv)
-    , iSocket(aEnv, aPort, aInterface)
+    , iInitPort(aPort)
+    , iSocket(aEnv, iInitPort, aInterface)
     , iRefCount(1)
     , iMaxSize(aMaxSize)
     , iOpen(false)
@@ -328,7 +329,9 @@ void SocketUdpServer::CurrentAdapterChanged()
     // Only rebind if we have something to rebind to.
     if (current != nullptr) {
         Semaphore waiter("", 0);
-        PostRebind(current->Address(), iSocket.Port(), MakeFunctor(waiter, &Semaphore::Signal));
+        // Do not attempt to rebind to previous port, which may have been host-assigned port (i.e., port 0 was passed to constructor).
+        // Instead, rebind to initialisation port passed to constructor.
+        PostRebind(current->Address(), iInitPort, MakeFunctor(waiter, &Semaphore::Signal));
         waiter.Wait();
         iSocket.Interrupt(false);
 

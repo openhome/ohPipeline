@@ -432,6 +432,8 @@ void RaopDiscoverySession::Run()
                     iWriterResponse->WriteFlush();
                 }
                 else if(method == RtspMethod::kSetup) {
+                    ASSERT_VA(iAudioPort != 0 && iControlPort != 0 && iTimingPort != 0, "audio: %u, ctrl: %u, timing: %u\n", iAudioPort, iControlPort, iTimingPort); // make sure ports have been set
+
                     iWriterResponse->WriteStatus(HttpStatus::kOk, Http::eRtsp10);
                     iWriterResponse->WriteHeader(Brn("Audio-Jack-Status"), Brn("connected; type=analog"));
                     WriteSeq(iHeaderCSeq.CSeq());
@@ -456,7 +458,6 @@ void RaopDiscoverySession::Run()
                     transResponse.Append(timingPortStr);
                     Ascii::AppendDec(transResponse, iTimingPort);
 
-                    ASSERT(iAudioPort != 0 && iControlPort != 0 && iTimingPort != 0); // make sure ports have been set
                     iWriterResponse->WriteHeader(Brn("Transport"), transResponse);
                     iWriterResponse->WriteFlush();
                 }
