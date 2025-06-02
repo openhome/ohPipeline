@@ -151,21 +151,29 @@ def configure(conf):
 
     # Setup Mad (mp3) lib options
     fixed_point_model = 'FPM_INTEL'
+    mp3_sizeof_long = 'SIZEOF_LONG=4'
     if conf.options.with_default_fpm or conf.options.dest_platform in ['Linux-riscv64']:
         fixed_point_model = 'FPM_DEFAULT'
-    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-aarch64', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
+    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
-    elif conf.options.dest_platform in ['Linux-x64', 'Windows-x64', 'Mac-x64']:
+    elif conf.options.dest_platform in ['Linux-x64', 'Mac-x64', 'Linux-aarch64']:
         fixed_point_model = 'FPM_64BIT'
+        mp3_sizeof_long = 'SIZEOF_LONG=8'
     elif conf.options.dest_platform == 'Linux-mipsel':
         fixed_point_model = 'FPM_MIPS'
-    conf.env.DEFINES_MAD = [fixed_point_model, 'OPT_ACCURACY']
+    conf.env.DEFINES_MAD = [fixed_point_model, 'OPT_ACCURACY'] # OPT_ACCURACY is most accurate decoding for a given FPM but may not be most efficient.
     conf.env.INCLUDES_MAD = ['thirdparty/libmad-0.15.1b']
     if conf.options.dest_platform in ['Windows-x86', 'Windows-x64']:
         conf.env.DEFINES_MAD.append('HAVE_CONFIG_H')
         conf.env.INCLUDES_MAD.append('thirdparty/libmad-0.15.1b/msvc++')
+    else:
+        # Define data sizes here instead of hard-coding in mad.h and config.h (except for Windows).
+        conf.env.DEFINES_MAD.append('SIZEOF_INT=4');
+        conf.env.DEFINES_MAD.append(mp3_sizeof_long);
+        conf.env.DEFINES_MAD.append('SIZEOF_LONG_LONG=8');
+
 
     # Setup Vorbis lib options
     # Using https://git.xiph.org/?p=tremor.git
@@ -175,7 +183,7 @@ def configure(conf):
         conf.env.DEFINES_VORBIS = ['BIG_ENDIAN', 'BYTE_ORDER=BIG_ENDIAN']
     conf.env.INCLUDES_VORBIS = [
         'thirdparty/Tremor',
-        ]        
+        ]
 
 
 class GeneratedFile(object):
