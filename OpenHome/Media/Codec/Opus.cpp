@@ -282,6 +282,30 @@ void CodecOpus::Process()
 
 TBool CodecOpus::TrySeek(TUint aStreamId, TUint64 aSample)
 {
+    (void)aStreamId;
+    (void)aSample;
+
+    Log::Print("CodecOpus::TrySeek - Seeking is not availabler\n");
+    return false;
+
+    // Seeking dOps files (Opus served under fragmented DASH)
+    //
+    // In order to correctly seek dOps, we require to do a 2 stage process
+    // 1) Need to detect which fragment contains the seek position
+    // 2) How many samples from the between of the fragment is the seek position.
+    //
+    // We use the SeekTable to detect if we are in a fragmented stream as the table
+    // is encoded differently from non-fragmented stream. We use the table to get
+    // each fragment duration to anchor ourselves to the correct place.
+    //
+    // After that, we know the remaining number of samples that we need to skip
+    // from the start of the fragment to obtain the correct seek position
+
+
+    // @FragmentedStreamSeeking
+    // Disabled until suitable solution can be found for all codecs. E, May 2025
+
+    /*
     // NOTE: We only support seeking Opus when it's part of a fragmented MPEG stream.
     if (!iSeekTable.IsFragmentedStream()) {
         LOG_ERROR(kCodec, "CodecOpus::TrySeek - ATTEMPTING TO SEEK A NON-FRAGMENTED FILE. This is not supported.\n");
@@ -326,6 +350,7 @@ TBool CodecOpus::TrySeek(TUint aStreamId, TUint64 aSample)
     }
 
     return false;
+    */
 }
 
 void CodecOpus::StreamCompleted()

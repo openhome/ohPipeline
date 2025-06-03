@@ -27,16 +27,16 @@ ContainerBase* ContainerFactory::NewMpeg4(IMimeTypeList& aMimeTypeList, Optional
 // Mpeg4Info
 
 Mpeg4Info::Mpeg4Info() :
-        iSampleRate(0), iTimescale(0), iChannels(0), iBitDepth(0), iDuration(0)
+        iSampleRate(0), iTimescale(0), iChannels(0), iBitDepth(0), iDuration(0), iIsFragmentedStream(false)
 {
 }
 
 Mpeg4Info::Mpeg4Info(const Brx& aCodec, TUint aSampleRate, TUint aTimescale,
         TUint aChannels, TUint aBitDepth, TUint64 aDuration,
-        TUint aStreamDescriptorBytes) :
+        TUint aStreamDescriptorBytes, TBool aIsFragmented) :
         iCodec(aCodec), iSampleRate(aSampleRate), iTimescale(aTimescale), iChannels(
                 aChannels), iBitDepth(aBitDepth), iDuration(aDuration), iStreamDescBytes(
-                        aStreamDescriptorBytes)
+                aStreamDescriptorBytes), iIsFragmentedStream(aIsFragmented)
 {
 }
 
@@ -84,6 +84,11 @@ TUint Mpeg4Info::StreamDescriptorBytes() const
     return iStreamDescBytes;
 }
 
+TBool Mpeg4Info::IsFragmentedStream() const
+{
+    return iIsFragmentedStream;
+}
+
 void Mpeg4Info::SetCodec(const Brx& aCodec)
 {
     iCodec.Replace(aCodec);
@@ -118,6 +123,11 @@ void Mpeg4Info::SetDuration(TUint64 aDuration)
 void Mpeg4Info::SetStreamDescriptorBytes(TUint aBytes)
 {
     iStreamDescBytes = aBytes;
+}
+
+void Mpeg4Info::SetIsFragmentedStream()
+{
+    iIsFragmentedStream = true;
 }
 
 // Mpeg4InfoReader
@@ -155,6 +165,11 @@ void Mpeg4InfoReader::Read(IMpeg4InfoWritable& aInfo)
         const TUint streamDescriptorBytes = readerBin.ReadUintBe(4);
         aInfo.SetStreamDescriptorBytes(streamDescriptorBytes);
 
+        const TUint isFragmented = readerBin.ReadUintBe(4);
+        if (isFragmented != 0) {
+            aInfo.SetIsFragmentedStream();
+        }
+
         //ASSERT(aInfo.Initialised());
     } catch (ReaderError&) {
         THROW(MediaMpeg4FileInvalid);
@@ -179,6 +194,7 @@ void Mpeg4InfoWriter::Write(IWriter& aWriter) const
     writer.WriteUint32Be(iInfo.BitDepth());
     writer.WriteUint64Be(iInfo.Duration());
     writer.WriteUint32Be(iInfo.StreamDescriptorBytes());
+    writer.WriteUint32Be(iInfo.IsFragmentedStream() ? 1 : 0);
     aWriter.WriteFlush();   // FIXME - required?
 }
 
@@ -508,11 +524,11 @@ TBool Mpeg4BoxMoov::Recognise(const Brx& aBoxId) const
 
 // Mpeg4BoxMoof
 
-Mpeg4BoxMoof::Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo& aContainerInfo, IBoxOffsetProvider& aBoxOffsetProvider, SeekTable& aSeekTable)
+Mpeg4BoxMoof::Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo& aContainerInfo, IBoxOffsetProvider& aBoxOffsetProvider, IStreamInfoSettable& aStreamInfo)
     : Mpeg4BoxSwitcher(aProcessorFactory, Brn("moof"))
     , iContainerInfo(aContainerInfo)
     , iBoxOffsetProvider(aBoxOffsetProvider)
-    , iSeekTable(aSeekTable)
+    , iStreamInfo(aStreamInfo)
 { }
 
 void Mpeg4BoxMoof::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
@@ -520,7 +536,7 @@ void Mpeg4BoxMoof::Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes)
     Mpeg4BoxSwitcher::Set(aCache, aBoxBytes);
     iContainerInfo.SetFragmented(aBoxBytes + 8); // Include size + 'moof' bytes here
     iContainerInfo.SetFirstMoofStart(iBoxOffsetProvider.BoxOffset());
-    iSeekTable.SetIsFragmentedStream(true);
+    iStreamInfo.SetIsFragmentedStream();
 }
 
 void Mpeg4BoxMoof::Reset()
@@ -3022,7 +3038,7 @@ void Mpeg4Duration::SetDuration(TUint64 aDuration)
 // Mpeg4StreamInfo
 
 Mpeg4StreamInfo::Mpeg4StreamInfo() :
-        iChannels(0), iBitDepth(0), iSampleRate(0)
+        iChannels(0), iBitDepth(0), iSampleRate(0), iIsFragmentedStream(false)
 {
 }
 
@@ -3032,6 +3048,7 @@ void Mpeg4StreamInfo::Reset()
     iBitDepth = 0;
     iSampleRate = 0;
     iCodec.SetBytes(0);
+    iIsFragmentedStream = false;
 }
 
 TUint Mpeg4StreamInfo::Channels() const
@@ -3054,6 +3071,11 @@ const Brx& Mpeg4StreamInfo::Codec() const
     return iCodec;
 }
 
+TBool Mpeg4StreamInfo::IsFragmentedStream() const
+{
+    return iIsFragmentedStream;
+}
+
 void Mpeg4StreamInfo::SetChannels(TUint aChannels)
 {
     iChannels = aChannels;
@@ -3072,6 +3094,11 @@ void Mpeg4StreamInfo::SetSampleRate(TUint aSampleRate)
 void Mpeg4StreamInfo::SetCodec(const Brx& aCodec)
 {
     iCodec.Replace(aCodec);
+}
+
+void Mpeg4StreamInfo::SetIsFragmentedStream()
+{
+    iIsFragmentedStream = true;
 }
 
 // Mpeg4CodecInfo
@@ -3752,7 +3779,6 @@ void SeekTable::Deinitialise()
     iSamplesPerChunk.clear();
     iAudioSamplesPerSample.clear();
     iOffsets.clear();
-    iIsFragmentedStream = false;
 }
 
 void SeekTable::SetSamplesPerChunk(TUint aFirstChunk, TUint aSamplesPerChunk,
@@ -3773,11 +3799,6 @@ void SeekTable::SetAudioSamplesPerSample(TUint32 aSampleCount,
 void SeekTable::SetOffset(TUint64 aOffset)
 {
     iOffsets.push_back(aOffset);
-}
-
-void SeekTable::SetIsFragmentedStream(TBool aIsFragmented)
-{
-    iIsFragmentedStream = aIsFragmented;
 }
 
 TUint SeekTable::ChunkCount() const
@@ -3880,25 +3901,17 @@ TUint64 SeekTable::GetOffset(TUint aChunkIndex) const
     return iOffsets[aChunkIndex];
 }
 
-TBool SeekTable::IsFragmentedStream() const
-{
-    return iIsFragmentedStream;
-}
-
-
 void SeekTable::WriteInit()
 {
-    iSpcWriteIndex = 0;
-    iAspsWriteIndex = 0;
-    iOffsetsWriteIndex = 0;
+    iSpcWriteIndex      = 0;
+    iAspsWriteIndex     = 0;
+    iOffsetsWriteIndex  = 0;
 }
 
 void SeekTable::Write(IWriter& aWriter, TUint aMaxBytes)
 {
     TUint bytesLeftToWrite = aMaxBytes;
     WriterBinary writerBin(aWriter);
-
-    writerBin.WriteUint8(iIsFragmentedStream ? 1 : 0);
 
     const TUint samplesPerChunkCount = iSamplesPerChunk.size();
     if (iSpcWriteIndex == 0) {
@@ -4150,9 +4163,6 @@ void SeekTableInitialiser::Init()
 {
     ASSERT(!iInitialised);
     ReaderBinary readerBin(iReader);
-
-    const TBool isFragmentedStream = readerBin.ReadUintBe(1) == 1 ? true : false;
-    iSeekTable.SetIsFragmentedStream(isFragmentedStream);
 
     const TUint samplesPerChunkCount = readerBin.ReadUintBe(4);
     iSeekTable.InitialiseSamplesPerChunk(samplesPerChunkCount);
@@ -4651,7 +4661,7 @@ void Mpeg4Container::Construct(IMsgAudioEncodedCache& aCache, MsgFactory& aMsgFa
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("mvex")));
     iProcessorFactory.Add(new Mpeg4BoxMehd(iDurationInfo));
 
-    iProcessorFactory.Add(new Mpeg4BoxMoof(iProcessorFactory, iContainerInfo, static_cast<IBoxOffsetProvider&>(iBoxRoot), iSeekTable));
+    iProcessorFactory.Add(new Mpeg4BoxMoof(iProcessorFactory, iContainerInfo, static_cast<IBoxOffsetProvider&>(iBoxRoot), iStreamInfo));
     iProcessorFactory.Add(new Mpeg4BoxSwitcher(iProcessorFactory, Brn("traf")));
     iProcessorFactory.Add(new Mpeg4BoxTfhd(iSampleSizeTable, iContainerInfo));
     iProcessorFactory.Add(new Mpeg4BoxTrun(iSampleSizeTable, iContainerInfo));
@@ -4718,6 +4728,75 @@ void Mpeg4Container::Init(TUint64 aStreamBytes)
 TBool Mpeg4Container::TrySeek(TUint aStreamId, TUint64 aOffset)
 {
     if (iContainerInfo.ProcessingMode() == Mpeg4ContainerInfo::EProcessingMode::Fragmented) {
+        Log::Print("Mpeg4Container::TrySeek - Seeking not available for fragmented streams");
+        return false;
+
+        /* @FragmentedStreamSeeking
+         *
+         * Fragmented MPEG streams need to seek in a 2-stage process.
+         * Stage 1) Find the fragment containing the seek position
+         * Stage 2) Find the position within that fragment to obtain the exact stream position.
+         *
+         * Stage 1
+         * -------
+         * We must obtain the full MOOF header boxes as well as the MDAT box for the fragment containing the
+         * seek position. This is because the MOOF header boxes may require sample size information required
+         * by the codec or may contain DRM encryption keys.
+         *
+         * Fragmented MPEG streams contain a prelude SIDX box. This gives you the duration and size of each
+         * fragment in the following file. The size of of the fragment includes the MOOF header + MDAT box
+         * containing the audio data. Fragments can be a variable duration.
+         *
+         * MPEG Stream
+         * ===========
+         * ... |  Fragment 1 |  Fragment 2 |  Fragment 3
+         * ... | MOOF | MDAT | MOOF | MDAT | MOOF | MDAT
+         *
+         * SIDX Table
+         * ==========
+         * IDX | Duration | Size (in bytes)
+         *  0  |  10sec   |   100
+         *  1  |  15 sec  |   150
+         *
+         * In addition to this information, we require to know the offset to the start of the MOOF box in the
+         * first fragment. Combining this with a summation of the fragment sizes provides you with the exact
+         * byte position in the stream to the start of the containing fragment.
+         *
+         * Eg (using the above steam)
+         * - First MOOF   = 1024
+         * - Seek position = 22
+         *
+         * Fragment containing seek position is IDX 1 (IDX 0 has 10 seconds followed by IDX 1 of 15 seconds making
+         * 25 seconds of audio in total).
+         *
+         * Fragment IDX 1 comes after Fragment IDX 0 which is 100 bytes in length.
+         *
+         * Therefore stream position = First MOOF + (Size of previous fragments)
+         *                           = 1024 + 100
+         *                           = 1124
+         *
+         * Stage 2
+         * -------
+         * Now we know what fragment, we need to now how far through that fragment we want to be. This is where the
+         * problems happen. Ideally, this is handled at the codec level. There, they can determin how many samples
+         * occur before the seek position and discard those. Opus does this.
+         *
+         * However, some codecs do not offer this flexibility. For example, FLAC provides us with an exact stream position
+         * that it expects us to move to. What complicates things here is that the position that FLAC provides us is the
+         * position within the MDAT boxes, ignoring the MOOF header boxes. So we'd need to store additional information, such
+         * as the offsets to each MDAT box.
+         *
+         * In order to achieve this, it's likely we'd need to store the entire stream in memory. That would allow us to quickly
+         * scan through the stream, tally up the sizes of the MOOF header boxes and use that in our calculations. Doing so
+         * in devices like ours is very tough as we only ever buffer small chunks of the file at any given point. Having to
+         * potentially scan the file and download is as well is simply not possible at this moment in time. And thus we simply
+         * can't currently support seeking.
+         */
+
+        // The code below works as expected for Opus. It assumes that the codec can tell
+        // the MPEG code exactly which fragment to seek to and then can internally throw
+        // away as many samples as required to complete the seek.
+        /*
         // Fragmented streams are based on the SIDX.
         // This defines how large each fragment/segment is starting from the position of the first MOOF box encountered in the stream
         const TUint fragmentIndex = (TUint)aOffset;
@@ -4736,6 +4815,7 @@ TBool Mpeg4Container::TrySeek(TUint aStreamId, TUint64 aOffset)
             iBoxRoot.Reset();
         }
         return seek;
+        */
     }
     else {
         // As TrySeek requires a byte offset, any codec that uses an Mpeg4 stream MUST find the appropriate seek offset (in bytes) and pass that via TrySeek().
@@ -4813,7 +4893,7 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
             // NOTE: Some codecs provide the required stream & seek information encoded as part of their own data.
             //       For these, we don't want to emit anything extra.
             const TBool codecMpeg4InfoHeader     = iStreamInfo.Codec() != Brn("fLaC");
-            const TBool codecRequiresSampleTable = iStreamInfo.Codec() == Brn("dOps");
+            const TBool codecRequiresSampleTable = iStreamInfo.Codec() == Brn("dOps") || iStreamInfo.Codec() == Brn("mp4a") || iStreamInfo.Codec() == Brn("alac");
             const TBool codecRequiresSeekTable   = false;
 
             const TBool doMpeg4Info   = (!isFragmentedStream || (isFragmentedStream && hasCodecInfo)) && codecMpeg4InfoHeader;
@@ -4824,7 +4904,7 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
             if (doMpeg4Info) {
                 Mpeg4Info info(iStreamInfo.Codec(), iStreamInfo.SampleRate(),
                                iDurationInfo.Timescale(), iStreamInfo.Channels(),
-                               iStreamInfo.BitDepth(), iDurationInfo.Duration(), codecInfo->Bytes());
+                               iStreamInfo.BitDepth(), iDurationInfo.Duration(), codecInfo->Bytes(), iStreamInfo.IsFragmentedStream());
 
                 Mpeg4InfoWriter writer(info);
                 Bws<Mpeg4InfoWriter::kMaxBytes> infoBuf;

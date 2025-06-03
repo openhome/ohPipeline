@@ -369,7 +369,7 @@ void SourceRaop::FlushCallback(TUint aFlushId)
         iPipeline.Wait(aFlushId);
     }
 }
- 
+
 void SourceRaop::HandleInterfaceChange()
 {
     //iRaopDiscovery->Disable();
@@ -377,6 +377,7 @@ void SourceRaop::HandleInterfaceChange()
     const TUint serverAudioPort = ServerPort(iAudioId);
     const TUint serverControlPort = ServerPort(iControlId);
     const TUint serverTimingPort = ServerPort(iTimingId);
+    LOG(kMedia, "SourceRaop::HandleInterfaceChange audio: %u, ctrl: %u, timing: %u\n", serverAudioPort, serverControlPort, serverTimingPort);
     iRaopDiscovery->SetListeningPorts(serverAudioPort, serverControlPort, serverTimingPort);
 }
 

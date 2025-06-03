@@ -31,6 +31,7 @@ public:
     virtual TUint BitDepth() const = 0;
     virtual TUint64 Duration() const = 0;
     virtual TUint StreamDescriptorBytes() const = 0;
+    virtual TBool IsFragmentedStream() const = 0;
     virtual ~IMpeg4InfoReadable() {}
 };
 
@@ -46,6 +47,7 @@ public:
     virtual void SetBitDepth(TUint aBitDepth) = 0;
     virtual void SetDuration(TUint64 aDuration) = 0;
     virtual void SetStreamDescriptorBytes(TUint aBytes) = 0;
+    virtual void SetIsFragmentedStream() = 0;
     virtual ~IMpeg4InfoWritable() {}
 };
 
@@ -53,7 +55,7 @@ class Mpeg4Info : public IMpeg4InfoReadable, public IMpeg4InfoWritable
 {
 public:
     Mpeg4Info();
-    Mpeg4Info(const Brx& aCodec, TUint aSampleRate, TUint aTimescale, TUint aChannels, TUint aBitDepth, TUint64 aDuration, TUint aStreamDescriptorBytes);
+    Mpeg4Info(const Brx& aCodec, TUint aSampleRate, TUint aTimescale, TUint aChannels, TUint aBitDepth, TUint64 aDuration, TUint aStreamDescriptorBytes, TBool aIsFragmented);
     TBool Initialised() const;
     void Clear();
 public: // from IMpeg4InfoReadable
@@ -64,6 +66,7 @@ public: // from IMpeg4InfoReadable
     TUint BitDepth() const override;
     TUint64 Duration() const override;
     TUint StreamDescriptorBytes() const override;
+    TBool IsFragmentedStream() const override;
 public: // from IMpeg4InfoWritable
     void SetCodec(const Brx& aCodec) override;
     void SetSampleRate(TUint aSampleRate) override;
@@ -72,6 +75,8 @@ public: // from IMpeg4InfoWritable
     void SetBitDepth(TUint aBitDepth) override;
     void SetDuration(TUint64 aDuration) override;
     void SetStreamDescriptorBytes(TUint aBytes) override;
+    void SetIsFragmentedStream() override;
+
 private:
     Bws<kCodecBytes> iCodec;    // FIXME - not really good enough for recognition; MP3 can also be contained in mp4a
     TUint iSampleRate;
@@ -80,6 +85,7 @@ private:
     TUint iBitDepth;
     TUint64 iDuration;
     TUint iStreamDescBytes;
+    TBool iIsFragmentedStream;
 };
 
 class Mpeg4InfoReader : public INonCopyable
@@ -100,7 +106,8 @@ public:
                                    4 +    // channels
                                    4 +    // bitdepth
                                    8 +    // duration
-                                   4;     // stream descriptor length
+                                   4 +    // stream descriptor length
+                                   4;     // IsFragmentedMarker
 public:
     Mpeg4InfoWriter(const IMpeg4InfoReadable& aInfo);
     void Write(IWriter& aWriter) const;
@@ -263,18 +270,19 @@ private:
 
 class SeekTable;
 class Mpeg4ContainerInfo;
+class IStreamInfoSettable;
 
 class Mpeg4BoxMoof : public Mpeg4BoxSwitcher
 {
 public:
-    Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo&, IBoxOffsetProvider&, SeekTable& aSeekTable);
+    Mpeg4BoxMoof(IMpeg4BoxProcessorFactory& aProcessorFactory, Mpeg4ContainerInfo&, IBoxOffsetProvider&, IStreamInfoSettable& aStreamInfo);
 public: // from Mpeg4BoxSwitcher
     void Set(IMsgAudioEncodedCache& aCache, TUint aBoxBytes) override;
     void Reset() override;
 private:
     Mpeg4ContainerInfo& iContainerInfo;
     IBoxOffsetProvider& iBoxOffsetProvider;
-    SeekTable& iSeekTable;
+    IStreamInfoSettable& iStreamInfo;
 };
 
 
@@ -678,6 +686,7 @@ public:
     virtual void SetBitDepth(TUint aBitDepth) = 0;
     virtual void SetSampleRate(TUint aSampleRate) = 0;
     virtual void SetCodec(const Brx& aCodec) = 0;
+    virtual void SetIsFragmentedStream() = 0;
     virtual ~IStreamInfoSettable() {}
 };
 
@@ -1021,16 +1030,19 @@ public:
     TUint BitDepth() const;
     TUint SampleRate() const;
     const Brx& Codec() const;
+    TBool IsFragmentedStream() const;
 public: // from IStreamInfoSettable
     void SetChannels(TUint aChannels) override;
     void SetBitDepth(TUint aBitDepth) override;
     void SetSampleRate(TUint aSampleRate) override;
     void SetCodec(const Brx& aCodec) override;
+    void SetIsFragmentedStream() override;
 private:
     TUint iChannels;
     TUint iBitDepth;
     TUint iSampleRate;
     Bws<IStreamInfoSettable::kCodecBytes> iCodec;
+    TBool iIsFragmentedStream;
 };
 
 class Mpeg4CodecInfo : public ICodecInfoSettable
@@ -1193,7 +1205,6 @@ public:
     void SetSamplesPerChunk(TUint aFirstChunk, TUint aSamplesPerChunk, TUint aSampleDescriptionIndex);
     void SetAudioSamplesPerSample(TUint32 aSampleCount, TUint32 aAudioSamples);
     void SetOffset(TUint64 aOffset);    // FIXME - rename to AddOffset()? and similar with above methods?
-    void SetIsFragmentedStream(TBool aIsFragmented);
     TUint ChunkCount() const;
     TUint AudioSamplesPerSample() const;
     TUint SamplesPerChunk(TUint aChunkIndex) const;
@@ -1201,7 +1212,6 @@ public:
     TUint64 Offset(TUint64& aAudioSample, TUint64& aSample);    // FIXME - aSample should be TUint.
     // FIXME - See if it's possible to split this class into its 3 separate components, to simplify it.
     TUint64 GetOffset(TUint aChunkIndex) const;
-    TBool IsFragmentedStream() const;
     void WriteInit();
     void Write(IWriter& aWriter, TUint aMaxBytes);   // Serialise.
     TBool WriteComplete() const;
@@ -1232,7 +1242,6 @@ private:
     TUint iSpcWriteIndex;
     TUint iAspsWriteIndex;
     TUint iOffsetsWriteIndex;
-    TBool iIsFragmentedStream;
 };
 
 class SeekTableInitialiser : public INonCopyable

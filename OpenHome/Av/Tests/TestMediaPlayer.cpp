@@ -32,6 +32,7 @@
 #include <OpenHome/Net/Odp/DviProtocolOdp.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Media/Codec/Mpeg4.h>
+#include <OpenHome/Av/Radio/ContentProcessorFactory.h>
 
 #include <vector>
 
@@ -490,6 +491,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 
     if (iEnableDash) {
         Log::Print("!! MPEG Dash Support Enabled !!\n");
+        iMediaPlayer->Pipeline().Add(Av::ContentProcessorFactory::NewMPD());
         iMediaPlayer->Add(ProtocolFactory::NewDash(aEnv, ssl, *iMediaPlayer));
     }
 

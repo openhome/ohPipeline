@@ -5,6 +5,7 @@
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/UnixTimestamp.h>
+#include <OpenHome/Media/Protocol/Protocol.h>
 
 // Ex ---
 
@@ -79,6 +80,8 @@ public:
     TUint Timescale() const;
     TUint Duration() const;
     TUint StartNumber() const;
+
+    TUint SegmentDurationInSeconds() const;
 
 private:
     Brn iInitialization;
@@ -289,7 +292,6 @@ private:
     Bws<Uri::kMaxUriBytes> iUrlBuf; // Needed when we're appending so we can reuse iBaseUrl.AbsoluteUri() as this is cleared during the start of Replace(...)
 };
 
-
 class MPDSegmentStream
 {
 private:
@@ -305,6 +307,7 @@ public:
     MPDSegmentStream(IUnixTimestamp& aTimestamp);
 
 public:
+    TBool IsDynamic() const;
     TUint64 AudioBytes() const;
 
     TBool TryGetNextSegment(MPDSegment& aSegement);
@@ -318,14 +321,14 @@ public:
     */
 
 public: // FIXME: Maybe should be internal to the MPDDocument??
-    TBool TrySet(MPDDocument& aDocument); // FIXME: Do we need the const here? Perhaps it could be constructed with the document and then have some sort of generational counter to ensure we're still valid??
+    TBool TrySet(MPDDocument& aDocument, TBool aIsUpdate); // FIXME: Do we need the const here? Perhaps it could be constructed with the document and then have some sort of generational counter to ensure we're still valid??
 
 private:
     TBool TryGetInitialisationSegment(MPDSegment& aSegment);
     TBool TryGetMediaSegment(MPDSegment& aSegment);
 
     TBool TrySetInitialSegmentNumber();
-
+    TBool TryGetSegmentTemplateStartingNumber(SegmentTemplate& aSegment, TUint& aResult);
 private:
     IUnixTimestamp& iTimestamp;
     MPDDocument* iCurrentDocument; // NOT OWNED

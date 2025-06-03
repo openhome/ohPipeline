@@ -24,9 +24,12 @@
 extern "C" {
 # endif
 
+#if 0
+// Defined externally so that internal libmad data type sizes and data type sizes defined in this header match.
 # define SIZEOF_INT 4
 # define SIZEOF_LONG 4
 # define SIZEOF_LONG_LONG 8
+#endif
 
 
 /* Id: version.h,v 1.26 2004/01/23 09:41:33 rob Exp */
@@ -282,7 +285,7 @@ mad_fixed_t mad_f_mul_inline(mad_fixed_t x, mad_fixed_t y)
 
 # elif defined(FPM_ARM)
 
-/* 
+/*
  * This ARM V4 version is as accurate as FPM_64BIT but much faster. The
  * least significant bit is properly rounded at no CPU cycle cost!
  */
