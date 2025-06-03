@@ -24,12 +24,12 @@
 extern "C" {
 # endif
 
-#if 0
-// Defined externally so that internal libmad data type sizes and data type sizes defined in this header match.
-# define SIZEOF_INT 4
-# define SIZEOF_LONG 4
-# define SIZEOF_LONG_LONG 8
-#endif
+// #if 0
+// // Defined externally so that internal libmad data type sizes and data type sizes defined in this header match.
+# define SIZEOF_INT sizeof(int)
+# define SIZEOF_LONG sizeof(long int)
+# define SIZEOF_LONG_LONG sizeof(long long int)
+// #endif
 
 
 /* Id: version.h,v 1.26 2004/01/23 09:41:33 rob Exp */
