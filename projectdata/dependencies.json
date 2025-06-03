@@ -143,6 +143,7 @@
             "Linux-x64": false,
             "armhf-buildroot-linux": false,
             "armhf-kirkstone-linux": false,
+            "aarch64-kirkstone-linux": false,
             "aarch64-scarthgap-linux": false,
             "*": true
         },
