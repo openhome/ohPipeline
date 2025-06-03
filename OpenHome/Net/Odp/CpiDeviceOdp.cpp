@@ -307,6 +307,10 @@ void CpiDeviceOdp::NotifyRemovedBeforeReady()
 {
 }
 
+void CpiDeviceOdp::NotifyDestroy()
+{
+}
+
 TUint CpiDeviceOdp::Version(const TChar* /*aDomain*/, const TChar* /*aName*/, TUint aProxyVersion) const
 {
     return aProxyVersion; // FIXME - could store list of remote services and lookup on that
