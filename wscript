@@ -154,7 +154,7 @@ def configure(conf):
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
         mp3_sizeof_long = 'SIZEOF_LONG=4'
     elif conf.options.dest_platform in ['aarch64-kirkstone-linux', 'aarch64-scarthgap-linux', 'riscv64-buildroot-linux']:
-        fixed_point_model = 'FPM_DEFAULT'
+        fixed_point_model = 'FPM_64BIT'
         mp3_sizeof_long = 'SIZEOF_LONG=8'
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
@@ -162,6 +162,9 @@ def configure(conf):
     elif conf.options.dest_platform in ['Linux-x64', 'Mac-x64']:
         fixed_point_model = 'FPM_64BIT'
         mp3_sizeof_long = 'SIZEOF_LONG=8'
+    elif conf.options.dest_platform in ['Linux-x86']:
+        fixed_point_model = 'FPM_DEFAULT'
+        mp3_sizeof_long = 'SIZEOF_LONG=4'
     elif conf.options.dest_platform == 'Linux-mipsel':
         fixed_point_model = 'FPM_MIPS'
     conf.env.DEFINES_MAD = [fixed_point_model, 'OPT_ACCURACY'] # OPT_ACCURACY is most accurate decoding for a given FPM but may not be most efficient.
