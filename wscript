@@ -149,33 +149,32 @@ def configure(conf):
     fixed_point_model = 'FPM_INTEL'
     if conf.options.with_default_fpm:
         fixed_point_model = 'FPM_DEFAULT'
-        # mp3_sizeof_long = 'SIZEOF_LONG=8'
+        mp3_sizeof_long = 'SIZEOF_LONG=8'
     elif conf.options.dest_platform in ['armhf-buildroot-linux', 'armhf-kirkstone-linux', 'armhf-raspbian-linux']:
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
-        # mp3_sizeof_long = 'SIZEOF_LONG=4'
+        mp3_sizeof_long = 'SIZEOF_LONG=4'
     elif conf.options.dest_platform in ['aarch64-kirkstone-linux', 'aarch64-scarthgap-linux', 'riscv64-buildroot-linux']:
         fixed_point_model = 'FPM_DEFAULT'
-        # mp3_sizeof_long = 'SIZEOF_LONG=8'
+        mp3_sizeof_long = 'SIZEOF_LONG=8'
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
-        # mp3_sizeof_long = 'SIZEOF_LONG=4'
+        mp3_sizeof_long = 'SIZEOF_LONG=4'
     elif conf.options.dest_platform in ['Linux-x64', 'Mac-x64']:
         fixed_point_model = 'FPM_64BIT'
-        # mp3_sizeof_long = 'SIZEOF_LONG=8'
+        mp3_sizeof_long = 'SIZEOF_LONG=8'
     elif conf.options.dest_platform == 'Linux-mipsel':
         fixed_point_model = 'FPM_MIPS'
     conf.env.DEFINES_MAD = [fixed_point_model, 'OPT_ACCURACY'] # OPT_ACCURACY is most accurate decoding for a given FPM but may not be most efficient.
     conf.env.INCLUDES_MAD = ['thirdparty/libmad-0.15.1b']
-
+    
     if conf.options.dest_platform in ['Windows-x86', 'Windows-x64']:
         conf.env.DEFINES_MAD.append('HAVE_CONFIG_H')
         conf.env.INCLUDES_MAD.append('thirdparty/libmad-0.15.1b/msvc++')
     else:
         # Define data sizes here instead of hard-coding in mad.h and config.h (except for Windows).
-        pass
-        # conf.env.DEFINES_MAD.append('SIZEOF_INT=4');
-        # conf.env.DEFINES_MAD.append(mp3_sizeof_long);
-        # conf.env.DEFINES_MAD.append('SIZEOF_LONG_LONG=8');
+        conf.env.DEFINES_MAD.append('SIZEOF_INT=4');
+        conf.env.DEFINES_MAD.append(mp3_sizeof_long);
+        conf.env.DEFINES_MAD.append('SIZEOF_LONG_LONG=8');
 
 
     # Setup Vorbis lib options
