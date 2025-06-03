@@ -1956,6 +1956,39 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
             }
         }
 
+        // If the Document is content protected, grab the details here and seed the DRMProvider
+        if (res != EProtocolStreamErrorUnrecoverable && iMPD.IsContentProtected()) {
+            LOG(kMedia, "ProtocolDash::Stream - MPD reports DRM protection\n");
+
+            const ContentProtection& cp = iMPD.ContentProtectionDetails();
+            if (!cp.IsMPEG4Protection()) {
+                LOG_ERROR(kMedia, "ProtocolDash::Stream - Unknown DRM scheme: %.*s. Content not playable.\n", PBUF(cp.iSchemeIdUri));
+                res = ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+            }
+            else {
+                LOG(kMedia, "ProtocolDash::Stream - DRM Type: MP4 (Kind:'%.*s')\n", PBUF(cp.iValue));
+
+                ASSERT(iProtocolManager);
+                const std::vector<IDashDRMProvider*>& drmProviders = iProtocolManager->GetDashDRMProviders();
+                IDashDRMProvider* activeDRMProvider = nullptr;
+
+                for(TUint i = 0; i < drmProviders.size(); i += 1) {
+                    if (drmProviders[i]->TryRecognise(cp)) {
+                        activeDRMProvider = drmProviders[i];
+                        break;
+                    }
+                }
+
+                if (activeDRMProvider == nullptr) {
+                    LOG_ERROR(kMedia, "ProtocolDash::Stream - MPD is content protected, but were unable to find a DRM provider that could handle it.\n");
+                    res = ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+                }
+            }
+        }
+        else {
+            LOG(kMedia, "ProtocolDash::Stream - MPD contains no DRM protection\n");
+        }
+
         // Configure emitting a stream message. If we've already started, then we don't emit a new stream message
         // as it's likely the manifest has previously expired and we've refreshed it.
         if (res != EProtocolStreamErrorUnrecoverable && !iStarted) {
@@ -1986,12 +2019,10 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
 
     iStarted = false;
 
-    // End of stream. Also check for the stopped condition. This trumps all
-    TBool wasStopped = false;
-
+    // End of stream. Also check for the stopped condition.
     iLock.Wait();
     if (iStopped) {
-        wasStopped = true;
+        res = EProtocolStreamStopped;
 
         if (iNextFlushId != MsgFlush::kIdInvalid) {
             iSupply->OutputFlush(iNextFlushId);
@@ -2001,12 +2032,7 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
     iCurrentStreamId = IPipelineIdProvider::kStreamIdInvalid;
     iLock.Signal();
 
-    if (wasStopped) {
-        return ProtocolStreamResult::EProtocolStreamStopped;
-    }
-    else {
-        return res;
-    }
+    return res;
 }
 
 ProtocolGetResult ProtocolDash::Get(IWriter& aWriter, const Brx& aUri, TUint64 aOffset, TUint aBytes)
