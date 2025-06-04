@@ -1989,6 +1989,14 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
             LOG(kMedia, "ProtocolDash::Stream - MPD contains no DRM protection\n");
         }
 
+        if (res != EProtocolStreamErrorUnrecoverable) {
+            const TBool isUpdate = iStarted;
+            if (!iSegmentStream.TrySet(iMPD, isUpdate)) {
+                LOG_ERROR(kMedia, "ProtocolDash::Stream - Failed to construct segment stream around MPD document\n");
+                res = EProtocolStreamErrorUnrecoverable;
+            }
+        }
+
         // Configure emitting a stream message. If we've already started, then we don't emit a new stream message
         // as it's likely the manifest has previously expired and we've refreshed it.
         if (res != EProtocolStreamErrorUnrecoverable && !iStarted) {
@@ -2000,14 +2008,6 @@ ProtocolStreamResult ProtocolDash::Stream(const Brx& aUri)
 
             iCurrentStreamId = iIdProvider->NextStreamId();
             iSupply->OutputStream(iUri.AbsoluteUri(), totalBytes, 0, isSeekable, isLiveStream, Multiroom::Allowed, *this, iCurrentStreamId);
-        }
-
-        if (res != EProtocolStreamErrorUnrecoverable) {
-            const TBool isUpdate = iStarted;
-            if (!iSegmentStream.TrySet(iMPD, isUpdate)) {
-                LOG_ERROR(kMedia, "ProtocolDash::Stream - Failed to construct segment stream around MPD document\n");
-                res = EProtocolStreamErrorUnrecoverable;
-            }
         }
 
         iStarted = true;
