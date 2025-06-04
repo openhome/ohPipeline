@@ -2219,10 +2219,25 @@ ProtocolStreamResult ProtocolDash::StreamManifest()
                     break;
                 }
 
-                // This is a last chance wait. The SegmentStream class should wait an appropriate length of time
-                // that we never really reach this code.
-                Log::Print("ProtocolDash::StreamManifest - Desired segment not yet available. Attempt %u/%u\n", tries, maxTries);
-                Thread::Sleep(1000);
+                // Check for stopped state
+                // NOTE: ContentAudio will return a 'Recoverable' error when it encounters a 'ReaderError' during playback.
+                //       This will be thrown when we have been requested to stop, we get interrupted which causes any reads
+                //       to throw. Must handle this as a specific case...
+                TBool stopped = false;
+                iLock.Wait();
+                stopped = iStopped;
+                iLock.Signal();
+
+                if (stopped) {
+                    streamResult = ProtocolStreamResult::EProtocolStreamErrorUnrecoverable;
+                    break;
+                }
+                else {
+                    // This is a last chance wait. The SegmentStream class should wait an appropriate length of time
+                    // that we never really reach this code.
+                    Log::Print("ProtocolDash::StreamManifest - Desired segment not yet available. Attempt %u/%u\n", tries, maxTries);
+                    Thread::Sleep(1000);
+                }
             }
 
             if (tries == maxTries && streamResult == EProtocolStreamErrorRecoverable) {
