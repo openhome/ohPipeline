@@ -253,6 +253,7 @@ RaopDiscoverySession::RaopDiscoverySession(Environment& aEnv, RaopDiscoveryServe
 
     iReaderRequest->AddHeader(iHeaderContentLength);
     iReaderRequest->AddHeader(iHeaderContentType);
+    iReaderRequest->AddHeader(iHeaderTransferEncoding);
     iReaderRequest->AddHeader(iHeaderCSeq);
     iReaderRequest->AddHeader(iHeaderAppleChallenge);
     iReaderRequest->AddHeader(iHeaderRtspTransport);
@@ -349,6 +350,7 @@ void RaopDiscoverySession::WriteFply(Brn aData)
             LOG(kMedia, "\n");
         }
         writeFply = false;
+        ASSERTS();
     }
 
     if (writeFply) {
@@ -384,6 +386,10 @@ void RaopDiscoverySession::Run()
                 const Brx& method = iReaderRequest->Method();
                 LOG(kMedia, "RaopDiscoverySession::Run %u - Read Method %.*s\n", iInstance, PBUF(method));
                 if(method == RtspMethod::kPost) {
+
+                    // Log whether Content-Length header received or whether this may be chunked encoding.
+                    LOG(kMedia, "RaopDiscoverySession::Run POST cont-len rx: %u, cont-len: %u, xfer-enc rx: %u, xfer-enc: %u\n", iHeaderContentLength.Received(), iHeaderContentLength.ContentLength(), iHeaderTransferEncoding.Received(), iHeaderTransferEncoding.IsChunked());
+
                     Brn data = iReaderProtocol->Read(iHeaderContentLength.ContentLength());
 
                     iWriterResponse->WriteStatus(HttpStatus::kOk, Http::eRtsp10);
