@@ -2049,6 +2049,7 @@ void ProtocolDash::Deactivated()
     iProtocolManager->GetAudioProcessor()->Reset();
     iReaderEntity.ReadFlush();
     iManifestExpiryTimer->Cancel();
+    iManifest.Reset();
     Close();
 }
 
