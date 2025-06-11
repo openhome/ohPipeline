@@ -39,7 +39,7 @@
         },
         "platform-version": {
             "aarch64-kirkstone-linux": "0.1.5",
-            "aarch64-scarthgap-linux": "0.2.4"
+            "aarch64-scarthgap-linux": "0.2.8"
         },
         "platform-archivename": {
             "aarch64-kirkstone-linux": "5.15-kirkstone",
@@ -59,7 +59,7 @@
             "armhf-buildroot-linux": false,
             "*": true },
         "ignore":	"${platform-ignore[$platform]}",
-        "version": "0.2.146",
+        "version": "0.2.156",
         "archive-filename": "${name}-Linux-armhf-${version}.tar.gz"
     },
     {
@@ -82,7 +82,7 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.93.12-yocto",
+        "version": "0.93.15-yocto",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
@@ -96,7 +96,7 @@
         "name": "libplatform-host",
         "real-name": "libplatform",
         "type": "internal",
-        "version": "0.93.12-yocto",
+        "version": "0.93.15-yocto",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "${real-name}-${version}-${host-platform}-${debugmode}.tar.gz",
@@ -120,13 +120,8 @@
         "type": "internal",
         "platform-specific": true,
         "platform-version": {
-            "armhf-buildroot-linux": "0.1.19-yocto",
-            "armhf-kirkstone-linux": "0.1.19-yocto",
-            "aarch64-kirkstone-linux": "0.1.19-yocto",
-            "aarch64-scarthgap-linux": "0.1.19-yocto",
-            "Windows-x86": "0.1.37",
             "Core-ppc32": "0.1.37",
-            "*": "0.1.19-yocto"
+            "*": "0.1.36-yocto"
         },
         "version": "${platform-version[$platform]}",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
