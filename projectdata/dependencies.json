@@ -121,9 +121,9 @@
         "platform-specific": true,
         "platform-version": {
             "Windows-x86": "0.1.37",
-            "*": "0.1.42-yocto"
+            "*": "0.1.41-yocto"
         },
-        "version": "0.1.42-yocto",
+        "version": "${platform-version[$platform]}",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
     },
     {
