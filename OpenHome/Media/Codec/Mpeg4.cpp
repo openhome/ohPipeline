@@ -3174,8 +3174,8 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
     aChunkSeeker.RegisterChunkSeekObserver(*this);
 
     if (iDRMProvider.Ok()) {
-        iSampleBuf     = new Bwh(1024 * 12);
-        iDecryptionBuf = new Bwh(1024 * 12);
+        iSampleBuf     = new Bwh(1024 * 16); // During testing we've found tracks containing samples of 16,299bytes
+        iDecryptionBuf = new Bwh(1024 * 16);
     }
     else {
         iSampleBuf     = nullptr;
