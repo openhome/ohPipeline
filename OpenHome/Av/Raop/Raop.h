@@ -197,6 +197,7 @@ private:
     WriterHttpResponse* iWriterResponse;
     HttpHeaderContentLength iHeaderContentLength;
     HttpHeaderContentType iHeaderContentType;
+    HttpHeaderTransferEncoding iHeaderTransferEncoding;
     HeaderAppleChallenge iHeaderAppleChallenge;
     HeaderRtspTransport iHeaderRtspTransport;
     HeaderCSeq iHeaderCSeq;

@@ -3174,8 +3174,8 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
     aChunkSeeker.RegisterChunkSeekObserver(*this);
 
     if (iDRMProvider.Ok()) {
-        iSampleBuf     = new Bwh(1024 * 12);
-        iDecryptionBuf = new Bwh(1024 * 12);
+        iSampleBuf     = new Bwh(1024 * 16); // During testing we've found tracks containing samples of 16,299bytes
+        iDecryptionBuf = new Bwh(1024 * 16);
     }
     else {
         iSampleBuf     = nullptr;
@@ -4863,6 +4863,11 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
     switch (iMdataState) {
     case eMdataNone:
         {
+            if (iStreamInfo.Codec().Bytes() == 0) {
+                Log::Print("Mpeg4Container::GetMetadata - No codec assigned - This stream likely contains a codec we don't currently support.\n");
+                THROW(MediaMpeg4FileInvalid);
+            }
+
             // FIXME - should be able to pass codec info msg on directly without copying into buffer here.
             // However, need to know size of it for codecs to unpack it into a buffer, and it's generally small (< 50 bytes) and a one-off per stream so it isn't a huge performance hit.
             MsgAudioEncoded* codecInfo = iCodecInfo.CodecInfo();
@@ -4884,11 +4889,6 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
             //  - Future visits, dpending on the codec, will also send over an updated popualted sample & seek table.
             const TBool isFragmentedStream = iContainerInfo.ProcessingMode() == Mpeg4ContainerInfo::EProcessingMode::Fragmented;
             const TBool hasCodecInfo       = codecInfo != nullptr;
-
-            if (!isFragmentedStream) {
-                ASSERT_VA(hasCodecInfo, "%s\n", "Mpeg4Container::GetMetadata - Complete stream but no codec info.\n");
-                ASSERT_VA(hasCodecInfo, "%s\n", "Mpeg4Container::GetMetadata - Complete stream but no codec info.\n");
-            }
 
             // NOTE: Some codecs provide the required stream & seek information encoded as part of their own data.
             //       For these, we don't want to emit anything extra.

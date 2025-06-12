@@ -253,6 +253,7 @@ RaopDiscoverySession::RaopDiscoverySession(Environment& aEnv, RaopDiscoveryServe
 
     iReaderRequest->AddHeader(iHeaderContentLength);
     iReaderRequest->AddHeader(iHeaderContentType);
+    iReaderRequest->AddHeader(iHeaderTransferEncoding);
     iReaderRequest->AddHeader(iHeaderCSeq);
     iReaderRequest->AddHeader(iHeaderAppleChallenge);
     iReaderRequest->AddHeader(iHeaderRtspTransport);
@@ -327,7 +328,7 @@ void RaopDiscoverySession::WriteFply(Brn aData)
     static const TUint kFply2SuffixBytes = 0x14;
 
     Bws<200> fply(Brn("FPLY"));
-
+    TBool writeFply = true;
 
     if (aData.Bytes() > kFply1VarCountIdx && aData[6] == 1) {
         // Respond to first POST.
@@ -341,20 +342,25 @@ void RaopDiscoverySession::WriteFply(Brn aData)
     else {
         // Unrecognised request.
         LOG(kMedia, "RaopDiscoverySession::WriteFply bytes: %u, data:\n", aData.Bytes());
-        const auto bytes = std::min<TUint>(aData.Bytes(), 256);
-        for (TUint i = 0; i < bytes; i++) {
-            LOG(kMedia, " %02x", aData[i]);
+        if (aData.Bytes() > 0) {
+            const auto bytes = std::min<TUint>(aData.Bytes(), 256);
+            for (TUint i = 0; i < bytes; i++) {
+                LOG(kMedia, " %02x", aData[i]);
+            }
+            LOG(kMedia, "\n");
         }
-        LOG(kMedia, "\n");
+        writeFply = false;
         ASSERTS();
     }
 
-    iWriterAscii->Write(RtspHeader::kContentLength);
-    iWriterAscii->Write(Brn(": "));
-    iWriterAscii->WriteUint(fply.Bytes());
-    iWriterAscii->WriteNewline();
-    iWriterAscii->WriteNewline();
-    iWriterAscii->Write(fply);
+    if (writeFply) {
+        iWriterAscii->Write(RtspHeader::kContentLength);
+        iWriterAscii->Write(Brn(": "));
+        iWriterAscii->WriteUint(fply.Bytes());
+        iWriterAscii->WriteNewline();
+        iWriterAscii->WriteNewline();
+        iWriterAscii->Write(fply);
+    }
 }
 
 TBool RaopDiscoverySession::Active()
@@ -380,6 +386,10 @@ void RaopDiscoverySession::Run()
                 const Brx& method = iReaderRequest->Method();
                 LOG(kMedia, "RaopDiscoverySession::Run %u - Read Method %.*s\n", iInstance, PBUF(method));
                 if(method == RtspMethod::kPost) {
+
+                    // Log whether Content-Length header received or whether this may be chunked encoding.
+                    LOG(kMedia, "RaopDiscoverySession::Run POST cont-len rx: %u, cont-len: %u, xfer-enc rx: %u, xfer-enc: %u\n", iHeaderContentLength.Received(), iHeaderContentLength.ContentLength(), iHeaderTransferEncoding.Received(), iHeaderTransferEncoding.IsChunked());
+
                     Brn data = iReaderProtocol->Read(iHeaderContentLength.ContentLength());
 
                     iWriterResponse->WriteStatus(HttpStatus::kOk, Http::eRtsp10);
