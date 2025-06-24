@@ -18,6 +18,7 @@
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Private/Converter.h>
 #include <OpenHome/ThreadPool.h>
+#include <OpenHome/Private/Parser.h>
 
 #include <algorithm>
 
@@ -99,22 +100,18 @@ class Tidal::UserInfo
 
 // Tidal
 
-Tidal::Tidal(Environment& aEnv,
-             SslContext& aSsl,
-             const ConfigurationValues& aTidalConfig,
-             Configuration::IConfigInitialiser& aConfigInitialiser,
-             IThreadPool& aThreadPool)
+Tidal::Tidal(Av::IMediaPlayer& aMediaPlayer, SslContext& aSsl, const ConfigurationValues& aConfig, Optional<TidalReactionHandler> aReactionHandler)
     : iLock("TDL1")
     , iLockConfig("TDL2")
-    , iSocket(aEnv, aSsl, kReadBufferBytes)
+    , iSocket(aMediaPlayer.Env(), aSsl, kReadBufferBytes)
     , iReaderBuf(iSocket)
     , iReaderUntil(iReaderBuf)
     , iWriterBuf(iSocket)
     , iWriterRequest(iSocket)
-    , iReaderResponse(aEnv, iReaderUntil)
+    , iReaderResponse(aMediaPlayer.Env(), iReaderUntil)
     , iReaderEntity(iReaderUntil)
-    , iClientId(aTidalConfig.clientId)
-    , iClientSecret(aTidalConfig.clientSecret)
+    , iClientId(aConfig.clientId)
+    , iClientSecret(aConfig.clientSecret)
     , iUri(1024)
     , iTokenProvider(nullptr)
     , iConnectedHost(SocketHost::None)
@@ -122,13 +119,14 @@ Tidal::Tidal(Environment& aEnv,
     , iPollResultListener(nullptr)
     , iPollRequestLock("TDL3")
     , iPollRequests(0)
+    , iReactionHandler(aReactionHandler)
 {
-    for(const auto& v : aTidalConfig.appDetails)
+    for(const auto& v : aConfig.appDetails)
     {
         iAppDetails.insert(std::pair<Brn, OAuthAppDetails>(Brn(v.AppId()), OAuthAppDetails(v.AppId(), v.ClientId(), v.ClientSecret())));
     }
 
-    iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Tidal::SocketInactive), "Tidal");
+    iTimerSocketActivity = new Timer(aMediaPlayer.Env(), MakeFunctor(*this, &Tidal::SocketInactive), "Tidal");
 
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
@@ -137,15 +135,19 @@ Tidal::Tidal(Environment& aEnv,
     std::vector<TUint> choices;
     choices.push_back(ENABLED_NO);
     choices.push_back(ENABLED_YES);
-    iConfigEnable = new ConfigChoice(aConfigInitialiser, kConfigKeyEnabled, choices, ENABLED_YES);
+    iConfigEnable = new ConfigChoice(aMediaPlayer.ConfigInitialiser(), kConfigKeyEnabled, choices, ENABLED_YES);
 
     const int arr[] = {0, 1, 2, 3};
     std::vector<TUint> qualities(arr, arr + sizeof(arr)/sizeof(arr[0]));
-    iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 3);
+    iConfigQuality = new ConfigChoice(aMediaPlayer.ConfigInitialiser(), kConfigKeySoundQuality, qualities, 3);
     iMaxSoundQuality = kNumSoundQualities - 1;
     iSubscriberIdQuality = iConfigQuality->Subscribe(MakeFunctorConfigChoice(*this, &Tidal::QualityChanged));
 
-    iPollHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &Tidal::DoPollForToken), "Tidal-POLL", ThreadPoolPriority::Low);
+    iPollHandle = aMediaPlayer.ThreadPool().CreateHandle(MakeFunctor(*this, &Tidal::DoPollForToken), "Tidal-POLL", ThreadPoolPriority::Low);
+
+    if (iReactionHandler.Ok()) {
+        iReactionHandler.Unwrap().Add(*this);
+    }
 }
 
 Tidal::~Tidal()
@@ -166,6 +168,93 @@ void Tidal::SetTokenProvider(ITokenProvider* aProvider)
     iTokenProvider = aProvider;
 }
 
+TBool Tidal::TryGetTrackId(const Brx& aQuery,
+                                 Bwx& aTrackId,
+                                 WriterBwh& aTokenId)
+{
+    // static
+    aTokenId.Reset();
+    aTrackId.Replace(Brx::Empty());
+
+    Parser parser(aQuery);
+    (void)parser.Next('?');
+
+    TUint version = 0;
+    Brn versionStr = Brx::Empty();
+    TBool parseComplete = false;
+
+    do
+    {
+        Brn key = parser.Next('=');
+        Brn val = parser.Next('&');
+
+        //Exit condition
+        if (val.Bytes() == 0)
+        {
+            val.Set(parser.Remaining());
+            parseComplete = true;
+        }
+
+
+        if (key == Brn("version"))
+        {
+            versionStr = val;
+        }
+        else if (key == Brn("trackId"))
+        {
+            aTrackId.Replace(val);
+        }
+        else if (key == Brn("token"))
+        {
+            aTokenId.Write(val);
+        }
+
+    } while (!parseComplete);
+
+    // Validate version...
+    try
+    {
+        version = Ascii::Uint(versionStr);
+    } catch (AsciiError&)
+    {
+        LOG_ERROR(kPipeline, "TryGetTrackId failed - invalid version\n");
+        return false;
+    }
+
+    const TBool tooOld = version < kMinSupportedTrackVersion;
+    const TBool tooNew = version > kMaxSupportedTrackVersion;
+
+    if (tooOld || tooNew)
+    {
+        LOG_ERROR(kPipeline, "TryGetTrackId failed - unsupported version: %u (Min: %u, Max: %u)\n", version, kMinSupportedTrackVersion, kMaxSupportedTrackVersion);
+        return false;
+    }
+
+    // Validate TrackId...
+    if (aTrackId.Bytes() == 0)
+    {
+        LOG_ERROR(kPipeline, "TryGetTrackId failed - no track id value\n");
+        return false;
+    }
+
+    // - V2
+    // Valiate tokenId...
+    Log::Print("%.*s\n", PBUF(aTokenId.Buffer()));
+    if (version == 2 && aTokenId.Buffer().Bytes() == 0)
+    {
+        LOG_ERROR(kPipeline, "TryGetTrackId failed - no token id value\n");
+        return false;
+    }
+    else if (version == 1)
+    {
+        // If for whatever reason a CP tries to pass in a TokenId
+        // as part of a V1 track, then we'll ignore it and set it to
+        // empty so no attempt is made to use it in the future...
+        aTokenId.Reset();
+    }
+
+    return true;
+}
 
 TBool Tidal::TryGetStreamUrl(const Brx& aTrackId,
                              const Brx& aTokenId,
@@ -1213,4 +1302,402 @@ TBool Tidal::DoInheritToken(const Brx& aAccessTokenIn,
     }
 
     return false;
+}
+
+TBool Tidal::FavoriteTrack(const Brx& aTrackUri)
+{
+    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
+    AutoMutex _(iLock);
+
+    Bws<32> trackId;
+    WriterBwh tokenId(128);
+    TBool trackFound = Tidal::TryGetTrackId(aTrackUri, trackId, tokenId);
+    if (!trackFound) {
+        return false;
+    }
+    if (tokenId.Buffer().Bytes() == 0) {
+        return false;
+    }
+
+    ServiceToken accessToken;
+    if (!iTokenProvider->TryGetToken(tokenId.Buffer(), accessToken)) {
+        return false;
+    }
+
+    const UserInfo* userInfo = GetUserInfoFromTokenIdLocked(tokenId.Buffer());
+    if (userInfo == nullptr) {
+        return false;
+    }
+
+    TBool success = false;
+
+    if (!TryConnect(SocketHost::API, kPort)) {
+        return false;
+    }
+
+    AutoSocketSsl __(iSocket);
+
+    try {
+        Bws<256> pathAndQuery("/v1/users/");
+        Ascii::AppendDec(pathAndQuery, userInfo->UserId());
+        pathAndQuery.Append("/favorites/tracks");
+        pathAndQuery.Append("?countryCode=");
+        pathAndQuery.Append(userInfo->CountryCode());
+
+        iReqBody.Replace(Brx::Empty());
+        WriterBuffer writerBody(iReqBody);
+
+        writerBody.Write(Brn("trackId="));
+        writerBody.Write(trackId);
+
+        //Log::Print("###### Tidal::FavoriteTrack pathAndQuery = %.*s, iReqBody = %.*s\n", PBUF(pathAndQuery), PBUF(iReqBody));
+
+        WriteRequestHeaders(Http::kMethodPost, kHost, pathAndQuery, kPort, Connection::Close, iReqBody.Bytes(), accessToken.token);
+
+        iWriterBuf.Write(iReqBody);
+        iWriterBuf.WriteFlush();
+
+        iReaderResponse.Read();
+    
+        iResponseBuffer.Replace(Brx::Empty());
+        WriterBuffer writerResponse(iResponseBuffer);
+
+        iReaderEntity.ReadAll(writerResponse, iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
+        const TUint code = iReaderResponse.Status().Code();
+
+        if (code != 200)  {
+            LOG_ERROR(kPipeline, 
+                      "Http error - %d - in response to Tidal FavoriteTrack.  Some/all of response is:\n%.*s\n", 
+                      code,
+                      PBUF(iResponseBuffer));
+            THROW(ReaderError);
+        }
+        else {
+            success = true;
+        }
+    }
+    catch (AssertionFailed&) {
+        throw;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "Tidal::FavoriteTrack %s\n", ex.Message());
+    }
+
+    return success;
+}
+
+TBool Tidal::UnfavoriteTrack(const Brx& aTrackUri)
+{
+    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
+    AutoMutex _(iLock);
+
+    Bws<32> trackId;
+    WriterBwh tokenId(128);
+    TBool trackFound = Tidal::TryGetTrackId(aTrackUri, trackId, tokenId);
+    if (!trackFound) {
+        return false;
+    }
+    if (tokenId.Buffer().Bytes() == 0) {
+        return false;
+    }
+
+    ServiceToken accessToken;
+    if (!iTokenProvider->TryGetToken(tokenId.Buffer(), accessToken)) {
+        return false;
+    }
+
+    const UserInfo* userInfo = GetUserInfoFromTokenIdLocked(tokenId.Buffer());
+    if (userInfo == nullptr) {
+        return false;
+    }
+
+    TBool success = false;
+
+    if (!TryConnect(SocketHost::API, kPort)) {
+        return false;
+    }
+
+    AutoSocketSsl __(iSocket);
+
+    try {
+        Bws<256> pathAndQuery("/v1/users/");
+        Ascii::AppendDec(pathAndQuery, userInfo->UserId());
+        pathAndQuery.Append("/favorites/tracks/");
+        pathAndQuery.Append(trackId);
+        pathAndQuery.Append("?countryCode=");
+        pathAndQuery.Append(userInfo->CountryCode());
+
+        //Log::Print("###### Tidal::UnfavoriteTrack pathAndQuery = %.*s\n", PBUF(pathAndQuery));
+
+        WriteRequestHeaders(Http::kMethodDelete, kHost, pathAndQuery, kPort, Connection::Close, 0, accessToken.token);
+
+        iReaderResponse.Read();
+
+        iResponseBuffer.Replace(Brx::Empty());
+        WriterBuffer writerResponse(iResponseBuffer);
+
+        iReaderEntity.ReadAll(writerResponse, iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
+        const TUint code = iReaderResponse.Status().Code();
+
+        if (code != 200)  {
+            LOG_ERROR(kPipeline, 
+                      "Http error - %d - in response to Tidal FavoriteTrack.  Some/all of response is:\n%.*s\n", 
+                      code,
+                      PBUF(iResponseBuffer));
+            THROW(ReaderError);
+        }
+        else {
+            success = true;
+        }
+    }
+    catch (AssertionFailed&) {
+        throw;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "Tidal::FavoriteTrack %s\n", ex.Message());
+    }
+
+    return success;
+}
+
+TBool Tidal::TrySetTrackFavoriteStatus(const Brx& aTrackId, const Brx& aTokenId)
+{
+    TBool success = false;
+    if (iReactionHandler.Ok()) {
+        TBool isFavourite = false;
+        success = TryGetTrackFavouriteStatus(aTrackId, aTokenId, isFavourite);
+        if (success) {
+            iReactionHandler.Unwrap().SetFavouriteStatus(isFavourite ? IFavouritesReactionHandler::eFavourite : IFavouritesReactionHandler::eUnfavourite);
+        }
+        else {
+            iReactionHandler.Unwrap().SetFavouriteStatus(IFavouritesReactionHandler::eUnknown);
+        }
+    }
+    return success;
+}
+
+TBool Tidal::TryGetTrackFavouriteStatus(const Brx& aTrackId, const Brx& aTokenId, TBool& aIsFavourite)
+{
+    aIsFavourite = false;
+    iTimerSocketActivity->Cancel(); // socket automatically closed by call below
+    AutoMutex _(iLock);
+
+    if (aTrackId.Bytes() == 0 || aTokenId.Bytes() == 0) {
+        return false;
+    }
+
+    ServiceToken accessToken;
+    if (!iTokenProvider->TryGetToken(aTokenId, accessToken)) {
+        return false;
+    }
+
+    const UserInfo* userInfo = GetUserInfoFromTokenIdLocked(aTokenId);
+    if (userInfo == nullptr) {
+        return false;
+    }
+
+    TBool success = false;
+
+    if (!TryConnect(SocketHost::API, kPort)) {
+        return false;
+    }
+
+    AutoSocketSsl __(iSocket);
+
+    try {
+        Bws<256> pathAndQuery("/v1/users/");
+        Ascii::AppendDec(pathAndQuery, userInfo->UserId());
+        pathAndQuery.Append("/favorites/ids?countryCode=");
+        pathAndQuery.Append(userInfo->CountryCode());
+
+        //Log::Print("###### Tidal::TryGetTrackFavouriteStatus pathAndQuery = %.*s\n", PBUF(pathAndQuery));
+
+        WriteRequestHeaders(Http::kMethodGet, kHost, pathAndQuery, kPort, Connection::Close, 0, accessToken.token);
+        
+        iReaderResponse.Read();
+        
+        iResponseBuffer.Replace(Brx::Empty());
+        WriterBuffer writerResponse(iResponseBuffer);
+
+        iReaderEntity.ReadAll(writerResponse, iHeaderContentLength, iHeaderTransferEncoding, ReaderHttpEntity::Mode::Client);
+        const TUint code = iReaderResponse.Status().Code();
+
+        if (code != 200)  {
+            LOG_ERROR(kPipeline, 
+                      "Http error - %d - in response to Tidal TryGetTrackFavouriteStatus.  Some/all of response is:\n%.*s\n", 
+                      code,
+                      PBUF(iResponseBuffer));
+            THROW(ReaderError);
+        }
+        else {
+            JsonParser p;
+            p.ParseAndUnescape(iResponseBuffer);
+            if (p.HasKey("TRACK")) {
+                auto jsonParserArray = JsonParserArray::Create(p.String("TRACK"));
+                try {
+                    for (;;) {
+                        Brn trackId = jsonParserArray.NextString();
+                        //Log::Print("Favorite track id = %.*s\n", PBUF(trackId));
+                        if (trackId == aTrackId) {
+                            aIsFavourite = true;
+                            break;
+                        }
+                    }
+                }
+                catch (JsonArrayEnumerationComplete&) {}
+                success = true;
+            }
+            else {
+                success = false;
+            }
+        }
+    }
+    catch (AssertionFailed&) {
+        throw;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "Tidal::TryGetTrackFavouriteStatus %s\n", ex.Message());
+    }
+
+    return success;
+}
+
+const Tidal::UserInfo* Tidal::GetUserInfoFromTokenIdLocked(const Brx& aTokenId)
+{
+    for(auto& v : iUserInfos) {
+        if (v.TokenId() == aTokenId) {
+            return(&v);
+        }
+    }
+    return nullptr;
+}
+
+// TidalReactionHandler
+
+const Brn kReactionFavourite("favourite");
+const Brn kReactionUnfavourite("unfavourite");
+
+TidalReactionHandler::TidalReactionHandler(Av::IMediaPlayer& aMediaPlayer)
+    : iCurrentReaction(32)
+    , iFavouritesHandler(nullptr)
+{
+    iTaskHandle = aMediaPlayer.ThreadPool().CreateHandle(MakeFunctor(*this, &TidalReactionHandler::NotifyReactionStateChanged), "TidalReactionHandler", ThreadPoolPriority::Low);
+}
+
+TidalReactionHandler::~TidalReactionHandler()
+{
+    iTaskHandle->Cancel();
+    iTaskHandle->Destroy();
+}
+
+void TidalReactionHandler::Add(IFavouritesHandler& aFavouritesHandler)
+{
+    iFavouritesHandler = &aFavouritesHandler;
+}
+
+void TidalReactionHandler::AddObserver(IReactionHandlerObserver& aObserver, const TChar* aTag)
+{
+    Observable<IReactionHandlerObserver>::AddObserver(aObserver, aTag);
+}
+
+void TidalReactionHandler::RemoveObserver(IReactionHandlerObserver& aObserver)
+{
+    Observable<IReactionHandlerObserver>::RemoveObserver(aObserver);
+}
+
+TBool TidalReactionHandler::CurrentReactionState(const Brx& aTrackUri, TBool& aCanReact, IWriter& aCurrentReaction, IWriter& aAvailableReactions)
+{
+    // tidal://track?version=2&trackId=12345678&token=58cdc998ecfbdf4314d7ea76314df8a9
+    if (!Ascii::Contains(aTrackUri, Brn("tidal:"))) {
+        iCurrentReaction.Replace(Brx::Empty());
+        return false;
+    }
+    
+    aCanReact = true;
+    aCurrentReaction.Write(iCurrentReaction);
+
+    WriterJsonArray arrayWriter(aAvailableReactions, WriterJsonArray::WriteOnEmpty::eEmptyArray);
+    arrayWriter.WriteString(kReactionFavourite);
+    arrayWriter.WriteString(kReactionUnfavourite);
+    arrayWriter.WriteEnd();
+    return true;
+}
+
+TBool TidalReactionHandler::SetReaction(const Brx& aTrackUri, const Brx& aReaction)
+{
+    // tidal://track?version=2&trackId=12345678&token=58cdc998ecfbdf4314d7ea76314df8a9
+    if (!Ascii::Contains(aTrackUri, Brn("tidal:"))) {
+        iCurrentReaction.Replace(Brx::Empty());
+        return false;
+    }
+    
+    TBool success = false;
+
+    if (aReaction == kReactionFavourite) {
+        if (iFavouritesHandler != nullptr) {
+            success = iFavouritesHandler->FavoriteTrack(aTrackUri);
+        }
+        if (success) {
+            iCurrentReaction.Replace(kReactionFavourite);
+        }
+    }
+    else if (aReaction == kReactionUnfavourite) {
+        if (iFavouritesHandler != nullptr) {
+            success = iFavouritesHandler->UnfavoriteTrack(aTrackUri);
+        }
+        if (success) {
+            iCurrentReaction.Replace(kReactionUnfavourite);
+        }
+    }
+    else {
+        LOG_ERROR(kPipeline, "TidalReactionHandler::SetReaction - Track %.*s, given unexpected reaction: %.*s\n", PBUF(aTrackUri), PBUF(aReaction));
+    }
+
+    if (success) {
+        iTaskHandle->TrySchedule();
+    }
+
+    return success;
+}
+
+TBool TidalReactionHandler::ClearReaction(const Brx& aTrackUri)
+{
+    // tidal://track?version=2&trackId=12345678&token=58cdc998ecfbdf4314d7ea76314df8a9
+    if (!Ascii::Contains(aTrackUri, Brn("tidal:"))) {
+        iCurrentReaction.Replace(Brx::Empty());
+        return false;
+    }
+    
+    iCurrentReaction.Replace(Brx::Empty());
+    iTaskHandle->TrySchedule();
+
+    return true;
+}
+
+void TidalReactionHandler::SetFavouriteStatus(FavouriteStatus aStatus)
+{
+    switch (aStatus)
+    {
+        case IFavouritesReactionHandler::eFavourite:
+            iCurrentReaction.Replace(kReactionFavourite);
+            break;
+        case IFavouritesReactionHandler::eUnfavourite:
+            iCurrentReaction.Replace(kReactionUnfavourite);
+            break;
+        case IFavouritesReactionHandler::eUnknown:
+        default:
+            iCurrentReaction.Replace(Brx::Empty());
+    }
+    iTaskHandle->TrySchedule();
+}
+
+void TidalReactionHandler::NotifyReactionStateChanged()
+{
+    FunctorGeneric<IReactionHandlerObserver&> notifyFunc = MakeFunctorGeneric<IReactionHandlerObserver&>(*this, &TidalReactionHandler::NotifyObserver);
+    NotifyAll(notifyFunc);
+}
+
+void TidalReactionHandler::NotifyObserver(IReactionHandlerObserver& aObserver)
+{
+    aObserver.OnReactionHandlerStateChanged();
 }

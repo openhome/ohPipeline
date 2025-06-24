@@ -12,6 +12,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/Reactions.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Qobuz/QobuzMetadata.h>
 #include <OpenHome/Media/PipelineObserver.h>
@@ -81,7 +82,32 @@ private:
     TBool iStarted;
 };
 
-class Qobuz : public ICredentialConsumer, private IQobuzTrackObserver
+class QobuzReactionHandler : public Observable<IReactionHandlerObserver>
+                           , public IReactionHandler
+                           , public IFavouritesReactionHandler
+{
+public:
+    QobuzReactionHandler(Av::IMediaPlayer& aMediaPlayer);
+    ~QobuzReactionHandler();
+public: // from IFavouritesReactionHandler
+    void Add(IFavouritesHandler& aFavouritesHandler) override;
+    void SetFavouriteStatus(FavouriteStatus aStatus) override;
+private: // from IReactionHandler
+    void AddObserver(IReactionHandlerObserver&, const TChar*) override;
+    void RemoveObserver(IReactionHandlerObserver&) override;
+    TBool CurrentReactionState(const Brx& aTrackUri, TBool& aCanReact, IWriter& aCurrentReaction, IWriter& aAvailableReactions) override;
+    TBool SetReaction(const Brx& aTrackUri, const Brx& aReaction) override;
+    TBool ClearReaction(const Brx& aTrackUri) override;
+private:
+    void NotifyReactionStateChanged();
+    void NotifyObserver(IReactionHandlerObserver&);
+private:
+    IThreadPoolHandle *iTaskHandle;
+    Bwh iCurrentReaction;
+    IFavouritesHandler* iFavouritesHandler;
+};
+
+class Qobuz : public ICredentialConsumer, private IQobuzTrackObserver, private IFavouritesHandler
 {
     friend class TestQobuz;
     friend class QobuzPins;
@@ -111,7 +137,7 @@ public:
     Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent, const Brx& aDeviceId,
            ICredentialsState& aCredentialsState, Configuration::IConfigInitialiser& aConfigInitialiser,
            IUnixTimestamp& aUnixTimestamp, IThreadPool& aThreadPool,
-           Media::IPipelineObservable& aPipelineObservable);
+           Media::IPipelineObservable& aPipelineObservable, Optional<QobuzReactionHandler> aReactionHandler);
     ~Qobuz();
     TBool TryLogin();
     QobuzTrack* StreamableTrack(const Brx& aTrackId);
@@ -119,6 +145,7 @@ public:
     TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl, TUint aLimitPerResponse, TUint aOffset, Connection aConnection = Connection::KeepAlive);
     TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, QobuzMetadata::EIdType aType, TUint aLimit, TUint aOffset, Connection aConnection = Connection::KeepAlive);
     void Interrupt(TBool aInterrupt);
+    static TBool TryGetTrackId(const Brx& aQuery, Bwx& aTrackId);
 private: // from ICredentialConsumer
     const Brx& Id() const override;
     void CredentialsChanged(const Brx& aUsername, const Brx& aPassword) override;
@@ -128,19 +155,23 @@ private: // from ICredentialConsumer
 private: // from IQobuzTrackObserver
     void TrackStarted(QobuzTrack& aTrack) override;
     void TrackStopped(QobuzTrack& aTrack, TUint aPlayedSeconds, TBool aComplete) override;
+private: // from IFavouritesHandler
+    TBool FavoriteTrack(const Brx& aTrackUri) override;
+    TBool UnfavoriteTrack(const Brx& aTrackUri) override;
 private:
     TBool TryConnect();
     TBool TryLoginLocked();
     TBool TryGetFileUrlLocked(const Brx& aTrackId);
     void NotifyStreamStarted(QobuzTrack& aTrack);
     void NotifyStreamStopped(QobuzTrack& aTrack, TUint aPlayedSeconds);
-    TUint WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, Connection aConnection = Connection::Close);
+    TUint WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TBool aIncludeContentLengthZero, Connection aConnection = Connection::Close);
     TBool TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, TUint aLimit, TUint aOffset, Connection aConnection);
     void QualityChanged(Configuration::KeyValuePair<TUint>& aKvp);
     static void AppendMd5(Bwx& aBuffer, const Brx& aToHash);
     void SocketInactive();
     void CloseConnection();
     void ReportStreamEvents();
+    TBool TryGetTrackFavouriteStatusLocked(const Brx& aTrackId, TBool& aIsFavourite);
 private:
     class ActivityReport
     {
@@ -206,6 +237,7 @@ private:
     std::list<ActivityReport> iPendingReports;
     WriterBwh iStreamEventBuf;
     IThreadPoolHandle* iSchedulerStreamEvents;
+    Optional<QobuzReactionHandler> iReactionHandler;
 };
 
 class AutoConnectionQobuz

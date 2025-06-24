@@ -8,6 +8,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
+#include <OpenHome/Av/Reactions.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Tidal/TidalMetadata.h>
 #include <OpenHome/ThreadPool.h>
@@ -25,14 +26,43 @@ namespace Configuration {
 }
 namespace Av {
 
+class TidalReactionHandler : public Observable<IReactionHandlerObserver>
+                           , public IReactionHandler
+                           , public IFavouritesReactionHandler
+{
+public:
+    TidalReactionHandler(Av::IMediaPlayer& aMediaPlayer);
+    ~TidalReactionHandler();
+public: // from IFavouritesReactionHandler
+    void Add(IFavouritesHandler& aFavouritesHandler) override;
+    void SetFavouriteStatus(FavouriteStatus aStatus) override;
+private: // from IReactionHandler
+    void AddObserver(IReactionHandlerObserver&, const TChar*) override;
+    void RemoveObserver(IReactionHandlerObserver&) override;
+    TBool CurrentReactionState(const Brx& aTrackUri, TBool& aCanReact, IWriter& aCurrentReaction, IWriter& aAvailableReactions) override;
+    TBool SetReaction(const Brx& aTrackUri, const Brx& aReaction) override;
+    TBool ClearReaction(const Brx& aTrackUri) override;
+private:
+    void NotifyReactionStateChanged();
+    void NotifyObserver(IReactionHandlerObserver&);
+private:
+    IThreadPoolHandle *iTaskHandle;
+    Bwh iCurrentReaction;
+    IFavouritesHandler* iFavouritesHandler;
+};
+
 class Tidal : public IOAuthAuthenticator
             , public IOAuthTokenPoller
+            , private IFavouritesHandler
 {
     friend class TestTidal;
     friend class TidalPins;
     static const TUint kReadBufferBytes = 4 * 1024;
     static const TUint kWriteBufferBytes = 1024;
     static const TUint kConnectTimeoutMs = 10000; // FIXME - should read this + ProtocolNetwork's equivalent from a single client-changable location
+
+    static const TUint kMinSupportedTrackVersion = 1;
+    static const TUint kMaxSupportedTrackVersion = 2;
 
 public:
     static const Brn kId;
@@ -91,13 +121,18 @@ private:
     class UserInfo;
 
 public:
-    Tidal(Environment& aEnv, SslContext& aSsl, const ConfigurationValues&, Configuration::IConfigInitialiser& aConfigInitialiser, IThreadPool& aThreadPool);
+    Tidal(Av::IMediaPlayer& aMediaPlayer, SslContext& aSsl, const ConfigurationValues& aConfig, Optional<TidalReactionHandler> aReactionHandler);
     ~Tidal();
     TBool TryGetStreamUrl(const Brx& aTrackId, const Brx& aTokenId, Bwx& aStreamUrl);
     TBool TryGetIdsByRequest(IWriter& aWriter, const Brx& aRequestUrl,TUint aLimitPerResponse, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
     TBool TryGetTracksById(IWriter& aWriter, const Brx& aId, TidalMetadata::EIdType aType, TUint aLimit, TUint aOffset, const AuthenticationConfig& aAuthConfig, Connection aConnection = Connection::KeepAlive);
     void Interrupt(TBool aInterrupt);
     void SetTokenProvider(ITokenProvider* aProvider);
+    TBool TrySetTrackFavoriteStatus(const Brx& aTrackId, const Brx& aTokenId);
+
+    static TBool TryGetTrackId(const Brx& aQuery,
+                               Bwx& aTrackId,
+                               WriterBwh& aTokenId);
 
 public: // IOAuthAuthenticator
      TBool TryGetAccessToken(const Brx& aTokenId,
@@ -120,6 +155,10 @@ public: // IOAuthTokenPoller
      TBool StartLimitedInputFlow(LimitedInputFlowDetails& aDetails) override;
      TBool RequestPollForToken(OAuthPollRequest& aRequest) override;
 
+private: // from IFavouritesHandler
+    TBool FavoriteTrack(const Brx& aTrackUri) override;
+    TBool UnfavoriteTrack(const Brx& aTrackUri) override;
+
 private:
     TBool TryConnect(SocketHost aHost, TUint aPort);
     TBool TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, Bwx& aPathAndQuery, TUint aLimit, TUint aOffset, const UserInfo& aAuthConfig, Connection aConnection);
@@ -136,6 +175,8 @@ private:
     void DoPollForToken();
     TBool DoTryGetAccessToken(const Brx& aTokenId, const Brx& aTokenSource, const Brx& aRefreshToken, AccessTokenResponse& aResponse);
     TBool DoInheritToken(const Brx& aAccessTokenIn, AccessTokenResponse& aResponse);
+    TBool TryGetTrackFavouriteStatus(const Brx& aTrackId, const Brx& aTokenId, TBool& aIsFavourite);
+    const UserInfo* GetUserInfoFromTokenIdLocked(const Brx& aTokenId);
 private:
     Mutex iLock;
     Mutex iLockConfig;
@@ -169,6 +210,7 @@ private:
     IThreadPoolHandle* iPollHandle;
     Mutex iPollRequestLock;
     std::deque<OAuthPollRequest> iPollRequests;
+    Optional<TidalReactionHandler> iReactionHandler;
 };
 
 };  // namespace Av

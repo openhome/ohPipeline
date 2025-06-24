@@ -24,6 +24,26 @@ public:
     virtual TBool ClearReaction(const Brx& aTrackUri) = 0;
 };
 
+class IFavouritesHandler
+{
+public:
+    virtual TBool FavoriteTrack(const Brx& aTrackUri) = 0;
+    virtual TBool UnfavoriteTrack(const Brx& aTrackUri) = 0;
+};
+
+class IFavouritesReactionHandler
+{
+public:
+    enum FavouriteStatus {
+        eUnknown,
+        eFavourite,
+        eUnfavourite,
+    };
+public:
+    virtual void Add(IFavouritesHandler& aFavouritesHandler) = 0;
+    virtual void SetFavouriteStatus(FavouriteStatus aStatus) = 0;
+};
+
 } // namespace Av
 } // namespace OpenHome
 
