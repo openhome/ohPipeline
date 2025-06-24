@@ -49,7 +49,7 @@ private:
     Media::Track* iCurrentTrack;
     Mutex iLock;
 
-    IReactionHandler* iHandler;
+    std::vector<std::unique_ptr<IReactionHandler>> iHandlers;
 };
 
 
