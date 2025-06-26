@@ -114,7 +114,12 @@ void ProviderReaction::SetReaction(Net::IDvInvocation& aInvocation, const Brx& a
 
             TBool handled = false;
             for (auto& handler : iHandlers) {
-                handled |= handler->SetReaction(currentTrackUri, aReaction);
+                if (aReaction.Bytes() == 0) {
+                    handled |= handler->ClearReaction(currentTrackUri);
+                }
+                else {
+                    handled |= handler->SetReaction(currentTrackUri, aReaction);
+                }
             }
 
             if (!handled) {
