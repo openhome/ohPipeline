@@ -162,12 +162,10 @@ Msg* Seeker::ProcessMsg(MsgFlush* aMsg)
 {
     if (iTargetFlushId != MsgFlush::kIdInvalid && iTargetFlushId == aMsg->Id()) {
         ASSERT(iState == EFlushing);
-        aMsg->RemoveRef();
         iTargetFlushId = MsgFlush::kIdInvalid;
         // leave iState as Flushing.  Processing of Encoded and Decoded streams relies on this
         iRemainingRampSize = iRampDuration;
         iCurrentRampValue = Ramp::kMin;
-        return nullptr;
     }
     return aMsg;
 }
