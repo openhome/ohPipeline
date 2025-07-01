@@ -50,7 +50,7 @@ public:
     void SetRecvBufBytes(TUint aBytes);
     void SetRecvTimeout(TUint aMs);
     void SetTtl(TUint aTtl);
-    
+
     Endpoint Receive(Bwx& aBuf);
 private:
     ~SocketUdpServer();
@@ -66,6 +66,7 @@ private:
     void CheckRebind();
 private:
     Environment& iEnv;
+    const TUint iInitPort;
     SocketUdp iSocket;
     TUint iRefCount;
     TUint iMaxSize;
@@ -108,4 +109,3 @@ private:
 
 } // namespace Av
 } // namespace OpenHome
-

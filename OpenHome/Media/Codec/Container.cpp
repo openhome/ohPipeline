@@ -865,6 +865,7 @@ TUint ContainerController::TryStop(TUint aStreamId)
         return MsgFlush::kIdInvalid;
     }
     iExpectedFlushId = flushId;
+    iCache->SetFlushing(iExpectedFlushId);
     return iExpectedFlushId;
 }
 

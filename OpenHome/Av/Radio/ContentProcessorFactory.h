@@ -15,6 +15,7 @@ public:
     static Media::ContentProcessor* NewPls(Media::IMimeTypeList& aMimeTypeList);
     static Media::ContentProcessor* NewOpml(Media::IMimeTypeList& aMimeTypeList);
     static Media::ContentProcessor* NewAsx();
+    static Media::ContentProcessor* NewMPD();
 };
 
 } // namespace Av
