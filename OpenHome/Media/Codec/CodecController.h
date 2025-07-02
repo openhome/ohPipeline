@@ -448,7 +448,6 @@ private:
     TBool iSeekInProgress;
     TUint iSeekSeconds;
     TUint iExpectedFlushId;
-    TBool iConsumeExpectedFlush;
     ISeekObserver* iSeekObserver;
     TUint iSeekHandle;
     TUint iExpectedSeekFlushId;
