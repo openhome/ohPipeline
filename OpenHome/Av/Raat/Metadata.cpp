@@ -1,6 +1,7 @@
 #include <OpenHome/Av/Raat/Metadata.h>
 #include <OpenHome/Av/Raat/Transport.h>
 #include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/Private/Time.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;
@@ -149,11 +150,14 @@ void RaatMetadataHandler::TrackInfoChanged(const RaatTrackInfo& aTrackInfo)
             metadataChanged = true;
         }
 
-        const TUint kDurationMs = (aTrackInfo.GetDurationSecs() > 0) ? (aTrackInfo.GetDurationSecs() * kMsPerSec) : iBoundary.DurationMs();
-        if (kDurationMs != iBoundary.DurationMs()) {
+        TUint durationMs = (aTrackInfo.GetDurationSecs() > 0) ? (aTrackInfo.GetDurationSecs() * kMsPerSec) : iBoundary.DurationMs();
+        if (durationMs > (OpenHome::Time::kSecondsPerDay * 1000)) {
+            durationMs = 0;
+        }
+        if (durationMs != iBoundary.DurationMs()) {
             durationChanged = true;
         }
-        iBoundary.Set(kPositionMs, kDurationMs);
+        iBoundary.Set(kPositionMs, durationMs);
     }
 
     if (metadataChanged) {
