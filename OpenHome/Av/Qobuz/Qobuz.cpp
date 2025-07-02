@@ -20,6 +20,7 @@
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Private/Parser.h>
 
 #include <algorithm>
 #include <vector>
@@ -218,7 +219,7 @@ static const TUint kQualityValues[] ={ 5, 6, 7, 27 };
 Qobuz::Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent, const Brx& aDeviceId,
              ICredentialsState& aCredentialsState, IConfigInitialiser& aConfigInitialiser,
              IUnixTimestamp& aUnixTimestamp, IThreadPool& aThreadPool,
-             Media::IPipelineObservable& aPipelineObservable)
+             Media::IPipelineObservable& aPipelineObservable, Optional<QobuzReactionHandler> aReactionHandler)
     : iEnv(aEnv)
     , iLock("QBZ1")
     , iLockConfig("QBZ2")
@@ -243,6 +244,7 @@ Qobuz::Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& 
     , iConnected(false)
     , iLockStreamEvents("QBZ3")
     , iStreamEventBuf(2048)
+    , iReactionHandler(aReactionHandler)
 {
     iTimerSocketActivity = new Timer(aEnv, MakeFunctor(*this, &Qobuz::SocketInactive), "Qobuz-Socket");
     iReaderResponse.AddHeader(iHeaderContentLength);
@@ -259,6 +261,9 @@ Qobuz::Qobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& 
     iConfigQuality = new ConfigChoice(aConfigInitialiser, kConfigKeySoundQuality, qualities, 3);
     iSubscriberIdQuality = iConfigQuality->Subscribe(MakeFunctorConfigChoice(*this, &Qobuz::QualityChanged));
     iSchedulerStreamEvents = aThreadPool.CreateHandle(MakeFunctor(*this, &Qobuz::ReportStreamEvents), "QobuzStreamEvents", ThreadPoolPriority::Low);
+    if (iReactionHandler.Ok()) {
+        iReactionHandler.Unwrap().Add(*this);
+    }
 }
 
 Qobuz::~Qobuz()
@@ -291,6 +296,17 @@ QobuzTrack* Qobuz::StreamableTrack(const Brx& aTrackId)
     TBool sample = false;
     if (parser.HasKey("sample")) {
         sample = parser.Bool("sample");
+    }
+
+    if (iReactionHandler.Ok()) {
+        TBool isFavourite = false;
+        TBool success = TryGetTrackFavouriteStatusLocked(aTrackId, isFavourite);
+        if (success) {
+            iReactionHandler.Unwrap().SetFavouriteStatus(isFavourite ? IFavouritesReactionHandler::eFavourite : IFavouritesReactionHandler::eUnfavourite);
+        }
+        else {
+            iReactionHandler.Unwrap().SetFavouriteStatus(IFavouritesReactionHandler::eUnknown);
+        }
     }
 
     LOG(kMedia, "Qobuz::StreamableTrack TrackUrl: %.*s\n", PBUF(url));
@@ -361,7 +377,7 @@ TBool Qobuz::TryGetFileUrlLocked(const Brx& aTrackId)
     iPathAndQuery.Append("&intent=stream");
 
     try {
-        const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery);
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery, false);
         if (code != 200) {
             LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetStreamUrl.\n", code);
             LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
@@ -456,7 +472,7 @@ TBool Qobuz::TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, TUint aLim
     Log::Print("Qobuz::TryGetResponse: Request for 'https://%.*s%.*s'\n", PBUF(aHost), PBUF(iPathAndQuery));
 
     try {
-        const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery, aConnection);
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery, false, aConnection);
         if (code != 200) {
             LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetResponseLocked.\n", code);
             LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
@@ -618,7 +634,7 @@ TBool Qobuz::TryLoginLocked()
     iLockConfig.Signal();
 
     try {
-        const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery, Connection::Close);
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery, false, Connection::Close);
         if (code != 200) {
             Bws<kMaxStatusBytes> status;
             TUint len = std::min(status.MaxBytes(), iHeaderContentLength.ContentLength());
@@ -799,12 +815,15 @@ void Qobuz::NotifyStreamStopped(QobuzTrack& aTrack, TUint aPlayedSeconds)
     }
 }
 
-TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, Connection aConnection)
+TUint Qobuz::WriteRequestReadResponse(const Brx& aMethod, const Brx& aHost, const Brx& aPathAndQuery, TBool aIncludeContentLengthZero, Connection aConnection)
 {
     iWriterRequest.WriteMethod(aMethod, aPathAndQuery, Http::eHttp11);
     Http::WriteHeaderHostAndPort(iWriterRequest, aHost, kPort);
     if (iUserAgent.Bytes() > 0) {
         iWriterRequest.WriteHeader(Http::kHeaderUserAgent, iUserAgent);
+    }
+    if (aIncludeContentLengthZero) {
+        Http::WriteHeaderContentLength(iWriterRequest, 0);
     }
     if (aConnection == Connection::Close) {
         Http::WriteHeaderConnectionClose(iWriterRequest);
@@ -863,6 +882,179 @@ void Qobuz::ReportStreamEvents()
     iLockStreamEvents.Signal();
 }
 
+TBool Qobuz::FavoriteTrack(const Brx& aTrackUri)
+{
+    Bws<32> trackId;
+    TBool trackFound = Qobuz::TryGetTrackId(aTrackUri, trackId);
+    if (!trackFound) {
+        return false;
+    }
+
+    TBool success = false;
+    AutoMutex _(iLock);
+
+    if (!TryConnect()) {
+        LOG_ERROR(kMedia, "Qobuz::TryFavoriteTrack - connection failure\n");
+        return false;
+    }
+    AutoConnectionQobuz __(*this, iReaderEntity);
+
+    iPathAndQuery.Replace(kVersionAndFormat);
+    iPathAndQuery.Append("favorite/create?track_ids=");
+    iPathAndQuery.Append(trackId);
+    iPathAndQuery.Append("&app_id=");
+    iPathAndQuery.Append(iAppId);
+    iPathAndQuery.Append("&user_auth_token=");
+    iPathAndQuery.Append(iAuthToken);
+
+    try {
+        const TUint code = WriteRequestReadResponse(Http::kMethodPost, kHost, iPathAndQuery, true); // If you make a POST request, you MUST include a "Content-Length: 0" header otherwise the Qobuz server rejects it
+        if (code != 200) {
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryFavoriteTrack.\n", code);
+            LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
+            LOG_ERROR(kPipeline, "Some/all of response is:\n");
+            Brn buf = iReaderEntity.Read(kReadBufferBytes);
+            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
+            THROW(ReaderError);
+        }
+
+        iResponseBody.Reset();
+        iReaderEntity.ReadAll(iResponseBody);
+        success = true;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in Qobuz::TryFavoriteTrack\n", ex.Message());
+    }
+    return success;
+}
+
+TBool Qobuz::UnfavoriteTrack(const Brx& aTrackUri)
+{
+    Bws<32> trackId;
+    TBool trackFound = Qobuz::TryGetTrackId(aTrackUri, trackId);
+    if (!trackFound) {
+        return false;
+    }
+
+    TBool success = false;
+    AutoMutex _(iLock);
+
+    if (!TryConnect()) {
+        LOG_ERROR(kMedia, "Qobuz::TryUnfavoriteTrack - connection failure\n");
+        return false;
+    }
+    AutoConnectionQobuz __(*this, iReaderEntity);
+
+    iPathAndQuery.Replace(kVersionAndFormat);
+    iPathAndQuery.Append("favorite/delete?track_ids=");
+    iPathAndQuery.Append(trackId);
+    iPathAndQuery.Append("&app_id=");
+    iPathAndQuery.Append(iAppId);
+    iPathAndQuery.Append("&user_auth_token=");
+    iPathAndQuery.Append(iAuthToken);
+
+    try {
+        const TUint code = WriteRequestReadResponse(Http::kMethodPost, kHost, iPathAndQuery, true); // If you make a POST request, you MUST include a "Content-Length: 0" header otherwise the Qobuz server rejects it
+        if (code != 200) {
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryUnfavoriteTrack.\n", code);
+            LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
+            LOG_ERROR(kPipeline, "Some/all of response is:\n");
+            Brn buf = iReaderEntity.Read(kReadBufferBytes);
+            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
+            THROW(ReaderError);
+        }
+
+        iResponseBody.Reset();
+        iReaderEntity.ReadAll(iResponseBody);
+        success = true;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in Qobuz::TryUnfavoriteTrack\n", ex.Message());
+    }
+    return success;
+}
+
+TBool Qobuz::TryGetTrackFavouriteStatusLocked(const Brx& aTrackId, TBool& aIsFavourite)
+{
+    TBool success = false;
+    aIsFavourite = false;
+    //AutoMutex _(iLock);
+    if (!TryConnect()) {
+        LOG_ERROR(kMedia, "Qobuz::TryGetFavouriteStatus - connection failure\n");
+        return false;
+    }
+    AutoConnectionQobuz __(*this, iReaderEntity);
+
+    iPathAndQuery.Replace(kVersionAndFormat);
+    iPathAndQuery.Append("favorite/status?type=track&item_id=");
+    iPathAndQuery.Append(aTrackId);
+    iPathAndQuery.Append("&app_id=");
+    iPathAndQuery.Append(iAppId);
+    iPathAndQuery.Append("&user_auth_token=");
+    iPathAndQuery.Append(iAuthToken);
+
+    try {
+        const TUint code = WriteRequestReadResponse(Http::kMethodGet, kHost, iPathAndQuery, false);
+        if (code != 200) {
+            LOG_ERROR(kPipeline, "Http error - %d - in response to Qobuz::TryGetFavouriteStatus.\n", code);
+            LOG_ERROR(kPipeline, "...path/query is %.*s\n", PBUF(iPathAndQuery));
+            LOG_ERROR(kPipeline, "Some/all of response is:\n");
+            Brn buf = iReaderEntity.Read(kReadBufferBytes);
+            LOG_ERROR(kPipeline, "%.*s\n", PBUF(buf));
+            THROW(ReaderError);
+        }
+
+        iResponseBody.Reset();
+        iReaderEntity.ReadAll(iResponseBody);
+
+        JsonParser parser;
+        parser.Parse(iResponseBody.Buffer());
+        if (parser.HasKey("status")) {
+            aIsFavourite = parser.Bool("status");
+        }
+
+        success = true;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kPipeline, "%s in Qobuz::TryGetFavouriteStatus\n", ex.Message());
+    }
+    return success;
+}
+
+TBool Qobuz::TryGetTrackId(const Brx& aQuery, Bwx& aTrackId)
+{ // static
+    Parser parser(aQuery);
+    (void)parser.Next('?');
+    Brn buf = parser.Next('=');
+    if (buf != Brn("version")) {
+        LOG_ERROR(kPipeline, "Qobuz::TryGetTrackId failed - no version\n");
+        return false;
+    }
+    Brn verBuf = parser.Next('&');
+    try {
+        const TUint ver = Ascii::Uint(verBuf);
+        if (ver != 2) {
+            LOG_ERROR(kPipeline, "Qobuz::TryGetTrackId failed - unsupported version - %d\n", ver);
+            return false;
+        }
+    }
+    catch (AsciiError&) {
+        LOG_ERROR(kPipeline, "Qobuz::TryGetTrackId failed - invalid version\n");
+        return false;
+    }
+    buf.Set(parser.Next('='));
+    if (buf != Brn("trackId")) {
+        LOG_ERROR(kPipeline, "Qobuz::TryGetTrackId failed - no track id tag\n");
+        return false;
+    }
+    aTrackId.Replace(parser.Remaining());
+    if (aTrackId.Bytes() == 0) {
+        LOG_ERROR(kPipeline, "Qobuz::TryGetTrackId failed - no track id value\n");
+        return false;
+    }
+    return true;
+}
+
 
 // AutoConnectionQobuz
 
@@ -876,4 +1068,135 @@ AutoConnectionQobuz::~AutoConnectionQobuz()
 {
     iReader.ReadFlush();
     iQobuz.CloseConnection();
+}
+
+
+// QobuzReactionHandler
+
+const Brn kReactionFavourite("favourite");
+const Brn kReactionUnfavourite("unfavourite");
+
+QobuzReactionHandler::QobuzReactionHandler(Av::IMediaPlayer& aMediaPlayer)
+    : iCurrentReaction(32)
+    , iFavouritesHandler(nullptr)
+{
+    iTaskHandle = aMediaPlayer.ThreadPool().CreateHandle(MakeFunctor(*this, &QobuzReactionHandler::NotifyReactionStateChanged), "QobuzReactionHandler", ThreadPoolPriority::Low);
+}
+
+QobuzReactionHandler::~QobuzReactionHandler()
+{
+    iTaskHandle->Cancel();
+    iTaskHandle->Destroy();
+}
+
+void QobuzReactionHandler::Add(IFavouritesHandler& aFavouritesHandler)
+{
+    iFavouritesHandler = &aFavouritesHandler;
+}
+
+void QobuzReactionHandler::AddObserver(IReactionHandlerObserver& aObserver, const TChar* aTag)
+{
+    Observable<IReactionHandlerObserver>::AddObserver(aObserver, aTag);
+}
+
+void QobuzReactionHandler::RemoveObserver(IReactionHandlerObserver& aObserver)
+{
+    Observable<IReactionHandlerObserver>::RemoveObserver(aObserver);
+}
+
+TBool QobuzReactionHandler::CurrentReactionState(const Brx& aTrackUri, TBool& aCanReact, IWriter& aCurrentReaction, IWriter& aAvailableReactions)
+{
+    // qobuz://track?version=2&trackId=12345678
+    if (!Ascii::Contains(aTrackUri, Brn("qobuz:"))) {
+        iCurrentReaction.Replace(Brx::Empty());
+        return false;
+    }
+    
+    aCanReact = true;
+    aCurrentReaction.Write(iCurrentReaction);
+
+    WriterJsonArray arrayWriter(aAvailableReactions, WriterJsonArray::WriteOnEmpty::eEmptyArray);
+    arrayWriter.WriteString(kReactionFavourite);
+    arrayWriter.WriteString(kReactionUnfavourite);
+    arrayWriter.WriteEnd();
+    return true;
+}
+
+TBool QobuzReactionHandler::SetReaction(const Brx& aTrackUri, const Brx& aReaction)
+{
+    // qobuz://track?version=2&trackId=12345678
+    if (!Ascii::Contains(aTrackUri, Brn("qobuz:"))) {
+        iCurrentReaction.Replace(Brx::Empty());
+        return false;
+    }
+    
+    TBool success = false;
+
+    if (aReaction == kReactionFavourite) {
+        if (iFavouritesHandler != nullptr) {
+            success = iFavouritesHandler->FavoriteTrack(aTrackUri);
+        }
+        if (success) {
+            iCurrentReaction.Replace(kReactionFavourite);
+        }
+    }
+    else if (aReaction == kReactionUnfavourite) {
+        if (iFavouritesHandler != nullptr) {
+            success = iFavouritesHandler->UnfavoriteTrack(aTrackUri);
+        }
+        if (success) {
+            iCurrentReaction.Replace(kReactionUnfavourite);
+        }
+    }
+    else {
+        LOG_ERROR(kPipeline, "QobuzReactionHandler::SetReaction - Track %.*s, given unexpected reaction: %.*s\n", PBUF(aTrackUri), PBUF(aReaction));
+    }
+
+    if (success) {
+        iTaskHandle->TrySchedule();
+    }
+
+    return success;
+}
+
+TBool QobuzReactionHandler::ClearReaction(const Brx& aTrackUri)
+{
+    // qobuz://track?version=2&trackId=12345678
+    if (!Ascii::Contains(aTrackUri, Brn("qobuz:"))) {
+        iCurrentReaction.Replace(Brx::Empty());
+        return false;
+    }
+    
+    iCurrentReaction.Replace(Brx::Empty());
+    iTaskHandle->TrySchedule();
+
+    return true;
+}
+
+void QobuzReactionHandler::SetFavouriteStatus(FavouriteStatus aStatus)
+{
+    switch (aStatus)
+    {
+        case IFavouritesReactionHandler::eFavourite:
+            iCurrentReaction.Replace(kReactionFavourite);
+            break;
+        case IFavouritesReactionHandler::eUnfavourite:
+            iCurrentReaction.Replace(kReactionUnfavourite);
+            break;
+        case IFavouritesReactionHandler::eUnknown:
+        default:
+            iCurrentReaction.Replace(Brx::Empty());
+    }
+    iTaskHandle->TrySchedule();
+}
+
+void QobuzReactionHandler::NotifyReactionStateChanged()
+{
+    FunctorGeneric<IReactionHandlerObserver&> notifyFunc = MakeFunctorGeneric<IReactionHandlerObserver&>(*this, &QobuzReactionHandler::NotifyObserver);
+    NotifyAll(notifyFunc);
+}
+
+void QobuzReactionHandler::NotifyObserver(IReactionHandlerObserver& aObserver)
+{
+    aObserver.OnReactionHandlerStateChanged();
 }

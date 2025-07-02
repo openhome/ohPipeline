@@ -21,7 +21,6 @@ ProviderReaction::ProviderReaction(DvDevice& aDevice, PipelineManager& aPipeline
     , iPipelineManager(aPipelineManager)
     , iCurrentTrack(nullptr)
     , iLock("REAC")
-    , iHandler(nullptr)
 {
     iPipelineManager.AddObserver(*this);
 
@@ -45,11 +44,9 @@ ProviderReaction::~ProviderReaction()
 {
     iPipelineManager.RemoveObserver(*this);
 
-    if (iHandler) {
-        iHandler->RemoveObserver(*this);
-        delete iHandler;
+    for (auto& handler : iHandlers) {
+        handler->RemoveObserver(*this);
     }
-    iHandler = nullptr;
 
     if (iCurrentTrack) {
         iCurrentTrack->RemoveRef();
@@ -61,10 +58,9 @@ void ProviderReaction::AddHandler(IReactionHandler* aHandler)
 {
     AutoMutex m(iLock);
     ASSERT_VA(aHandler != nullptr, "%s\n", "Provided handler must not be null.");
-    ASSERT_VA(iHandler == nullptr, "%s\n", "Handler already set. Reaction are currently only implemented for a single handler at a time.");
 
-    iHandler = aHandler;
-    iHandler->AddObserver(*this, "ProviderReaction");
+    aHandler->AddObserver(*this, "ProviderReaction");
+    iHandlers.emplace_back(aHandler);
 }
 
 void ProviderReaction::GetCanReact(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseBool& aCanReact)
@@ -115,8 +111,16 @@ void ProviderReaction::SetReaction(Net::IDvInvocation& aInvocation, const Brx& a
         }
         else {
             const Brx& currentTrackUri = iCurrentTrack->Uri();
-            const TBool handled        = iHandler ? iHandler->SetReaction(currentTrackUri, aReaction)
-                                                  : false;
+
+            TBool handled = false;
+            for (auto& handler : iHandlers) {
+                if (aReaction.Bytes() == 0) {
+                    handled |= handler->ClearReaction(currentTrackUri);
+                }
+                else {
+                    handled |= handler->SetReaction(currentTrackUri, aReaction);
+                }
+            }
 
             if (!handled) {
                 aInvocation.Error(kErrorTrackNotReactable, kErrorMsgTrackNotReactable);
@@ -138,8 +142,10 @@ void ProviderReaction::ClearReaction(Net::IDvInvocation& aInvocation)
         }
         else {
             const Brx& currentTrackUri = iCurrentTrack->Uri();
-            const TBool handled        = iHandler ? iHandler->ClearReaction(currentTrackUri)
-                                                  : false;
+            TBool handled = false;
+            for (auto& handler : iHandlers) {
+                handled |= handler->ClearReaction(currentTrackUri);
+            }
 
             if (!handled) {
                 aInvocation.Error(kErrorTrackNotReactable, kErrorMsgTrackNotReactable);
@@ -202,8 +208,8 @@ void ProviderReaction::GetNewHandlerReactionStateLocked()
     if (iCurrentTrack) {
         const Brx& currentTrackUri = iCurrentTrack->Uri();
 
-        if (iHandler) {
-            iHandler->CurrentReactionState(currentTrackUri, canReact, currentReactionWriter, availableReactionsWriter);
+        for (auto& handler : iHandlers) {
+            handler->CurrentReactionState(currentTrackUri, canReact, currentReactionWriter, availableReactionsWriter);
         }
     }
 

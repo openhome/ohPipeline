@@ -24,11 +24,7 @@ class ProtocolQobuz : public Media::ProtocolNetwork, private IReader
 {
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
 public:
-    ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent,
-                   Credentials& aCredentialsManager, Configuration::IConfigInitialiser& aConfigInitialiser,
-                   IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice,
-                   Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable,
-                   IThreadPool& aThreadPool, Media::IPipelineObservable& aPipelineObservable);
+    ProtocolQobuz(Av::IMediaPlayer& aMediaPlayer, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent);
     ~ProtocolQobuz();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -45,7 +41,6 @@ private: // from IProtocolReader
     void ReadFlush() override;
     void ReadInterrupt() override;
 private:
-    static TBool TryGetTrackId(const Brx& aQuery, Bwx& aTrackId);
     Media::ProtocolStreamResult DoStream();
     Media::ProtocolStreamResult DoSeek(TUint64 aOffset);
     TUint WriteRequest(TUint64 aOffset);
@@ -100,28 +95,20 @@ using namespace OpenHome::Configuration;
 
 Protocol* ProtocolFactory::NewQobuz(const Brx& aAppId, const Brx& aAppSecret, Av::IMediaPlayer& aMediaPlayer, const Brx& aUserAgent)
 { // static
-    return new ProtocolQobuz(aMediaPlayer.Env(), aMediaPlayer.Ssl(), aAppId, aAppSecret, aUserAgent,
-                             aMediaPlayer.CredentialsManager(), aMediaPlayer.ConfigInitialiser(),
-                             aMediaPlayer.UnixTimestamp(), aMediaPlayer.Device(), 
-                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.PinsInvocable(), 
-                             aMediaPlayer.ThreadPool(), aMediaPlayer.Pipeline());
+    return new ProtocolQobuz(aMediaPlayer, aMediaPlayer.Ssl(), aAppId, aAppSecret, aUserAgent);
 }
 
 
 // ProtocolQobuz
 
-ProtocolQobuz::ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent,
-                             Credentials& aCredentialsManager, IConfigInitialiser& aConfigInitialiser,
-                             IUnixTimestamp& aUnixTimestamp, Net::DvDeviceStandard& aDevice, 
-                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Optional<IPinsInvocable> aPinsInvocable, 
-                             IThreadPool& aThreadPool, Media::IPipelineObservable& aPipelineObservable)
-    : ProtocolNetwork(aEnv)
+ProtocolQobuz::ProtocolQobuz(Av::IMediaPlayer& aMediaPlayer, SslContext& aSsl, const Brx& aAppId, const Brx& aAppSecret, const Brx& aUserAgent)
+    : ProtocolNetwork(aMediaPlayer.Env())
     , iSupply(nullptr)
     , iQobuzTrack(nullptr)
     , iUserAgent(aUserAgent)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
-    , iReaderResponse(aEnv, iReaderUntil)
+    , iReaderResponse(aMediaPlayer.Env(), iReaderUntil)
     , iDechunker(iReaderUntil)
     , iTotalBytes(0)
     , iSeekable(false)
@@ -130,13 +117,16 @@ ProtocolQobuz::ProtocolQobuz(Environment& aEnv, SslContext& aSsl, const Brx& aAp
     iReaderResponse.AddHeader(iHeaderContentLength);
     iReaderResponse.AddHeader(iHeaderTransferEncoding);
 
-    iQobuz = new Qobuz(aEnv, aSsl, aAppId, aAppSecret, iUserAgent, aDevice.Udn(), aCredentialsManager,
-                       aConfigInitialiser, aUnixTimestamp, aThreadPool, aPipelineObservable);
-    aCredentialsManager.Add(iQobuz);
+    QobuzReactionHandler* reactionHandler = new QobuzReactionHandler(aMediaPlayer);
+    iQobuz = new Qobuz(aMediaPlayer.Env(), aSsl, aAppId, aAppSecret, iUserAgent, aMediaPlayer.Device().Udn(), aMediaPlayer.CredentialsManager(),
+                       aMediaPlayer.ConfigInitialiser(), aMediaPlayer.UnixTimestamp(), aMediaPlayer.ThreadPool(), aMediaPlayer.Pipeline(), Optional<QobuzReactionHandler>(reactionHandler));
+    aMediaPlayer.CredentialsManager().Add(iQobuz);
 
-    if (aPinsInvocable.Ok()) {
-        auto pins = new QobuzPins(*iQobuz, aEnv, aDevice, aTrackFactory, aCpStack, aThreadPool);
-        aPinsInvocable.Unwrap().Add(pins);
+    aMediaPlayer.Add(reactionHandler); // NOTE: Takes ownership of handler
+
+    if (aMediaPlayer.PinsInvocable().Ok()) {
+        auto pins = new QobuzPins(*iQobuz, aMediaPlayer.Env(), aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ThreadPool());
+        aMediaPlayer.PinsInvocable().Unwrap().Add(pins);
     }
 }
 
@@ -178,7 +168,7 @@ ProtocolStreamResult ProtocolQobuz::Stream(const Brx& aUri)
         return EProtocolErrorNotSupported;
     }
     LOG(kMedia, "ProtocolQobuz::Stream(%.*s)\n", PBUF(aUri));
-    if (!TryGetTrackId(iUri.Query(), iTrackId)) {
+    if (!Qobuz::TryGetTrackId(iUri.Query(), iTrackId)) {
         return EProtocolStreamErrorUnrecoverable;
     }
 
@@ -319,40 +309,6 @@ void ProtocolQobuz::ReadFlush()
 void ProtocolQobuz::ReadInterrupt()
 {
     iDechunker.ReadInterrupt();
-}
-
-TBool ProtocolQobuz::TryGetTrackId(const Brx& aQuery, Bwx& aTrackId)
-{ // static
-    Parser parser(aQuery);
-    (void)parser.Next('?');
-    Brn buf = parser.Next('=');
-    if (buf != Brn("version")) {
-        LOG_ERROR(kPipeline, "TryGetTrackId failed - no version\n");
-        return false;
-    }
-    Brn verBuf = parser.Next('&');
-    try {
-        const TUint ver = Ascii::Uint(verBuf);
-        if (ver != 2) {
-            LOG_ERROR(kPipeline, "TryGetTrackId failed - unsupported version - %d\n", ver);
-            return false;
-        }
-    }
-    catch (AsciiError&) {
-        LOG_ERROR(kPipeline, "TryGetTrackId failed - invalid version\n");
-        return false;
-    }
-    buf.Set(parser.Next('='));
-    if (buf != Brn("trackId")) {
-        LOG_ERROR(kPipeline, "TryGetTrackId failed - no track id tag\n");
-        return false;
-    }
-    aTrackId.Replace(parser.Remaining());
-    if (aTrackId.Bytes() == 0) {
-        LOG_ERROR(kPipeline, "TryGetTrackId failed - no track id value\n");
-        return false;
-    }
-    return true;
 }
 
 TBool ProtocolQobuz::ContinueStreaming(ProtocolStreamResult aResult)

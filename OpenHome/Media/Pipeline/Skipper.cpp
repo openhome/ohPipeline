@@ -180,7 +180,7 @@ Msg* Skipper::ProcessMsg(MsgHalt* aMsg)
 Msg* Skipper::ProcessMsg(MsgFlush* aMsg)
 {
     if (iTargetFlushId != MsgFlush::kIdInvalid && iTargetFlushId == aMsg->Id()) {
-        ASSERT(iState == eFlushing);
+        ASSERT_VA(iState == eFlushing, "Skipper::ProcessMsg(MsgFlush* - iState=%d\n", iState);
         iState = eStarting;
         iTargetFlushId = MsgFlush::kIdInvalid;
     }

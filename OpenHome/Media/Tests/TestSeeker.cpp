@@ -422,6 +422,9 @@ void SuiteSeeker::PullNext(EMsgType aExpectedMsg)
     Msg* msg = iSeeker->Pull();
     msg = msg->Process(*this);
     msg->RemoveRef();
+    if (iLastPulledMsg != aExpectedMsg) {
+        Log::Print("Expected %d, got %d\n", aExpectedMsg, iLastPulledMsg);
+    }
     TEST(iLastPulledMsg == aExpectedMsg);
 }
 
@@ -581,13 +584,14 @@ void SuiteSeeker::TestRampSeekerAccepts()
     iPendingMsgs.push_back(iMsgFactory->CreateMsgQuit());
     PullNext(EMsgQuit);
 
-    // end of seek Flush is consumed, audio will ramp
+    // end of seek Flush is passed through, audio will ramp
     TEST(iSeeker->iQueue.IsEmpty());
     iPendingMsgs.push_back(iMsgFactory->CreateMsgFlush(kExpectedFlushId));
     iTrackOffset = kExpectedSeekSeconds * Jiffies::kPerSecond;
     iRampingUp = true;
     iJiffies = 0;
     iPendingMsgs.push_back(CreateEncodedStream());
+    PullNext(EMsgFlush);
     PullNext(EMsgEncodedStream);
     iPendingMsgs.push_back(CreateDecodedStream());
     PullNext(EMsgDecodedStream);
@@ -651,6 +655,7 @@ void SuiteSeeker::TestNoRampSeekerAccepts()
     iRampingUp = true;
     iJiffies = 0;
     iPendingMsgs.push_back(CreateEncodedStream());
+    PullNext(EMsgFlush);
     PullNext(EMsgEncodedStream);
     iPendingMsgs.push_back(CreateDecodedStream());
     PullNext(EMsgDecodedStream);

@@ -26,15 +26,8 @@ class ProtocolTidal : public Media::ProtocolNetworkSsl, private IReader
     static const TUint kMaxErrorReadBytes = 1024;
     static const TUint kTcpConnectTimeoutMs = 10 * 1000;
 
-
-    static const TUint kMinSupportedTrackVersion = 1;
-    static const TUint kMaxSupportedTrackVersion = 2;
-
 public:
-    ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::ConfigurationValues& aConfiguration,
-                  Configuration::IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice,
-                  Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack,
-                  Optional<IPinsInvocable> aPinsInvocable, IThreadPool& aThreadPool, ProviderOAuth& aOAuthManager);
+    ProtocolTidal(Av::IMediaPlayer& aMediaPlayer, SslContext& aSsl, Tidal::ConfigurationValues& aConfiguration);
     ~ProtocolTidal();
 private: // from Media::Protocol
     void Initialise(Media::MsgFactory& aMsgFactory, Media::IPipelineElementDownstream& aDownstream) override;
@@ -51,9 +44,6 @@ private: // from IReader
     void ReadFlush() override;
     void ReadInterrupt() override;
 private:
-    static TBool TryGetTrackId(const Brx& aQuery,
-                               Bwx& aTrackId,
-                               WriterBwh& aTokenId);
     Media::ProtocolStreamResult DoStream();
     Media::ProtocolStreamResult DoSeek(TUint64 aOffset);
     TUint WriteRequest(TUint64 aOffset);
@@ -111,47 +101,45 @@ Protocol* ProtocolFactory::NewTidal(Environment& aEnv,
         aAppDetails
     };
 
-    return new ProtocolTidal(aEnv, aSsl, config, aMediaPlayer.ConfigInitialiser(), aMediaPlayer.Device(),
-                             aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(),
-                             aMediaPlayer.PinsInvocable(), aMediaPlayer.ThreadPool(), aMediaPlayer.OAuthManager());
+    return new ProtocolTidal(aMediaPlayer, aSsl, config);
 }
 
 
 // ProtocolTidal
-ProtocolTidal::ProtocolTidal(Environment& aEnv, SslContext& aSsl, Tidal::ConfigurationValues& aConfig,
-                             IConfigInitialiser& aConfigInitialiser, Net::DvDeviceStandard& aDevice,
-                             Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack,
-                             Optional<IPinsInvocable> aPinsInvocable, IThreadPool& aThreadPool, ProviderOAuth& aOAuthManager)
-    : ProtocolNetworkSsl(aEnv, aSsl)
+ProtocolTidal::ProtocolTidal(Av::IMediaPlayer& aMediaPlayer, SslContext& aSsl, Tidal::ConfigurationValues& aConfig)
+    : ProtocolNetworkSsl(aMediaPlayer.Env(), aSsl)
     , iTokenProvider(nullptr)
     , iSupply(nullptr)
     , iTokenId(128)
     , iWriterRequest(iWriterBuf)
     , iReaderUntil(iReaderBuf)
-    , iReaderResponse(aEnv, iReaderUntil)
+    , iReaderResponse(aMediaPlayer.Env(), iReaderUntil)
     , iTotalBytes(0)
     , iSeekable(false)
 {
     iReaderResponse.AddHeader(iHeaderContentType);
     iReaderResponse.AddHeader(iHeaderContentLength);
 
-    iTidal = new Tidal(aEnv, aSsl, aConfig, aConfigInitialiser, aThreadPool);
+    TidalReactionHandler* reactionHandler = new TidalReactionHandler(aMediaPlayer);
+    iTidal = new Tidal(aMediaPlayer, aSsl, aConfig, Optional<TidalReactionHandler>(reactionHandler));
 
-    aOAuthManager.AddService(Tidal::kId,
+    aMediaPlayer.OAuthManager().AddService(Tidal::kId,
                              Tidal::kMaximumNumberOfShortLivedTokens,
                              Tidal::kMaximumNumberOfLongLivedTokens,
                              *iTidal,
                              *iTidal);
 
-    iTokenProvider = aOAuthManager.GetTokenProvider(Tidal::kId);
+    iTokenProvider = aMediaPlayer.OAuthManager().GetTokenProvider(Tidal::kId);
     iTidal->SetTokenProvider(iTokenProvider);
 
-    if (aPinsInvocable.Ok()) {
-        auto pins = new TidalPins(*iTidal, aEnv, aDevice, aTrackFactory, aCpStack, aThreadPool);
-        aPinsInvocable.Unwrap().Add(pins);
+    aMediaPlayer.Add(reactionHandler); // NOTE: Takes ownership of handler
+
+    if (aMediaPlayer.PinsInvocable().Ok()) {
+        auto pins = new TidalPins(*iTidal, aMediaPlayer.Env(), aMediaPlayer.Device(), aMediaPlayer.TrackFactory(), aMediaPlayer.CpStack(), aMediaPlayer.ThreadPool());
+        aMediaPlayer.PinsInvocable().Unwrap().Add(pins);
 
         auto refresher = new TidalPinRefresher(*iTidal);
-        aPinsInvocable.Unwrap().Add(refresher);
+        aMediaPlayer.PinsInvocable().Unwrap().Add(refresher);
     }
 }
 
@@ -194,7 +182,7 @@ ProtocolStreamResult ProtocolTidal::Stream(const Brx& aUri)
         return EProtocolErrorNotSupported;
     }
     LOG(kMedia, "ProtocolTidal::Stream(%.*s)\n", PBUF(aUri));
-    if (!TryGetTrackId(iUri.Query(), iTrackId, iTokenId)) {
+    if (!Tidal::TryGetTrackId(iUri.Query(), iTrackId, iTokenId)) {
         return EProtocolStreamErrorUnrecoverable;
     }
 
@@ -244,6 +232,10 @@ ProtocolStreamResult ProtocolTidal::Stream(const Brx& aUri)
         }
     }
 
+    if (!iTidal->TrySetTrackFavoriteStatus(iTrackId, iTokenId.Buffer()))
+    {
+        LOG_ERROR(kPipeline, "ProtocolTidal::Stream - failed to set track favourite status for track id %.*s\n", PBUF(iTrackId));
+    }
 
     iUri.Replace(iStreamUrl);
 
@@ -369,94 +361,6 @@ void ProtocolTidal::ReadFlush()
 void ProtocolTidal::ReadInterrupt()
 {
     iReaderUntil.ReadInterrupt();
-}
-
-TBool ProtocolTidal::TryGetTrackId(const Brx& aQuery,
-                                   Bwx& aTrackId,
-                                   WriterBwh& aTokenId)
-{
-    // static
-    aTokenId.Reset();
-    aTrackId.Replace(Brx::Empty());
-
-    Parser parser(aQuery);
-    (void)parser.Next('?');
-
-    TUint version = 0;
-    Brn versionStr = Brx::Empty();
-    TBool parseComplete = false;
-
-    do
-    {
-        Brn key = parser.Next('=');
-        Brn val = parser.Next('&');
-
-        //Exit condition
-        if (val.Bytes() == 0)
-        {
-            val.Set(parser.Remaining());
-            parseComplete = true;
-        }
-
-
-        if (key == Brn("version"))
-        {
-            versionStr = val;
-        }
-        else if (key == Brn("trackId"))
-        {
-            aTrackId.Replace(val);
-        }
-        else if (key == Brn("token"))
-        {
-            aTokenId.Write(val);
-        }
-
-    } while (!parseComplete);
-
-    // Validate version...
-    try
-    {
-        version = Ascii::Uint(versionStr);
-    } catch (AsciiError&)
-    {
-        LOG_ERROR(kPipeline, "TryGetTrackId failed - invalid version\n");
-        return false;
-    }
-
-    const TBool tooOld = version < kMinSupportedTrackVersion;
-    const TBool tooNew = version > kMaxSupportedTrackVersion;
-
-    if (tooOld || tooNew)
-    {
-        LOG_ERROR(kPipeline, "TryGetTrackId failed - unsupported version: %u (Min: %u, Max: %u)\n", version, kMinSupportedTrackVersion, kMaxSupportedTrackVersion);
-        return false;
-    }
-
-    // Validate TrackId...
-    if (aTrackId.Bytes() == 0)
-    {
-        LOG_ERROR(kPipeline, "TryGetTrackId failed - no track id value\n");
-        return false;
-    }
-
-    // - V2
-    // Valiate tokenId...
-    Log::Print("%.*s\n", PBUF(aTokenId.Buffer()));
-    if (version == 2 && aTokenId.Buffer().Bytes() == 0)
-    {
-        LOG_ERROR(kPipeline, "TryGetTrackId failed - no token id value\n");
-        return false;
-    }
-    else if (version == 1)
-    {
-        // If for whatever reason a CP tries to pass in a TokenId
-        // as part of a V1 track, then we'll ignore it and set it to
-        // empty so no attempt is made to use it in the future...
-        aTokenId.Reset();
-    }
-
-    return true;
 }
 
 TBool ProtocolTidal::ContinueStreaming(ProtocolStreamResult aResult)

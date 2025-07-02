@@ -241,7 +241,7 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, EDurationResolution aResolut
 
     const TUint milliseconds = timeRemaining;
 
-    ASSERT(hours <= 99);
+    ASSERT_VA(hours <= 99, "WriterDIDLXml::FormatDuration - hours=%u\n", hours);
     if (hours < 10) {
         aTempBuf.Append('0');
     }
