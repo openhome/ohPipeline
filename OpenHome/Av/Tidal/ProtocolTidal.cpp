@@ -84,8 +84,7 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 using namespace OpenHome::Configuration;
 
-Protocol* ProtocolFactory::NewTidal(Environment& aEnv, 
-                                    SslContext& aSsl,
+Protocol* ProtocolFactory::NewTidal(SslContext& aSsl,
                                     const Brx& aClientId,
                                     const Brx& aClientSecret,
                                     std::vector<OAuthAppDetails>& aAppDetails,
