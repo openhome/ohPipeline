@@ -82,7 +82,7 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.93.29-yocto",
+        "version": "0.94.1344",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
@@ -96,7 +96,7 @@
         "name": "libplatform-host",
         "real-name": "libplatform",
         "type": "internal",
-        "version": "0.93.29-yocto",
+        "version": "0.94.1344",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "${real-name}-${version}-${host-platform}-${debugmode}.tar.gz",
