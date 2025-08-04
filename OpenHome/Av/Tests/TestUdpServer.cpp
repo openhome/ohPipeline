@@ -501,16 +501,33 @@ void SuiteUdpServerManager::TestCreateMultipleServers()
     // create the servers (and record their port as we go, as this is a unique
     // enough identifier)
     TUint id1 = iManager->CreateServer(kPort, iInterface);
-    TUint port1 = iManager->Find(id1)->Port();
     TUint id2 = iManager->CreateServer(kPort, iInterface);
-    TUint port2 = iManager->Find(id2)->Port();
     TUint id3 = iManager->CreateServer(kPort, iInterface);
-    TUint port3 = iManager->Find(id3)->Port();
+
+    SocketUdpServer* srv_ref1_1 = iManager->Find(id1);
+    SocketUdpServer* srv_ref2_1 = iManager->Find(id2);
+    SocketUdpServer* srv_ref3_1 = iManager->Find(id3);
+
+    TUint port1 = srv_ref1_1->Port();
+    TUint port2 = srv_ref2_1->Port();
+    TUint port3 = srv_ref3_1->Port();
 
     // retrieve all the servers, checking the ids and ports map correctly
-    TEST(iManager->Find(id1)->Port() == port1);
-    TEST(iManager->Find(id2)->Port() == port2);
-    TEST(iManager->Find(id3)->Port() == port3);
+    SocketUdpServer* srv_ref1_2 = iManager->Find(id1);
+    SocketUdpServer* srv_ref2_2 = iManager->Find(id2);
+    SocketUdpServer* srv_ref3_2 = iManager->Find(id3);
+
+    TEST(srv_ref1_2->Port() == port1);
+    TEST(srv_ref2_2->Port() == port2);
+    TEST(srv_ref3_2->Port() == port3);
+
+    srv_ref1_1->RemoveRef();
+    srv_ref2_1->RemoveRef();
+    srv_ref3_1->RemoveRef();
+
+    srv_ref1_2->RemoveRef();
+    srv_ref2_2->RemoveRef();
+    srv_ref3_2->RemoveRef();
 }
 
 void SuiteUdpServerManager::TestFindInvalidId()
