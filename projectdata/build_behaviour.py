@@ -93,7 +93,6 @@ def choose_platform(context):
             "Windows-x64": "Windows-x64",
             "Linux-x86": "Linux-x86",
             "Linux-x64": "Linux-x64",
-            "Linux-ARM": "Linux-ARM",
             "Linux-armhf": "Linux-armhf",
             "Linux-aarch64": "Linux-aarch64",
             "Linux-rpi": "Linux-rpi",
@@ -146,7 +145,6 @@ def setup_windows(context):
 @build_step()
 @build_condition(OH_PLATFORM="Linux-x86")
 @build_condition(OH_PLATFORM="Linux-x64")
-@build_condition(OH_PLATFORM="Linux-ARM")
 @build_condition(OH_PLATFORM="Linux-armhf")
 @build_condition(OH_PLATFORM="Linux-rpi")
 @build_condition(OH_PLATFORM="Linux-ppc32")
@@ -165,9 +163,6 @@ def configure(context):
     if platform.system() == 'Darwin':
         context.env['CC']  = 'clang'
         context.env['CXX'] = 'clang++' 
-    if "PLATFORM" in context.env and context.env["PLATFORM"] in ["Linux-armhf"]\
-     and "LEGACY_BUILD" in context.env and context.env["LEGACY_BUILD"].lower() in ["true", "yes", "1"]:
-        context.configure_args.append("--legacy")
     python("waf", "configure", context.configure_args)
 
 @build_step("clean", optional=True)

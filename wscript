@@ -34,7 +34,6 @@ def options(opt):
     opt.add_option('--dest-platform', action='store', default=None)
     opt.add_option('--cross', action='store', default=None)
     opt.add_option('--with-default-fpm', action='store_true', default=False)
-    opt.add_option('--legacy', action='store_true', default=False)
 
 def configure(conf):
 
@@ -54,12 +53,9 @@ def configure(conf):
         except KeyError:
             conf.fatal('Specify --dest-platform')
 
-    if conf.options.dest_platform in ['Linux-armhf', 'Linux-aarch64']:
-        if not conf.options.legacy:
-            print("Yocto-based build, sourcing appropriate SDK...")
-            source_yocto_sdk(conf)
-        else:
-            print("Legacy build, using linaro toolchain")
+    if conf.options.dest_platform in ['armhf-kirkstone-linux', 'aarch64-kirkstone-linux', 'aarch64-scarthgap-linux']:
+        print("Yocto-based build, sourcing appropriate SDK...")
+        source_yocto_sdk(conf)
 
     conf.env.LINN_HOST_PLATFORM = guess_host_platform();
 
@@ -125,7 +121,7 @@ def configure(conf):
     # thirdparty/apple_alac/codec/EndianPortable.c attempts to define TARGET_RT_LITTLE_ENDIAN for little endian platforms (leaving it unset implies big endian).
     if conf.options.dest_platform in ['Windows-x86', 'Windows-x64']:
         conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # Could define TARGET_OS_WIN32, but that is ultimately used by EndianPortable.c to set TARGET_RT_LITTLE_ENDIAN.
-    elif conf.options.dest_platform in ['Linux-armhf', 'Linux-rpi', 'Linux-aarch64']:
+    elif conf.options.dest_platform in ['armhf-buildroot-linux', 'armhf-kirkstone-linux', 'armhf-raspbian-linux', 'aarch64-kirkstone-linux', 'aarch64-scarthgap-linux']:
         conf.env.DEFINES_ALAC_APPLE = ['TARGET_RT_LITTLE_ENDIAN']       # EndianPortable.c does not handle '__arm__', so define TARGET_RT_LITTLE_ENDIAN here.
     conf.env.INCLUDES_ALAC_APPLE = [
         'thirdparty/apple_alac/codec/',
@@ -151,20 +147,29 @@ def configure(conf):
 
     # Setup Mad (mp3) lib options
     fixed_point_model = 'FPM_INTEL'
-    mp3_sizeof_long = 'SIZEOF_LONG=4'
-    if conf.options.with_default_fpm or conf.options.dest_platform in ['Linux-riscv64']:
+    if conf.options.with_default_fpm:
         fixed_point_model = 'FPM_DEFAULT'
-    elif conf.options.dest_platform in ['Linux-ARM', 'Linux-armhf', 'Linux-rpi', 'Core-armv5', 'Core-armv6']:
+        mp3_sizeof_long = 'SIZEOF_LONG=8'
+    elif conf.options.dest_platform in ['armhf-buildroot-linux', 'armhf-kirkstone-linux', 'armhf-raspbian-linux']:
         fixed_point_model = 'FPM_DEFAULT' # FIXME: was FPM_ARM, but failing to build on gcc-linaro-5.3.1
-    elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
-        fixed_point_model = 'FPM_PPC'
-    elif conf.options.dest_platform in ['Linux-x64', 'Mac-x64', 'Linux-aarch64']:
+        mp3_sizeof_long = 'SIZEOF_LONG=4'
+    elif conf.options.dest_platform in ['aarch64-kirkstone-linux', 'aarch64-scarthgap-linux', 'riscv64-buildroot-linux']:
         fixed_point_model = 'FPM_64BIT'
         mp3_sizeof_long = 'SIZEOF_LONG=8'
+    elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
+        fixed_point_model = 'FPM_PPC'
+        mp3_sizeof_long = 'SIZEOF_LONG=4'
+    elif conf.options.dest_platform in ['Linux-x64', 'Mac-x64']:
+        fixed_point_model = 'FPM_64BIT'
+        mp3_sizeof_long = 'SIZEOF_LONG=8'
+    elif conf.options.dest_platform in ['Linux-x86']:
+        fixed_point_model = 'FPM_DEFAULT'
+        mp3_sizeof_long = 'SIZEOF_LONG=4'
     elif conf.options.dest_platform == 'Linux-mipsel':
         fixed_point_model = 'FPM_MIPS'
     conf.env.DEFINES_MAD = [fixed_point_model, 'OPT_ACCURACY'] # OPT_ACCURACY is most accurate decoding for a given FPM but may not be most efficient.
     conf.env.INCLUDES_MAD = ['thirdparty/libmad-0.15.1b']
+    
     if conf.options.dest_platform in ['Windows-x86', 'Windows-x64']:
         conf.env.DEFINES_MAD.append('HAVE_CONFIG_H')
         conf.env.INCLUDES_MAD.append('thirdparty/libmad-0.15.1b/msvc++')
@@ -1521,7 +1526,7 @@ def test(tst):
         tst.executable_dep = 'TestShell'
     print('Testing using manifest:', tst.test_manifest)
     rule = '{python_exe} {test} -m {manifest} -p {platform} -b {build_dir} -t {tool_dir}'.format(
-        python_exe = sys.executable,
+        python_exe = 'python', # Was previously sys.executable, but this didn't work on Mac as ended up inside XCode, not the system installed python
         test        = os.path.join(tst.env.testharness_dir, 'Test'),
         manifest    = '${SRC}',
         platform    =  tst.env.dest_platform,

@@ -140,13 +140,18 @@ ProtocolStreamResult ContentM3uX::Stream(IReader& aReader, TUint64 aTotalBytes)
     LOG(kMedia, "ContentM3uX::Stream\n");
 
     SetStream(aReader);
+
     TUint64 bytesRemaining = aTotalBytes;
+
+    // Try detect the type of playlist - MediaPlayist or MasterPlaylist;
     try {
         for (;;) {
             Brn line = ReadLine(*iReaderUntil, bytesRemaining);
+
             if (line.Bytes() == 0) {
                 continue; // empty/comment line
             }
+
 
             // Only want to stream one variant, but one or more may fail.
             // If that is the case, definitely want to fall through to other variants.
@@ -193,12 +198,16 @@ ProtocolStreamResult ContentM3uX::Stream(IReader& aReader, TUint64 aTotalBytes)
             else if (iCacheNextUri) {
                 CacheUri(line);
             }
+            else if (line.BeginsWith(Brn("#EXT-X-TARGETDURATION"))) {
+                // With this type of manifest each line is a segment for us to stream
+                CacheUri(iUriPlaylist.AbsoluteUri());
+                break;
+            }
         }
     }
     catch (ReaderError&) {
     }
 
-    // Should get here via a ReaderError.
     // Need to check if entire M3U has been read, or if there was an unexpected break in stream.
     if (iUriHls.AbsoluteUri().Bytes() == 0 && bytesRemaining == 0 && bytesRemaining < aTotalBytes) {
         // Parsed entire file and didn't find stream.
