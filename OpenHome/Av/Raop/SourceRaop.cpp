@@ -5,7 +5,7 @@
 #include <OpenHome/Av/Debug.h>
 #include <OpenHome/Av/Product.h>
 #include <OpenHome/Av/Source.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 #include <OpenHome/Av/Raop/SourceRaop.h>
 #include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Media/UriProviderRepeater.h>

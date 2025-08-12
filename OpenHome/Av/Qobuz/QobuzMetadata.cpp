@@ -9,7 +9,7 @@
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Av/Pins/Pins.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Av;

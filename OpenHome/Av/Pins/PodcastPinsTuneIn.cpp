@@ -5,7 +5,7 @@
 #include <OpenHome/Private/Http.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Utils/FormUrl.h>

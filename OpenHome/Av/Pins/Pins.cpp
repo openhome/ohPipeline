@@ -3,7 +3,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Json.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>

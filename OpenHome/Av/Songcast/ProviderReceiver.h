@@ -40,7 +40,7 @@ private:
     Brn iProtocolInfo;
     Brn iTransportState;
     Media::BwsTrackUri iSenderUri;
-    Media::BwsTrackMetaData iSenderMetadata;
+    Media::BwsTrackMetaDataLegacy iSenderMetadata;
 };
 
 } // namespace Av

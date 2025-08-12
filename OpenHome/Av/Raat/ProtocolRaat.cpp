@@ -4,7 +4,7 @@
 #include <OpenHome/Media/Protocol/Protocol.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Av/Raat/Output.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/OhMetadata.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>

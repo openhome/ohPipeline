@@ -101,7 +101,7 @@ private:
     Semaphore iSemDeviceFound;
     Functor iCompleted;
     Media::BwsTrackUri iTrackUri;
-    Media::BwsTrackMetaData iTrackMetadata;
+    Media::BwsTrackMetaDataLegacy iTrackMetadata;
     TBool iShuffle;
     TBool iPlaying;
 };

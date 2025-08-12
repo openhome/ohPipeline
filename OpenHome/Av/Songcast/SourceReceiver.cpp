@@ -97,7 +97,7 @@ private:
     Uri iUri; // allocated here as stack requirements are too high for an automatic variable
     Bws<ZoneHandler::kMaxZoneBytes> iZone;
     Media::BwsTrackUri iTrackUri;
-    Media::BwsTrackMetaData iTrackMetadata;
+    Media::BwsTrackMetaDataLegacy iTrackMetadata;
     TUint iTrackId;
     TBool iPlaying;
     TBool iQuit;

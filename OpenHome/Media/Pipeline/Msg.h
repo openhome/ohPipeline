@@ -306,15 +306,17 @@ private:
 class MsgFactory;
 
 
-static const TUint kModeMaxBytes          = 32;
-static const TUint kTrackUriMaxBytes      = 1024;
-static const TUint kTrackMetaDataMaxBytes = 5 * 1024;
-static const TUint kMaxCodecNameBytes     = 32;
+static const TUint kModeMaxBytes             = 32;
+static const TUint kTrackUriMaxBytes         = 1024;
+static const TUint kTrackMetaDataMaxBytes    = 2 * 1024;
+static const TUint kTrackMetaDataLegacyBytes = 5 * 1024;
+static const TUint kMaxCodecNameBytes        = 32;
 
-typedef Bws<kModeMaxBytes>          BwsMode;
-typedef Bws<kTrackUriMaxBytes>      BwsTrackUri;
-typedef Bws<kTrackMetaDataMaxBytes> BwsTrackMetaData;
-typedef Bws<kMaxCodecNameBytes>     BwsCodecName;
+typedef Bws<kModeMaxBytes>             BwsMode;
+typedef Bws<kTrackUriMaxBytes>         BwsTrackUri;
+typedef Bws<kTrackMetaDataMaxBytes>    BwsTrackMetaData;
+typedef Bws<kTrackMetaDataLegacyBytes> BwsTrackMetaDataLegacy;
+typedef Bws<kMaxCodecNameBytes>        BwsCodecName;
 
 enum class Latency
 {

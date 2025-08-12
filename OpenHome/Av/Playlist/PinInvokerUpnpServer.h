@@ -81,7 +81,7 @@ private:
     Functor iCompleted;
     TUint iTrackIdInsertAfter;
     Media::BwsTrackUri iTrackUri;
-    Media::BwsTrackMetaData iTrackMetadata;
+    Media::BwsTrackMetaDataLegacy iTrackMetadata;
     TBool iShuffle;
     TBool iPlaying;
     std::atomic<TBool> iCancel;

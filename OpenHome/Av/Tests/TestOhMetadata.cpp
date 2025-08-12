@@ -2,7 +2,9 @@
 #include <OpenHome/Private/SuiteUnitTest.h>
 
 #include <OpenHome/Private/Ascii.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
+#include <OpenHome/Net/Private/XmlParser.h>
 
 #include <array>
 #include <functional>
@@ -11,11 +13,9 @@ using namespace OpenHome;
 using namespace OpenHome::TestFramework;
 
 namespace OpenHome {
-namespace Av {
 
 using WriterCallback = std::function<void (WriterDIDLLite&, const Brx&)>;
 
-// SuiteTestWriterDIDLLite
 class SuiteWriterDIDLLite : public SuiteUnitTest
 {
 public:
@@ -41,6 +41,22 @@ private:
 
     void TestWriteOnceCalls(const Brx& aValueToWrite, WriterCallback aWriteCallback);
 };
+
+class SuiteDIDLLiteTruncator : public SuiteUnitTest
+{
+public:
+    SuiteDIDLLiteTruncator();
+private: // from SuiteUnitTest
+    void Setup() override;
+    void TearDown() override;
+private:
+    void TestRegularMetadataUnchanged();
+    void TestTooLongMetadataTruncated();
+    void TestTooLongInvalidXmlRejected();
+    void TestTooLongDidlRejected();
+};
+
+// SuiteWriterDIDLLite
 
 const Brn SuiteWriterDIDLLite::kItemId("itemId");
 const Brn SuiteWriterDIDLLite::kParentId("parentId");
@@ -173,7 +189,104 @@ void SuiteWriterDIDLLite::TestWriteEmptyDoesNothing()
 }
 
 
-} // namespace Av
+// SuiteDIDLLiteTruncator
+
+SuiteDIDLLiteTruncator::SuiteDIDLLiteTruncator()
+    : SuiteUnitTest("SuiteDIDLLiteTruncator")
+{
+    AddTest(MakeFunctor(*this, &SuiteDIDLLiteTruncator::TestRegularMetadataUnchanged), "TestRegularMetadataUnchanged");
+    AddTest(MakeFunctor(*this, &SuiteDIDLLiteTruncator::TestTooLongMetadataTruncated), "TestTooLongMetadataTruncated");
+    AddTest(MakeFunctor(*this, &SuiteDIDLLiteTruncator::TestTooLongInvalidXmlRejected), "TestTooLongInvalidXmlRejected");
+    AddTest(MakeFunctor(*this, &SuiteDIDLLiteTruncator::TestTooLongDidlRejected), "TestTooLongDidlRejected");
+}
+
+void SuiteDIDLLiteTruncator::Setup()
+{
+}
+
+void SuiteDIDLLiteTruncator::TearDown()
+{
+}
+
+void SuiteDIDLLiteTruncator::TestRegularMetadataUnchanged()
+{
+    const Brn src("shortbitoftext");
+    Bws<128> dest;
+    DIDLLiteTruncator::CheckTruncate(src, dest);
+    TEST(src == dest);
+}
+
+void SuiteDIDLLiteTruncator::TestTooLongMetadataTruncated()
+{
+    const char* src =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\""
+        " xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\""
+        " xmlns:dc=\"http://purl.org/dc/elements/1.1/\""
+        " xmlns:oh=\"http://www.openhome.org\""
+        ">"
+        "<item id=\"12345\" parentID=\"-1\" restricted=\"1\">"
+        "<dc:title>my title</dc:title>"
+        "<upnp:artist>some artist</upnp:artist>"
+        "<upnp:genre>aReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyLongGenre</upnp:genre>"
+        "<upnp:albumArtURI>http://www.linn.co.uk</upnp:albumArtURI>"
+        "<upnp:album>album title</upnp:album>"
+        "</item>"
+        "</DIDL-Lite>";
+
+    Brn srcBuf(src);
+    //Log::Print("\n\tsrcBuf.Bytes()=%u\n", srcBuf.Bytes());
+    Bws<470> dest;
+    DIDLLiteTruncator::CheckTruncate(srcBuf, dest);
+    TEST(dest.Bytes() > 0);
+    TEST(dest.Bytes() < srcBuf.Bytes());
+
+    const auto didl = Net::XmlParserBasic::Find(Brn("DIDL-Lite"), dest);
+    const auto item = Net::XmlParserBasic::Find(Brn("item"), didl);
+    const auto title = Net::XmlParserBasic::Find(Brn("title"), item);
+    TEST(title.Bytes() > 0);
+    const auto artist = Net::XmlParserBasic::Find(Brn("artist"), item);
+    TEST(artist.Bytes() > 0);
+    const auto artwork = Net::XmlParserBasic::Find(Brn("albumArtURI"), item);
+    TEST(artwork.Bytes() > 0);
+    const auto album = Net::XmlParserBasic::Find(Brn("album"), item);
+    TEST(album.Bytes() > 0);
+}
+
+void SuiteDIDLLiteTruncator::TestTooLongInvalidXmlRejected()
+{
+    const Brn src("shortbitoftext");
+    Bws<8> dest;
+    DIDLLiteTruncator::CheckTruncate(src, dest);
+    TEST(src != dest);
+    TEST(dest.Bytes() == 0);
+}
+
+void SuiteDIDLLiteTruncator::TestTooLongDidlRejected()
+{
+    const char* src =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\""
+        " xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\""
+        " xmlns:dc=\"http://purl.org/dc/elements/1.1/\""
+        " xmlns:oh=\"http://www.openhome.org\""
+        ">"
+        "<item id=\"12345\" parentID=\"-1\" restricted=\"1\">"
+        "<dc:title>my title</dc:title>"
+        "<upnp:artist>some artist</upnp:artist>"
+        "<upnp:genre>aReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyLongGenre</upnp:genre>"
+        "<upnp:albumArtURI>http://www.linn.co.uk</upnp:albumArtURI>"
+        "<upnp:album>album title</upnp:album>"
+        "</item>"
+        "</DIDL-Lite>";
+
+    Brn srcBuf(src);
+    Bws<256> dest;
+    DIDLLiteTruncator::CheckTruncate(srcBuf, dest);
+    TEST(dest.Bytes() == 0);
+}
+
+
 } // namespace OpenHome
 
 
@@ -182,7 +295,8 @@ void TestOhMetadata()
 {
     Runner runner("ohMetadata tests\n");
 
-    runner.Add(new OpenHome::Av::SuiteWriterDIDLLite());
+    runner.Add(new OpenHome::SuiteWriterDIDLLite());
+    runner.Add(new OpenHome::SuiteDIDLLiteTruncator());
 
     runner.Run();
 }

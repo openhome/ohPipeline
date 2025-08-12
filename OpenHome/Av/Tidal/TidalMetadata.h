@@ -2,7 +2,7 @@
 
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 
@@ -73,7 +73,7 @@ private:
 private:
     OpenHome::Media::TrackFactory& iTrackFactory;
     OpenHome::Media::BwsTrackUri iTrackUri;
-    OpenHome::Media::BwsTrackMetaData iMetaDataDidl;
+    OpenHome::Media::BwsTrackMetaDataLegacy iMetaDataDidl;
 };
 
 } // namespace Av

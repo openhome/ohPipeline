@@ -1,11 +1,10 @@
 #include <OpenHome/Types.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 #include <OpenHome/Media/Pipeline/AirplayReporter.h>
 
 #include <limits>
 
 using namespace OpenHome;
-using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
 // AirplayDidlLiteWriter

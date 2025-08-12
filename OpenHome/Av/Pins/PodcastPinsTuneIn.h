@@ -83,7 +83,7 @@ namespace Av {
     private:
         OpenHome::Media::TrackFactory& iTrackFactory;
         OpenHome::Media::BwsTrackUri iTrackUri;
-        OpenHome::Media::BwsTrackMetaData iMetaDataDidl;
+        OpenHome::Media::BwsTrackMetaDataLegacy iMetaDataDidl;
     };
 
 class TuneIn

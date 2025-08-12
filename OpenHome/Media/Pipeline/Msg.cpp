@@ -13,6 +13,7 @@
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Net/Private/Globals.h>
+#include <OpenHome/DidlLite.h>
 
 #include <string.h>
 #include <climits>
@@ -946,6 +947,7 @@ TUint Track::Id() const
 void Track::Initialise(const Brx& aUri, const Brx& aMetaData, TUint aId)
 {
     iUri.ReplaceThrow(aUri);
+    DIDLLiteTruncator::CheckTruncate(aMetaData, iMetaData);
     if (aMetaData.Bytes() > iMetaData.MaxBytes()) {
         iMetaData.Replace(aMetaData.Split(0, iMetaData.MaxBytes()));
     }

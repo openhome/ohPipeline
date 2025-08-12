@@ -68,7 +68,7 @@ private:
     Bws<Media::AudioData::kMaxBytes> iAudioBuf;
     TUint64 iStreamBytes;
     Media::Multiroom iStreamMultiroom;
-    Media::BwsTrackMetaData iMetadata; // only required at function scope but too big for the stack
+    Media::BwsTrackMetaDataLegacy iMetadata; // only required at function scope but too big for the stack
     TUint iStreamId;
     TUint iNextFlushId;
     TBool iStarted;

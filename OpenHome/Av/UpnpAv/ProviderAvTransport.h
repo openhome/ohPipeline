@@ -97,8 +97,8 @@ private:
     BwsTime iTrackDuration;
     Media::BwsTrackUri iCurrentTrackUri;
     Media::BwsTrackUri iAvTransportUri;
-    Media::BwsTrackMetaData iCurrentTrackMetaData;
-    Media::BwsTrackMetaData iAvTransportUriMetaData;
+    Media::BwsTrackMetaDataLegacy iCurrentTrackMetaData;
+    Media::BwsTrackMetaDataLegacy iAvTransportUriMetaData;
 
     // These state variables are currently implemented but their values do not change
     const Brn iPossiblePlaybackStorageMedia;

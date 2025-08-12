@@ -61,7 +61,7 @@ private:
     Bws<IPresetDatabaseReader::kMaxPresets * sizeof(TUint32)> iIdArrayBuf;
     // only required locally by certain functions but too large for the stack
     Mutex iTempVarLock;
-    Media::BwsTrackMetaData iTempMetadata;
+    Media::BwsTrackMetaDataLegacy iTempMetadata;
 };
 
 } // namespace Av

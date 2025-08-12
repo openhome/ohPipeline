@@ -17,7 +17,7 @@
 #include <Generated/CpAvOpenhomeOrgRadio2.h>
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/ThreadPool.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 
 #include <algorithm>
 

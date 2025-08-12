@@ -1,6 +1,6 @@
 #include <OpenHome/Av/Raat/Metadata.h>
 #include <OpenHome/Av/Raat/Transport.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 #include <OpenHome/Private/Time.h>
 
 using namespace OpenHome;

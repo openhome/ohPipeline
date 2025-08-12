@@ -7,7 +7,7 @@
 #include <OpenHome/Av/Scd/ScdMsg.h>
 #include <OpenHome/Media/Protocol/Protocol.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/OhMetadata.h>
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Av/Debug.h>
 
@@ -188,7 +188,7 @@ void ProtocolScd::Process(ScdMsgMetadataDidl& aMsg)
 void ProtocolScd::Process(ScdMsgMetadataOh& aMsg)
 {
     //Log::Print("ScdMsgMetadataOh\n");
-    auto track = Av::OhMetadata::ToTrack(aMsg.Metadata(), iTrackFactory);
+    auto track = OhMetadata::ToTrack(aMsg.Metadata(), iTrackFactory);
     OutputTrack(track);
 }
 
@@ -270,7 +270,7 @@ void ProtocolScd::Process(ScdMsgMetatextDidl& aMsg)
 void ProtocolScd::Process(ScdMsgMetatextOh& aMsg)
 {
     //Log::Print("ScdMsgMetatextOh\n");
-    Av::OhMetadata::ToDidlLite(aMsg.Metatext(), iMetadata);
+    OhMetadata::ToDidlLite(aMsg.Metatext(), iMetadata);
     iSupply->OutputMetadata(iMetadata);
 }
 

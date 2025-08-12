@@ -108,7 +108,7 @@ private:
     std::vector<OhmMsgAudio*> iRepairFrames;
     Timer* iTimerRepair;
     Media::BwsTrackUri iTrackUri;
-    Media::BwsTrackMetaData iTrackMetadata;
+    Media::BwsTrackMetaDataLegacy iTrackMetadata;
     Semaphore iPipelineEmpty;
     Optional<Av::IOhmMsgProcessor> iOhmMsgProcessor;
 };

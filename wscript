@@ -338,7 +338,8 @@ def build(bld):
                 'OpenHome/Media/Utils/Silencer.cpp',
                 'OpenHome/SocketHttp.cpp',
                 'OpenHome/SocketSsl.cpp',
-                'OpenHome/Av/OhMetadata.cpp',
+                'OpenHome/DidlLite.cpp',
+                'OpenHome/OhMetadata.cpp',
             ],
             use=['SSL', 'ohNetCore', 'OHNET'],
             target='ohPipeline')

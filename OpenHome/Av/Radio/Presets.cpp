@@ -9,7 +9,7 @@
 #include <OpenHome/Functor.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Private/Env.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Av/Radio/PresetDatabase.h>
 #include <OpenHome/Av/Debug.h>

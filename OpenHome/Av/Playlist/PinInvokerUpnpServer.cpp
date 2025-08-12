@@ -3,7 +3,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Av/Pins/Pins.h>
-#include <OpenHome/Av/OhMetadata.h>
+#include <OpenHome/DidlLite.h>
 #include <OpenHome/Av/Playlist/DeviceListMediaServer.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Net/Core/CpDevice.h>
