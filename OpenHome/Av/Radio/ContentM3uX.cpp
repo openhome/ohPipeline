@@ -57,6 +57,7 @@ private:
     void CacheUri(const Brx& aResource);
     void StoreHlsUriAbsolute(const Uri& aUri);
     void StoreHlsUriRelative(const Uri& aUri, const Brx& aResource);
+    void ParseMasterPlaylist(TUint64 aBytesRemaining, const Brx& aLastParsedLine);
 private:
     static const Brn StripUriResource(const Uri& aUri);
     static const Brx& ConvertScheme(const Brx& aScheme);
@@ -140,7 +141,14 @@ ProtocolStreamResult ContentM3uX::Stream(IReader& aReader, TUint64 aTotalBytes)
     LOG(kMedia, "ContentM3uX::Stream\n");
 
     SetStream(aReader);
+
+    Brn lastLine;
     TUint64 bytesRemaining = aTotalBytes;
+    TBool isDetecting      = true;
+    TBool isMasterPlaylist = false;
+
+    // Try detect the type of playlist - MediaPlayist or MasterPlaylist;
+
     try {
         for (;;) {
             Brn line = ReadLine(*iReaderUntil, bytesRemaining);
@@ -148,57 +156,36 @@ ProtocolStreamResult ContentM3uX::Stream(IReader& aReader, TUint64 aTotalBytes)
                 continue; // empty/comment line
             }
 
-            // Only want to stream one variant, but one or more may fail.
-            // If that is the case, definitely want to fall through to other variants.
             if (line.BeginsWith(Brn("#EXT-X-STREAM-INF"))) {
-                TUint attribBandwidth = 0;
-                TBool attribAudio = false;
-                Parser p(line);
-                (void)p.Next(':');  // Discard "#EXT-X-STREAM-INF:".
-                while (!p.Finished()) {
-                    Brn attrib = p.Next(',');
-                    Parser attribParser(attrib);
-                    Brn attribName = attribParser.Next('=');
-                    Brn attribValue = attribParser.Next();
-                    if (attribName == Brn("BANDWIDTH")) {   // required attrib
-                        attribBandwidth = Ascii::Uint(attribValue);
-                    }
-                    else if (attribName == Brn("CODECS")) {
-                        static const Brn kAudioCodecPrefix("\"mp4a");
-                        if (attribValue.Bytes() >= kAudioCodecPrefix.Bytes()) {
-                            if (Brn(attribValue.Ptr(), kAudioCodecPrefix.Bytes()) == kAudioCodecPrefix) {
-                                attribAudio = true;
-                            }
-                        }
-                    }
-                }
-
-                if (attribAudio && !iIsAudio) {
-                    // Haven't found an audio-only stream yet, so cache it.
-                    iCacheNextUri = true;
-                    iBandwidth = attribBandwidth;
-                    iIsAudio = true;
-                }
-                else if (attribAudio && attribBandwidth > iBandwidth) {
-                    // Found higher-bandwidth audio-only stream, so cache it.
-                    iCacheNextUri = true;
-                    iBandwidth = attribBandwidth;
-                }
-                else if (!iIsAudio && attribBandwidth > iBandwidth) {
-                    // Not explicitly an audio-only stream, but higher-bandwidth than existing, so cache it.
-                    iCacheNextUri = true;
-                    iBandwidth = attribBandwidth;
-                }
+                lastLine.Set(line);
+                isDetecting      = false;
+                isMasterPlaylist = true;
+                break;
             }
-            else if (iCacheNextUri) {
-                CacheUri(line);
+            else if (line.BeginsWith(Brn("#EXT-X-TARGETDURATION"))) {
+                isDetecting      = false;
+                isMasterPlaylist = false;
+                break;
             }
         }
     }
     catch (ReaderError&) {
     }
 
-    // Should get here via a ReaderError.
+    if (isDetecting) {
+        LOG_ERROR(kMedia, "ContentM3uX::Stream - Failed to detect if we have a media or master playlist file.\n");
+        return EProtocolStreamErrorUnrecoverable;
+    }
+
+    if (isMasterPlaylist) {
+        ParseMasterPlaylist(bytesRemaining, lastLine);
+    }
+    else {
+        // In all other cases, the manifest itself acts as a list of segments for a given stream.
+        CacheUri(iUriPlaylist.AbsoluteUri());
+    }
+
+
     // Need to check if entire M3U has been read, or if there was an unexpected break in stream.
     if (iUriHls.AbsoluteUri().Bytes() == 0 && bytesRemaining == 0 && bytesRemaining < aTotalBytes) {
         // Parsed entire file and didn't find stream.
@@ -300,5 +287,72 @@ const Brx& ContentM3uX::ConvertScheme(const Brx& aScheme)
     else {
         LOG(kMedia, "ContentM3uX::ConvertScheme Don't know how to handle aScheme: %.*s\n", PBUF(aScheme));
         THROW(UriError);
+    }
+}
+
+void ContentM3uX::ParseMasterPlaylist(TUint64 aBytesRemaining, const Brx& aLastParsedLine)
+{
+    Brn lastParsedLine(aLastParsedLine);
+    TUint64 bytesRemaining = aBytesRemaining;
+
+    try {
+        for (;;) {
+            Brn line = lastParsedLine.Bytes() > 0 ? lastParsedLine
+                                                  : ReadLine(*iReaderUntil, bytesRemaining);
+            lastParsedLine.Set(Brx::Empty());
+
+            if (line.Bytes() == 0) {
+                continue; // empty/comment line
+            }
+
+
+            // Only want to stream one variant, but one or more may fail.
+            // If that is the case, definitely want to fall through to other variants.
+            if (line.BeginsWith(Brn("#EXT-X-STREAM-INF"))) {
+                TUint attribBandwidth = 0;
+                TBool attribAudio = false;
+                Parser p(line);
+                (void)p.Next(':');  // Discard "#EXT-X-STREAM-INF:".
+                while (!p.Finished()) {
+                    Brn attrib = p.Next(',');
+                    Parser attribParser(attrib);
+                    Brn attribName = attribParser.Next('=');
+                    Brn attribValue = attribParser.Next();
+                    if (attribName == Brn("BANDWIDTH")) {   // required attrib
+                        attribBandwidth = Ascii::Uint(attribValue);
+                    }
+                    else if (attribName == Brn("CODECS")) {
+                        static const Brn kAudioCodecPrefix("\"mp4a");
+                        if (attribValue.Bytes() >= kAudioCodecPrefix.Bytes()) {
+                            if (Brn(attribValue.Ptr(), kAudioCodecPrefix.Bytes()) == kAudioCodecPrefix) {
+                                attribAudio = true;
+                            }
+                        }
+                    }
+                }
+
+                if (attribAudio && !iIsAudio) {
+                    // Haven't found an audio-only stream yet, so cache it.
+                    iCacheNextUri = true;
+                    iBandwidth = attribBandwidth;
+                    iIsAudio = true;
+                }
+                else if (attribAudio && attribBandwidth > iBandwidth) {
+                    // Found higher-bandwidth audio-only stream, so cache it.
+                    iCacheNextUri = true;
+                    iBandwidth = attribBandwidth;
+                }
+                else if (!iIsAudio && attribBandwidth > iBandwidth) {
+                    // Not explicitly an audio-only stream, but higher-bandwidth than existing, so cache it.
+                    iCacheNextUri = true;
+                    iBandwidth = attribBandwidth;
+                }
+            }
+            else if (iCacheNextUri) {
+                CacheUri(line);
+            }
+        }
+    }
+    catch (ReaderError&) {
     }
 }
