@@ -308,7 +308,7 @@ class MsgFactory;
 
 static const TUint kModeMaxBytes             = 32;
 static const TUint kTrackUriMaxBytes         = 1024;
-static const TUint kTrackMetaDataMaxBytes    = 2 * 1024;
+static const TUint kTrackMetaDataMaxBytes    = 3 * 1024;
 static const TUint kTrackMetaDataLegacyBytes = 5 * 1024;
 static const TUint kMaxCodecNameBytes        = 32;
 
