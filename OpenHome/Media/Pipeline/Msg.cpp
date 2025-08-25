@@ -948,12 +948,6 @@ void Track::Initialise(const Brx& aUri, const Brx& aMetaData, TUint aId)
 {
     iUri.ReplaceThrow(aUri);
     DIDLLiteTruncator::CheckTruncate(aMetaData, iMetaData);
-    if (aMetaData.Bytes() > iMetaData.MaxBytes()) {
-        iMetaData.Replace(aMetaData.Split(0, iMetaData.MaxBytes()));
-    }
-    else {
-        iMetaData.Replace(aMetaData);
-    }
     iId = aId;
 }
 
