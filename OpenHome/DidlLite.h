@@ -138,9 +138,6 @@ class DIDLLiteTruncator
 {
 public:
     static void CheckTruncate(const Brx& aSrc, Bwx& aDest);
-private:
-    static Brn TryFindTag(const Brx& aTag, const Brx& aDocument);
-    static void TryWriteTag(WriterDIDLXml& aWriterDidl, const Brx& aTag, const Brx& aValue);
 };
 
 } // namespace OpenHome
