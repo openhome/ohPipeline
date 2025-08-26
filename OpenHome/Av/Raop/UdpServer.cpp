@@ -36,8 +36,6 @@ Endpoint& MsgUdp::Endpoint()
 
 // SocketUdpServer
 
-const TChar* SocketUdpServer::kAdapterCookie = "SocketUdpServer";
-
 SocketUdpServer::SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority, TUint aPort, TIpAddress aInterface)
     : iEnv(aEnv)
     , iInitPort(aPort)
@@ -52,7 +50,6 @@ SocketUdpServer::SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPa
     , iSemRead("UDPR", 0)
     , iInterrupted(false)
     , iQuit(false)
-    , iAdapterListenerId(0)
     , iRebindPosted(false)
 {
     // Populate iFifoWaiting with empty packets/bufs
@@ -64,17 +61,10 @@ SocketUdpServer::SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPa
 
     iServerThread = new ThreadFunctor("UdpServer", MakeFunctor(*this, &SocketUdpServer::ServerThread), aThreadPriority);
     iServerThread->Start();
-
-    Functor functor = MakeFunctor(*this, &SocketUdpServer::CurrentAdapterChanged);
-    NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
-    iAdapterListenerId = nifList.AddCurrentChangeListener(functor, "SocketUdpServer", false);
 }
 
 SocketUdpServer::~SocketUdpServer()
 {
-    NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
-    nifList.RemoveCurrentChangeListener(iAdapterListenerId);
-
     {
         AutoMutex _a(iLock);
         iOpen = false; // Ensure that if server hasn't been Close()d, thread won't try to place message into queue after socket interrupt below.
@@ -237,6 +227,17 @@ Endpoint SocketUdpServer::Receive(Bwx& aBuf)
     }
 }
 
+void SocketUdpServer::Rebind(TIpAddress aAddress)
+{
+    // Only rebind if we have something to rebind to.
+    Semaphore waiter("", 0);
+    // Do not attempt to rebind to previous port, which may have been host-assigned port (i.e., port 0 was passed to constructor).
+    // Instead, rebind to initialisation port passed to constructor.
+    PostRebind(aAddress, iInitPort, MakeFunctor(waiter, &Semaphore::Signal));
+    waiter.Wait();
+    iSocket.Interrupt(false);
+}
+
 void SocketUdpServer::CopyMsgToBuf(MsgUdp& aMsg, Bwx& aBuf, Endpoint& aEndpoint)
 {
     const Brx& buf = aMsg.Buffer();
@@ -311,35 +312,6 @@ void SocketUdpServer::CheckRebind()
     }
 }
 
-void SocketUdpServer::CurrentAdapterChanged()
-{
-    NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
-    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie).Ptr();
-
-    // Get current subnet, otherwise choose first from a list
-    if (current == nullptr) {
-        std::vector<NetworkAdapter*>* subnetList = nifList.CreateSubnetList();
-        if (subnetList->size() > 0) {
-            current = (*subnetList)[0];
-            current->AddRef(kAdapterCookie);
-        }
-        NetworkAdapterList::DestroySubnetList(subnetList);
-    }
-
-    // Only rebind if we have something to rebind to.
-    if (current != nullptr) {
-        Semaphore waiter("", 0);
-        // Do not attempt to rebind to previous port, which may have been host-assigned port (i.e., port 0 was passed to constructor).
-        // Instead, rebind to initialisation port passed to constructor.
-        PostRebind(current->Address(), iInitPort, MakeFunctor(waiter, &Semaphore::Signal));
-        waiter.Wait();
-        iSocket.Interrupt(false);
-
-        // Finished with current now, so remove ref.
-        current->RemoveRef(kAdapterCookie);
-    }
-}
-
 
 // UdpServerManager
 
@@ -390,5 +362,120 @@ void UdpServerManager::OpenAll()
     AutoMutex a(iLock);
     for (size_t i=0; i<iServers.size(); i++) {
         iServers[i]->Open();
+    }
+}
+
+
+// RaopServers
+
+const TChar* RaopServers::kAdapterCookie = "RaopServers";
+
+RaopServers::RaopServers(
+    Environment& aEnv,
+    TUint aMaxSize,
+    TUint aMaxPackets,
+    TUint aThreadPriority,
+    TIpAddress aInterface,
+    TUint aPortAudio,
+    TUint aPortControl,
+    TUint aPortTiming
+)
+    : iEnv(aEnv)
+    , iAdapterListenerId(0)
+    , iLock("RSRV")
+{
+    iServerAudio = new SocketUdpServer(iEnv, aMaxSize, aMaxPackets, aThreadPriority, aPortAudio, aInterface);
+    iServerControl = new SocketUdpServer(iEnv, aMaxSize, aMaxPackets, aThreadPriority, aPortControl, aInterface);
+    iServerTiming = new SocketUdpServer(iEnv, aMaxSize, aMaxPackets, aThreadPriority, aPortTiming, aInterface);
+
+    Functor functor = MakeFunctor(*this, &RaopServers::CurrentAdapterChanged);
+    NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
+    iAdapterListenerId = nifList.AddCurrentChangeListener(functor, "RaopServers", false);
+}
+
+RaopServers::~RaopServers()
+{
+    NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
+    nifList.RemoveCurrentChangeListener(iAdapterListenerId);
+
+    AutoMutex a(iLock);
+    iServerTiming->RemoveRef();
+    iServerTiming = nullptr;
+    iServerControl->RemoveRef();
+    iServerControl = nullptr;
+    iServerAudio->RemoveRef();
+    iServerAudio = nullptr;
+}
+
+void RaopServers::AddPortObserver(IRaopPortObserver& aObserver)
+{
+    AutoMutex amx(iLock);
+    iObservers.push_back(aObserver);
+
+    // Initial callback.
+    aObserver.RaopPortsChanged(iServerAudio->Port(), iServerControl->Port(), iServerTiming->Port());
+}
+
+void RaopServers::RemovePortObserver(IRaopPortObserver& aObserver)
+{
+    AutoMutex amx(iLock);
+    for (auto it = iObservers.begin(); it != iObservers.end(); ++it) {
+        auto& o = (*it).get();
+        if (&o == &aObserver) {
+            iObservers.erase(it);
+            return;
+        }
+    }
+}
+
+SocketUdpServer* RaopServers::GetServerAudio()
+{
+    AutoMutex amx(iLock);
+    iServerAudio->AddRef();
+    return iServerAudio;
+}
+
+SocketUdpServer* RaopServers::GetServerControl()
+{
+    AutoMutex amx(iLock);
+    iServerControl->AddRef();
+    return iServerControl;
+}
+
+SocketUdpServer* RaopServers::GetServerTiming()
+{
+    AutoMutex amx(iLock);
+    iServerTiming->AddRef();
+    return iServerTiming;
+}
+
+void RaopServers::CurrentAdapterChanged()
+{
+    NetworkAdapterList& nifList = iEnv.NetworkAdapterList();
+    NetworkAdapter* current = iEnv.NetworkAdapterList().CurrentAdapter(kAdapterCookie).Ptr();
+
+    // Get current subnet, otherwise choose first from a list
+    if (current == nullptr) {
+        std::vector<NetworkAdapter*>* subnetList = nifList.CreateSubnetList();
+        if (subnetList->size() > 0) {
+            current = (*subnetList)[0];
+            current->AddRef(kAdapterCookie);
+        }
+        NetworkAdapterList::DestroySubnetList(subnetList);
+    }
+
+    // Only rebind if we have something to rebind to.
+    if (current != nullptr) {
+        AutoMutex a(iLock);
+        iServerAudio->Rebind(current->Address());
+        iServerControl->Rebind(current->Address());
+        iServerTiming->Rebind(current->Address());
+
+        for (auto& o : iObservers) {
+            o.get().RaopPortsChanged(iServerAudio->Port(), iServerControl->Port(), iServerTiming->Port());
+        }
+
+        // Finished with current now, so remove ref.
+        current->RemoveRef(kAdapterCookie);
     }
 }

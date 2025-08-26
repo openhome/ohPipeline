@@ -54,14 +54,12 @@ private: // from IPipelineObserver
     void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private:
-    TUint ServerPort(TUint aId);
     void FlushCallback(TUint aFlushId);
     void GenerateMetadata();
     void StartNewTrack();
     void AutoNetAuxChanged(Configuration::ConfigChoice::KvpChoice& aKvp);
     void ActivateIfInactive();
     void DeactivateIfActive();
-    void HandleInterfaceChange();
     void SessionStartAsynchronous();
     void SessionStartThread();
 private:
@@ -75,9 +73,7 @@ private:
     UriProviderRaop& iUriProvider;
     RaopDiscovery* iRaopDiscovery;
     ProtocolRaop* iProtocol;
-    UdpServerManager iServerManager;
-    TUint iCurrentAdapterChangeListenerId;
-    TUint iSubnetListChangeListenerId;
+    RaopServers iRaopServers;
     TBool iSessionActive;
     Bws<Media::kTrackMetaDataMaxBytes> iDidlLite;
     Bws<kMaxUriBytes> iNextTrackUri;
@@ -85,9 +81,6 @@ private:
     TUint iTrackPosSeconds;
     TUint iStreamId;
     Media::EPipelineState iTransportState;
-    TUint iAudioId;
-    TUint iControlId;
-    TUint iTimingId;
     ThreadFunctor* iThreadSessionStart;
     Semaphore iSemSessionStart;
     std::atomic<TBool> iQuit;

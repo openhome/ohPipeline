@@ -602,7 +602,7 @@ void RaopDiscoverySession::Close()
     KeepAlive();
 }
 
-void RaopDiscoverySession::SetListeningPorts(TUint aAudio, TUint aControl, TUint aTiming)
+void RaopDiscoverySession::RaopPortsChanged(TUint aAudio, TUint aControl, TUint aTiming)
 {
     iAudioPort = aAudio;
     iControlPort = aControl;
@@ -928,10 +928,10 @@ void RaopDiscoveryServer::Close()
     iRaopDiscoverySession2->Close();
 }
 
-void RaopDiscoveryServer::SetListeningPorts(TUint aAudio, TUint aControl, TUint aTiming)
+void RaopDiscoveryServer::RaopPortsChanged(TUint aAudio, TUint aControl, TUint aTiming)
 {
-    iRaopDiscoverySession1->SetListeningPorts(aAudio, aControl, aTiming);
-    iRaopDiscoverySession2->SetListeningPorts(aAudio, aControl, aTiming);
+    iRaopDiscoverySession1->RaopPortsChanged(aAudio, aControl, aTiming);
+    iRaopDiscoverySession2->RaopPortsChanged(aAudio, aControl, aTiming);
 }
 
 RaopDiscoverySession& RaopDiscoveryServer::ActiveSession()
@@ -1048,12 +1048,12 @@ void RaopDiscovery::Close()
     }
 }
 
-void RaopDiscovery::SetListeningPorts(TUint aAudio, TUint aControl, TUint aTiming)
+void RaopDiscovery::RaopPortsChanged(TUint aAudio, TUint aControl, TUint aTiming)
 {
     AutoMutex a(iServersLock);
     std::vector<RaopDiscoveryServer*>::iterator it = iServers.begin();
     while (it != iServers.end()) {
-        (*it)->SetListeningPorts(aAudio, aControl, aTiming);
+        (*it)->RaopPortsChanged(aAudio, aControl, aTiming);
         ++it;
     }
 }

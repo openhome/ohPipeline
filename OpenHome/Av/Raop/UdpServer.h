@@ -32,8 +32,6 @@ private:
  */
 class SocketUdpServer
 {
-private:
-    static const TChar* kAdapterCookie;
 public:
     SocketUdpServer(Environment& aEnv, TUint aMaxSize, TUint aMaxPackets, TUint aThreadPriority, TUint aPort, TIpAddress aInterface);
     void AddRef();
@@ -52,6 +50,7 @@ public:
     void SetTtl(TUint aTtl);
 
     Endpoint Receive(Bwx& aBuf);
+    void Rebind(TIpAddress aAddress);
 private:
     ~SocketUdpServer();
     static void CopyMsgToBuf(MsgUdp& aMsg, Bwx& aBuf, Endpoint& aEndpoint);
@@ -80,7 +79,6 @@ private:
     ThreadFunctor* iServerThread;
     TBool iInterrupted;
     TBool iQuit;
-    TUint iAdapterListenerId;
     TBool iRebindPosted;
     RebindJob iRebindJob;
 };
@@ -104,6 +102,46 @@ private:
     const TUint iMaxSize;
     const TUint iMaxPackets;
     const TUint iThreadPriority;
+    Mutex iLock;
+};
+
+class IRaopPortObserver
+{
+public:
+    virtual ~IRaopPortObserver() {}
+    virtual void RaopPortsChanged(TUint aAudio, TUint aControl, TUint aTiming) = 0;
+};
+
+class RaopServers
+{
+private:
+    static const TChar* kAdapterCookie;
+public:
+    RaopServers(
+        Environment& aEnv,
+        TUint aMaxSize,
+        TUint aMaxPackets,
+        TUint aThreadPriority,
+        TIpAddress aInterface,
+        TUint aPortAudio,
+        TUint aPortControl,
+        TUint aPortTiming
+    );
+    ~RaopServers();
+    void AddPortObserver(IRaopPortObserver& aObserver);
+    void RemovePortObserver(IRaopPortObserver& aObserver);
+    SocketUdpServer* GetServerAudio();
+    SocketUdpServer* GetServerControl();
+    SocketUdpServer* GetServerTiming();
+private:
+    void CurrentAdapterChanged();
+private:
+    Environment& iEnv;
+    SocketUdpServer* iServerAudio;
+    SocketUdpServer* iServerControl;
+    SocketUdpServer* iServerTiming;
+    TUint iAdapterListenerId;
+    std::vector<std::reference_wrapper<IRaopPortObserver>> iObservers;
     Mutex iLock;
 };
 
