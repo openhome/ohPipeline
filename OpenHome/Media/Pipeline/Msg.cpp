@@ -204,7 +204,7 @@ AudioData::AudioData(AllocatorBase& aAllocator)
 
 const TByte* AudioData::Ptr(TUint aBytes) const
 {
-    ASSERT(aBytes < iData.Bytes());
+    ASSERT_VA(aBytes < iData.Bytes(), "aBytes=%u, size=%u\n", aBytes, iData.Bytes());
     return iData.Ptr() + aBytes;
 }
 
