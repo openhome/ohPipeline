@@ -9,7 +9,6 @@
 #include <OpenHome/Net/Private/XmlParser.h>
 #include <OpenHome/Media/Debug.h>
 
-#include <vector>
 #include <utility>
 
 using namespace OpenHome;
@@ -21,6 +20,7 @@ const Brn DIDLLite::kTagTitle("dc:title");
 const Brn DIDLLite::kTagGenre("upnp:genre");
 const Brn DIDLLite::kTagClass("upnp:class");
 const Brn DIDLLite::kTagArtist("upnp:artist");
+const Brn DIDLLite::kTagResource("res");
 const Brn DIDLLite::kTagAlbumTitle("upnp:album");
 const Brn DIDLLite::kTagArtwork("upnp:albumArtURI");
 const Brn DIDLLite::kTagDescription("dc:description" );
@@ -400,54 +400,60 @@ void DIDLLiteTruncator::CheckTruncate(const Brx& aSrc, Bwx& aDest)
     }
     LOG(kMedia, "DIDL-Lite too long - truncating.");
     Brn item;
-    try {
-        const auto didl = Net::XmlParserBasic::Find("DIDL-Lite", aSrc);
-        item.Set(Net::XmlParserBasic::Find("item", didl));
-    }
-    catch (XmlError&) {
+    Brn didl;
+
+    if (!Net::XmlParserBasic::TryFind("DIDL-Lite", aSrc, didl) || !Net::XmlParserBasic::TryFind("item", didl, item)) {
         LOG(kMedia, "DIDL-Lite invalid - cannot truncate.");
         return;
     }
 
-    const auto id = TryFindTag(Brn("id"), item);
-    const auto parentId = TryFindTag(Brn("parentID"), item);
+    Brn id;
+    Brn parentId;
+    Brn itemValue;
+
+    Net::XmlParserBasic::TryFind("id", item, id);
+    Net::XmlParserBasic::TryFind("parentID", item, parentId);
 
     try {
         aDest.SetBytes(0);
         WriterBuffer writerBuf(aDest);
         WriterDIDLXml writerDidl(id, parentId, writerBuf);
 
-        std::vector<std::pair<const TChar*, Brn>> tags{
-            {"title", DIDLLite::kTagTitle},
+        const std::pair<const TChar*, Brn> singleTags[4] = {
+            {"title",  DIDLLite::kTagTitle},
             {"artist", DIDLLite::kTagArtist},
-            {"albumArtURI", DIDLLite::kTagArtwork},
-            {"album", DIDLLite::kTagAlbumTitle}
+            {"album",  DIDLLite::kTagAlbumTitle},
+            {"res",    DIDLLite::kTagResource},      // Required for CPs to display as a track, not a source
         };
-        for (auto tag : tags) {
-            const auto val = TryFindTag(Brn(tag.first), item);
-            TryWriteTag(writerDidl, tag.second, val);
+
+        const std::pair<const TChar*, Brn> multiTags[1] = {
+            {"albumArtURI", DIDLLite::kTagArtwork},
+        };
+
+        for(TUint i = 0; i < (sizeof(singleTags) / sizeof(singleTags[0])); i += 1) {
+            if (Net::XmlParserBasic::TryFind(singleTags[i].first, item, itemValue)) {
+                writerDidl.TryWriteTag(singleTags[i].second, itemValue);
+            }
         }
+
+        // In cases where we may have multiple entries with the same tag we want to select the last copy
+        // as this is the 'best' value to use. Eg AlbumArtwork. Last = highest quality, so keep this
+        for(TUint i = 0; i < (sizeof(multiTags) / sizeof(multiTags[0])); i += 1) {
+            Brn remaining(item);
+            itemValue.Set(Brx::Empty());
+            while (Net::XmlParserBasic::TryFind(multiTags[i].first, remaining, remaining, itemValue)) {
+                // ...
+            }
+            if (itemValue.Bytes() > 0) {
+                writerDidl.TryWriteTag(multiTags[i].second, itemValue);
+            }
+        }
+
 
         writerDidl.TryWriteEnd();
     }
     catch (WriterError&) {
         LOG(kMedia, "DIDL-Lite truncation failed - removing.");
         aDest.SetBytes(0);
-    }
-}
-
-Brn DIDLLiteTruncator::TryFindTag(const Brx& aTag, const Brx& aDocument)
-{
-    try {
-        return Net::XmlParserBasic::Find(aTag, aDocument);
-    }
-    catch (XmlError&) {}
-    return Brx::Empty();
-}
-
-void DIDLLiteTruncator::TryWriteTag(WriterDIDLXml& aWriterDidl, const Brx& aTag, const Brx& aValue)
-{
-    if (aValue.Bytes() > 0) {
-        aWriterDidl.TryWriteTag(aTag, aValue);
     }
 }

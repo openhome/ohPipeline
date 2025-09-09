@@ -804,7 +804,7 @@ private:
     static const TUint kMaxRepairFrames = 50;
     static const TUint kMinDelayChangeSamples = 441; // Require min change of 10 ms at 44.1KHz to cause delay value to be updated/output.
 public:
-    ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer, ITimerFactory& aTimerFactory);
+    ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, SocketUdpServer* aServerAudio, SocketUdpServer* aServerControl, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer, ITimerFactory& aTimerFactory);
     ~ProtocolRaop();
     void SendFlush(TUint aSeq, TUint aTime, FunctorGeneric<TUint> aFlushHandler); // aFlushHandler is called with the flush ID before call returns.
 private: // from Protocol
@@ -847,7 +847,6 @@ private:
     // that already runs in Filler thread. Would just need to add interleaving
     // for servicing control channel, as that is currently handled on its on
     // thread.
-    UdpServerManager& iServerManager;
     Bws<RtpPacketRaop::kMaxPacketBytes> iAudioDecrypted;
     RaopAudioDecryptor iAudioDecryptor;
     RaopAudioServer iAudioServer;

@@ -398,13 +398,12 @@ void RaopPacketResendRequest::Write(IWriter& aWriter) const
 
 // ProtocolRaop
 
-ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, UdpServerManager& aServerManager, TUint aAudioId, TUint aControlId, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer, ITimerFactory& aTimerFactory)
+ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory, IRaopDiscovery& aDiscovery, SocketUdpServer* aServerAudio, SocketUdpServer* aServerControl, TUint aThreadPriorityAudioServer, TUint aThreadPriorityControlServer, ITimerFactory& aTimerFactory)
     : Protocol(aEnv)
     , iTrackFactory(aTrackFactory)
     , iDiscovery(aDiscovery)
-    , iServerManager(aServerManager)
-    , iAudioServer(iServerManager.Find(aAudioId), *this, aThreadPriorityAudioServer)
-    , iControlServer(iServerManager.Find(aControlId), *this, aThreadPriorityControlServer)
+    , iAudioServer(aServerAudio, *this, aThreadPriorityAudioServer)
+    , iControlServer(aServerControl, *this, aThreadPriorityControlServer)
     , iSupply(nullptr)
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
     , iNextFlushId(MsgFlush::kIdInvalid)

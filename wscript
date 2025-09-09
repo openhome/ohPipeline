@@ -159,7 +159,7 @@ def configure(conf):
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
         mp3_sizeof_long = 'SIZEOF_LONG=4'
-    elif conf.options.dest_platform in ['Linux-x64', 'Mac-x64']:
+    elif conf.options.dest_platform in ['Linux-x64', 'Mac-x64', 'Mac-arm64']:
         fixed_point_model = 'FPM_64BIT'
         mp3_sizeof_long = 'SIZEOF_LONG=8'
     elif conf.options.dest_platform in ['Linux-x86']:

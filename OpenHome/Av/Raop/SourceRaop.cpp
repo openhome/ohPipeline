@@ -81,7 +81,7 @@ SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider
     , iEnv(aMediaPlayer.Env())
     , iLock("SRAO")
     , iUriProvider(aUriProvider)
-    , iServerManager(aMediaPlayer.Env(), kMaxUdpSize, kMaxUdpPackets, aServerThreadPriority)
+    , iRaopServers(aMediaPlayer.Env(), kMaxUdpSize, kMaxUdpPackets, aServerThreadPriority, kIpAddressV4AllAdapters, 0, 0, 0)
     , iSessionActive(false)
     , iTrack(nullptr)
     , iTrackPosSeconds(0)
@@ -93,24 +93,12 @@ SourceRaop::SourceRaop(IMediaPlayer& aMediaPlayer, UriProviderRaop& aUriProvider
     iRaopDiscovery = new RaopDiscovery(aMediaPlayer.Env(), aMediaPlayer.PowerManager(), aMediaPlayer.FriendlyNameObservable(), aMacAddr, aMediaPlayer.Pipeline(), aMdnsProvider);
     iRaopDiscovery->AddObserver(*this);
 
-    iAudioId = iServerManager.CreateServer();
-    iControlId = iServerManager.CreateServer();
-    iTimingId = iServerManager.CreateServer();
-
     TimerFactory timerFactory(aMediaPlayer.Env());
-    iProtocol = new ProtocolRaop(aMediaPlayer.Env(), aMediaPlayer.TrackFactory(), *iRaopDiscovery, iServerManager, iAudioId, iControlId, aServerThreadPriority, aServerThreadPriority, timerFactory); // Creating directly, rather than through ProtocolFactory.
+    iProtocol = new ProtocolRaop(aMediaPlayer.Env(), aMediaPlayer.TrackFactory(), *iRaopDiscovery, iRaopServers.GetServerAudio(), iRaopServers.GetServerControl(), aServerThreadPriority, aServerThreadPriority, timerFactory); // Creating directly, rather than through ProtocolFactory.
     iPipeline.Add(iProtocol);   // takes ownership
     iPipeline.AddObserver(*this);
 
-    const TUint serverAudioPort = ServerPort(iAudioId);
-    const TUint serverControlPort = ServerPort(iControlId);
-    const TUint serverTimingPort = ServerPort(iTimingId);
-    iRaopDiscovery->SetListeningPorts(serverAudioPort, serverControlPort, serverTimingPort);
-
-    NetworkAdapterList& adapterList = iEnv.NetworkAdapterList();
-    Functor functor = MakeFunctor(*this, &SourceRaop::HandleInterfaceChange);
-    iCurrentAdapterChangeListenerId = adapterList.AddCurrentChangeListener(functor, "SourceRaop-current");
-    iSubnetListChangeListenerId = adapterList.AddSubnetListChangeListener(functor, "SourceRaop-subnet");
+    iRaopServers.AddPortObserver(*iRaopDiscovery);
 
     // Give session start thread same priority as UDP server threads to ensure source switch isn't delayed by UDP server threads receiving packets.
     iThreadSessionStart = new ThreadFunctor("RaopSessionStart", MakeFunctor(*this, &SourceRaop::SessionStartThread), aServerThreadPriority);
@@ -123,8 +111,7 @@ SourceRaop::~SourceRaop()
     iSemSessionStart.Signal();
     delete iThreadSessionStart;
 
-    iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iCurrentAdapterChangeListenerId);
-    iEnv.NetworkAdapterList().RemoveSubnetListChangeListener(iSubnetListChangeListenerId);
+    iRaopServers.RemovePortObserver(*iRaopDiscovery);
     delete iRaopDiscovery;
 
     iLock.Wait();
@@ -353,14 +340,6 @@ void SourceRaop::NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo)
     iLock.Signal();
 }
 
-TUint SourceRaop::ServerPort(TUint aId)
-{
-    auto server = iServerManager.Find(aId);
-    const TUint port = server->Port();
-    server->RemoveRef();
-    return port;
-}
-
 void SourceRaop::FlushCallback(TUint aFlushId)
 {
     // Called synchronously during SendFlush() call in ::NotifySessionWait();
@@ -368,17 +347,6 @@ void SourceRaop::FlushCallback(TUint aFlushId)
         iTransportState = Media::EPipelineWaiting;
         iPipeline.Wait(aFlushId);
     }
-}
-
-void SourceRaop::HandleInterfaceChange()
-{
-    //iRaopDiscovery->Disable();
-    //iRaopDiscovery->Enable();
-    const TUint serverAudioPort = ServerPort(iAudioId);
-    const TUint serverControlPort = ServerPort(iControlId);
-    const TUint serverTimingPort = ServerPort(iTimingId);
-    LOG(kMedia, "SourceRaop::HandleInterfaceChange audio: %u, ctrl: %u, timing: %u\n", serverAudioPort, serverControlPort, serverTimingPort);
-    iRaopDiscovery->SetListeningPorts(serverAudioPort, serverControlPort, serverTimingPort);
 }
 
 void SourceRaop::SessionStartAsynchronous()

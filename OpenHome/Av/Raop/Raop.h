@@ -7,6 +7,7 @@
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/PowerManager.h>
 #include <OpenHome/Av/VolumeManager.h>
+#include <OpenHome/Av/Raop/UdpServer.h>
 #include <OpenHome/Media/Pipeline/Attenuator.h>
 
 #include  <openssl/rsa.h>
@@ -151,13 +152,12 @@ public:
     virtual const Brx& Fmtp() = 0;
     virtual void KeepAlive() = 0;
     virtual void Close() = 0;
-    virtual void SetListeningPorts(TUint aAudio, TUint aControl, TUint aTiming) = 0;
     virtual ~IRaopDiscovery() {}
 };
 
 class RaopDiscoveryServer;
 
-class RaopDiscoverySession : public SocketTcpSession, public IRaopDiscovery
+class RaopDiscoverySession : public SocketTcpSession, public IRaopDiscovery, public IRaopPortObserver
 {
 private:
     static const TUint kMaxReadBufferBytes = 12000;
@@ -177,7 +177,8 @@ public: // from IRaopDiscovery
     void KeepAlive() override;
     TUint AesSid() override;
     void Close() override;
-    void SetListeningPorts(TUint aAudio, TUint aControl, TUint aTiming) override;
+public: // from IRaopPortObserver
+    void RaopPortsChanged(TUint aAudio, TUint aControl, TUint aTiming) override;
 private:
     void WriteSeq(TUint aCSeq);
     void WriteFply(Brn aData);
@@ -222,7 +223,7 @@ private:
     Media::IAttenuator& iAttenuator;
 };
 
-class RaopDiscoveryServer : public IRaopDiscovery, private IRaopObserver, private INonCopyable
+class RaopDiscoveryServer : public IRaopDiscovery, public IRaopPortObserver, private IRaopObserver, private INonCopyable
 {
 public:
     RaopDiscoveryServer(Environment& aEnv, NetworkAdapter& aNif, IFriendlyNameObservable& aFriendlyNameObservable, const Brx& aMacAddr, Media::IAttenuator& aAttenuator, Net::IMdnsProvider& aProvider);
@@ -242,7 +243,8 @@ public: // from IRaopDiscovery
     void KeepAlive() override;
     TUint AesSid() override;
     void Close() override;
-    void SetListeningPorts(TUint aAudio, TUint aControl, TUint aTiming) override;
+public: // from IRaopPortObserver
+    void RaopPortsChanged(TUint aAudio, TUint aControl, TUint aTiming) override;
 public: // from IRaopObserver
     void NotifySessionStart(TUint aControlPort, TUint aTimingPort) override;
     void NotifySessionEnd() override;
@@ -286,7 +288,7 @@ private:
  * 10s keep-alive timeout implemented here, so that if no query is received
  * in that time period, the session is freed up for alternative connections.
  */
-class RaopDiscovery : public IRaopDiscovery, public IPowerHandler, private IRaopServerObserver, private INonCopyable
+class RaopDiscovery : public IRaopDiscovery, public IRaopPortObserver, public IPowerHandler, private IRaopServerObserver, private INonCopyable
 {
 public:
     static const TUint kVolMaxScaled = 256;
@@ -302,7 +304,8 @@ public: // from IRaopDiscovery
     const Brx& Fmtp() override;
     void KeepAlive() override;
     void Close() override;
-    void SetListeningPorts(TUint aAudio, TUint aControl, TUint aTiming) override;
+public: // from IRaopPortObserver
+    void RaopPortsChanged(TUint aAudio, TUint aControl, TUint aTiming) override;
 public: // from IRaopObserver
     void NotifySessionStart(const NetworkAdapter& aNif, TUint aControlPort, TUint aTimingPort) override;
     void NotifySessionEnd(const NetworkAdapter& aNif) override;
