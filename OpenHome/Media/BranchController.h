@@ -32,10 +32,8 @@ public:
     void RemoveBrancher(const Brx& aId);
 private:
     void DisableAll();
-    void EnableDefault();
     std::vector<IBrancherControllable*>::iterator GetIterator(const Brx& aId);
 private:
-    TBool iDefaultSet;
     std::vector<IBrancherControllable*> iBranchers;
 };
 

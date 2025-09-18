@@ -10,7 +10,6 @@ using namespace Media;
 // BranchController
 
 BranchController::BranchController()
-    : iDefaultSet(false)
 {
 }
 
@@ -24,22 +23,14 @@ void BranchController::SetEnabled(const Brx& aId, TBool aEnable)
 {
     auto it = GetIterator(aId);
     const auto priority = (*it)->Priority();
-    if (priority == IBrancher::EPriority::Default ||
-        priority == IBrancher::EPriority::Exclusive) {
-
-        aEnable ? DisableAll() : EnableDefault();
+    if (priority == IBrancher::EPriority::Exclusive && aEnable) {
+        DisableAll();
     }
     (*it)->SetEnabled(aEnable);
 }
 
 void BranchController::AttachBrancher(IBrancherControllable& aBrancher)
 {
-    if (aBrancher.Priority() == IBrancher::EPriority::Default) {
-        if (iDefaultSet) {
-            THROW(BranchControllerError);
-        }
-        iDefaultSet = true;
-    }
     iBranchers.push_back(&aBrancher);
 }
 
@@ -52,20 +43,10 @@ void BranchController::RemoveBrancher(const Brx& aId)
 void BranchController::DisableAll()
 {
     for (auto brancher : iBranchers) {
-        brancher->SetEnabled(false);
-    }
-}
-
-void BranchController::EnableDefault()
-{
-    if (!iDefaultSet) {
-        return;
-    }
-
-    for (auto brancher : iBranchers) {
-        if (brancher->Priority() == IBrancher::EPriority::Default) {
-            brancher->SetEnabled(true);
+        if (brancher->Priority() == IBrancher::EPriority::AlwaysOn) {
+            continue;
         }
+        brancher->SetEnabled(false);
     }
 }
 

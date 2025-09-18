@@ -486,7 +486,7 @@ Pipeline::Pipeline(
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerReporter, new Logger(*iReporter, "Reporter"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);
-    ATTACH_ELEMENT(iBrancherSongcast, new Brancher(*upstream, Brn("BrancherSongcast"), IBrancher::EPriority::Default),
+    ATTACH_ELEMENT(iBrancherSongcast, new Brancher(*upstream, Brn("BrancherSongcast"), IBrancher::EPriority::AlwaysOn),
                    upstream, elementsSupported, EPipelineSupportElementsMandatory);
     ATTACH_ELEMENT(iLoggerBrancherSongcast, new Logger(*iBrancherSongcast, "BrancherSongcast"),
                    upstream, elementsSupported, EPipelineSupportElementsLogger);

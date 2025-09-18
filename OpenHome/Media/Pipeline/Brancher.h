@@ -70,9 +70,8 @@ class IBrancher
 {
 public:
     enum class EPriority {
-        Default,        // Remains active when no other branches are enabled
-        Exclusive,      // Disables all other branches when enabled
-        Concurrent      // Allow multiple branches to operate concurrently
+        AlwaysOn,       // Remains active always
+        Exclusive       // Disables all other Exclusive branches when enabled
     };
 public:
     virtual const Brx& Id() const = 0;
