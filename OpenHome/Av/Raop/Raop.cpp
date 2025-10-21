@@ -242,7 +242,7 @@ RaopDiscoverySession::RaopDiscoverySession(Environment& aEnv, RaopDiscoveryServe
     , iClientTimingPort(0)
     , iAttenuator(aAttenuator)
 {
-    iReaderBuffer = new Srs<1024>(*this);
+    iReaderBuffer = new Srs<kMaxReaderBytes>(*this);
     iReaderUntil = new ReaderUntilS<kMaxReadBufferBytes>(*iReaderBuffer);
     iReaderProtocol = new ReaderProtocolS<kMaxReadBufferBytes>(*iReaderUntil);
     iWriterBuffer = new Sws<kMaxWriteBufferBytes>(*this);
@@ -350,7 +350,6 @@ void RaopDiscoverySession::WriteFply(Brn aData)
             LOG(kMedia, "\n");
         }
         writeFply = false;
-        ASSERTS();
     }
 
     if (writeFply) {
@@ -390,13 +389,42 @@ void RaopDiscoverySession::Run()
                     // Log whether Content-Length header received or whether this may be chunked encoding.
                     LOG(kMedia, "RaopDiscoverySession::Run POST cont-len rx: %u, cont-len: %u, xfer-enc rx: %u, xfer-enc: %u\n", iHeaderContentLength.Received(), iHeaderContentLength.ContentLength(), iHeaderTransferEncoding.Received(), iHeaderTransferEncoding.IsChunked());
 
-                    Brn data = iReaderProtocol->Read(iHeaderContentLength.ContentLength());
-
-                    iWriterResponse->WriteStatus(HttpStatus::kOk, Http::eRtsp10);
-                    iWriterResponse->WriteHeader(RtspHeader::kContentType, Brn("application/octet-stream"));
-                    WriteSeq(iHeaderCSeq.CSeq());
-                    WriteFply(data);
-                    iWriterResponse->WriteFlush();
+                    const auto bytesToRead = iHeaderContentLength.ContentLength();
+                    if (bytesToRead > 0) {
+                        Brn data = iReaderProtocol->Read(bytesToRead);
+                        iWriterResponse->WriteStatus(HttpStatus::kOk, Http::eRtsp10);
+                        iWriterResponse->WriteHeader(RtspHeader::kContentType, Brn("application/octet-stream"));
+                        WriteSeq(iHeaderCSeq.CSeq());
+                        WriteFply(data);
+                        iWriterResponse->WriteFlush();
+                    }
+                    else {
+                        try {
+                            LOG(kMedia, "RaopDiscoverySession::Run Unkown post request of zero bytes length\n");
+                            TUint logBytes = 1024;
+                            TBool toRead = true;
+                            while (toRead) {
+                                Brn buf = iReaderBuffer->Read(kMaxReaderBytes);
+                                if (buf.Bytes() > 0) {
+                                    if (logBytes > 0) {
+                                        const auto bytes = std::min<TUint>(buf.Bytes(), logBytes);
+                                        for (TUint i = 0; i < bytes; i++) {
+                                            LOG(kMedia, " %02x", buf[i]);
+                                        }
+                                        LOG(kMedia, "\n");
+                                        logBytes -= bytes;
+                                    }
+                                }
+                                else {
+                                    toRead = false;
+                                }
+                            }
+                        }
+                        catch (const ReaderError&) {
+                            LOG(kMedia, "RaopDiscoverySession::Run caught error while trying to read unknown post request\n");
+                        }
+                        ASSERTS();
+                    }
                 }
                 if(method == RtspMethod::kOptions) {
                     iWriterResponse->WriteStatus(HttpStatus::kOk, Http::eRtsp10);

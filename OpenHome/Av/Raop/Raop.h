@@ -160,6 +160,7 @@ class RaopDiscoveryServer;
 class RaopDiscoverySession : public SocketTcpSession, public IRaopDiscovery, public IRaopPortObserver
 {
 private:
+    static const TUint kMaxReaderBytes = 1024;
     static const TUint kMaxReadBufferBytes = 12000;
     static const TUint kMaxWriteBufferBytes = 4000;
     static const unsigned char kRsaKeyPrivate[];
