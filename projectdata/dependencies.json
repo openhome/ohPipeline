@@ -66,7 +66,7 @@
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.169",
+        "version": "0.2.170",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -119,17 +119,13 @@
         "name": "libressl",
         "type": "internal",
         "platform-specific": true,
-        "platform-version": {
-            "Windows-x86": "0.1.37",
-            "*": "0.2.151"
-        },
-        "version": "${platform-version[$platform]}",
+        "version": "0.2.155",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
     },
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.2.72",
+        "version": "1.2.75",
         "archive-suffix": "-${debugmode}",
         "archive-directory": "${binary-repo}/raat/",
         "cross-check": false,
