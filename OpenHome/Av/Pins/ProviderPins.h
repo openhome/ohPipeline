@@ -24,11 +24,9 @@ public:
     void Start();
 private: // from IPinsObserver
     void NotifyDevicePinsMax(TUint aMax) override;
-    void NotifyAccountPinsMax(TUint aMax) override;
     void NotifyModeAdded(const Brx& aMode) override;
     void NotifyCloudConnected(TBool aConnected) override;
     void NotifyUpdatesDevice(const std::vector<TUint>& aIdArray) override;
-    void NotifyUpdatesAccount(const std::vector<TUint>& aIdArray) override;
 private:
     void IdArrayModerationCallback();
     void UpdateIdArrayLocked();
@@ -54,7 +52,6 @@ private:
     TUint iAccountMax;
     std::vector<Brn> iModes;
     std::vector<TUint> iIdArrayDevice;
-    std::vector<TUint> iIdArrayAccount;
     WriterBwh iWriterIdArray;
     TBool iStarted;
 };

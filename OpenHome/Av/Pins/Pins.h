@@ -145,36 +145,13 @@ private:
     std::vector<TUint> iIds;
 };
 
-class IPinsAccountObserver
-{
-public:
-    virtual ~IPinsAccountObserver() {}
-    virtual void NotifySettable(TBool aConnected, TBool aAssociated) = 0;
-    virtual void NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,
-                                  const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
-                                  const Brx& aArtworkUri, TBool aShuffle) = 0;
-};
-
-class IPinsAccount
-{
-public:
-    virtual ~IPinsAccount() {}
-    virtual void Set(TUint aIndex, const Brx& aMode, const Brx& aType,
-                     const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
-                     const Brx& aArtworkUri, TBool aShuffle) = 0;
-    virtual void Swap(TUint aIndex1, TUint aIndex2) = 0;
-    virtual void SetObserver(IPinsAccountObserver& aObserver) = 0;
-};
-
 class IPinsObserver
 {
 public:
     virtual void NotifyDevicePinsMax(TUint aMax) = 0;
-    virtual void NotifyAccountPinsMax(TUint aMax) = 0;
     virtual void NotifyModeAdded(const Brx& aMode) = 0;
     virtual void NotifyCloudConnected(TBool aConnected) = 0;
     virtual void NotifyUpdatesDevice(const std::vector<TUint>& aIdArray) = 0;
-    virtual void NotifyUpdatesAccount(const std::vector<TUint>& aIdArray) = 0;
     virtual ~IPinsObserver() {}
 };
 
@@ -233,13 +210,6 @@ public:
     virtual void Add(IPinMetadataRefresher* aRefresher) = 0; // transfers ownership
 };
 
-class IPinsAccountStore
-{
-public:
-    virtual ~IPinsAccountStore() {}
-    virtual void SetAccount(IPinsAccount& aAccount, TUint aCount) = 0;
-};
-
 class IPinSetObserver
 {
 public:
@@ -255,10 +225,8 @@ public:
 };
 
 class PinsManager : public IPinsManager
-                  , public IPinsAccountStore
                   , public IPinsInvocable
                   , public IPinSetObservable
-                  , private IPinsAccountObserver
 {
     static const TUint kStartupRefreshDelay = 1000 * 60 * 5; // 5mins
     static const TUint kRefreshPeriod       = 1000 * 60 * 60 * 24; // 24hours
@@ -272,8 +240,6 @@ public:
                 TUint aStartupRefreshDelay = kStartupRefreshDelay,
                 TUint aRefreshPeriod = kRefreshPeriod);
     ~PinsManager();
-public: // from IPinsAccountStore
-    void SetAccount(IPinsAccount& aAccount, TUint aCount) override;
 public: // from IPinsInvocable
     void Add(IPinInvoker* aInvoker) override;
     void Add(IPinMetadataRefresher* aRefresher) override;
@@ -291,20 +257,10 @@ private: // from IPinsManager
     void InvokeId(TUint aId) override;
     void InvokeIndex(TUint aIndex) override;
     void InvokeUri(const Brx& aMode, const Brx& aType, const Brx& aUri, TBool aShuffle) override;
-private: // from IPinsAccountObserver
-    void NotifySettable(TBool aConnected, TBool aAssociated) override;
-    void NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,
-                          const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
-                          const Brx& aArtworkUri, TBool aShuffle) override;
 private: // from  IPinSetObservable
     void Add(IPinSetObserver& aObserver) override;
 private:
-    TBool IsAccountId(TUint aId) const;
-    TBool IsAccountIndex(TUint aIndex) const;
-    TUint AccountFromCombinedIndex(TUint aCombinedIndex) const;
-    const Pin& PinFromId(TUint aId) const;
     TBool TryGetIndexFromId(TUint aId, TUint& aIndex);
-    inline IPinsAccount& AccountSetter();
     void BeginInvoke();
     void NotifyInvocationCompleted();
     TUint TryParsePinUriVersion(const Brx&) const;
@@ -321,9 +277,7 @@ private:
     Semaphore iSemInvokerComplete;
     PinIdProvider iIdProvider;
     PinSet iPinsDevice;
-    PinSet iPinsAccount;
     IPinsObserver* iObserver;
-    IPinsAccount* iAccountSetter;
     IPinSetObserver* iPinSetObserver;
     std::map<Brn, IPinInvoker*, BufferCmp> iInvokers;
     std::map<Brn, IPinMetadataRefresher*, BufferCmp> iRefreshers;

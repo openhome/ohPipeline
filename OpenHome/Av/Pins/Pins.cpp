@@ -417,15 +417,6 @@ void PinSet::GetStoreKey(TUint aIndex, Bwx& aKey)
 static const TChar* kPinSetNameDevice = "Dv";
 static const TChar* kPinSetNameAccount = "Ac";
 
-inline IPinsAccount& PinsManager::AccountSetter()
-{
-    AutoMutex _(iLock);
-    if (iAccountSetter == nullptr) {
-        THROW(PinError);
-    }
-    return *iAccountSetter;
-}
-
 PinsManager::PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevice, IThreadPool& aThreadPool, ITimerFactory& aTimerFactory, TUint aStartupRefreshDelay, TUint aRefreshPeriod)
     : iRefreshPeriod(aRefreshPeriod)
     , iStore(aStore)
@@ -434,9 +425,7 @@ PinsManager::PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevic
     , iLockInvoker("Pin3")
     , iSemInvokerComplete("Pin4", 1)
     , iPinsDevice(aMaxDevice, iIdProvider, aStore, kPinSetNameDevice)
-    , iPinsAccount(0, iIdProvider, aStore, kPinSetNameAccount)
     , iObserver(nullptr)
-    , iAccountSetter(nullptr)
     , iPinSetObserver(nullptr)
     , iInvoke(iIdProvider)
     , iUpdated(iIdProvider)
@@ -468,21 +457,6 @@ PinsManager::~PinsManager()
     delete iRefreshTimer;
 }
 
-void PinsManager::SetAccount(IPinsAccount& aAccount, TUint aCount)
-{
-    {
-        AutoMutex _(iLock);
-        ASSERT(iAccountSetter == nullptr);
-        iAccountSetter = &aAccount;
-        iPinsAccount.SetCount(aCount);
-        if (iObserver != nullptr) {
-            iObserver->NotifyAccountPinsMax(iPinsAccount.Count());
-            iObserver->NotifyUpdatesAccount(iPinsAccount.IdArray());
-        }
-    }
-    AccountSetter().SetObserver(*this);
-}
-
 void PinsManager::Add(IPinInvoker* aInvoker)
 {
     AutoMutex _(iLock);
@@ -509,8 +483,6 @@ void PinsManager::SetObserver(IPinsObserver& aObserver)
     iObserver = &aObserver;
     iObserver->NotifyDevicePinsMax(iPinsDevice.Count());
     iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
-    iObserver->NotifyAccountPinsMax(iPinsAccount.Count());
-    iObserver->NotifyUpdatesAccount(iPinsAccount.IdArray());
     for (auto kvp : iInvokers) {
         iObserver->NotifyModeAdded(kvp.first);
     }
@@ -520,7 +492,6 @@ void PinsManager::SetDeviceDefault(TUint aIndex, const Brx& aMode, const Brx& aT
                      const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
                      TBool aShuffle)
 {
-    ASSERT(!IsAccountIndex(aIndex));
     TBool pinDefaultSet = false;
     Bws<32> key("Pin.");
     key.Append(kPinSetNameDevice);
@@ -568,17 +539,10 @@ void PinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Br
         }
     }
 
-
-    if (IsAccountIndex(aIndex)) {
-        const auto accountIndex = AccountFromCombinedIndex(aIndex);
-        AccountSetter().Set(accountIndex, aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle);
-    }
-    else {
-        AutoMutex _(iLock);
-        if (iPinsDevice.Set(aIndex, aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle)) {
-            if (iObserver != nullptr) {
-                iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
-            }
+    AutoMutex _(iLock);
+    if (iPinsDevice.Set(aIndex, aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle)) {
+        if (iObserver != nullptr) {
+            iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
         }
     }
 }
@@ -586,45 +550,25 @@ void PinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Br
 
 void PinsManager::Clear(TUint aId)
 {
-    if (IsAccountId(aId)) {
-        const TUint index = iPinsAccount.IndexFromId(aId);
-        AccountSetter().Set(index, Brx::Empty(), Brx::Empty(), Brx::Empty(),
-                            Brx::Empty(),Brx::Empty(), Brx::Empty(), false);
-    }
-    else {
-        TUint index = 0;
-        TBool hasIndex = TryGetIndexFromId(aId, index);
-        AutoMutex _(iLock);
-        if (iPinsDevice.Clear(aId)) {
-            if (iObserver != nullptr) {
-                iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
-            }
-            if (iPinSetObserver != nullptr && hasIndex) {
-                iPinSetObserver->NotifyPin(index, Brx::Empty(), Brx::Empty());
-            }
+    TUint index = 0;
+    TBool hasIndex = TryGetIndexFromId(aId, index);
+    AutoMutex _(iLock);
+    if (iPinsDevice.Clear(aId)) {
+        if (iObserver != nullptr) {
+            iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
+        }
+        if (iPinSetObserver != nullptr && hasIndex) {
+            iPinSetObserver->NotifyPin(index, Brx::Empty(), Brx::Empty());
         }
     }
 }
 
 void PinsManager::Swap(TUint aIndex1, TUint aIndex2)
 {
-    if (IsAccountIndex(aIndex1)) {
-        if (!IsAccountIndex(aIndex2)) {
-            THROW(PinError);
-        }
-        const auto index1 = AccountFromCombinedIndex(aIndex1);
-        const auto index2 = AccountFromCombinedIndex(aIndex2);
-        AccountSetter().Swap(index1, index2);
-    }
-    else {
-        if (IsAccountIndex(aIndex2)) {
-            THROW(PinError);
-        }
-        AutoMutex _(iLock);
-        if (iPinsDevice.Swap(aIndex1, aIndex2))  {
-            if (iObserver != nullptr) {
-                iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
-            }
+    AutoMutex _(iLock);
+    if (iPinsDevice.Swap(aIndex1, aIndex2))  {
+        if (iObserver != nullptr) {
+            iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
         }
     }
 }
@@ -635,7 +579,7 @@ void PinsManager::WriteJson(IWriter& aWriter, const std::vector<TUint>& aIds)
     WriterJsonArray writerArray(aWriter);
     for (auto id : aIds) {
         try {
-            auto& pin = PinFromId(id);
+            auto& pin = iPinsDevice.PinFromId(id);
             auto writerPin = writerArray.CreateObject();
             pin.Write(writerPin);
             writerPin.WriteEnd();
@@ -650,7 +594,7 @@ void PinsManager::InvokeId(TUint aId)
     AutoMutex _(iLockInvoke);
     {
         AutoMutex __(iLock);
-        const auto& pin = PinFromId(aId);
+        const auto& pin = iPinsDevice.PinFromId(aId);
         iInvoke.Copy(pin);
     }
     BeginInvoke();
@@ -661,15 +605,8 @@ void PinsManager::InvokeIndex(TUint aIndex)
     AutoMutex _(iLockInvoke);
     {
         AutoMutex __(iLock);
-        if (IsAccountIndex(aIndex)) {
-            const auto index = AccountFromCombinedIndex(aIndex);
-            const auto& pin = iPinsAccount.PinFromIndex(index);
-            iInvoke.Copy(pin);
-        }
-        else {
-            const auto& pin = iPinsDevice.PinFromIndex(aIndex);
-            iInvoke.Copy(pin);
-        }
+        const auto& pin = iPinsDevice.PinFromIndex(aIndex);
+        iInvoke.Copy(pin);
     }
     BeginInvoke();
 }
@@ -733,12 +670,7 @@ TBool PinsManager::TryGetIndexFromId(TUint aId, TUint& aIndex)
 {
     try {
         AutoMutex _(iLock);
-        if (IsAccountId(aId)) {
-            aIndex = iPinsAccount.IndexFromId(aId);
-        }
-        else {
-            aIndex = iPinsDevice.IndexFromId(aId);
-        }
+        aIndex = iPinsDevice.IndexFromId(aId);
     }
     catch (Exception&) {
         return false;
@@ -751,11 +683,6 @@ void PinsManager::RefreshAll()
     {
         AutoMutex m(iLock);
         for(TUint id : iPinsDevice.IdArray()) {
-            if (id != IPinIdProvider::kIdEmpty) {
-                iRefreshRequests.push(id);
-            }
-        }
-        for(TUint id: iPinsAccount.IdArray()) {
             if (id != IPinIdProvider::kIdEmpty) {
                 iRefreshRequests.push(id);
             }
@@ -799,17 +726,9 @@ TBool PinsManager::DoRefreshPinsLocked()
     iRefreshRequests.pop();
 
     // Attempt to resolve this to a stored pin...
-    if (IsAccountId(pinIdToRefresh)) {
-        if (iPinsAccount.Contains(pinIdToRefresh)) {
-            pin = &iPinsAccount.PinFromId(pinIdToRefresh);
-            pinIndex = iPinsAccount.IndexFromId(pinIdToRefresh);
-        }
-    }
-    else {
-        if (iPinsDevice.Contains(pinIdToRefresh)) {
-            pin = &iPinsDevice.PinFromId(pinIdToRefresh);
-            pinIndex = iPinsDevice.IndexFromId(pinIdToRefresh);
-        }
+    if (iPinsDevice.Contains(pinIdToRefresh)) {
+        pin = &iPinsDevice.PinFromId(pinIdToRefresh);
+        pinIndex = iPinsDevice.IndexFromId(pinIdToRefresh);
     }
 
     // If the pin can't be found (likely updated before we've had a chance to process things) we'll try again with the next one
@@ -848,14 +767,9 @@ TBool PinsManager::DoRefreshPinsLocked()
             LOG_INFO(kMedia, "PinsManager::RefreshTask - ID: %u : Refresher indicated that the metadata has changed.\n", pinIdToRefresh);
 
             // NOTE: Can't call 'Set' directly here as that locks itself internally. Without this we'll end up with a recursive lock being taken.
-            if (IsAccountId(pinIdToRefresh)) {
-                AccountSetter().Set(pinIndex, iUpdated.Mode(), iUpdated.Type(), iUpdated.Uri(), iUpdated.Title(), iUpdated.Description(), iUpdated.ArtworkUri(), iUpdated.Shuffle());
-            }
-            else {
-                if (iPinsDevice.Set(pinIndex, iUpdated.Mode(), iUpdated.Type(), iUpdated.Uri(), iUpdated.Title(), iUpdated.Description(), iUpdated.ArtworkUri(), iUpdated.Shuffle())) {
-                    if (iObserver != nullptr) {
-                        iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
-                    }
+            if (iPinsDevice.Set(pinIndex, iUpdated.Mode(), iUpdated.Type(), iUpdated.Uri(), iUpdated.Title(), iUpdated.Description(), iUpdated.ArtworkUri(), iUpdated.Shuffle())) {
+                if (iObserver != nullptr) {
+                    iObserver->NotifyUpdatesDevice(iPinsDevice.IdArray());
                 }
             }
             break;
@@ -873,52 +787,39 @@ TBool PinsManager::DoRefreshPinsLocked()
     return kTryRefreshNextPin;
 }
 
-
-
 static const Brn TryFindQueryValue(const Brx& aUri, const Brx& queryKey)
 {
     Parser parser(aUri);
-
     (void)parser.Next('?'); //Consume up until the query string...
-
-    do
-    {
+    do {
         Brn v = parser.Next('=');
-        if (v == Brx::Empty())
+        if (v == Brx::Empty()) {
             break;
+        }
 
-        if (v == queryKey)
-        {
+        if (v == queryKey) {
             Brn queryValue = parser.Next('&');
-
-            if (queryValue.Bytes() == 0)
+            if (queryValue.Bytes() == 0) {
                 queryValue = parser.Remaining();
-
+            }
             return queryValue;
         }
-        else
-        {
+        else {
             parser.Next('&');
         }
 
     } while(true);
 
-
     return Brx::Empty();
 }
-
-
 
 TUint PinsManager::TryParsePinUriVersion(const Brx& aUri) const
 {
     TUint version = 0;
     Brn versionStr = TryFindQueryValue(aUri, Brn("version"));
-
-    if (versionStr.Bytes() > 0)
-    {
+    if (versionStr.Bytes() > 0) {
         version = Ascii::Uint(versionStr);
     }
-
     return version;
 }
 
@@ -927,67 +828,9 @@ TBool PinsManager::CheckPinUriHasTokenId(const Brx& aUri) const
     return TryFindQueryValue(aUri, Brn("token")).Bytes() > 0;
 }
 
-
-void PinsManager::NotifySettable(TBool aConnected, TBool aAssociated)
-{
-    AutoMutex _(iLock);
-    const TBool settable = aConnected && aAssociated;
-    iObserver->NotifyCloudConnected(settable);
-    if (settable) {
-        iObserver->NotifyAccountPinsMax(iPinsAccount.Count());
-    }
-    else {
-        if (aConnected && !aAssociated) {
-            iPinsAccount.ClearAll();
-        }
-        if (iPinsAccount.IsEmpty()) {
-            iObserver->NotifyAccountPinsMax(0);
-        }
-    }
-}
-
-void PinsManager::NotifyAccountPin(TUint aIndex, const Brx& aMode, const Brx& aType,
-                                  const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
-                                  const Brx& aArtworkUri, TBool aShuffle)
-{
-    AutoMutex _(iLock);
-    if (iPinsAccount.Set(aIndex, aMode, aType, aUri, aTitle, aDescription, aArtworkUri, aShuffle)) {
-        if (iObserver != nullptr) {
-            iObserver->NotifyUpdatesAccount(iPinsAccount.IdArray());
-        }
-    }
-}
-
 void PinsManager::Add(IPinSetObserver& aObserver)
 {
     iPinSetObserver = &aObserver;
-}
-
-TBool PinsManager::IsAccountId(TUint aId) const
-{
-    return !iPinsDevice.Contains(aId);
-}
-
-TBool PinsManager::IsAccountIndex(TUint aIndex) const
-{
-    const auto countDv = iPinsDevice.Count();
-    const auto countAc = iPinsAccount.Count();
-    return aIndex >= countDv && aIndex < countDv + countAc;
-}
-
-TUint PinsManager::AccountFromCombinedIndex(TUint aCombinedIndex) const
-{
-    return aCombinedIndex - iPinsDevice.Count();
-}
-
-const Pin& PinsManager::PinFromId(TUint aId) const
-{
-    try {
-        return iPinsDevice.PinFromId(aId);
-    }
-    catch (PinIdNotFound&) {
-        return iPinsAccount.PinFromId(aId);
-    }
 }
 
 

@@ -500,11 +500,6 @@ ITransportRepeatRandom& MediaPlayer::TransportRepeatRandom()
     return iTransportRepeatRandom;
 }
 
-Optional<IPinsAccountStore> MediaPlayer::PinsAccountStore()
-{
-    return Optional<IPinsAccountStore>(iPinsManager);
-}
-
 Optional<IPinsInvocable> MediaPlayer::PinsInvocable()
 {
     return Optional<IPinsInvocable>(iPinsManager);

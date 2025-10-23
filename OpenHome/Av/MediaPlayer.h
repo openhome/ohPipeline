@@ -67,7 +67,6 @@ class IVolumeManager;
 class IVolumeProfile;
 class ConfigStartupSource;
 class IRebootHandler;
-class IPinsAccountStore;
 class IPinsInvocable;
 class IPinSetObservable;
 class IPinsManager;
@@ -114,7 +113,6 @@ public:
     virtual ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) = 0; // must be called before Start()
     virtual IUnixTimestamp& UnixTimestamp() = 0;
     virtual ITransportRepeatRandom& TransportRepeatRandom() = 0;
-    virtual Optional<IPinsAccountStore> PinsAccountStore() = 0;
     virtual Optional<IPinsInvocable> PinsInvocable() = 0;
     virtual Optional<IPinSetObservable> PinSetObservable() = 0;
     virtual Optional<IPinsManager> PinManager() = 0;
@@ -211,7 +209,6 @@ public: // from IMediaPlayer
     ILoggerSerial& BufferLogOutput(TUint aBytes, IShell& aShell, Optional<ILogPoster> aLogPoster) override; // must be called before Start()
     IUnixTimestamp& UnixTimestamp() override;
     ITransportRepeatRandom& TransportRepeatRandom() override;
-    Optional<IPinsAccountStore> PinsAccountStore() override;
     Optional<IPinsInvocable> PinsInvocable() override;
     Optional<IPinSetObservable> PinSetObservable() override;
     Optional<IPinsManager> PinManager() override;

@@ -110,7 +110,6 @@ private:
 };
 
 class SuitePinsManager : public SuiteUnitTest
-                       , private IPinsAccount
                        , private IPinsObserver
                        , private IPinSetObserver
 {
@@ -119,19 +118,12 @@ public:
 public: // from SuiteUnitTest
     void Setup() override;
     void TearDown() override;
-private: // from IPinsAccount
-    void Set(TUint aIndex, const Brx& aMode, const Brx& aType,
-             const Brx& aUri, const Brx& aTitle, const Brx& aDescription,
-             const Brx& aArtworkUri, TBool aShuffle) override;
-    void Swap(TUint aId1, TUint aId2) override;
-    void SetObserver(IPinsAccountObserver& aObserver) override;
+
 private: // from IPinsObserver
     void NotifyDevicePinsMax(TUint aMax) override;
-    void NotifyAccountPinsMax(TUint aMax) override;
     void NotifyModeAdded(const Brx& aMode) override;
     void NotifyCloudConnected(TBool aConnected) override;
     void NotifyUpdatesDevice(const std::vector<TUint>& aIdArray) override;
-    void NotifyUpdatesAccount(const std::vector<TUint>& aIdArray) override;
 private: // IPinSetObserver
     void NotifyPin(TUint aIndex, const Brx& aMode, const Brx& aType) override;
 private:
@@ -139,9 +131,7 @@ private:
     inline IPinsInvocable* Invocable();
     void SetPin(TUint aIndex);
 private:
-    void TestAccountObserverSet();
     void TestObserverDeviceMaxReported();
-    void TestObserverAccountMaxReported();
     void TestObserverInitialIds();
     void TestObserverModes();
     void TestSetDevicePinObserverNotified();
@@ -157,19 +147,10 @@ private:
     void TestSwapDevicePins();
     void TestSwapDevicePinsObserverNotified();
     void TestSwapDevicePinsInvalidId();
-    void TestNotifyAccountPin();
-    void TestNotifyAccountPinObserverNotified();
-    void TestNotifyAccountSettableObserverNotified();
-    void TestSetAccountPin();
-    void TestClearAccountPin();
-    void TestSwapAccountPins();
-    void TestSwapDeviceAccountPins();
     void TestWriteJson();
     void TestInvokeDevicePinId();
-    void TestInvokeAccountPinId();
     void TestInvokePinInvalidId();
     void TestInvokeDevicePinIndex();
-    void TestInvokeAccountPinIndex();
     void TestInvokePinInvalidIndex();
     void TestInvokeUri();
     void TestInvokeUriInvalidMode();
@@ -188,16 +169,12 @@ private:
     TBool iAccountSetShuffle;
     TUint iAccountSwapId1;
     TUint iAccountSwapId2;
-    IPinsAccountObserver* iAccountObserver;
     TUint iDevicePinsMax;
-    TUint iAccountPinsMax;
     std::vector<Brn> iModes;
     TBool iCloudConnected;
     std::vector<TUint> iIdArrayDevice;
-    std::vector<TUint> iIdArrayAccount;
 private:
     static const TUint kMaxDevicePins;
-    static const TUint kMaxAccountPins;
     static const TChar* kModeStr;
     static const TChar* kVersionedModeStr;
     static const Brn kMode;
@@ -687,7 +664,6 @@ void DummyPinInvoker::Cancel()
 // SuitePinsManager
 
 const TUint SuitePinsManager::kMaxDevicePins = 6;
-const TUint SuitePinsManager::kMaxAccountPins = 10;
 const TChar* SuitePinsManager::kModeStr = "mode";
 const TChar* SuitePinsManager::kVersionedModeStr = "mode-version";
 const Brn SuitePinsManager::kMode(kModeStr);
@@ -703,9 +679,7 @@ const TBool SuitePinsManager::kShuffle = true;
 SuitePinsManager::SuitePinsManager()
     : SuiteUnitTest("PinsManager")
 {
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestAccountObserverSet), "TestAccountObserverSet");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestObserverDeviceMaxReported), "TestObserverDeviceMaxReported");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestObserverAccountMaxReported), "TestObserverAccountMaxReported");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestObserverInitialIds), "TestObserverInitialIds");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestObserverModes), "TestObserverModes");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetDevicePinObserverNotified), "TestSetDevicePinObserverNotified");
@@ -721,19 +695,10 @@ SuitePinsManager::SuitePinsManager()
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSwapDevicePins), "TestSwapDevicePins");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSwapDevicePinsObserverNotified), "TestSwapDevicePinsObserverNotified");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestSwapDevicePinsInvalidId), "TestSwapDevicePinsInvalidId");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestNotifyAccountPin), "TestNotifyAccountPin");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestNotifyAccountPinObserverNotified), "TestNotifyAccountPinObserverNotified");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestNotifyAccountSettableObserverNotified), "TestNotifyAccountSettableObserverNotified");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestSetAccountPin), "TestSetAccountPin");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestClearAccountPin), "TestClearAccountPin");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestSwapAccountPins), "TestSwapAccountPins");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestSwapDeviceAccountPins), "TestSwapDeviceAccountPins");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestWriteJson), "TestWriteJson");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestInvokeDevicePinId), "TestInvokeDevicePinId");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestInvokeAccountPinId), "TestInvokeAccountPinId");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestInvokePinInvalidId), "TestInvokePinInvalidId");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestInvokeDevicePinIndex), "TestInvokeDevicePinIndex");
-    AddTest(MakeFunctor(*this, &SuitePinsManager::TestInvokeAccountPinIndex), "TestInvokeAccountPinIndex");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestInvokePinInvalidIndex), "TestInvokePinInvalidIndex");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestInvokeUri), "TestInvokeUri");
     AddTest(MakeFunctor(*this, &SuitePinsManager::TestInvokeUriInvalidMode), "TestInvokeUriInvalidMode");
@@ -759,12 +724,10 @@ void SuitePinsManager::Setup()
     iAccountSetArtworkUri.Replace(Brx::Empty());
     iAccountSetShuffle = false;
     iAccountSwapId1 = iAccountSwapId2 = UINT_MAX;
-    iAccountObserver = nullptr;
-    iDevicePinsMax = iAccountPinsMax = 0;
+    iDevicePinsMax = 0;
     iModes.clear();
     iCloudConnected = false;
     iIdArrayDevice.clear();
-    iIdArrayAccount.clear();
 }
 
 void SuitePinsManager::TearDown()
@@ -775,40 +738,9 @@ void SuitePinsManager::TearDown()
     delete iThreadPool;
 }
 
-void SuitePinsManager::Set(TUint aIndex, const Brx& aMode, const Brx& aType, const Brx& aUri,
-                           const Brx& aTitle, const Brx& aDescription, const Brx& aArtworkUri,
-                           TBool aShuffle)
-{
-    iAccountSetIndex = aIndex;
-    iAccountSetMode.Replace(aMode);
-    iAccountSetType.Replace(aType);
-    iAccountSetUri.Replace(aUri);
-    iAccountSetTitle.Replace(aTitle);
-    iAccountSetDescription.Replace(aDescription);
-    iAccountSetArtworkUri.Replace(aArtworkUri);
-    iAccountSetShuffle = aShuffle;
-}
-
-void SuitePinsManager::Swap(TUint aId1, TUint aId2)
-{
-    iAccountSwapId1 = aId1;
-    iAccountSwapId2 = aId2;
-}
-
-void SuitePinsManager::SetObserver(IPinsAccountObserver& aObserver)
-{
-    ASSERT(iAccountObserver == nullptr);
-    iAccountObserver = &aObserver;
-}
-
 void SuitePinsManager::NotifyDevicePinsMax(TUint aMax)
 {
     iDevicePinsMax = aMax;
-}
-
-void SuitePinsManager::NotifyAccountPinsMax(TUint aMax)
-{
-    iAccountPinsMax = aMax;
 }
 
 void SuitePinsManager::NotifyModeAdded(const Brx& aMode)
@@ -825,11 +757,6 @@ void SuitePinsManager::NotifyCloudConnected(TBool aConnected)
 void SuitePinsManager::NotifyUpdatesDevice(const std::vector<TUint>& aIdArray)
 {
     iIdArrayDevice = aIdArray;
-}
-
-void SuitePinsManager::NotifyUpdatesAccount(const std::vector<TUint>& aIdArray)
-{
-    iIdArrayAccount = aIdArray;
 }
 
 void SuitePinsManager::NotifyPin(TUint /*aIndex*/, const Brx& /*aMode*/, const Brx& /*aType*/)
@@ -851,13 +778,6 @@ void SuitePinsManager::SetPin(TUint aIndex)
     Manager()->Set(aIndex, kMode, kType, kUri, kTitle, kDescription, kArtworkUri, kShuffle);
 }
 
-void SuitePinsManager::TestAccountObserverSet()
-{
-    TEST(iAccountObserver == nullptr);
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    TEST(iAccountObserver != nullptr);
-}
-
 void SuitePinsManager::TestObserverDeviceMaxReported()
 {
     TEST(iDevicePinsMax == 0);
@@ -865,25 +785,11 @@ void SuitePinsManager::TestObserverDeviceMaxReported()
     TEST(iDevicePinsMax == kMaxDevicePins);
 }
 
-void SuitePinsManager::TestObserverAccountMaxReported()
-{
-    TEST(iAccountPinsMax == 0);
-    Manager()->SetObserver(*this);
-    iPinsManager->SetAccount(*this, 3);
-    TEST(iAccountPinsMax == 3);
-}
-
 void SuitePinsManager::TestObserverInitialIds()
 {
     Manager()->SetObserver(*this);
     TEST(iIdArrayDevice.size() == kMaxDevicePins);
     for (auto id : iIdArrayDevice) {
-        TEST(id == IPinIdProvider::kIdEmpty);
-    }
-
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    TEST(iIdArrayAccount.size() == kMaxAccountPins);
-    for (auto id : iIdArrayAccount) {
         TEST(id == IPinIdProvider::kIdEmpty);
     }
 }
@@ -1064,115 +970,6 @@ void SuitePinsManager::TestSwapDevicePinsInvalidId()
     TEST_THROWS(Manager()->Swap(kMaxDevicePins, 1), PinIndexOutOfRange);
 }
 
-void SuitePinsManager::TestNotifyAccountPin()
-{
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    auto pin = iPinsManager->iPinsAccount.iPins[0];
-    TEST(pin->Mode() == Brx::Empty());
-    iAccountObserver->NotifyAccountPin(0, kMode, kType, kUri, kTitle, kDescription, kArtworkUri, kShuffle);
-    pin = iPinsManager->iPinsAccount.iPins[0];
-    TEST(pin->Mode() == kMode);
-    TEST(pin->Type() == kType);
-    TEST(pin->Uri() == kUri);
-    TEST(pin->Title() == kTitle);
-    TEST(pin->Description() == kDescription);
-    TEST(pin->ArtworkUri() == kArtworkUri);
-    TEST(pin->Shuffle() == kShuffle);
-}
-
-void SuitePinsManager::TestNotifyAccountPinObserverNotified()
-{
-    Manager()->SetObserver(*this);
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    TEST(iIdArrayAccount[1] == IPinIdProvider::kIdEmpty);
-    iAccountObserver->NotifyAccountPin(1, kMode, kType, kUri, kTitle, kDescription, kArtworkUri, kShuffle);
-    TEST(iIdArrayAccount[1] != IPinIdProvider::kIdEmpty);
-}
-
-void SuitePinsManager::TestNotifyAccountSettableObserverNotified()
-{
-    iAccountPinsMax = 42; // any non-zero value
-    Manager()->SetObserver(*this);
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    TEST(!iCloudConnected);
-
-    iAccountObserver->NotifySettable(false, false);
-    TEST(iAccountPinsMax == 0);
-    TEST(!iCloudConnected);
-
-    iAccountObserver->NotifySettable(true, false);
-    TEST(iAccountPinsMax == 0);
-    TEST(!iCloudConnected);
-
-    iAccountObserver->NotifySettable(true, true);
-    TEST(iAccountPinsMax == kMaxAccountPins);
-    TEST(iCloudConnected);
-
-    iAccountObserver->NotifyAccountPin(1, kMode, kType, kUri, kTitle, kDescription, kArtworkUri, kShuffle);
-    iAccountObserver->NotifySettable(false, false);
-    TEST(iAccountPinsMax == kMaxAccountPins);
-    TEST(!iCloudConnected);
-    iAccountObserver->NotifySettable(true, false);
-    TEST(iAccountPinsMax == 0);
-    TEST(!iCloudConnected);
-}
-
-void SuitePinsManager::TestSetAccountPin()
-{
-    iPinsManager->Add(new DummyPinInvoker(kModeStr));
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    TEST(iAccountSetMode != kMode);
-    SetPin(kMaxDevicePins + 1);
-
-    TEST(iAccountSetIndex == 1);
-    TEST(iAccountSetMode == kMode);
-    TEST(iAccountSetType == kType);
-    TEST(iAccountSetUri == kUri);
-    TEST(iAccountSetTitle == kTitle);
-    TEST(iAccountSetDescription == kDescription);
-    TEST(iAccountSetArtworkUri == kArtworkUri);
-    TEST(iAccountSetShuffle == kShuffle);
-}
-
-void SuitePinsManager::TestClearAccountPin()
-{
-    Manager()->SetObserver(*this);
-    iPinsManager->Add(new DummyPinInvoker(kModeStr));
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    TEST(iAccountSetMode != kMode);
-    SetPin(kMaxDevicePins + 1);
-    TEST(iAccountSetIndex == 1);
-    TEST(iAccountSetMode == kMode);
-    iAccountObserver->NotifyAccountPin(1, kMode, kType, kUri, kTitle, kDescription, kArtworkUri, kShuffle);
-    TEST(iIdArrayAccount[1] != IPinIdProvider::kIdEmpty);
-    Manager()->Clear(iIdArrayAccount[1]);
-    TEST(iAccountSetIndex == 1);
-    TEST(iAccountSetMode == Brx::Empty());
-    TEST(iAccountSetType == Brx::Empty());
-    TEST(iAccountSetUri == Brx::Empty());
-    TEST(iAccountSetTitle == Brx::Empty());
-    TEST(iAccountSetDescription == Brx::Empty());
-    TEST(iAccountSetArtworkUri == Brx::Empty());
-    TEST(!iAccountSetShuffle);
-}
-
-void SuitePinsManager::TestSwapAccountPins()
-{
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    Manager()->Swap(kMaxDevicePins, kMaxDevicePins + 1);
-    TEST(iAccountSwapId1 == 0);
-    TEST(iAccountSwapId2 == 1);
-}
-
-void SuitePinsManager::TestSwapDeviceAccountPins()
-{
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    const TUint indexDv = 1;
-    const TUint indexAc = kMaxDevicePins + 1;
-    TEST_THROWS(Manager()->Swap(indexDv, indexAc), PinError);
-    TEST_THROWS(Manager()->Swap(indexAc, indexDv), PinError);
-}
-
 void SuitePinsManager::TestWriteJson()
 {
     Manager()->SetObserver(*this);
@@ -1215,18 +1012,6 @@ void SuitePinsManager::TestInvokeDevicePinId()
     TEST(invoker->InvocationCount() == 1);
 }
 
-void SuitePinsManager::TestInvokeAccountPinId()
-{
-    Manager()->SetObserver(*this);
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    auto invoker = new DummyPinInvoker("dummy");
-    Invocable()->Add(invoker);
-    TEST(invoker->InvocationCount() == 0);
-    iAccountObserver->NotifyAccountPin(2, Brn("dummy"), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
-    Manager()->InvokeId(iIdArrayAccount[2]);
-    TEST(invoker->InvocationCount() == 1);
-}
-
 void SuitePinsManager::TestInvokePinInvalidId()
 {
     Manager()->SetObserver(*this);
@@ -1246,17 +1031,6 @@ void SuitePinsManager::TestInvokeDevicePinIndex()
     TEST(invoker->InvocationCount() == 1);
 }
 
-void SuitePinsManager::TestInvokeAccountPinIndex()
-{
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    auto invoker = new DummyPinInvoker("dummy");
-    Invocable()->Add(invoker);
-    TEST(invoker->InvocationCount() == 0);
-    iAccountObserver->NotifyAccountPin(2, Brn("dummy"), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), Brx::Empty(), false);
-    Manager()->InvokeIndex(kMaxDevicePins + 2);
-    TEST(invoker->InvocationCount() == 1);
-}
-
 void SuitePinsManager::TestInvokePinInvalidIndex()
 {
     auto invoker = new DummyPinInvoker("dummy");
@@ -1264,8 +1038,6 @@ void SuitePinsManager::TestInvokePinInvalidIndex()
     TEST(invoker->InvocationCount() == 0);
     TEST_THROWS(Manager()->InvokeIndex(0), PinModeNotSupported);
     TEST_THROWS(Manager()->InvokeIndex(kMaxDevicePins), PinIndexOutOfRange);
-    iPinsManager->SetAccount(*this, kMaxAccountPins);
-    TEST_THROWS(Manager()->InvokeIndex(kMaxDevicePins + kMaxAccountPins), PinIndexOutOfRange);
 }
 
 void SuitePinsManager::TestInvokeUri()

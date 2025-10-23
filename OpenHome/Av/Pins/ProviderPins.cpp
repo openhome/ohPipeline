@@ -97,12 +97,6 @@ void ProviderPins::NotifyDevicePinsMax(TUint aMax)
     (void)SetPropertyDeviceMax(aMax);
 }
 
-void ProviderPins::NotifyAccountPinsMax(TUint aMax)
-{
-    iAccountMax = aMax;
-    (void)SetPropertyAccountMax(aMax);
-}
-
 void ProviderPins::NotifyModeAdded(const Brx& aMode)
 {
     ASSERT(!iStarted);
@@ -124,15 +118,6 @@ void ProviderPins::NotifyUpdatesDevice(const std::vector<TUint>& aIdArray)
     }
 }
 
-void ProviderPins::NotifyUpdatesAccount(const std::vector<TUint>& aIdArray)
-{
-    AutoMutex _(iLock);
-    iIdArrayAccount = aIdArray;
-    if (iStarted) {
-        iIdArrayModerator->FireIn(kModerationMs);
-    }
-}
-
 void ProviderPins::IdArrayModerationCallback()
 {
     AutoMutex _(iLock);
@@ -144,9 +129,6 @@ void ProviderPins::UpdateIdArrayLocked()
     iWriterIdArray.Reset();
     WriterJsonArray writer(iWriterIdArray, WriterJsonArray::WriteOnEmpty::eEmptyArray);
     for (auto id : iIdArrayDevice) {
-        writer.WriteInt(id);
-    }
-    for (auto id : iIdArrayAccount) {
         writer.WriteInt(id);
     }
     writer.WriteEnd();
