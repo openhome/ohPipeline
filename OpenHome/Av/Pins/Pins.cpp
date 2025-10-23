@@ -415,7 +415,6 @@ void PinSet::GetStoreKey(TUint aIndex, Bwx& aKey)
 // PinsManager
 
 static const TChar* kPinSetNameDevice = "Dv";
-static const TChar* kPinSetNameAccount = "Ac";
 
 PinsManager::PinsManager(Configuration::IStoreReadWrite& aStore, TUint aMaxDevice, IThreadPool& aThreadPool, ITimerFactory& aTimerFactory, TUint aStartupRefreshDelay, TUint aRefreshPeriod)
     : iRefreshPeriod(aRefreshPeriod)
