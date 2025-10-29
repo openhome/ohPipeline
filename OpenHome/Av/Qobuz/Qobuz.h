@@ -16,6 +16,7 @@
 #include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Qobuz/QobuzMetadata.h>
 #include <OpenHome/Media/PipelineObserver.h>
+#include <OpenHome/Media/Pipeline/TrackInspector.h>
 
 #include <atomic>
 #include <vector>
@@ -85,6 +86,7 @@ private:
 class QobuzReactionHandler : public Observable<IReactionHandlerObserver>
                            , public IReactionHandler
                            , public IFavouritesReactionHandler
+                           , public Media::ITrackObserver
 {
 public:
     QobuzReactionHandler(Av::IMediaPlayer& aMediaPlayer);
@@ -98,13 +100,18 @@ private: // from IReactionHandler
     TBool CurrentReactionState(const Brx& aTrackUri, TBool& aCanReact, IWriter& aCurrentReaction, IWriter& aAvailableReactions) override;
     TBool SetReaction(const Brx& aTrackUri, const Brx& aReaction) override;
     TBool ClearReaction(const Brx& aTrackUri) override;
+private: // ITrackObserver
+    void NotifyTrackPlay(Media::Track& aTrack) override;
+    void NotifyTrackFail(Media::Track& aTrack) override;
 private:
+    void SetFavouriteStatusOnTrackChange(FavouriteStatus aStatus);
     void NotifyReactionStateChanged();
     void NotifyObserver(IReactionHandlerObserver&);
 private:
     IThreadPoolHandle *iTaskHandle;
     Bwh iCurrentReaction;
     IFavouritesHandler* iFavouritesHandler;
+    FavouriteStatus iPendingStatus;
 };
 
 class Qobuz : public ICredentialConsumer, private IQobuzTrackObserver, private IFavouritesHandler

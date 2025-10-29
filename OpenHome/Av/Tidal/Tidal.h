@@ -13,6 +13,7 @@
 #include <OpenHome/Av/Tidal/TidalMetadata.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/OAuth.h>
+#include <OpenHome/Media/Pipeline/TrackInspector.h>
         
 #include <vector>
 #include <deque>
@@ -29,6 +30,7 @@ namespace Av {
 class TidalReactionHandler : public Observable<IReactionHandlerObserver>
                            , public IReactionHandler
                            , public IFavouritesReactionHandler
+                           , public Media::ITrackObserver
 {
 public:
     TidalReactionHandler(Av::IMediaPlayer& aMediaPlayer);
@@ -42,13 +44,18 @@ private: // from IReactionHandler
     TBool CurrentReactionState(const Brx& aTrackUri, TBool& aCanReact, IWriter& aCurrentReaction, IWriter& aAvailableReactions) override;
     TBool SetReaction(const Brx& aTrackUri, const Brx& aReaction) override;
     TBool ClearReaction(const Brx& aTrackUri) override;
+private: // ITrackObserver
+    void NotifyTrackPlay(Media::Track& aTrack) override;
+    void NotifyTrackFail(Media::Track& aTrack) override;
 private:
+    void SetFavouriteStatusOnTrackChange(FavouriteStatus aStatus);
     void NotifyReactionStateChanged();
     void NotifyObserver(IReactionHandlerObserver&);
 private:
     IThreadPoolHandle *iTaskHandle;
     Bwh iCurrentReaction;
     IFavouritesHandler* iFavouritesHandler;
+    FavouriteStatus iPendingStatus;
 };
 
 class Tidal : public IOAuthAuthenticator

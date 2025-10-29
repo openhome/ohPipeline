@@ -18,6 +18,7 @@
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Private/Converter.h>
 #include <OpenHome/ThreadPool.h>
+#include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Private/Parser.h>
 
 #include <algorithm>
@@ -1580,8 +1581,10 @@ const Brn kReactionUnfavourite("unfavourite");
 TidalReactionHandler::TidalReactionHandler(Av::IMediaPlayer& aMediaPlayer)
     : iCurrentReaction(32)
     , iFavouritesHandler(nullptr)
+    , iPendingStatus(FavouriteStatus::eUnknown)
 {
     iTaskHandle = aMediaPlayer.ThreadPool().CreateHandle(MakeFunctor(*this, &TidalReactionHandler::NotifyReactionStateChanged), "TidalReactionHandler", ThreadPoolPriority::Low);
+    aMediaPlayer.Pipeline().AddObserver(static_cast<ITrackObserver&>(*this));
 }
 
 TidalReactionHandler::~TidalReactionHandler()
@@ -1676,19 +1679,46 @@ TBool TidalReactionHandler::ClearReaction(const Brx& aTrackUri)
 
 void TidalReactionHandler::SetFavouriteStatus(FavouriteStatus aStatus)
 {
+    iPendingStatus = aStatus;
+}
+
+void TidalReactionHandler::NotifyTrackPlay(Media::Track& /*aTrack*/)
+{
+    SetFavouriteStatusOnTrackChange(iPendingStatus);
+    iPendingStatus = FavouriteStatus::eUnknown;
+}
+
+void TidalReactionHandler::NotifyTrackFail(Media::Track& /*aTrack*/)
+{
+}
+
+void TidalReactionHandler::SetFavouriteStatusOnTrackChange(FavouriteStatus aStatus)
+{
+    TBool changed = false;
     switch (aStatus)
     {
         case IFavouritesReactionHandler::eFavourite:
-            iCurrentReaction.Replace(kReactionFavourite);
+            if (iCurrentReaction != kReactionFavourite) {
+                iCurrentReaction.Replace(kReactionFavourite);
+                changed = true;
+            }
             break;
         case IFavouritesReactionHandler::eUnfavourite:
-            iCurrentReaction.Replace(kReactionUnfavourite);
+            if (iCurrentReaction != kReactionUnfavourite) {
+                iCurrentReaction.Replace(kReactionUnfavourite);
+                changed = true;
+            }
             break;
         case IFavouritesReactionHandler::eUnknown:
         default:
-            iCurrentReaction.Replace(Brx::Empty());
+            if (iCurrentReaction != Brx::Empty()) {
+                iCurrentReaction.Replace(Brx::Empty());
+                changed = true;
+            }
     }
-    iTaskHandle->TrySchedule();
+    if (changed) {
+        iTaskHandle->TrySchedule();
+    }
 }
 
 void TidalReactionHandler::NotifyReactionStateChanged()

@@ -20,6 +20,7 @@
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Media/PipelineManager.h>
 #include <OpenHome/Private/Parser.h>
 
 #include <algorithm>
@@ -1079,8 +1080,10 @@ const Brn kReactionUnfavourite("unfavourite");
 QobuzReactionHandler::QobuzReactionHandler(Av::IMediaPlayer& aMediaPlayer)
     : iCurrentReaction(32)
     , iFavouritesHandler(nullptr)
+    , iPendingStatus(FavouriteStatus::eUnknown)
 {
     iTaskHandle = aMediaPlayer.ThreadPool().CreateHandle(MakeFunctor(*this, &QobuzReactionHandler::NotifyReactionStateChanged), "QobuzReactionHandler", ThreadPoolPriority::Low);
+    aMediaPlayer.Pipeline().AddObserver(static_cast<ITrackObserver&>(*this));
 }
 
 QobuzReactionHandler::~QobuzReactionHandler()
@@ -1175,19 +1178,46 @@ TBool QobuzReactionHandler::ClearReaction(const Brx& aTrackUri)
 
 void QobuzReactionHandler::SetFavouriteStatus(FavouriteStatus aStatus)
 {
+    iPendingStatus = aStatus;
+}
+
+void QobuzReactionHandler::NotifyTrackPlay(Media::Track& /*aTrack*/)
+{
+    SetFavouriteStatusOnTrackChange(iPendingStatus);
+    iPendingStatus = FavouriteStatus::eUnknown;
+}
+
+void QobuzReactionHandler::NotifyTrackFail(Media::Track& /*aTrack*/)
+{
+}
+
+void QobuzReactionHandler::SetFavouriteStatusOnTrackChange(FavouriteStatus aStatus)
+{
+    TBool changed = false;
     switch (aStatus)
     {
         case IFavouritesReactionHandler::eFavourite:
-            iCurrentReaction.Replace(kReactionFavourite);
+            if (iCurrentReaction != kReactionFavourite) {
+                iCurrentReaction.Replace(kReactionFavourite);
+                changed = true;
+            }
             break;
         case IFavouritesReactionHandler::eUnfavourite:
-            iCurrentReaction.Replace(kReactionUnfavourite);
+            if (iCurrentReaction != kReactionUnfavourite) {
+                iCurrentReaction.Replace(kReactionUnfavourite);
+                changed = true;
+            }
             break;
         case IFavouritesReactionHandler::eUnknown:
         default:
-            iCurrentReaction.Replace(Brx::Empty());
+            if (iCurrentReaction != Brx::Empty()) {
+                iCurrentReaction.Replace(Brx::Empty());
+                changed = true;
+            }
     }
-    iTaskHandle->TrySchedule();
+    if (changed) {
+        iTaskHandle->TrySchedule();
+    }
 }
 
 void QobuzReactionHandler::NotifyReactionStateChanged()
