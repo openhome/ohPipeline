@@ -173,6 +173,10 @@ void WriterDIDLXml::FormatDuration(TUint aDuration, EDurationResolution aResolut
     if (aDuration == 0) {
         return;
     }
+    if (aDuration >= 0x7FFFFFFF) {
+        LOG(kMedia, "DIDL-Lite duration suspiciously long - omit.");
+        return;
+    }
 
     // H+:MM:SS[.F0/F1]
     // Fraction of seconds is fixed (value is in milliseconds, so F0 is always
