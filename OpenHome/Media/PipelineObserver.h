@@ -92,6 +92,34 @@ public:
     virtual ~IPipelineObservable() {}
 };
 
+
+class IPipelinePlaybackObserver
+{
+public:
+    enum class EStopReason
+    {
+        UserInteraction, // Stop() was called
+        TrackChange,     // Track boundary
+        SkipForward,     // Next() was called
+        SkipBackward,    // Prev() was called
+    };
+
+    virtual ~IPipelinePlaybackObserver() {};
+    virtual void OnPlaybackStarted(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) = 0;
+    virtual void OnPlaybackPaused(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) = 0;
+    virtual void OnPlaybackResumed(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) = 0;
+    virtual void OnPlaybackStopped(const Brx& aTrackUri, EStopReason aReason) = 0;
+};
+
+class IPipelinePlaybackObservable
+{
+public:
+    virtual ~IPipelinePlaybackObservable() {}
+    virtual void AddObserver(IPipelinePlaybackObserver&) = 0;
+    virtual void RemoveObserver(IPipelinePlaybackObserver&) = 0;
+};
+
+
 class TransportState
 {
 public:

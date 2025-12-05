@@ -59,6 +59,9 @@ public:
     virtual ~IModeObserver() {}
 };
 
+
+class PlaybackStateReporter;
+
 /**
  * External interface to the pipeline.
  */
@@ -66,11 +69,13 @@ class PipelineManager : public IPipeline
                       , public IPipelineIdManager
                       , public IMute
                       , public IPipelineObservable
+                      , public IPipelinePlaybackObservable
                       , public IPostPipelineLatencyObserver
                       , public IAttenuator
                       , public IPipelineDrainer
                       , public IStarterTimed
                       , private IPipelineObserver
+                      , private IPipelinePlaybackObserver
                       , private ISeekRestreamer
                       , private IUrlBlockWriter
 {
@@ -304,6 +309,9 @@ public:
 public: // from IPipelineObservable
     void AddObserver(IPipelineObserver& aObserver) override;
     void RemoveObserver(IPipelineObserver& aObserver) override;
+public: // IPipelinePlaybackObservable
+    void AddObserver(IPipelinePlaybackObserver& aObserver) override;
+    void RemoveObserver(IPipelinePlaybackObserver& aObserver) override;
 private:
     void RemoveAllLocked();
 private: // from IPipeline
@@ -333,6 +341,11 @@ private: // from IPipelineObserver
     void NotifyMetaText(const Brx& aText) override;
     void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) override;
+private: // IPipelinePlaybackObserver
+    void OnPlaybackStarted(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) override;
+    void OnPlaybackPaused(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) override;
+    void OnPlaybackResumed(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) override;
+    void OnPlaybackStopped(const Brx& aTrackUri, EStopReason aReason) override;
 private: // from ISeekRestreamer
     TUint SeekRestream(const Brx& aMode, TUint aTrackId) override;
 private: // from IUrlBlockWriter
@@ -366,12 +379,14 @@ private:
     std::vector<UriProvider*> iUriProviders;
     Mutex iLockObservers;
     std::vector<IPipelineObserver*> iObservers;
+    std::vector<IPipelinePlaybackObserver*> iPlaybackObservers;
     IModeObserver* iModeObserver;
     EPipelineState iPipelineState;
     Semaphore iPipelineStoppedSem;
     BwsMode iMode;
     TUint iTrackId;
     PrefetchObserver* iPrefetchObserver;
+    PlaybackStateReporter* iPlaybackReporter;
 };
 
 } // namespace Media
