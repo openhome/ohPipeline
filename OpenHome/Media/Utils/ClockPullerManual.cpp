@@ -21,7 +21,7 @@ ClockPullerManual::~ClockPullerManual()
     iShell.RemoveCommandHandler(kShellCommand);
 }
 
-void ClockPullerManual::HandleShellCommand(Brn aCommand, const std::vector<Brn>& aArgs, IWriter& aResponse)
+void ClockPullerManual::HandleShellCommand(Brn /*aCommand*/, const std::vector<Brn>& aArgs, IWriter& aResponse)
 {
     if (aArgs.size() != 1) {
         aResponse.Write(Brn("Unexpected number of arguments for \'clock_pull\' command\n"));

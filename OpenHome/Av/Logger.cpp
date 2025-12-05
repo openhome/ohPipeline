@@ -50,7 +50,7 @@ void LoggerSerial::LogFunctor(const TChar* aMsg)
     }
 }
 
-void LoggerSerial::HandleShellCommand(Brn aCommand, const std::vector<Brn>& aArgs, IWriter& aResponse)
+void LoggerSerial::HandleShellCommand(Brn /*aCommand*/, const std::vector<Brn>& aArgs, IWriter& aResponse)
 {
     if (aArgs.size() != 1) {
         aResponse.Write(Brn("Unexpected number of arguments for \'serial\' command\n"));
