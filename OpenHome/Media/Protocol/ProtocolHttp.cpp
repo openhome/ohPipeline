@@ -569,6 +569,9 @@ ProtocolStreamResult ProtocolHttp::DoStream()
     if (iHeaderIcyMetadata.Received()) {
         iReaderIcy->SetEnabled(iHeaderIcyMetadata.Bytes());
     }
+    else {
+        iReaderIcy->Reset();
+    }
 
     if (!iHeaderServer.Received()) {
         iHeaderServer.SetFromUri(iUri.AbsoluteUri());
