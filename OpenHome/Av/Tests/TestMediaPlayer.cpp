@@ -163,7 +163,7 @@ const TUint TestMediaPlayer::kDsdPadBytesPerChunk;
 
 TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                                  const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
-                                 const TChar* aStoreFile, TBool aEnableDash, TUint aOdpPort, TUint aWebUiPort,
+                                 const TChar* aStoreFile, TUint aOdpPort, TUint aWebUiPort,
                                  TUint aMinWebUiResourceThreads, TUint aMaxWebUiTabs, TUint aUiSendQueueSize,
                                  TUint aUiMsgBufCount, TUint aUiMsgBufBytes)
     : iPullableClock(nullptr)
@@ -178,7 +178,6 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     , iTxTimestamper(nullptr)
     , iRxTimestamper(nullptr)
     , iStoreFileWriter(nullptr)
-    , iEnableDash(aEnableDash)
     , iMpegDRMProvider(nullptr)
     , iOdpPort(aOdpPort)
     , iOdpZeroConf(nullptr)
@@ -489,11 +488,8 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     }
     iMediaPlayer->Add(ProtocolFactory::NewHls(aEnv, ssl, iUserAgent));
 
-    if (iEnableDash) {
-        LOG(kEssential, "!! MPEG Dash Support Enabled !!\n");
-        iMediaPlayer->Pipeline().Add(Av::ContentProcessorFactory::NewMPD());
-        iMediaPlayer->Add(ProtocolFactory::NewDash(aEnv, ssl, *iMediaPlayer));
-    }
+    iMediaPlayer->Pipeline().Add(Av::ContentProcessorFactory::NewMPD());
+    iMediaPlayer->Add(ProtocolFactory::NewDash(aEnv, ssl, *iMediaPlayer));
 
     // only add Tidal if we have a token to use with login
     if (iTidalValues.Bytes() > 0) {
