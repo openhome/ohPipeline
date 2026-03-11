@@ -155,7 +155,7 @@ void RaatApp::RaatThread()
 
     status = RAAT__device_run(iDevice);
     if (!RC__STATUS_IS_SUCCESS(status)) {
-        Log::Print("RAAT server exited with error\n");
+        LOG(kEssential, "RAAT server exited with error\n");
     }
 }
 

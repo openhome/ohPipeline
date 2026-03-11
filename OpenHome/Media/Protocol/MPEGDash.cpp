@@ -472,7 +472,7 @@ TBool ContentProtection::TrySet(const Brx& aXml)
 
     while(XmlParserBasic::TryGetElement(kTagContentProtection, xmlToParse, xmlToParse, result)) {
         if (!XmlParserBasic::TryFindAttribute(kTagContentProtection, kAttributeSchemeIdUri, result, attributeValue)) {
-            Log::Print("ContentProtection::TrySet - Failed to find schemeIdUri on ContentProtection element. Element is malformed\n");
+            LOG(kEssential, "ContentProtection::TrySet - Failed to find schemeIdUri on ContentProtection element. Element is malformed\n");
             return false;
         }
 
@@ -485,7 +485,7 @@ TBool ContentProtection::TrySet(const Brx& aXml)
             // Got the main thing outlining the actual protection mechanism
             Parser p;
             if (!TryCreateAttributeParser(result, kTagContentProtection, p)) {
-                Log::Print("ContentProtection::TrySet - Failed to construct attribute parser around a ContentProtection element. Likely element is malformed.\n");
+                LOG(kEssential, "ContentProtection::TrySet - Failed to construct attribute parser around a ContentProtection element. Likely element is malformed.\n");
                 return false;
             }
 
@@ -1525,7 +1525,7 @@ TBool MPDSegmentStream::TryGetMediaSegment(MPDSegment& aSegment)
                 }
 
                 if (iSegmentNumber > segmentNumberAtNow) {
-                    Log::Print("MPDG::HandleSegmentTemplate - Segment number is higher than the segment number associated with our current point in time. Waiting for segment to become available.\n");
+                    LOG(kEssential, "MPDG::HandleSegmentTemplate - Segment number is higher than the segment number associated with our current point in time. Waiting for segment to become available.\n");
 
                     const TUint segmentDurationInSeconds = segment.SegmentDurationInSeconds();
                     Thread::Sleep(segmentDurationInSeconds * 1000);
@@ -1617,7 +1617,7 @@ TBool MPDSegmentStream::TrySet(MPDDocument& aDocument, TBool aIsUpdate)
     }
 
     if (iSegmentXml.Bytes() == 0 || iSegmentType == ESegmentType::Unknown) {
-        Log::Print("!! MPD: Unknown segment type found.\n");
+        LOG(kEssential, "!! MPD: Unknown segment type found.\n");
         return false;
     }
 
@@ -1688,7 +1688,7 @@ TBool MPDSegmentStream::TryGetSegmentTemplateStartingNumber(SegmentTemplate& aSe
         pit = TryParseMPDTime(attributeValue);
     }
     catch (AsciiError&) {
-        Log::Print("!!! Failed to parse MPD time. !!!\n");
+        LOG(kEssential, "!!! Failed to parse MPD time. !!!\n");
         return false;
     }
 
@@ -2236,13 +2236,13 @@ ProtocolStreamResult ProtocolDash::StreamManifest()
                 else {
                     // This is a last chance wait. The SegmentStream class should wait an appropriate length of time
                     // that we never really reach this code.
-                    Log::Print("ProtocolDash::StreamManifest - Desired segment not yet available. Attempt %u/%u\n", tries, maxTries);
+                    LOG(kEssential, "ProtocolDash::StreamManifest - Desired segment not yet available. Attempt %u/%u\n", tries, maxTries);
                     Thread::Sleep(1000);
                 }
             }
 
             if (tries == maxTries && streamResult == EProtocolStreamErrorRecoverable) {
-                Log::Print("ProtocolDash::StreamManifest - Desired segment did not become available after %u attempt(s)\n", tries);
+                LOG(kEssential, "ProtocolDash::StreamManifest - Desired segment did not become available after %u attempt(s)\n", tries);
                 streamResult = EProtocolStreamErrorUnrecoverable;
             }
         }

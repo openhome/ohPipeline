@@ -85,9 +85,9 @@ RadioPresetsTuneIn::RadioPresetsTuneIn(Environment& aEnv,
             iSupportedFormats.Append(kTypes[i].iTuneInFormat);
         }
     }
-    Log::Print("iSupportedFormats = ");
-    Log::Print(iSupportedFormats);
-    Log::Print("\n");
+    LOG(kEssential, "iSupportedFormats = ");
+    LOG(kEssential, iSupportedFormats);
+    LOG(kEssential, "\n");
 
     iReaderResponse.AddHeader(iHeaderContentLength);
 

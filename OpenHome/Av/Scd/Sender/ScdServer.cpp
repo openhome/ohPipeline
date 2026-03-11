@@ -71,12 +71,12 @@ void ScdSession::Run()
 
 void ScdSession::Process(ScdMsgReady& /*aMsg*/)
 {
-    //Log::Print("ScdMsgReady\n");
+    //LOG(kEssential, "ScdMsgReady\n");
 }
 
 void ScdSession::Process(ScdMsgMetadataDidl& aMsg)
 {
-    //Log::Print("ScdMsgMetadataDidl\n");
+    //LOG(kEssential, "ScdMsgMetadataDidl\n");
     if (iMetadata != nullptr) {
         iMetadata->RemoveRef();
     }
@@ -86,7 +86,7 @@ void ScdSession::Process(ScdMsgMetadataDidl& aMsg)
 
 void ScdSession::Process(ScdMsgMetadataOh& aMsg)
 {
-    //Log::Print("ScdMsgMetadataOh\n");
+    //LOG(kEssential, "ScdMsgMetadataOh\n");
     if (iMetadata != nullptr) {
         iMetadata->RemoveRef();
     }
@@ -96,7 +96,7 @@ void ScdSession::Process(ScdMsgMetadataOh& aMsg)
 
 void ScdSession::Process(ScdMsgFormat& aMsg)
 {
-    //Log::Print("ScdMsgFormat\n");
+    //LOG(kEssential, "ScdMsgFormat\n");
     if (iFormat != nullptr) {
         iFormat->RemoveRef();
     }
@@ -107,7 +107,7 @@ void ScdSession::Process(ScdMsgFormat& aMsg)
 
 void ScdSession::Process(ScdMsgFormatDsd& aMsg)
 {
-    //Log::Print("ScdMsgFormat\n");
+    //LOG(kEssential, "ScdMsgFormat\n");
     /*if (iFormat != nullptr) {
         iFormat->RemoveRef();
     }
@@ -121,7 +121,7 @@ void ScdSession::Process(ScdMsgAudioOut& aMsg)
 {
     ASSERT(iFormat != nullptr);
     iSampleStart += aMsg.NumSamples();
-    //Log::Print("ScdMsgAudioOut - samples=%u, total=%llu\n", aMsg.NumSamples(), iSampleStart);
+    //LOG(kEssential, "ScdMsgAudioOut - samples=%u, total=%llu\n", aMsg.NumSamples(), iSampleStart);
     //Thread::Sleep(1000);
 }
 
@@ -132,7 +132,7 @@ void ScdSession::Process(ScdMsgAudioIn& /*aMsg*/)
 
 void ScdSession::Process(ScdMsgMetatextDidl& aMsg)
 {
-    //Log::Print("ScdMsgMetatextDidl\n");
+    //LOG(kEssential, "ScdMsgMetatextDidl\n");
     if (iMetatext != nullptr) {
         iMetatext->RemoveRef();
     }
@@ -142,7 +142,7 @@ void ScdSession::Process(ScdMsgMetatextDidl& aMsg)
 
 void ScdSession::Process(ScdMsgMetatextOh& aMsg)
 {
-    //Log::Print("ScdMsgMetatextOh\n");
+    //LOG(kEssential, "ScdMsgMetatextOh\n");
     if (iMetatext != nullptr) {
         iMetatext->RemoveRef();
     }
@@ -152,12 +152,12 @@ void ScdSession::Process(ScdMsgMetatextOh& aMsg)
 
 void ScdSession::Process(ScdMsgHalt& /*aMsg*/)
 {
-    //Log::Print("ScdMsgHalt\n");
+    //LOG(kEssential, "ScdMsgHalt\n");
 }
 
 void ScdSession::Process(ScdMsgDisconnect& /*aMsg*/)
 {
-    //Log::Print("ScdMsgDisconnect\n");
+    //LOG(kEssential, "ScdMsgDisconnect\n");
 }
 
 void ScdSession::Process(ScdMsgSeek& /*aMsg*/)

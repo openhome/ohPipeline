@@ -1,6 +1,7 @@
 #include <OpenHome/Configuration/Tests/ConfigRamStore.h>
 #include <OpenHome/Private/Converter.h>
 #include <OpenHome/Private/Printer.h>
+#include <OpenHome/Private/Debug.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Configuration;
@@ -84,7 +85,7 @@ void ConfigRamStore::Read(const Brx& aKey, Bwx& aDest)
     }
 
     if (it->second->Bytes() > aDest.MaxBytes()) {
-        Log::Print("ConfigRamStore::Read StoreReadBufferUndersized aKey: %.*s, aDest.MaxBytes(): %u, it->second->Bytes(): %u, it->second: %.*s\n", PBUF(aKey), aDest.MaxBytes(), it->second->Bytes(), PBUF(*it->second));
+        LOG(kEssential, "ConfigRamStore::Read StoreReadBufferUndersized aKey: %.*s, aDest.MaxBytes(): %u, it->second->Bytes(): %u, it->second: %.*s\n", PBUF(aKey), aDest.MaxBytes(), it->second->Bytes(), PBUF(*it->second));
         THROW(StoreReadBufferUndersized);
     }
 
@@ -224,24 +225,24 @@ StorePrinter::StorePrinter(IStoreVisitable& aVisitable)
 
 void StorePrinter::Print()
 {
-    Log::Print("RamStore: [\n");
+    LOG(kEssential, "RamStore: [\n");
     iVisitable.Accept(*this);
-    Log::Print("]\n");
+    LOG(kEssential, "]\n");
 }
 
 void StorePrinter::Visit(const Brx& aKey, const Brx& aValue)
 {
-    Log::Print("   {%.*s, ", PBUF(aKey));
+    LOG(kEssential, "   {%.*s, ", PBUF(aKey));
     // See if value is size of an int. If so, additionally print value as a
     // numeral, in case it is actually a numeric value.
     if (aValue.Bytes() == sizeof(TUint32)) {
         TUint32 val = Converter::BeUint32At(aValue, 0);
-        Log::Print("%u/%.*s", val, PBUF(aValue));
+        LOG(kEssential, "%u/%.*s", val, PBUF(aValue));
     }
     else {
-        Log::Print(aValue);
+        LOG(kEssential, aValue);
     }
-    Log::Print("}\n");
+    LOG(kEssential, "}\n");
 }
 
 
@@ -279,15 +280,15 @@ void StoreFileReaderJson::Read(IStoreReadWrite& aStore)
             }
         }
         catch (JsonCorrupt&) {
-            Log::Print("StoreFileReaderJson::Read Corrupt JSON in config file: %s\n", iFilePath);
+            LOG(kEssential, "StoreFileReaderJson::Read Corrupt JSON in config file: %s\n", iFilePath);
             ASSERTS(); // Indeterminate amount of data read into store. Don't continue with store in unknown state.
         }
         catch (JsonInvalid&) {
-            Log::Print("StoreFileReaderJson::Read Invalid JSON in config file: %s\n", iFilePath);
+            LOG(kEssential, "StoreFileReaderJson::Read Invalid JSON in config file: %s\n", iFilePath);
             ASSERTS();
         }
         catch (JsonUnsupported&) {
-            Log::Print("StoreFileReaderJson::Read Unsupported JSON in config file: %s\n", iFilePath);
+            LOG(kEssential, "StoreFileReaderJson::Read Unsupported JSON in config file: %s\n", iFilePath);
             ASSERTS();
         }
         catch (JsonArrayEnumerationComplete&) {
@@ -296,10 +297,10 @@ void StoreFileReaderJson::Read(IStoreReadWrite& aStore)
         delete file;
     }
     catch (FileOpenError&) {
-        Log::Print("StoreFileReaderJson::Read Unable to open config file: %s. Assuming this is the first run, and a store file does not yet exist.\n", iFilePath);
+        LOG(kEssential, "StoreFileReaderJson::Read Unable to open config file: %s. Assuming this is the first run, and a store file does not yet exist.\n", iFilePath);
     }
     catch (FileReadError&) {
-        Log::Print("StoreFileReaderJson::Read Error reading config file: %s\n", iFilePath);
+        LOG(kEssential, "StoreFileReaderJson::Read Error reading config file: %s\n", iFilePath);
         delete file;
         ASSERTS();
     }
@@ -329,11 +330,11 @@ void StoreFileWriterJson::StoreChanged(IStoreVisitable& aVisitable)
         iFileStream.CloseFile();
     }
     catch (FileOpenError&) {
-        Log::Print("StoreFileWriterJson::StoreChanged Unable to open config file: %s\n", iFilePath);
+        LOG(kEssential, "StoreFileWriterJson::StoreChanged Unable to open config file: %s\n", iFilePath);
         ASSERTS();
     }
     catch (FileWriteError&) {
-        Log::Print("StoreFileWriterJson::StoreChanged Caught FileWriteError while writing to %s.\n", iFilePath);
+        LOG(kEssential, "StoreFileWriterJson::StoreChanged Caught FileWriteError while writing to %s.\n", iFilePath);
 
         // Clean up.
         delete iWriterJsonArray;
@@ -341,7 +342,7 @@ void StoreFileWriterJson::StoreChanged(IStoreVisitable& aVisitable)
         ASSERTS();
     }
     catch (WriterError&) {
-        Log::Print("StoreFileWriterJson::StoreChanged Caught WriterError while writing to %s.\n", iFilePath);
+        LOG(kEssential, "StoreFileWriterJson::StoreChanged Caught WriterError while writing to %s.\n", iFilePath);
 
         // Clean up.
         delete iWriterJsonArray;
@@ -440,10 +441,10 @@ void StoreFileReaderBinary::Read(IStoreReadWrite& aStore)
         delete file;
     }
     catch (FileOpenError&) {
-        Log::Print("StoreFileReaderBinary::Read Unable to open config file: %s. Assuming this is the first run, and a store file does not yet exist.\n", iFilePath);
+        LOG(kEssential, "StoreFileReaderBinary::Read Unable to open config file: %s. Assuming this is the first run, and a store file does not yet exist.\n", iFilePath);
     }
     catch (FileReadError&) {
-        Log::Print("StoreFileReaderBinary::Read Error reading config file: %s\n", iFilePath);
+        LOG(kEssential, "StoreFileReaderBinary::Read Error reading config file: %s\n", iFilePath);
         delete file;
         ASSERTS();
     }
@@ -465,18 +466,18 @@ void StoreFileWriterBinary::StoreChanged(IStoreVisitable& aVisitable)
         iFileStream.CloseFile();
     }
     catch (FileOpenError&) {
-        Log::Print("StoreFileWriterBinary::StoreChanged Unable to open config file: %s\n", iFilePath);
+        LOG(kEssential, "StoreFileWriterBinary::StoreChanged Unable to open config file: %s\n", iFilePath);
         ASSERTS();
     }
     catch (FileWriteError&) {
-        Log::Print("StoreFileWriterBinary::StoreChanged Caught FileWriteError while writing to %s.\n", iFilePath);
+        LOG(kEssential, "StoreFileWriterBinary::StoreChanged Caught FileWriteError while writing to %s.\n", iFilePath);
 
         // Clean up.
         iFileStream.CloseFile();
         ASSERTS();
     }
     catch (WriterError&) {
-        Log::Print("StoreFileWriterBinary::StoreChanged Caught WriterError while writing to %s.\n", iFilePath);
+        LOG(kEssential, "StoreFileWriterBinary::StoreChanged Caught WriterError while writing to %s.\n", iFilePath);
 
         // Clean up.
         iFileStream.CloseFile();

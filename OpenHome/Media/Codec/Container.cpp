@@ -175,14 +175,14 @@ Msg* MsgAudioEncodedCache::PullUpstreamMsg()
 
 void MsgAudioEncodedCache::Discard(TUint aBytes)
 {
-    //Log::Print("MsgAudioEncodedCache::Discard %u bytes\n", aBytes);
+    //LOG(kEssential, "MsgAudioEncodedCache::Discard %u bytes\n", aBytes);
     ASSERT(iDiscardBytesRemaining == 0);
     iDiscardBytesRemaining = aBytes;
 }
 
 void MsgAudioEncodedCache::Inspect(Bwx& aBuf, TUint aBytes)
 {
-    //Log::Print("MsgAudioEncodedCache::Inspect %u bytes\n", aBytes);
+    //LOG(kEssential, "MsgAudioEncodedCache::Inspect %u bytes\n", aBytes);
     ASSERT(iBuffer == nullptr);
     ASSERT(aBytes != 0);
     ASSERT(aBuf.MaxBytes() >= aBytes);
@@ -194,14 +194,14 @@ void MsgAudioEncodedCache::Inspect(Bwx& aBuf, TUint aBytes)
 
 void MsgAudioEncodedCache::Accumulate(TUint aBytes)
 {
-    //Log::Print("MsgAudioEncodedCache::Accumulate %u bytes\n", aBytes);
+    //LOG(kEssential, "MsgAudioEncodedCache::Accumulate %u bytes\n", aBytes);
     ASSERT(iAccumulateBytesRemaining == 0);
     iAccumulateBytesRemaining = aBytes;
 }
 
 Msg* MsgAudioEncodedCache::Pull()
 {
-    //Log::Print(">MsgAudioEncodedCache::Pull iDiscardBytesRemaining: %u, iInspectBytesRemaining: %u, iAccumulateBytesRemaining: %u\n", iDiscardBytesRemaining, iInspectBytesRemaining, iAccumulateBytesRemaining);
+    //LOG(kEssential, ">MsgAudioEncodedCache::Pull iDiscardBytesRemaining: %u, iInspectBytesRemaining: %u, iAccumulateBytesRemaining: %u\n", iDiscardBytesRemaining, iInspectBytesRemaining, iAccumulateBytesRemaining);
 
     Msg* msg = nullptr;
     while (msg == nullptr) {

@@ -150,7 +150,7 @@ void CodecDsdDff::ProcessFverChunk()
 
     if (chunkDataBytes != kChunkDataSize) // this chunk size always = 4
     {
-        Log::Print("CodecDsdDff::ProcessFverChunk()  corrupt! \n");
+        LOG(kEssential, "CodecDsdDff::ProcessFverChunk()  corrupt! \n");
         THROW(CodecStreamCorrupt);
     }
     iController->Read(iInputBuffer, (TUint)chunkDataBytes); // read version string
@@ -159,7 +159,7 @@ void CodecDsdDff::ProcessFverChunk()
 
 void CodecDsdDff::ProcessDsdChunk()
 {
-    //Log::Print("CodecDsdDff::ProcessDsdChunk() \n");
+    //LOG(kEssential, "CodecDsdDff::ProcessDsdChunk() \n");
     iAudioBytesTotal = ReadChunkHeader(Brn("DSD ")); // could be "DSD " or "DST "
 
     if ( (iAudioBytesTotal%2) != 0)
@@ -169,7 +169,7 @@ void CodecDsdDff::ProcessDsdChunk()
 
     iFileHeaderSizeBytes += kChunkHeaderBytes;
     iAudioBytesRemaining = iAudioBytesTotal;
-    Log::Print("CodecDsdDff::ProcessDsdChunk()   iAudioBytesTotal=%lld \n", iAudioBytesTotal);
+    LOG(kEssential, "CodecDsdDff::ProcessDsdChunk()   iAudioBytesTotal=%lld \n", iAudioBytesTotal);
 }
 
 void CodecDsdDff::ProcessPropChunk()
@@ -198,39 +198,39 @@ void CodecDsdDff::ProcessPropChunk()
         iController->Read(iInputBuffer, (TUint)localChunkDataBytes);
 
         bytesRead += 12+localChunkDataBytes;
-        //Log::Print("CodecDsdDff::ProcessPropChunk() bytesRead= %lld \n", bytesRead);
+        //LOG(kEssential, "CodecDsdDff::ProcessPropChunk() bytesRead= %lld \n", bytesRead);
 
         Brn localChunkId = iInputBuffer.Split(0, kChunkDataSize);
-        //Log::Print("CodecDsdDff::ProcessPropChunk() id= %.*s   localchunk bytes= %lld   bytesRead= %lld  propChunkBytes= %lld \n", PBUF(localChunkId), localChunkDataBytes, bytesRead, propChunkBytes);
+        //LOG(kEssential, "CodecDsdDff::ProcessPropChunk() id= %.*s   localchunk bytes= %lld   bytesRead= %lld  propChunkBytes= %lld \n", PBUF(localChunkId), localChunkDataBytes, bytesRead, propChunkBytes);
 
         if (localChunkId == Brn("FS  "))
         {
-            //Log::Print("CodecDsdDff::ProcessPropChunk()  FS \n");
+            //LOG(kEssential, "CodecDsdDff::ProcessPropChunk()  FS \n");
             iSampleRate = Converter::BeUint32At(iInputBuffer, kChunkHeaderBytes);
         }
         else if (localChunkId == Brn("CHNL"))
         {
-            //Log::Print("CodecDsdDff::ProcessPropChunk()  CHNL \n");
+            //LOG(kEssential, "CodecDsdDff::ProcessPropChunk()  CHNL \n");
             iChannelCount = Converter::BeUint16At(iInputBuffer, kChunkHeaderBytes);
             if (iChannelCount!=2)
             {
-                Log::Print("CodecDsdDff::ProcessPropChunk()  CHNL  iChannelCount!=2 unsupported \n");
+                LOG(kEssential, "CodecDsdDff::ProcessPropChunk()  CHNL  iChannelCount!=2 unsupported \n");
                 THROW(CodecStreamFeatureUnsupported);
             }
         }
         else if (localChunkId == Brn("CMPR"))
         {
-            //Log::Print("CodecDsdDff::ProcessPropChunk()  CMPR \n");
+            //LOG(kEssential, "CodecDsdDff::ProcessPropChunk()  CMPR \n");
 
         }        
         else if (localChunkId == Brn("ABSS"))
         {
-            //Log::Print("CodecDsdDff::ProcessPropChunk() ABSS \n");
+            //LOG(kEssential, "CodecDsdDff::ProcessPropChunk() ABSS \n");
 
         }        
         else if (localChunkId == Brn("LSCO"))
         {
-            //Log::Print("CodecDsdDff::ProcessPropChunk()  LSCO \n");
+            //LOG(kEssential, "CodecDsdDff::ProcessPropChunk()  LSCO \n");
         }
     }
 }
@@ -238,7 +238,7 @@ void CodecDsdDff::ProcessPropChunk()
 
 void CodecDsdDff::StreamInitialise()
 {
-    //Log::Print("CodecDsdDff::StreamInitialise()  \n");
+    //LOG(kEssential, "CodecDsdDff::StreamInitialise()  \n");
     iFileHeaderSizeBytes = 0;
     iChannelCount = 0;
     iSampleCount = 0;
@@ -255,17 +255,17 @@ void CodecDsdDff::StreamInitialise()
     iSampleCount = iAudioBytesTotal * 4; // *8 samples per byte, /2 stereo samples
 
 
-    Log::Print("DSDDFF:\n");
-    Log::Print("  iChannelCount = %u\n", iChannelCount);
-    Log::Print("  iSampleRate = %u\n", iSampleRate);
-    Log::Print("  iBitDepth = %u\n", iBitDepth);
-    Log::Print("  iAudioBytesTotal = %llu\n", iAudioBytesTotal);
-    Log::Print("  iAudioBytesRemaining = %llu\n", iAudioBytesRemaining);
-    Log::Print("  iFileSizeBytes = %llu\n", iFileSizeBytes);
-    Log::Print("  iBitRate = %u\n", iBitRate);
-    Log::Print("  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
-    Log::Print("  iTrackLengthJiffies = %llu\n", iTrackLengthJiffies);
-    Log::Print("  iSampleCount = %llu\n", iSampleCount);
+    LOG(kEssential, "DSDDFF:\n");
+    LOG(kEssential, "  iChannelCount = %u\n", iChannelCount);
+    LOG(kEssential, "  iSampleRate = %u\n", iSampleRate);
+    LOG(kEssential, "  iBitDepth = %u\n", iBitDepth);
+    LOG(kEssential, "  iAudioBytesTotal = %llu\n", iAudioBytesTotal);
+    LOG(kEssential, "  iAudioBytesRemaining = %llu\n", iAudioBytesRemaining);
+    LOG(kEssential, "  iFileSizeBytes = %llu\n", iFileSizeBytes);
+    LOG(kEssential, "  iBitRate = %u\n", iBitRate);
+    LOG(kEssential, "  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
+    LOG(kEssential, "  iTrackLengthJiffies = %llu\n", iTrackLengthJiffies);
+    LOG(kEssential, "  iSampleCount = %llu\n", iSampleCount);
 
     iTrackLengthJiffies = iSampleCount * Jiffies::PerSample(iSampleRate);
     iInputBuffer.SetBytes(0);
@@ -425,17 +425,17 @@ TUint64 CodecDsdDff::ReadChunkHeader(const Brx& aExpectedId)
 
         if ( iInputBuffer.Bytes() < kChunkDataSize)
         {
-            //Log::Print("CodecDsdDff::ReadChunkHeader(%.*s)  read less than 4 bytes - corrupt\n", PBUF(aExpectedId));
+            //LOG(kEssential, "CodecDsdDff::ReadChunkHeader(%.*s)  read less than 4 bytes - corrupt\n", PBUF(aExpectedId));
             THROW(CodecStreamCorrupt);
         }
         else if (iInputBuffer.Split(0, kChunkDataSize) == aExpectedId)
         {
-            //Log::Print("CodecDsdDff::ReadChunkHeader(%.*s)  found chunk  dataByteCount= %d\n", PBUF(aExpectedId), dataByteCount);
+            //LOG(kEssential, "CodecDsdDff::ReadChunkHeader(%.*s)  found chunk  dataByteCount= %d\n", PBUF(aExpectedId), dataByteCount);
             break;
         }
         else
         {
-            //Log::Print("CodecDsdDff::ReadChunkHeader(%.*s)  discarding chunk %.*s  data\n", PBUF(aExpectedId), PBUF(iInputBuffer.Split(0, 4)));
+            //LOG(kEssential, "CodecDsdDff::ReadChunkHeader(%.*s)  discarding chunk %.*s  data\n", PBUF(aExpectedId), PBUF(iInputBuffer.Split(0, 4)));
             TUint64 reminingBytes = dataByteCount;
             while(reminingBytes>0)
             {

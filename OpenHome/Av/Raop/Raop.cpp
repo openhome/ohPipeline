@@ -501,7 +501,7 @@ void RaopDiscoverySession::Run()
                 }
                 else if(method == RtspMethod::kRecord) {
                     iWriterResponse->WriteStatus(HttpStatus::kOk, Http::eRtsp10);
-                    //Log::Print("RtspMethod::kRecord seq: %u, rtptime: %u\n", iHeaderRtpInfo.Seq(), iHeaderRtpInfo.RtpTime());
+                    //LOG(kEssential, "RtspMethod::kRecord seq: %u, rtptime: %u\n", iHeaderRtpInfo.Seq(), iHeaderRtpInfo.RtpTime());
                     //iWriterResponse.WriteHeader(Brn("Audio-Latency"), Brn("15409"));  // has no effect on iTunes
                     iWriterResponse->WriteHeader(Brn("Audio-Jack-Status"), Brn("connected; type=analog"));
                     WriteSeq(iHeaderCSeq.CSeq());

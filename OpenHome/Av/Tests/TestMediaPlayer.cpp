@@ -114,17 +114,17 @@ IVolumeProfile::StartupVolume VolumeProfile::StartupVolumeConfig() const
 
 void VolumeSinkLogger::SetVolume(TUint aVolume)
 {
-    Log::Print("SetVolume: %u\n", aVolume);
+    LOG(kEssential, "SetVolume: %u\n", aVolume);
 }
 
 void VolumeSinkLogger::SetBalance(TInt aBalance)
 {
-    Log::Print("SetBalance: %d\n", aBalance);
+    LOG(kEssential, "SetBalance: %d\n", aBalance);
 }
 
 void VolumeSinkLogger::SetFade(TInt aFade)
 {
-    Log::Print("SetFade: %d\n", aFade);
+    LOG(kEssential, "SetFade: %d\n", aFade);
 }
 
 
@@ -132,7 +132,7 @@ void VolumeSinkLogger::SetFade(TInt aFade)
 
 void RebootLogger::Reboot(const Brx& aReason)
 {
-    Log::Print("\n\n\nRebootLogger::Reboot. Reason:\n%.*s\n\n\n", PBUF(aReason));
+    LOG(kEssential, "\n\n\nRebootLogger::Reboot. Reason:\n%.*s\n\n\n", PBUF(aReason));
 }
 
 
@@ -189,7 +189,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
     , iUiMsgBufCount(aUiMsgBufCount)
     , iUiMsgBufBytes(aUiMsgBufBytes)
 {
-    Log::Print("Shell running on port %u\n", aDvStack.Env().Shell()->Port());
+    LOG(kEssential, "Shell running on port %u\n", aDvStack.Env().Shell()->Port());
     iInfoLogger = new Media::AllocatorInfoLogger();
 
     // Do NOT set UPnP friendly name attributes at this stage.
@@ -238,7 +238,7 @@ TestMediaPlayer::TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack,
         iConfigRamStore->AddStoreObserver(*iStoreFileWriter);
     }
     else {
-        Log::Print("No store file parameter specified - will not attempt to load store values from file, and changes to store values will not be persisted.\n");
+        LOG(kEssential, "No store file parameter specified - will not attempt to load store values from file, and changes to store values will not be persisted.\n");
     }
 
     VolumeProfile volumeProfile;
@@ -366,7 +366,7 @@ void TestMediaPlayer::Run()
 
     iServerOdp = new DviServerOdp(iMediaPlayer->DvStack(), kNumOdpSessions, iOdpPort);
     iServerOdp->Start();
-    Log::Print("ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
+    LOG(kEssential, "ODP server running on port %u\n", iServerOdp->Port()); // don't use iOdpPort here - if it is 0, iServerOdp->Port() tells us the host assigned port
     iOdpZeroConf = new OdpZeroConf(iMediaPlayer->Env(), *iServerOdp, iMediaPlayer->FriendlyNameObservable());
     iOdpZeroConf->SetZeroConfEnabled(true);
 
@@ -377,11 +377,11 @@ void TestMediaPlayer::Run()
     StorePrinter storePrinter(*iConfigRamStore);
     storePrinter.Print();
 
-    Log::Print("\nFull (software) media player\n");
-    Log::Print("Intended to be controlled via a separate, standard CP (Kazoo etc.)\n");
+    LOG(kEssential, "\nFull (software) media player\n");
+    LOG(kEssential, "Intended to be controlled via a separate, standard CP (Kazoo etc.)\n");
 
-    Log::Print("Press <q> followed by <enter> to quit:\n");
-    Log::Print("\n");
+    LOG(kEssential, "Press <q> followed by <enter> to quit:\n");
+    LOG(kEssential, "\n");
     while (getchar() != 'q')    // getchar catches stdin, getch does not.....
         ;
 
@@ -490,7 +490,7 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
     iMediaPlayer->Add(ProtocolFactory::NewHls(aEnv, ssl, iUserAgent));
 
     if (iEnableDash) {
-        Log::Print("!! MPEG Dash Support Enabled !!\n");
+        LOG(kEssential, "!! MPEG Dash Support Enabled !!\n");
         iMediaPlayer->Pipeline().Add(Av::ContentProcessorFactory::NewMPD());
         iMediaPlayer->Add(ProtocolFactory::NewDash(aEnv, ssl, *iMediaPlayer));
     }
@@ -511,10 +511,10 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
             apps.push_back(OAuthAppDetails(appId, appClientId, appClientSecret));
         }
 
-        Log::Print("TIDAL: clientId = %.*s, clientSecret = %.*s\n", PBUF(clientId), PBUF(clientSecret));
+        LOG(kEssential, "TIDAL: clientId = %.*s, clientSecret = %.*s\n", PBUF(clientId), PBUF(clientSecret));
         for(const auto& v : apps)
         {
-            Log::Print("    App: ID: %.*s - ClientId = %.*s, Secret = %.*s\n", PBUF(v.AppId()), PBUF(v.ClientId()), PBUF(v.ClientSecret()));
+            LOG(kEssential, "    App: ID: %.*s - ClientId = %.*s, Secret = %.*s\n", PBUF(v.AppId()), PBUF(v.ClientId()), PBUF(v.ClientSecret()));
         }
 
         iMediaPlayer->Add(ProtocolFactory::NewTidal(ssl, clientId, clientSecret, apps, *iMediaPlayer));
@@ -524,11 +524,11 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
         Parser p(iQobuzIdSecret);
         Brn appId(p.Next(':'));
         Brn appSecret(p.Remaining());
-        Log::Print("Qobuz: appId = ");
-        Log::Print(appId);
-        Log::Print(", appSecret = ");
-        Log::Print(appSecret);
-        Log::Print("\n");
+        LOG(kEssential, "Qobuz: appId = ");
+        LOG(kEssential, appId);
+        LOG(kEssential, ", appSecret = ");
+        LOG(kEssential, appSecret);
+        LOG(kEssential, "\n");
         iMediaPlayer->Add(ProtocolFactory::NewQobuz(appId, appSecret, *iMediaPlayer, iUserAgent));
     }
     iMediaPlayer->Add(ProtocolFactory::NewCalmRadio(aEnv, ssl, iUserAgent, *iMediaPlayer));
@@ -634,7 +634,7 @@ void TestMediaPlayer::PowerUp()
 
 void TestMediaPlayer::PowerDown()
 {
-    Log::Print("TestMediaPlayer::PowerDown\n");
+    LOG(kEssential, "TestMediaPlayer::PowerDown\n");
     PowerDownDisable(*iDevice);
     PowerDownDisable(*iDeviceUpnpAv);
 }
@@ -771,7 +771,7 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(
     std::vector<NetworkAdapter*>* subnetList = lib->CreateSubnetList();
     const TUint adapterIndex = aAdapter;
     if (subnetList->size() <= adapterIndex) {
-        Log::Print("ERROR: adapter %u doesn't exist\n", adapterIndex);
+        LOG(kEssential, "ERROR: adapter %u doesn't exist\n", adapterIndex);
         ASSERTS();
     }
     Log::Print ("adapter list:\n");
@@ -788,26 +788,26 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(
 
     Bws<TIpAddressUtils::kMaxAddressBytes> addressBuf;
     TIpAddressUtils::ToString(subnet, addressBuf);
-    Log::Print("using subnet %.*s\n", PBUF(addressBuf));
+    LOG(kEssential, "using subnet %.*s\n", PBUF(addressBuf));
     return lib;
 }
 
 void TestMediaPlayerInit::SeedRandomNumberGenerator(Environment& aEnv, const Brx& aRoom, TIpAddress aAddress, DviServerUpnp& aServer)
 {
     if (aRoom == Brx::Empty()) {
-        Log::Print("ERROR: room must be set\n");
+        LOG(kEssential, "ERROR: room must be set\n");
         ASSERTS();
     }
     // Re-seed random number generator with hash of (unique) room name + UPnP
     // device server port to avoid UDN clashes.
     TUint port = aServer.Port(aAddress);
-    Log::Print("UPnP DV server using port: %u\n", port);
+    LOG(kEssential, "UPnP DV server using port: %u\n", port);
     TUint hash = 0;
     for (TUint i=0; i<aRoom.Bytes(); i++) {
         hash += aRoom[i];
     }
     hash += port;
-    Log::Print("Seeding random number generator with: %u\n", hash);
+    LOG(kEssential, "Seeding random number generator with: %u\n", hash);
     aEnv.SetRandomSeed(hash);
 }
 

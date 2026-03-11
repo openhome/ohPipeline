@@ -255,7 +255,7 @@ void RadioPresets::DoRefresh()
     }
     catch (PresetIndexOutOfRange&) {}
     catch (Exception& ex) {
-        Log::Print("%s from %s:%d\n", ex.Message(), ex.File(), ex.Line());
+        LOG(kEssential, "%s from %s:%d\n", ex.Message(), ex.File(), ex.Line());
         refreshTimer.BackOffRetry();
     }
     iDbWriter.EndSetPresets();
@@ -298,7 +298,7 @@ void RadioPresets::SetPreset(TUint aIndex, const Brx& aStreamUri, const Brx& aTi
 
     writer.WriteEnd();
 
-    //Log::Print("++ Add preset #%u: %.*s\n", presetIndex, PBUF(iPresetUrl));
+    //LOG(kEssential, "++ Add preset #%u: %.*s\n", presetIndex, PBUF(iPresetUrl));
     iDbWriter.SetPreset(aIndex, aStreamUri, iDidlLite);
     iAllocatedPresets[aIndex] = 1; // must come after iDbWriter.SetPreset in case that throws
 }

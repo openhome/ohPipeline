@@ -22,8 +22,8 @@ using namespace OpenHome::Av;
 // iTransportStateOverride exists to support a corner case in SetAVTransportUri.
 // From ~2.4.1.3 (Effect on State of SetAVTransportURI action):
 // ....
-// If the current transport state is “NO MEDIA PRESENT” the transport state
-// changes to “STOPPED”. In all other cases, this action does not change the
+// If the current transport state is ï¿½NO MEDIA PRESENTï¿½ the transport state
+// changes to ï¿½STOPPEDï¿½. In all other cases, this action does not change the
 // transport state of the specified instance.
 //
 // To support remaining in the PAUSED state when a new URI is set, the state
@@ -622,7 +622,7 @@ void ProviderAvTransport::UpdateEventedState()
         Bws<128> buf("-- UpdateEventedState: iTransportStateOverride = ");
         buf.Append(iTransportStateOverride);
         buf.Append('\n');
-        Log::Print(buf);
+        LOG(kEssential, buf);
         AddStateVariable(Brn("TransportState"), iTransportStateOverride);
     }
     else {

@@ -16,7 +16,7 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
     Net::Library* lib = new Net::Library(aInitParams);
     std::vector<Brn> args = OptionParser::ConvertArgs(aArgc, aArgv);
 
-    Log::Print(
+    LOG(kEssential, 
         "\n"
         "======================================================\n"
         "TestCodecMain overriding server name to '127.0.0.1'\n"

@@ -247,12 +247,12 @@ void CodecController::AddCodec(CodecBase* aCodec)
     }
     iCodecs.insert(it, aCodec);
 #if 0
-    Log::Print("Sorted codecs are: ");
+    LOG(kEssential, "Sorted codecs are: ");
     it = iCodecs.begin();
     for (; it!=iCodecs.end(); ++it) {
-        Log::Print("%s, ", (*it)->iId);
+        LOG(kEssential, "%s, ", (*it)->iId);
     }
-    Log::Print("\n");
+    LOG(kEssential, "\n");
 #endif
 }
 
@@ -370,7 +370,7 @@ void CodecController::CodecThread()
                 catch (CodecStreamCorrupt&) {}
                 catch (CodecStreamFeatureUnsupported&) {}
                 catch (CodecRecognitionOutOfData&) {
-                    Log::Print("WARNING: codec %s filled Rewinder during recognition\n", codec->Id());
+                    LOG(kEssential, "WARNING: codec %s filled Rewinder during recognition\n", codec->Id());
                 }
                 iLock.Wait();
                 if (iStreamStarted || iStreamEnded) {
@@ -394,7 +394,7 @@ void CodecController::CodecThread()
                 if (iStreamId != 0  && // FIXME - hard-coded assumption about Filler's NullTrack
                     !iStreamStopped && // we wouldn't necessarily expect to recognise a track if we're told to stop
                     !streamEnded) {    // ...or reach the track end during recognition
-                    Log::Print("Failed to recognise audio format (iStreamStopped=%u, iExpectedFlushId=%u), flushing stream...\n", iStreamStopped, iExpectedFlushId);
+                    LOG(kEssential, "Failed to recognise audio format (iStreamStopped=%u, iExpectedFlushId=%u), flushing stream...\n", iStreamStopped, iExpectedFlushId);
                 }
                 iLock.Wait();
                 if (iExpectedFlushId == MsgFlush::kIdInvalid) {
@@ -725,7 +725,7 @@ void CodecController::OutputDecodedStream(TUint aBitRate, TUint aBitDepth, TUint
         THROW(CodecStreamFeatureUnsupported);
     }
     if (iStreamFormat != MsgEncodedStream::Format::Pcm && aNumChannels > 2) {
-        Log::Print("ERROR: encoded stream with %u channels cannot be played\n", aNumChannels);
+        LOG(kEssential, "ERROR: encoded stream with %u channels cannot be played\n", aNumChannels);
         THROW(CodecStreamFeatureUnsupported);
     }
     auto multiroom = iMultiroom;
@@ -746,7 +746,7 @@ void CodecController::OutputDecodedStreamDsd(TUint aSampleRate, TUint aNumChanne
         THROW(CodecStreamFeatureUnsupported);
     }
     if (aNumChannels > 2) {
-        Log::Print("ERROR: DSD stream with %u channels cannot be played\n", aNumChannels);
+        LOG(kEssential, "ERROR: DSD stream with %u channels cannot be played\n", aNumChannels);
         THROW(CodecStreamFeatureUnsupported);
     }
     static const TUint kBitDepth = 1;
@@ -1156,7 +1156,7 @@ EStreamPlay CodecController::OkToPlay(TUint aStreamId)
 {
     auto streamHandler = iStreamHandler.load();
     EStreamPlay canPlay = streamHandler->OkToPlay(aStreamId);
-    //Log::Print("CodecController::OkToPlay(%u) returned %s\n", aStreamId, kStreamPlayNames[canPlay]);
+    //LOG(kEssential, "CodecController::OkToPlay(%u) returned %s\n", aStreamId, kStreamPlayNames[canPlay]);
     return canPlay;
 }
 

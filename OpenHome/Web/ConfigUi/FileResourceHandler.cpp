@@ -128,7 +128,7 @@ void LanguageResourceFileReader::Process(const Brx& aKey, IResourceFileConsumer&
         LOG(kHttp, "LanguageResourceFileReader::Run ReaderError\n");
     }
     if (!entryProcessed) {
-        Log::Print("LanguageResourceFileReader::Process Failed to process key: %.*s\n", PBUF(aKey));
+        LOG(kEssential, "LanguageResourceFileReader::Process Failed to process key: %.*s\n", PBUF(aKey));
         ASSERTS();
     }
     iReaderText.ReadFlush();

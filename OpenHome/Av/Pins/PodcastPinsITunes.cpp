@@ -274,11 +274,11 @@ PodcastPinsITunes::PodcastPinsITunes(Media::TrackFactory& aTrackFactory, Environ
     iListenedDates.SetBytes(0);
     try {
         iStore.Read(kStoreKeyITunesPodcast, iListenedDates);
-        Log::Print("PodcastPinsITunes Load listened dates from store: %.*s\n", PBUF(iListenedDates));
+        LOG(kEssential, "PodcastPinsITunes Load listened dates from store: %.*s\n", PBUF(iListenedDates));
     }
     catch (StoreKeyNotFound&) {
         // Key not in store, so no config stored yet and nothing to parse.
-        Log::Print("Store Key not found: %.*s\n", PBUF(kStoreKeyITunesPodcast));
+        LOG(kEssential, "Store Key not found: %.*s\n", PBUF(kStoreKeyITunesPodcast));
     }
 
     if (iListenedDates.Bytes() > 0) {

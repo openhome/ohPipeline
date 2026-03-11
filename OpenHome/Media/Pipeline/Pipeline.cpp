@@ -997,7 +997,7 @@ void Pipeline::LogBuffers() const
     const TUint encodedBytes = iEncodedAudioReservoir->SizeInBytes();
     const TUint decodedMs = Jiffies::ToMs(iDecodedAudioReservoir->SizeInJiffies());
     const TUint starvationMs = Jiffies::ToMs(iStarvationRamper->SizeInJiffies());
-    Log::Print("Pipeline utilisation: encodedBytes=%u, decodedMs=%u, starvationRamper=%u\n",
+    LOG(kEssential, "Pipeline utilisation: encodedBytes=%u, decodedMs=%u, starvationRamper=%u\n",
                encodedBytes, decodedMs, starvationMs);
 #ifdef PIPELINE_LOG_AUDIO_THROUGHPUT
     LogComponentAudioThroughput(iLoggerCodecController);
@@ -1143,7 +1143,7 @@ void Pipeline::NotifyStarvationRamperBuffering(TBool aBuffering)
         if (aBuffering && !iWaiting) {
             const TUint encodedBytes = iEncodedAudioReservoir->SizeInBytes();
             const TUint decodedMs = Jiffies::ToMs(iDecodedAudioReservoir->SizeInJiffies());
-            Log::Print("Pipeline utilisation: encodedBytes=%u, decodedMs=%u\n", encodedBytes, decodedMs);
+            LOG(kEssential, "Pipeline utilisation: encodedBytes=%u, decodedMs=%u\n", encodedBytes, decodedMs);
         }
 #endif
     }

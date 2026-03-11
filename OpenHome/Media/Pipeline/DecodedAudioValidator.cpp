@@ -2,6 +2,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Private/Printer.h>
+#include <OpenHome/Private/Debug.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
@@ -70,7 +71,7 @@ void DecodedAudioValidator::Push(Msg* aMsg)
 
 Msg* DecodedAudioValidator::ProcessMsg(MsgMode* aMsg)
 {
-    //Log::Print("MsgMode (%s)\n", iId);
+    //LOG(kEssential, "MsgMode (%s)\n", iId);
     iExpectDecodedStreamBeforeAudio = true;
     return aMsg;
 }
@@ -78,7 +79,7 @@ Msg* DecodedAudioValidator::ProcessMsg(MsgMode* aMsg)
 Msg* DecodedAudioValidator::ProcessMsg(MsgTrack* aMsg)
 {
     if (aMsg->StartOfStream()) {
-        //Log::Print("MsgTrack (%s)\n", iId);
+        //LOG(kEssential, "MsgTrack (%s)\n", iId);
         iExpectDecodedStreamBeforeAudio = true;
     }
     return aMsg;
@@ -86,21 +87,21 @@ Msg* DecodedAudioValidator::ProcessMsg(MsgTrack* aMsg)
 
 Msg* DecodedAudioValidator::ProcessMsg(MsgEncodedStream* aMsg)
 {
-    //Log::Print("MsgEncodedStream (%s)\n", iId);
+    //LOG(kEssential, "MsgEncodedStream (%s)\n", iId);
     iExpectDecodedStreamBeforeAudio = true;
     return aMsg;
 }
 
 Msg* DecodedAudioValidator::ProcessMsg(MsgStreamInterrupted* aMsg)
 {
-    //Log::Print("MsgStreamInterrupted (%s)\n", iId);
+    //LOG(kEssential, "MsgStreamInterrupted (%s)\n", iId);
     iExpectDecodedStreamBeforeAudio = true;
     return aMsg;
 }
 
 Msg* DecodedAudioValidator::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    //Log::Print("MsgDecodedStream (%s)\n", iId);
+    //LOG(kEssential, "MsgDecodedStream (%s)\n", iId);
     iExpectDecodedStreamBeforeAudio = false;
     const DecodedStreamInfo& streamInfo = aMsg->StreamInfo();
     iStreamPos = streamInfo.SampleStart() * Jiffies::PerSample(streamInfo.SampleRate());
@@ -123,16 +124,16 @@ void DecodedAudioValidator::ProcessAudio(MsgAudioDecoded* aMsg)
 {
     const TUint64 streamPos = aMsg->TrackOffset();
     if (iExpectDecodedStreamBeforeAudio) {
-        Log::Print("WARNING: discontinuity in audio (%s): expected DecodedStream before audio. Pos=%llu, jiffies=%u(%ums)\n",
+        LOG(kEssential, "WARNING: discontinuity in audio (%s): expected DecodedStream before audio. Pos=%llu, jiffies=%u(%ums)\n",
             iId, aMsg->TrackOffset(), aMsg->Jiffies(), Jiffies::ToMs(aMsg->Jiffies()));
     }
     else if (streamPos != MsgAudioPcm::kTrackOffsetInvalid) {
         if (iStreamPos < streamPos) {
-            Log::Print("WARNING: discontinuity in audio (%s): missing [%llu..%llu) (%dms)\n",
+            LOG(kEssential, "WARNING: discontinuity in audio (%s): missing [%llu..%llu) (%dms)\n",
                 iId, iStreamPos, streamPos, (static_cast<TInt>(streamPos-iStreamPos) / Jiffies::kPerMs));
         }
         else if (iStreamPos > streamPos) {
-            Log::Print("WARNING: discontinuity in audio (%s): moved backwards %llu (%ums)\n",
+            LOG(kEssential, "WARNING: discontinuity in audio (%s): moved backwards %llu (%ums)\n",
                 iId, iStreamPos - streamPos, (static_cast<TUint>(iStreamPos - streamPos)) / Jiffies::kPerMs);
         }
         iStreamPos = streamPos + aMsg->Jiffies();

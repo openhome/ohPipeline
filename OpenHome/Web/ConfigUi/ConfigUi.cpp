@@ -1599,7 +1599,7 @@ ConfigAppBase::ConfigAppBase(IInfoAggregator& aInfoAggregator, IConfigManager& a
     ASSERT(aResourceHandlersCount > 0);
     ASSERT(aMaxTabs > 0);
 
-    Log::Print("ConfigAppBase::ConfigAppBase iResourcePrefix: %.*s\n", PBUF(iResourcePrefix));
+    LOG(kEssential, "ConfigAppBase::ConfigAppBase iResourcePrefix: %.*s\n", PBUF(iResourcePrefix));
 
     iLangResourceDir.Replace(aResourceDir);
     if (iLangResourceDir.Bytes() == 0 || iLangResourceDir[iLangResourceDir.Bytes()-1] != '/') {
@@ -1709,10 +1709,10 @@ ILanguageResourceReader& ConfigAppBase::CreateLanguageResourceHandler(const Brx&
             // No mapping found; should have been able to find kDefaultLanguage.
             // Useless to just assert here; print out all language resources
             // searched for.
-            Log::Print("ConfigAppBase::CreateLanguageResourceHandler aResourceUriTail: %.*s\n", PBUF(aResourceUriTail));
-            Log::Print("Languages:\n");
+            LOG(kEssential, "ConfigAppBase::CreateLanguageResourceHandler aResourceUriTail: %.*s\n", PBUF(aResourceUriTail));
+            LOG(kEssential, "Languages:\n");
             for (TUint j=0; j<languages.size(); j++) {
-                Log::Print("\t%.*s\n", PBUF(languages[j]));
+                LOG(kEssential, "\t%.*s\n", PBUF(languages[j]));
             }
             ASSERTS();
         }

@@ -97,11 +97,11 @@ TBool CodecWav::Recognise(const EncodedStreamInfo& aStreamInfo)
         return true;
     }
 #if 0 // debug helper
-    Log::Print("CodecWav::Recognise() failed.  Was passed data \n  ");
+    LOG(kEssential, "CodecWav::Recognise() failed.  Was passed data \n  ");
     for (TUint i=0; i<buf.Bytes(); i++) {
-        Log::Print(" %02x", buf[i]);
+        LOG(kEssential, " %02x", buf[i]);
     }
-    Log::Print("\n");
+    LOG(kEssential, "\n");
 #endif
     return false;
 }

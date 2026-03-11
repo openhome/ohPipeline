@@ -706,7 +706,7 @@ void PipelineManager::StopPrefetch(const Brx& aMode, TUint aTrackId)
                                           timeout after 5s as a workaround */
     }
     catch (Timeout&) {
-        Log::Print("Timeout from PipelineManager::StopPrefetch.  trackId=%u, mode=%.*s\n", aTrackId, PBUF(aMode));
+        LOG(kEssential, "Timeout from PipelineManager::StopPrefetch.  trackId=%u, mode=%.*s\n", aTrackId, PBUF(aMode));
     }
 }
 

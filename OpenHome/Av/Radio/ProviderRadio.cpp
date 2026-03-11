@@ -184,7 +184,7 @@ void ProviderRadio::Id(IDvInvocation& aInvocation, IDvInvocationResponseUint& aV
 
 void ProviderRadio::SetId(IDvInvocation& aInvocation, TUint aValue, const Brx& aUri)
 {
-    Log::Print("ProviderRadio::SetId(%u, %.*s)\n", aValue, PBUF(aUri));
+    LOG(kEssential, "ProviderRadio::SetId(%u, %.*s)\n", aValue, PBUF(aUri));
     AutoMutex _(iActionLock);
     if (!iSource.TryFetch(aValue, aUri)) {
         AutoMutex __(iLock);

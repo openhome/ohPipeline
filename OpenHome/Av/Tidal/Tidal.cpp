@@ -240,7 +240,7 @@ TBool Tidal::TryGetTrackId(const Brx& aQuery,
 
     // - V2
     // Valiate tokenId...
-    Log::Print("%.*s\n", PBUF(aTokenId.Buffer()));
+    LOG(kEssential, "%.*s\n", PBUF(aTokenId.Buffer()));
     if (version == 2 && aTokenId.Buffer().Bytes() == 0)
     {
         LOG_ERROR(kPipeline, "TryGetTrackId failed - no token id value\n");
@@ -568,7 +568,7 @@ TBool Tidal::TryGetResponseLocked(IWriter& aWriter,
     }
 
     try {
-        Log::Print("Tidal::TryGetResponse: Request for 'https://%.*s%.*s'\n", PBUF(aHost), PBUF(aPathAndQuery));
+        LOG(kEssential, "Tidal::TryGetResponse: Request for 'https://%.*s%.*s'\n", PBUF(aHost), PBUF(aPathAndQuery));
 
         ServiceToken accessToken;
         if (!iTokenProvider->TryGetToken(aUserInfo.TokenId(), accessToken)) {
@@ -695,7 +695,7 @@ void Tidal::WriteRequestHeaders(const Brx& aMethod,
 
     if (aAccessToken.Bytes() > 0)
     {
-        Log::Print("Using AccessToken: %.*s\n", PBUF(aAccessToken));
+        LOG(kEssential, "Using AccessToken: %.*s\n", PBUF(aAccessToken));
         OAuth::WriteAccessTokenHeader(iWriterRequest, aAccessToken);
     }
 
@@ -1351,7 +1351,7 @@ TBool Tidal::FavoriteTrack(const Brx& aTrackUri)
         writerBody.Write(Brn("trackId="));
         writerBody.Write(trackId);
 
-        //Log::Print("###### Tidal::FavoriteTrack pathAndQuery = %.*s, iReqBody = %.*s\n", PBUF(pathAndQuery), PBUF(iReqBody));
+        //LOG(kEssential, "###### Tidal::FavoriteTrack pathAndQuery = %.*s, iReqBody = %.*s\n", PBUF(pathAndQuery), PBUF(iReqBody));
 
         WriteRequestHeaders(Http::kMethodPost, kHost, pathAndQuery, kPort, Connection::Close, iReqBody.Bytes(), accessToken.token);
 
@@ -1428,7 +1428,7 @@ TBool Tidal::UnfavoriteTrack(const Brx& aTrackUri)
         pathAndQuery.Append("?countryCode=");
         pathAndQuery.Append(userInfo->CountryCode());
 
-        //Log::Print("###### Tidal::UnfavoriteTrack pathAndQuery = %.*s\n", PBUF(pathAndQuery));
+        //LOG(kEssential, "###### Tidal::UnfavoriteTrack pathAndQuery = %.*s\n", PBUF(pathAndQuery));
 
         WriteRequestHeaders(Http::kMethodDelete, kHost, pathAndQuery, kPort, Connection::Close, 0, accessToken.token);
 
@@ -1511,7 +1511,7 @@ TBool Tidal::TryGetTrackFavouriteStatus(const Brx& aTrackId, const Brx& aTokenId
         pathAndQuery.Append("/favorites/ids?countryCode=");
         pathAndQuery.Append(userInfo->CountryCode());
 
-        //Log::Print("###### Tidal::TryGetTrackFavouriteStatus pathAndQuery = %.*s\n", PBUF(pathAndQuery));
+        //LOG(kEssential, "###### Tidal::TryGetTrackFavouriteStatus pathAndQuery = %.*s\n", PBUF(pathAndQuery));
 
         WriteRequestHeaders(Http::kMethodGet, kHost, pathAndQuery, kPort, Connection::Close, 0, accessToken.token);
         
@@ -1538,7 +1538,7 @@ TBool Tidal::TryGetTrackFavouriteStatus(const Brx& aTrackId, const Brx& aTokenId
                 try {
                     for (;;) {
                         Brn trackId = jsonParserArray.NextString();
-                        //Log::Print("Favorite track id = %.*s\n", PBUF(trackId));
+                        //LOG(kEssential, "Favorite track id = %.*s\n", PBUF(trackId));
                         if (trackId == aTrackId) {
                             aIsFavourite = true;
                             break;

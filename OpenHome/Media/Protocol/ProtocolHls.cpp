@@ -217,13 +217,13 @@ Brn ReaderLogger::Read(TUint aBytes)
     try {
         auto buf = iReader.Read(aBytes);
         if (iEnabled) {
-            Log::Print("ReaderLogger::Read %s, aBytes: %u, buf.Bytes(): %u, buf:\n\t%.*s\n", iId, aBytes, buf.Bytes(), PBUF(buf));
+            LOG(kEssential, "ReaderLogger::Read %s, aBytes: %u, buf.Bytes(): %u, buf:\n\t%.*s\n", iId, aBytes, buf.Bytes(), PBUF(buf));
         }
         return buf;
     }
     catch (const ReaderError&) {
         if (iEnabled) {
-            Log::Print("ReaderLogger::Read %s, aBytes: %u, caught ReaderError.\n", iId, aBytes);
+            LOG(kEssential, "ReaderLogger::Read %s, aBytes: %u, caught ReaderError.\n", iId, aBytes);
         }
         throw;
     }

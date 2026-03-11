@@ -50,9 +50,9 @@ DriverSongcastSender::DriverSongcastSender(IPipelineElementUpstream& aPipeline, 
 
     Bws<64> udn("Driver-");
     udn.Append(aName);
-    Log::Print("Songcasting driver is ");
-    Log::Print(udn);
-    Log::Print("\n");
+    LOG(kEssential, "Songcasting driver is ");
+    LOG(kEssential, udn);
+    LOG(kEssential, "\n");
     iDevice = new Net::DvDeviceStandard(aDvStack, udn, *this);
     iDevice->SetAttribute("Upnp.Domain", "av.openhome.org");
     iDevice->SetAttribute("Upnp.Type", "Songcast");

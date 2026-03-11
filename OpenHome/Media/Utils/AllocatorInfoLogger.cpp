@@ -1,6 +1,7 @@
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Private/Debug.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
@@ -25,12 +26,12 @@ void AllocatorInfoLogger::Register(IInfoProvider& aProvider, std::vector<Brn>& /
 
 void AllocatorInfoLogger::Write(TByte aValue)
 {
-    Log::Print("%c", aValue);
+    LOG(kEssential, "%c", aValue);
 }
 
 void AllocatorInfoLogger::Write(const Brx& aBuffer)
 {
-    Log::Print(aBuffer);
+    LOG(kEssential, aBuffer);
 }
 
 void AllocatorInfoLogger::WriteFlush()

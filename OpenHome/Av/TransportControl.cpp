@@ -4,6 +4,7 @@
 #include <OpenHome/Json.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Parser.h>
+#include <OpenHome/Private/Debug.h>
 
 #include <vector>
 

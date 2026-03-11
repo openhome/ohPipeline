@@ -109,7 +109,7 @@ TBool UrlPins::LoadStream(const Brx& aStream, const IPin& aPin)
         return true;
     }
     catch (Exception& ex) {
-        Log::Print("%s in UrlPins::LoadStream\n", ex.Message());
+        LOG(kEssential, "%s in UrlPins::LoadStream\n", ex.Message());
         return false;
     }
 }

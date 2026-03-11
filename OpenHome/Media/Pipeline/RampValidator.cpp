@@ -71,7 +71,7 @@ void RampValidator::Push(Msg* aMsg)
 
 void RampValidator::Reset(const TChar* /*aCallerId*/)
 {
-    //Log::Print("RampValidator::Reset() - %s %s\n", iId, aCallerId);
+    //LOG(kEssential, "RampValidator::Reset() - %s %s\n", iId, aCallerId);
     //LOG(kMedia, "RampValidator::Reset() - %s %s\n", iId, aCallerId);
     iRamping = false;
     iLastRamp = UINT_MAX;
@@ -99,7 +99,7 @@ void RampValidator::ProcessAudio(const Ramp& aRamp)
     if (iRamping) {
         if (aRamp.Start() != iLastRamp) {
             if (!iDraining || (aRamp.Start() != Ramp::kMin && aRamp.Start() != Ramp::kMax)) {
-                Log::Print("WARNING: discontinuity in ramp (%s): expected %08x, got %08x\n", iId, iLastRamp, aRamp.Start());
+                LOG(kEssential, "WARNING: discontinuity in ramp (%s): expected %08x, got %08x\n", iId, iLastRamp, aRamp.Start());
             }
         }
         iLastRamp = aRamp.End();
@@ -109,12 +109,12 @@ void RampValidator::ProcessAudio(const Ramp& aRamp)
         iRamping = true;
         if (aRamp.Direction() == Ramp::EUp) {
             if (aRamp.Start() != Ramp::kMin) {
-                Log::Print("WARNING: ramp up (%s) started at %08x\n", iId, aRamp.Start());
+                LOG(kEssential, "WARNING: ramp up (%s) started at %08x\n", iId, aRamp.Start());
             }
         }
         else if (aRamp.Direction() == Ramp::EDown) {
             if (aRamp.Start() != Ramp::kMax) {
-                Log::Print("WARNING: ramp down (%s) started at %08x\n", iId, aRamp.Start());
+                LOG(kEssential, "WARNING: ramp down (%s) started at %08x\n", iId, aRamp.Start());
             }
         }
         iLastRamp = aRamp.End();

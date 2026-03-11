@@ -69,7 +69,7 @@ void TestMediaPlayerThread::RunInThread()
     Bwh udn;
     // Note: prefix udn with 4c494e4e- to get older versions of Linn Konfig to recognise our devices
     TestMediaPlayerInit::AppendUniqueId(dvStack->Env(), iOptions.Udn().Value(), Brn("TestMediaPlayer"), udn);
-    Log::Print("UDN is %.*s\n", PBUF(udn));
+    LOG(kEssential, "UDN is %.*s\n", PBUF(udn));
 
     // Create TestMediaPlayer.
     TestMediaPlayer* tmp = new TestMediaPlayer(*dvStack, *cpStack, udn, iOptions.Room().CString(), iOptions.Name().CString(),

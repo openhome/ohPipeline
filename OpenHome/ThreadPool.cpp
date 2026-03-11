@@ -140,10 +140,10 @@ ThreadPool::PriorityQueue::~PriorityQueue()
         delete *it;
     }
     if (iHead != nullptr) {
-        Log::Print("ThreadPool::PriorityQueue handles leaked:\n");
+        LOG(kEssential, "ThreadPool::PriorityQueue handles leaked:\n");
         auto h = iHead;
         while (h != nullptr) {
-            Log::Print("\t%s\n", h->iId);
+            LOG(kEssential, "\t%s\n", h->iId);
             h = h->iNext;
         }
     }

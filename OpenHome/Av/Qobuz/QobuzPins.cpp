@@ -201,12 +201,12 @@ TBool QobuzPins::LoadByStringQuery(const Brx& aQuery, QobuzMetadata::EIdType aId
     }
 
     if (!IsValidId(aQuery, aIdType)) {
-        Log::Print("QobuzPins::LoadByStringQuery - Invalid item ID %.*s (Type: %.*s)\n", PBUF(aQuery), PBUF(QobuzMetadata::IdTypeToString(aIdType)));
+        LOG(kEssential, "QobuzPins::LoadByStringQuery - Invalid item ID %.*s (Type: %.*s)\n", PBUF(aQuery), PBUF(QobuzMetadata::IdTypeToString(aIdType)));
         return false;
     }
 
     if (aQuery.Bytes() > inputBuf.MaxBytes()) {
-        Log::Print("QobuzPins::LoadByStringQuery - ID too long. Space: %u, size needed: %u (Type: %.*s)\n", inputBuf.MaxBytes(), aQuery.Bytes(), PBUF(QobuzMetadata::IdTypeToString(aIdType)));
+        LOG(kEssential, "QobuzPins::LoadByStringQuery - ID too long. Space: %u, size needed: %u (Type: %.*s)\n", inputBuf.MaxBytes(), aQuery.Bytes(), PBUF(QobuzMetadata::IdTypeToString(aIdType)));
     }
 
     inputBuf.Replace(aQuery);

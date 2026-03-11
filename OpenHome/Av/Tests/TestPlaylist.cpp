@@ -372,7 +372,7 @@ Msg* DummyDriver::ProcessMsg(MsgPlayable* aMsg)
     aMsg->Read(proc);
     Brn buf = proc.Buf();
     const TInt subsample = (buf[buf.Bytes()-1] << 8) | buf[buf.Bytes()-2];
-    //Log::Print("Pulled audio with subsamples %u\n", subsample);
+    //LOG(kEssential, "Pulled audio with subsamples %u\n", subsample);
     if (subsample == iTargetTrackSample && iTrackChanged) {
         iTrackChanged();
         iTrackChanged = Functor();
@@ -491,7 +491,7 @@ void SuitePlaylist::TearDown()
 void SuitePlaylist::NotifyPipelineState(EPipelineState aState)
 {
 #if 0
-    Log::Print("NotifyPipelineState - %s\n", TransportState::FromPipelineState(aState));
+    LOG(kEssential, "NotifyPipelineState - %s\n", TransportState::FromPipelineState(aState));
 #endif
     iTransportState = aState;
     iTransportStateCount[aState]++;
@@ -505,7 +505,7 @@ void SuitePlaylist::NotifyMode(const Brx& /*aMode*/,
 
 void SuitePlaylist::NotifyTrack(Track& aTrack, TBool /*aStartOfStream*/)
 {
-    //Log::Print("NotifyTrack: id=%u\n", aTrack.Id());
+    //LOG(kEssential, "NotifyTrack: id=%u\n", aTrack.Id());
     iCurrentTrackId = aTrack.Id();
     iTrackCount++;
 }
@@ -516,7 +516,7 @@ void SuitePlaylist::NotifyMetaText(const Brx& /*aText*/)
 
 void SuitePlaylist::NotifyTime(TUint /*aSeconds*/)
 {
-    //Log::Print("NotifyTime: secs= %u\n", aSeconds);
+    //LOG(kEssential, "NotifyTime: secs= %u\n", aSeconds);
     iTimeSem.Signal();
 }
 

@@ -78,7 +78,7 @@ TBool CodecPcm::Recognise(const EncodedStreamInfo& aStreamInfo)
     iAnalogBypass = aStreamInfo.AnalogBypass();
     iCodecName.Replace(aStreamInfo.CodecName());
     iLossless = aStreamInfo.Lossless();
-    //Log::Print("CodecPcm::Recognise iBitDepth %d, iSampleRate %d, iNumChannels %d, iEndian %d, iStartSample %d, iAnalogBypass %d\n", iBitDepth, iSampleRate, iNumChannels, iEndian, iStartSample, iAnalogBypass);
+    //LOG(kEssential, "CodecPcm::Recognise iBitDepth %d, iSampleRate %d, iNumChannels %d, iEndian %d, iStartSample %d, iAnalogBypass %d\n", iBitDepth, iSampleRate, iNumChannels, iEndian, iStartSample, iAnalogBypass);
     return true;
 }
 

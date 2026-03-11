@@ -147,7 +147,7 @@ void SuiteSocketUdpServer::Setup()
         iServer->SetRecvBufBytes(kUdpRecvBufSize);
     }
     catch (NetworkError&) {
-        Log::Print("Failed to set UDP receive buffer size to %u bytes\n", kUdpRecvBufSize);
+        LOG(kEssential, "Failed to set UDP receive buffer size to %u bytes\n", kUdpRecvBufSize);
     }
     iCurrentVal = 0;
     Endpoint ep(iServer->Port(), iInterface);
@@ -165,7 +165,7 @@ void SuiteSocketUdpServer::TearDown()
 
 void SuiteSocketUdpServer::PrintBufInfo(const char* aMsg, Brx& aBuf)
 {
-    Log::Print("%s: aBuf[0]: %d, aBuf[aBuf.Bytes()-1]: %d, aBuf.Bytes(): %u\n", aMsg, aBuf[0], aBuf[aBuf.Bytes()-1], aBuf.Bytes());
+    LOG(kEssential, "%s: aBuf[0]: %d, aBuf[aBuf.Bytes()-1]: %d, aBuf.Bytes(): %u\n", aMsg, aBuf[0], aBuf[aBuf.Bytes()-1], aBuf.Bytes());
 }
 
 void SuiteSocketUdpServer::GenerateNextMsg(Bwx& aBuf)
@@ -188,7 +188,7 @@ void SuiteSocketUdpServer::CheckMsgValue(Brx& aBuf, TByte aVal)
     TEST(aBuf.Bytes() == kMaxMsgSize);
     TEST(aBuf[0] == aVal);
     if (aBuf[0] != aVal) {
-        Log::Print("SuiteSocketUdpServer::CheckMsgValue comparison failed. aBuf[0]: %d, aVal: %d\n", aBuf[0], aVal);
+        LOG(kEssential, "SuiteSocketUdpServer::CheckMsgValue comparison failed. aBuf[0]: %d, aVal: %d\n", aBuf[0], aVal);
     }
     TEST(aBuf[aBuf.Bytes()-1] == aVal);
 }

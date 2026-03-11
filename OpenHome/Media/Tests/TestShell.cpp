@@ -4,6 +4,7 @@
 #include <OpenHome/Net/Private/CpiStack.h>
 #include <OpenHome/Private/ShellCommandQuit.h>
 #include <OpenHome/Private/ShellCommandWatchDog.h>
+#include <OpenHome/Private/Debug.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Net;
@@ -19,7 +20,7 @@ void OpenHome::Media::ExecuteTestShell(Net::InitialisationParams* aInitParams, s
     Endpoint endpt(0, addr);
     Endpoint::AddressBuf buf;
     endpt.AppendAddress(buf);
-    Log::Print("Connect to %s.%u then 'help' for options\n\n", buf.Ptr(), Shell::kServerPortDefault);
+    LOG(kEssential, "Connect to %s.%u then 'help' for options\n\n", buf.Ptr(), Shell::kServerPortDefault);
     Library::DestroySubnetList(subnetList);
     CpStack* cpStack = nullptr;
     DvStack* dvStack = nullptr;

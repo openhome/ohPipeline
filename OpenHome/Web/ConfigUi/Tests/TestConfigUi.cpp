@@ -208,9 +208,9 @@ void HelperDeviceListHandler::Added(CpDevice& aDevice)
     try {
         Brn presentationUrl = XmlParserBasic::Find("presentationURL", xml);
         Brn friendlyName = XmlParserBasic::Find("friendlyName", xml);
-        Log::Print("friendlyName: ");
-        Log::Print(friendlyName);
-        Log::Print("\n");
+        LOG(kEssential, "friendlyName: ");
+        LOG(kEssential, friendlyName);
+        LOG(kEssential, "\n");
         if (friendlyName == iFriendlyName) {
             AutoMutex a(iLock);
             ASSERT(iPresentationUrl.Bytes() == 0);
@@ -252,9 +252,9 @@ TUint UriRetriever::Retrieve(const Brx& aTail, const Brx& aMethod, const Brx& aR
 {
     iUri.Replace(iUriBaseBuf, aTail);
 
-    Log::Print("UriRetriever::Retrieve: ");
-    Log::Print(iUri.AbsoluteUri());
-    Log::Print("\n");
+    LOG(kEssential, "UriRetriever::Retrieve: ");
+    LOG(kEssential, iUri.AbsoluteUri());
+    LOG(kEssential, "\n");
 
     iTcpClient.Open(iEnv);
     TUint code = RetrieveUriSocketOpen(aMethod, aRequest, aResponseWriter);
@@ -358,13 +358,13 @@ void HelperWriterPrinter::Reset()
 
 void HelperWriterPrinter::Write(TByte aValue)
 {
-    Log::Print("%c", aValue);
+    LOG(kEssential, "%c", aValue);
     iBytesPrinted += 1;
 }
 
 void HelperWriterPrinter::Write(const Brx& aBuffer)
 {
-    Log::Print(aBuffer);
+    LOG(kEssential, aBuffer);
     iBytesPrinted += aBuffer.Bytes();
 }
 
@@ -879,7 +879,7 @@ void SuiteConfigUi::TestGetStaticResource()
 
         p.Next('<');    // skip remainder of DOCTYPE
         Brn htmlOpen = p.Next('>');
-        Log::Print(htmlOpen);
+        LOG(kEssential, htmlOpen);
         TEST(htmlOpen == Brn("html xmlns=\"http://www.w3.org/1999/xhtml\""));
 
         Bws<100> tag;
@@ -960,9 +960,9 @@ void SuiteConfigUiMediaPlayer::PopulateUriList()
 {
     const Brx& url = iDeviceListHandler->GetPresentationUrl();
     ASSERT(url.Bytes() > 0);
-    Log::Print("SuiteConfigUiMediaPlayer::PopulateUriList url: ");
-    Log::Print(url);
-    Log::Print("\n");
+    LOG(kEssential, "SuiteConfigUiMediaPlayer::PopulateUriList url: ");
+    LOG(kEssential, url);
+    LOG(kEssential, "\n");
 
     iUris.push_back(new Uri(url));
 }

@@ -506,7 +506,7 @@ void SuitePipeline::Test()
     // Pull kTestMsgs and check there is no ramping.
     for (TUint i=0; i<kTestMsgs; i++) {
         PullNextAudio();
-        //Log::Print("iFirstSubsample: %x, iLastSubsample: %x\n", iFirstSubsample, iLastSubsample);
+        //LOG(kEssential, "iFirstSubsample: %x, iLastSubsample: %x\n", iFirstSubsample, iLastSubsample);
         Thread::Sleep(Jiffies::ToMs(iLastMsgJiffies)); // ensure StarvationMonitor doesn't kick in
     }
     TEST(iFirstSubsample == iLastSubsample);    // only check last message; StarvationMonitor could have kicked in between Pause() and Play() above.
@@ -632,7 +632,7 @@ void SuitePipeline::TestRampingDownStarts(TUint aMaxMsgs)
     TBool rampingDown = false;
     for (TUint i=0; i<aMaxMsgs; i++) {
         PullNextAudio();
-        //Log::Print("SuitePipeline::TestRampingDownStarts iFirstSubsample: %x, iLastSubsample: %x\n", iFirstSubsample, iLastSubsample);
+        //LOG(kEssential, "SuitePipeline::TestRampingDownStarts iFirstSubsample: %x, iLastSubsample: %x\n", iFirstSubsample, iLastSubsample);
         if (iFirstSubsample == iLastSubsample) {
             TEST(iFirstSubsample == kSubsampleRampedUpFull);
         }
@@ -651,7 +651,7 @@ void SuitePipeline::TestRampingUpStartsFromPartialRampDown(TUint aMaxMsgs)
     TBool rampingUp = false;
     for (TUint i=0; i<aMaxMsgs; i++) {
         PullNextAudio();
-        //Log::Print("SuitePipeline::TestRampingUpStartsFromPartialRampDown iFirstSubsample: %x, iLastSubsample: %x\n", iFirstSubsample, iLastSubsample);
+        //LOG(kEssential, "SuitePipeline::TestRampingUpStartsFromPartialRampDown iFirstSubsample: %x, iLastSubsample: %x\n", iFirstSubsample, iLastSubsample);
         if (iFirstSubsample < iLastSubsample) {
             rampingUp = true;
             break;
@@ -667,7 +667,7 @@ void SuitePipeline::TestRampsUp(TUint aMaxMsgs)
     TBool finishedRamping = false;
     for (TUint i=0; i<aMaxMsgs; i++) {
         PullNextAudio();
-        //Log::Print("SuitePipeline::TestRampsUp iFirstSubsample: %x, iLastSubsample: %x\n", iFirstSubsample, iLastSubsample);
+        //LOG(kEssential, "SuitePipeline::TestRampsUp iFirstSubsample: %x, iLastSubsample: %x\n", iFirstSubsample, iLastSubsample);
         if (iFirstSubsample == iLastSubsample) {
             finishedRamping = true;
             break;
@@ -709,9 +709,9 @@ void SuitePipeline::NotifyMode(const Brx& aMode,
                                const ModeTransportControls& /*aTransportControls*/)
 {
 #ifdef LOG_PIPELINE_OBSERVER
-    Log::Print("Pipeline report property: MODE {mode=");
-    Log::Print(aMode);
-    Log::Print("; latencyMode=%u; supportsNext=%u; supportsPrev=%u}\n",
+    LOG(kEssential, "Pipeline report property: MODE {mode=");
+    LOG(kEssential, aMode);
+    LOG(kEssential, "; latencyMode=%u; supportsNext=%u; supportsPrev=%u}\n",
                aInfo.LatencyMode(),aInfo.SupportsNext(), aInfo.SupportsPrev());
 #endif
 }

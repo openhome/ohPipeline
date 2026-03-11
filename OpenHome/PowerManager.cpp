@@ -261,7 +261,7 @@ void PowerManager::StartupStandbyExecute(Standby aMode)
 
 void PowerManager::PowerDownFailed()
 {
-    Log::Print("NotifyPowerDown() called but device is still running %ums later\n", kPowerDownTimeoutMs);
+    LOG(kEssential, "NotifyPowerDown() called but device is still running %ums later\n", kPowerDownTimeoutMs);
 
     AutoMutex _(iLock);
     LOG(kPowerManager, ">PowerManager::PowerDownFailed. iPowerObservers.size(): %u\n", iPowerObservers.size());

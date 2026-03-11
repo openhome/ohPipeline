@@ -4,6 +4,7 @@
 #include <OpenHome/Private/Fifo.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Printer.h>
+#include <OpenHome/Private/Debug.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Test;
@@ -33,18 +34,18 @@ TBool TestPipeDynamic::Expect(const Brx& aMessage)
         Bwh* buf = iFifo.Read();
         const TBool match = (*buf == aMessage);
         if (!match) {
-            Log::Print("TestPipeDynamic::Expect ERROR. expected: ");
-            Log::Print(aMessage);
-            Log::Print(" got: ");
-            Log::Print(*buf);
-            Log::Print("\n");
+            LOG(kEssential, "TestPipeDynamic::Expect ERROR. expected: ");
+            LOG(kEssential, aMessage);
+            LOG(kEssential, " got: ");
+            LOG(kEssential, *buf);
+            LOG(kEssential, "\n");
         }
         delete buf;
         return match;
     }
-    Log::Print("TestPipeDynamic::Expect ERROR. msg list empty; expected: ");
-    Log::Print(aMessage);
-    Log::Print("\n");
+    LOG(kEssential, "TestPipeDynamic::Expect ERROR. msg list empty; expected: ");
+    LOG(kEssential, aMessage);
+    LOG(kEssential, "\n");
     return false;
 }
 
@@ -53,12 +54,12 @@ TBool TestPipeDynamic::ExpectEmpty()
     AutoMutex a(iLock);
     const TUint msgs = iFifo.SlotsUsed();
     if (msgs > 0) {
-        Log::Print("TestPipeDynamic::ExpectEmpty ERROR. %u msgs remaining:\n", msgs);
+        LOG(kEssential, "TestPipeDynamic::ExpectEmpty ERROR. %u msgs remaining:\n", msgs);
         for (TUint i=0; i<iFifo.SlotsUsed(); i++) {
             Bwh* buf = iFifo.Read();
-            Log::Print("\t");
-            Log::Print(*buf);
-            Log::Print("\n");
+            LOG(kEssential, "\t");
+            LOG(kEssential, *buf);
+            LOG(kEssential, "\n");
             iFifo.Write(buf);
         }
         return false;
@@ -70,16 +71,16 @@ void TestPipeDynamic::Print()
 {
     AutoMutex a(iLock);
     const TUint slots = iFifo.SlotsUsed();
-    Log::Print("\nTestPipeDynamic::Print\n");
-    Log::Print("[\n");
+    LOG(kEssential, "\nTestPipeDynamic::Print\n");
+    LOG(kEssential, "[\n");
     for (TUint i=0; i<slots; i++) {
         Bwh* buf = iFifo.Read();
-        Log::Print("\t");
-        Log::Print(*buf);
-        Log::Print("\n");
+        LOG(kEssential, "\t");
+        LOG(kEssential, *buf);
+        LOG(kEssential, "\n");
         iFifo.Write(buf);
     }
-    Log::Print("]\n");
+    LOG(kEssential, "]\n");
 }
 
 void TestPipeDynamic::Write(const Brx& aMessage)

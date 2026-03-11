@@ -582,7 +582,7 @@ void SuiteCodecControllerBase::PullNext()
 void SuiteCodecControllerBase::PullNext(EMsgType aExpectedMsg)
 {
     PullNext();
-    //Log::Print("SuiteCodecControllerBase::PullNext iLastReceivedMsg: %u, aExpectedMsg: %u\n", iLastReceivedMsg, aExpectedMsg);
+    //LOG(kEssential, "SuiteCodecControllerBase::PullNext iLastReceivedMsg: %u, aExpectedMsg: %u\n", iLastReceivedMsg, aExpectedMsg);
     TEST(iLastReceivedMsg == aExpectedMsg);
 }
 
@@ -591,7 +591,7 @@ void SuiteCodecControllerBase::PullNext(EMsgType aExpectedMsg, TUint64 aExpected
     TUint64 jiffiesStart = iJiffies;
     PullNext(aExpectedMsg);
     TUint64 jiffiesDiff = iJiffies - jiffiesStart;
-    //Log::Print("jiffiesDiff: %llu, aExpectedJiffies: %llu\n", jiffiesDiff, aExpectedJiffies);
+    //LOG(kEssential, "jiffiesDiff: %llu, aExpectedJiffies: %llu\n", jiffiesDiff, aExpectedJiffies);
     TEST(jiffiesDiff == aExpectedJiffies);
 }
 

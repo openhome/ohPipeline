@@ -8,6 +8,7 @@
 #include <OpenHome/Private/Stream.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Configuration/IStore.h>
+#include <OpenHome/Private/Debug.h>
 
 #include <map>
 #include <vector>
@@ -188,7 +189,7 @@ template <class T> ConfigVal<T>::~ConfigVal()
     Unsubscribe(iWriteObserverId);
     if(iObservers.size() != 0)
     {
-        Log::Print("Observer: %.*s \n", PBUF(iKey));
+        LOG(kEssential, "Observer: %.*s \n", PBUF(iKey));
         ASSERTS();
     }
     //ASSERT(iObservers.size() == 0);
@@ -681,7 +682,7 @@ template <class T> T& SerialisedMap<T>::Get(const Brx& aKey) const
     AutoMutex a(iLock);
     typename Map::const_iterator it = iMap.find(&key);
     if (it == iMap.end()) {
-        Log::Print("SerialisedMap: no element with key %.*s\n", PBUF(aKey));
+        LOG(kEssential, "SerialisedMap: no element with key %.*s\n", PBUF(aKey));
         ASSERTS();  // value with ID of aKey does not exist
     }
 
@@ -699,7 +700,7 @@ template <class T> typename SerialisedMap<T>::Iterator SerialisedMap<T>::End() c
 }
 
 /**
- * Class implementing IWriter that writes all values using Log::Print().
+ * Class implementing IWriter that writes all values using LOG(kEssential, ).
  */
 class WriterPrinter : public IWriter
 {

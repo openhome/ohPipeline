@@ -95,7 +95,7 @@ void DeviceListHandler::Added(CpDevice& aDevice)
             Bwh mode(kScdModePrefix.Bytes() + Endpoint::kMaxEndpointBytes);
             mode.Replace(kScdModePrefix);
             iScdEndpoint.AppendEndpoint(mode);
-            Log::Print("SCD play (%.*s) on %.*s\n", PBUF(mode), PBUF(iSelectedRoom));
+            LOG(kEssential, "SCD play (%.*s) on %.*s\n", PBUF(mode), PBUF(iSelectedRoom));
             iCpTransport->SyncPlayAs(Brn("SCD"), mode);
         }
     }
@@ -176,7 +176,7 @@ int CDECL main(int aArgc, char* aArgv[])
         ScdServer server(lib->Env(), supply, factory);
         Endpoint::EndpointBuf buf;
         server.Endpoint().AppendEndpoint(buf);
-        Log::Print("SCD Sender running on %s\n", buf.Ptr());
+        LOG(kEssential, "SCD Sender running on %s\n", buf.Ptr());
         std::string path(optionDir.CString());
 
         DeviceListHandler logger(optionRoom.Value(), server.Endpoint());

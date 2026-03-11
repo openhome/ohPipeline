@@ -95,7 +95,7 @@ Msg* Flusher::ProcessMsg(MsgMode* aMsg)
 Msg* Flusher::ProcessMsg(MsgTrack* aMsg)
 {
     /*if (IsFlushing()) {
-        Log::Print("Flusher(%s) flushing Track %u\n", iId, aMsg->Track().Id());
+        LOG(kEssential, "Flusher(%s) flushing Track %u\n", iId, aMsg->Track().Id());
     }*/
     if (IsFlushing() && aMsg->StartOfStream() && iPendingMetatext != nullptr) {
         iPendingMetatext->RemoveRef();
@@ -151,7 +151,7 @@ Msg* Flusher::ProcessMsg(MsgStreamInterrupted* aMsg)
 Msg* Flusher::ProcessMsg(MsgHalt* aMsg)
 {
     const TUint id = aMsg->Id();
-    //Log::Print("Flusher(%s) haltId=%u\n", iId, id);
+    //LOG(kEssential, "Flusher(%s) haltId=%u\n", iId, id);
     ASSERT(id != MsgHalt::kIdInvalid);
     if (id != MsgHalt::kIdNone) {
         iLastHaltId = id;
@@ -166,7 +166,7 @@ Msg* Flusher::ProcessMsg(MsgHalt* aMsg)
 Msg* Flusher::ProcessMsg(MsgFlush* aMsg)
 {
     const TUint id = aMsg->Id();
-    //Log::Print("Flusher(%s) flushId=%u\n", iId, id);
+    //LOG(kEssential, "Flusher(%s) flushId=%u\n", iId, id);
     if (id != MsgFlush::kIdInvalid) {
         iLastFlushId = aMsg->Id();
     }
@@ -188,7 +188,7 @@ Msg* Flusher::ProcessMsg(MsgDecodedStream* aMsg)
         auto streamInfo = aMsg->StreamInfo();
         IStreamHandler* streamHandler = streamInfo.StreamHandler();
         auto streamId = streamInfo.StreamId();
-        //Log::Print("Flusher(%s) flushing DecodedStream %u\n", iId, streamId);
+        //LOG(kEssential, "Flusher(%s) flushing DecodedStream %u\n", iId, streamId);
         (void)streamHandler->TryStop(streamId);
         (void)streamHandler->OkToPlay(streamId);
         aMsg->RemoveRef();

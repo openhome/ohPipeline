@@ -134,7 +134,7 @@ TestFWRManual::TestFWRManual(const Brx& aInputFilename, const Brx& aOutputFilena
     }
     catch(FileOpenError&)
     {
-        Log::Print("Failed to open input file \n");
+        LOG(kEssential, "Failed to open input file \n");
         ASSERTS();
     }
 
@@ -163,13 +163,13 @@ TestFWRManual::TestFWRManual(const Brx& aInputFilename, const Brx& aOutputFilena
     }
     catch(FileOpenError&)
     {
-        Log::Print("Failed to open output file \n");
+        LOG(kEssential, "Failed to open output file \n");
         ASSERTS();
     }
 
     ReadHeader();
 
-    Log::Print("channelCount=%d  sampleRate=%d   bitDepth=%d   byteRate=%d   iSubChunk2Size=%d \n", iChannelCount,  iSampleRate,  iBitDepth, iByteRate, iSubChunk2Size);
+    LOG(kEssential, "channelCount=%d  sampleRate=%d   bitDepth=%d   byteRate=%d   iSubChunk2Size=%d \n", iChannelCount,  iSampleRate,  iBitDepth, iByteRate, iSubChunk2Size);
 }
 
 void TestFWRManual::ReadHeader()
@@ -251,7 +251,7 @@ void TestFWRManual::ReadHeader()
 
 void TestFWRManual::Run()
 {
-    //Log::Print("TestFWRManual::Run \n");
+    //LOG(kEssential, "TestFWRManual::Run \n");
 
     TUint genJiffies = (Jiffies::kPerMs * iGenMs);
     TUint rampJiffies = (Jiffies::kPerMs * iRampMs);
@@ -260,17 +260,17 @@ void TestFWRManual::Run()
     TUint genSamplesPerChan = FlywheelRamper::SampleCount(iSampleRate, genJiffies);
     TUint genBytesPerChan = genSamplesPerChan*iBytesPerSample;
     TUint genBytes = genBytesPerChan*iChannelCount;
-    //Log::Print("genBytes=%d \n", genBytes);
+    //LOG(kEssential, "genBytes=%d \n", genBytes);
 
     // calculate bytes required to accommodate ramp audio samples
     TUint rampSamplesPerChannel = FlywheelRamper::SampleCount(iSampleRate, rampJiffies);
     TUint rampBytesPerChannel = rampSamplesPerChannel*FlywheelRamper::kBytesPerSample;
     TUint rampBytes = rampBytesPerChannel*iChannelCount;
-    //Log::Print("Test: rampBytes=%d \n", rampBytes);
+    //LOG(kEssential, "Test: rampBytes=%d \n", rampBytes);
 
     Bwh rampOutput(rampBytes);
     WriterBuffer writerFwr(rampOutput);
-    //Log::Print("rampBytesPerChannel=%d  rampBytes=%d \n", rampBytesPerChannel, rampBytes);
+    //LOG(kEssential, "rampBytesPerChannel=%d  rampBytes=%d \n", rampBytesPerChannel, rampBytes);
 
     PcmProcessorFwrMan opProc(rampOutput);
 
@@ -309,7 +309,7 @@ void TestFWRManual::Run()
         rampOutput.SetBytes(0);
         iInputFile->Read(buf); // read a test block
 
-        //Log::Print("block %d: \n", blockCount);
+        //LOG(kEssential, "block %d: \n", blockCount);
 
         if ( iSingleBlock && (blockCount != iBlockIndex) )
         {
@@ -328,7 +328,7 @@ void TestFWRManual::Run()
 
         Bwh genSamples(buf.Split(bufSplitIndex)); //
 
-        //Log::Print("test buf bytes = %d, gen bytes =%d  \n", buf.Bytes(), genSamples.Bytes());
+        //LOG(kEssential, "test buf bytes = %d, gen bytes =%d  \n", buf.Bytes(), genSamples.Bytes());
 
 
         EndianSwitch(genSamples, iBytesPerSample);  // change to big endian
@@ -373,7 +373,7 @@ void TestFWRManual::Run()
 
 void TestFWRManual::ExtractChannelSamples(const Brx& aBuf, Bwx& aBufChan, TUint aBytesPerSample, TUint aChannelCount, TUint aChannel)
 {
-    //Log::Print("ExtractChannelSamples\n");
+    //LOG(kEssential, "ExtractChannelSamples\n");
     aBufChan.SetBytes(0);
     TUint byteInc = aBytesPerSample*aChannelCount;
     TUint startByteIndex = aBytesPerSample*aChannel;
@@ -383,11 +383,11 @@ void TestFWRManual::ExtractChannelSamples(const Brx& aBuf, Bwx& aBufChan, TUint 
         for(TUint j=0; j<aBytesPerSample; j++)
         {
             TUint k = i+j;
-            //Log::Print("%d ", k);
+            //LOG(kEssential, "%d ", k);
             aBufChan.Append(aBuf[k]);
         }
 
-        //Log::Print("\n");
+        //LOG(kEssential, "\n");
 
     }
 
@@ -398,7 +398,7 @@ void TestFWRManual::ExtractChannelSamples(const Brx& aBuf, Bwx& aBufChan, TUint 
 
 void TestFWRManual::DeinterleaveChannelSamples(Bwx& aBuf, TUint aBytesPerSample, TUint aChannelCount)
 {
-    //Log::Print("ExtractChannelSamples\n");
+    //LOG(kEssential, "ExtractChannelSamples\n");
     Bwh buf(aBuf);
 
     aBuf.SetBytes(0);
@@ -413,7 +413,7 @@ void TestFWRManual::DeinterleaveChannelSamples(Bwx& aBuf, TUint aBytesPerSample,
             for(TUint j=0; j<aBytesPerSample; j++)
             {
                 TUint k = i+j;
-                //Log::Print("%d ", k);
+                //LOG(kEssential, "%d ", k);
                 aBuf.Append(buf[k]);
             }
         }
@@ -445,7 +445,7 @@ void TestFWRManual::InterleaveChannelSamples(Bwx& aBuf, TUint aBytesPerSample, T
 
 void TestFWRManual::IncreaseBitDepthBe32(const Brx& aBufIn, Bwx& aBufOut, TUint iBytesPerSample)
 {
-    //Log::Print("TestFWRManual::IncreaseBitDepthBe32  aBufIn.Bytes()=%d  aBufOut.MaxBytes()=%d  iBytesPerSample=%d\n", aBufIn.Bytes(), aBufOut.MaxBytes(), iBytesPerSample);
+    //LOG(kEssential, "TestFWRManual::IncreaseBitDepthBe32  aBufIn.Bytes()=%d  aBufOut.MaxBytes()=%d  iBytesPerSample=%d\n", aBufIn.Bytes(), aBufOut.MaxBytes(), iBytesPerSample);
     aBufOut.SetBytes(0);
     TUint padByteCount = (4-iBytesPerSample);
 
@@ -534,9 +534,9 @@ void TestFWRManual::LogBuf(const Brx& aBuf)
 {
     for(TUint x=0; x<aBuf.Bytes(); x++)
     {
-        Log::Print("%x ", aBuf[x]);
+        LOG(kEssential, "%x ", aBuf[x]);
     }
-    //Log::Print("\n");
+    //LOG(kEssential, "\n");
 }
 
 
@@ -623,7 +623,7 @@ PcmProcessorFwrMan::PcmProcessorFwrMan(Bwx& aBuf)
 void PcmProcessorFwrMan::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/, TUint /*aSubsampleBytes*/)
 {
     iBuf.Append(aData);
-    //Log::Print("iBuf.MaxBytes()=%d  iBuf.Bytes()=%d  aData.Bytes()=%d \n", iBuf.MaxBytes(), iBuf.Bytes(), aData.Bytes() );
+    //LOG(kEssential, "iBuf.MaxBytes()=%d  iBuf.Bytes()=%d  aData.Bytes()=%d \n", iBuf.MaxBytes(), iBuf.Bytes(), aData.Bytes() );
 }
 
 /////////////////////////////////////////////////////////////////

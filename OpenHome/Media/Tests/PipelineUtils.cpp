@@ -112,12 +112,12 @@ int TestProtocol::Run()
     //TBool starve = false;
     TBool quit = false;
 
-    Log::Print("\nPipeline test using ProtocolHttp as supplier.  Usage:\n");
-    Log::Print("p: Toggle between play/pause\n");
-    Log::Print("n: Toggle between start/stop simulating network starvation\n");
-    Log::Print("s: Stop (only valid when paused)\n");
-    Log::Print("q: Quit\n");
-    Log::Print("\n");
+    LOG(kEssential, "\nPipeline test using ProtocolHttp as supplier.  Usage:\n");
+    LOG(kEssential, "p: Toggle between play/pause\n");
+    LOG(kEssential, "n: Toggle between start/stop simulating network starvation\n");
+    LOG(kEssential, "s: Stop (only valid when paused)\n");
+    LOG(kEssential, "q: Quit\n");
+    LOG(kEssential, "\n");
     do {
         int key = mygetch();
         switch (key)
@@ -198,7 +198,7 @@ int PipelineSongcast::Run()
 void TestProtocol::NotifyPipelineState(EPipelineState aState)
 {
 #ifdef LOG_PIPELINE_OBSERVER
-    Log::Print("Pipeline state change: %s\n", TransportState::FromPipelineState(aState));
+    LOG(kEssential, "Pipeline state change: %s\n", TransportState::FromPipelineState(aState));
 #endif
 }
 
@@ -207,9 +207,9 @@ void TestProtocol::NotifyMode(const Brx& aMode,
                               const ModeTransportControls& /*aTransportControls*/)
 {
 #ifdef LOG_PIPELINE_OBSERVER
-    Log::Print("Pipeline report property: MODE {mode=");
-    Log::Print(aMode);
-    Log::Print("; latencyMode=%u; realTime=%u; supportsNext=%u; supportsPrev=%u}\n",
+    LOG(kEssential, "Pipeline report property: MODE {mode=");
+    LOG(kEssential, aMode);
+    LOG(kEssential, "; latencyMode=%u; realTime=%u; supportsNext=%u; supportsPrev=%u}\n",
         aInfo.LatencyMode(), aInfo.IsRealTime(), aInfo.SupportsNext(), aInfo.SupportsPrev());
 #endif
 }
@@ -217,18 +217,18 @@ void TestProtocol::NotifyMode(const Brx& aMode,
 void TestProtocol::NotifyTrack(const Brx& aUri, TBool /*aStartOfStream*/)
 {
 #ifdef LOG_PIPELINE_OBSERVER
-    Log::Print("Pipeline report property: TRACK {uri=");
-    Log::Print(aUri);
-    Log::Print("\n");
+    LOG(kEssential, "Pipeline report property: TRACK {uri=");
+    LOG(kEssential, aUri);
+    LOG(kEssential, "\n");
 #endif
 }
 
 void TestProtocol::NotifyMetaText(const Brx& aText)
 {
 #ifdef LOG_PIPELINE_OBSERVER
-    Log::Print("Pipeline report property: METATEXT {");
-    Log::Print(aText);
-    Log::Print("}\n");
+    LOG(kEssential, "Pipeline report property: METATEXT {");
+    LOG(kEssential, aText);
+    LOG(kEssential, "}\n");
 #endif
 }
 
@@ -236,7 +236,7 @@ void TestProtocol::NotifyTime(TUint aSeconds)
 {
     iSeconds = aSeconds;
 #ifdef LOG_PIPELINE_OBSERVER
-    Log::Print("Pipeline report property: TIME {secs=%u; duration=%u}\n", aSeconds, aTrackDurationSeconds);
+    LOG(kEssential, "Pipeline report property: TIME {secs=%u; duration=%u}\n", aSeconds, aTrackDurationSeconds);
 #endif
 }
 
@@ -245,10 +245,10 @@ void TestProtocol::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
     iStreamId = aStreamInfo.StreamId();
     iTrackDurationSeconds = (TUint)(aStreamInfo.TrackLength() / Jiffies::kPerSecond);
 #ifdef LOG_PIPELINE_OBSERVER
-    Log::Print("Pipeline report property: FORMAT {bitRate=%u; bitDepth=%u, sampleRate=%u, numChannels=%u, codec=",
+    LOG(kEssential, "Pipeline report property: FORMAT {bitRate=%u; bitDepth=%u, sampleRate=%u, numChannels=%u, codec=",
            aStreamInfo.BitRate(), aStreamInfo.BitDepth(), aStreamInfo.SampleRate(), aStreamInfo.NumChannels());
-    Log::Print(aStreamInfo.CodecName());
-    Log::Print("; trackLength=%llx, lossless=%u, channelConfig=%s}\n", aStreamInfo.TrackLength(), aStreamInfo.Lossless(), ChannelInfo::FromSpeakerProfile(aStreamInfo.Profile()));
+    LOG(kEssential, aStreamInfo.CodecName());
+    LOG(kEssential, "; trackLength=%llx, lossless=%u, channelConfig=%s}\n", aStreamInfo.TrackLength(), aStreamInfo.Lossless(), ChannelInfo::FromSpeakerProfile(aStreamInfo.Profile()));
 #endif
 }
 

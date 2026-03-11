@@ -324,7 +324,7 @@ void RampGenerator::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/, TU
         break;
     }
     iFlywheelAudio->SetBytes(iFlywheelAudio->Bytes() + (subsamples * (iBitDepth/8)));
-    //Log::Print("++ RampGenerator::ProcessFragment numSamples=%u\n", aData.Bytes() / 8);
+    //LOG(kEssential, "++ RampGenerator::ProcessFragment numSamples=%u\n", aData.Bytes() / 8);
 #if 0
     if (aNumChannels == 2) {
         const TByte* p = aData.Ptr();
@@ -336,7 +336,7 @@ void RampGenerator::ProcessFragment(const Brx& aData, TUint /*aNumChannels*/, TU
             for (TUint j=0; j<stride; j++) {
                 b[j] = *p++;
             }
-            Log::Print("  %02x%02x%02x%02x  %02x%02x%02x%02x\n", b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
+            LOG(kEssential, "  %02x%02x%02x%02x  %02x%02x%02x%02x\n", b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
         }
     }
 #endif
@@ -530,7 +530,7 @@ void StarvationRamper::StartFlywheelRamp()
     iRampGenerator->Start(recentSamples, iSampleRate, iNumChannels, iBitDepth, rampStart);
 //    const TUint flywheelEnd = Time::Now(*gEnv);
     iState = State::FlywheelRamping;
-//    Log::Print("StarvationRamper::StartFlywheelRamp rampStart=%08x, prepTime=%ums, flywheelTime=%ums\n", rampStart, prepEnd - startTime, flywheelEnd - prepEnd);
+//    LOG(kEssential, "StarvationRamper::StartFlywheelRamp rampStart=%08x, prepTime=%ums, flywheelTime=%ums\n", rampStart, prepEnd - startTime, flywheelEnd - prepEnd);
 
     iStarving = true;
     iStreamHandler->NotifyStarving(iMode, iStreamId, true);

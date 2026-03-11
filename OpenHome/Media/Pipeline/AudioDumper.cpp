@@ -6,6 +6,7 @@
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Private/Uri.h>
 #include <OpenHome/Private/Printer.h>
+#include <OpenHome/Private/Debug.h>
 
 #include <ctime>
 
@@ -83,7 +84,7 @@ Msg* AudioDumper::ProcessMsg(MsgEncodedStream* aMsg)
                 iFile = iFileSystem.Open(filename.PtrZ(), eFileReadWrite);
             }
             catch (FileOpenError&) {
-                Log::Print("AudioDumper failed to open file %s\n.", filename.PtrZ());
+                LOG(kEssential, "AudioDumper failed to open file %s\n.", filename.PtrZ());
                 iFile = nullptr;
             }
         }
@@ -101,7 +102,7 @@ Msg* AudioDumper::ProcessMsg(MsgAudioEncoded* aMsg)
                 iFile->Write(iBuf);
             }
             catch (FileWriteError&) {
-                Log::Print("AudioDumper failed to write audio block. Closing file\n.");
+                LOG(kEssential, "AudioDumper failed to write audio block. Closing file\n.");
                 delete iFile;
                 iFile = nullptr;
             }

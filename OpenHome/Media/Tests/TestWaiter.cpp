@@ -381,7 +381,7 @@ void SuiteWaiter::PullNext(EMsgType aExpectedMsg)
     Msg* msg = iWaiter->Pull();
     msg = msg->Process(*this);
     msg->RemoveRef();
-    //Log::Print("SuiteWaiter::PullNext iLastPulledMsg: %u, aExpectedMsg: %u\n", iLastPulledMsg, aExpectedMsg);
+    //LOG(kEssential, "SuiteWaiter::PullNext iLastPulledMsg: %u, aExpectedMsg: %u\n", iLastPulledMsg, aExpectedMsg);
     TEST(iLastPulledMsg == aExpectedMsg);
 }
 

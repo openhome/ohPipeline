@@ -26,7 +26,7 @@ TBool AESHelpers::DecryptWithContentLengthPrefix(unsigned char* aAesKeyData,
     const TUint len = Converter::BeUint16At(aDecrypted, 0);
     if (len > aDecrypted.Bytes() - 2)
     {
-        Log::Print("AESHelpers::DecryptWithContentLengthPrefix failed. Token begins with length: %u\n", len);
+        LOG(kEssential, "AESHelpers::DecryptWithContentLengthPrefix failed. Token begins with length: %u\n", len);
         return false;
     }
 
@@ -67,7 +67,7 @@ TBool AESHelpers::Encrypt(unsigned char* aAesKeyData,
     // Assumes value passed in is not padded.
     if (!PKCSPad(aValue))
     {
-        Log::Print("AESHelpers::Encrypt - Failed to pad value correctly.\n");
+        LOG(kEssential, "AESHelpers::Encrypt - Failed to pad value correctly.\n");
         return false;
     }
 
@@ -84,12 +84,12 @@ TBool AESHelpers::Encrypt(unsigned char* aAesKeyData,
     aEncryptedValue.SetBytes(aValue.Bytes());
 
 #ifdef AES_LOG_TRACE
-    Log::Print("Encrypted Value: ");
+    LOG(kEssential, "Encrypted Value: ");
     for(TUint i = 0; i < aEncryptedValue.Bytes(); ++i)
     {
-        Log::Print("%02x ", aEncryptedValue.At(i));
+        LOG(kEssential, "%02x ", aEncryptedValue.At(i));
     }
-    Log::Print("\n");
+    LOG(kEssential, "\n");
 #endif
 
     return true;
@@ -120,7 +120,7 @@ TBool AESHelpers::PKCSPad(Bwx& aValue)
     const TByte paddingValue = (const TByte)paddingRequired;
 
 #ifdef AES_LOG_TRACE
-    Log::Print("ProviderOAuth::PKCSPad - Current Length: %d byte(s), padding required: %d bytes(s). Padding Value: %d\n",
+    LOG(kEssential, "ProviderOAuth::PKCSPad - Current Length: %d byte(s), padding required: %d bytes(s). Padding Value: %d\n",
                currentLength,
                paddingRequired,
                paddingValue);
@@ -129,7 +129,7 @@ TBool AESHelpers::PKCSPad(Bwx& aValue)
 
     if (aValue.BytesRemaining() < paddingRequired)
     {
-        Log::Print("AESHelpers::PKCSPad - Need %d bytes of padding, but only %d byte(s) are available.\n", paddingRequired, aValue.BytesRemaining());
+        LOG(kEssential, "AESHelpers::PKCSPad - Need %d bytes of padding, but only %d byte(s) are available.\n", paddingRequired, aValue.BytesRemaining());
         return false;
     }
     else

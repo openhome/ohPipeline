@@ -64,17 +64,17 @@ void NtpClient::TestAllServers()
                 iServerEndpoint = Endpoint(kNtpPort, Brn(kNtpServers[i]));
                 Endpoint::AddressBuf buf;
                 iServerEndpoint.AppendAddress(buf);
-                Log::Print("\n%s:\n", buf.PtrZ());
+                LOG(kEssential, "\n%s:\n", buf.PtrZ());
                 if (DoTryGetNetworkTime(ts, networkDelayMs)) {
-                    Log::Print("seconds = %u, networkDelayMs = %u\n", ts.Seconds(), networkDelayMs);
+                    LOG(kEssential, "seconds = %u, networkDelayMs = %u\n", ts.Seconds(), networkDelayMs);
                     ASSERT(ts.Seconds() != 0);
                 }
                 else {
-                    Log::Print("FAILED\n");
+                    LOG(kEssential, "FAILED\n");
                 }
             }
             catch (NetworkError&) {
-                Log::Print("NetworkError for %s\n", kNtpServers[i]);
+                LOG(kEssential, "NetworkError for %s\n", kNtpServers[i]);
             }
         }
         Thread::Sleep(1000);
@@ -170,7 +170,7 @@ void NtpClient::Log(const TChar* aId, TUint64 aVal, TUint aBytes) const
         buf.AppendPrintf(" %02x", b);
     }
     buf.Append('\n');
-    Log::Print(buf);
+    LOG(kEssential, buf);
 }
 
 void NtpClient::LogError(const TChar* aEx) const

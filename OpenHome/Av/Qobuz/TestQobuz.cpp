@@ -73,18 +73,18 @@ void TestQobuz::Test()
     for (TUint i=0; i<numElems; i++) {
         Brn trackId(kTracks[i]);
         auto track = iQobuz->StreamableTrack(trackId);
-        Log::Print("trackId %s returned url %.*s\n", kTracks[i], PBUF(track->Url()));
+        LOG(kEssential, "trackId %s returned url %.*s\n", kTracks[i], PBUF(track->Url()));
         delete track;
     }
 }
 
 void TestQobuz::SetState(const Brx& /*aId*/, const Brx& aStatus, const Brx& aData)
 {
-    Log::Print("SetState: aStatus = ");
-    Log::Print(aStatus);
-    Log::Print(", aData = ");
-    Log::Print(aData);
-    Log::Print("\n");
+    LOG(kEssential, "SetState: aStatus = ");
+    LOG(kEssential, aStatus);
+    LOG(kEssential, ", aData = ");
+    LOG(kEssential, aData);
+    LOG(kEssential, "\n");
 }
 
 

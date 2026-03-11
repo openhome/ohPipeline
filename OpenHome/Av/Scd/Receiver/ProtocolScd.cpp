@@ -103,7 +103,7 @@ ProtocolStreamResult ProtocolScd::Stream(const Brx& aUri)
                     }
                 }
             }
-            //Log::Print("\n\n\n");
+            //LOG(kEssential, "\n\n\n");
             iObserver.NotifyScdConnectionChange(true);
             {
                 ScdMsg* ready = iScdFactory.CreateMsgReady();
@@ -169,7 +169,7 @@ TUint ProtocolScd::TryStop(TUint aStreamId)
 
 void ProtocolScd::Process(ScdMsgReady& aMsg)
 {
-    //Log::Print("ScdMsgReady\n");
+    //LOG(kEssential, "ScdMsgReady\n");
     const TUint major = aMsg.Major();
     if (major != kVersionMajor) {
         iUnrecoverableError = true;
@@ -180,21 +180,21 @@ void ProtocolScd::Process(ScdMsgReady& aMsg)
 
 void ProtocolScd::Process(ScdMsgMetadataDidl& aMsg)
 {
-    //Log::Print("ScdMsgMetadataDidl\n");
+    //LOG(kEssential, "ScdMsgMetadataDidl\n");
     auto track = iTrackFactory.CreateTrack(aMsg.Uri(), aMsg.Metadata());
     OutputTrack(track);
 }
 
 void ProtocolScd::Process(ScdMsgMetadataOh& aMsg)
 {
-    //Log::Print("ScdMsgMetadataOh\n");
+    //LOG(kEssential, "ScdMsgMetadataOh\n");
     auto track = OhMetadata::ToTrack(aMsg.Metadata(), iTrackFactory);
     OutputTrack(track);
 }
 
 void ProtocolScd::Process(ScdMsgFormat& aMsg)
 {
-    //Log::Print("ScdMsgFormat\n");
+    //LOG(kEssential, "ScdMsgFormat\n");
     LOG_INFO(kScd, "ScdMsgFormat: %u/%u, %uch, sampleStart=%llu, samplesTotal=%llu, seekable=%u, live=%u\n",
                    aMsg.SampleRate(), aMsg.BitDepth(), aMsg.NumChannels(), aMsg.SampleStart(),
                    aMsg.SamplesTotal(), aMsg.Seekable(), aMsg.Live());
@@ -214,7 +214,7 @@ void ProtocolScd::Process(ScdMsgFormat& aMsg)
 
 void ProtocolScd::Process(ScdMsgFormatDsd& aMsg)
 {
-    //Log::Print("ScdMsgFormatDsd\n");
+    //LOG(kEssential, "ScdMsgFormatDsd\n");
     LOG_INFO(kScd, "ScdMsgFormatDsd: %u, %uch, sampleStart=%llu, samplesTotal=%llu, seekable=%u\n",
                    aMsg.SampleRate(), aMsg.NumChannels(), aMsg.SampleStart(),
                    aMsg.SamplesTotal(), aMsg.Seekable());
@@ -244,7 +244,7 @@ void ProtocolScd::Process(ScdMsgAudioOut& /*aMsg*/)
 
 void ProtocolScd::Process(ScdMsgAudioIn& aMsg)
 {
-    //Log::Print("ScdMsgAudioIn - samples = %u\n", aMsg.NumSamples());
+    //LOG(kEssential, "ScdMsgAudioIn - samples = %u\n", aMsg.NumSamples());
     if (iHalted) {
         iHalted = false;
         LOG_INFO(kScd, "ScdMsgAudioIn - resuming after halt\n");
@@ -263,20 +263,20 @@ void ProtocolScd::Process(ScdMsgAudioIn& aMsg)
 
 void ProtocolScd::Process(ScdMsgMetatextDidl& aMsg)
 {
-    //Log::Print("ScdMsgMetatextDidl\n");
+    //LOG(kEssential, "ScdMsgMetatextDidl\n");
     iSupply->OutputMetadata(aMsg.Metatext());
 }
 
 void ProtocolScd::Process(ScdMsgMetatextOh& aMsg)
 {
-    //Log::Print("ScdMsgMetatextOh\n");
+    //LOG(kEssential, "ScdMsgMetatextOh\n");
     OhMetadata::ToDidlLite(aMsg.Metatext(), iMetadata);
     iSupply->OutputMetadata(iMetadata);
 }
 
 void ProtocolScd::Process(ScdMsgHalt& /*aMsg*/)
 {
-    //Log::Print("ScdMsgHalt\n");
+    //LOG(kEssential, "ScdMsgHalt\n");
     LOG_INFO(kScd, "ScdMsgHalt\n");
     iHalted = true;
     iSupply->OutputWait();
@@ -285,7 +285,7 @@ void ProtocolScd::Process(ScdMsgHalt& /*aMsg*/)
 
 void ProtocolScd::Process(ScdMsgDisconnect& /*aMsg*/)
 {
-    //Log::Print("ScdMsgDisconnect\n");
+    //LOG(kEssential, "ScdMsgDisconnect\n");
     LOG_INFO(kScd, "ScdMsgDisconnect\n");
     iExit = true;
     THROW(ScdError); // force Stream out of its inner msg readiing loop
