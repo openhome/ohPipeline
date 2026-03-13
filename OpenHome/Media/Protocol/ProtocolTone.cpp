@@ -8,6 +8,7 @@
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Arch.h>
 #include <OpenHome/Private/Standard.h>
+#include <OpenHome/Private/Debug.h>
 
 #include <vector>
 #include <cstring>
