@@ -28,7 +28,7 @@ void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], N
 
     Bws<TIpAddressUtils::kMaxAddressBytes> addressBuf;
     TIpAddressUtils::ToString(subnet, addressBuf);
-    Log::Print("using subnet %.*s\n", PBUF(addressBuf));
+    LOG(kEssential, "using subnet %.*s\n", PBUF(addressBuf));
 
     Net::CpStack* cpStack;
     Net::DvStack* dvStack;

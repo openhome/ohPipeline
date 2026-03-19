@@ -3,6 +3,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Private/Printer.h>
+#include <OpenHome/Private/Debug.h>
 #include <map>
 
 using namespace OpenHome;
@@ -108,7 +109,7 @@ void LoggingPipelineObserver::NotifyPipelineState(EPipelineState aState)
     default:
         ASSERTS();
     }
-    Log::Print("Pipeline state change: %s\n", state);
+    LOG(kEssential, "Pipeline state change: %s\n", state);
 }
 
 void LoggingPipelineObserver::NotifyMode(const Brx& aMode,
@@ -118,7 +119,7 @@ void LoggingPipelineObserver::NotifyMode(const Brx& aMode,
     if (!iEnable) {
         return;
     }
-    Log::Print("Pipeline report property: MODE {mode=%.*s; latencyMode=%u; supportsNext=%u; supportsPrev=%u}\n",
+    LOG(kEssential, "Pipeline report property: MODE {mode=%.*s; latencyMode=%u; supportsNext=%u; supportsPrev=%u}\n",
                PBUF(aMode), aInfo.LatencyMode(), aInfo.SupportsNext(), aInfo.SupportsPrev());
 }
 
@@ -127,7 +128,7 @@ void LoggingPipelineObserver::NotifyTrack(Track& aTrack, TBool aStartOfStream)
     if (!iEnable) {
         return;
     }
-    Log::Print("Pipeline report property: TRACK {uri=%.*s; trackId=%u; startOfStream=%u}\n",
+    LOG(kEssential, "Pipeline report property: TRACK {uri=%.*s; trackId=%u; startOfStream=%u}\n",
                PBUF(aTrack.Uri()), aTrack.Id(), aStartOfStream);
 }
 
@@ -136,7 +137,7 @@ void LoggingPipelineObserver::NotifyMetaText(const Brx& aText)
     if (!iEnable) {
         return;
     }
-    Log::Print("Pipeline report property: METATEXT {%.*s}\n", PBUF(aText));
+    LOG(kEssential, "Pipeline report property: METATEXT {%.*s}\n", PBUF(aText));
 }
 
 void LoggingPipelineObserver::NotifyTime(TUint aSeconds)
@@ -144,7 +145,7 @@ void LoggingPipelineObserver::NotifyTime(TUint aSeconds)
     if (!iEnable) {
         return;
     }
-    Log::Print("Pipeline report property: TIME {secs=%u; duration=%u}\n", aSeconds, iDurationSeconds);
+    LOG(kEssential, "Pipeline report property: TIME {secs=%u; duration=%u}\n", aSeconds, iDurationSeconds);
 }
 
 void LoggingPipelineObserver::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
@@ -153,7 +154,7 @@ void LoggingPipelineObserver::NotifyStreamInfo(const DecodedStreamInfo& aStreamI
         return;
     }
     iDurationSeconds = (TUint)(aStreamInfo.TrackLength() / Jiffies::kPerSecond);
-    Log::Print("Pipeline report property: FORMAT {bitRate=%u; bitDepth=%u, sampleRate=%u, numChannels=%u, codec=%.*s; trackLength=%llx, lossless=%u, channelConfig=%s}\n",
+    LOG(kEssential, "Pipeline report property: FORMAT {bitRate=%u; bitDepth=%u, sampleRate=%u, numChannels=%u, codec=%.*s; trackLength=%llx, lossless=%u, channelConfig=%s}\n",
                aStreamInfo.BitRate(), aStreamInfo.BitDepth(), aStreamInfo.SampleRate(), aStreamInfo.NumChannels(),
                PBUF(aStreamInfo.CodecName()), aStreamInfo.TrackLength(), aStreamInfo.Lossless(), aStreamInfo.Profile().ToString());
 }

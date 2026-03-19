@@ -8,11 +8,12 @@
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Arch.h>
 #include <OpenHome/Private/Standard.h>
+#include <OpenHome/Private/Debug.h>
 
 #include <vector>
 #include <cstring>
 
-#include <OpenHome/Private/Printer.h>  // XXX Log::Print()
+#include <OpenHome/Private/Printer.h>  // XXX LOG(kEssential, )
 #include <OpenHome/Media/Pipeline/Msg.h>  // XXX MsgFlush::kIdInvalid
 #include <cctype>  // XXX isprint()
 
@@ -538,12 +539,12 @@ ProtocolStreamResult ProtocolTone::Stream(const Brx& aUri)
     const ToneParams& params = uriParser.Params();
 
 #ifdef TONE_LOG_VERBOSE
-    Log::Print("@@  bitdepth =   %6u\n", params.BitsPerSample());
-    Log::Print("@@  samplerate = %6u\n", params.SampleRate());
-    Log::Print("@@  pitch =      %6u\n", params.Pitch());
-    Log::Print("@@  channels =   %6u\n", params.NumChannels());
-    Log::Print("@@  duration =   %6u\n", params.DurationSeconds());
-    Log::Print("\n");
+    LOG(kEssential, "@@  bitdepth =   %6u\n", params.BitsPerSample());
+    LOG(kEssential, "@@  samplerate = %6u\n", params.SampleRate());
+    LOG(kEssential, "@@  pitch =      %6u\n", params.Pitch());
+    LOG(kEssential, "@@  channels =   %6u\n", params.NumChannels());
+    LOG(kEssential, "@@  duration =   %6u\n", params.DurationSeconds());
+    LOG(kEssential, "\n");
 #endif  // TONE_LOG_VERBOSE
 
     //
@@ -627,7 +628,7 @@ ProtocolStreamResult ProtocolTone::Stream(const Brx& aUri)
         // ensure sufficient capacity for another (multi-channel) audio sample
         if (iAudioBuf.Bytes() + blockAlign > iAudioBuf.MaxBytes()) {
 #ifdef TONE_LOG_VERBOSE
-            Log::Print("flushing audio buffer: %u[B]\n", iAudioBuf.Bytes());
+            LOG(kEssential, "flushing audio buffer: %u[B]\n", iAudioBuf.Bytes());
             HexDump(iAudioBuf.Ptr(), iAudioBuf.Bytes());
 #endif  // TONE_LOG_VERBOSE
             iSupply->OutputData(iAudioBuf);
@@ -679,7 +680,7 @@ ProtocolStreamResult ProtocolTone::Stream(const Brx& aUri)
     else {
         // flush final audio data (if any) from (partially) filled audio buffer
 #ifdef TONE_LOG_VERBOSE
-        Log::Print("flushing final audio buffer: %u[B]\n", iAudioBuf.Bytes());
+        LOG(kEssential, "flushing final audio buffer: %u[B]\n", iAudioBuf.Bytes());
         HexDump(iAudioBuf.Ptr(), iAudioBuf.Bytes());
 #endif  // TONE_LOG_VERBOSE
         iSupply->OutputData(iAudioBuf);
@@ -707,16 +708,16 @@ void ProtocolTone::HexDump(const TByte *aBase, TUint aSize) const
         }
 
         for (int i = 0; i < maxBytes; ++i) {
-            Log::Print("%02x ", *(p + i));
+            LOG(kEssential, "%02x ", *(p + i));
         }
         for (int i = 0; i < (kBytesPerLine - maxBytes); ++i) {
-            Log::Print("   ");  // optical filler for last line
+            LOG(kEssential, "   ");  // optical filler for last line
         }
-        Log::Print(" ");
+        LOG(kEssential, " ");
         for (int i = 0; i < maxBytes; ++i) {
-            Log::Print("%c", isprint(*(p + i)) ? *(p + i) : '.');
+            LOG(kEssential, "%c", isprint(*(p + i)) ? *(p + i) : '.');
         }
-        Log::Print("\n");
+        LOG(kEssential, "\n");
 
         p += kBytesPerLine;
     } while (p < (aBase + aSize));

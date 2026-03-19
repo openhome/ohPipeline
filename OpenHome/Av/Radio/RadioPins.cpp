@@ -80,7 +80,7 @@ TBool RadioPins::LoadPreset(const Brx& aPreset)
         return LoadPreset(Ascii::Uint(aPreset));
     }
     catch (Exception& ex) {
-        Log::Print("%s in RadioPins::LoadPreset\n", ex.Message());
+        LOG(kEssential, "%s in RadioPins::LoadPreset\n", ex.Message());
         return false;
     }
 }
@@ -96,7 +96,7 @@ TBool RadioPins::LoadPreset(TUint aPreset)
             iCpRadio->SyncIdArray(token, idArray);
             if (idArray.Bytes() < pos + 4) {
                 // buggy control point or a very early beta of Kazoo (which set id rather than index)
-                Log::Print("Invalid preset index - %u - in RadioPins::LoadPreset\n", aPreset);
+                LOG(kEssential, "Invalid preset index - %u - in RadioPins::LoadPreset\n", aPreset);
                 THROW(PinInvokeError);
             }
             const TUint id = Converter::BeUint32At(idArray, pos);
@@ -110,7 +110,7 @@ TBool RadioPins::LoadPreset(TUint aPreset)
         }
     }
     catch (Exception& ex) {
-        Log::Print("%s in RadioPins::LoadPreset\n", ex.Message());
+        LOG(kEssential, "%s in RadioPins::LoadPreset\n", ex.Message());
         return false;
     }
 }

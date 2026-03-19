@@ -216,14 +216,14 @@ Msg* ElementFileReader::Pull()
         iMode = eAudioEncoded;
     }
     else if (iMode == eAudioEncoded) {
-        Log::Print("ElementFileReader::Pull iFile->Tell(): %u, iFile->Bytes(): %u\n", iFile->Tell(), iFile->Bytes());
+        LOG(kEssential, "ElementFileReader::Pull iFile->Tell(): %u, iFile->Bytes(): %u\n", iFile->Tell(), iFile->Bytes());
         try {
             iFile->Read(iInBuf);
             msg = iMsgFactory.CreateMsgAudioEncoded(iInBuf);
             iInBuf.SetBytes(0);
         }
         catch (FileReadError&) {
-            Log::Print("ElementFileReader::Pull reached end of input file\n");
+            LOG(kEssential, "ElementFileReader::Pull reached end of input file\n");
             // Reached end of file.
             // Must output something here to avoid sending a nullptr msg down pipeline.
             // Next msg should be MsgHalt, so output that.
@@ -247,16 +247,16 @@ Msg* ElementFileReader::Pull()
 TBool ElementFileReader::TryGet(IWriter& aWriter, const Brx& aUrl, TUint64 aOffset, TUint aBytes)
 {
     ASSERT(iFile != nullptr);
-    Log::Print("ElementFileReader::TryGet aUrl: ");
-    Log::Print(aUrl);
-    Log::Print(", aOffset: %llu, iFile->Bytes(): %u, aBytes: %u, iFile bytes remaining: %u\n", aOffset, iFile->Bytes(), aBytes, iFile->Bytes()-iFile->Tell());
+    LOG(kEssential, "ElementFileReader::TryGet aUrl: ");
+    LOG(kEssential, aUrl);
+    LOG(kEssential, ", aOffset: %llu, iFile->Bytes(): %u, aBytes: %u, iFile bytes remaining: %u\n", aOffset, iFile->Bytes(), aBytes, iFile->Bytes()-iFile->Tell());
 
     const TUint current = iFile->Tell();
 
     //ASSERT(aOffset <= iFile->Bytes());
     //ASSERT(aBytes <= iFile->Bytes()-iFile->Tell());
     if (aOffset > iFile->Bytes() || aBytes > iFile->Bytes()-iFile->Tell()) {
-        Log::Print("ElementFileReader::TryGet seek parameters out of bounds\n");
+        LOG(kEssential, "ElementFileReader::TryGet seek parameters out of bounds\n");
         return false;
     }
     const TUint offset = static_cast<TUint>(aOffset);   // IFile only supports 32-bit file sizes.
@@ -274,13 +274,13 @@ TBool ElementFileReader::TryGet(IWriter& aWriter, const Brx& aUrl, TUint64 aOffs
             }
             catch (FileReadError&) {
                 // Reached end of file.
-                Log::Print("ElementFileReader::TryGet reached end of file unexpectedly\n");
+                LOG(kEssential, "ElementFileReader::TryGet reached end of file unexpectedly\n");
                 ASSERTS();
             }
         }
     }
     catch (FileSeekError&) {
-        Log::Print("ElementFileReader::TryGet failed to seek to pos %u\n", aBytes);
+        LOG(kEssential, "ElementFileReader::TryGet failed to seek to pos %u\n", aBytes);
         ASSERTS();
     }
 
@@ -288,11 +288,11 @@ TBool ElementFileReader::TryGet(IWriter& aWriter, const Brx& aUrl, TUint64 aOffs
         iFile->Seek(current);
     }
     catch (FileSeekError&) {
-        Log::Print("ElementFileReader::TryGet failed to seek back to pos %u\n", current);
+        LOG(kEssential, "ElementFileReader::TryGet failed to seek back to pos %u\n", current);
         ASSERTS();
     }
 
-    Log::Print("ElementFileReader::TryGet successfully retrieved all bytes\n");
+    LOG(kEssential, "ElementFileReader::TryGet successfully retrieved all bytes\n");
     return true;
 }
 
@@ -330,14 +330,14 @@ void ElementFileWriter::Push(Msg* aMsg)
 
 Msg* ElementFileWriter::ProcessMsg(MsgMode* aMsg)
 {
-    Log::Print("ElementFileWriter::ProcessMsg MsgMode\n");
+    LOG(kEssential, "ElementFileWriter::ProcessMsg MsgMode\n");
     aMsg->RemoveRef();
     return nullptr;
 }
 
 Msg* ElementFileWriter::ProcessMsg(MsgTrack* aMsg)
 {
-    Log::Print("ElementFileWriter::ProcessMsg MsgTrack\n");
+    LOG(kEssential, "ElementFileWriter::ProcessMsg MsgTrack\n");
     aMsg->RemoveRef();
     return nullptr;
 }
@@ -356,7 +356,7 @@ Msg* ElementFileWriter::ProcessMsg(MsgDelay* /*aMsg*/)
 
 Msg* ElementFileWriter::ProcessMsg(MsgEncodedStream* aMsg)
 {
-    Log::Print("ElementFileWriter::ProcessMsg MsgEncodedStream\n");
+    LOG(kEssential, "ElementFileWriter::ProcessMsg MsgEncodedStream\n");
     aMsg->RemoveRef();
     return nullptr;
 }
@@ -387,7 +387,7 @@ Msg* ElementFileWriter::ProcessMsg(MsgStreamInterrupted* aMsg)
 
 Msg* ElementFileWriter::ProcessMsg(MsgHalt* aMsg)
 {
-    Log::Print("ElementFileWriter::ProcessMsg MsgHalt\n");
+    LOG(kEssential, "ElementFileWriter::ProcessMsg MsgHalt\n");
     aMsg->RemoveRef();
     return nullptr;
 }
@@ -406,7 +406,7 @@ Msg* ElementFileWriter::ProcessMsg(MsgWait* /*aMsg*/)
 
 Msg* ElementFileWriter::ProcessMsg(MsgDecodedStream* aMsg)
 {
-    Log::Print("ElementFileWriter::ProcessMsg MsgDecodedStream\n");
+    LOG(kEssential, "ElementFileWriter::ProcessMsg MsgDecodedStream\n");
     if (iOutputWavHeader) {
         const DecodedStreamInfo& info = aMsg->StreamInfo();
 
@@ -424,7 +424,7 @@ Msg* ElementFileWriter::ProcessMsg(MsgDecodedStream* aMsg)
             iFile->Write(wavHeader);
         }
         catch (FileWriteError&) {
-            Log::Print("ElementFileWriter::ProcessMsg MsgDecodedStream Error while writing output WAV header");
+            LOG(kEssential, "ElementFileWriter::ProcessMsg MsgDecodedStream Error while writing output WAV header");
             ASSERTS();
         }
 
@@ -448,7 +448,7 @@ Msg* ElementFileWriter::ProcessMsg(MsgAudioPcm* aMsg)
         iFile->Write(buf);
     }
     catch (FileWriteError&) {
-        Log::Print("ElementFileWriter::ProcessMsg MsgAudioPcm Error while writing output file at audio offset %llu\n", trackOffset);
+        LOG(kEssential, "ElementFileWriter::ProcessMsg MsgAudioPcm Error while writing output file at audio offset %llu\n", trackOffset);
         ASSERTS();
     }
 
@@ -476,7 +476,7 @@ Msg* ElementFileWriter::ProcessMsg(MsgPlayable* /*aMsg*/)
 
 Msg* ElementFileWriter::ProcessMsg(MsgQuit* aMsg)
 {
-    Log::Print("ElementFileWriter::ProcessMsg MsgQuit\n");
+    LOG(kEssential, "ElementFileWriter::ProcessMsg MsgQuit\n");
     aMsg->RemoveRef();
     iSem.Signal();
     return nullptr;
@@ -665,17 +665,17 @@ int CDECL main(int aArgc, char* aArgv[])
     //options.AddOption(&optionSeekFile);
 
     if (!options.Parse(aArgc, aArgv)) {
-        Log::Print("Error: failure parsing input parameters.\n");
+        LOG(kEssential, "Error: failure parsing input parameters.\n");
         return 1;
     }
 
     if (optionFileIn.Value().Bytes() == 0) {
-        Log::Print("Error: input file [-i|--in <file>] must be specified.\n");
+        LOG(kEssential, "Error: input file [-i|--in <file>] must be specified.\n");
         return 1;
     }
 
     if (optionFileOut.Value().Bytes() == 0) {
-        Log::Print("Error: output file [-o|--out <file>] must be specified.\n");
+        LOG(kEssential, "Error: output file [-o|--out <file>] must be specified.\n");
         return 1;
     }
 
@@ -752,9 +752,9 @@ int CDECL main(int aArgc, char* aArgv[])
         fileReader.Open(optionFileIn.Value());
     }
     catch (FileOpenError&) {
-        Log::Print("Error: failed to open input file <");
-        Log::Print(optionFileIn.Value());
-        Log::Print(">\n");
+        LOG(kEssential, "Error: failed to open input file <");
+        LOG(kEssential, optionFileIn.Value());
+        LOG(kEssential, ">\n");
         return 1;
     }
 
@@ -763,9 +763,9 @@ int CDECL main(int aArgc, char* aArgv[])
         fileWriter.Open(optionFileOut.Value());
     }
     catch (FileOpenError&) {
-        Log::Print("Error: failed to open output file <");
-        Log::Print(optionFileOut.Value());
-        Log::Print(">\n");
+        LOG(kEssential, "Error: failed to open output file <");
+        LOG(kEssential, optionFileOut.Value());
+        LOG(kEssential, ">\n");
         return 1;
     }
 

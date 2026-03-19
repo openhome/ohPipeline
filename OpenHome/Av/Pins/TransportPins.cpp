@@ -86,7 +86,7 @@ TBool TransportPins::SelectLocalInput(const Brx& aSourceSystemName)
         return true;
     }
     catch (Exception& ex) {
-        Log::Print("%s in Pins::SelectLocalInput\n", ex.Message());
+        LOG(kEssential, "%s in Pins::SelectLocalInput\n", ex.Message());
         return false;
     }
 }

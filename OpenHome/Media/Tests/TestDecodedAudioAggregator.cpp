@@ -380,7 +380,7 @@ void SuiteDecodedAudioAggregator::PullNext(EMsgType aExpectedMsg, TUint64 aExpec
     TUint64 jiffiesStart = iJiffies;
     PullNext(aExpectedMsg);
     TUint64 jiffiesDiff = iJiffies - jiffiesStart;
-    //Log::Print("jiffiesDiff: %llu, aExpectedJiffies: %llu\n", jiffiesDiff, aExpectedJiffies);
+    //LOG(kEssential, "jiffiesDiff: %llu, aExpectedJiffies: %llu\n", jiffiesDiff, aExpectedJiffies);
     TEST(jiffiesDiff == aExpectedJiffies);
 }
 

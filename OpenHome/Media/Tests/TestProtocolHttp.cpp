@@ -1107,13 +1107,13 @@ TestHttpPipelineProvider::~TestHttpPipelineProvider()
 
 TUint TestHttpPipelineProvider::NextStreamId()
 {
-    //Log::Print("TestHttpPipelineProvider::NextStreamId\n");
+    //LOG(kEssential, "TestHttpPipelineProvider::NextStreamId\n");
     return iNextStreamId++;
 }
 
 EStreamPlay TestHttpPipelineProvider::OkToPlay(TUint /*aStreamId*/)
 {
-    //Log::Print("TestHttpPipelineProvider::OkToPlay\n");
+    //LOG(kEssential, "TestHttpPipelineProvider::OkToPlay\n");
     return ePlayYes;
 }
 
@@ -1150,9 +1150,9 @@ SuiteHttpBase::SuiteHttpBase(const TChar* aSuiteName)
     // Create our TCP server.
     iServer = new TestHttpServer(*gEnv, "HSV1", 0, addr);
 
-    //Log::Print("uri: ");
-    //Log::Print(iServer->ServingUri().AbsoluteUri());
-    //Log::Print("\n");
+    //LOG(kEssential, "uri: ");
+    //LOG(kEssential, iServer->ServingUri().AbsoluteUri());
+    //LOG(kEssential, "\n");
 
     TUint dataSize = TestHttpSession::kStreamLen;
 

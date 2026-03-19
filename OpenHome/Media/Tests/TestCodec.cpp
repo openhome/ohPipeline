@@ -350,9 +350,9 @@ void TestCodecMinimalPipeline::RegisterPlugins()
 
 TBool TestCodecMinimalPipeline::TryGet(IWriter& aWriter, const Brx& aUrl, TUint64 aOffset, TUint aBytes)
 {
-    Log::Print("Codec requesting out-of-band read. aUrl: ");
-    Log::Print(aUrl);
-    Log::Print(", aOffset: %llu, aBytes: %u\n", aOffset, aBytes);
+    LOG(kEssential, "Codec requesting out-of-band read. aUrl: ");
+    LOG(kEssential, aUrl);
+    LOG(kEssential, ", aOffset: %llu, aBytes: %u\n", aOffset, aBytes);
     return iFiller->TryGet(aWriter, aUrl, aOffset, aBytes);
 }
 
@@ -538,10 +538,10 @@ Msg* SuiteCodecStream::ProcessMsg(MsgAudioPcm* aMsg)
 Brx* SuiteCodecStream::StartStreaming(const Brx& aTestName, const Brx& aFilename)
 {
     // Try streaming a full file.
-    Log::Print(aTestName);
-    Log::Print(": ");
-    Log::Print(aFilename);
-    Log::Print("\n");
+    LOG(kEssential, aTestName);
+    LOG(kEssential, ": ");
+    LOG(kEssential, aFilename);
+    LOG(kEssential, "\n");
 
     ASSERT(aFilename.Bytes() <= kMaxFilenameLen);
     Bwh* fileLocation = new Bwh(iUri.AbsoluteUri().Bytes() + aFilename.Bytes() + 1);
@@ -565,7 +565,7 @@ void SuiteCodecStream::TestJiffies()
     delete fileLocation;
 
     //LOG(kMedia, "iJiffies: %llu, track jiffies: %llu\n", iJiffies, jiffies);
-    Log::Print("iJiffies: %llu, track jiffies: %llu\n", iJiffies, jiffies);
+    LOG(kEssential, "iJiffies: %llu, track jiffies: %llu\n", iJiffies, jiffies);
     TEST(iJiffies == jiffies);
 }
 
@@ -665,7 +665,7 @@ void SuiteCodecSeek::TestSeeking(TUint64 aDurationJiffies, TUint64 aSeekPosJiffi
     if (aSeekable) {
         TUint64 expectedJiffies = ExpectedJiffies(aDurationJiffies, aDurationJiffies/2, seekPosSeconds);
         //LOG(kMedia, "iJiffies: %llu, expectedJiffies: %llu\n", iJiffies, expectedJiffies);
-        //Log::Print("iJiffies: %llu, expectedJiffies: %llu\n", iJiffies, expectedJiffies);
+        //LOG(kEssential, "iJiffies: %llu, expectedJiffies: %llu\n", iJiffies, expectedJiffies);
         TEST(iSeekSuccess);
 
         if (aCodec != AudioFileDescriptor::kCodecVorbis) {
@@ -790,7 +790,7 @@ void SuiteCodecSeekFromStart::TestSeekingFromStart(TUint64 aDurationJiffies, TUi
     if (aSeekable) {
         TUint64 expectedJiffies = ExpectedJiffies(aDurationJiffies, 0, seekPosSeconds);
         //LOG(kMedia, "iJiffies: %llu, expectedJiffies: %llu\n", iJiffies, expectedJiffies);
-        //Log::Print("iJiffies: %llu, expectedJiffies: %llu\n", iJiffies, expectedJiffies);
+        //LOG(kEssential, "iJiffies: %llu, expectedJiffies: %llu\n", iJiffies, expectedJiffies);
         TEST(iSeekSuccess);
 
         if (aCodec != AudioFileDescriptor::kCodecVorbis) {
@@ -994,14 +994,14 @@ void SuiteCodecZeroCrossings::TestZeroCrossings()
     delete fileLocation;
 
     timeEnd = Time::Now(iEnv);
-    Log::Print("TestCodec ");
-    Log::Print(filename);
-    Log::Print(" start: %ums, end: %ums, duration: %us (%ums)\n", timeStart, timeEnd, (timeEnd-timeStart)/1000, timeEnd-timeStart);
+    LOG(kEssential, "TestCodec ");
+    LOG(kEssential, filename);
+    LOG(kEssential, " start: %ums, end: %ums, duration: %us (%ums)\n", timeStart, timeEnd, (timeEnd-timeStart)/1000, timeEnd-timeStart);
 
-    Log::Print("iJiffies: %llu, track jiffies: %llu\n", iJiffies, jiffies);
+    LOG(kEssential, "iJiffies: %llu, track jiffies: %llu\n", iJiffies, jiffies);
     TEST(iJiffies == jiffies);
     //LOG(kMedia, "iZeroCrossings: %u, expectedZeroCrossings: %u, iUnacceptableCrossingDeltas: %u\n", iZeroCrossings, expectedZeroCrossings, iUnacceptableCrossingDeltas);
-    Log::Print("iZeroCrossings: %u, expectedZeroCrossings: %u, iUnacceptableCrossingDeltas: %u\n", iZeroCrossings, expectedZeroCrossings, iUnacceptableCrossingDeltas);
+    LOG(kEssential, "iZeroCrossings: %u, expectedZeroCrossings: %u, iUnacceptableCrossingDeltas: %u\n", iZeroCrossings, expectedZeroCrossings, iUnacceptableCrossingDeltas);
     TEST(iZeroCrossings >= expectedZeroCrossings-200);
     TEST(iZeroCrossings <= expectedZeroCrossings+200);
     // Test that less than 2% of the zero crossings have an unnaceptable spacing.
@@ -1034,14 +1034,14 @@ void SuiteCodecInvalidType::TestInvalidType()
     delete fileLocation;
 
     LOG(kMedia, "iJiffies: %llu, kTotalJiffies: %llu\n", iJiffies, jiffies);
-    //Log::Print("iJiffies: %llu, kTotalJiffies: %llu\n", iJiffies, jiffies);
+    //LOG(kEssential, "iJiffies: %llu, kTotalJiffies: %llu\n", iJiffies, jiffies);
     TEST(iJiffies == 0); // If we don't exit cleanly and with 0 jiffies of output audio, something is misbehaving.
 }
 
 
 void TestCodec(Environment& aEnv, CreateTestCodecPipelineFunc aFunc, GetTestFiles aFileFunc, const std::vector<Brn>& aArgs)
 {
-    Log::Print("TestCodec\n");
+    LOG(kEssential, "TestCodec\n");
 
     OptionParser parser;
     OptionString optionServer("-s", "--server", Brn("localhost"), "address of server to connect to");
@@ -1079,7 +1079,7 @@ void TestCodec(Environment& aEnv, CreateTestCodecPipelineFunc aFunc, GetTestFile
     Endpoint endptClient(0, addr);
     Endpoint::AddressBuf buf;
     endptClient.AppendAddress(buf);
-    Log::Print("Using network interface %s\n", buf.Ptr());
+    LOG(kEssential, "Using network interface %s\n", buf.Ptr());
 
     // set up server uri
     Endpoint endptServer = Endpoint(optionPort.Value(), optionServer.Value());
@@ -1089,7 +1089,7 @@ void TestCodec(Environment& aEnv, CreateTestCodecPipelineFunc aFunc, GetTestFile
     uriBuf.Append("/");
     uriBuf.Append(optionPath.Value());
     Uri uri(uriBuf);
-    Log::Print("Connecting to server: %.*s\n", PBUF(uri.AbsoluteUri()));
+    LOG(kEssential, "Connecting to server: %.*s\n", PBUF(uri.AbsoluteUri()));
 
     // set test type
     TBool testFull = true;

@@ -113,7 +113,7 @@ CodecDsdDsf::CodecDsdDsf(IMimeTypeList& aMimeTypeList, TUint aSampleBlockWords, 
 
 void CodecDsdDsf::CheckReinterleave()
 {
-    Log::Print("DSD CheckReinterleave:\n");
+    LOG(kEssential, "DSD CheckReinterleave:\n");
     iInputBuffer.SetBytes(0);
     // left
     for (TUint i = 0 ; i < kDataBlockBytes ; ++i) {
@@ -131,17 +131,17 @@ void CodecDsdDsf::CheckReinterleave()
 
 void CodecDsdDsf::ShowBufLeader() const
 {
-    Log::Print("LF: ");
+    LOG(kEssential, "LF: ");
     Log::PrintHex(iInputBuffer.Split(0, 20));
-    Log::Print("\n");
+    LOG(kEssential, "\n");
 
-    Log::Print("RF: ");
+    LOG(kEssential, "RF: ");
     Log::PrintHex(iInputBuffer.Split(kDataBlockBytes, 20));
-    Log::Print("\n");
+    LOG(kEssential, "\n");
 
-    Log::Print("OP: ");
+    LOG(kEssential, "OP: ");
     Log::PrintHex(iOutputBuffer.Split(0, 60));
-    Log::Print("\n");
+    LOG(kEssential, "\n");
 }
 
 
@@ -248,12 +248,12 @@ void CodecDsdDsf::TransferToOutputBuffer()
 
 void CodecDsdDsf::LogBuf(const Brx& aBuf)
 {
-    Log::Print("\nLogBuf bytes= %d\n", aBuf.Bytes());
+    LOG(kEssential, "\nLogBuf bytes= %d\n", aBuf.Bytes());
     for(TUint i=0; i<aBuf.Bytes(); ++i)
     {
-        Log::Print("%x ", aBuf[i]);
+        LOG(kEssential, "%x ", aBuf[i]);
     }
-    Log::Print("\n\n");
+    LOG(kEssential, "\n\n");
 }
 
 void CodecDsdDsf::Process()
@@ -262,23 +262,23 @@ void CodecDsdDsf::Process()
     {
         ProcessHeader();
 
-        Log::Print("DSD:\n");
-        Log::Print("  iChannelCount = %u\n", iChannelCount);
-        Log::Print("  iSampleRate = %u\n", iSampleRate);
-        Log::Print("  iBitDepth = %u\n", iBitDepth);
-        Log::Print("  iAudioBytesTotal = %llu\n", iAudioBytesTotal);
-        Log::Print("  iAudioBytesRemaining = %llu   (%lld blocks)\n", iAudioBytesRemaining, iAudioBytesRemaining/kInputBufMaxBytes);
-        Log::Print("  iFileSize = %llu\n", iFileSize);
-        Log::Print("  iBitRate = %u\n", iBitRate);
-        //Log::Print("  iTrackStart = %llu\n", iTrackStart);
-        Log::Print("  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
-        Log::Print("  iTrackLengthJiffies = %llu (%llu secs)\n", iTrackLengthJiffies, iTrackLengthJiffies/Jiffies::kPerSecond);
-        Log::Print("  iBlockSizePerChannel = %u\n", iBlockSizePerChannel);
-        Log::Print("  iFormatVersion = %u\n", iFormatVersion);
-        Log::Print("  iFormatId = %u\n", iFormatId);
-        Log::Print("  iChannelType = %u\n", iChannelType);
-        Log::Print("  iSampleCount = %llu\n", iSampleCount);
-        Log::Print("  iAudioBytesTotalPlayable = %llu\n", iAudioBytesTotalPlayable);
+        LOG(kEssential, "DSD:\n");
+        LOG(kEssential, "  iChannelCount = %u\n", iChannelCount);
+        LOG(kEssential, "  iSampleRate = %u\n", iSampleRate);
+        LOG(kEssential, "  iBitDepth = %u\n", iBitDepth);
+        LOG(kEssential, "  iAudioBytesTotal = %llu\n", iAudioBytesTotal);
+        LOG(kEssential, "  iAudioBytesRemaining = %llu   (%lld blocks)\n", iAudioBytesRemaining, iAudioBytesRemaining/kInputBufMaxBytes);
+        LOG(kEssential, "  iFileSize = %llu\n", iFileSize);
+        LOG(kEssential, "  iBitRate = %u\n", iBitRate);
+        //LOG(kEssential, "  iTrackStart = %llu\n", iTrackStart);
+        LOG(kEssential, "  iTrackOffsetJiffies = %llu\n", iTrackOffsetJiffies);
+        LOG(kEssential, "  iTrackLengthJiffies = %llu (%llu secs)\n", iTrackLengthJiffies, iTrackLengthJiffies/Jiffies::kPerSecond);
+        LOG(kEssential, "  iBlockSizePerChannel = %u\n", iBlockSizePerChannel);
+        LOG(kEssential, "  iFormatVersion = %u\n", iFormatVersion);
+        LOG(kEssential, "  iFormatId = %u\n", iFormatId);
+        LOG(kEssential, "  iChannelType = %u\n", iChannelType);
+        LOG(kEssential, "  iSampleCount = %llu\n", iSampleCount);
+        LOG(kEssential, "  iAudioBytesTotalPlayable = %llu\n", iAudioBytesTotalPlayable);
 
         SendMsgDecodedStream(0);
         iInputBuffer.SetBytes(0);
@@ -408,7 +408,7 @@ void CodecDsdDsf::ProcessFmtChunk()
     if ( (iSampleCount%8) != 0)
     {
         iSampleCount &= ~(0x7);
-        Log::Print("CodecDsdDsf::ProcessFmtChunk  stream contains a partial 8 bit sample block - truncating, may cause glitch \n");
+        LOG(kEssential, "CodecDsdDsf::ProcessFmtChunk  stream contains a partial 8 bit sample block - truncating, may cause glitch \n");
     }
 
     iAudioBytesTotalPlayable = 2*(iSampleCount/8);  // *2/8  (2 channels, 8 samples per byte)

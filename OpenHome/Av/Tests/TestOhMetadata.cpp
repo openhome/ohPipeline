@@ -235,7 +235,7 @@ void SuiteDIDLLiteTruncator::TestTooLongMetadataTruncated()
         "</DIDL-Lite>";
 
     Brn srcBuf(src);
-    //Log::Print("\n\tsrcBuf.Bytes()=%u\n", srcBuf.Bytes());
+    //LOG(kEssential, "\n\tsrcBuf.Bytes()=%u\n", srcBuf.Bytes());
     Bws<470> dest;
     DIDLLiteTruncator::CheckTruncate(srcBuf, dest);
     TEST(dest.Bytes() > 0);

@@ -572,7 +572,7 @@ void SuitePowerManager::TestMultipleFunctorsAddedInOrder()
     IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal, "Handler2");
     IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityLowest, "Handler3");
     iPowerManager->NotifyPowerDown();
-    Log::Print("TestMultipleFunctorsAddedInOrder iTimes: %u | %u | %u\n", iHandler1->Time(), iHandler2->Time(), iHandler3->Time());
+    LOG(kEssential, "TestMultipleFunctorsAddedInOrder iTimes: %u | %u | %u\n", iHandler1->Time(), iHandler2->Time(), iHandler3->Time());
     TEST((iHandler1->Time() > 0) && (iHandler2->Time() > 0) && (iHandler3->Time() > 0));
     TEST(iHandler1->Time() < iHandler2->Time());
     TEST(iHandler2->Time() < iHandler3->Time());
@@ -589,7 +589,7 @@ void SuitePowerManager::TestMultipleFunctorsAddedInReverseOrder()
     IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal, "Handler2");
     IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest, "Handler1");
     iPowerManager->NotifyPowerDown();
-    Log::Print("TestMultipleFunctorsAddedInReverseOrder iTimes: %u | %u | %u\n",
+    LOG(kEssential, "TestMultipleFunctorsAddedInReverseOrder iTimes: %u | %u | %u\n",
                iHandler1->Time(), iHandler2->Time(), iHandler3->Time());
     TEST((iHandler1->Time() > 0) && (iHandler2->Time() > 0) && (iHandler3->Time() > 0));
     TEST(iHandler1->Time() < iHandler2->Time());
@@ -607,7 +607,7 @@ void SuitePowerManager::TestMultipleFunctorsAddedOutOfOrder()
     IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler1, kPowerPriorityHighest, "Handler1");
     IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityLowest, "Handler3");
     iPowerManager->NotifyPowerDown();
-    Log::Print("TestMultipleFunctorsAddedOutOfOrder iTimes: %u | %u | %u\n",
+    LOG(kEssential, "TestMultipleFunctorsAddedOutOfOrder iTimes: %u | %u | %u\n",
                iHandler1->Time(), iHandler2->Time(), iHandler3->Time());
     TEST((iHandler1->Time() > 0) && (iHandler2->Time() > 0) && (iHandler3->Time() > 0));
     TEST(iHandler1->Time() < iHandler2->Time());
@@ -626,7 +626,7 @@ void SuitePowerManager::TestMultipleFunctorsSamePriority()
     IPowerManagerObserver* observer2 = iPowerManager->RegisterPowerHandler(*iHandler2, kPowerPriorityNormal, "Handler2");
     IPowerManagerObserver* observer3 = iPowerManager->RegisterPowerHandler(*iHandler3, kPowerPriorityNormal, "Handler3");
     iPowerManager->NotifyPowerDown();
-    Log::Print("TestMultipleFunctorsSamePriority iTimes: %u | %u | %u\n",
+    LOG(kEssential, "TestMultipleFunctorsSamePriority iTimes: %u | %u | %u\n",
                iHandler1->Time(), iHandler2->Time(), iHandler3->Time());
     TEST((iHandler1->Time() > 0) && (iHandler2->Time() > 0) && (iHandler3->Time() > 0));
     TEST(iHandler1->Time() < iHandler2->Time());
@@ -880,7 +880,7 @@ void SuiteStoreValOrdering::TestPriorityPassedCorrectly()
     TUint time1 = SuiteStoreInt::IntFromStore(*iStore, kKey3);
     TUint time2 = SuiteStoreInt::IntFromStore(*iStore, kKey1);
     TUint time3 = SuiteStoreInt::IntFromStore(*iStore, kKey2);
-    Log::Print("TestPriorityPassedCorrectly times: %u | %u | %u\n", time1, time2, time3);
+    LOG(kEssential, "TestPriorityPassedCorrectly times: %u | %u | %u\n", time1, time2, time3);
     TEST(time1 < time2);
     TEST(time2 < time3);
 }

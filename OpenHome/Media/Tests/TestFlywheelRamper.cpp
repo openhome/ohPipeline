@@ -110,7 +110,7 @@ SuiteFlywheelRamper::SuiteFlywheelRamper(Environment& aEnv)
 
 void SuiteFlywheelRamper::Test1() // FeedbackModel algorithm
 {
-    //Log::Print("\n");
+    //LOG(kEssential, "\n");
     const TUint kDataInDescaleBits = 8;
     const TUint kCoeffFormat = 1;
     const TUint kDataInFormat = 1;
@@ -147,7 +147,7 @@ void SuiteFlywheelRamper::Test1() // FeedbackModel algorithm
     {
         TInt sample = feedback->NextSample();
         TEST(sample == expectedSamplesOut[i]);
-        //Log::Print(" actual=%lx   expected=%lx  i=%d\n", sample, expectedSamplesOut[i], i);
+        //LOG(kEssential, " actual=%lx   expected=%lx  i=%d\n", sample, expectedSamplesOut[i], i);
     }
 
     delete feedback;
@@ -159,7 +159,7 @@ void SuiteFlywheelRamper::Test1() // FeedbackModel algorithm
 void SuiteFlywheelRamper::Test2()  // FeedbackModel scaling
 {
 
-    //Log::Print("\n");
+    //LOG(kEssential, "\n");
     const TUint kDataInDescaleBits = 8;
 
     const TUint kDegree = 2;
@@ -299,7 +299,7 @@ void SuiteFlywheelRamper::Test3()  // FeedbackModel step response output
     auto feedback = new FeedbackModel(kDegree, kDataInDescaleBits, kCoeffFormat, kDataInFormat, kDataOutFormat);
     feedback->Initialise(coeffs, samplesIn);
 
-    //Log::Print("\n\nUnit Test\n\n");
+    //LOG(kEssential, "\n\nUnit Test\n\n");
     //
     // sampleOut n = sampleIn(n) + coeff(1)*sampleOut(n-1) + coeff(2)*sampleOut(n-2)...
     //
@@ -354,7 +354,7 @@ void SuiteFlywheelRamper::Test4()  // FeedbackModel periodic impulse output
     feedback->Initialise(coeffs, samplesIn);
 
 
-    //Log::Print("\n\nUnit Test\n\n");
+    //LOG(kEssential, "\n\nUnit Test\n\n");
     //
     // sampleOut n = sampleIn(n) + coeff(1)*sampleOut(n-1) + coeff(2)*sampleOut(n-2)...
     //
@@ -443,7 +443,7 @@ void SuiteFlywheelRamper::Test5()  // FeedbackModel alternating polarity periodi
     auto feedback = new FeedbackModel(kDegree, kDataInDescaleBits, kCoeffFormat, kDataInFormat, kDataOutFormat);
     feedback->Initialise((TInt32*)coeffs, samplesIn);
 
-    //Log::Print("\n\nUnit Test\n\n");
+    //LOG(kEssential, "\n\nUnit Test\n\n");
     //
     // sampleOut n = sampleIn(n) + coeff(1)*sampleOut(n-1) + coeff(2)*sampleOut(n-2)...
     //
@@ -614,7 +614,7 @@ void SuiteFlywheelRamper::Test6() // Burg Method testing
 
 void SuiteFlywheelRamper::Test7() // Speed testing (profiling)
 {
-    //Log::Print("Burg Method profiling:: \n");
+    //LOG(kEssential, "Burg Method profiling:: \n");
 
     const TUint kSampleRate = 192000;
     const TUint kChanCount = 8;
@@ -626,7 +626,7 @@ void SuiteFlywheelRamper::Test7() // Speed testing (profiling)
     TUint genByteCount = FlywheelRamper::SampleCount(kSampleRate, kGenJiffies)*FlywheelRamper::kBytesPerSample*kChanCount;
     TUint rampByteCount = FlywheelRamper::SampleCount(kSampleRate, kRampJiffies)*FlywheelRamper::kBytesPerSample*kChanCount;
 
-    //Log::Print("rampByteCount (%d channels) =  %d\n", kChanCount, rampByteCount);
+    //LOG(kEssential, "rampByteCount (%d channels) =  %d\n", kChanCount, rampByteCount);
 
 
     Bwh genSamples(genByteCount);
@@ -669,9 +669,9 @@ void SuiteFlywheelRamper::Test7() // Speed testing (profiling)
 
     TUint endTime = Os::TimeInMs(iEnv.OsCtx());
 
-    Log::Print("init = %dus  rendering = %dus  total = %dus (best = 446us)\n", endPrepTime-startTime,  endTime-endPrepTime, endPrepTime-startTime+endTime-endPrepTime);
+    LOG(kEssential, "init = %dus  rendering = %dus  total = %dus (best = 446us)\n", endPrepTime-startTime,  endTime-endPrepTime, endPrepTime-startTime+endTime-endPrepTime);
 
-    Log::Print("processed = %d 32bit samples, expected %d (8*192 channels*samples) = %d bytes\n", rampOutput.Bytes()/4, rampByteCount/4, rampOutput.Bytes());
+    LOG(kEssential, "processed = %d 32bit samples, expected %d (8*192 channels*samples) = %d bytes\n", rampOutput.Bytes()/4, rampByteCount/4, rampOutput.Bytes());
 
     delete ramper;
 
@@ -693,9 +693,9 @@ void SuiteFlywheelRamper::LogBuf(const Brx& aBuf)
 {
     for(TUint x=0; x<aBuf.Bytes(); x++)
     {
-        Log::Print("%x ", aBuf[x]);
+        LOG(kEssential, "%x ", aBuf[x]);
     }
-    Log::Print("\n");
+    LOG(kEssential, "\n");
 }
 
 

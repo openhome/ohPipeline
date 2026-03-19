@@ -120,9 +120,9 @@ void AnimatorBasic::DriverThread()
                 if (iPullValue != IPullableClock::kNominalFreq) {
                     TInt64 pending64 = iPullValue * iPendingJiffies;
                     pending64 /= IPullableClock::kNominalFreq;
-                    //Log::Print("iPendingJiffies=%08x, pull=%08x\n", iPendingJiffies, pending64); // FIXME
+                    //LOG(kEssential, "iPendingJiffies=%08x, pull=%08x\n", iPendingJiffies, pending64); // FIXME
                     //TInt pending = (TInt)iPendingJiffies + (TInt)pending64;
-                    //Log::Print("Pulled clock, now want %u jiffies (%ums, %d%%) extra\n", (TUint)pending, Jiffies::ToMs(pending), (pending-(TInt)iPendingJiffies)/iPendingJiffies); // FIXME
+                    //LOG(kEssential, "Pulled clock, now want %u jiffies (%ums, %d%%) extra\n", (TUint)pending, Jiffies::ToMs(pending), (pending-(TInt)iPendingJiffies)/iPendingJiffies); // FIXME
                     iPendingJiffies = (TUint)pending64;
                 }
             }
@@ -212,7 +212,7 @@ Msg* AnimatorBasic::ProcessMsg(MsgDrain* aMsg)
 
 Msg* AnimatorBasic::ProcessMsg(MsgHalt* aMsg)
 {
-    Log::Print("AnimatorBasic - MsgHalt\n");
+    LOG(kEssential, "AnimatorBasic - MsgHalt\n");
     iPendingJiffies = 0;
     iNextTimerDuration = 0;
     aMsg->ReportHalted();
@@ -227,7 +227,7 @@ Msg* AnimatorBasic::ProcessMsg(MsgDecodedStream* aMsg)
     iSampleRate = stream.SampleRate();
     iNumChannels = stream.NumChannels();
     iBitDepth = stream.BitDepth();
-    Log::Print("AnimatorBasic - MsgDecodedStream - %u/%u/%u\n", iSampleRate, iBitDepth, iNumChannels);
+    LOG(kEssential, "AnimatorBasic - MsgDecodedStream - %u/%u/%u\n", iSampleRate, iBitDepth, iNumChannels);
     iJiffiesPerSample = Jiffies::PerSample(iSampleRate);
     iRamping = false;
     aMsg->RemoveRef();
@@ -238,7 +238,7 @@ Msg* AnimatorBasic::ProcessMsg(MsgPlayable* aMsg)
 {
     const TBool ramping = aMsg->Ramp().IsEnabled();
     if (ramping && !iRamping) {
-        Log::Print("AnimatorBasic - ramping\n");
+        LOG(kEssential, "AnimatorBasic - ramping\n");
     }
     iRamping = ramping;
     ProcessAudio(aMsg);

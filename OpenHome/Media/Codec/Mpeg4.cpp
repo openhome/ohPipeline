@@ -576,7 +576,7 @@ Msg* Mpeg4BoxSidx::Process()
             iVersion = Converter::BeUint32At(iBuf, 0);
 
             if (iVersion < 0 || iVersion > 1) {
-                Log::Print("Mpeg4BoxSidx::Process - Unsupported version (%u) found.\n", iVersion);
+                LOG(kEssential, "Mpeg4BoxSidx::Process - Unsupported version (%u) found.\n", iVersion);
                 THROW(MediaMpeg4FileInvalid);
             }
 
@@ -2266,7 +2266,7 @@ Msg* Mpeg4BoxSchm::Process()
             // NOTE: We currently only support cenc encryption
             const Brn kSupported("cenc");
             if (iBuf.Equals(kSupported) == false) {
-                Log::Print("Mpeg4::Mpeg4BoxSchim - Encountered a protected container with encryption format: %.*s which is unsupported.\n", PBUF(iBuf));
+                LOG(kEssential, "Mpeg4::Mpeg4BoxSchim - Encountered a protected container with encryption format: %.*s which is unsupported.\n", PBUF(iBuf));
                 THROW(MediaMpeg4FileInvalid);
             }
 
@@ -2394,7 +2394,7 @@ Msg* Mpeg4BoxTenc::Process()
             iProtectionDetails.SetKID(iKIDBuf);
 
             if (iProtectionDetails.IsProtected() && iProtectionDetails.PerSampleIVSizeBytes() == 0) {
-                Log::Print("Mpeg4BoxTenc::Process - Content is encrypted with scheme requiring a ConstantIV. This is not something we support.\n");
+                LOG(kEssential, "Mpeg4BoxTenc::Process - Content is encrypted with scheme requiring a ConstantIV. This is not something we support.\n");
                 THROW(MediaMpeg4FileInvalid);
             }
 
@@ -3392,7 +3392,7 @@ Msg* Mpeg4BoxMdat::Process()
                 // Otherwise, we attempt to decrypt the current sample.
                 const TUint sampleBytes = iSampleSizeTable.SampleSize(iSampleIndex);
                 if (sampleBytes > iDecryptionBuf->MaxBytes()) {
-                    Log::Print("Mpeg4BoxMdat::Process() - ERROR  :: Very large sample detected. We can handle %u bytes, sample was %u bytes\n", iDecryptionBuf->MaxBytes(), sampleBytes);
+                    LOG(kEssential, "Mpeg4BoxMdat::Process() - ERROR  :: Very large sample detected. We can handle %u bytes, sample was %u bytes\n", iDecryptionBuf->MaxBytes(), sampleBytes);
                     OnErrorEncountered();
                     THROW(CodecStreamCorrupt);
                 }
@@ -3894,7 +3894,7 @@ TUint64 SeekTable::Offset(TUint64& aAudioSample, TUint64& aSample)
 TUint64 SeekTable::GetOffset(TUint aChunkIndex) const
 {
     if (aChunkIndex >= iOffsets.size()) {
-        Log::Print("SOMETHING EWAN HAS DONE HAS GONE WRONG\n");
+        LOG(kEssential, "SOMETHING EWAN HAS DONE HAS GONE WRONG\n");
     }
 
     ASSERT(aChunkIndex < iOffsets.size());
@@ -4728,7 +4728,7 @@ void Mpeg4Container::Init(TUint64 aStreamBytes)
 TBool Mpeg4Container::TrySeek(TUint aStreamId, TUint64 aOffset)
 {
     if (iContainerInfo.ProcessingMode() == Mpeg4ContainerInfo::EProcessingMode::Fragmented) {
-        Log::Print("Mpeg4Container::TrySeek - Seeking not available for fragmented streams");
+        LOG(kEssential, "Mpeg4Container::TrySeek - Seeking not available for fragmented streams");
         return false;
 
         /* @FragmentedStreamSeeking
@@ -4864,7 +4864,7 @@ MsgAudioEncoded* Mpeg4Container::GetMetadata()
     case eMdataNone:
         {
             if (iStreamInfo.Codec().Bytes() == 0) {
-                Log::Print("Mpeg4Container::GetMetadata - No codec assigned - This stream likely contains a codec we don't currently support.\n");
+                LOG(kEssential, "Mpeg4Container::GetMetadata - No codec assigned - This stream likely contains a codec we don't currently support.\n");
                 THROW(MediaMpeg4FileInvalid);
             }
 

@@ -348,7 +348,7 @@ FLAC__StreamDecoderLengthStatus CodecFlac::CallbackLength(const FLAC__StreamDeco
 
 TBool CodecFlac::CallbackEof(const FLAC__StreamDecoder* /*aDecoder*/)
 {
-    //Log::Print("FIXME - CodecFlac::CallbackEof unimplemented\n");
+    //LOG(kEssential, "FIXME - CodecFlac::CallbackEof unimplemented\n");
     return false;
 }
 
@@ -402,7 +402,7 @@ FLAC__StreamDecoderWriteStatus CodecFlac::CallbackWrite(const FLAC__StreamDecode
                     *p++ = (TByte)subsample;
                     break;
                 default:
-                    Log::Print("Unsupported bit depth in CodecFlac::CallbackWrite - %u\n", bitDepth);
+                    LOG(kEssential, "Unsupported bit depth in CodecFlac::CallbackWrite - %u\n", bitDepth);
                     THROW(CodecStreamFeatureUnsupported);
                 }
             }

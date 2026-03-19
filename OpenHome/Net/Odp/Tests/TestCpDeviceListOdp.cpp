@@ -83,9 +83,9 @@ void OpenHome::TestFramework::Runner::Main(TInt aArgc, TChar* aArgv[], Net::Init
 
     Bws<Endpoint::kMaxAddressBytes> addr;
     Endpoint::AppendAddress(addr, subnet);
-    Log::Print("Subnet in use: ");
-    Log::Print(addr);
-    Log::Print("\n");
+    LOG(kEssential, "Subnet in use: ");
+    LOG(kEssential, addr);
+    LOG(kEssential, "\n");
     
     // combined
     CpStack* cpStack = NULL;

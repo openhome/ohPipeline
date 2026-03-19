@@ -61,9 +61,9 @@ void SuiteSocketUdp::TestInterruptNoData()
         iSocket->Interrupt(false);
     }
     iSocket->Interrupt(true);
-    Log::Print("Attempting to join thread following iSocket interrupt...\n");
+    LOG(kEssential, "Attempting to join thread following iSocket interrupt...\n");
     tf->Join();
-    Log::Print("...successfully joined thread.\n");
+    LOG(kEssential, "...successfully joined thread.\n");
     delete tf;
 }
 
@@ -71,12 +71,12 @@ void SuiteSocketUdp::SocketReadThread()
 {
     Bws<1500> buf;
     try {
-        Log::Print("SuiteSocketUdp::SocketReadThread before iSocket->Receive()\n");
+        LOG(kEssential, "SuiteSocketUdp::SocketReadThread before iSocket->Receive()\n");
         (void)iSocket->Receive(buf);
-        Log::Print("SuiteSocketUdp::SocketReadThread after iSocket->Receive()\n");
+        LOG(kEssential, "SuiteSocketUdp::SocketReadThread after iSocket->Receive()\n");
     }
     catch (NetworkError&) {
-        Log::Print("SuiteSocketUdp::SocketReadThread caught NetworkError\n");
+        LOG(kEssential, "SuiteSocketUdp::SocketReadThread caught NetworkError\n");
     }
 }
 

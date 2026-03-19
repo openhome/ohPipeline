@@ -36,7 +36,7 @@ ConfigNum::ConfigNum(IConfigInitialiser& aManager, const Brx& aKey,
     if (!IsValid(initialVal)) {
         // Stored value is no longer valid.  Report the default value to subscribers but leave the stored value unchanged.
         // If a future release reinstates previous limits, the stored value will be picked up again.
-        Log::Print("ConfigNum(%.*s) stored value (%d) is no longer valid, using default (%d) instead\n",
+        LOG(kEssential, "ConfigNum(%.*s) stored value (%d) is no longer valid, using default (%d) instead\n",
             PBUF(aKey), initialVal, iDefault);
         initialVal = iDefault;
     }
@@ -238,12 +238,12 @@ void ConfigChoice::Init()
         Write(kvp);
         if (iChoicesAreDynamic) {
             // Don't assert if the choices are dynamic as an invalid initial value is an acceptable scenario
-            Log::Print("ConfigChoice::Init [%.*s] initial value (%u) not in the dynamic choice list, replace with the default value (%d) \n", PBUF(iKey), initialVal, iDefault);
+            LOG(kEssential, "ConfigChoice::Init [%.*s] initial value (%u) not in the dynamic choice list, replace with the default value (%d) \n", PBUF(iKey), initialVal, iDefault);
             iSelected = iDefault;
         }
         else {
             // ASSERT() here to highlight programmer error. Valid default already writen to store to ensure that there is no assertion in future
-            Log::Print("ConfigChoice::Init [%.*s] invalid initial value: %u\n", PBUF(iKey), initialVal);
+            LOG(kEssential, "ConfigChoice::Init [%.*s] invalid initial value: %u\n", PBUF(iKey), initialVal);
             ASSERTS();
         }
     }
@@ -501,12 +501,12 @@ void ConfigTextChoice::Deserialise(const Brx& aString)
 void WriterPrinter::Write(TByte aValue)
 {
     Bws<1> buf(aValue);
-    Log::Print(buf);
+    LOG(kEssential, buf);
 }
 
 void WriterPrinter::Write(const Brx& aBuffer)
 {
-    Log::Print(aBuffer);
+    LOG(kEssential, aBuffer);
 }
 
 void WriterPrinter::WriteFlush()
@@ -619,18 +619,18 @@ ISerialisable& ConfigManager::Get(const Brx& aKey) const
 
 void ConfigManager::Print() const
 {
-    Log::Print("ConfigManager: [\n");
+    LOG(kEssential, "ConfigManager: [\n");
 
-    Log::Print("ConfigNum:\n");
+    LOG(kEssential, "ConfigNum:\n");
     Print(iMapNum);
-    Log::Print("ConfigChoice:\n");
+    LOG(kEssential, "ConfigChoice:\n");
     Print(iMapChoice);
-    Log::Print("ConfigText:\n");
+    LOG(kEssential, "ConfigText:\n");
     Print(iMapText);
-    Log::Print("ConfigTextChoice:\n");
+    LOG(kEssential, "ConfigTextChoice:\n");
     Print(iMapTextChoice);
 
-    Log::Print("]\n");
+    LOG(kEssential, "]\n");
 }
 
 void ConfigManager::DumpToStore()
@@ -831,11 +831,11 @@ template <class T> void ConfigManager::Add(SerialisedMap<T>& aMap, const Brx& aK
 template <class T> void ConfigManager::Print(const ConfigVal<T>& aVal) const
 {
     WriterPrinter writerPrinter;
-    Log::Print("    {");
-    Log::Print(aVal.Key());
-    Log::Print(", ");
+    LOG(kEssential, "    {");
+    LOG(kEssential, aVal.Key());
+    LOG(kEssential, ", ");
     aVal.Serialise(writerPrinter);
-    Log::Print("}\n");
+    LOG(kEssential, "}\n");
 }
 
 template <class T> void ConfigManager::Print(const SerialisedMap<T>& aMap) const

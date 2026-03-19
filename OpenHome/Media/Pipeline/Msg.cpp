@@ -35,14 +35,14 @@ AllocatorBase::~AllocatorBase()
     LOG(kPipeline, "> ~AllocatorBase for %s. (Peak %u/%u)\n", iName, iCellsUsedMax, iFree.Slots());
     const TUint slots = iFree.Slots();
     for (TUint i=0; i<slots; i++) {
-        //Log::Print("  %u", i);
+        //LOG(kEssential, "  %u", i);
         try {
             Allocated* ptr = Read();
-            //Log::Print("(%p)", ptr);
+            //LOG(kEssential, "(%p)", ptr);
             delete ptr;
         }
         catch (AssertionFailed&) {
-            Log::Print("...leak at %u of %u\n", i+1, slots);
+            LOG(kEssential, "...leak at %u of %u\n", i+1, slots);
             ASSERTS();
         }
     }
@@ -128,7 +128,7 @@ Allocated* AllocatorBase::Read()
         p = iFree.Read();
     }
     catch (FifoReadError&) {
-        Log::Print("Warning: Allocator error for %s\n", iName);
+        LOG(kEssential, "Warning: Allocator error for %s\n", iName);
         ASSERTS();
     }
     return p;
@@ -237,7 +237,7 @@ TBool AudioData::TryLogTimestamps()
     if (iNextTimestampIndex == 0) {
         return false;
     }
-    Log::Print("Timestamps:\n");
+    LOG(kEssential, "Timestamps:\n");
     for (TUint i=0; i<iNextTimestampIndex; i++) {
         (void)iTimestamps[i].TryLog();
     }
@@ -283,7 +283,7 @@ TBool AudioData::Timestamp::TryLog()
     if (iId == nullptr) {
         return false;
     }
-    Log::Print("\t%s: \t%llu\n", iId, iTimestamp);
+    LOG(kEssential, "\t%s: \t%llu\n", iId, iTimestamp);
     return true;
 }
 #endif
@@ -594,7 +594,7 @@ TBool Ramp::Set(TUint aStart, TUint aFragmentSize, TUint aRemainingDuration, EDi
     buf.Append(Thread::CurrentThreadName());
     buf.AppendPrintf("), aDirection=%d, aStart=%08x, aFragmentSize=%08x, aRemainingDuration=%08x, current=[%08x..%08x]\n",
                      aDirection, aStart, aFragmentSize, aRemainingDuration, iStart, iEnd);
-    Log::Print(buf);*/
+    LOG(kEssential, buf);*/
     Ramp before(*this);
     ASSERT(aRemainingDuration >=  aFragmentSize);
     ASSERT(aDirection != ENone);
@@ -695,7 +695,7 @@ TBool Ramp::Set(TUint aStart, TUint aFragmentSize, TUint aRemainingDuration, EDi
                 const TUint start = std::min(iStart, aStart);
                 const TUint end = (TUint)intersectY;
                 iDirection = (start == end? ENone : EUp);
-                /*Log::Print("Split [%08x : %08x] ramp into [%08x : %08x] and [%08x : %08x]\n",
+                /*LOG(kEssential, "Split [%08x : %08x] ramp into [%08x : %08x] and [%08x : %08x]\n",
                            iStart, iEnd, start, end, aSplit.iStart, aSplit.iEnd);*/
                 iStart = start;
                 iEnd = end;
@@ -703,10 +703,10 @@ TBool Ramp::Set(TUint aStart, TUint aFragmentSize, TUint aRemainingDuration, EDi
         }
     }
     if (!DoValidate()) {
-        Log::Print("Ramp::Set(%04x, %u, %u, %u) created invalid ramp.\n", aStart, aFragmentSize, aRemainingDuration, aDirection);
-        Log::Print("  before: [%04x..%04x], direction=%u\n", before.iStart, before.iEnd, before.iDirection);
-        Log::Print("  after:  [%04x..%04x], direction=%u\n", iStart, iEnd, iDirection);
-        Log::Print("  split:  [%04x..%04x], direction=%u\n", aSplit.iStart, aSplit.iEnd, aSplit.iDirection);
+        LOG(kEssential, "Ramp::Set(%04x, %u, %u, %u) created invalid ramp.\n", aStart, aFragmentSize, aRemainingDuration, aDirection);
+        LOG(kEssential, "  before: [%04x..%04x], direction=%u\n", before.iStart, before.iEnd, before.iDirection);
+        LOG(kEssential, "  after:  [%04x..%04x], direction=%u\n", iStart, iEnd, iDirection);
+        LOG(kEssential, "  split:  [%04x..%04x], direction=%u\n", aSplit.iStart, aSplit.iEnd, aSplit.iDirection);
         ASSERTS();
     }
     return aSplit.IsEnabled();
@@ -737,8 +737,8 @@ void Ramp::SelectLowerRampPoints(TUint aRequestedStart, TUint aRequestedEnd)
 void Ramp::Validate(const TChar* aId)
 {
     if (!DoValidate()) {
-        Log::Print("Ramp::Validate failure %s)\n", aId);
-        Log::Print("  ramp: [%04x..%04x], direction=%u\n", iStart, iEnd, iDirection);
+        LOG(kEssential, "Ramp::Validate failure %s)\n", aId);
+        LOG(kEssential, "  ramp: [%04x..%04x], direction=%u\n", iStart, iEnd, iDirection);
         ASSERTS();
     }
 }
@@ -801,7 +801,7 @@ Ramp Ramp::Split(TUint aNewSize, TUint aCurrentSize)
         iDirection = ENone;
     }
     remaining.iStart = iEnd; // FIXME - remaining.iStart is one sample on from iEnd so should have a ramp value that progresses one 'step'
-    //Log::Print("Split [%04x : %04x] ramp into [%04x : %04x] and [%04x : %04x]\n", start, end, iStart, iEnd, remaining.iStart, remaining.iEnd);
+    //LOG(kEssential, "Split [%04x : %04x] ramp into [%04x : %04x] and [%04x : %04x]\n", start, end, iStart, iEnd, remaining.iStart, remaining.iEnd);
     Validate("Split");
     remaining.Validate("Split - remaining");
     return remaining;
@@ -834,7 +834,7 @@ void RampApplicator::GetNextSample(TByte* aDest)
 {
     ASSERT_DEBUG(iPtr != nullptr);
     const TUint16 ramp = (iNumSamples==1? (TUint16)iRamp.Start() : (TUint16)(iRamp.Start() - ((iLoopCount * iTotalRamp)/(iNumSamples-1))));
-    //Log::Print(" %04x ", ramp);
+    //LOG(kEssential, " %04x ", ramp);
     const TUint rampIndex = std::min(kRampArrayCount-1, (kFullRampSpan - ramp + (1<<4)) >> 5); // assumes fullRampSpan==2^14 and kRampArray has 512 (2^9) items. (1<<4 allows rounding up)
     for (TUint i=0; i<iNumChannels; i++) {
         TInt16 subsample16 = 0;
@@ -861,10 +861,10 @@ void RampApplicator::GetNextSample(TByte* aDest)
         default:
             ASSERTS();
         }
-        //Log::Print(" %03u ", rampIndex);
+        //LOG(kEssential, " %03u ", rampIndex);
         const TUint16 rampMult = static_cast<TUint16>(kRampArray[rampIndex]);
         TInt rampedSubsample = (rampIndex==512? 0 : (subsample16 * rampMult) >> 15);
-        //Log::Print("Original=%04x (%d), ramped=%04x (%d), rampIndex=%u\n", subsample, subsample, rampedSubsample, rampedSubsample, rampIndex);
+        //LOG(kEssential, "Original=%04x (%d), ramped=%04x (%d), rampIndex=%u\n", subsample, subsample, rampedSubsample, rampedSubsample, rampIndex);
 
         switch (iBitDepth)
         {
@@ -1999,7 +1999,7 @@ TUint MsgAudio::SetRamp(TUint aStart, TUint& aRemainingDuration, Ramp::EDirectio
 
     /*TBool logAppliedRamp = false;
     if (iRamp.IsEnabled()) {
-        Log::Print("++ MsgAudio::SetRamp(%08x, %u, %u): Existing ramp is [%08x...%08x]\n", aStart, aRemainingDuration, aDirection, iRamp.Start(), iRamp.End());
+        LOG(kEssential, "++ MsgAudio::SetRamp(%08x, %u, %u): Existing ramp is [%08x...%08x]\n", aStart, aRemainingDuration, aDirection, iRamp.Start(), iRamp.End());
         logAppliedRamp = true;
     }*/
     if (iRamp.Set(aStart, iSize, remainingDuration, aDirection, split, splitPos)) {
@@ -2012,16 +2012,16 @@ TUint MsgAudio::SetRamp(TUint aStart, TUint& aRemainingDuration, Ramp::EDirectio
             iRamp = ramp;
             aSplit->iRamp = split;
             ASSERT_DEBUG(iRamp.End() == split.Start());
-            //Log::Print("\nSplit msg at %u jiffies.  First ramp=[%08x...%08x], second ramp=[%08x...%08x]\n",
+            //LOG(kEssential, "\nSplit msg at %u jiffies.  First ramp=[%08x...%08x], second ramp=[%08x...%08x]\n",
             //            splitPos, iRamp.Start(), iRamp.End(), split.Start(), split.End());
         }
     }
     /*if (logAppliedRamp) {
-        Log::Print("++ final ramp: [%08x...%08x]", iRamp.Start(), iRamp.End());
+        LOG(kEssential, "++ final ramp: [%08x...%08x]", iRamp.Start(), iRamp.End());
         if (aSplit != nullptr) {
-            Log::Print("   split: [%08x...%08x]", aSplit->iRamp.Start(), aSplit->iRamp.End());
+            LOG(kEssential, "   split: [%08x...%08x]", aSplit->iRamp.Start(), aSplit->iRamp.End());
         }
-        Log::Print("\n");
+        LOG(kEssential, "\n");
     }*/
 
     aRemainingDuration -= iSize;
@@ -2350,7 +2350,7 @@ MsgPlayable* MsgAudioDsd::CreatePlayable()
     // Calculate size bytes.
     const TUint sizeBytes = Jiffies::ToBytesSampleBlock(sizeJiffiesTotal, jiffiesPerSample, iNumChannels, iBitDepth, samplesPerBlockTotal);
 
-    // Log::Print("MsgAudioDsd::CreatePlayable(), iOffset: %u, sizeBytes %u, offsetBytes %u, sizeJiffiesTotal: %u, iSize: %u, iSampleRate: %u, iAudioData->Bytes(): %u\n", iOffset, sizeBytes, offsetBytes, sizeJiffiesTotal, iSize, iSampleRate, iAudioData->Bytes());
+    // LOG(kEssential, "MsgAudioDsd::CreatePlayable(), iOffset: %u, sizeBytes %u, offsetBytes %u, sizeJiffiesTotal: %u, iSize: %u, iSampleRate: %u, iAudioData->Bytes(): %u\n", iOffset, sizeBytes, offsetBytes, sizeJiffiesTotal, iSize, iSampleRate, iAudioData->Bytes());
 
     MsgPlayable* playable;
     if (iRamp.Direction() != Ramp::EMute) {
@@ -3035,7 +3035,7 @@ void MsgQueueBase::CheckMsgNotQueued(Msg* aMsg) const
         count++;
     }
     if (count != iNumMsgs) {
-        Log::Print("MsgQueueBase::CheckMsgNotQueued - iNumMsgs=%u, found %u\n",
+        LOG(kEssential, "MsgQueueBase::CheckMsgNotQueued - iNumMsgs=%u, found %u\n",
                    iNumMsgs, count);
         ASSERTS();
     }

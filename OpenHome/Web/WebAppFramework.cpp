@@ -1170,7 +1170,7 @@ void WebAppFramework::CurrentAdapterChanged()
             Endpoint::EndpointBuf epBuf;
             const Endpoint ep(port, iCurrentAdapter->Address());
             ep.AppendEndpoint(epBuf);
-            Log::Print("WebAppFramework::CurrentAdapterChanged %.*s\n", PBUF(epBuf));
+            LOG(kEssential, "WebAppFramework::CurrentAdapterChanged %.*s\n", PBUF(epBuf));
         
             iServer = new SocketTcpServer(iEnv, kName, port, iCurrentAdapter->Address());
             AddSessions();
@@ -1181,7 +1181,7 @@ void WebAppFramework::CurrentAdapterChanged()
             }
         }
         catch (Exception& aExc) {
-            Log::Print("WebAppFramework::CurrentAdapterChanged caught exception %s:%u %s\n", aExc.File(), aExc.Line(), aExc.Message());
+            LOG(kEssential, "WebAppFramework::CurrentAdapterChanged caught exception %s:%u %s\n", aExc.File(), aExc.Line(), aExc.Message());
             // Don't rethrow. Capture this exception and do nothing further, allowing any subsequent adapter change callbacks to successfully run.
         }
     }

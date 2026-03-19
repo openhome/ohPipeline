@@ -384,7 +384,7 @@ MsgAudioEncoded* TestContainerMsgGenerator::GenerateAudioMsg()
 Msg* TestContainerMsgGenerator::GenerateMsg(EMsgType aType)
 {
     Msg* msg = nullptr;
-    //Log::Print("TestContainerMsgGenerator::GenerateMsg: %u\n", aType);
+    //LOG(kEssential, "TestContainerMsgGenerator::GenerateMsg: %u\n", aType);
     switch (aType)
     {
     default:
@@ -676,11 +676,11 @@ TBool SuiteContainerBase::TestMsgAudioEncodedContent(MsgAudioEncoded& aMsg, TByt
 {
     // Test MsgAudioEncoded is correct size and contains expected value.
     Bws<EncodedAudio::kMaxBytes> buf;
-    //Log::Print("TestMsgAudioEncodedContent: aMsg.Bytes(): %u, buf.MaxBytes(): %u\n", aMsg.Bytes(), buf.MaxBytes());
+    //LOG(kEssential, "TestMsgAudioEncodedContent: aMsg.Bytes(): %u, buf.MaxBytes(): %u\n", aMsg.Bytes(), buf.MaxBytes());
     ASSERT(aMsg.Bytes() <= buf.MaxBytes());
     aMsg.CopyTo(const_cast<TByte*>(buf.Ptr()));
     buf.SetBytes(aMsg.Bytes());
-    //Log::Print("TestMsgAudioEncodedContent: buf[0]: %d, aValue: %d\n", buf[0], aValue);
+    //LOG(kEssential, "TestMsgAudioEncodedContent: buf[0]: %d, aValue: %d\n", buf[0], aValue);
     if ((buf[0] != aValue) || (buf[buf.Bytes()-1] != aValue)) {
         return false;
     }

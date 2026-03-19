@@ -140,7 +140,7 @@ private:
 public:
     TestMediaPlayer(Net::DvStack& aDvStack, Net::CpStack& aCpStack, const Brx& aUdn, const TChar* aRoom, const TChar* aProductName,
                     const Brx& aTuneInPartnerId, const Brx& aTidalId, const Brx& aQobuzIdSecret, const Brx& aUserAgent,
-                    const TChar* aStoreFile, TBool aEnableDash, TUint aOdpPort=0, TUint aWebUiPort=0,
+                    const TChar* aStoreFile, TUint aOdpPort=0, TUint aWebUiPort=0,
                     TUint aMinWebUiResourceThreads=kMinWebUiResourceThreads, TUint aMaxWebUiTabs=kMaxWebUiTabs, TUint aUiSendQueueSize=kUiSendQueueSize, TUint aUiMsgBufCount=kUiMsgBufCount, TUint aUiMsgBufBytes=kUiMsgBufBytes);
     virtual ~TestMediaPlayer();
     void SetPullableClock(Media::IPullableClock& aPullableClock);
@@ -212,7 +212,6 @@ private:
     RamStore* iRamStore;
     Configuration::ConfigRamStore* iConfigRamStore;
     Configuration::StoreFileWriterJson* iStoreFileWriter;
-    TBool iEnableDash;
     Media::Codec::IMpegDRMProvider* iMpegDRMProvider; // Not owned
     TUint iOdpPort;
     OpenHome::Net::OdpZeroConf* iOdpZeroConf;
@@ -245,7 +244,6 @@ public:
     const TestFramework::OptionUint& OptionOdp() const;
     const TestFramework::OptionUint& OptionWebUi() const;
     const TestFramework::OptionUint& Shell() const;
-    const TestFramework::OptionBool& DashEnabled() const;
 private:
     TestFramework::OptionParser iParser;
     TestFramework::OptionString iOptionRoom;
@@ -263,7 +261,6 @@ private:
     TestFramework::OptionUint iOptionOdp;
     TestFramework::OptionUint iOptionWebUi;
     TestFramework::OptionUint iOptionShell;
-    TestFramework::OptionBool iOptionDash;
 };
 
 // Not very nice, but only to allow reusable test functions.

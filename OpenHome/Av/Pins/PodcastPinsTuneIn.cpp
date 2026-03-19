@@ -263,11 +263,11 @@ PodcastPinsTuneIn::PodcastPinsTuneIn(Media::TrackFactory& aTrackFactory, Environ
     iListenedDates.SetBytes(0);
     try {
         iStore.Read(kStoreKeyTuneInPodcast, iListenedDates);
-        Log::Print("PodcastPinsTuneIn Load listened dates from store: %.*s\n", PBUF(iListenedDates));
+        LOG(kEssential, "PodcastPinsTuneIn Load listened dates from store: %.*s\n", PBUF(iListenedDates));
     }
     catch (StoreKeyNotFound&) {
         // Key not in store, so no config stored yet and nothing to parse.
-        Log::Print("Store Key not found: %.*s\n", PBUF(kStoreKeyTuneInPodcast));
+        LOG(kEssential, "Store Key not found: %.*s\n", PBUF(kStoreKeyTuneInPodcast));
     }
 
     if (iListenedDates.Bytes() > 0) {
@@ -784,14 +784,14 @@ TBool TuneIn::TryGetXmlResponse(IWriter& aWriter, const Brx& aFeedUrl, TUint aBl
         if (length > 0 && length < count) {
             count = length;
         }
-        //Log::Print("Read TuneIn::TryGetXmlResponse (%d): ", count);
+        //LOG(kEssential, "Read TuneIn::TryGetXmlResponse (%d): ", count);
         while(count > 0) {
             Brn buf = iReaderUntil.Read(kReadBufferBytes);
-            //Log::Print(buf);
+            //LOG(kEssential, buf);
             aWriter.Write(buf);
             count -= buf.Bytes();
         }   
-        //Log::Print("\n");     
+        //LOG(kEssential, "\n");     
 
         success = true;
     }

@@ -539,7 +539,7 @@ TUint SpotifyReporter::GetPlaybackPosMsLocked() const
         const auto samples = iSubSamplesTrack / info.NumChannels();
         const auto samplesScaled = samples * 1000;
         const auto ms = static_cast<TUint>(samplesScaled / info.SampleRate());
-        // Log::Print("SpotifyReporter::GetPlaybackPosMsLocked iStreamId: %u, ms: %u (%u:%02u)\n", iStreamId, ms, (ms / 1000) / 60, (ms / 1000) % 60);
+        // LOG(kEssential, "SpotifyReporter::GetPlaybackPosMsLocked iStreamId: %u, ms: %u (%u:%02u)\n", iStreamId, ms, (ms / 1000) / 60, (ms / 1000) % 60);
         return ms;
     }
     return 0;

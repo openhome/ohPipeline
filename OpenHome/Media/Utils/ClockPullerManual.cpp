@@ -40,7 +40,7 @@ void ClockPullerManual::HandleShellCommand(Brn /*aCommand*/, const std::vector<B
         div *= 10;
     }
     mult /= div;
-    Log::Print("Setting multiplier to %08x\n", mult);
+    LOG(kEssential, "Setting multiplier to %08x\n", mult);
     iPullableClock.PullClock((TUint)mult);
 }
 

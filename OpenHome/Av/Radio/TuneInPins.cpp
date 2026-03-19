@@ -131,7 +131,7 @@ TBool TuneInPins::LoadStation(const Brx& aStation, const IPin& aPin)
         return true;
     }
     catch (Exception& ex) {
-        Log::Print("%s in TuneInPins::LoadStation\n", ex.Message());
+        LOG(kEssential, "%s in TuneInPins::LoadStation\n", ex.Message());
         return false;
     }
 }
@@ -149,7 +149,7 @@ TBool TuneInPins::LoadStream(const Brx& aStream, const IPin& aPin)
         return true;
     }
     catch (Exception& ex) {
-        Log::Print("%s in TuneInPins::LoadStream\n", ex.Message());
+        LOG(kEssential, "%s in TuneInPins::LoadStream\n", ex.Message());
         return false;
     }
 }

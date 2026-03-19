@@ -66,7 +66,7 @@ static TUint GetRealFetchedItemCount(JsonParser& aParser, TUint expectedItemCoun
     if (aParser.HasKey("limit")) {
         TUint actualReturnedNumberOfItems = static_cast<TUint>(aParser.Num("limit"));
         if (actualReturnedNumberOfItems > expectedItemCount) {
-            Log::Print("TidalPins::GetRealFetchedItemCount - WARNING!! Asked for %u item(s) but TIDAL returned %u item(s). Processing all %u item(s), but this may take a while.\n",
+            LOG(kEssential, "TidalPins::GetRealFetchedItemCount - WARNING!! Asked for %u item(s) but TIDAL returned %u item(s). Processing all %u item(s), but this may take a while.\n",
                        expectedItemCount,
                        actualReturnedNumberOfItems,
                        actualReturnedNumberOfItems);
@@ -169,7 +169,7 @@ void TidalPins::Invoke()
             tokenId    //oauthTokenId
         };
 
-        Log::Print("Working with:\nfallbackIfNoTokenPresent: %d\noauthTokenId: %.*s\n", 
+        LOG(kEssential, "Working with:\nfallbackIfNoTokenPresent: %d\noauthTokenId: %.*s\n", 
                    authConfig.fallbackIfTokenNotPresent, 
                    PBUF(authConfig.oauthTokenId.Bytes() == 0 ? Brn("None")
                                                              : Brn(authConfig.oauthTokenId)));
@@ -258,12 +258,12 @@ TBool TidalPins::LoadByStringQuery(const Brx& aQuery,
     }
 
     if (!IsValidId(aQuery, aIdType)) {
-        Log::Print("TidalPins::LoadByStringQuery - Invalid item ID %.*s (Type: %.*s)\n", PBUF(aQuery), PBUF(TidalMetadata::IdTypeToString(aIdType)));
+        LOG(kEssential, "TidalPins::LoadByStringQuery - Invalid item ID %.*s (Type: %.*s)\n", PBUF(aQuery), PBUF(TidalMetadata::IdTypeToString(aIdType)));
         return false;
     }
 
     if (aQuery.Bytes() > inputBuf.MaxBytes()) {
-        Log::Print("TidalPins::LoadByStringQuery - ID too long. Space: %u, size needed: %u (Type: %.*s)\n", inputBuf.MaxBytes(), aQuery.Bytes(), PBUF(TidalMetadata::IdTypeToString(aIdType)));
+        LOG(kEssential, "TidalPins::LoadByStringQuery - ID too long. Space: %u, size needed: %u (Type: %.*s)\n", inputBuf.MaxBytes(), aQuery.Bytes(), PBUF(TidalMetadata::IdTypeToString(aIdType)));
     }
 
     inputBuf.Replace(aQuery);

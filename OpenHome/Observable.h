@@ -3,6 +3,7 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Printer.h>
+#include <OpenHome/Private/Debug.h>
 
 #include <vector>
 #include <algorithm>
@@ -68,9 +69,9 @@ class Observable : public IObservable<TObserver>
         ~Observable()
         {
             if (iObservers.size() > 0) {
-                Log::Print("ERROR: %u Observable observers leaked:\n", (TUint)iObservers.size());
+                LOG(kEssential, "ERROR: %u Observable observers leaked:\n", (TUint)iObservers.size());
                 for (auto p : iObservers) {
-                    Log::Print("\t%s\n", p.second);
+                    LOG(kEssential, "\t%s\n", p.second);
                 }
                 ASSERTS();
             }

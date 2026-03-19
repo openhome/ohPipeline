@@ -386,7 +386,7 @@ void FlywheelRamper::ToInt32(double* aInput, TUint aLength, TInt32* aOutput, TUi
 TInt32 FlywheelRamper::ToInt32(double aVal, TUint aScale)
 {
     TUint scaleFactor = (1<<(32-aScale));
-    //Log::Print("BurgsMethod::ToInt32  scaleFactor=%lu \n", scaleFactor);
+    //LOG(kEssential, "BurgsMethod::ToInt32  scaleFactor=%lu \n", scaleFactor);
     TInt32 s = (TInt32) (aVal*scaleFactor); // 2^31
     return(s);
 }
@@ -427,7 +427,7 @@ FeedbackModel::FeedbackModel(TUint aStateCount, TUint aDataDescaleBitCount, TUin
     ,iCoeffFormat(aCoeffFormat)
     ,iScaleShiftForOutput(aDataFormat+aDataDescaleBitCount-aOutputFormat)
 {
-    //Log::Print("FeedbackModel  iScaleShiftForProduct=%d  iScaleShiftForOutput=%d \n", iScaleShiftForProduct, iScaleShiftForOutput);
+    //LOG(kEssential, "FeedbackModel  iScaleShiftForProduct=%d  iScaleShiftForOutput=%d \n", iScaleShiftForProduct, iScaleShiftForOutput);
 }
 
 void FeedbackModel::Initialise(TInt32* aCoeffs, TInt32* aSamples)

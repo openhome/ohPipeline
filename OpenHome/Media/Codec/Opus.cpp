@@ -197,13 +197,13 @@ void CodecOpus::StreamInitialise()
     // Use the information above to reinitialise our decoder object to the desired output...
     int result = opus_decoder_ctl(iDecoder, OPUS_RESET_STATE);
     if (result != OPUS_OK) {
-        Log::Print("CodecOpus::StreamInitialise() - Failed to reset decoder state.\n");
+        LOG(kEssential, "CodecOpus::StreamInitialise() - Failed to reset decoder state.\n");
         THROW(CodecStreamCorrupt);
     }
 
     result = opus_decoder_init(iDecoder, iSampleRate, iChannelCount);
     if (result != OPUS_OK) {
-        Log::Print("CodecOpus::StreamInitialise() - Failed to configure decoder to output params: SR: %u, Channels: %u\n", iSampleRate, iChannelCount);
+        LOG(kEssential, "CodecOpus::StreamInitialise() - Failed to configure decoder to output params: SR: %u, Channels: %u\n", iSampleRate, iChannelCount);
         THROW(CodecStreamCorrupt);
     }
 
@@ -285,7 +285,7 @@ TBool CodecOpus::TrySeek(TUint aStreamId, TUint64 aSample)
     (void)aStreamId;
     (void)aSample;
 
-    Log::Print("CodecOpus::TrySeek - Seeking is not availabler\n");
+    LOG(kEssential, "CodecOpus::TrySeek - Seeking is not availabler\n");
     return false;
 
     // Seeking dOps files (Opus served under fragmented DASH)
@@ -332,7 +332,7 @@ TBool CodecOpus::TrySeek(TUint aStreamId, TUint64 aSample)
         samplesToSkip -= segmentSamples;
     }
 
-    Log::Print("CodecOpus::TrySeek - Seeking to fragment %u, skipping %lu samples from fragment.\n", fragmentIndex, samplesToSkip);
+    LOG(kEssential, "CodecOpus::TrySeek - Seeking to fragment %u, skipping %lu samples from fragment.\n", fragmentIndex, samplesToSkip);
 
     iSamplesToSkip  = samplesToSkip;
     iSamplesDecoded = 0;
@@ -397,13 +397,13 @@ TBool CodecOpus::ValidateCodecInformation(const Brx& aCodecInfo) const
 
     const TByte version = configReader.Read(1).At(0);
     if (version != 0) {
-        Log::Print("CodecOpus::StreamInitialise() - Version (%u) != 0 -> Invalid track\n", version);
+        LOG(kEssential, "CodecOpus::StreamInitialise() - Version (%u) != 0 -> Invalid track\n", version);
         valid = false;
     }
 
     const TUint reportedChannelCount = configReader.Read(1).At(0);
     if (reportedChannelCount != iChannelCount) {
-        Log::Print("CodecOpus::StreamInitialise() - Codec reported differing number of channels (Container: %u, Codec: %u)\n", iChannelCount, reportedChannelCount);
+        LOG(kEssential, "CodecOpus::StreamInitialise() - Codec reported differing number of channels (Container: %u, Codec: %u)\n", iChannelCount, reportedChannelCount);
         valid = false;
     }
 
@@ -412,7 +412,7 @@ TBool CodecOpus::ValidateCodecInformation(const Brx& aCodecInfo) const
 
     const TUint reportedSampleRate = Converter::BeUint32At(configReader.Read(4), 0);
     if (reportedSampleRate != iSampleRate) {
-        Log::Print("CodecOpus::StreamInitialise() - Codec report a different sample rate (Container: %u, Codec: %u)\n", iSampleRate, reportedSampleRate);
+        LOG(kEssential, "CodecOpus::StreamInitialise() - Codec report a different sample rate (Container: %u, Codec: %u)\n", iSampleRate, reportedSampleRate);
         valid = false;
     }
 

@@ -411,7 +411,7 @@ void OhmMsgAudio::Serialise()
     iStreamHeaderOffset = prependOffset;
 
     //Log::PrintHex(iUnifiedBuffer.Split(iStreamHeaderOffset, kStreamHeaderBytes-iStreamHeaderOffset));
-    //Log::Print("\n");
+    //LOG(kEssential, "\n");
 
     ASSERT(headerBuffer.BytesRemaining() == 0);
     iHeaderSerialised = true;

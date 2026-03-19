@@ -857,7 +857,7 @@ void OhmSender::Start()
                 if (Debug::TestLevel(Debug::kSongcast)) {
                     Endpoint::EndpointBuf buf;
                     iSocketOhm.This().AppendEndpoint(buf);
-                    Log::Print("OHU sender running on %s\n", buf.Ptr());
+                    LOG(kEssential, "OHU sender running on %s\n", buf.Ptr());
                 }
                 iTargetInterface = iInterface;
                 iThreadUnicast->Signal();

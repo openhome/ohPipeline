@@ -49,14 +49,14 @@ QobuzTrack::QobuzTrack(IUnixTimestamp& aUnixTimestamp, Media::IPipelineObservabl
     , iCurrentStream(false)
     , iStarted(false)
 {
-    Log::Print("++ QobuzTrack: iTrackId=%u\n", iTrackId);
+    LOG(kEssential, "++ QobuzTrack: iTrackId=%u\n", iTrackId);
     UpdateUrl(aUrl);
     iPipelineObservable.AddObserver(*this);
 }
 
 QobuzTrack::~QobuzTrack()
 {
-    Log::Print("++ ~QobuzTrack: iTrackId=%u, iStreamId=%u\n", iTrackId, iStreamId);
+    LOG(kEssential, "++ ~QobuzTrack: iTrackId=%u, iStreamId=%u\n", iTrackId, iStreamId);
     iPipelineObservable.RemoveObserver(*this);
 }
 
@@ -64,7 +64,7 @@ void QobuzTrack::ProtocolStarted(TUint aStreamId)
 {
     AutoMutex _(iLock);
     iStreamId = aStreamId;
-    Log::Print("++ QobuzTrack::ProtocolStarted: iTrackId=%u, iStreamId=%u\n", iTrackId, iStreamId);
+    LOG(kEssential, "++ QobuzTrack::ProtocolStarted: iTrackId=%u, iStreamId=%u\n", iTrackId, iStreamId);
 }
 
 void QobuzTrack::ProtocolCompleted(TBool aStopped)
@@ -192,7 +192,7 @@ void QobuzTrack::NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo)
     TBool stopped = false;
     {
         AutoMutex _(iLock);
-        Log::Print("++ QobuzTrack::NotifyStreamInfo: iTrackId=%u, iStreamId=%u, stream=%u\n", iTrackId, iStreamId, aStreamInfo.StreamId());
+        LOG(kEssential, "++ QobuzTrack::NotifyStreamInfo: iTrackId=%u, iStreamId=%u, stream=%u\n", iTrackId, iStreamId, aStreamInfo.StreamId());
         if (aStreamInfo.StreamId() == iStreamId) {
             iCurrentStream = true;
         }
@@ -470,7 +470,7 @@ TBool Qobuz::TryGetResponseLocked(IWriter& aWriter, const Brx& aHost, TUint aLim
         iPathAndQuery.Append(iAuthToken);
     }
 
-    Log::Print("Qobuz::TryGetResponse: Request for 'https://%.*s%.*s'\n", PBUF(aHost), PBUF(iPathAndQuery));
+    LOG(kEssential, "Qobuz::TryGetResponse: Request for 'https://%.*s%.*s'\n", PBUF(aHost), PBUF(iPathAndQuery));
 
     try {
         const TUint code = WriteRequestReadResponse(Http::kMethodGet, aHost, iPathAndQuery, false, aConnection);

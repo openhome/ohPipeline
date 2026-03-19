@@ -2,6 +2,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
+#include <OpenHome/Private/Debug.h>
 
 using namespace OpenHome;
 using namespace OpenHome::Media;
@@ -89,7 +90,7 @@ inline TUint64 JiffiesToMs(TUint64 aJiffies)
 
 void Logger::LogAudio()
 {
-    Log::Print("Logger (%s): pcm=%llu (%llums), dsd=%llu(%llums), silence=%llu (%llums), playable=%llu (%llums)\n",
+    LOG(kEssential, "Logger (%s): pcm=%llu (%llums), dsd=%llu(%llums), silence=%llu (%llums), playable=%llu (%llums)\n",
         iId, iJiffiesPcm, JiffiesToMs(iJiffiesPcm),
         iJiffiesDsd, JiffiesToMs(iJiffiesDsd),
         iJiffiesSilence, JiffiesToMs(iJiffiesSilence),
@@ -105,7 +106,7 @@ Msg* Logger::ProcessMsg(MsgMode* aMsg)
         const ModeInfo& info = aMsg->Info();
         iBuf.AppendPrintf(", latencyMode: %u, supportsNext: %u, supportsPrev: %u}\n",
                           info.LatencyMode(), info.SupportsNext(), info.SupportsPrev());
-        Log::Print(iBuf);
+        LOG(kEssential, iBuf);
     }
     return aMsg;
 }
@@ -123,7 +124,7 @@ Msg* Logger::ProcessMsg(MsgTrack* aMsg)
         iBuf.Append("(omitted)");
 #endif
         iBuf.AppendPrintf(", id: %u, startOfStream: %u}\n", aMsg->Track().Id(), aMsg->StartOfStream());
-        Log::Print(iBuf);
+        LOG(kEssential, iBuf);
     }
     return aMsg;
 }
@@ -131,7 +132,7 @@ Msg* Logger::ProcessMsg(MsgTrack* aMsg)
 Msg* Logger::ProcessMsg(MsgDrain* aMsg)
 {
     if (IsEnabled(EMsgDrain)) {
-        Log::Print("Pipeline (%s): drain %u\n", iId, aMsg->Id());
+        LOG(kEssential, "Pipeline (%s): drain %u\n", iId, aMsg->Id());
     }
     return aMsg;
 }
@@ -141,7 +142,7 @@ Msg* Logger::ProcessMsg(MsgDelay* aMsg)
     if (IsEnabled(EMsgDelay)) {
         const TUint remaining = aMsg->RemainingJiffies();
         const TUint total = aMsg->TotalJiffies();
-        Log::Print("Pipeline (%s): remaining {%ums (%u jiffies)}, total {%ums (%u jiffies)}\n",
+        LOG(kEssential, "Pipeline (%s): remaining {%ums (%u jiffies)}, total {%ums (%u jiffies)}\n",
                    iId, Jiffies::ToMs(remaining), remaining, Jiffies::ToMs(total), total);
     }
     return aMsg;
@@ -161,7 +162,7 @@ Msg* Logger::ProcessMsg(MsgEncodedStream* aMsg)
 #endif
         iBuf.AppendPrintf(" , totalBytes: %llu, streamId: %u, seekable: %u, live: %u}\n",
                           aMsg->TotalBytes(), aMsg->StreamId(), aMsg->Seekable(), aMsg->Live());
-        Log::Print(iBuf);
+        LOG(kEssential, iBuf);
     }
     return aMsg;
 }
@@ -169,7 +170,7 @@ Msg* Logger::ProcessMsg(MsgEncodedStream* aMsg)
 Msg* Logger::ProcessMsg(MsgStreamSegment* aMsg)
 {
     if (IsEnabled(EMsgStreamSegment)) {
-        Log::Print("Pipeline (%s): streamSegment {%.*s}\n", iId, PBUF(aMsg->Id()));
+        LOG(kEssential, "Pipeline (%s): streamSegment {%.*s}\n", iId, PBUF(aMsg->Id()));
     }
     return aMsg;
 }
@@ -177,7 +178,7 @@ Msg* Logger::ProcessMsg(MsgStreamSegment* aMsg)
 Msg* Logger::ProcessMsg(MsgAudioEncoded* aMsg)
 {
     if (IsEnabled(EMsgAudioEncoded)) {
-        Log::Print("Pipeline (%s): audioEncoded {bytes: %u}\n", iId, aMsg->Bytes());
+        LOG(kEssential, "Pipeline (%s): audioEncoded {bytes: %u}\n", iId, aMsg->Bytes());
     }
     return aMsg;
 }
@@ -189,7 +190,7 @@ Msg* Logger::ProcessMsg(MsgMetaText* aMsg)
         iBuf.AppendPrintf("Pipeline (%s): metaText {", iId);
         iBuf.Append(aMsg->MetaText());
         iBuf.AppendPrintf("}\n");
-        Log::Print(iBuf);
+        LOG(kEssential, iBuf);
     }
     return aMsg;
 }
@@ -197,7 +198,7 @@ Msg* Logger::ProcessMsg(MsgMetaText* aMsg)
 Msg* Logger::ProcessMsg(MsgStreamInterrupted* aMsg)
 {
     if (IsEnabled(EMsgStreamInterrupted)) {
-        Log::Print("Pipeline (%s): changeInput\n", iId);
+        LOG(kEssential, "Pipeline (%s): changeInput\n", iId);
     }
     return aMsg;
 }
@@ -205,7 +206,7 @@ Msg* Logger::ProcessMsg(MsgStreamInterrupted* aMsg)
 Msg* Logger::ProcessMsg(MsgHalt* aMsg)
 {
     if (IsEnabled(EMsgHalt)) {
-        Log::Print("Pipeline (%s): halt { id: %u }\n", iId, aMsg->Id());
+        LOG(kEssential, "Pipeline (%s): halt { id: %u }\n", iId, aMsg->Id());
     }
     return aMsg;
 }
@@ -213,7 +214,7 @@ Msg* Logger::ProcessMsg(MsgHalt* aMsg)
 Msg* Logger::ProcessMsg(MsgFlush* aMsg)
 {
     if (IsEnabled(EMsgFlush)) {
-        Log::Print("Pipeline (%s): flush { id: %u }\n", iId, aMsg->Id());
+        LOG(kEssential, "Pipeline (%s): flush { id: %u }\n", iId, aMsg->Id());
     }
     return aMsg;
 }
@@ -221,7 +222,7 @@ Msg* Logger::ProcessMsg(MsgFlush* aMsg)
 Msg* Logger::ProcessMsg(MsgWait* aMsg)
 {
     if (IsEnabled(EMsgWait)) {
-        Log::Print("Pipeline (%s): wait\n", iId);
+        LOG(kEssential, "Pipeline (%s): wait\n", iId);
     }
     return aMsg;
 }
@@ -236,7 +237,7 @@ Msg* Logger::ProcessMsg(MsgDecodedStream* aMsg)
         iBuf.Append(stream.CodecName());
         iBuf.AppendPrintf(", trackLength: %llu, sampleStart: %llu, lossless: %u, seekable: %u, live: %u}\n",
                           stream.TrackLength(), stream.SampleStart(), stream.Lossless(), stream.Seekable(), stream.Live());
-        Log::Print(iBuf);
+        LOG(kEssential, iBuf);
     }
     return aMsg;
 }
@@ -276,7 +277,7 @@ Msg* Logger::ProcessMsg(MsgSilence* aMsg)
         iBuf.AppendPrintf("Pipeline (%s): silence {jiffies: %u", iId, aMsg->Jiffies());
         LogRamp(aMsg->Ramp());
         iBuf.Append("}\n");
-        Log::Print(iBuf);
+        LOG(kEssential, iBuf);
     }
     return aMsg;
 }
@@ -292,7 +293,7 @@ Msg* Logger::ProcessMsg(MsgPlayable* aMsg)
         iBuf.AppendPrintf("Pipeline (%s): playable {bytes: %u", iId, aMsg->Bytes());
         LogRamp(aMsg->Ramp());
         iBuf.Append("}\n");
-        Log::Print(iBuf);
+        LOG(kEssential, iBuf);
     }
     return aMsg;
 }
@@ -300,7 +301,7 @@ Msg* Logger::ProcessMsg(MsgPlayable* aMsg)
 Msg* Logger::ProcessMsg(MsgQuit* aMsg)
 {
     if (IsEnabled(EMsgQuit)) {
-        Log::Print("Pipeline (%s): quit\n", iId);
+        LOG(kEssential, "Pipeline (%s): quit\n", iId);
     }
     iShutdownSem.Signal();
     return aMsg;
@@ -312,7 +313,7 @@ void Logger::LogAudioDecoded(MsgAudioDecoded& aAudio, const TChar* aType)
     iBuf.AppendPrintf("Pipeline (%s): %s {track offset: %llu, jiffies: %u", iId, aType, aAudio.TrackOffset(), aAudio.Jiffies());
     LogRamp(aAudio.Ramp());
     iBuf.Append("}\n");
-    Log::Print(iBuf);
+    LOG(kEssential, iBuf);
 }
 
 void Logger::LogRamp(const Media::Ramp& aRamp)

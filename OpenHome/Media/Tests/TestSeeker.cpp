@@ -423,7 +423,7 @@ void SuiteSeeker::PullNext(EMsgType aExpectedMsg)
     msg = msg->Process(*this);
     msg->RemoveRef();
     if (iLastPulledMsg != aExpectedMsg) {
-        Log::Print("Expected %d, got %d\n", aExpectedMsg, iLastPulledMsg);
+        LOG(kEssential, "Expected %d, got %d\n", aExpectedMsg, iLastPulledMsg);
     }
     TEST(iLastPulledMsg == aExpectedMsg);
 }

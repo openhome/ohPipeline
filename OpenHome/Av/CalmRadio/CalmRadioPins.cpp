@@ -120,7 +120,7 @@ TBool CalmRadioPins::LoadStation(const Brx& aStation, const IPin& aPin)
         return true;
     }
     catch (Exception& ex) {
-        Log::Print("%s in CalmRadioPins::LoadStation\n", ex.Message());
+        LOG(kEssential, "%s in CalmRadioPins::LoadStation\n", ex.Message());
         return false;
     }
 }
@@ -139,7 +139,7 @@ TBool CalmRadioPins::LoadStream(const Brx& aStream, const IPin& aPin)
         return true;
     }
     catch (Exception& ex) {
-        Log::Print("%s in CalmRadioPins::LoadStream\n", ex.Message());
+        LOG(kEssential, "%s in CalmRadioPins::LoadStream\n", ex.Message());
         return false;
     }
 }

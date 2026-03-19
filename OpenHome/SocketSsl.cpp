@@ -334,9 +334,9 @@ void SocketSslImpl::Write(TByte aValue)
 void SocketSslImpl::Write(const Brx& aBuffer)
 {
     if (iVerbose) {
-        Log::Print("SocketSsl writing\n");
-        Log::Print(aBuffer);
-        Log::Print("\n");
+        LOG(kEssential, "SocketSsl writing\n");
+        LOG(kEssential, aBuffer);
+        LOG(kEssential, "\n");
     }
     if (iSecure) {
         const int bytes = (int)aBuffer.Bytes();
@@ -368,9 +368,9 @@ void SocketSslImpl::Read(Bwx& aBuffer)
         iSocketTcp.Read(aBuffer);
     }
     if (iVerbose) {
-        Log::Print("SocketSsl reading\n");
-        Log::Print(aBuffer);
-        Log::Print("\n");
+        LOG(kEssential, "SocketSsl reading\n");
+        LOG(kEssential, aBuffer);
+        LOG(kEssential, "\n");
     }
 }
 

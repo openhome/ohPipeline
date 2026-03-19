@@ -161,7 +161,7 @@ TBool PinInvokerUpnpServer::IsCancelled()
 
 void PinInvokerUpnpServer::Complete()
 {
-    Log::Print("PinInvokerUpnpServer::Complete cancel=%u\n", iCancel.load());
+    LOG(kEssential, "PinInvokerUpnpServer::Complete cancel=%u\n", iCancel.load());
     // would ideally delete iProxyContentDirectory here but can't because
     // this is sometimes called from action completion callback
     for (auto p : iContainers) {
@@ -181,7 +181,7 @@ void PinInvokerUpnpServer::ReadContainer()
         return;
     }
     Brn container(*iContainers[iContainersIndex++]);
-    //Log::Print("Container: %.*s, total=%u, index=%u\n", PBUF(container), iContainers.size(), iContainersIndex - 1);
+    //LOG(kEssential, "Container: %.*s, total=%u, index=%u\n", PBUF(container), iContainers.size(), iContainersIndex - 1);
     static const Brn kBrowseFlag("BrowseDirectChildren");
     auto callback = MakeFunctorAsync(*this, &PinInvokerUpnpServer::BrowseContainerCallback);
     iProxyContentDirectory->BeginBrowse(container, kBrowseFlag, kBrowseFilterAll, 0, 0, Brx::Empty(), callback);
@@ -221,7 +221,7 @@ void PinInvokerUpnpServer::BrowseContainerCallback(IAsync& aAsync)
         }
     }
     catch (XmlError&) {
-        Log::Print("BrowseContainerCallback - XmlError parsing %.*s\n", PBUF(didl));
+        LOG(kEssential, "BrowseContainerCallback - XmlError parsing %.*s\n", PBUF(didl));
     }
 
     TBool playlistFull = false;
@@ -264,7 +264,7 @@ void PinInvokerUpnpServer::BrowseTrackCallback(IAsync& aAsync)
         (void)TryAddItem(item);
     }
     catch (XmlError&) {
-        Log::Print("PinInvokerUpnpServer - XmlError parsing %.*s\n", PBUF(xml));
+        LOG(kEssential, "PinInvokerUpnpServer - XmlError parsing %.*s\n", PBUF(xml));
     }
 }
 

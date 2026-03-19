@@ -141,7 +141,7 @@ void ArtworkHttpServer::CreateResourcePath(const Brx& aType, Bwx& aPath)
     Ascii::AppendDec(aPath, iCount++);
     auto it = kMimeTypeFileExtensionMap.find(Brn(aType));
     if (it == kMimeTypeFileExtensionMap.end()) {
-        Log::Print("ArtworkHttpServer::SetArtwork(), MIME type not supported\n");
+        LOG(kEssential, "ArtworkHttpServer::SetArtwork(), MIME type not supported\n");
         THROW(ArtworkTypeUnsupported);
     }
     aPath.Append(it->second);

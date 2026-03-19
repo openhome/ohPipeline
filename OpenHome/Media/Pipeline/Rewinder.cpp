@@ -619,7 +619,7 @@ EStreamPlay Rewinder::OkToPlay(TUint aStreamId)
     auto streamHandler = iStreamHandler.load();
     ASSERT(streamHandler != nullptr);
     EStreamPlay canPlay = streamHandler->OkToPlay(aStreamId);
-    //Log::Print("Rewinder::OkToPlay(%u) returned %s\n", aStreamId, kStreamPlayNames[canPlay]);
+    //LOG(kEssential, "Rewinder::OkToPlay(%u) returned %s\n", aStreamId, kStreamPlayNames[canPlay]);
     return canPlay;
 }
 

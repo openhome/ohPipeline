@@ -59,11 +59,11 @@ TUint IdManager::UpdateId(TUint& aId)
 
 void IdManager::Log(const TChar* aPrefix)
 {
-    Log::Print("IdManager: %s.  Pending items are:\n", aPrefix);
+    LOG(kEssential, "IdManager: %s.  Pending items are:\n", aPrefix);
     TUint index = iIndexHead;
     while (index != iIndexTail) {
         ActiveStream& as = iActiveStreams[index];
-        Log::Print("    trackId:%u streamId:%u, playNow=%u\n", as.Id(), as.StreamId(), as.PlayNow());
+        LOG(kEssential, "    trackId:%u streamId:%u, playNow=%u\n", as.Id(), as.StreamId(), as.PlayNow());
         if (++index == kMaxActiveStreams) {
             index = 0;
         }
@@ -85,7 +85,7 @@ EStreamPlay IdManager::OkToPlay(TUint aStreamId)
     const ActiveStream& as = iActiveStreams[iIndexHead];
     if (as.StreamId() != aStreamId) {
         if (Debug::TestLevel(Debug::kPipeline)) {
-            Log::Print("OkToPlay(%u) returning %s - wrong stream\n", aStreamId, kStreamPlayNames[ePlayNo]);
+            LOG(kEssential, "OkToPlay(%u) returning %s - wrong stream\n", aStreamId, kStreamPlayNames[ePlayNo]);
             Log("OkToPlay");
         }
         return ePlayNo;
