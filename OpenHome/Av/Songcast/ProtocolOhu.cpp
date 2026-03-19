@@ -121,27 +121,27 @@ ProtocolStreamResult ProtocolOhu::Play(TIpAddress /*aInterface*/, TUint aTtl, co
             Thread::Sleep(50);
         }
         WaitForPipelineToEmpty();
-        iLeaveLock.Wait();
-        if (iStarving && !iStopped) {
-            iStarving = false;
-            iSocket.Interrupt(false);
-        }
+        {
+            AutoMutex _(iLeaveLock);
+            if (iStarving && !iStopped) {
+                iStarving = false;
+                iSocket.Interrupt(false);
+            }
 
-        try {
-            AutoMutex _(iMutexTransport);
-            iSocket.Close();
-            iSocket.OpenUnicast(iAddr, aTtl);
-        }
-        catch (NetworkError&) {
-            return EProtocolStreamErrorUnrecoverable;
-        }
+            try {
+                AutoMutex __(iMutexTransport);
+                iSocket.Close();
+                iSocket.OpenUnicast(iAddr, aTtl);
+            }
+            catch (NetworkError&) {
+                return EProtocolStreamErrorUnrecoverable;
+            }
 
-        if (iTimestamper != nullptr) {
-            iTimestamper->Stop();
-            iTimestamper->Start(iSocket.This());
+            if (iTimestamper != nullptr) {
+                iTimestamper->Stop();
+                iTimestamper->Start(iSocket.This());
+            }
         }
-
-        iLeaveLock.Signal();
         try {
             OhmHeader header;
             SendJoin();
