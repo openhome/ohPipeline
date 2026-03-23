@@ -317,6 +317,11 @@ TBool PinInvokerUpnpServer::TryAddItem(const Brx& aItemDidl)
     catch (TrackDbFull&) {
         return false;
     }
+    catch (TrackDbIdNotFound&) {
+        // implies playlist has been deleted while still being populated.
+        // Assume that user has changed their mind about this pin.
+        return false;
+    }
     return true;
 }
 
