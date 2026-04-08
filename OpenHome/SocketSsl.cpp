@@ -413,7 +413,8 @@ long SocketSslImpl::BioCallback(BIO *b, int oper, const char *argp, int argi, lo
         catch (AssertionFailed&) {
             throw;
         }
-        catch (ReaderError&) {
+        catch (Exception& ex) {
+            LOG_ERROR(kSsl, "%s thrown \n", ex.Message());
         }
         catch (...) {
             ASSERTS();
@@ -432,11 +433,12 @@ long SocketSslImpl::BioCallback(BIO *b, int oper, const char *argp, int argi, lo
             self->iSocketTcp.Write(buf);
             retvalue = buf.Bytes();
         }
-        catch (WriterError&) {
-            retvalue = -1;
-        }
         catch (AssertionFailed&) {
             throw;
+        }
+        catch (Exception& ex) {
+            LOG_ERROR(kSsl, "%s thrown \n", ex.Message());
+            retvalue = -1;
         }
         catch (...) {
             ASSERTS();
