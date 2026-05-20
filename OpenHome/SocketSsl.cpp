@@ -27,7 +27,6 @@ public:
 
 class SocketSslImpl : public IWriter, public IReaderSource
 {
-    static const TUint kMinReadBytes = 8 * 1024;
     static const TUint kDefaultHostNameBytes = 128;
 public:
     SocketSslImpl(Environment& aEnv, SslContext& aSsl, TUint aReadBytes);
@@ -48,14 +47,17 @@ public: // from IReaderSource
     void ReadFlush() override;
     void ReadInterrupt() override;
 private:
-    static long BioCallback(BIO *b, int oper, const char *argp, int argi, long argl, long retvalue);
+    static int  BioCreate(BIO* b);
+    static int  BioDestroy(BIO* b);
+    static int  BioWrite(BIO* b, const char* in, int inl);
+    static int  BioRead(BIO* b, char* out, int outl);
+    static long BioCtrl(BIO* b, int cmd, long num, void* ptr);
+    static BIO_METHOD* BioMethod();
 private:
     Environment& iEnv;
     SocketTcpClient iSocketTcp;
     SSL_CTX* iCtx;
     SSL* iSsl;
-    TUint iMemBufSize;
-    TByte* iBioReadBuf;
     TBool iSecure;
     TBool iConnected;
     TBool iVerbose;
@@ -217,8 +219,7 @@ SocketSslImpl::SocketSslImpl(Environment& aEnv, SslContext& aSsl, TUint aReadByt
     , iVerbose(false)
     , iHostname(kDefaultHostNameBytes)
 {
-    iMemBufSize = (kMinReadBytes<aReadBytes? aReadBytes : kMinReadBytes);
-    iBioReadBuf = (TByte*)malloc((int)iMemBufSize);
+    (void)aReadBytes; // no longer used; reads now stream directly from the TCP socket
 }
 
 SocketSslImpl::~SocketSslImpl()
@@ -228,7 +229,6 @@ SocketSslImpl::~SocketSslImpl()
     }
     catch (NetworkError&) {
     }
-    free(iBioReadBuf);
 }
 
 void SocketSslImpl::SetSecure(TBool aSecure)
@@ -259,14 +259,11 @@ void SocketSslImpl::Connect(const Endpoint& aEndpoint, const Brx& aHostname, TUi
         ASSERT(iSsl == nullptr);
         iSsl = SSL_new(iCtx);
         SSL_set_info_callback(iSsl, SslInfoCallback);
-        BIO* rbio = BIO_new_mem_buf(iBioReadBuf, iMemBufSize);
-        BIO_set_callback(rbio, BioCallback);
-        BIO_set_callback_arg(rbio, (char*)this);
-        BIO* wbio = BIO_new(BIO_s_mem());
-        BIO_set_callback(wbio, BioCallback);
-        BIO_set_callback_arg(wbio, (char*)this);
-
-        SSL_set_bio(iSsl, rbio, wbio); // ownership of bios passes to iSsl
+        BIO* bio = BIO_new(BioMethod());
+        ASSERT(bio != nullptr);
+        BIO_set_data(bio, this);
+        // Single source/sink BIO drives both directions; SSL_set_bio frees it once on SSL_free.
+        SSL_set_bio(iSsl, bio, bio);
         SSL_set_connect_state(iSsl);
         SSL_set_mode(iSsl, SSL_MODE_AUTO_RETRY);
 
@@ -384,74 +381,94 @@ void SocketSslImpl::ReadInterrupt()
     iSocketTcp.ReadInterrupt();
 }
 
-long SocketSslImpl::BioCallback(BIO *b, int oper, const char *argp, int argi, long /*argl*/, long retvalue)
+int SocketSslImpl::BioCreate(BIO* b)
 { // static
-    switch (oper)
-    {
-    case BIO_CB_READ:
-    {
-        (void)BIO_reset(b);
-        SocketSslImpl* self = reinterpret_cast<SocketSslImpl*>(BIO_get_callback_arg(b));
-        char* data;
-        long len = BIO_get_mem_data(b, &data);
-        if (argi > len) {
-            LOG_ERROR(kSsl, "SSL: Wanted %d bytes, bio only has space for %d\n", argi, (int)len);
-            argi = len;
-        }
-        int remaining = argi;
-        try {
-            while (remaining > 0) {
-                Bwn buf(data, remaining);
-                self->iSocketTcp.Read(buf);
-                if (buf.Bytes() == 0) {
-                    break;
-                }
-                data += buf.Bytes();
-                remaining -= buf.Bytes();
-            }
-        }
-        catch (AssertionFailed&) {
-            throw;
-        }
-        catch (Exception& ex) {
-            LOG_ERROR(kSsl, "%s thrown \n", ex.Message());
-        }
-        catch (...) {
-            ASSERTS();
-        }
-        retvalue = argi - remaining;
-        if (retvalue < argi) {
-            LOG(kSsl, "SSL: Wanted %d bytes, read %d\n", argi, (int)retvalue);
-        }
+    BIO_set_init(b, 1);
+    return 1;
+}
+
+int SocketSslImpl::BioDestroy(BIO* /*b*/)
+{ // static
+    // SocketSslImpl owns the TCP socket; nothing per-BIO to release.
+    return 1;
+}
+
+int SocketSslImpl::BioWrite(BIO* b, const char* in, int inl)
+{ // static
+    SocketSslImpl* self = static_cast<SocketSslImpl*>(BIO_get_data(b));
+    BIO_clear_retry_flags(b);
+    if (inl <= 0) {
+        return 0;
     }
-        break;
-    case BIO_CB_WRITE:
-    {
-        SocketSslImpl* self = reinterpret_cast<SocketSslImpl*>(BIO_get_callback_arg(b));
-        Brn buf(reinterpret_cast<const TByte*>(argp), (TUint)argi);
-        try {
-            self->iSocketTcp.Write(buf);
-            retvalue = buf.Bytes();
-        }
-        catch (AssertionFailed&) {
-            throw;
-        }
-        catch (Exception& ex) {
-            LOG_ERROR(kSsl, "%s thrown \n", ex.Message());
-            retvalue = -1;
-        }
-        catch (...) {
-            ASSERTS();
-        }
-        if (retvalue < argi) {
-            LOG_ERROR(kSsl, "SSL: Wanted %d bytes, wrote %d\n", argi, (int)retvalue);
-        }
+    Brn buf(reinterpret_cast<const TByte*>(in), (TUint)inl);
+    try {
+        self->iSocketTcp.Write(buf);
+        return inl;
     }
-        break;
+    catch (AssertionFailed&) {
+        throw;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kSsl, "%s thrown \n", ex.Message());
+        return -1;
+    }
+    catch (...) {
+        ASSERTS();
+        return -1;
+    }
+}
+
+int SocketSslImpl::BioRead(BIO* b, char* out, int outl)
+{ // static
+    SocketSslImpl* self = static_cast<SocketSslImpl*>(BIO_get_data(b));
+    BIO_clear_retry_flags(b);
+    if (outl <= 0) {
+        return 0;
+    }
+    try {
+        Bwn buf(reinterpret_cast<TByte*>(out), (TUint)outl);
+        self->iSocketTcp.Read(buf);
+        // 0 here means the peer closed; libssl treats that as EOF.
+        return (int)buf.Bytes();
+    }
+    catch (AssertionFailed&) {
+        throw;
+    }
+    catch (Exception& ex) {
+        LOG_ERROR(kSsl, "%s thrown \n", ex.Message());
+        return 0; // signal EOF to libssl
+    }
+    catch (...) {
+        ASSERTS();
+        return -1;
+    }
+}
+
+long SocketSslImpl::BioCtrl(BIO* /*b*/, int cmd, long /*num*/, void* /*ptr*/)
+{ // static
+    switch (cmd) {
+    case BIO_CTRL_FLUSH:
+        return 1; // nothing buffered, so flush is a no-op success
     default:
-        break;
+        return 0;
     }
-    return retvalue;
+}
+
+BIO_METHOD* SocketSslImpl::BioMethod()
+{ // static
+    // Initialised on first use; leaked at process exit, matching libssl's own built-in methods.
+    // C++11 guarantees thread-safe initialisation of function-local statics.
+    static BIO_METHOD* method = []() {
+        BIO_METHOD* m = BIO_meth_new(BIO_get_new_index() | BIO_TYPE_SOURCE_SINK, "OpenHome SocketSsl");
+        ASSERT(m != nullptr);
+        BIO_meth_set_create(m, &SocketSslImpl::BioCreate);
+        BIO_meth_set_destroy(m, &SocketSslImpl::BioDestroy);
+        BIO_meth_set_write(m, &SocketSslImpl::BioWrite);
+        BIO_meth_set_read(m, &SocketSslImpl::BioRead);
+        BIO_meth_set_ctrl(m, &SocketSslImpl::BioCtrl);
+        return m;
+    }();
+    return method;
 }
 
 
