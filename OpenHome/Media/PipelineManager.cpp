@@ -49,6 +49,7 @@ public:
     void PauseInvoked();
     void SkipForwardInvoked();
     void SkipBackwardInvoked();
+    void SeekInvoked(TUint aSeconds);
 
 private: // IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
@@ -80,6 +81,8 @@ private:
     TBool iNextEventIsResultOfUserInteraction;
     TBool iSkipForward;
     TBool iSkipBack;
+    TBool iSeek;
+    TUint iSeekSeconds;
     Media::Track* iPrevious;
     Media::Track* iCurrent;
 };
@@ -97,6 +100,8 @@ PlaybackStateReporter::PlaybackStateReporter(IPipelinePlaybackObserver& aObserve
     , iNextEventIsResultOfUserInteraction(false)
     , iSkipForward(false)
     , iSkipBack(false)
+    , iSeek(false)
+    , iSeekSeconds(0)
     , iPrevious(nullptr)
     , iCurrent(nullptr)
 { }
@@ -138,6 +143,13 @@ void PlaybackStateReporter::SkipForwardInvoked()
 void PlaybackStateReporter::SkipBackwardInvoked()
 {
     iSkipBack = true;
+    iNextEventIsResultOfUserInteraction = true;
+}
+
+void PlaybackStateReporter::SeekInvoked(TUint aSeconds)
+{
+    iSeek = true;
+    iSeekSeconds = aSeconds;
     iNextEventIsResultOfUserInteraction = true;
 }
 
@@ -218,6 +230,18 @@ void PlaybackStateReporter::OnStateChanged(EPipelineState aNewState, Track* aNew
             ASSERT(false);
         }
     }
+
+        if (isBuffering && iSeek) {
+            #ifdef PSR_DEBUG_LOGGING
+            LOG(kMedia, "PlaybackStateReporter::NotifySeek\n");
+            #endif
+
+            const Brx& currentTrackUri = iCurrent ? iCurrent->Uri()
+                                                  : Brx::Empty();
+
+            iObserver.OnSeek(currentTrackUri, iSeekSeconds);
+            Reset();
+        }
 
     if (!isBuffering) {
         iCurrentState = aNewState;
@@ -404,8 +428,10 @@ void PlaybackStateReporter::NotifyPreviousStopped()
 
 void PlaybackStateReporter::Reset()
 {
+    iSeek        = false;
     iSkipBack    = false;
     iSkipForward = false;
+    iSeekSeconds = 0;
     iNextEventIsResultOfUserInteraction = false;
 }
 
@@ -730,6 +756,7 @@ void PipelineManager::Seek(TUint aStreamId, TUint aSecondsAbsolute)
 {
     AutoMutex _(iPublicLock);
     LOG(kPipeline, "PipelineManager::Seek(%u, %u)\n", aStreamId, aSecondsAbsolute);
+    iPlaybackReporter->SeekInvoked(aSecondsAbsolute);
     iPipeline->Seek(aStreamId, aSecondsAbsolute);
 }
 
@@ -919,6 +946,14 @@ void PipelineManager::NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo)
     AutoMutex _(iLockObservers);
     for (TUint i=0; i<iObservers.size(); i++) {
         iObservers[i]->NotifyStreamInfo(aStreamInfo);
+    }
+}
+
+void PipelineManager::OnSeek(const Brx& aTrackUri, TUint aSeconds)
+{
+    // NOTE: LockObservers already held.
+    for (TUint i = 0; i < iPlaybackObservers.size(); i += 1) {
+        iPlaybackObservers[i]->OnSeek(aTrackUri, aSeconds);
     }
 }
 

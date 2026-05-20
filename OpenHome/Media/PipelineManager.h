@@ -342,6 +342,7 @@ private: // from IPipelineObserver
     void NotifyTime(TUint aSeconds) override;
     void NotifyStreamInfo(const DecodedStreamInfo& aStreamInfo) override;
 private: // IPipelinePlaybackObserver
+    void OnSeek(const Brx& aTrackuri, TUint aSeconds) override;
     void OnPlaybackStarted(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) override;
     void OnPlaybackPaused(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) override;
     void OnPlaybackResumed(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) override;
