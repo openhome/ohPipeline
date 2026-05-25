@@ -66,7 +66,7 @@
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.170",
+        "version": "0.2.173",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
@@ -82,7 +82,7 @@
     {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.95.1405",
+        "version": "0.95.1416",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
@@ -96,7 +96,7 @@
         "name": "libplatform-host",
         "real-name": "libplatform",
         "type": "internal",
-        "version": "0.95.1405",
+        "version": "0.95.1416",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "${real-name}-${version}-${host-platform}-${debugmode}.tar.gz",
@@ -119,7 +119,7 @@
         "name": "libressl",
         "type": "internal",
         "platform-specific": true,
-        "version": "0.2.155",
+        "version": "0.2.156",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
     },
     {
