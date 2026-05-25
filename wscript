@@ -93,10 +93,10 @@ def configure(conf):
         ]
 
     # Setup FLAC lib options
-    conf.env.DEFINES_FLAC = ['VERSION=\"1.2.1\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG']
+    conf.env.DEFINES_FLAC = ['PACKAGE_VERSION=\"1.5.0\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG']
     conf.env.INCLUDES_FLAC = [
-        'thirdparty/flac-1.2.1/src/libFLAC/include',
-        'thirdparty/flac-1.2.1/include',
+        'thirdparty/flac-1.5.0/src/libFLAC/include',
+        'thirdparty/flac-1.5.0/include',
         ]
 
     # Setup OPUS lib options
@@ -159,7 +159,7 @@ def configure(conf):
     elif conf.options.dest_platform in ['Linux-ppc32', 'Core-ppc32']:
         fixed_point_model = 'FPM_PPC'
         mp3_sizeof_long = 'SIZEOF_LONG=4'
-    elif conf.options.dest_platform in ['Linux-x64', 'Mac-x64', 'Mac-arm64']:
+    elif conf.options.dest_platform in ['Linux-x64', 'Mac-x64', 'Mac-arm64', 'Windows-x64']:
         fixed_point_model = 'FPM_64BIT'
         mp3_sizeof_long = 'SIZEOF_LONG=8'
     elif conf.options.dest_platform in ['Linux-x86']:
@@ -619,22 +619,29 @@ def build(bld):
             target='libOgg')
 
     # Flac
+    flacSource = [
+        'OpenHome/Media/Codec/Flac.cpp',
+        'thirdparty/flac-1.5.0/src/libFLAC/bitreader.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/bitmath.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/cpu.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/crc.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/fixed.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/format.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/lpc.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/md5.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/memory.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/stream_decoder.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/ogg_decoder_aspect.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/ogg_mapping.c',
+        ]
+
+    if (bld.env.dest_platform in [ 'Windows-x86', 'Windows-x64' ]):
+        flacSource += [ 
+            'thirdparty/flac-1.5.0/src/share/win_utf8_io/win_utf8_io.c'
+        ]
+
     bld.stlib(
-            source=[
-                'OpenHome/Media/Codec/Flac.cpp',
-                'thirdparty/flac-1.2.1/src/libFLAC/bitreader.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/bitmath.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/cpu.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/crc.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/fixed.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/format.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/lpc.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/md5.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/memory.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/stream_decoder.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/ogg_decoder_aspect.c',
-                'thirdparty/flac-1.2.1/src/libFLAC/ogg_mapping.c',
-            ],
+            source=flacSource,
             use=['FLAC', 'OGG', 'libOgg', 'OHNET'],
             shlib=['m'],
             target='CodecFlac')
