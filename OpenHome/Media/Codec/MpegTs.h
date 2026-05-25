@@ -179,7 +179,7 @@ class MpegTs : public IPipelineElementUpstream
 {
 private:
     static const TUint kPacketBytes = 188;
-    static const TUint kAdaptionFieldLengthBytes = 1;
+    static const TUint kAdaptionFieldLengthBytes = 2; // (Byte 1 = Field Length, Byte 2 = Flags)
     static const TUint kStreamHeaderBytes = MpegTsTransportStreamHeader::kTransportStreamHeaderBytes;
 
     static const TUint kStreamSpecificFixedBytes = 5;
