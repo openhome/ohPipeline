@@ -94,6 +94,10 @@ def configure(conf):
 
     # Setup FLAC lib options
     conf.env.DEFINES_FLAC = ['PACKAGE_VERSION=\"1.5.0\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG']
+
+    if !conf.options.dest_platform.startswith('Windows'):
+        conf.env.append_value('DEFINES_FLAC', ['HAVE_STDINT_H', 'HAVE_LROUND'])
+
     conf.env.INCLUDES_FLAC = [
         'thirdparty/flac-1.5.0/src/libFLAC/include',
         'thirdparty/flac-1.5.0/include',
