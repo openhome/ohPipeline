@@ -98,6 +98,9 @@ def configure(conf):
     if not conf.options.dest_platform.startswith('Windows'):
         conf.env.append_value('DEFINES_FLAC', ['HAVE_STDINT_H', 'HAVE_LROUND'])
 
+    if conf.options.dest_platform.startswith('Mac'):
+        conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO']);
+
     conf.env.INCLUDES_FLAC = [
         'thirdparty/flac-1.5.0/src/libFLAC/include',
         'thirdparty/flac-1.5.0/include',
