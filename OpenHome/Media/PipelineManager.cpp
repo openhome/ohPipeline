@@ -381,9 +381,6 @@ void PlaybackStateReporter::NotifyStopped()
     const Brx& currentTrackUri = iCurrent ? iCurrent->Uri()
                                           : Brx::Empty();
 
-    const StopReason reason = iNextEventIsResultOfUserInteraction ? StopReason::UserInteraction
-                                                                  : StopReason::TrackChange;
-
     if (iSkipForward || iSkipBack) {
         // SHOULD NOT REACH - But don't assert as this isn't mission critical.
         LOG_ERROR(kMedia, "PlaybackStateReporter::NotifyStopped - Called as a result of skip but should've been 'NotifyPreviousStopped\n");
@@ -393,7 +390,7 @@ void PlaybackStateReporter::NotifyStopped()
 #ifdef PSR_DEBUG_LOGGING
         LOG(kMedia, "PlaybackStateReporter::NotifyStopped\n");
 #endif
-        iObserver.OnPlaybackStopped(currentTrackUri, reason);
+        iObserver.OnPlaybackStopped(currentTrackUri, StopReason::Stop);
     }
 
     Reset();
@@ -404,7 +401,7 @@ void PlaybackStateReporter::NotifyPreviousStopped()
     const Brx& previousTrackUri = iPrevious ? iPrevious->Uri()
                                             : Brx::Empty();
 
-    StopReason reason = StopReason::TrackChange;
+    StopReason reason = StopReason::TrackFinished;
 
     if (iSkipForward) {
         reason = StopReason::SkipForward;
@@ -413,7 +410,7 @@ void PlaybackStateReporter::NotifyPreviousStopped()
         reason = StopReason::SkipBackward;
     }
     else if (iNextEventIsResultOfUserInteraction) {
-        reason = StopReason::UserInteraction;
+        reason = StopReason::TrackChange;
     }
 
     if (previousTrackUri.Bytes() > 0) {

@@ -98,10 +98,11 @@ class IPipelinePlaybackObserver
 public:
     enum class EStopReason
     {
-        UserInteraction, // Stop() was called
-        TrackChange,     // Track boundary
-        SkipForward,     // Next() was called
-        SkipBackward,    // Prev() was called
+        TrackFinished, // Track boundary
+        TrackChange,   // User requested new track
+        Stop,          // Stop() was called
+        SkipForward,   // Next() was called
+        SkipBackward,  // Prev() was called
     };
 
     virtual ~IPipelinePlaybackObserver() {};
