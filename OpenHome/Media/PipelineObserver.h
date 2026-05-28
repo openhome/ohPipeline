@@ -105,6 +105,7 @@ public:
     };
 
     virtual ~IPipelinePlaybackObserver() {};
+    virtual void OnSeek(const Brx& aTrackUri, TUint aSeekSeconds) = 0;
     virtual void OnPlaybackStarted(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) = 0;
     virtual void OnPlaybackPaused(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) = 0;
     virtual void OnPlaybackResumed(const Brx& aTrackUri, TBool aWasResultOfUserInteraction) = 0;

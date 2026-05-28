@@ -135,7 +135,10 @@ def setup_windows(context):
     env.update(
         OPENHOME_NO_ERROR_DIALOGS="1",
         OHNET_NO_ERROR_DIALOGS="1")
-    env.update(get_vsvars_environment())
+    arch = 'x86'
+    if context.options.target == 'Windows-x64':
+        arch = 'x64'
+    env.update(get_vsvars_environment(arch))
     if 'HOMEDRIVE' in os.environ:
         context.integration_test_log_dir = os.path.join(os.environ['HOMEDRIVE'] + '\\', context.integration_test_log_dir)
     else:
