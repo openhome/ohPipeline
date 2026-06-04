@@ -34,8 +34,6 @@ ContainerBase* ContainerFactory::NewMpegTs(IMimeTypeList& aMimeTypeList)
  *  - Variable-length MPEG PES packets:     ==============  ==============  ==============
  *                                         /                                              \
  *  - Raw stream (e.g., AAC):              ================================================
- *
- *  A useful tool to help visualise MpegTS streams can be found here: https://media-analyzer.pro/app (E, May 2026)
  */
 
 
@@ -748,48 +746,19 @@ Msg* MpegTs::Pull()
         }
         else if (iState == eInspectAdaptationField) {
             ASSERT(iBuf.Bytes() == kAdaptionFieldLengthBytes);
-            TUint const adaptationFieldLength               = iBuf[0];
-            TUint const adaptationFieldFlags                = iBuf[1];
-            TUint const adaptationFieldLengthExcludingFlags = adaptationFieldLength - 1;
-
-            // @AdaptionFieldFlags:
-            // See: https://en.wikipedia.org/wiki/MPEG_transport_stream
-            const TBool discontinuity_flag                  = (adaptationFieldFlags & 0x80) != 0;
-            const TBool random_access_flag                  = (adaptationFieldFlags & 0x40) != 0;
-            const TBool elementary_stream_priorty_indicator = (adaptationFieldFlags & 0x20) != 0;
-            const TBool pcr_flag                            = (adaptationFieldFlags & 0x10) != 0;
-            const TBool opcr_flag                           = (adaptationFieldFlags & 0x08) != 0;
-            const TBool splicing_point_flag                 = (adaptationFieldFlags & 0x04) != 0;
-            const TBool transport_private_data_flag         = (adaptationFieldFlags & 0x02) != 0;
-            const TBool adaptation_field_extension_flag     = (adaptationFieldFlags & 0x40) != 0;
-
-            LOG_TRACE(kCodec, "MpegTs::Pull (Adaptation Field Flags): DISC: %s, RAND: %s, ESPI: %s, PCR: %s, OPCR: %s, SPF: %s, TPDF: %s, AFEF: %s\n",
-                      PBool(discontinuity_flag),
-                      PBool(random_access_flag),
-                      PBool(elementary_stream_priorty_indicator),
-                      PBool(pcr_flag),
-                      PBool(opcr_flag),
-                      PBool(splicing_point_flag),
-                      PBool(transport_private_data_flag),
-                      PBool(adaptation_field_extension_flag));
+            TUint const adaptationFieldLength = iBuf[0];
 
             iRemaining -= iBuf.Bytes();
-            iRemaining -= adaptationFieldLengthExcludingFlags;
+            iRemaining -= adaptationFieldLength;
 
             if (iRemaining <= kPacketBytes) {
-                TUint discard = adaptationFieldLengthExcludingFlags;
+                TUint discard = adaptationFieldLength;
 
                 if (iRemaining == 0) {
                     // Adaptation field may constitute remainder of packet.
                     iState = eStart;
                 }
                 else {
-
-                    // @AdaptionFieldFlags: Set when the stream can be decoded without errors from this point.
-                    if (random_access_flag) {
-                        iStreamPid = iStreamHeader.PacketId();
-                    }
-
                     if (!TrySetPayloadState()) {
                         discard += iRemaining;
                         iRemaining = 0;
