@@ -276,6 +276,11 @@ void WriterDIDLLite::WriteArtist(const Brx& aArtist)
     iWriter.TryWriteTag(DIDLLite::kTagArtist, aArtist);
 }
 
+void WriterDIDLLite::WriteArtistWithRole(const Brx& aRole, const Brx& aValue)
+{
+    iWriter.TryWriteTagWithAttribute(DIDLLite::kTagArtist, Brn("role"), aRole, aValue);
+}
+
 void WriterDIDLLite::WriteTrackNumber(const Brx& aTrackNumber)
 {
     ASSERT(!iTrackNumberWritten);

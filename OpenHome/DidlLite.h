@@ -106,7 +106,8 @@ public:
     void WriteAlbum(const Brx& aAlbum);
     void WriteDescription(const Brx& aDescription);
     void WriteGenre(const Brx& aGenre);
-    void WriteArtist(const Brx& aArtist); // TODO: This could be expanded to allow multiple calls accepting 'Roles'
+    void WriteArtist(const Brx& aArtist);
+    void WriteArtistWithRole(const Brx& aRole, const Brx& aValue);
     void WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aStreamingDetails, const Brx& aUri);
     void WriteCustomMetadata(const TChar* aId, const Brx& aNamespace, const Brx& aValue); // This is used to write CP specific extensions encoded using the <desc> tag with a custom namespace
     void WriteEnd();
