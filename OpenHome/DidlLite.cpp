@@ -248,7 +248,6 @@ WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const B
     , iTitleWritten(false)
     , iGenreWritten(false)
     , iAlbumWritten(false)
-    , iArtistWritten(false)
     , iTrackNumberWritten(false)
     , iDescriptionWritten(false)
     , iStreamingDetailsWritten(false)
@@ -274,9 +273,6 @@ void WriterDIDLLite::WriteAlbum(const Brx& aAlbum)
 
 void WriterDIDLLite::WriteArtist(const Brx& aArtist)
 {
-    ASSERT(!iArtistWritten);
-    iArtistWritten = true;
-
     iWriter.TryWriteTag(DIDLLite::kTagArtist, aArtist);
 }
 

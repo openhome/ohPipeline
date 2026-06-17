@@ -119,7 +119,6 @@ private:
     TBool iTitleWritten;
     TBool iGenreWritten;
     TBool iAlbumWritten;
-    TBool iArtistWritten;
     TBool iTrackNumberWritten;
     TBool iDescriptionWritten;
     TBool iStreamingDetailsWritten;
