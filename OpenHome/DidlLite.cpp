@@ -281,6 +281,13 @@ void WriterDIDLLite::WriteArtistWithRole(const Brx& aRole, const Brx& aValue)
     iWriter.TryWriteTagWithAttribute(DIDLLite::kTagArtist, Brn("role"), aRole, aValue);
 }
 
+void WriterDIDLLite::WriteMinimCompatibleWork(const Brx& aWorkName)
+{
+    iWriter.TryWrite("<upnp:userAnnotation>tag.Work=");
+    iWriter.TryWrite(aWorkName);
+    iWriter.TryWrite("</upnp:userAnnotation>");
+}
+
 void WriterDIDLLite::WriteTrackNumber(const Brx& aTrackNumber)
 {
     ASSERT(!iTrackNumberWritten);
