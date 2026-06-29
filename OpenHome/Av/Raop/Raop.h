@@ -330,6 +330,9 @@ private:
     TUint iCurrentAdapterChangeListenerId;
     TUint iSubnetListChangeListenerId;
     RaopDiscoveryServer* iCurrent; // protected by iServersLock
+    TUint iLastAudioPort;   // protected by iServersLock
+    TUint iLastControlPort; // protected by iServersLock
+    TUint iLastTimingPort;  // protected by iServersLock
     IPowerManagerObserver* iPowerObserver;
     Mutex iServersLock;
     Mutex iObserversLock;

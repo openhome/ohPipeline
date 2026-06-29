@@ -983,6 +983,9 @@ RaopDiscovery::RaopDiscovery(Environment& aEnv, IPowerManager& aPowerManager, IF
     , iFriendlyNameObservable(aFriendlyNameObservable)
     , iMacAddr(aMacAddr)
     , iCurrent(nullptr)
+    , iLastAudioPort(0)
+    , iLastControlPort(0)
+    , iLastTimingPort(0)
     , iServersLock("RDSL")
     , iObserversLock("RDOL")
     , iAttenuator(aAttenuator)
@@ -1079,6 +1082,9 @@ void RaopDiscovery::Close()
 void RaopDiscovery::RaopPortsChanged(TUint aAudio, TUint aControl, TUint aTiming)
 {
     AutoMutex a(iServersLock);
+    iLastAudioPort   = aAudio;
+    iLastControlPort = aControl;
+    iLastTimingPort  = aTiming;
     std::vector<RaopDiscoveryServer*>::iterator it = iServers.begin();
     while (it != iServers.end()) {
         (*it)->RaopPortsChanged(aAudio, aControl, aTiming);
@@ -1272,6 +1278,7 @@ void RaopDiscovery::AddAdapter(NetworkAdapter& aNif)
 {
     RaopDiscoveryServer* server = new RaopDiscoveryServer(iEnv, aNif, iFriendlyNameObservable, iMacAddr, iAttenuator, iMdnsProvider);
     iServers.push_back(server);
+    server->RaopPortsChanged(iLastAudioPort, iLastControlPort, iLastTimingPort);
     server->Enable();
     server->AddObserver(*this);
 }
