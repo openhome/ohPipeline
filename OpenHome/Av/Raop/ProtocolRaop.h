@@ -867,6 +867,7 @@ private:
     TBool iStopped;
     TBool iDiscontinuity;
     TBool iStarving;
+    TBool iAudioOutputPending;
     mutable Mutex iLockRaop;
     Semaphore iSem;
     Semaphore iSemDrain;

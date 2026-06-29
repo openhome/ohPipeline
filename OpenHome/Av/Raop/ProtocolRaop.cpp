@@ -408,7 +408,12 @@ ProtocolRaop::ProtocolRaop(Environment& aEnv, Media::TrackFactory& aTrackFactory
     , iStreamId(IPipelineIdProvider::kStreamIdInvalid)
     , iNextFlushId(MsgFlush::kIdInvalid)
     , iActive(false)
+    , iWaiting(false)
+    , iResumePending(false)
     , iStopped(true)
+    , iDiscontinuity(false)
+    , iStarving(false)
+    , iAudioOutputPending(false)
     , iLockRaop("PRAL")
     , iSem("PRAS", 0)
     , iSemDrain("PRSM", 0)
@@ -654,6 +659,7 @@ void ProtocolRaop::Reset()
     iStopped = false;
     iDiscontinuity = false;
     iStarving = false;
+    iAudioOutputPending = false;
     // Clear any pending signals on drain semaphore, just to be safe, as won't be waiting on a drain when entering ::Stream() method.
     iSemDrain.Clear();
 }
@@ -738,6 +744,10 @@ void ProtocolRaop::OutputAudio(const Brx& aAudio)
     }
 
     iAudioDecryptor.Decrypt(aAudio, iAudioDecrypted);
+    {
+        AutoMutex a(iLockRaop);
+        iAudioOutputPending = true;
+    }
     iSupply->OutputData(iAudioDecrypted);
 }
 
@@ -750,23 +760,28 @@ void ProtocolRaop::OutputDiscontinuity()
     //iRepairer.DropAudio();  // Drop any audio buffered in repairer.
     //iSupply->Discard();
 
+    TBool audioPending = false;
     {
         AutoMutex a(iLockRaop);
         iResumePending = true;
+        audioPending = iAudioOutputPending;
+        iAudioOutputPending = false;
     }
 
     iSemDrain.Clear();
     iSupply->Flush();
-    LOG(kMedia, "ProtocolRaop::OutputDiscontinuity before OutputDrain()\n");
-    iSupply->OutputDrain(MakeFunctor(iSemDrain, &Semaphore::Signal)); // FIXME - what if doing this while waiter is flushing?
-    LOG(kMedia, "ProtocolRaop::OutputDiscontinuity after OutputDrain()\n");
-    try {
-        iSemDrain.Wait(ISupply::kMaxDrainMs);
+    if (audioPending) {
+        LOG(kMedia, "ProtocolRaop::OutputDiscontinuity before OutputDrain()\n");
+        iSupply->OutputDrain(MakeFunctor(iSemDrain, &Semaphore::Signal));
+        LOG(kMedia, "ProtocolRaop::OutputDiscontinuity after OutputDrain()\n");
+        try {
+            iSemDrain.Wait(ISupply::kMaxDrainMs);
+        }
+        catch (Timeout&) {
+            LOG(kPipeline, "WARNING: ProtocolRaop: timeout draining pipeline\n");
+        }
+        LOG(kMedia, "ProtocolRaop::OutputDiscontinuity after sem.Wait()\n");
     }
-    catch (Timeout&) {
-        LOG(kPipeline, "WARNING: ProtocolRaop: timeout draining pipeline\n");
-    }
-    LOG(kMedia, "ProtocolRaop::OutputDiscontinuity after sem.Wait()\n");
 
     // Only reopen audio server if a TryStop() hasn't come in.
     AutoMutex a(iLockRaop);
