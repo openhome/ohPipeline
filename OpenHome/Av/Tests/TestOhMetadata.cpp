@@ -118,12 +118,19 @@ void SuiteWriterDIDLLite::TestWriteAlbum()
 
 void SuiteWriterDIDLLite::TestWriteArtist()
 {
-    const Brn kArtist("Artist");
-    WriterCallback cb = [] (WriterDIDLLite& writer, const Brx& aValue) {
-        writer.WriteArtist(aValue);
-    };
+    WriterBwh writer(512);
+    WriterDIDLLite subject(kItemId, DIDLLite::kItemTypeTrack, writer);
 
-    TestWriteOnceCalls(kArtist, cb);
+    subject.WriteArtist(Brn("ArtistA"));
+    subject.WriteArtist(Brn("ArtistB"));
+    subject.WriteArtist(Brn("ArtistC"));
+
+    // NOTE: Artist allows multiple values as that's what the spec says.
+
+    const Brx& didl = writer.Buffer();
+    TEST(Ascii::Contains(didl, Brn("ArtistA")));
+    TEST(Ascii::Contains(didl, Brn("ArtistB")));
+    TEST(Ascii::Contains(didl, Brn("ArtistC")));
 }
 
 void SuiteWriterDIDLLite::TestWriteGenre()
