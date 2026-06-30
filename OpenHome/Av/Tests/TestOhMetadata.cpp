@@ -40,6 +40,9 @@ private:
     void TestWriteEmptyDoesNothing();
 
     void TestWriteOnceCalls(const Brx& aValueToWrite, WriterCallback aWriteCallback);
+
+private:
+    WriterBwh iWriter;
 };
 
 class SuiteDIDLLiteTruncator : public SuiteUnitTest
@@ -63,6 +66,7 @@ const Brn SuiteWriterDIDLLite::kParentId("parentId");
 
 SuiteWriterDIDLLite::SuiteWriterDIDLLite()
     : SuiteUnitTest("SuiteWriterDIDLLite")
+    , iWriter(512)
 {
     AddTest(MakeFunctor(*this, &SuiteWriterDIDLLite::TestWriteNothing), "TestWriteNothing");
     AddTest(MakeFunctor(*this, &SuiteWriterDIDLLite::TestWriteEmptyDoesNothing), "TestWriteEmptyDoesNothing");
@@ -73,7 +77,9 @@ SuiteWriterDIDLLite::SuiteWriterDIDLLite()
 }
 
 void SuiteWriterDIDLLite::Setup()
-{ }
+{
+    iWriter.Reset();
+}
 
 void SuiteWriterDIDLLite::TearDown()
 { }
@@ -81,12 +87,11 @@ void SuiteWriterDIDLLite::TearDown()
 
 void SuiteWriterDIDLLite::TestWriteNothing()
 {
-    WriterBwh writer(512);
-    WriterDIDLLite subject(kItemId, DIDLLite::kItemTypeTrack, writer);
+    WriterDIDLLite subject(kItemId, DIDLLite::kItemTypeTrack, iWriter);
 
     subject.WriteEnd();
 
-    const Brx& didl = writer.Buffer();
+    const Brx& didl = iWriter.Buffer();
     TEST(Ascii::Contains(didl, kItemId));
     TEST(Ascii::Contains(didl, DIDLLite::kItemTypeTrack));
 
@@ -146,12 +151,11 @@ void SuiteWriterDIDLLite::TestWriteGenre()
 void SuiteWriterDIDLLite::TestWriteOnceCalls(const Brx& aValueToWrite,
                                              WriterCallback aWriteCallback)
 {
-    WriterBwh writer(512);
-    WriterDIDLLite subject(kItemId, DIDLLite::kItemTypeTrack, writer);
+    WriterDIDLLite subject(kItemId, DIDLLite::kItemTypeTrack, iWriter);
 
     aWriteCallback(subject, aValueToWrite);
 
-    const Brx& didl = writer.Buffer();
+    const Brx& didl = iWriter.Buffer();
     TEST(Ascii::Contains(didl, kItemId));
     TEST(Ascii::Contains(didl, DIDLLite::kItemTypeTrack));
     TEST(Ascii::Contains(didl, aValueToWrite));
@@ -168,8 +172,7 @@ void SuiteWriterDIDLLite::TestWriteOnceCalls(const Brx& aValueToWrite,
 
 void SuiteWriterDIDLLite::TestWriteEmptyDoesNothing()
 {
-    WriterBwh writer(512);
-    WriterDIDLLite subject(kItemId, DIDLLite::kItemTypeTrack, writer);
+    WriterDIDLLite subject(kItemId, DIDLLite::kItemTypeTrack, iWriter);
 
     subject.WriteTitle(Brx::Empty());
     subject.WriteArtist(Brx::Empty());
@@ -189,7 +192,7 @@ void SuiteWriterDIDLLite::TestWriteEmptyDoesNothing()
         DIDLLite::kTagArtwork,
     } };
 
-    const Brx& didl = writer.Buffer();
+    const Brx& didl = iWriter.Buffer();
     for(const auto& val : tags) {
         TEST(Ascii::Contains(didl, val) == false);
     }
