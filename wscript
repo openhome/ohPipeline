@@ -93,22 +93,17 @@ def configure(conf):
         ]
 
     # Setup FLAC lib options
-    # NOTE: Flac 1.5.0 doesn't currently work on Core 1. See #9007
+    conf.env.DEFINES_FLAC = ['PACKAGE_VERSION=\"1.5.0\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG']
 
-    conf.env.DEFINES_FLAC = ['VERSION=\"1.2.1\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG']          # 1.2.1
-    #conf.env.DEFINES_FLAC = ['PACKAGE_VERSION=\"1.5.0\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG'] # 1.5.0
+    if not conf.options.dest_platform.startswith('Windows'):
+        conf.env.append_value('DEFINES_FLAC', ['HAVE_STDINT_H', 'HAVE_LROUND'])
 
-    # 1.5.0 only
-    #if not conf.options.dest_platform.startswith('Windows'):
-    #    conf.env.append_value('DEFINES_FLAC', ['HAVE_STDINT_H', 'HAVE_LROUND'])
-
-    # 1.5.0 only
-    #if conf.options.dest_platform in ['Mac-x64', 'Mac-arm64', 'Core-ppc32']:
-    #    conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO']);
+    if conf.options.dest_platform in ['Mac-x64', 'Mac-arm64', 'Core-ppc32']:
+        conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO']);
 
     conf.env.INCLUDES_FLAC = [
-        'thirdparty/flac-1.2.1/src/libFLAC/include',
-        'thirdparty/flac-1.2.1/include',
+        'thirdparty/flac-1.5.0/src/libFLAC/include',
+        'thirdparty/flac-1.5.0/include',
         ]
 
     # Setup OPUS lib options
@@ -633,25 +628,24 @@ def build(bld):
     # Flac
     flacSource = [
         'OpenHome/Media/Codec/Flac.cpp',
-        'thirdparty/flac-1.2.1/src/libFLAC/bitreader.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/bitmath.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/cpu.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/crc.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/fixed.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/format.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/lpc.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/md5.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/memory.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/stream_decoder.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/ogg_decoder_aspect.c',
-        'thirdparty/flac-1.2.1/src/libFLAC/ogg_mapping.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/bitreader.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/bitmath.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/cpu.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/crc.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/fixed.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/format.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/lpc.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/md5.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/memory.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/stream_decoder.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/ogg_decoder_aspect.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/ogg_mapping.c',
         ]
 
-    # 1.5.0 only
-    #if (bld.env.dest_platform in [ 'Windows-x86', 'Windows-x64' ]):
-    #    flacSource += [ 
-    #        'thirdparty/flac-1.5.0/src/share/win_utf8_io/win_utf8_io.c'
-    #    ]
+    if (bld.env.dest_platform in [ 'Windows-x86', 'Windows-x64' ]):
+        flacSource += [ 
+            'thirdparty/flac-1.5.0/src/share/win_utf8_io/win_utf8_io.c'
+        ]
 
     bld.stlib(
             source=flacSource,
