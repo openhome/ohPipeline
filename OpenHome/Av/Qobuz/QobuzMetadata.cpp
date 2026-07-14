@@ -175,6 +175,13 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
         }
     }
 
+    const Brx& work = parserTrack.StringOptional("work");
+    if (work.Bytes() > 0) {
+        writer.WriteMinimCompatibleWork(work);
+    }
+
+
+
     WriterDIDLLite::StreamingDetails details;
     details.durationResolution = EDurationResolution::Seconds;
     details.duration = parserTrack.HasKey("duration") ? parserTrack.Num("duration")
