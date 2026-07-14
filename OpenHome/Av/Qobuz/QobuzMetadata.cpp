@@ -168,6 +168,13 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
         writer.WriteTrackNumber(parserTrack.String("track_number"));
     }
 
+    if (parserTrack.HasKey("performer")) {
+        nestedParser.Parse(parserTrack.String("performer"));
+        if (nestedParser.HasKey("name")) {
+            writer.WriteArtist(nestedParser.String("name"));
+        }
+    }
+
     WriterDIDLLite::StreamingDetails details;
     details.durationResolution = EDurationResolution::Seconds;
     details.duration = parserTrack.HasKey("duration") ? parserTrack.Num("duration")
@@ -177,9 +184,9 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
     // Parent metadata is already escaped!
     if (aHasParentMetadata) {
         writer.WriteAlbum(aParentMetadata.title);
-        writer.WriteArtist(aParentMetadata.artist);
         writer.WriteArtwork(aParentMetadata.smallArtworkUri);
         writer.WriteArtwork(aParentMetadata.largeArtworkUri);
+        writer.WriteArtistWithRole(Brn("AlbumArtist"), aParentMetadata.artist);
 
         if (aParentMetadata.albumId.Bytes() > 0) {
             writer.WriteCustomMetadata("albumId", DIDLLite::kNameSpaceLinn, aParentMetadata.albumId);
