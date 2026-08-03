@@ -15,7 +15,7 @@ using namespace OpenHome::Av;
 using namespace OpenHome::Media;
 
 
-const TUint ITrackDatabase::kTrackIdNone = 0;
+const TUint ITrackDatabaseReader::kTrackIdNone = 0;
 
 static inline void AddRefIfNonNull(Track* aTrack)
 {
@@ -30,6 +30,7 @@ static inline void RemoveRefIfNonNull(Track* aTrack)
         aTrack->RemoveRef();
     }
 }
+
 
 // TrackDatabase
 
@@ -48,22 +49,36 @@ TrackDatabase::~TrackDatabase()
     TrackListUtils::Clear(iTrackList);
 }
 
+void TrackDatabase::CopyIdArray(
+    const std::vector<Track*>& aFrom,
+    std::vector<TUint32>& aTo,
+    TUint aMax)
+{ // static
+    TUint i;
+    aTo.clear();
+    for (i = 0; i < aFrom.size(); i++) {
+        aTo.push_back(aFrom[i]->Id());
+    }
+    for (i = aFrom.size(); i < aMax; i++) {
+        aTo.push_back(kTrackIdNone);
+    }
+}
+
 void TrackDatabase::AddObserver(ITrackDatabaseObserver& aObserver)
 {
     iObservers.push_back(&aObserver);
 }
 
+TUint TrackDatabase::IdArraySeq() const
+{
+    AutoMutex _(iLock);
+    return iSeq;
+}
+
 void TrackDatabase::GetIdArray(std::vector<TUint32>& aIdArray, TUint& aSeq) const
 {
     AutoMutex a(iLock);
-    TUint i;
-    aIdArray.clear();
-    for (i=0; i<iTrackList.size(); i++) {
-        aIdArray.push_back(iTrackList[i]->Id());
-    }
-    for (i=iTrackList.size(); i<iMaxTracks; i++) {
-        aIdArray.push_back(kTrackIdNone);
-    }
+    TrackDatabase::CopyIdArray(iTrackList, aIdArray, iMaxTracks);
     aSeq = iSeq;
 }
 
@@ -94,6 +109,19 @@ void TrackDatabase::GetTrackById(TUint aId, TUint aSeq, Track*& aTrack, TUint& a
             THROW(TrackDbIdNotFound);
         }
     }
+}
+
+TUint TrackDatabase::TrackCount() const
+{
+    iLock.Wait();
+    const TUint count = iTrackList.size();
+    iLock.Signal();
+    return count;
+}
+
+TUint TrackDatabase::TracksMax() const
+{
+    return iMaxTracks;
 }
 
 void TrackDatabase::Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData, TUint& aIdInserted)
@@ -166,19 +194,6 @@ void TrackDatabase::DeleteAll()
     }
 }
 
-TUint TrackDatabase::TrackCount() const
-{
-    iLock.Wait();
-    const TUint count = iTrackList.size();
-    iLock.Signal();
-    return count;
-}
-
-TUint TrackDatabase::TracksMax() const
-{
-    return iMaxTracks;
-}
-
 void TrackDatabase::SetObserver(ITrackDatabaseObserver& aObserver)
 {
     iLock.Wait();
@@ -188,71 +203,26 @@ void TrackDatabase::SetObserver(ITrackDatabaseObserver& aObserver)
 
 Track* TrackDatabase::TrackRef(TUint aId)
 {
-    Track* track = nullptr;
     AutoMutex a(iLock);
-    try {
-        const TUint index = TrackListUtils::IndexFromId(iTrackList, aId);
-        track = iTrackList[index];
-        track->AddRef();
-    }
-    catch (TrackDbIdNotFound&) { }
-    return track;
+    return TrackReaderUtils::TrackRef(iTrackList, aId);
 }
 
 Track* TrackDatabase::NextTrackRef(TUint aId)
 {
-    Track* track = nullptr;
     AutoMutex a(iLock);
-    if (aId == kTrackIdNone) {
-        if (iTrackList.size() > 0) {
-            track = iTrackList[0];
-            track->AddRef();
-        }
-    }
-    else {
-        try {
-            const TUint index = TrackListUtils::IndexFromId(iTrackList, aId);
-            if (index < iTrackList.size()-1) {
-                track = iTrackList[index+1];
-                track->AddRef();
-            }
-        }
-        catch (TrackDbIdNotFound&) { }
-    }
-    return track;
+    return TrackReaderUtils::NextTrackRef(iTrackList, aId);
 }
 
 Track* TrackDatabase::PrevTrackRef(TUint aId)
 {
-    Track* track = nullptr;
     AutoMutex a(iLock);
-    try {
-        const TUint index = TrackListUtils::IndexFromId(iTrackList, aId);
-        if (index > 0) {
-            track = iTrackList[index-1];
-            track->AddRef();
-        }
-    }
-    catch (TrackDbIdNotFound&) { }
-    return track;
+    return TrackReaderUtils::PrevTrackRef(iTrackList, aId);
 }
 
 Track* TrackDatabase::TrackRefByIndex(TUint aIndex)
 {
-    Track* track = nullptr;
-    iLock.Wait();
-    if (aIndex < iTrackList.size()) {
-        track = iTrackList[aIndex];
-        track->AddRef();
-    }
-    iLock.Signal();
-    return track;
-}
-
-Track* TrackDatabase::TrackRefByIndexSorted(TUint /*aIndex*/)
-{
-    ASSERTS();
-    return nullptr;
+    AutoMutex _(iLock);
+    return TrackReaderUtils::TrackRefByIndex(iTrackList, aIndex);
 }
 
 TBool TrackDatabase::IsValid(TUint aId) const
@@ -262,8 +232,15 @@ TBool TrackDatabase::IsValid(TUint aId) const
         (void)TrackListUtils::IndexFromId(iTrackList, aId);
         return true;
     }
-    catch (TrackDbIdNotFound&) {
-        return false;
+    catch (TrackDbIdNotFound&) {}
+    return false;
+}
+
+void TrackDatabase::ReportReordered(Media::Track* aStart)
+{
+    AutoMutex _(iObserverLock);
+    for (TUint i = 0; i < iObservers.size(); i++) {
+        iObservers[i]->NotifyReordered(aStart);
     }
 }
 
@@ -283,15 +260,22 @@ TBool TrackDatabase::TryGetTrackById(TUint aId, Track*& aTrack, TUint aStartInde
 
 // Shuffler
 
-Shuffler::Shuffler(Environment& aEnv, ITrackDatabaseReader& aReader, TUint aMaxTracks)
+Shuffler::Shuffler(
+    Environment& aEnv,
+    ITrackDatabaseReader& aReader,
+    ITrackDatabaseTrackReader& aTrackReader,
+    ITrackShuffleReporter& aReporter,
+    TUint aMaxTracks)
     : iLock("TSHF")
     , iEnv(aEnv)
-    , iReader(aReader)
+    , iDbReader(aReader)
+    , iTrackReader(aTrackReader)
+    , iReporter(aReporter)
     , iObserver(nullptr)
-    , iPrevTrackId(ITrackDatabase::kTrackIdNone)
+    , iPrevTrackId(ITrackDatabaseReader::kTrackIdNone)
     , iShuffle(false)
 {
-    aReader.SetObserver(*this);
+    aTrackReader.SetObserver(*this);
     iShuffleList.reserve(aMaxTracks);
 }
 
@@ -310,32 +294,70 @@ Shuffler::~Shuffler()
 
 void Shuffler::SetShuffle(TBool aShuffle)
 {
-    iLock.Wait();
-    iShuffle = aShuffle;
-    DoReshuffle("Shuffled");
-    iLock.Signal();
-}
-
-void Shuffler::Reshuffle()
-{
-    iLock.Wait();
-    DoReshuffle("Reshuffle");
-    iLock.Signal();
-}
-
-TBool Shuffler::TryMoveToStart(TUint aId)
-{
-    AutoMutex a(iLock);
-    if (iShuffle) {
-        try {
-            const TUint index = TrackListUtils::IndexFromId(iShuffleList, aId);
-            Track* track = iShuffleList[index];
-            MoveToStartOfUnplayed(track, "MoveToStart");
-            return true;
+    Track* track = nullptr;
+    {
+        AutoMutex _(iLock);
+        iShuffle = aShuffle;
+        if (iShuffle) { // prefer re-shuffling over repeating the order of tracks if we play again
+            std::random_shuffle(iShuffleList.begin(), iShuffleList.end());
+            iPrevTrackId = ITrackDatabaseReader::kTrackIdNone;
         }
-        catch (TrackDbIdNotFound&) {}
+        LogIds("SetShuffle");
+
+        if (iShuffle) {
+            if (iShuffleList.size() > 0) {
+                track = iShuffleList[0];
+                track->AddRef();
+            }
+        }
+        else {
+            track = iTrackReader.TrackRefByIndex(0);
+        }
     }
-    return false;
+    AutoAllocatedRef __(track);
+    iReporter.ReportReordered(track);
+}
+
+void Shuffler::AddObserver(ITrackDatabaseObserver& aObserver)
+{
+    iDbReader.AddObserver(aObserver);
+}
+
+TUint Shuffler::IdArraySeq() const
+{
+    return iDbReader.IdArraySeq();
+}
+
+void Shuffler::GetIdArray(std::vector<TUint32>& aIdArray, TUint& aSeq) const
+{
+    AutoMutex _(iLock);
+    if (iShuffle) {
+        TrackDatabase::CopyIdArray(iShuffleList, aIdArray, TracksMax());
+        aSeq = IdArraySeq();
+    }
+    else {
+        iDbReader.GetIdArray(aIdArray, aSeq);
+    }
+}
+
+void Shuffler::GetTrackById(TUint aId, Media::Track*& aTrack) const
+{
+    iDbReader.GetTrackById(aId, aTrack);
+}
+
+void Shuffler::GetTrackById(TUint aId, TUint aSeq, Media::Track*& aTrack, TUint& aIndex) const
+{
+    iDbReader.GetTrackById(aId, aSeq, aTrack, aIndex);
+}
+
+TUint Shuffler::TrackCount() const
+{
+    return iDbReader.TrackCount();
+}
+
+TUint Shuffler::TracksMax() const
+{
+    return iDbReader.TracksMax();
 }
 
 void Shuffler::SetObserver(ITrackDatabaseObserver& aObserver)
@@ -347,118 +369,43 @@ void Shuffler::SetObserver(ITrackDatabaseObserver& aObserver)
 
 Track* Shuffler::TrackRef(TUint aId)
 {
-    Track* track = nullptr;
     AutoMutex a(iLock);
     if (iShuffle) {
-        try {
-            const TUint index = TrackListUtils::IndexFromId(iShuffleList, aId);
-            track = iShuffleList[index];
-            track->AddRef();
-            iPrevTrackId = track->Id();
-            LogIds("TrackRef");
-        }
-        catch (TrackDbIdNotFound&) {
-            iPrevTrackId = ITrackDatabase::kTrackIdNone;
-        }
+        return TrackReaderUtils::TrackRef(iShuffleList, aId);
     }
-    else {
-        track = iReader.TrackRef(aId);
-    }
-    return track;
+    return iTrackReader.TrackRef(aId);
 }
 
 Track* Shuffler::NextTrackRef(TUint aId)
 {
-    Track* track = nullptr;
     AutoMutex a(iLock);
-    if (!iShuffle) {
-        track = iReader.NextTrackRef(aId);
+    if (iShuffle) {
+        return TrackReaderUtils::NextTrackRef(iShuffleList, aId);
     }
-    else {
-        if (aId == ITrackDatabase::kTrackIdNone) {
-            if (iShuffleList.size() > 0) {
-                track = iShuffleList[0];
-                track->AddRef();
-            }
-        }
-        else {
-            try {
-                const TUint index = TrackListUtils::IndexFromId(iShuffleList, aId);
-                if (index < iShuffleList.size()-1) {
-                    track = iShuffleList[index+1];
-                    track->AddRef();
-                }
-                else if (index == iShuffleList.size()-1) {
-                    // we've run through the entire list
-                    // prefer re-shuffling over repeating the order of tracks if we play again
-                    std::random_shuffle(iShuffleList.begin(), iShuffleList.end());
-                    LogIds("NextTrackRef");
-                }
-            }
-            catch (TrackDbIdNotFound&) { }
-        }
-        iPrevTrackId = (track == nullptr? ITrackDatabase::kTrackIdNone : track->Id());
-    }
-    return track;
+    return iTrackReader.NextTrackRef(aId);
 }
 
 Track* Shuffler::PrevTrackRef(TUint aId)
 {
-    Track* track = nullptr;
     AutoMutex a(iLock);
-    if (!iShuffle) {
-        track = iReader.PrevTrackRef(aId);
-    }
-    else {
-        try {
-            const TUint index = TrackListUtils::IndexFromId(iShuffleList, aId);
-            if (index != 0) {
-                track = iShuffleList[index-1];
-                track->AddRef();
-            }
-        }
-        catch (TrackDbIdNotFound&) { }
-    }
     if (iShuffle) {
-        if (track == nullptr) {
-            iPrevTrackId = ITrackDatabase::kTrackIdNone;
-        }
-        else {
-            iPrevTrackId = track->Id();
-        }
+        return TrackReaderUtils::PrevTrackRef(iShuffleList, aId);
     }
-    return track;
+    return iTrackReader.PrevTrackRef(aId);
 }
 
 Track* Shuffler::TrackRefByIndex(TUint aIndex)
 {
-    Track* track = nullptr;
     AutoMutex a(iLock);
-    track = iReader.TrackRefByIndex(aIndex);
-    if (iShuffle && track != nullptr) {
-        MoveToStartOfUnplayed(track, "TrackRefByIndex");
+    if (iShuffle) {
+        return TrackReaderUtils::TrackRefByIndex(iShuffleList, aIndex);
     }
-        
-    return track;
-}
-
-Track* Shuffler::TrackRefByIndexSorted(TUint aIndex)
-{
-    Track* track = nullptr;
-    AutoMutex a(iLock);
-    if (!iShuffle) {
-        track = iReader.TrackRefByIndex(aIndex);
-    }
-    else if (aIndex < iShuffleList.size()) {
-        track = iShuffleList[aIndex];
-        track->AddRef();
-    }
-    return track;
+    return iTrackReader.TrackRefByIndex(aIndex);
 }
 
 TBool Shuffler::IsValid(TUint aId) const
 {
-    return iReader.IsValid(aId);
+    return iTrackReader.IsValid(aId);
 }
 
 void Shuffler::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfter)
@@ -470,7 +417,7 @@ void Shuffler::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfte
         TUint index = 0;
         if (iShuffleList.size() > 0) {
             TUint min = 0;
-            if (iPrevTrackId != ITrackDatabase::kTrackIdNone) {
+            if (iPrevTrackId != ITrackDatabaseReader::kTrackIdNone) {
                 min = TrackListUtils::IndexFromId(iShuffleList, iPrevTrackId) + 1;
             }
             if (min == iShuffleList.size()) {
@@ -483,8 +430,8 @@ void Shuffler::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfte
         iShuffleList.insert(iShuffleList.begin() + index, &aTrack);
         aTrack.AddRef();
         if (iShuffle) {
-            idBefore = (index == 0? ITrackDatabase::kTrackIdNone : iShuffleList[index-1]->Id());
-            idAfter = (index == iShuffleList.size()-1? ITrackDatabase::kTrackIdNone : iShuffleList[index+1]->Id());
+            idBefore = (index == 0? ITrackDatabaseReader::kTrackIdNone : iShuffleList[index-1]->Id());
+            idAfter = (index == iShuffleList.size()-1? ITrackDatabaseReader::kTrackIdNone : iShuffleList[index+1]->Id());
             LogIds("TrackInserted");
         }
     }
@@ -506,7 +453,7 @@ void Shuffler::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aAfter)
             after = (index==iShuffleList.size()-1? nullptr : iShuffleList[index+1]);
             if (iShuffleList[index]->Id() == iPrevTrackId) {
                 if (index == 0) {
-                    iPrevTrackId = ITrackDatabase::kTrackIdNone;
+                    iPrevTrackId = ITrackDatabaseReader::kTrackIdNone;
                 }
                 else {
                     iPrevTrackId = iShuffleList[index-1]->Id();
@@ -530,33 +477,17 @@ void Shuffler::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aAfter)
 void Shuffler::NotifyAllDeleted()
 {
     iLock.Wait();
-    iPrevTrackId = ITrackDatabase::kTrackIdNone;
+    iPrevTrackId = ITrackDatabaseReader::kTrackIdNone;
     TrackListUtils::Clear(iShuffleList);
     iLock.Signal();
     iObserver->NotifyAllDeleted();
 }
 
-void Shuffler::DoReshuffle(const TChar* aLogPrefix)
+void Shuffler::NotifyReordered(Track* aStart)
 {
-    if (iShuffle) { // prefer re-shuffling over repeating the order of tracks if we play again
-        std::random_shuffle(iShuffleList.begin(), iShuffleList.end());
-        LogIds(aLogPrefix);
-        iPrevTrackId = ITrackDatabase::kTrackIdNone;
-    }
+    iObserver->NotifyReordered(aStart);
 }
 
-void Shuffler::MoveToStartOfUnplayed(Track* aTrack, const TChar* aLogPrefix)
-{
-    const TUint index = TrackListUtils::IndexFromId(iShuffleList, aTrack->Id());
-    const TUint cursorIndex = (iPrevTrackId == ITrackDatabase::kTrackIdNone?
-            0 : TrackListUtils::IndexFromId(iShuffleList, iPrevTrackId));
-    if (index > cursorIndex+1) {
-        iShuffleList.erase(iShuffleList.begin() + index);
-        iShuffleList.insert(iShuffleList.begin() + cursorIndex, aTrack);
-    }
-    iPrevTrackId = aTrack->Id();
-    LogIds(aLogPrefix);
-}
 
 void Shuffler::LogIds(const TChar* aPrefix)
 {
@@ -573,9 +504,9 @@ void Shuffler::LogIds(const TChar* aPrefix)
 
 // Repeater
 
-Repeater::Repeater(ITrackDatabaseReader& aReader)
+Repeater::Repeater(ITrackDatabaseTrackReader& aTrackReader)
     : iLock("TRPT")
-    , iReader(aReader)
+    , iTrackReader(aTrackReader)
     , iObserver(nullptr)
     , iRepeat(false)
     , iTrackCount(0)
@@ -590,15 +521,15 @@ void Repeater::SetRepeat(TBool aRepeat)
 void Repeater::SetObserver(ITrackDatabaseObserver& aObserver)
 {
     iObserver = &aObserver;
-    iReader.SetObserver(*this);
+    iTrackReader.SetObserver(*this);
 }
 
 Track* Repeater::TrackRef(TUint aId)
 {
     AutoMutex a(iLock);
-    Track* track = iReader.TrackRef(aId);
+    Track* track = iTrackReader.TrackRef(aId);
     if (track == nullptr && iRepeat) {
-        track = iReader.TrackRef(ITrackDatabase::kTrackIdNone);
+        track = iTrackReader.TrackRef(ITrackDatabaseReader::kTrackIdNone);
     }
     return track;
 }
@@ -606,9 +537,9 @@ Track* Repeater::TrackRef(TUint aId)
 Track* Repeater::NextTrackRef(TUint aId)
 {
     AutoMutex a(iLock);
-    Track* track = iReader.NextTrackRef(aId);
+    Track* track = iTrackReader.NextTrackRef(aId);
     if (track == nullptr && iRepeat) {
-        track = iReader.NextTrackRef(ITrackDatabase::kTrackIdNone);
+        track = iTrackReader.NextTrackRef(ITrackDatabaseReader::kTrackIdNone);
     }
     return track;
 }
@@ -616,27 +547,21 @@ Track* Repeater::NextTrackRef(TUint aId)
 Track* Repeater::PrevTrackRef(TUint aId)
 {
     AutoMutex a(iLock);
-    Track* track = iReader.PrevTrackRef(aId);
+    Track* track = iTrackReader.PrevTrackRef(aId);
     if (track == nullptr && iRepeat) {
-        track = iReader.TrackRefByIndexSorted(iTrackCount-1);
+        track = iTrackReader.TrackRefByIndex(iTrackCount-1);
     }
     return track;
 }
 
 Track* Repeater::TrackRefByIndex(TUint aIndex)
 {
-    return iReader.TrackRefByIndex(aIndex);
-}
-
-Track* Repeater::TrackRefByIndexSorted(TUint /*aIndex*/)
-{
-    ASSERTS();
-    return nullptr;
+    return iTrackReader.TrackRefByIndex(aIndex);
 }
 
 TBool Repeater::IsValid(TUint aId) const
 {
-    return iReader.IsValid(aId);
+    return iTrackReader.IsValid(aId);
 }
 
 void Repeater::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfter)
@@ -663,6 +588,11 @@ void Repeater::NotifyAllDeleted()
     iObserver->NotifyAllDeleted();
 }
 
+void Repeater::NotifyReordered(Track* aStart)
+{
+    iObserver->NotifyReordered(aStart);
+}
+
 
 // TrackListUtils
 
@@ -682,4 +612,65 @@ void TrackListUtils::Clear(std::vector<Track*>& aList)
         aList[i]->RemoveRef();
     }
     aList.clear();
+}
+
+
+// TrackReaderUtils
+
+Track* TrackReaderUtils::TrackRef(const std::vector<Media::Track*>& aList, TUint aId)
+{
+    Track* track = nullptr;
+    try {
+        const TUint index = TrackListUtils::IndexFromId(aList, aId);
+        track = aList[index];
+        track->AddRef();
+    }
+    catch (TrackDbIdNotFound&) {}
+    return track;
+}
+
+Track* TrackReaderUtils::NextTrackRef(const std::vector<Media::Track*>& aList, TUint aId)
+{
+    Track* track = nullptr;
+    if (aId == ITrackDatabaseReader::kTrackIdNone) {
+        if (aList.size() > 0) {
+            track = aList[0];
+            track->AddRef();
+        }
+    }
+    else {
+        try {
+            const TUint index = TrackListUtils::IndexFromId(aList, aId);
+            if (index < aList.size() - 1) {
+                track = aList[index + 1];
+                track->AddRef();
+            }
+        }
+        catch (TrackDbIdNotFound&) {}
+    }
+    return track;
+}
+
+Track* TrackReaderUtils::PrevTrackRef(const std::vector<Media::Track*>& aList, TUint aId)
+{
+    Track* track = nullptr;
+    try {
+        const TUint index = TrackListUtils::IndexFromId(aList, aId);
+        if (index > 0) {
+            track = aList[index - 1];
+            track->AddRef();
+        }
+    }
+    catch (TrackDbIdNotFound&) {}
+    return track;
+}
+
+Track* TrackReaderUtils::TrackRefByIndex(const std::vector<Media::Track*>& aList, TUint aIndex)
+{
+    Track* track = nullptr;
+    if (aIndex < aList.size()) {
+        track = aList[aIndex];
+        track->AddRef();
+    }
+    return track;
 }

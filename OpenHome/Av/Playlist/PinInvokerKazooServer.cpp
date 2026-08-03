@@ -183,7 +183,7 @@ void PinInvokerKazooServer::ReadFromServer()
 
     iProxyPlaylist->SyncDeleteAll();
     iProxyPlaylist->SyncSetShuffle(iShuffle);
-    TUint lastTrackId = ITrackDatabase::kTrackIdNone;
+    TUint lastTrackId = ITrackDatabaseReader::kTrackIdNone;
     TUint playlistCapacity;
     iProxyPlaylist->SyncTracksMax(playlistCapacity);
     iPlaying = false;

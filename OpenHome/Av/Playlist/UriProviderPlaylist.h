@@ -37,8 +37,13 @@ class UriProviderPlaylist : public Media::UriProvider
     static const Brn kPlaylistMethodInsert;
     static const TUint kLoaderTimeoutMs = 30 * 1000;
 public:
-    UriProviderPlaylist(ITrackDatabaseReader& aDbReader, ITrackDatabase& aDbWriter, ITrackDatabaseObserver& aDbObserver,
-                        Media::PipelineManager& aPipeline, Optional<IPlaylistLoader> aPlaylistLoader);
+    UriProviderPlaylist(
+        ITrackDatabaseReader& aDbReader,
+        ITrackDatabaseWriter& aDbWriter,
+        ITrackDatabaseTrackReader& aDbTrackReader,
+        ITrackDatabaseObserver& aDbObserver,
+        Media::PipelineManager& aPipeline,
+        Optional<IPlaylistLoader> aPlaylistLoader);
     ~UriProviderPlaylist();
     void SetActive(TBool aActive);
 public: // from UriProvider
@@ -54,6 +59,7 @@ private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
     void NotifyAllDeleted() override;
+    void NotifyReordered(Media::Track* aStart) override;
 private: // from Media::IPipelineObserver
     void NotifyPipelineState(Media::EPipelineState aState) override;
     void NotifyMode(const Brx& aMode, const Media::ModeInfo& aInfo,
@@ -83,7 +89,8 @@ private:
 private:
     mutable Mutex iLock;
     ITrackDatabaseReader& iDbReader;
-    ITrackDatabase& iDbWriter;
+    ITrackDatabaseWriter& iDbWriter;
+    ITrackDatabaseTrackReader& iDbTrackReader;
     ITrackDatabaseObserver& iDbObserver;
     Media::IPipelineIdManager& iIdManager;
     IPlaylistLoader* iPlaylistLoader;

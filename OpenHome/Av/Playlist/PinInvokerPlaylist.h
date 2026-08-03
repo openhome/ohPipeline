@@ -7,7 +7,7 @@
 namespace OpenHome {
 namespace Av {
 
-class ITrackDatabase;
+class ITrackDatabaseWriter;
 class IPlaylistLoader;
 
 class PinInvokerPlaylist : public IPinInvoker
@@ -16,7 +16,7 @@ class PinInvokerPlaylist : public IPinInvoker
     const TUint kMaxSupportedVersion = 1;
 
 public:
-    PinInvokerPlaylist(ITrackDatabase& aTrackDatabase,
+    PinInvokerPlaylist(ITrackDatabaseWriter& aTrackDatabase,
                        IPlaylistLoader& aPlaylistLoader);
 private: // from IPinInvoker
     void BeginInvoke(const IPin& aPin, Functor aCompleted) override;
@@ -24,7 +24,7 @@ private: // from IPinInvoker
     const TChar* Mode() const override;
     TBool SupportsVersion(TUint version) const override;
 private:
-    ITrackDatabase& iTrackDatabase;
+    ITrackDatabaseWriter& iTrackDatabase;
     IPlaylistLoader& iLoader;
     Uri iUri; // only used by Invoke() but too large for the stack
 };

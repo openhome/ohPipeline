@@ -33,22 +33,24 @@ static const Brn kSeekFailureMsg("Seek failed");
 ProviderPlaylist::ProviderPlaylist(DvDevice& aDevice,
                                    Environment& aEnv,
                                    ISourcePlaylist& aSource,
-                                   ITrackDatabase& aDatabase,
+                                   ITrackDatabaseReader& aDatabaseReader,
+                                   ITrackDatabaseWriter& aDatabaseWriter,
                                    IRepeater& aRepeater,
                                    ITransportRepeatRandom& aTransportRepeatRandom)
     : DvProviderAvOpenhomeOrgPlaylist1(aDevice)
     , iLock("PPLY")
     , iSource(aSource)
-    , iDatabase(aDatabase)
+    , iDatabaseReader(aDatabaseReader)
+    , iDatabaseWriter(aDatabaseWriter)
     , iRepeater(aRepeater)
     , iTransportRepeatRandom(aTransportRepeatRandom)
-    , iIdArrayBuf(aDatabase.TracksMax() * sizeof(TUint32))
+    , iIdArrayBuf(aDatabaseReader.TracksMax() * sizeof(TUint32))
     , iTimerLock("PPL2")
     , iTimerActive(false)
 {
-    iIdArray.reserve(aDatabase.TracksMax());
+    iIdArray.reserve(aDatabaseReader.TracksMax());
     iTimer = new Timer(aEnv, MakeFunctor(*this, &ProviderPlaylist::TimerCallback), "ProviderPlaylist");
-    iDatabase.AddObserver(*this);
+    iDatabaseReader.AddObserver(*this);
 
     EnablePropertyTransportState();
     EnablePropertyRepeat();
@@ -85,9 +87,9 @@ ProviderPlaylist::ProviderPlaylist(DvDevice& aDevice,
 
     iTransportRepeatRandom.AddObserver(*this, "ProviderPlaylist");
     NotifyPipelineState(Media::EPipelineStopped);
-    NotifyTrack(ITrackDatabase::kTrackIdNone);
+    NotifyTrack(ITrackDatabaseReader::kTrackIdNone);
     UpdateIdArrayProperty();
-    (void)SetPropertyTracksMax(aDatabase.TracksMax());
+    (void)SetPropertyTracksMax(aDatabaseReader.TracksMax());
 }
 
 ProviderPlaylist::~ProviderPlaylist()
@@ -127,14 +129,21 @@ void ProviderPlaylist::NotifyTrackDeleted(TUint /*aId*/, Track* aBefore, Track* 
        and NotifyTrack() being called.  If we've just deleted the last track, we'll stop
        receiving pipeline events so will need to manually reset the current track id. */
     if (aBefore == nullptr && aAfter == nullptr) {
-        NotifyTrack(ITrackDatabase::kTrackIdNone);
+        NotifyTrack(ITrackDatabaseReader::kTrackIdNone);
     }
     TrackDatabaseChanged();
 }
 
 void ProviderPlaylist::NotifyAllDeleted()
 {
-    NotifyTrack(ITrackDatabase::kTrackIdNone);
+    NotifyTrack(ITrackDatabaseReader::kTrackIdNone);
+    TrackDatabaseChanged();
+}
+
+void ProviderPlaylist::NotifyReordered(Track* /*aStart*/)
+{
+//    const TUint id = aStart ? aStart->Id() : ITrackDatabaseReader::kTrackIdNone;
+//    NotifyTrack(id);
     TrackDatabaseChanged();
 }
 
@@ -306,7 +315,7 @@ void ProviderPlaylist::Read(IDvInvocation& aInvocation, TUint aId, IDvInvocation
         AutoMutex a(iLock);
         Track* track = nullptr;
         try {
-            iDatabase.GetTrackById(aId, track);
+            iDatabaseReader.GetTrackById(aId, track);
         }
         catch (TrackDbIdNotFound&) {
             aInvocation.Error(kIdNotFoundCode, kIdNotFoundMsg);
@@ -346,7 +355,7 @@ void ProviderPlaylist::ReadList(IDvInvocation& aInvocation, const Brx& aIdList, 
             TUint id = Ascii::Uint(idBuf);
             try {
                 Track* track;
-                iDatabase.GetTrackById(id, seq, track, index);
+                iDatabaseReader.GetTrackById(id, seq, track, index);
                 AutoAllocatedRef a(track);
                 aTrackList.Write(entryStart);
                 aTrackList.Write(idStart);
@@ -375,7 +384,7 @@ void ProviderPlaylist::Insert(IDvInvocation& aInvocation, TUint aAfterId, const 
 {
     TUint newId = 0;
     try {
-        iDatabase.Insert(aAfterId, aUri, aMetadata, newId);
+        iDatabaseWriter.Insert(aAfterId, aUri, aMetadata, newId);
     }
     catch (TrackDbIdNotFound&) {
         aInvocation.Error(kIdNotFoundCode, kIdNotFoundMsg);
@@ -391,8 +400,8 @@ void ProviderPlaylist::Insert(IDvInvocation& aInvocation, TUint aAfterId, const 
 void ProviderPlaylist::DeleteId(IDvInvocation& aInvocation, TUint aValue)
 {
     try {
-        iDatabase.DeleteId(aValue);
-        if (iDatabase.TrackCount() == 0) {
+        iDatabaseWriter.DeleteId(aValue);
+        if (iDatabaseReader.TrackCount() == 0) {
             iSource.Stop();
         }
     }
@@ -405,7 +414,7 @@ void ProviderPlaylist::DeleteId(IDvInvocation& aInvocation, TUint aValue)
 
 void ProviderPlaylist::DeleteAll(IDvInvocation& aInvocation)
 {
-    iDatabase.DeleteAll();
+    iDatabaseWriter.DeleteAll();
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }
@@ -460,10 +469,10 @@ void ProviderPlaylist::TrackDatabaseChanged()
 
 void ProviderPlaylist::UpdateIdArray()
 {
-    iDatabase.GetIdArray(iIdArray, iDbSeq);
+    iDatabaseReader.GetIdArray(iIdArray, iDbSeq);
     iIdArrayBuf.SetBytes(0);
     for (TUint i=0; i<(TUint)iIdArray.size(); i++) {
-        if (iIdArray[i] == ITrackDatabase::kTrackIdNone) {
+        if (iIdArray[i] == ITrackDatabaseReader::kTrackIdNone) {
             break;
         }
         TUint32 bigEndianId = Arch::BigEndian4(iIdArray[i]);

@@ -38,7 +38,7 @@ const Brn PinInvokerUpnpServer::kBrowseFilterAll("*");
 PinInvokerUpnpServer::PinInvokerUpnpServer(CpStack& aCpStack,
                                            Net::DvDevice& aDevice,
                                            IThreadPool& aThreadPool,
-                                           ITrackDatabase& aTrackDatabase,
+                                           ITrackDatabaseWriter& aTrackDatabase,
                                            DeviceListMediaServer& aDeviceList)
     : iTrackDatabase(aTrackDatabase)
     , iDeviceList(aDeviceList)
@@ -98,7 +98,7 @@ void PinInvokerUpnpServer::BeginInvoke(const IPin& aPin, Functor aCompleted)
     iProxyContentDirectory = new CpProxyUpnpOrgContentDirectory1(*server);
     server->RemoveRef();
     iPlaying = false;
-    iTrackIdInsertAfter = ITrackDatabase::kTrackIdNone;
+    iTrackIdInsertAfter = ITrackDatabaseReader::kTrackIdNone;
     IThreadPoolHandle* tph = nullptr;
     try {
         auto container = FromQuery(kQueryContainer);
@@ -271,7 +271,7 @@ void PinInvokerUpnpServer::BrowseTrackCallback(IAsync& aAsync)
 TBool PinInvokerUpnpServer::TryAddItem(const Brx& aItemDidl)
 {
     // clear previous playlist once we know we've found at least one track for this pin
-    if (iTrackIdInsertAfter == ITrackDatabase::kTrackIdNone) {
+    if (iTrackIdInsertAfter == ITrackDatabaseReader::kTrackIdNone) {
         iTrackDatabase.DeleteAll();
     }
 

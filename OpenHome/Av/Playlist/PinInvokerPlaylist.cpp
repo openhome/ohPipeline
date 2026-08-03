@@ -11,7 +11,7 @@ using namespace OpenHome;
 using namespace OpenHome::Av;
 
 
-PinInvokerPlaylist::PinInvokerPlaylist(ITrackDatabase& aTrackDatabase,
+PinInvokerPlaylist::PinInvokerPlaylist(ITrackDatabaseWriter& aTrackDatabase,
                                        IPlaylistLoader& aPlaylistLoader)
     : iTrackDatabase(aTrackDatabase)
     , iLoader(aPlaylistLoader)
@@ -39,7 +39,7 @@ void PinInvokerPlaylist::BeginInvoke(const IPin& aPin, Functor aCompleted)
     }
     Brn id = query.Split(3); // remainder of query after "id="
     iTrackDatabase.DeleteAll();
-    iLoader.LoadPlaylist(id, ITrackDatabase::kTrackIdNone);
+    iLoader.LoadPlaylist(id, ITrackDatabaseReader::kTrackIdNone);
 }
 
 void PinInvokerPlaylist::Cancel()

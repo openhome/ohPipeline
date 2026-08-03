@@ -29,6 +29,7 @@ private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
     void NotifyAllDeleted() override;
+    void NotifyReordered(Media::Track* aStart) override;
 private:
     void InsertInitialTrack();
     void InsertFailsWhenIdAfterInvalid();
@@ -52,7 +53,8 @@ private:
     Media::AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
     TrackDatabase* iDb;
-    ITrackDatabase* iTrackDatabase;
+    ITrackDatabaseReader* iTrackDbReader;
+    ITrackDatabaseWriter* iTrackDbWriter;
     std::vector<TUint32> iIdArray;
     TUint iInsertedCount;
     TUint iIdLastInserted;
@@ -77,6 +79,7 @@ private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
     void NotifyAllDeleted() override;
+    void NotifyReordered(Media::Track* aStart) override;
 private:
     void TrackRefValidId();
     void TrackRefInvalidId();
@@ -86,8 +89,6 @@ private:
     void PrevTrackRefInvalidId();
     void TrackRefByIndexValidId();
     void TrackRefByIndexInvalidId();
-    void TrackRefByIndexSortedValidId();
-    void TrackRefByIndexSortedInvalidId();
     void IsValidValidId();
     void IsValidInvalidId();
 private:
@@ -95,7 +96,7 @@ private:
     Media::AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
     TrackDatabase* iDb;
-    ITrackDatabaseReader* iReader;
+    ITrackDatabaseTrackReader* iReader;
     TUint iIds[kNumTracks];
 };
 
@@ -111,6 +112,7 @@ private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
     void NotifyAllDeleted() override;
+    void NotifyReordered(Media::Track* aStart) override;
 private:
     void TrackRefShuffleOff();
     void TrackRefShuffleOn();
@@ -120,17 +122,14 @@ private:
     void PrevTrackRefShuffleOn();
     void TrackRefByIndexShuffleOff();
     void TrackRefByIndexShuffleOn();
-    void TrackRefByIndexSortedShuffleOff();
-    void TrackRefByIndexSortedShuffleOn();
-    void ModeToggleReshuffles();
-    void NextTrackBeyondEndReshuffles();
+    void NextTrackBeyondEndNoReshuffle();
 private:
     static const TUint kNumTracks = 16; // gives us ~1 in 21 trillion chance of shuffling tracks into their original order
     Media::AllocatorInfoLogger iInfoAggregator;
     TrackFactory* iTrackFactory;
     TrackDatabase* iDb;
     Shuffler* iShuffler;
-    ITrackDatabaseReader* iReader;
+    ITrackDatabaseTrackReader* iReader;
     std::array<TUint, kNumTracks> iIds;
 };
 
@@ -146,6 +145,7 @@ private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
     void NotifyAllDeleted() override;
+    void NotifyReordered(Media::Track* aStart) override;
 private:
     void TrackRefRepeatOff();
     void TrackRefRepeatOn();
@@ -155,8 +155,6 @@ private:
     void PrevFromFirstTrackRepeatOn();
     void TrackRefByIndexRepeatOff();
     void TrackRefByIndexRepeatOn();
-    void TrackRefByIndexSortedRepeatOff();
-    void TrackRefByIndexSortedRepeatOn();
 private:
     static const TUint kNumTracks = 3;
     Media::AllocatorInfoLogger iInfoAggregator;
@@ -164,7 +162,7 @@ private:
     TrackDatabase* iDb;
     Shuffler* iShuffler;
     Repeater* iRepeater;
-    ITrackDatabaseReader* iReader;
+    ITrackDatabaseTrackReader* iReader;
     std::array<TUint, kNumTracks> iIds;
 };
 
@@ -201,8 +199,10 @@ void SuiteTrackDatabase::Setup()
     iIdArray.reserve(kMaxTracks);
     iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
     iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
-    iTrackDatabase = static_cast<ITrackDatabase*>(iDb);
-    iTrackDatabase->AddObserver(*this);
+    iTrackDbReader = iDb;
+    iTrackDbWriter = iDb;
+
+    iTrackDbReader->AddObserver(*this);
     iInsertedCount = iDeletedCount = iAllDeletedCount = 0;
     iIdLastInserted = iIdLastInsertedBefore = iIdLastInsertedAfter = 
         iIdLastDeleted = iIdLastDeletedBefore = iIdLastDeletedAfter = UINT_MAX;
@@ -226,8 +226,8 @@ void SuiteTrackDatabase::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aA
 {
     iDeletedCount++;
     iIdLastDeleted = aId;
-    iIdLastDeletedBefore = (aBefore==nullptr? ITrackDatabase::kTrackIdNone : aBefore->Id());
-    iIdLastDeletedAfter = (aAfter==nullptr? ITrackDatabase::kTrackIdNone : aAfter->Id());
+    iIdLastDeletedBefore = (aBefore==nullptr? ITrackDatabaseReader::kTrackIdNone : aBefore->Id());
+    iIdLastDeletedAfter = (aAfter==nullptr? ITrackDatabaseReader::kTrackIdNone : aAfter->Id());
 }
 
 void SuiteTrackDatabase::NotifyAllDeleted()
@@ -235,42 +235,46 @@ void SuiteTrackDatabase::NotifyAllDeleted()
     iAllDeletedCount++;
 }
 
+void SuiteTrackDatabase::NotifyReordered(Track* /*aStart*/)
+{
+}
+
 void SuiteTrackDatabase::InsertInitialTrack()
 {
     TUint inserted;
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), inserted);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), inserted);
     TEST(iInsertedCount == 1);
-    TEST(inserted != ITrackDatabase::kTrackIdNone);
+    TEST(inserted != ITrackDatabaseReader::kTrackIdNone);
     TEST(iIdLastInserted == inserted);
-    TEST(iIdLastInsertedBefore == ITrackDatabase::kTrackIdNone);
-    TEST(iIdLastInsertedAfter == ITrackDatabase::kTrackIdNone);
+    TEST(iIdLastInsertedBefore == ITrackDatabaseReader::kTrackIdNone);
+    TEST(iIdLastInsertedAfter == ITrackDatabaseReader::kTrackIdNone);
 }
 
 void SuiteTrackDatabase::InsertFailsWhenIdAfterInvalid()
 {
     TUint inserted;
-    TEST_THROWS(iTrackDatabase->Insert(1, Brx::Empty(), Brx::Empty(), inserted), TrackDbIdNotFound);
+    TEST_THROWS(iTrackDbWriter->Insert(1, Brx::Empty(), Brx::Empty(), inserted), TrackDbIdNotFound);
     TEST(iInsertedCount == 0);
 }
 
 void SuiteTrackDatabase::InsertFailsWhenFull()
 {
-    TUint after = ITrackDatabase::kTrackIdNone;
+    TUint after = ITrackDatabaseReader::kTrackIdNone;
     TUint newId;
     for (TUint i=0; i<kMaxTracks; i++) {
-        iTrackDatabase->Insert(after, Brx::Empty(), Brx::Empty(), newId);
+        iTrackDbWriter->Insert(after, Brx::Empty(), Brx::Empty(), newId);
         after = newId;
     }
-    TEST_THROWS(iTrackDatabase->Insert(after, Brx::Empty(), Brx::Empty(), newId), TrackDbFull);
-    TEST_THROWS(iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), newId), TrackDbFull);
+    TEST_THROWS(iTrackDbWriter->Insert(after, Brx::Empty(), Brx::Empty(), newId), TrackDbFull);
+    TEST_THROWS(iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), newId), TrackDbFull);
 }
 
 void SuiteTrackDatabase::GetIdArrayDbEmpty()
 {
     TUint seq;
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     for (TUint i=0; i<kMaxTracks; i++) {
-        TEST_QUIETLY(iIdArray[i] == ITrackDatabase::kTrackIdNone);
+        TEST_QUIETLY(iIdArray[i] == ITrackDatabaseReader::kTrackIdNone);
     }
 }
 
@@ -278,60 +282,60 @@ void SuiteTrackDatabase::GetIdArrayDbPartiallyFull()
 {
     static const TUint kTrackCount = 100;
     TUint i;
-    TUint after = ITrackDatabase::kTrackIdNone;
+    TUint after = ITrackDatabaseReader::kTrackIdNone;
     TUint newId;
     for (i=0; i<kTrackCount; i++) {
-        iTrackDatabase->Insert(after, Brx::Empty(), Brx::Empty(), newId);
+        iTrackDbWriter->Insert(after, Brx::Empty(), Brx::Empty(), newId);
         after = newId;
     }
     TUint seq;
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     std::array<TUint32, kTrackCount> trackIds;
-    trackIds.fill((TUint)ITrackDatabase::kTrackIdNone);
+    trackIds.fill((TUint)ITrackDatabaseReader::kTrackIdNone);
     for (i=0; i<kTrackCount; i++) {
         const TUint id = iIdArray[i];
-        TEST_QUIETLY(id != ITrackDatabase::kTrackIdNone);
+        TEST_QUIETLY(id != ITrackDatabaseReader::kTrackIdNone);
         auto it = std::find(trackIds.begin(), trackIds.end(), id);
         TEST(it == trackIds.end()); // check that each track id is unique
         trackIds[i] = id;
     }
     for (i=kTrackCount; i<kMaxTracks; i++) {
-        TEST_QUIETLY(iIdArray[i] == ITrackDatabase::kTrackIdNone);
+        TEST_QUIETLY(iIdArray[i] == ITrackDatabaseReader::kTrackIdNone);
     }
 }
 
 void SuiteTrackDatabase::GetIdArrayDbFull()
 {
-    TUint after = ITrackDatabase::kTrackIdNone;
+    TUint after = ITrackDatabaseReader::kTrackIdNone;
     TUint newId;
     for (TUint i=0; i<kMaxTracks; i++) {
-        iTrackDatabase->Insert(after, Brx::Empty(), Brx::Empty(), newId);
+        iTrackDbWriter->Insert(after, Brx::Empty(), Brx::Empty(), newId);
         after = newId;
     }
     TUint seq;
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     for (TUint i=0; i<kMaxTracks; i++) {
-        TEST_QUIETLY(iIdArray[i] != ITrackDatabase::kTrackIdNone);
+        TEST_QUIETLY(iIdArray[i] != ITrackDatabaseReader::kTrackIdNone);
     }
 }
 
 void SuiteTrackDatabase::InsertAtStart()
 {
     TUint ids[2];
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[1]);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[1]);
     TEST(iInsertedCount == 2);
     TEST(iIdLastInserted == ids[1]);
-    TEST(iIdLastInsertedBefore == ITrackDatabase::kTrackIdNone);
+    TEST(iIdLastInsertedBefore == ITrackDatabaseReader::kTrackIdNone);
     TEST(iIdLastInsertedAfter == ids[0]);
 }
 
 void SuiteTrackDatabase::InsertInMiddle()
 {
     TUint ids[3];
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
-    iTrackDatabase->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
-    iTrackDatabase->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[2]);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
+    iTrackDbWriter->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
+    iTrackDbWriter->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[2]);
     TEST(iInsertedCount == 3);
     TEST(iIdLastInserted == ids[2]);
     TEST(iIdLastInsertedBefore == ids[0]);
@@ -341,49 +345,49 @@ void SuiteTrackDatabase::InsertInMiddle()
 void SuiteTrackDatabase::InsertAtEnd()
 {
     TUint ids[3];
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
-    iTrackDatabase->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
-    iTrackDatabase->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[2]);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
+    iTrackDbWriter->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
+    iTrackDbWriter->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[2]);
     TEST(iInsertedCount == 3);
     TEST(iIdLastInserted == ids[2]);
     TEST(iIdLastInsertedBefore == ids[1]);
-    TEST(iIdLastInsertedAfter == ITrackDatabase::kTrackIdNone);
+    TEST(iIdLastInsertedAfter == ITrackDatabaseReader::kTrackIdNone);
 }
 
 void SuiteTrackDatabase::DeleteValidId()
 {
     TUint id;
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
-    iTrackDatabase->DeleteId(id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->DeleteId(id);
     TEST(iDeletedCount == 1);
     TEST(iIdLastDeleted == id);
-    TEST(iIdLastDeletedBefore == ITrackDatabase::kTrackIdNone);
-    TEST(iIdLastDeletedAfter == ITrackDatabase::kTrackIdNone);
+    TEST(iIdLastDeletedBefore == ITrackDatabaseReader::kTrackIdNone);
+    TEST(iIdLastDeletedAfter == ITrackDatabaseReader::kTrackIdNone);
 
     TUint ids[3];
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
-    iTrackDatabase->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
-    iTrackDatabase->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[2]);
-    iTrackDatabase->DeleteId(ids[1]);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
+    iTrackDbWriter->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
+    iTrackDbWriter->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[2]);
+    iTrackDbWriter->DeleteId(ids[1]);
     TEST(iDeletedCount == 2);
     TEST(iIdLastDeleted == ids[1]);
     TEST(iIdLastDeletedBefore == ids[0]);
     TEST(iIdLastDeletedAfter == ids[2]);
 
     TUint seq;
-    iTrackDatabase->GetIdArray(iIdArray, seq);
-    int count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabase::kTrackIdNone;});
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    int count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone;});
     TEST(count == 2);
 }
 
 void SuiteTrackDatabase::DeleteInvalidId()
 {
-    TEST_THROWS(iTrackDatabase->DeleteId(ITrackDatabase::kTrackIdNone), TrackDbIdNotFound);
-    TEST_THROWS(iTrackDatabase->DeleteId(1), TrackDbIdNotFound);
-    TEST_THROWS(iTrackDatabase->DeleteId(UINT_MAX), TrackDbIdNotFound);
+    TEST_THROWS(iTrackDbWriter->DeleteId(ITrackDatabaseReader::kTrackIdNone), TrackDbIdNotFound);
+    TEST_THROWS(iTrackDbWriter->DeleteId(1), TrackDbIdNotFound);
+    TEST_THROWS(iTrackDbWriter->DeleteId(UINT_MAX), TrackDbIdNotFound);
     TUint id;
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
-    TEST_THROWS(iTrackDatabase->DeleteId(id+1), TrackDbIdNotFound);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    TEST_THROWS(iTrackDbWriter->DeleteId(id+1), TrackDbIdNotFound);
     TEST(iAllDeletedCount == 0);
 }
 
@@ -391,69 +395,69 @@ void SuiteTrackDatabase::DeleteAll()
 {
     TUint deleteCbCount = 0;
     TEST(iAllDeletedCount == deleteCbCount);
-    iTrackDatabase->DeleteAll();
+    iTrackDbWriter->DeleteAll();
     TEST(iAllDeletedCount == deleteCbCount);
 
     TUint id;
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
-    iTrackDatabase->DeleteAll();
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->DeleteAll();
     TEST(iAllDeletedCount == ++deleteCbCount);
     TUint seq;
-    iTrackDatabase->GetIdArray(iIdArray, seq);
-    int count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabase::kTrackIdNone;});
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    int count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone;});
     TEST(count == 0);
 
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
-    iTrackDatabase->DeleteAll();
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->DeleteAll();
     TEST(iAllDeletedCount == ++deleteCbCount);
-    iTrackDatabase->GetIdArray(iIdArray, seq);
-    count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabase::kTrackIdNone;});
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone;});
     TEST(count == 0);
 }
 
 void SuiteTrackDatabase::SeqUpdatesOnChanges()
 {
     TUint seq;
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     TUint prevSeq = seq;
     TUint id;
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     TEST(seq == prevSeq+1);
     prevSeq = seq;
 
-    iTrackDatabase->DeleteId(id);
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbWriter->DeleteId(id);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     TEST(seq == prevSeq+1);
     prevSeq = seq;
 
     try {
-        iTrackDatabase->DeleteId(id);
+        iTrackDbWriter->DeleteId(id);
     }
     catch (TrackDbIdNotFound&) {}
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     TEST(seq == prevSeq);
 
-    iTrackDatabase->DeleteAll();
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbWriter->DeleteAll();
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     TEST(seq == prevSeq);
 
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     prevSeq = seq;
-    iTrackDatabase->DeleteAll();
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbWriter->DeleteAll();
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     TEST(seq == prevSeq+1);
 }
 
 void SuiteTrackDatabase::GetTrackByValidId()
 {
     TUint id;
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
     Track* track;
-    iTrackDatabase->GetTrackById(id, track);
+    iTrackDbReader->GetTrackById(id, track);
     TEST(track != nullptr);
     TEST(track->Id() == id);
     track->RemoveRef();
@@ -462,25 +466,25 @@ void SuiteTrackDatabase::GetTrackByValidId()
 void SuiteTrackDatabase::GetTrackByInvalidIdFails()
 {
     TUint id;
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
     Track* track;
-    TEST_THROWS(iTrackDatabase->GetTrackById(ITrackDatabase::kTrackIdNone, track), TrackDbIdNotFound);
-    TEST_THROWS(iTrackDatabase->GetTrackById(id+1, track), TrackDbIdNotFound);
+    TEST_THROWS(iTrackDbReader->GetTrackById(ITrackDatabaseReader::kTrackIdNone, track), TrackDbIdNotFound);
+    TEST_THROWS(iTrackDbReader->GetTrackById(id+1, track), TrackDbIdNotFound);
 }
 
 void SuiteTrackDatabase::GetTrackByIdValidSeq()
 {
     TUint ids[3];
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
-    iTrackDatabase->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
-    iTrackDatabase->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[2]);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
+    iTrackDbWriter->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
+    iTrackDbWriter->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[2]);
     TUint seq;
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
 
     TUint index=0;
     Track* track;
     for (TUint i=0; i<sizeof(ids)/sizeof(ids[0]); i++) {
-        iTrackDatabase->GetTrackById(ids[i], seq, track, index);
+        iTrackDbReader->GetTrackById(ids[i], seq, track, index);
         TEST(track != nullptr);
         TEST(track->Id() == ids[i]);
         track->RemoveRef();
@@ -488,15 +492,15 @@ void SuiteTrackDatabase::GetTrackByIdValidSeq()
 
     index = 0;
     track = nullptr;
-    iTrackDatabase->GetTrackById(ids[2], seq, track, index);
+    iTrackDbReader->GetTrackById(ids[2], seq, track, index);
     TEST(track != nullptr);
     TEST(track->Id() == ids[2]);
     track->RemoveRef();
-    iTrackDatabase->GetTrackById(ids[1], seq, track, index);
+    iTrackDbReader->GetTrackById(ids[1], seq, track, index);
     TEST(track != nullptr);
     TEST(track->Id() == ids[1]);
     track->RemoveRef();
-    iTrackDatabase->GetTrackById(ids[0], seq, track, index);
+    iTrackDbReader->GetTrackById(ids[0], seq, track, index);
     TEST(track != nullptr);
     TEST(track->Id() == ids[0]);
     track->RemoveRef();
@@ -505,17 +509,17 @@ void SuiteTrackDatabase::GetTrackByIdValidSeq()
 void SuiteTrackDatabase::GetTrackByIdInvalidSeq()
 {
     TUint ids[3];
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
-    iTrackDatabase->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
-    iTrackDatabase->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[2]);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
+    iTrackDbWriter->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
+    iTrackDbWriter->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[2]);
     TUint seq;
-    iTrackDatabase->GetIdArray(iIdArray, seq);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
     seq--;
 
     TUint index=0;
     Track* track;
     for (TUint i=0; i<sizeof(ids)/sizeof(ids[0]); i++) {
-        iTrackDatabase->GetTrackById(ids[i], seq, track, index);
+        iTrackDbReader->GetTrackById(ids[i], seq, track, index);
         TEST(track != nullptr);
         TEST(track->Id() == ids[i]);
         track->RemoveRef();
@@ -523,15 +527,15 @@ void SuiteTrackDatabase::GetTrackByIdInvalidSeq()
 
     index = 0;
     track = nullptr;
-    iTrackDatabase->GetTrackById(ids[2], seq, track, index);
+    iTrackDbReader->GetTrackById(ids[2], seq, track, index);
     TEST(track != nullptr);
     TEST(track->Id() == ids[2]);
     track->RemoveRef();
-    iTrackDatabase->GetTrackById(ids[1], seq, track, index);
+    iTrackDbReader->GetTrackById(ids[1], seq, track, index);
     TEST(track != nullptr);
     TEST(track->Id() == ids[1]);
     track->RemoveRef();
-    iTrackDatabase->GetTrackById(ids[0], seq, track, index);
+    iTrackDbReader->GetTrackById(ids[0], seq, track, index);
     TEST(track != nullptr);
     TEST(track->Id() == ids[0]);
     track->RemoveRef();
@@ -539,16 +543,16 @@ void SuiteTrackDatabase::GetTrackByIdInvalidSeq()
 
 void SuiteTrackDatabase::MultipleObservers()
 {
-    iTrackDatabase->AddObserver(*this);
+    iTrackDbReader->AddObserver(*this);
     TUint id;
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
     TEST(iInsertedCount == 2);
 
-    iTrackDatabase->DeleteId(id);
+    iTrackDbWriter->DeleteId(id);
     TEST(iDeletedCount == 2);
 
-    iTrackDatabase->Insert(ITrackDatabase::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
-    iTrackDatabase->DeleteAll();
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->DeleteAll();
     TEST(iAllDeletedCount == 2);
 }
 
@@ -556,7 +560,7 @@ void SuiteTrackDatabase::MultipleObservers()
 // SuiteTrackReader
 
 SuiteTrackReader::SuiteTrackReader()
-    : SuiteUnitTest("Track database (ITrackDatabaseReader)")
+    : SuiteUnitTest("Track database (ITrackDatabaseTrackReader)")
 {
     AddTest(MakeFunctor(*this, &SuiteTrackReader::TrackRefValidId), "TrackRefValidId");
     AddTest(MakeFunctor(*this, &SuiteTrackReader::TrackRefInvalidId), "TrackRefInvalidId");
@@ -566,8 +570,6 @@ SuiteTrackReader::SuiteTrackReader()
     AddTest(MakeFunctor(*this, &SuiteTrackReader::PrevTrackRefInvalidId), "PrevTrackRefInvalidId");
     AddTest(MakeFunctor(*this, &SuiteTrackReader::TrackRefByIndexValidId), "TrackRefByIndexValidId");
     AddTest(MakeFunctor(*this, &SuiteTrackReader::TrackRefByIndexInvalidId), "TrackRefByIndexInvalidId");
-    AddTest(MakeFunctor(*this, &SuiteTrackReader::TrackRefByIndexSortedValidId), "TrackRefByIndexSortedValidId");
-    AddTest(MakeFunctor(*this, &SuiteTrackReader::TrackRefByIndexSortedInvalidId), "TrackRefByIndexSortedInvalidId");
     AddTest(MakeFunctor(*this, &SuiteTrackReader::IsValidValidId), "IsValidValidId");
     AddTest(MakeFunctor(*this, &SuiteTrackReader::IsValidInvalidId), "IsValidInvalidId");
 }
@@ -576,11 +578,11 @@ void SuiteTrackReader::Setup()
 {
     iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
     iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
-    iReader = static_cast<ITrackDatabaseReader*>(iDb);
+    iReader = static_cast<ITrackDatabaseTrackReader*>(iDb);
     iReader->SetObserver(*this);
     
-    ITrackDatabase* writer = static_cast<ITrackDatabase*>(iDb);
-    TUint insertAfter = ITrackDatabase::kTrackIdNone;
+    ITrackDatabaseWriter* writer = static_cast<ITrackDatabaseWriter*>(iDb);
+    TUint insertAfter = ITrackDatabaseReader::kTrackIdNone;
     for (TUint i=0; i<kNumTracks; i++) {
         writer->Insert(insertAfter, Brx::Empty(), Brx::Empty(), iIds[i]);
         insertAfter = iIds[i];
@@ -605,6 +607,10 @@ void SuiteTrackReader::NotifyAllDeleted()
 {
 }
 
+void SuiteTrackReader::NotifyReordered(Track* /*aStart*/)
+{
+}
+
 void SuiteTrackReader::TrackRefValidId()
 {
     for (TUint i=0; i<kNumTracks; i++) {
@@ -617,7 +623,7 @@ void SuiteTrackReader::TrackRefValidId()
 
 void SuiteTrackReader::TrackRefInvalidId()
 {
-    Track* track = iReader->TrackRef(ITrackDatabase::kTrackIdNone);
+    Track* track = iReader->TrackRef(ITrackDatabaseReader::kTrackIdNone);
     TEST(track == nullptr);
     track = iReader->TrackRef(iIds[kNumTracks-1]+1);
     TEST(track == nullptr);
@@ -625,7 +631,7 @@ void SuiteTrackReader::TrackRefInvalidId()
 
 void SuiteTrackReader::NextTrackRefValidId()
 {
-    TUint prev = ITrackDatabase::kTrackIdNone;
+    TUint prev = ITrackDatabaseReader::kTrackIdNone;
     Track* track;
     for (TUint i=0; i<kNumTracks; i++) {
         track = iReader->NextTrackRef(prev);
@@ -663,7 +669,7 @@ void SuiteTrackReader::PrevTrackRefValidId()
 
 void SuiteTrackReader::PrevTrackRefInvalidId()
 {
-    Track* track = iReader->PrevTrackRef(ITrackDatabase::kTrackIdNone);
+    Track* track = iReader->PrevTrackRef(ITrackDatabaseReader::kTrackIdNone);
     TEST(track == nullptr);
     track = iReader->PrevTrackRef(iIds[kNumTracks-1] + 1);
     TEST(track == nullptr);
@@ -683,16 +689,6 @@ void SuiteTrackReader::TrackRefByIndexInvalidId()
 {
     Track* track = iReader->TrackRefByIndex(kNumTracks);
     TEST(track == nullptr);
-}
-
-void SuiteTrackReader::TrackRefByIndexSortedValidId()
-{
-    TEST_THROWS(iReader->TrackRefByIndexSorted(0), AssertionFailed);
-}
-
-void SuiteTrackReader::TrackRefByIndexSortedInvalidId()
-{
-    TEST_THROWS(iReader->TrackRefByIndexSorted(kNumTracks), AssertionFailed);
 }
 
 void SuiteTrackReader::IsValidValidId()
@@ -719,22 +715,19 @@ SuiteShuffler::SuiteShuffler()
     AddTest(MakeFunctor(*this, &SuiteShuffler::PrevTrackRefShuffleOn), "PrevTrackRefShuffleOn");
     AddTest(MakeFunctor(*this, &SuiteShuffler::TrackRefByIndexShuffleOff), "TrackRefByIndexShuffleOff");
     AddTest(MakeFunctor(*this, &SuiteShuffler::TrackRefByIndexShuffleOn), "TrackRefByIndexShuffleOn");
-    AddTest(MakeFunctor(*this, &SuiteShuffler::TrackRefByIndexSortedShuffleOff), "TrackRefByIndexSortedShuffleOff");
-    AddTest(MakeFunctor(*this, &SuiteShuffler::TrackRefByIndexSortedShuffleOn), "TrackRefByIndexSortedShuffleOn");
-    AddTest(MakeFunctor(*this, &SuiteShuffler::ModeToggleReshuffles), "ModeToggleReshuffles");
-    AddTest(MakeFunctor(*this, &SuiteShuffler::NextTrackBeyondEndReshuffles), "NextTrackBeyondEndReshuffles");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::NextTrackBeyondEndNoReshuffle), "NextTrackBeyondEndNoReshuffle");
 }
 
 void SuiteShuffler::Setup()
 {
     iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
     iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
-    iShuffler = new Shuffler(*gEnv, *iDb, kMaxTracks);
-    iReader = static_cast<ITrackDatabaseReader*>(iShuffler);
+    iShuffler = new Shuffler(*gEnv, *iDb, *iDb, *iDb, kMaxTracks);
+    iReader = static_cast<ITrackDatabaseTrackReader*>(iShuffler);
     iReader->SetObserver(*this);
     
-    ITrackDatabase* writer = static_cast<ITrackDatabase*>(iDb);
-    TUint insertAfter = ITrackDatabase::kTrackIdNone;
+    ITrackDatabaseWriter* writer = iDb;
+    TUint insertAfter = ITrackDatabaseReader::kTrackIdNone;
     for (TUint i=0; i<kNumTracks; i++) {
         writer->Insert(insertAfter, Brx::Empty(), Brx::Empty(), iIds[i]);
         insertAfter = iIds[i];
@@ -760,6 +753,10 @@ void SuiteShuffler::NotifyAllDeleted()
 {
 }
 
+void SuiteShuffler::NotifyReordered(Track* /*aStart*/)
+{
+}
+
 void SuiteShuffler::TrackRefShuffleOff()
 {
     Track* track;
@@ -769,7 +766,7 @@ void SuiteShuffler::TrackRefShuffleOff()
         TEST(track->Id() == iIds[i]);
         track->RemoveRef();
     }
-    track = iReader->TrackRef(ITrackDatabase::kTrackIdNone);
+    track = iReader->TrackRef(ITrackDatabaseReader::kTrackIdNone);
     TEST(track == nullptr);
     track = iReader->TrackRef(iIds[kNumTracks-1]+1);
     TEST(track == nullptr);
@@ -784,7 +781,7 @@ void SuiteShuffler::TrackRefShuffleOn()
 
 void SuiteShuffler::NextTrackRefShuffleOff()
 {
-    TUint prev = ITrackDatabase::kTrackIdNone;
+    TUint prev = ITrackDatabaseReader::kTrackIdNone;
     for (TUint i=0; i<kNumTracks; i++) {
         Track* track = iReader->NextTrackRef(prev);
         TEST(track != nullptr);
@@ -803,7 +800,7 @@ void SuiteShuffler::NextTrackRefShuffleOn()
     iShuffler->SetShuffle(true);
 
     TBool shuffled = false;
-    TUint id = ITrackDatabase::kTrackIdNone;
+    TUint id = ITrackDatabaseReader::kTrackIdNone;
     for (TUint i=0; i<kNumTracks; i++) {
         Track* track = iReader->NextTrackRef(id);
         TEST(track != nullptr);
@@ -813,11 +810,11 @@ void SuiteShuffler::NextTrackRefShuffleOn()
         }
         auto it = std::find(availableIds.begin(), availableIds.end(), id);
         TEST(it != availableIds.end()); // i.e. check we haven't been given this track before
-        *it = ITrackDatabase::kTrackIdNone;
+        *it = ITrackDatabaseReader::kTrackIdNone;
         track->RemoveRef();
     }
     TEST(shuffled);
-    int count = std::count_if(availableIds.begin(), availableIds.end(), [](TUint aId) {return aId != ITrackDatabase::kTrackIdNone;});
+    int count = std::count_if(availableIds.begin(), availableIds.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone;});
     TEST(count == 0);
 }
 
@@ -853,7 +850,7 @@ void SuiteShuffler::PrevTrackRefShuffleOn()
     for (TInt i=kNumTracks-1; i>=0; i--) {
         auto it = std::find(availableIds.begin(), availableIds.end(), id);
         TEST(it != availableIds.end()); // i.e. check we haven't been given this track before
-        *it = ITrackDatabase::kTrackIdNone;
+        *it = ITrackDatabaseReader::kTrackIdNone;
         Track* track = iReader->PrevTrackRef(id);
         if (track == nullptr) {
             break;
@@ -865,7 +862,7 @@ void SuiteShuffler::PrevTrackRefShuffleOn()
         track->RemoveRef();
     }
     TEST(shuffled);
-    int count = std::count_if(availableIds.begin(), availableIds.end(), [](TUint aId) {return aId != ITrackDatabase::kTrackIdNone;});
+    int count = std::count_if(availableIds.begin(), availableIds.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone;});
     TEST(count == 0);
 }
 
@@ -901,76 +898,19 @@ void SuiteShuffler::TrackRefByIndexShuffleOn()
         }
         auto it = std::find(availableIds.begin(), availableIds.end(), track->Id());
         TEST(it != availableIds.end()); // i.e. check we haven't been given this track before
-        *it = ITrackDatabase::kTrackIdNone;
+        *it = ITrackDatabaseReader::kTrackIdNone;
         track->RemoveRef();
     }
-    TEST(!shuffled);
-    int count = std::count_if(availableIds.begin(), availableIds.end(), [](TUint aId) {return aId != ITrackDatabase::kTrackIdNone;});
+    TEST(shuffled);
+    int count = std::count_if(availableIds.begin(), availableIds.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone;});
     TEST(count == 0);
 }
 
-void SuiteShuffler::TrackRefByIndexSortedShuffleOff()
-{
-    Track* track;
-    for (TUint i=0; i<kNumTracks; i++) {
-        track = iReader->TrackRefByIndexSorted(i);
-        TEST(track != nullptr);
-        TEST(track->Id() == iIds[i]);
-        track->RemoveRef();
-    }
-    track = iReader->TrackRefByIndexSorted(kNumTracks+1);
-    TEST(track == nullptr);
-    track = iReader->TrackRefByIndexSorted(UINT_MAX);
-    TEST(track == nullptr);
-}
-
-void SuiteShuffler::TrackRefByIndexSortedShuffleOn()
-{
-    iShuffler->SetShuffle(true);
-    Track* track;
-    for (TUint i=0; i<kNumTracks; i++) {
-        track = iReader->TrackRefByIndexSorted(i);
-        TEST(track != nullptr);
-        TEST(track->Id() == iShuffler->iShuffleList[i]->Id());
-        track->RemoveRef();
-    }
-    track = iReader->TrackRefByIndexSorted(kNumTracks+1);
-    TEST(track == nullptr);
-    track = iReader->TrackRefByIndexSorted(UINT_MAX);
-    TEST(track == nullptr);
-}
-
-void SuiteShuffler::ModeToggleReshuffles()
+void SuiteShuffler::NextTrackBeyondEndNoReshuffle()
 {
     iShuffler->SetShuffle(true);
     std::array<TUint, kNumTracks> initialShuffle;
-    TUint id = ITrackDatabase::kTrackIdNone;
-    for (TUint i=0; i<kNumTracks; i++) {
-        Track* track = iReader->NextTrackRef(id);
-        id = track->Id();
-        initialShuffle[i] = id;
-        track->RemoveRef();
-    }
-
-    iShuffler->SetShuffle(false);
-    iShuffler->SetShuffle(true);
-    id = ITrackDatabase::kTrackIdNone;
-    TBool reshuffled = false;
-    for (TUint i=0; i<kNumTracks; i++) {
-        Track* track = iReader->NextTrackRef(id);
-        if (track->Id() != initialShuffle[i]) {
-            reshuffled = true;
-        }
-        track->RemoveRef();
-    }
-    TEST(reshuffled);
-}
-
-void SuiteShuffler::NextTrackBeyondEndReshuffles()
-{
-    iShuffler->SetShuffle(true);
-    std::array<TUint, kNumTracks> initialShuffle;
-    TUint id = ITrackDatabase::kTrackIdNone;
+    TUint id = ITrackDatabaseReader::kTrackIdNone;
     for (TUint i=0; i<kNumTracks; i++) {
         Track* track = iReader->NextTrackRef(id);
         id = track->Id();
@@ -979,16 +919,17 @@ void SuiteShuffler::NextTrackBeyondEndReshuffles()
     }
     TEST(iReader->NextTrackRef(id) == nullptr);
 
-    id = ITrackDatabase::kTrackIdNone;
+    id = ITrackDatabaseReader::kTrackIdNone;
     TBool reshuffled = false;
     for (TUint i=0; i<kNumTracks; i++) {
         Track* track = iReader->NextTrackRef(id);
-        if (track->Id() != initialShuffle[i]) {
+        id = track->Id();
+        if (id != initialShuffle[i]) {
             reshuffled = true;
         }
         track->RemoveRef();
     }
-    TEST(reshuffled);
+    TEST(!reshuffled);
 }
 
 
@@ -1005,21 +946,19 @@ SuiteRepeater::SuiteRepeater()
     AddTest(MakeFunctor(*this, &SuiteRepeater::PrevFromFirstTrackRepeatOn), "PrevFromFirstTrackRepeatOn");
     AddTest(MakeFunctor(*this, &SuiteRepeater::TrackRefByIndexRepeatOff), "TrackRefByIndexRepeatOff");
     AddTest(MakeFunctor(*this, &SuiteRepeater::TrackRefByIndexRepeatOn), "TrackRefByIndexRepeatOn");
-    AddTest(MakeFunctor(*this, &SuiteRepeater::TrackRefByIndexSortedRepeatOff), "TrackRefByIndexSortedRepeatOff");
-    AddTest(MakeFunctor(*this, &SuiteRepeater::TrackRefByIndexSortedRepeatOn), "TrackRefByIndexSortedRepeatOn");
 }
 
 void SuiteRepeater::Setup()
 {
     iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
     iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
-    iShuffler = new Shuffler(*gEnv, *iDb, kMaxTracks);
+    iShuffler = new Shuffler(*gEnv, *iDb, *iDb, *iDb, kMaxTracks);
     iRepeater = new Repeater(*iShuffler);
-    iReader = static_cast<ITrackDatabaseReader*>(iRepeater);
+    iReader = static_cast<ITrackDatabaseTrackReader*>(iRepeater);
     iReader->SetObserver(*this);
     
-    ITrackDatabase* writer = static_cast<ITrackDatabase*>(iDb);
-    TUint insertAfter = ITrackDatabase::kTrackIdNone;
+    ITrackDatabaseWriter* writer = static_cast<ITrackDatabaseWriter*>(iDb);
+    TUint insertAfter = ITrackDatabaseReader::kTrackIdNone;
     for (TUint i=0; i<kNumTracks; i++) {
         writer->Insert(insertAfter, Brx::Empty(), Brx::Empty(), iIds[i]);
         insertAfter = iIds[i];
@@ -1046,6 +985,10 @@ void SuiteRepeater::NotifyAllDeleted()
 {
 }
 
+void SuiteRepeater::NotifyReordered(Track* /*aStart*/)
+{
+}
+
 void SuiteRepeater::TrackRefRepeatOff()
 {
     Track* track;
@@ -1055,7 +998,7 @@ void SuiteRepeater::TrackRefRepeatOff()
         TEST(track->Id() == iIds[i]);
         track->RemoveRef();
     }
-    track = iReader->TrackRef(ITrackDatabase::kTrackIdNone);
+    track = iReader->TrackRef(ITrackDatabaseReader::kTrackIdNone);
     TEST(track == nullptr);
     track = iReader->TrackRef(iIds[kNumTracks-1]+1);
     TEST(track == nullptr);
@@ -1116,17 +1059,6 @@ void SuiteRepeater::TrackRefByIndexRepeatOn()
     static_cast<IRepeater*>(iRepeater)->SetRepeat(true);
     // requesting track by index should have identical behaviour with/without repeat
     TrackRefByIndexRepeatOff();
-}
-
-void SuiteRepeater::TrackRefByIndexSortedRepeatOff()
-{
-    TEST_THROWS(iReader->TrackRefByIndexSorted(0), AssertionFailed);
-}
-
-void SuiteRepeater::TrackRefByIndexSortedRepeatOn()
-{
-    static_cast<IRepeater*>(iRepeater)->SetRepeat(true);
-    TEST_THROWS(iReader->TrackRefByIndexSorted(kNumTracks), AssertionFailed);
 }
 
 

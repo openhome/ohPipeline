@@ -43,7 +43,8 @@ public:
     ProviderPlaylist(Net::DvDevice& aDevice,
                      Environment& aEnv,
                      ISourcePlaylist& aSource,
-                     ITrackDatabase& aDatabase,
+                     ITrackDatabaseReader& aDatabaseReader,
+                     ITrackDatabaseWriter& aDatabaseWriter,
                      IRepeater& aRepeater,
                      ITransportRepeatRandom& aTransportRepeatRandom);
     ~ProviderPlaylist();
@@ -54,6 +55,7 @@ private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
     void NotifyAllDeleted() override;
+    void NotifyReordered(Media::Track* aStart) override;
 private: // from ITransportRepeatRandomObserver
     void TransportRepeatChanged(TBool aRepeat) override;
     void TransportRandomChanged(TBool aRandom) override;
@@ -90,7 +92,8 @@ private:
 private:
     Mutex iLock;
     ISourcePlaylist& iSource;
-    ITrackDatabase& iDatabase;
+    ITrackDatabaseReader& iDatabaseReader;
+    ITrackDatabaseWriter& iDatabaseWriter;
     IRepeater& iRepeater;
     ITransportRepeatRandom& iTransportRepeatRandom;
     Brn iProtocolInfo;

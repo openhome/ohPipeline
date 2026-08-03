@@ -25,7 +25,7 @@ namespace OpenHome {
         class IAsync;
     }
 namespace Av {
-    class ITrackDatabase;
+    class ITrackDatabaseWriter;
     class DeviceListMediaServer;
 
 class PinInvokerUpnpServer : public IPinInvoker
@@ -42,7 +42,7 @@ public:
     PinInvokerUpnpServer(Net::CpStack& aCpStack,
                          Net::DvDevice& aDevice,
                          IThreadPool& aThreadPool,
-                         ITrackDatabase& aTrackDatabase,
+                         ITrackDatabaseWriter& aTrackDatabase,
                          DeviceListMediaServer& aDeviceList);
     ~PinInvokerUpnpServer();
 private: // from IPinInvoker
@@ -68,7 +68,7 @@ private:
     void TryAddArtistTags(const Brx& aItemDidl);
     void TryAddTag(const TChar* aTag, const Brx& aVal, Ns aNs, const Brx& aRole);
 private:
-    ITrackDatabase& iTrackDatabase;
+    ITrackDatabaseWriter& iTrackDatabase;
     DeviceListMediaServer& iDeviceList;
     Net::CpProxyAvOpenhomeOrgPlaylist1* iProxyPlaylist;
     IThreadPoolHandle* iTphContainer;

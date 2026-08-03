@@ -3710,7 +3710,9 @@ AutoAllocatedRef::AutoAllocatedRef(Allocated* aAllocated)
 
 AutoAllocatedRef::~AutoAllocatedRef()
 {
-    iAllocated->RemoveRef();
+    if (iAllocated != nullptr) {
+        iAllocated->RemoveRef();
+    }
 }
 
 
