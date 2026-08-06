@@ -98,7 +98,7 @@ def configure(conf):
     if not conf.options.dest_platform.startswith('Windows'):
         conf.env.append_value('DEFINES_FLAC', ['HAVE_STDINT_H', 'HAVE_LROUND'])
 
-    if conf.options.dest_platform in ['Mac-x64', 'Mac-arm64']:
+    if conf.options.dest_platform in ['Mac-x64', 'Mac-arm64', 'armhf-scarthgap-linux']:
         conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO'])
 
     if conf.options.dest_platform.startswith('Core-ppc32'):
