@@ -23,14 +23,14 @@ class TestBundler:
         if os.path.exists(self.tarName):
             os.remove(self.tarName)        
         with tarfile.open(self.tarName, mode='x:gz', compresslevel=3) as t:
-            for f in os.listdir():
+            for f in os.listdir(os.path.join(os.path.dirname(__file__))):
                 if f.endswith('.test_manifest'):
                     print(f'    Adding {f}')
-                    t.add(f, arcname=f)
-            for f in os.listdir('buildhudson'):
+                    t.add(os.path.join(os.path.dirname(__file__), f), arcname=f)
+            for f in os.listdir(os.path.join(os.path.dirname(__file__), 'buildhudson')):
                 if f.startswith('Test'):
                     print(f'    Adding {f}')
-                    t.add(os.path.join('buildhudson', f), arcname=f)
+                    t.add(os.path.join(os.path.dirname(__file__), 'buildhudson', f), arcname=f)
         print(f'Completed {self.tarName}\n')
 
     def Publish(self):
