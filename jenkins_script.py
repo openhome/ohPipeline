@@ -3,6 +3,7 @@ import os
 import os.path
 import subprocess
 from optparse import OptionParser
+import testBundler
 
 parser = OptionParser()
 parser.add_option('--debug', dest='debug', action='store_true')
@@ -35,3 +36,8 @@ else:
     cargs += ['--release',]
 
 subprocess.check_call(args=[os.path.join(scrd, 'ohMediaPlayer', 'go' + ext), 'ci-build'] + cargs, cwd=cdir)
+
+bundler = testBundler.TestBundler()
+bundler.Bundle()
+bundler.Publish()
+
