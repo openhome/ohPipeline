@@ -14,7 +14,7 @@ class TestBundler:
     def __init__(self):
         self.platform = os.environ['PLATFORM'] if 'PLATFORM' in os.environ else 'Unknown' 
         self.version = os.environ['RELEASE_VERSION'] if 'RELEASE_VERSION' in os.environ else '0.0.0'
-        self.tarName = os.path.join(os.path.dirname(__file__), 'build', f'ohMediaPlayer_{self.version}_{self.platform}_TESTS.tar.gz')
+        self.tarName = os.path.join(os.path.dirname(__file__), 'buildhudson', f'ohMediaPlayer_{self.version}_{self.platform}_TESTS.tar.gz')
 
     def Bundle(self):
         """Create tarball in build directory containing unit tests, manifests and any other
