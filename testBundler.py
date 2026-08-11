@@ -13,7 +13,7 @@ class TestBundler:
 
     def __init__(self):
         self.platform = os.environ['PLATFORM'] if 'PLATFORM' in os.environ else 'Unknown' 
-        self.version = os.environ['RELEASE_VERSION'] if 'RELEASE_VERSION' in os.environ else '0.0.0'
+        self.version = os.environ['BUILD_NUMBER'] if 'BUILD_NUMBER' in os.environ else '0.0.0'
         self.tarName = os.path.join(os.path.dirname(__file__), 'buildhudson', f'ohMediaPlayer_{self.version}_{self.platform}_TESTS.tar.gz')
 
     def Bundle(self):
@@ -27,10 +27,10 @@ class TestBundler:
                 if f.endswith('.test_manifest'):
                     print(f'    Adding {f}')
                     t.add(f, arcname=f)
-            for f in os.listdir('build'):
+            for f in os.listdir('buildhudson'):
                 if f.startswith('Test'):
                     print(f'    Adding {f}')
-                    t.add(os.path.join('build', f), arcname=f)
+                    t.add(os.path.join('buildhudson', f), arcname=f)
         print(f'Completed {self.tarName}\n')
 
     def Publish(self):
