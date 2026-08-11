@@ -37,7 +37,7 @@ class TestBundler:
         """Publish unit tests tarball to AWS"""
         print(f'Publishing unit tests tarball for {self.platform} @ {self.version}')
         if os.path.exists(self.tarName):
-            dest = f's3://linn-artifacts-private/dsUnitTests/{self.platform}/{os.path.basename(self.tarName)}'
+            dest = f's3://linn-artifacts-private/dsUnitTests/ohMediaPlayer/{self.platform}/{os.path.basename(self.tarName)}'
             aws.cp(self.tarName, dest)
             print(f'    -> {dest}')
 
