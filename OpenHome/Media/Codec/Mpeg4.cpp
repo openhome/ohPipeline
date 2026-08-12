@@ -3174,8 +3174,8 @@ Mpeg4BoxMdat::Mpeg4BoxMdat(Optional<IMpegDRMProvider> aDRMProvider,
     aChunkSeeker.RegisterChunkSeekObserver(*this);
 
     if (iDRMProvider.Ok()) {
-        iSampleBuf     = new Bwh(1024 * 16); // During testing we've found tracks containing samples of 16,299bytes
-        iDecryptionBuf = new Bwh(1024 * 16);
+        iSampleBuf     = new Bwh(1024 * 32); // During testing we've found tracks containing samples of 16,503 bytes. To get a release out we've doubled this to ensure space.
+        iDecryptionBuf = new Bwh(1024 * 32); // FIXME: Does this impact Core1 at all???
     }
     else {
         iSampleBuf     = nullptr;
