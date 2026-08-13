@@ -14,7 +14,7 @@ class TestBundler:
     def __init__(self):
         self.platform = os.environ['PLATFORM'] if 'PLATFORM' in os.environ else 'Unknown' 
         self.version = os.environ['BUILD_NUMBER'] if 'BUILD_NUMBER' in os.environ else '0.0.0'
-        self.tarName = os.path.join(os.path.dirname(__file__), 'buildhudson', f'ohMediaPlayer_{self.version}_{self.platform}_TESTS.tar.gz')
+        self.tarName = os.path.join(os.path.dirname(__file__), 'build', f'ohMediaPlayer_{self.version}_{self.platform}_TESTS.tar.gz')
 
     def Bundle(self):
         """Create tarball in build directory containing unit tests, manifests and any other
@@ -27,10 +27,10 @@ class TestBundler:
                 if f.endswith('.test_manifest'):
                     print(f'    Adding {f}')
                     t.add(os.path.join(os.path.dirname(__file__), f), arcname=f)
-            for f in os.listdir(os.path.join(os.path.dirname(__file__), 'buildhudson')):
+            for f in os.listdir(os.path.join(os.path.dirname(__file__), 'build')):
                 if f.startswith('Test'):
                     print(f'    Adding {f}')
-                    t.add(os.path.join(os.path.dirname(__file__), 'buildhudson', f), arcname=f)
+                    t.add(os.path.join(os.path.dirname(__file__), 'build', f), arcname=f)
         print(f'Completed {self.tarName}\n')
 
     def Publish(self):

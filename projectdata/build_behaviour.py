@@ -116,8 +116,8 @@ def setup_universal(context):
         OH_PUBLISHDIR="releases@builds.openhome.org:~/www/artifacts",
         OH_PROJECT="ohMediaPlayer",
         OH_DEBUG=context.options.debugmode,
-        BUILDDIR='buildhudson',
-        WAFLOCK='.lock-wafbuildhudson',
+        BUILDDIR='build',
+        WAFLOCK='.lock-wafbuild',
         OH_VERSION=context.options.publish_version or context.env.get('RELEASE_VERSION', 'UNKNOWN'))
     context.configure_args = get_dependency_args(env={'debugmode': env['OH_DEBUG']})
     context.configure_args += ["--dest-platform", env["OH_PLATFORM"]]
