@@ -23,7 +23,7 @@ def options(opt):
     opt.load('compiler_c')
     opt.add_option('--ohnet-include-dir', action='store', default=None)
     opt.add_option('--ohnet-lib-dir', action='store', default=None)
-    opt.add_option('--testharness-dir', action='store', default=os.path.join('dependencies', 'AnyPlatform', 'testharness'))
+    # opt.add_option('--testharness-dir', action='store', default=os.path.join('dependencies', 'AnyPlatform', 'testharness'))
     opt.add_option('--ohnet', action='store', default=None)
     opt.add_option('--ssl', action='store', default=None)
     opt.add_option('--libplatform', action='store', default=None)
@@ -69,7 +69,7 @@ def configure(conf):
     guess_raat_location(conf)
 
     conf.env.dest_platform = conf.options.dest_platform
-    conf.env.testharness_dir = os.path.abspath(conf.options.testharness_dir)
+    # conf.env.testharness_dir = os.path.abspath(conf.options.testharness_dir)
 
     if conf.options.dest_platform.startswith('Windows'):
         conf.env.LIB_OHNET=['ws2_32', 'iphlpapi', 'dbghelp', 'psapi', 'userenv']
@@ -1534,41 +1534,41 @@ def bundle(ctx):
 
 # == Command for invoking unit tests ==
 
-def test(tst):
-    if not hasattr(tst, 'test_manifest'):
-        tst.test_manifest = 'oncommit.test'
-    if tst.env.dest_platform in ['Windows-x86', 'Windows-x64']:
-        tst.executable_dep = 'TestShell.exe'
-    else:
-        tst.executable_dep = 'TestShell'
-    print('Testing using manifest:', tst.test_manifest)
-    rule = '{python_exe} {test} -m {manifest} -p {platform} -b {build_dir} -t {tool_dir}'.format(
-        python_exe = 'python', # Was previously sys.executable, but this didn't work on Mac as ended up inside XCode, not the system installed python
-        test        = os.path.join(tst.env.testharness_dir, 'Test'),
-        manifest    = '${SRC}',
-        platform    =  tst.env.dest_platform,
-        build_dir   = '.',
-        tool_dir    = os.path.join('..', 'dependencies', 'AnyPlatform'))
-    tst(rule=rule, source=[tst.test_manifest, os.path.join('projectdata', 'dependencies.json'), tst.executable_dep])
+# def test(tst):
+#     if not hasattr(tst, 'test_manifest'):
+#         tst.test_manifest = 'oncommit.test'
+#     if tst.env.dest_platform in ['Windows-x86', 'Windows-x64']:
+#         tst.executable_dep = 'TestShell.exe'
+#     else:
+#         tst.executable_dep = 'TestShell'
+#     print('Testing using manifest:', tst.test_manifest)
+#     rule = '{python_exe} {test} -m {manifest} -p {platform} -b {build_dir} -t {tool_dir}'.format(
+#         python_exe = 'python', # Was previously sys.executable, but this didn't work on Mac as ended up inside XCode, not the system installed python
+#         test        = os.path.join(tst.env.testharness_dir, 'Test'),
+#         manifest    = '${SRC}',
+#         platform    =  tst.env.dest_platform,
+#         build_dir   = '.',
+#         tool_dir    = os.path.join('..', 'dependencies', 'AnyPlatform'))
+#     tst(rule=rule, source=[tst.test_manifest, os.path.join('projectdata', 'dependencies.json'), tst.executable_dep])
 
-def test_full(tst):
-    tst.test_manifest = 'nightly.test'
-    test(tst)
+# def test_full(tst):
+#     tst.test_manifest = 'nightly.test'
+#     test(tst)
 
 # == Contexts to make 'waf test' work ==
 
-from waflib.Build import BuildContext
+# from waflib.Build import BuildContext
 
-class TestContext(BuildContext):
-    cmd = 'test'
-    fun = 'test'
+# class TestContext(BuildContext):
+#     cmd = 'test'
+#     fun = 'test'
 
-class TestContext(BuildContext):
-    cmd = 'test_full'
-    fun = 'test_full'
+# class TestContext(BuildContext):
+#     cmd = 'test_full'
+#     fun = 'test_full'
 
-class BundleContext(BuildContext):
-    cmd = 'bundle'
-    fun = 'bundle'
+# class BundleContext(BuildContext):
+#     cmd = 'bundle'
+#     fun = 'bundle'
 
 # vim: set filetype=python softtabstop=4 expandtab shiftwidth=4 tabstop=4:

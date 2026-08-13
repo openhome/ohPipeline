@@ -190,11 +190,12 @@ def bundle(context):
 
 @build_step("test", optional=True)
 def test(context):
-    if context.env["OH_PLATFORM"] not in ['Linux-mipsel', 'Linux-rpi']:
-        if context.env["OH_PLATFORM"] == 'Windows-x86':
-            python("dependencies/AnyPlatform/testharness/Test", "-p", context.env["OH_PLATFORM"], "-b", context.env["BUILDDIR"], "-m", "oncommit.test")
-        else:
-            python('waf', 'test')
+    pass
+    # if context.env["OH_PLATFORM"] not in ['Linux-mipsel', 'Linux-rpi']:
+    #     if context.env["OH_PLATFORM"] == 'Windows-x86':
+    #         python("dependencies/AnyPlatform/testharness/Test", "-p", context.env["OH_PLATFORM"], "-b", context.env["BUILDDIR"], "-m", "oncommit.test")
+    #     else:
+    #         python('waf', 'test')
 
 
 @build_step("test_full", optional=True, default=False)

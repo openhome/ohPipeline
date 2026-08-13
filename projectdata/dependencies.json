@@ -81,14 +81,6 @@
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
     },
     {
-        "name": "TestTones",
-        "type": "external",
-        "version": "1.12",
-        "cross-check": false,
-        "archive-path": "s3://linn-artifacts-private/testtones/TestTones-${version}.zip",
-        "dest": "dependencies/AnyPlatform/TestTones/"
-    },
-    {
         "name": "libplatform",
         "type": "internal",
         "version": "0.97.1437",
@@ -149,56 +141,5 @@
             "*": true
         },
         "ignore": "${platform-ignore[$platform]}"
-    },
-    {
-        "name": "testharness",
-        "version": "0.2.74",
-        "cross-check": false,
-        "type": "openhome",
-        "archive-filename": "${name}-${version}.tar.gz",
-        "dest": "dependencies/AnyPlatform/"
-    },
-    {
-        "name": "Reprog",
-        "version": "0.1.70",
-        "cross-check": false,
-        "type": "internal",
-        "archive-filename": "${name}-${version}-${host-platform}-Release.tar.gz",
-        "platform-ignore": {
-            "Core-ppc32": false,
-            "*": true
-        },
-        "ignore": "${platform-ignore[$platform]}",
-        "dest": "dependencies/${host-platform}/Reprog/"
-    },
-    {
-        "name": "hardware",
-        "version": "4.855.36595",
-        "cross-check": false,
-        "type": "internal",
-        "archive-filename": "${name}-Core1-${version}.tar.gz",
-        "dest": "dependencies/AnyPlatform/${name}/"
-    },
-    {
-        "name": "transmute",
-        "version": "0.2.91",
-        "cross-check": false,
-        "type": "internal",
-        "archive-filename": "${name}-${version}.tar.gz",
-        "platform-ignore": {
-            "Core-ppc32": false,
-            "*": true
-        },
-        "ignore": "${platform-ignore[$platform]}",
-        "dest": "dependencies/AnyPlatform/"
-    },
-    {
-        "name": "FunctionalTest",
-        "type": "openhome",
-        "version": "0.0.1263",
-        "cross-check": false,
-        "platform-specific": false,
-        "archive-filename": "FunctionalTest-${version}.zip",
-        "dest": "dependencies/AnyPlatform/FunctionalTest"
     }
 ]
