@@ -1557,7 +1557,7 @@ def bundle(ctx):
 
 # == Contexts to make 'waf test' work ==
 
-# from waflib.Build import BuildContext
+from waflib.Build import BuildContext
 
 # class TestContext(BuildContext):
 #     cmd = 'test'
@@ -1567,8 +1567,8 @@ def bundle(ctx):
 #     cmd = 'test_full'
 #     fun = 'test_full'
 
-# class BundleContext(BuildContext):
-#     cmd = 'bundle'
-#     fun = 'bundle'
+class BundleContext(BuildContext):
+    cmd = 'bundle'
+    fun = 'bundle'
 
 # vim: set filetype=python softtabstop=4 expandtab shiftwidth=4 tabstop=4:
