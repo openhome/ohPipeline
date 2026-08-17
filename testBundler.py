@@ -13,13 +13,13 @@ class TestBundler:
 
     def __init__(self):
         self.platform = os.environ['PLATFORM'] if 'PLATFORM' in os.environ else 'Unknown' 
-        self.version = os.environ['BUILD_NUMBER'] if 'BUILD_NUMBER' in os.environ else '0.0.0'
-        self.tarName = os.path.join(os.path.dirname(__file__), 'build', f'ohMediaPlayer_{self.version}_{self.platform}_TESTS.tar.gz')
+        self.tarballId = os.environ['TEST_TARBALL_ID'] if 'TEST_TARBALL_ID' in os.environ else '0'
+        self.tarName = os.path.join(os.path.dirname(__file__), 'build', f'ohMediaPlayer_{self.tarballId}_{self.platform}_TESTS.tar.gz')
 
     def Bundle(self):
         """Create tarball in build directory containing unit tests, manifests and any other
            required files for the UnitTestRunner to run unit tests"""
-        print(f'Bundle unit tests into tarball for {self.platform} @ {self.version}')
+        print(f'Bundle unit tests into tarball for {self.platform} @ {self.tarballId}')
         if os.path.exists(self.tarName):
             os.remove(self.tarName)        
         with tarfile.open(self.tarName, mode='x:gz', compresslevel=3) as t:
@@ -35,7 +35,7 @@ class TestBundler:
 
     def Publish(self):
         """Publish unit tests tarball to AWS"""
-        print(f'Publishing unit tests tarball for {self.platform} @ {self.version}')
+        print(f'Publishing unit tests tarball for {self.platform} @ {self.tarballId}')
         if os.path.exists(self.tarName):
             dest = f's3://linn-artifacts-private/dsUnitTests/ohMediaPlayer/{self.platform}/{os.path.basename(self.tarName)}'
             aws.cp(self.tarName, dest)
