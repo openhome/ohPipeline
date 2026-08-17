@@ -32,7 +32,7 @@ TestVolumeRamper
 TestDrainer
 TestPreDriver
 TestContentProcessor
-# TestPipeline          # 3519
+# TestPipeline          # 3519 (historically commented out)
 TestPipelineConfig
 TestProtocolHls
 TestProtocolHttp
@@ -42,7 +42,7 @@ TestDecodedAudioAggregator
 TestSilencer
 TestIdProvider
 TestFiller
-# TestUpnpErrors        fails on Core1 (historically commented out)
+# TestUpnpErrors        # 4017 - fails on Core1 (historically commented out)
 TestTrackDatabase
 TestToneGenerator
 TestMuteManager
