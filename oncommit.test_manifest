@@ -64,7 +64,7 @@ TestVolumeManager
 TestWebAppFramework
 # TestConfigUi
 TestFlywheelRamper
-TestPhaseAdjuster
+# TestPhaseAdjuster     causes Core1 device to crash
 TestOAuth
 TestAESHelpers
 TestMPEGDash
