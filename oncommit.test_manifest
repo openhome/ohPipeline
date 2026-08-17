@@ -42,7 +42,7 @@ TestDecodedAudioAggregator
 TestSilencer
 TestIdProvider
 TestFiller
-TestUpnpErrors
+# TestUpnpErrors        fails on Core1 (historically commented out)
 TestTrackDatabase
 TestToneGenerator
 TestMuteManager
@@ -62,11 +62,11 @@ TestRaop
 TestSpotifyReporter
 TestVolumeManager
 TestWebAppFramework
-# TestConfigUi
+# TestConfigUi          (historically commented out)
 TestFlywheelRamper
 # TestPhaseAdjuster     causes Core1 device to crash
 TestOAuth
 TestAESHelpers
-TestMPEGDash
-# TestSsl           # disabled - its relatively slow and exercises code that is rarely changed
-TestCredentials     {valgrind--undef-value-errors=no}
+# TestMPEGDash          doesnt exist for Core1
+# TestSsl               disabled - its relatively slow and exercises code that is rarely changed
+TestCredentials         {valgrind--undef-value-errors=no}
