@@ -188,42 +188,9 @@ def bundle(context):
     python("waf", "bundle")
 
 
-@build_step("test", optional=True)
-def test(context):
-    pass
-    # if context.env["OH_PLATFORM"] not in ['Linux-mipsel', 'Linux-rpi']:
-    #     if context.env["OH_PLATFORM"] == 'Windows-x86':
-    #         python("dependencies/AnyPlatform/testharness/Test", "-p", context.env["OH_PLATFORM"], "-b", context.env["BUILDDIR"], "-m", "oncommit.test")
-    #     else:
-    #         python('waf', 'test')
-
-
-@build_step("test_full", optional=True, default=False)
-def test_full(context):
-    if context.env["OH_PLATFORM"] not in ['Linux-mipsel', 'Linux-rpi']:
-        if context.env["OH_PLATFORM"] == 'Windows-x86':
-            python("dependencies/AnyPlatform/testharness/Test", "-p", context.env["OH_PLATFORM"], "-b", context.env["BUILDDIR"], "-m", "nightly.test")
-        else:
-            python('waf', 'test')
-
-
 @build_step("install", optional=True, default=True)
 def install(context):
     python("waf", "install")
-
-
-@build_step("integration_test", optional=True, default=False)
-@build_condition(OH_PLATFORM="Windows-x86")
-@build_condition(OH_PLATFORM="Windows-x64")
-def integration_test(context):
-    python("IntegrationTests/SuitePostBuild_OHMP.py")
-
-
-@build_step("integration_test_full", optional=True, default=False)
-@build_condition(OH_PLATFORM="Windows-x86")
-@build_condition(OH_PLATFORM="Linux-x86")
-def integration_test_full(context):
-    python("IntegrationTests/SuiteLocal_OHMP.py", context.integration_test_media_server, context.integration_test_dacp_server, context.integration_test_log_dir )
 
 
 @build_step("publish", optional=True, default=False)
