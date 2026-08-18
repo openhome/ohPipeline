@@ -176,11 +176,7 @@ def clean(context):
 
 @build_step("build", optional=True)
 def build(context):
-    tarFile = '{OH_PROJECT}_ARTIFACTS.tar.gz'.format(**context.env)
     python("waf", "build")    
-    subprocess.check_output(['tar', 'czf', tarFile, context.env['BUILDDIR']])
-    targetpath    = "{OH_BUILDARTIFACTS}/{OH_PROJECT}/{OH_PROJECT}-{OH_VERSION}-{OH_PLATFORM}-{OH_DEBUG}_ARTIFACTS.tar.gz".format(**context.env)
-    scp(tarFile,    targetpath)
 
 
 @build_step("bundle", optional=True)
