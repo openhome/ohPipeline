@@ -33,5 +33,3 @@ To run unit tests:
   ./waf test
 or
   ./dependencies/AnyPlatform/testharness/Test -m oncommit.test -p [platform name] 
-
-xxxx  
