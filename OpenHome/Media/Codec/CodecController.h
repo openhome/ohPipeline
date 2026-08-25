@@ -371,7 +371,7 @@ private:
     void Rewind();
     Msg* PullMsg();
     void Queue(Msg* aMsg);
-    TBool QueueTrackData() const;
+    TBool QueueTrackData();
     void ReleaseAudioEncoded();
     void ReleaseAudioDecoded();
     TBool DoRead(Bwx& aBuf, TUint aBytes);
@@ -441,7 +441,7 @@ private:
     TBool iQueueTrackData;
     TBool iStreamStarted;
     TBool iStreamEnded;
-    TBool iStreamStopped;
+    std::atomic<TBool> iStreamStopped; // written by TryStop() - can be called from a thread other than iDecoderThread
     TBool iQuit;
     TBool iSeek;
     TBool iRecognising;

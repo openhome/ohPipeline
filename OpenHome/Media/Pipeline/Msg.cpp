@@ -30,6 +30,8 @@ const TChar* OpenHome::Media::kStreamPlayNames[] = { "Yes", "No", "Later" };
 
 const Brn AllocatorBase::kQueryMemory = Brn("memory");
 
+extern void PipelineLogBuffers(); // see Pipeline.cpp
+
 AllocatorBase::~AllocatorBase()
 {
     LOG(kPipeline, "> ~AllocatorBase for %s. (Peak %u/%u)\n", iName, iCellsUsedMax, iFree.Slots());
@@ -128,7 +130,8 @@ Allocated* AllocatorBase::Read()
         p = iFree.Read();
     }
     catch (FifoReadError&) {
-        LOG(kEssential, "Warning: Allocator error for %s\n", iName);
+        LOG(kEssential, "Warning: Allocator error for %s (cellsUsed=%u/%u, peak=%u)\n", iName, iCellsUsed, iCellsTotal, iCellsUsedMax);
+        PipelineLogBuffers(); // pool exhaustion likely indicates a msg leak elsewhere in the pipeline - log reservoir occupancy to help narrow down where
         ASSERTS();
     }
     return p;

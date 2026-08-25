@@ -232,6 +232,82 @@ private:
     TestCodecControllerDummyCodecStreamInitialise* iCodec;
 };
 
+/**
+ * Dummy codec that pauses immediately after reading data but before calling
+ * OutputAudioPcm() (i.e. before CodecController::DoOutputAudio() runs), so a
+ * test can arrange for CodecController::TryStop() to be called from another
+ * thread while this call is "in flight".
+ */
+class TestCodecControllerDummyCodecOutputAudio : public TestCodecControllerDummyCodec
+{
+public:
+    TestCodecControllerDummyCodecOutputAudio(TUint aReadBufBytes, Semaphore& aSemOutputAudioPending, Semaphore& aSemOutputAudioContinue);
+public: // from TestCodecControllerDummyCodec
+    void Process() override;
+private:
+    Semaphore& iSemOutputAudioPending;   // Notifies test code that Process() is about to call OutputAudioPcm().
+    Semaphore& iSemOutputAudioContinue;  // Blocks the OutputAudioPcm() call until signalled.
+};
+
+/**
+ * Regression test for a data race where CodecController::DoOutputAudio()
+ * (running on CodecController's own decode thread) read iExpectedFlushId
+ * without iLock, while CodecController::TryStop() (which can be called from
+ * another thread - e.g. via Skipper::RemoveAll(), as happens when a network
+ * adapter change triggers a Songcast Receiver zone-follow stream restart)
+ * writes it under iLock. Exercises the same TryStop()-races-the-decode-thread
+ * shape as SuiteCodecControllerStopDuringStreamInit above, but targeting
+ * DoOutputAudio() specifically rather than StreamInitialise().
+ */
+class SuiteCodecControllerStopDuringOutputAudio : public SuiteCodecControllerBase
+{
+private:
+    static const TUint kAudioBytesPerMsg = 1024;
+public:
+    SuiteCodecControllerStopDuringOutputAudio();
+private: // from SuiteCodecControllerBase
+    void Setup() override;
+    void TearDown() override;
+private:
+    void TestStopDuringOutputAudio();
+private:
+    Semaphore* iSemOutputAudioPending;
+    Semaphore* iSemOutputAudioContinue;
+    TestCodecControllerDummyCodecOutputAudio* iCodec;
+};
+
+/**
+ * Stress test that hammers CodecController::TryStop() from a genuine,
+ * unsynchronised second thread while audio is continuously fed and decoded on
+ * CodecController's own decode thread, to maximise the chance of exercising
+ * whatever interleaving a real network-adapter-driven stream restart might
+ * produce. Unlike SuiteCodecControllerStopDuringOutputAudio above, nothing
+ * here is paused/serialised via semaphores, so this cannot itself prove the
+ * absence of a data race (that needs a real race detector, e.g. ThreadSanitizer) -
+ * but it will hang/assert/crash, or fail via SuiteCodecControllerBase::TearDown()'s
+ * leak check (AllocatorBase asserts if any cell is still checked out when its
+ * pool is destroyed), if the race causes a message to be dropped incorrectly
+ * or never released.
+ */
+class SuiteCodecControllerConcurrentStop : public SuiteCodecControllerBase
+{
+private:
+    static const TUint kAudioBytesPerMsg = 1024;
+    static const TUint kNumAudioMsgs = 200;
+    static const TUint kNumStopCalls = 200;
+public:
+    SuiteCodecControllerConcurrentStop();
+private: // from SuiteCodecControllerBase
+    void Setup() override;
+    void TearDown() override;
+private:
+    void TestConcurrentStop();
+    void StopHammerThread();
+private:
+    TestCodecControllerDummyCodec* iCodec;
+    ThreadFunctor* iStopThread;
+};
+
 class SuiteCodecControllerSeekInvalid : public SuiteCodecControllerBase, public ISeekObserver
 {
 private:
@@ -1336,6 +1412,199 @@ void SuiteCodecControllerStopDuringStreamInit::TestStopDuringStreamInit()
 }
 
 
+// TestCodecControllerDummyCodecOutputAudio
+
+TestCodecControllerDummyCodecOutputAudio::TestCodecControllerDummyCodecOutputAudio(TUint aReadBufBytes, Semaphore& aSemOutputAudioPending, Semaphore& aSemOutputAudioContinue)
+    : TestCodecControllerDummyCodec(aReadBufBytes)
+    , iSemOutputAudioPending(aSemOutputAudioPending)
+    , iSemOutputAudioContinue(aSemOutputAudioContinue)
+{
+}
+
+void TestCodecControllerDummyCodecOutputAudio::Process()
+{
+    iReadBuf.SetBytes(0);
+    try {
+        iController->Read(iReadBuf, iReadBytes);
+        if (iReadBuf.Bytes() < iReadBytes) {
+            THROW(CodecStreamEnded);
+        }
+    }
+    catch (CodecStreamEnded&) {
+        throw; // rethrow CodecStreamEnded
+    }
+    iSemOutputAudioPending.Signal();
+    iSemOutputAudioContinue.Wait();
+    iTrackOffset += iController->OutputAudioPcm(iReadBuf, iChannels, iSampleRate, iBitDepth, iEndianness, iTrackOffset);
+}
+
+
+// SuiteCodecControllerStopDuringOutputAudio
+
+SuiteCodecControllerStopDuringOutputAudio::SuiteCodecControllerStopDuringOutputAudio()
+    : SuiteCodecControllerBase("SuiteCodecControllerStopDuringOutputAudio")
+{
+    AddTest(MakeFunctor(*this, &SuiteCodecControllerStopDuringOutputAudio::TestStopDuringOutputAudio), "TestStopDuringOutputAudio");
+}
+
+void SuiteCodecControllerStopDuringOutputAudio::Setup()
+{
+    SuiteCodecControllerBase::Setup();
+    iSemOutputAudioPending = new Semaphore("SCOP", 0);
+    iSemOutputAudioContinue = new Semaphore("SCOC", 0);
+    iCodec = new TestCodecControllerDummyCodecOutputAudio(kAudioBytesPerMsg, *iSemOutputAudioPending, *iSemOutputAudioContinue);
+    iController->AddCodec(iCodec);  // Takes ownership.
+    iController->Start();
+}
+
+void SuiteCodecControllerStopDuringOutputAudio::TearDown()
+{
+    iCodec = nullptr;
+    delete iSemOutputAudioContinue;
+    delete iSemOutputAudioPending;
+    SuiteCodecControllerBase::TearDown();
+}
+
+void SuiteCodecControllerStopDuringOutputAudio::TestStopDuringOutputAudio()
+{
+    iCodec->SetStreamInfo(kAudioBytesPerMsg, 2, 44100, 16, AudioDataEndian::Little, SpeakerProfile());
+
+    Queue(CreateTrack());
+    PullNext(EMsgTrack);
+    Queue(CreateEncodedStream());
+    PullNext(EMsgEncodedStream);
+    PullNext(EMsgDecodedStream);
+
+    TByte encodedAudioData[kAudioBytesPerMsg];
+    (void)memset(encodedAudioData, 0x7f, kAudioBytesPerMsg);
+    Brn encodedAudioBuf(encodedAudioData, kAudioBytesPerMsg);
+    Queue(iMsgFactory->CreateMsgAudioEncoded(encodedAudioBuf));
+
+    // Wait until the codec has read this audio and is about to call
+    // OutputAudioPcm() (i.e. CodecController::DoOutputAudio()).
+    iSemOutputAudioPending->Wait(kSemWaitMs);
+
+    // Call TryStop() from this (the test/main) thread while CodecController's
+    // own decode thread is paused just before DoOutputAudio() would run.
+    // Before the fix for the CodecController counterpart of the race fixed in
+    // Container.cpp's MsgAudioEncodedCache (see #8881), iExpectedFlushId was
+    // read without iLock in DoOutputAudio() - this exercises that path.
+    iStreamHandler->TryStop(iStreamId);
+
+    // Let the paused OutputAudioPcm()/DoOutputAudio() call proceed. The audio
+    // that was in flight should now be dropped rather than output.
+    iSemOutputAudioContinue->Signal();
+
+    // The flush that TryStop() caused should come through once queued.
+    Queue(CreateFlush());
+    PullNext(EMsgFlush);
+
+    // Confirm the controller recovers cleanly and continues to work correctly.
+    iCodec->SetStreamInfo(kAudioBytesPerMsg, 2, 48000, 16, AudioDataEndian::Little, SpeakerProfile());
+    Queue(CreateTrack());
+    PullNext(EMsgTrack);
+    Queue(CreateEncodedStream());
+    PullNext(EMsgEncodedStream);
+    Queue(iMsgFactory->CreateMsgAudioEncoded(encodedAudioBuf));
+
+    // Let this (unrelated) chunk of audio proceed as normal - no stop expected this time.
+    iSemOutputAudioPending->Wait(kSemWaitMs);
+    iSemOutputAudioContinue->Signal();
+
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgAudioPcm);
+}
+
+
+// SuiteCodecControllerConcurrentStop
+
+SuiteCodecControllerConcurrentStop::SuiteCodecControllerConcurrentStop()
+    : SuiteCodecControllerBase("SuiteCodecControllerConcurrentStop")
+{
+    AddTest(MakeFunctor(*this, &SuiteCodecControllerConcurrentStop::TestConcurrentStop), "TestConcurrentStop");
+}
+
+void SuiteCodecControllerConcurrentStop::Setup()
+{
+    SuiteCodecControllerBase::Setup();
+    iStopThread = nullptr;
+    iCodec = new TestCodecControllerDummyCodec(kAudioBytesPerMsg);
+    iController->AddCodec(iCodec);  // Takes ownership.
+    iController->Start();
+}
+
+void SuiteCodecControllerConcurrentStop::TearDown()
+{
+    iCodec = nullptr;
+    SuiteCodecControllerBase::TearDown();
+}
+
+void SuiteCodecControllerConcurrentStop::StopHammerThread()
+{
+    for (TUint i = 0; i < kNumStopCalls; i++) {
+        iStreamHandler->TryStop(iStreamId);
+    }
+}
+
+void SuiteCodecControllerConcurrentStop::TestConcurrentStop()
+{
+    iCodec->SetStreamInfo(kAudioBytesPerMsg, 2, 44100, 16, AudioDataEndian::Little, SpeakerProfile());
+
+    Queue(CreateTrack());
+    PullNext(EMsgTrack);
+    Queue(CreateEncodedStream());
+    PullNext(EMsgEncodedStream);
+    PullNext(EMsgDecodedStream);
+
+    TByte encodedAudioData[kAudioBytesPerMsg];
+    (void)memset(encodedAudioData, 0x7f, kAudioBytesPerMsg);
+    Brn encodedAudioBuf(encodedAudioData, kAudioBytesPerMsg);
+
+    // Genuinely concurrent stress: hammer TryStop() from a real second thread
+    // (no semaphore-based pausing/serialisation, unlike
+    // SuiteCodecControllerStopDuringOutputAudio above) while continuously
+    // feeding audio from this thread, to maximise the chance of exercising
+    // whatever interleaving between CodecController's decode thread and a
+    // foreign TryStop()-calling thread a real network adapter change might
+    // produce.
+    iStopThread = new ThreadFunctor("StopHammer", MakeFunctor(*this, &SuiteCodecControllerConcurrentStop::StopHammerThread));
+    iStopThread->Start();
+    for (TUint i = 0; i < kNumAudioMsgs; i++) {
+        Queue(iMsgFactory->CreateMsgAudioEncoded(encodedAudioBuf));
+    }
+    delete iStopThread; // ~Thread() joins
+    iStopThread = nullptr;
+
+    // Drain anything that made it through as normal output before the stop
+    // took effect, until the flush that TryStop() caused comes through. (How
+    // much - if any - audio slips through before TryStop() first takes effect
+    // is inherently non-deterministic here.)
+    Queue(CreateFlush());
+    for (;;) {
+        PullNext();
+        if (iLastReceivedMsg == EMsgFlush) {
+            break;
+        }
+        TEST(iLastReceivedMsg == EMsgAudioPcm || iLastReceivedMsg == EMsgDecodedStream);
+    }
+
+    // Confirm the controller recovers cleanly and continues to work correctly
+    // - i.e. nothing was left in a state where it can no longer make progress.
+    iCodec->SetStreamInfo(kAudioBytesPerMsg, 2, 48000, 16, AudioDataEndian::Little, SpeakerProfile());
+    Queue(CreateTrack());
+    PullNext(EMsgTrack);
+    Queue(CreateEncodedStream());
+    PullNext(EMsgEncodedStream);
+    Queue(iMsgFactory->CreateMsgAudioEncoded(encodedAudioBuf));
+    PullNext(EMsgDecodedStream);
+    PullNext(EMsgAudioPcm);
+
+    // No leaked/dropped msg should remain outstanding: SuiteCodecControllerBase::TearDown()
+    // will assert (via AllocatorBase's destructor) if any MsgAudioPcm/MsgAudioEncoded/etc.
+    // cell is still checked out at this point.
+}
+
+
 // SuiteCodecControllerSeekInvalid
 
 SuiteCodecControllerSeekInvalid::SuiteCodecControllerSeekInvalid()
@@ -1642,6 +1911,8 @@ void TestCodecController()
     runner.Add(new SuiteCodecControllerStream());
     runner.Add(new SuiteCodecControllerPcmSize());
     runner.Add(new SuiteCodecControllerStopDuringStreamInit());
+    runner.Add(new SuiteCodecControllerStopDuringOutputAudio());
+    runner.Add(new SuiteCodecControllerConcurrentStop());
     runner.Add(new SuiteCodecControllerSeekInvalid());
     runner.Add(new SuiteCodecControllerUnexpectedFlush());
     runner.Add(new SuiteCodecControllerFlush());
