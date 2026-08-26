@@ -79,10 +79,10 @@ def configure(conf):
         conf.env.prepend_value('STLIB_OHNET', ['target', 'platform'])
         conf.env.append_value('DEFINES', ['DEFINE_TRACE', 'NETWORK_NTOHL_LOCAL', 'NOTERMIOS']) # Tell FLAC to use local ntohl implementation
 
-    conf.env.INCLUDES = [
+    conf.env.append_value('INCLUDES', [
         '.',
         conf.path.find_node('.').abspath()
-        ]
+        ])
 
     # Setup Ogg lib options
     # Using https://git.xiph.org/?p=ogg.git
