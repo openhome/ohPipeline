@@ -34,4 +34,3 @@ To run unit tests:
 or
   ./dependencies/AnyPlatform/testharness/Test -m oncommit.test -p [platform name] 
 
-xxx  
