@@ -14,6 +14,7 @@ cleared out
 import os
 import sys
 sys.path.append(os.path.abspath('../ohdevtools'))
+sys.path.append(os.path.abspath('ohdevtools'))
 import JenkinsBuildUtils as build
 import shutil
 import testBundler
