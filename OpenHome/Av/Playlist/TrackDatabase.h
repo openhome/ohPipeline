@@ -55,7 +55,9 @@ class ITrackDatabaseWriter
 public:
     virtual ~ITrackDatabaseWriter() {}
     virtual void Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData, TUint& aIdInserted) = 0;
+    virtual void Move(const std::vector<TUint32>& aIdArray, TUint aIdAfter) = 0;
     virtual void DeleteId(TUint aId) = 0;
+    virtual void DeleteIds(const std::vector<TUint32>& aIdArray) = 0;
     virtual void DeleteAll() = 0;
 };
 
@@ -98,7 +100,9 @@ private: // from ITrackDatabaseReader
     TUint TracksMax() const override;
 private: // from ITrackDatabaseWriter
     void Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData, TUint& aIdInserted) override;
+    void Move(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
     void DeleteId(TUint aId) override;
+    void DeleteIds(const std::vector<TUint32>& aIdArray) override;
     void DeleteAll() override;
 private: // from ITrackDatabaseTrackReader
     void SetObserver(ITrackDatabaseObserver& aObserver) override;
@@ -112,6 +116,8 @@ private: // from ITrackShuffleReporter
 private:
     void GetTrackByIdLocked(TUint aId, Media::Track*& aTrack) const;
     TBool TryGetTrackById(TUint aId, Media::Track*& aTrack, TUint aStartIndex, TUint aEndIndex, TUint& aFoundIndex) const;
+    void Insert(TUint aIdAfter, Media::Track* aTrack);
+    Media::Track* DoDeleteId(TUint aId);
 private:
     mutable Mutex iLock;
     Mutex iObserverLock;
@@ -212,6 +218,16 @@ public:
     static Media::Track* NextTrackRef(const std::vector<Media::Track*>& aList, TUint aId);
     static Media::Track* PrevTrackRef(const std::vector<Media::Track*>& aList, TUint aId);
     static Media::Track* TrackRefByIndex(const std::vector<Media::Track*>& aList, TUint aIndex);
+};
+
+class AutoTrack
+{
+public:
+    AutoTrack(Media::Track* aTrack);
+    ~AutoTrack();
+    void Clear();
+private:
+    Media::Track* iTrack;
 };
 
 } // namespace Av

@@ -16,7 +16,7 @@
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Private/Timer.h>
 #include <Generated/CpAvOpenhomeOrgRadio2.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist2.h>
 #include <OpenHome/Av/Radio/TuneIn.h>
 #include <OpenHome/ThreadPool.h>
 
@@ -123,7 +123,7 @@ PodcastPinsEpisodeListTuneIn::PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard
     iPodcastPins = PodcastPinsTuneIn::GetInstance(aTrackFactory, aCpStack.Env(), aStore, Brx::Empty());
 
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
-    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
+    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist2(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &PodcastPinsEpisodeListTuneIn::Invoke),
                                                  "TuneInListPins", ThreadPoolPriority::Medium);

@@ -150,31 +150,27 @@ void TrackDatabase::Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData
     }
 }
 
+void TrackDatabase::Move(const std::vector<TUint32>& aIdArray, TUint aIdAfter)
+{
+    TUint after = aIdAfter;
+    for (auto id : aIdArray) {
+        auto track = DoDeleteId(id);
+        Insert(after, track);
+        after = id;
+    }
+}
+
 void TrackDatabase::DeleteId(TUint aId)
 {
-    Track* before = nullptr;
-    Track* after = nullptr;
-    AutoMutex _(iObserverLock);
-    {
-        AutoMutex a(iLock);
-        TUint index = TrackListUtils::IndexFromId(iTrackList, aId);
-        if (index > 0) {
-            before = iTrackList[index-1];
-            before->AddRef();
-        }
-        if (index < iTrackList.size()-1) {
-            after = iTrackList[index+1];
-            after->AddRef();
-        }
-        iTrackList[index]->RemoveRef();
-        (void)iTrackList.erase(iTrackList.begin() + index);
-        iSeq++;
+    auto track = DoDeleteId(aId);
+    track->RemoveRef();
+}
+
+void TrackDatabase::DeleteIds(const std::vector<TUint32>& aIdArray)
+{
+    for (auto id : aIdArray) {
+        DeleteId(id);
     }
-    for (TUint i=0; i<iObservers.size(); i++) {
-        iObservers[i]->NotifyTrackDeleted(aId, before, after);
-    }
-    RemoveRefIfNonNull(before);
-    RemoveRefIfNonNull(after);
 }
 
 void TrackDatabase::DeleteAll()
@@ -255,6 +251,60 @@ TBool TrackDatabase::TryGetTrackById(TUint aId, Track*& aTrack, TUint aStartInde
         }
     }
     return false;
+}
+
+void TrackDatabase::Insert(TUint aIdAfter, Track* aTrack)
+{
+    TUint idBefore, idAfter;
+    AutoMutex _(iObserverLock);
+    {
+        AutoMutex __(iLock);
+        AutoTrack tr(aTrack);
+        if (iTrackList.size() == iMaxTracks) {
+            THROW(TrackDbFull);
+        }
+        TUint index = 0;
+        if (aIdAfter != kTrackIdNone) {
+            index = TrackListUtils::IndexFromId(iTrackList, aIdAfter) + 1;
+        }
+        iTrackList.insert(iTrackList.begin() + index, aTrack);
+        tr.Clear();
+        iSeq++;
+        idBefore = aIdAfter;
+        idAfter = (index == iTrackList.size() - 1 ? kTrackIdNone : index + 1);
+    }
+    for (TUint i = 0; i < iObservers.size(); i++) {
+        iObservers[i]->NotifyTrackInserted(*aTrack, idBefore, idAfter);
+    }
+}
+
+Track* TrackDatabase::DoDeleteId(TUint aId)
+{
+    Track* before = nullptr;
+    Track* after = nullptr;
+    Track* track = nullptr;
+    AutoMutex _(iObserverLock);
+    {
+        AutoMutex a(iLock);
+        TUint index = TrackListUtils::IndexFromId(iTrackList, aId);
+        if (index > 0) {
+            before = iTrackList[index - 1];
+            before->AddRef();
+        }
+        if (index < iTrackList.size() - 1) {
+            after = iTrackList[index + 1];
+            after->AddRef();
+        }
+        track = iTrackList[index];
+        (void)iTrackList.erase(iTrackList.begin() + index);
+        iSeq++;
+    }
+    for (TUint i = 0; i < iObservers.size(); i++) {
+        iObservers[i]->NotifyTrackDeleted(aId, before, after);
+    }
+    RemoveRefIfNonNull(before);
+    RemoveRefIfNonNull(after);
+    return track;
 }
 
 
@@ -673,4 +723,24 @@ Track* TrackReaderUtils::TrackRefByIndex(const std::vector<Media::Track*>& aList
         track->AddRef();
     }
     return track;
+}
+
+
+// AutoTrack
+
+AutoTrack::AutoTrack(Track* aTrack)
+    : iTrack(aTrack)
+{
+}
+
+AutoTrack::~AutoTrack()
+{
+    if (iTrack != nullptr) {
+        iTrack->RemoveRef();
+    }
+}
+
+void AutoTrack::Clear()
+{
+    iTrack = nullptr;
 }

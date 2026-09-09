@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenHome IdArray &harr; JSON Converter</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --border: #d4d8de;
+    --text: #1c2330;
+    --muted: #667085;
+    --accent: #2f6feb;
+    --accent-hover: #2559c4;
+    --error-bg: #fdecea;
+    --error-text: #922;
+    --ok: #1a7f4b;
+    --mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c;
+      --panel: #1e232b;
+      --border: #333a44;
+      --text: #e6e9ee;
+      --muted: #98a2b3;
+      --accent: #4c85f0;
+      --accent-hover: #6398f5;
+      --error-bg: #402022;
+      --error-text: #f5b5b0;
+      --ok: #46c98a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 20px 60px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: var(--muted); font-size: 0.9rem; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center;
+    margin-bottom: 16px; padding: 12px 16px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .controls label { font-size: 0.85rem; color: var(--muted); margin-right: 6px; }
+  select {
+    font: inherit; padding: 5px 8px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  }
+  .grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: stretch; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .panel { display: flex; flex-direction: column; }
+  .panel > label {
+    font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px;
+  }
+  textarea {
+    flex: 1; min-height: 300px; resize: vertical; padding: 12px;
+    font-family: var(--mono); font-size: 0.86rem; line-height: 1.5;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--panel); color: var(--text); white-space: pre; overflow-wrap: normal;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .midcol { display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+  @media (max-width: 760px) { .midcol { flex-direction: row; } }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer;
+    padding: 10px 14px; border-radius: 8px; border: 1px solid var(--accent);
+    background: var(--accent); color: #fff; white-space: nowrap;
+  }
+  button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.ghost { background: transparent; color: var(--accent); }
+  button.ghost:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .status { margin-top: 14px; min-height: 1.3em; font-size: 0.88rem; }
+  .status.error { color: var(--error-text); }
+  .status.ok { color: var(--ok); }
+  .footer { margin-top: 28px; font-size: 0.82rem; color: var(--muted); }
+  .footer code { font-family: var(--mono); background: color-mix(in srgb, var(--muted) 18%, transparent); padding: 1px 5px; border-radius: 4px; }
+  .row-actions { margin-top: 8px; display: flex; gap: 8px; }
+  .row-actions button { font-size: 0.8rem; font-weight: 500; padding: 5px 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>OpenHome IdArray &harr; JSON Converter</h1>
+  <p class="sub">IdArray = stream of 4-byte <strong>big-endian unsigned</strong> integers. Left side is the wire encoding; right side is a JSON array of the track IDs.</p>
+
+  <div class="controls">
+    <div>
+      <label for="fmt">Wire format</label>
+      <select id="fmt">
+        <option value="base64" selected>Base64 (as returned by the Playlist service)</option>
+        <option value="hex">Hex</option>
+      </select>
+    </div>
+    <div>
+      <label for="hexsep">Hex separator</label>
+      <select id="hexsep">
+        <option value="space" selected>space-grouped (per ID)</option>
+        <option value="none">continuous</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <label for="wire">Encoded IdArray</label>
+      <textarea id="wire" spellcheck="false" placeholder="e.g. AAAAAQAAAAIAAAAD"></textarea>
+      <div class="row-actions">
+        <button class="ghost" type="button" onclick="copyBox('wire')">Copy</button>
+        <button class="ghost" type="button" onclick="clearBox('wire')">Clear</button>
+        <button class="ghost" type="button" onclick="loadSample()">Load sample</button>
+      </div>
+    </div>
+
+    <div class="midcol">
+      <button type="button" id="decodeBtn" title="Decode wire &rarr; JSON">Decode &rarr;</button>
+      <button type="button" id="encodeBtn" title="Encode JSON &rarr; wire">&larr; Encode</button>
+    </div>
+
+    <div class="panel">
+      <label for="json">JSON array of IDs</label>
+      <textarea id="json" spellcheck="false" placeholder="e.g. [1, 2, 3]"></textarea>
+      <div class="row-actions">
+        <button class="ghost" type="button" onclick="copyBox('json')">Copy</button>
+        <button class="ghost" type="button" onclick="clearBox('json')">Clear</button>
+        <button class="ghost" type="button" onclick="prettyJson()">Pretty</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status" id="status">&nbsp;</div>
+
+  <div class="footer">
+    <p>Each ID is an unsigned 32-bit integer (range <code>0</code>&ndash;<code>4294967295</code>), packed big-endian. The byte length of the decoded binary must be a multiple of 4. Base64 is how the <code>IdArray</code> action delivers the blob over UPnP/SOAP.</p>
+    <p>Runs entirely in your browser &mdash; nothing is sent anywhere.</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const U32_MAX = 4294967295;
+
+function setStatus(msg, kind) {
+  const el = $("status");
+  el.textContent = msg || " ";
+  el.className = "status" + (kind ? " " + kind : "");
+}
+
+// ---- byte <-> wire encoding helpers ----
+
+function bytesToBase64(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function base64ToBytes(str) {
+  const clean = str.replace(/\s+/g, "");
+  let bin;
+  try { bin = atob(clean); }
+  catch (e) { throw new Error("Not valid Base64."); }
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function bytesToHex(bytes, grouped) {
+  const parts = [];
+  for (let i = 0; i < bytes.length; i++) {
+    parts.push(bytes[i].toString(16).padStart(2, "0"));
+    if (grouped && (i % 4) === 3 && i !== bytes.length - 1) parts.push(" ");
+  }
+  return parts.join("").toUpperCase();
+}
+
+function hexToBytes(str) {
+  const clean = str.replace(/0x/gi, "").replace(/[\s,]+/g, "");
+  if (clean.length === 0) return new Uint8Array(0);
+  if (!/^[0-9a-fA-F]+$/.test(clean)) throw new Error("Hex contains invalid characters.");
+  if (clean.length % 2 !== 0) throw new Error("Hex must have an even number of digits.");
+  const bytes = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+  return bytes;
+}
+
+function readWireBytes() {
+  const fmt = $("fmt").value;
+  const raw = $("wire").value.trim();
+  if (raw === "") return new Uint8Array(0);
+  return fmt === "hex" ? hexToBytes(raw) : base64ToBytes(raw);
+}
+
+function writeWireBytes(bytes) {
+  const fmt = $("fmt").value;
+  if (fmt === "hex") {
+    $("wire").value = bytesToHex(bytes, $("hexsep").value === "space");
+  } else {
+    $("wire").value = bytesToBase64(bytes);
+  }
+}
+
+// ---- id array <-> bytes ----
+
+function bytesToIds(bytes) {
+  if (bytes.length % 4 !== 0) {
+    throw new Error("Binary length is " + bytes.length + " bytes — not a multiple of 4, so it can't be whole 32-bit IDs.");
+  }
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const ids = [];
+  for (let i = 0; i < bytes.length; i += 4) ids.push(dv.getUint32(i, false)); // false = big-endian
+  return ids;
+}
+
+function idsToBytes(ids) {
+  const bytes = new Uint8Array(ids.length * 4);
+  const dv = new DataView(bytes.buffer);
+  ids.forEach((id, i) => {
+    if (!Number.isInteger(id)) throw new Error("Value \"" + id + "\" is not an integer.");
+    if (id < 0 || id > U32_MAX) throw new Error("Value " + id + " is out of range for a 32-bit unsigned integer (0–" + U32_MAX + ").");
+    dv.setUint32(i * 4, id, false); // big-endian
+  });
+  return bytes;
+}
+
+// ---- actions ----
+
+function decode() {
+  try {
+    const bytes = readWireBytes();
+    const ids = bytesToIds(bytes);
+    $("json").value = "[" + ids.join(", ") + "]";
+    setStatus("Decoded " + ids.length + " ID" + (ids.length === 1 ? "" : "s") + " from " + bytes.length + " bytes.", "ok");
+  } catch (e) {
+    setStatus(e.message, "error");
+  }
+}
+
+function encode() {
+  try {
+    const text = $("json").value.trim();
+    let ids;
+    try { ids = JSON.parse(text === "" ? "[]" : text); }
+    catch (e) { throw new Error("JSON is not valid: " + e.message); }
+    if (!Array.isArray(ids)) throw new Error("JSON must be an array, e.g. [1, 2, 3].");
+    const bytes = idsToBytes(ids);
+    writeWireBytes(bytes);
+    setStatus("Encoded " + ids.length + " ID" + (ids.length === 1 ? "" : "s") + " to " + bytes.length + " bytes.", "ok");
+  } catch (e) {
+    setStatus(e.message, "error");
+  }
+}
+
+function prettyJson() {
+  try {
+    const text = $("json").value.trim();
+    if (text === "") return;
+    const ids = JSON.parse(text);
+    $("json").value = JSON.stringify(ids, null, 2);
+    setStatus(" ");
+  } catch (e) {
+    setStatus("Can't pretty-print: " + e.message, "error");
+  }
+}
+
+function copyBox(id) {
+  const el = $(id);
+  el.select();
+  navigator.clipboard.writeText(el.value).then(
+    () => setStatus("Copied " + (id === "wire" ? "encoded IdArray" : "JSON") + " to clipboard.", "ok"),
+    () => setStatus("Copy failed — select and copy manually.", "error")
+  );
+}
+
+function clearBox(id) { $(id).value = ""; setStatus(" "); }
+
+function loadSample() {
+  $("json").value = "[1, 2, 3, 42, 4294967295]";
+  encode();
+}
+
+// re-encode the wire panel when the format selector changes, so it stays consistent
+let lastFmt = $("fmt").value;
+$("fmt").addEventListener("change", () => {
+  const raw = $("wire").value.trim();
+  if (raw !== "") {
+    try {
+      // read using the *previous* format, then rewrite in the new one
+      const prevFmt = lastFmt;
+      const bytes = prevFmt === "hex" ? hexToBytes(raw) : base64ToBytes(raw);
+      writeWireBytes(bytes);
+      setStatus("Re-encoded existing data as " + $("fmt").value + ".", "ok");
+    } catch (e) {
+      setStatus("Couldn't convert existing text between formats: " + e.message, "error");
+    }
+  }
+  lastFmt = $("fmt").value;
+});
+
+$("hexsep").addEventListener("change", () => {
+  if ($("fmt").value === "hex" && $("wire").value.trim() !== "") {
+    try { writeWireBytes(hexToBytes($("wire").value)); } catch (e) { /* ignore */ }
+  }
+});
+
+$("decodeBtn").addEventListener("click", decode);
+$("encodeBtn").addEventListener("click", encode);
+</script>
+</body>
+</html>

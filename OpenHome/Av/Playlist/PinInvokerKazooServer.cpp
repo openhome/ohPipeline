@@ -9,7 +9,7 @@
 #include <OpenHome/Av/Playlist/DeviceListMediaServer.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist2.h>
 #include <OpenHome/Net/Private/XmlParser.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Debug.h>
@@ -69,7 +69,7 @@ PinInvokerKazooServer::PinInvokerKazooServer(Environment& aEnv,
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &PinInvokerKazooServer::ReadFromServer),
                                                  "PinInvokerKazooServer", ThreadPoolPriority::Medium);
     iCpDeviceSelf = CpDeviceDv::New(aCpStack, aDevice);
-    iProxyPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*iCpDeviceSelf);
+    iProxyPlaylist = new CpProxyAvOpenhomeOrgPlaylist2(*iCpDeviceSelf);
 }
 
 PinInvokerKazooServer::~PinInvokerKazooServer()

@@ -4,7 +4,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Standard.h>
 #include <OpenHome/Private/Thread.h>
-#include <Generated/DvAvOpenhomeOrgPlaylist1.h>
+#include <Generated/DvAvOpenhomeOrgPlaylist2.h>
 #include <OpenHome/Net/Core/DvInvocationResponse.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Av/TransportControl.h>
@@ -34,7 +34,7 @@ public:
 };
 
 
-class ProviderPlaylist : public Net::DvProviderAvOpenhomeOrgPlaylist1
+class ProviderPlaylist : public Net::DvProviderAvOpenhomeOrgPlaylist2
                        , private ITrackDatabaseObserver
                        , private ITransportRepeatRandomObserver
 {
@@ -59,7 +59,7 @@ private: // from ITrackDatabaseObserver
 private: // from ITransportRepeatRandomObserver
     void TransportRepeatChanged(TBool aRepeat) override;
     void TransportRandomChanged(TBool aRandom) override;
-private: // from Net::DvProviderAvOpenhomeOrgPlaylist1
+private: // from Net::DvProviderAvOpenhomeOrgPlaylist2
     void Play(Net::IDvInvocation& aInvocation) override;
     void Pause(Net::IDvInvocation& aInvocation) override;
     void Stop(Net::IDvInvocation& aInvocation) override;
@@ -80,6 +80,8 @@ private: // from Net::DvProviderAvOpenhomeOrgPlaylist1
     void Insert(Net::IDvInvocation& aInvocation, TUint aAfterId, const Brx& aUri, const Brx& aMetadata, Net::IDvInvocationResponseUint& aNewId) override;
     void DeleteId(Net::IDvInvocation& aInvocation, TUint aValue) override;
     void DeleteAll(Net::IDvInvocation& aInvocation) override;
+    void DeleteMultiple(Net::IDvInvocation& aInvocation, const Brx& aIdArray) override;
+    void Move(Net::IDvInvocation& aInvocation, const Brx& aIdArray, TUint aAfterId) override;
     void TracksMax(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseUint& aValue) override;
     void IdArray(Net::IDvInvocation& aInvocation, Net::IDvInvocationResponseUint& aToken, Net::IDvInvocationResponseBinary& aArray) override;
     void IdArrayChanged(Net::IDvInvocation& aInvocation, TUint aToken, Net::IDvInvocationResponseBool& aValue) override;
@@ -104,6 +106,13 @@ private:
     Timer* iTimer;
     Mutex iTimerLock;
     TBool iTimerActive;
+};
+
+class IdArray
+{
+public:
+    static void ToBuf(const std::vector<TUint>& aArray, Bwx& aBuf);
+    static void FromBuf(const Brx& aBuf, std::vector<TUint>& aArray);
 };
 
 } // namespace Av

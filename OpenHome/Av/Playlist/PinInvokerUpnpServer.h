@@ -20,7 +20,7 @@ namespace OpenHome {
         class CpStack;
         class CpDevice;
         class CpProxyUpnpOrgContentDirectory1;
-        class CpProxyAvOpenhomeOrgPlaylist1;
+        class CpProxyAvOpenhomeOrgPlaylist2;
         class DvDevice;
         class IAsync;
     }
@@ -70,7 +70,7 @@ private:
 private:
     ITrackDatabaseWriter& iTrackDatabase;
     DeviceListMediaServer& iDeviceList;
-    Net::CpProxyAvOpenhomeOrgPlaylist1* iProxyPlaylist;
+    Net::CpProxyAvOpenhomeOrgPlaylist2* iProxyPlaylist;
     IThreadPoolHandle* iTphContainer;
     IThreadPoolHandle* iTphTrack;
     Net::CpProxyUpnpOrgContentDirectory1* iProxyContentDirectory;

@@ -1,11 +1,12 @@
 #include <OpenHome/Av/Playlist/ProviderPlaylist.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
-#include <Generated/DvAvOpenhomeOrgPlaylist1.h>
+#include <Generated/DvAvOpenhomeOrgPlaylist2.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Arch.h>
 #include <OpenHome/Private/Ascii.h>
+#include <OpenHome/Private/Converter.h>
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Av/ProviderUtils.h>
 #include <OpenHome/Private/Converter.h>
@@ -37,7 +38,7 @@ ProviderPlaylist::ProviderPlaylist(DvDevice& aDevice,
                                    ITrackDatabaseWriter& aDatabaseWriter,
                                    IRepeater& aRepeater,
                                    ITransportRepeatRandom& aTransportRepeatRandom)
-    : DvProviderAvOpenhomeOrgPlaylist1(aDevice)
+    : DvProviderAvOpenhomeOrgPlaylist2(aDevice)
     , iLock("PPLY")
     , iSource(aSource)
     , iDatabaseReader(aDatabaseReader)
@@ -80,6 +81,8 @@ ProviderPlaylist::ProviderPlaylist(DvDevice& aDevice,
     EnableActionInsert();
     EnableActionDeleteId();
     EnableActionDeleteAll();
+    EnableActionDeleteMultiple();
+    EnableActionMove();
     EnableActionTracksMax();
     EnableActionIdArray();
     EnableActionIdArrayChanged();
@@ -419,6 +422,26 @@ void ProviderPlaylist::DeleteAll(IDvInvocation& aInvocation)
     aInvocation.EndResponse();
 }
 
+void ProviderPlaylist::DeleteMultiple(IDvInvocation& aInvocation, const Brx& aIdArray)
+{
+    std::vector<TUint> idArray;
+    IdArray::FromBuf(aIdArray, idArray);
+    iDatabaseWriter.DeleteIds(idArray);
+
+    aInvocation.StartResponse();
+    aInvocation.EndResponse();
+}
+
+void ProviderPlaylist::Move(IDvInvocation& aInvocation, const Brx& aIdArray, TUint aAfterId)
+{
+    std::vector<TUint> idArray;
+    IdArray::FromBuf(aIdArray, idArray);
+    iDatabaseWriter.Move(idArray, aAfterId);
+
+    aInvocation.StartResponse();
+    aInvocation.EndResponse();
+}
+
 void ProviderPlaylist::TracksMax(IDvInvocation& aInvocation, IDvInvocationResponseUint& aValue)
 {
     aInvocation.StartResponse();
@@ -471,14 +494,7 @@ void ProviderPlaylist::UpdateIdArray()
 {
     iDatabaseReader.GetIdArray(iIdArray, iDbSeq);
     iIdArrayBuf.SetBytes(0);
-    for (TUint i=0; i<(TUint)iIdArray.size(); i++) {
-        if (iIdArray[i] == ITrackDatabaseReader::kTrackIdNone) {
-            break;
-        }
-        TUint32 bigEndianId = Arch::BigEndian4(iIdArray[i]);
-        Brn idBuf(reinterpret_cast<const TByte*>(&bigEndianId), sizeof(bigEndianId));
-        iIdArrayBuf.Append(idBuf);
-    }
+    IdArray::ToBuf(iIdArray, iIdArrayBuf);
 }
 
 void ProviderPlaylist::UpdateIdArrayProperty()
@@ -494,4 +510,30 @@ void ProviderPlaylist::TimerCallback()
     iTimerLock.Signal();
     AutoMutex a(iLock);
     UpdateIdArrayProperty();
+}
+
+
+// IdArray
+
+void IdArray::ToBuf(const std::vector<TUint>& aArray, Bwx& aBuf)
+{ // static
+    for (TUint i = 0; i < (TUint)aArray.size(); i++) {
+        if (aArray[i] == ITrackDatabaseReader::kTrackIdNone) {
+            break;
+        }
+        TUint32 bigEndianId = Arch::BigEndian4(aArray[i]);
+        Brn idBuf(reinterpret_cast<const TByte*>(&bigEndianId), sizeof(bigEndianId));
+        aBuf.Append(idBuf);
+    }
+}
+
+void IdArray::FromBuf(const Brx& aBuf, std::vector<TUint>& aArray)
+{ // static
+    const auto count = aBuf.Bytes() / 4;
+    TUint index = 0;
+    for (TUint i = 0; i < count; i++) {
+        const TUint id = Converter::BeUint32At(aBuf, index);
+        aArray.push_back(id);
+        index += 4;
+    }
 }

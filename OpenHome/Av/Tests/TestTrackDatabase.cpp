@@ -43,6 +43,8 @@ private:
     void DeleteValidId();
     void DeleteInvalidId();
     void DeleteAll();
+    void DeleteMultiple();
+    void Move();
     void SeqUpdatesOnChanges();
     void GetTrackByValidId();
     void GetTrackByInvalidIdFails();
@@ -186,6 +188,8 @@ SuiteTrackDatabase::SuiteTrackDatabase()
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::DeleteValidId), "DeleteValidId");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::DeleteInvalidId), "DeleteInvalidId");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::DeleteAll), "DeleteAll");
+    AddTest(MakeFunctor(*this, &SuiteTrackDatabase::DeleteMultiple), "DeleteMultiple");
+    AddTest(MakeFunctor(*this, &SuiteTrackDatabase::Move), "Move");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::SeqUpdatesOnChanges), "SeqUpdatesOnChanges");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::GetTrackByValidId), "GetTrackByValidId");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::GetTrackByInvalidIdFails), "GetTrackByInvalidIdFails");
@@ -415,6 +419,63 @@ void SuiteTrackDatabase::DeleteAll()
     iTrackDbReader->GetIdArray(iIdArray, seq);
     count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone;});
     TEST(count == 0);
+}
+
+void SuiteTrackDatabase::DeleteMultiple()
+{
+    TUint seq;
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    int count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone; });
+    TEST(count == 0);
+
+    TUint id;
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone; });
+    TEST(count == 3);
+
+    std::vector<TUint32> toDelete;
+    toDelete.push_back(iIdArray[1]);
+    toDelete.push_back(iIdArray[2]);
+    const auto remainingId = iIdArray[0];
+    iTrackDbWriter->DeleteIds(toDelete);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone; });
+    TEST(count == 1);
+    TEST(iIdArray[0] == remainingId);
+}
+
+void SuiteTrackDatabase::Move()
+{
+    TUint seq;
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    int count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone; });
+    TEST(count == 0);
+
+    TUint id;
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone; });
+    TEST(count == 4);
+
+    std::vector<TUint32> toMove;
+    toMove.push_back(iIdArray[3]);
+    toMove.push_back(iIdArray[2]);
+    std::vector<TUint32> expected{ iIdArray[0], iIdArray[3], iIdArray[2], iIdArray[1] };
+    iTrackDbWriter->Move(toMove, iIdArray[0]);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    count = std::count_if(iIdArray.begin(), iIdArray.end(), [](TUint aId) {return aId != ITrackDatabaseReader::kTrackIdNone; });
+    TEST(count == 4);
+    int index = 0;
+    while (iIdArray[index] != ITrackDatabaseReader::kTrackIdNone) {
+        TEST(iIdArray[index] == expected[index]);
+        index++;
+    }
 }
 
 void SuiteTrackDatabase::SeqUpdatesOnChanges()

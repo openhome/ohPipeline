@@ -9,7 +9,7 @@
 #include <OpenHome/Net/Core/CpDevice.h>
 #include <OpenHome/Net/Core/FunctorCpDevice.h>
 #include <Generated/CpUpnpOrgContentDirectory1.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist2.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Net/Private/XmlParser.h>
 #include <OpenHome/Private/Debug.h>
@@ -53,7 +53,7 @@ PinInvokerUpnpServer::PinInvokerUpnpServer(CpStack& aCpStack,
     iTphTrack = aThreadPool.CreateHandle(MakeFunctor(*this, &PinInvokerUpnpServer::ReadTrack),
                                          "PinInvokerUpnpServer-Track", ThreadPoolPriority::Medium);
     auto cpDeviceSelf = CpDeviceDv::New(aCpStack, aDevice);
-    iProxyPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDeviceSelf);
+    iProxyPlaylist = new CpProxyAvOpenhomeOrgPlaylist2(*cpDeviceSelf);
     cpDeviceSelf->RemoveRef(); // iProxyPlaylist will have claimed a ref above
 }
 

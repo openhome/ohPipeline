@@ -9,7 +9,7 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Av/Reactions.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist2.h>
 #include <OpenHome/Av/Tidal/TidalMetadata.h>
 #include <OpenHome/ThreadPool.h>
 #include <OpenHome/OAuth.h>
