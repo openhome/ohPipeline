@@ -4,6 +4,9 @@
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
 
+#include <cstring>
+#include <vector>
+
 using namespace OpenHome;
 using namespace OpenHome::Av;
 
@@ -97,6 +100,7 @@ QobuzConnectAudioStream::QobuzConnectAudioStream()
     , iResumeStreamId(0)
     , iActiveStreamFinished(false)
     , iInterrupted(false)
+    , iPendingCount(0)
 {
 }
 
@@ -207,6 +211,7 @@ void QobuzConnectAudioStream::FlushForSeek()
             iChunks.pop_front();
         }
         iBufferedBytes = 0;
+        iPendingCount = 0; // don't splice a leftover pre-seek partial frame onto post-seek bytes
         if (iResumeStreamId != 0) {
             coreToResume = iCore;
             resumeStreamId = iResumeStreamId;
@@ -283,6 +288,7 @@ void QobuzConnectAudioStream::HandleStreamStarted(QbzAudioStreamId aStreamId, co
     iActiveStreamId = aStreamId;
     iActiveStreamFinished = false;
     iInterrupted = false;
+    iPendingCount = 0; // a new stream's byte sequence never continues an old one's partial 24-in-32 frame
     iStreamFormat.Set(aProperties.format);
 }
 
@@ -303,14 +309,60 @@ size_t QobuzConnectAudioStream::HandleStreamData(QbzAudioStreamId aStreamId, con
     const TUint spaceAvailable = (iBufferedBytes < kMaxBufferBytes) ? (kMaxBufferBytes - iBufferedBytes) : 0;
     const size_t consumed = (aSize < (size_t)spaceAvailable) ? aSize : (size_t)spaceAvailable;
     if (consumed > 0) {
-        iChunks.push_back(new Bwh(aData, (TUint)consumed));
-        iBufferedBytes += (TUint)consumed;
-        iSemDataAvailable.Signal();
+        if (iStreamFormat.BitDepth() == 32) {
+            AppendRepacked24In32Locked(aData, (TUint)consumed);
+        }
+        else {
+            iChunks.push_back(new Bwh(aData, (TUint)consumed));
+            iBufferedBytes += (TUint)consumed;
+            iSemDataAvailable.Signal();
+        }
     }
     if (consumed < aSize) {
         iResumeStreamId = aStreamId;
     }
     return consumed;
+}
+
+void QobuzConnectAudioStream::AppendRepacked24In32Locked(const uint8_t* aData, TUint aSize)
+{
+    // The SDK packs 24-bit samples low-justified in each 4-byte little-endian container - value
+    // in bytes 0-2, byte 3 always zero (see SDK README section 4.4) - but this Pipeline's
+    // BitDepth()==32 handling (DecodedAudio::CopyToBigEndian32 and downstream code that reads
+    // the top bytes of a 32-bit sample as its significant magnitude, e.g. RampApplicator) expects
+    // a high-justified layout: byte 0 always zero, value in bytes 1-3. Without repacking here,
+    // hi-res Qobuz Connect audio is silently attenuated by roughly 48dB - correct format/gain/
+    // pipeline state throughout, but no audible sound. The SDK delivers arbitrary byte slices,
+    // not sample-aligned, so up to 3 leftover bytes from one call are carried over in
+    // iPendingBytes and combined with the next.
+    const TUint total = iPendingCount + aSize;
+    std::vector<TByte> combined(total);
+    if (iPendingCount > 0) {
+        memcpy(combined.data(), iPendingBytes, iPendingCount);
+    }
+    memcpy(combined.data() + iPendingCount, aData, aSize);
+
+    const TUint frames = total / 4;
+    const TUint outBytes = frames * 4;
+    if (outBytes > 0) {
+        std::vector<TByte> repacked(outBytes);
+        for (TUint f = 0; f < frames; f++) {
+            const TByte* s = &combined[f * 4];
+            repacked[f * 4 + 0] = 0;
+            repacked[f * 4 + 1] = s[0];
+            repacked[f * 4 + 2] = s[1];
+            repacked[f * 4 + 3] = s[2];
+            // s[3] (the SDK's always-zero padding byte) is discarded.
+        }
+        iChunks.push_back(new Bwh(repacked.data(), outBytes));
+        iBufferedBytes += outBytes;
+        iSemDataAvailable.Signal();
+    }
+
+    iPendingCount = total - outBytes;
+    if (iPendingCount > 0) {
+        memcpy(iPendingBytes, &combined[outBytes], iPendingCount);
+    }
 }
 
 void QobuzConnectAudioStream::HandleStreamFinished(QbzAudioStreamId aStreamId)
@@ -336,6 +388,7 @@ void QobuzConnectAudioStream::HandleStreamSeeked(QbzAudioStreamId aStreamId)
     // post-seek data can flow through Read() again.
     iActiveStreamFinished = false;
     iInterrupted = false;
+    iPendingCount = 0; // don't splice a leftover pre-seek partial frame onto post-seek bytes
 }
 
 void QobuzConnectAudioStream::HandleStreamDispose(QbzAudioStreamId aStreamId)

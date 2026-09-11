@@ -111,6 +111,7 @@ private:
     void HandleStreamFinished(QbzAudioStreamId aStreamId);
     void HandleStreamSeeked(QbzAudioStreamId aStreamId);
     void HandleStreamDispose(QbzAudioStreamId aStreamId);
+    void AppendRepacked24In32Locked(const uint8_t* aData, TUint aSize);
 private:
     QbzConnectCore* iCore;
     QobuzConnectStreamFormat iStreamFormat;
@@ -122,6 +123,8 @@ private:
     QbzAudioStreamId iResumeStreamId; // non-zero once backpressure has been applied and resume is owed
     TBool iActiveStreamFinished; // active stream has delivered all its data - Read() returns once the buffer drains
     TBool iInterrupted;
+    TByte iPendingBytes[3]; // leftover bytes from the tail of a 24-in-32 frame split across HandleStreamData calls
+    TUint iPendingCount; // 0-3, how many of iPendingBytes are valid
 };
 
 }

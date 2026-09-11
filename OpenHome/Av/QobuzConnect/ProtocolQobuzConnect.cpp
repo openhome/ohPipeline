@@ -44,12 +44,14 @@ TBool ProtocolQobuzConnect::IsStreaming()
 
 void ProtocolQobuzConnect::NotifySetup()
 {
+    LOG(kQobuzConnect, "ProtocolQobuzConnect::NotifySetup() state=%u\n", (TUint)iState.load());
     iSetup = true;
     iSemStateChange.Signal();
 }
 
 void ProtocolQobuzConnect::NotifyStart()
 {
+    LOG(kQobuzConnect, "ProtocolQobuzConnect::NotifyStart() state=%u\n", (TUint)iState.load());
     iSetup = false;
     iSemStateChange.Signal();
 }
@@ -95,7 +97,10 @@ Media::ProtocolStreamResult ProtocolQobuzConnect::Stream(const Brx& aUri)
     try {
         for (;;) {
             iState.store(EStreamState::eIdle);
+            LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: waiting on iSemStateChange\n");
             iSemStateChange.Wait();
+            LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: iSemStateChange woke, iSetup=%u iInterrupt=%u\n",
+                iSetup, iInterrupt.load());
             if (iInterrupt.load()) {
                 THROW(ProtocolQobuzConnectInterrupt);
             }
@@ -106,17 +111,21 @@ Media::ProtocolStreamResult ProtocolQobuzConnect::Stream(const Brx& aUri)
             OutputDrain();
 
             if (iSetup) {
+                LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: still iSetup, looping back to wait for NotifyStart()\n");
                 continue; // wait for NotifyStart() before actually pumping audio
             }
 
             // Stream
+            LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: entering Read loop\n");
             iState.store(EStreamState::eStreaming);
             try {
                 for (;;) {
                     iReader.Read(*this);
                 }
             }
-            catch (QobuzConnectAudioStreamStopped&) {}
+            catch (QobuzConnectAudioStreamStopped&) {
+                LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: Read loop exited (QobuzConnectAudioStreamStopped)\n");
+            }
 
             // Flush
             iSupply->Flush();
@@ -130,9 +139,12 @@ Media::ProtocolStreamResult ProtocolQobuzConnect::Stream(const Brx& aUri)
             if (nextFlushId != MsgFlush::kIdInvalid) {
                 iSupply->OutputFlush(nextFlushId);
             }
+            LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: flushed, looping back to top\n");
         }
     }
-    catch (ProtocolQobuzConnectInterrupt&) {}
+    catch (ProtocolQobuzConnectInterrupt&) {
+        LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: caught ProtocolQobuzConnectInterrupt, exiting Stream() entirely\n");
+    }
 
     iInterrupt.store(false);
     iState.store(EStreamState::eStopped);
@@ -203,6 +215,7 @@ void ProtocolQobuzConnect::OutputDrain()
 
 void ProtocolQobuzConnect::DoInterrupt()
 {
+    LOG(kQobuzConnect, "ProtocolQobuzConnect::DoInterrupt()\n");
     iInterrupt.store(true);
     iReader.Interrupt();
     iSemStateChange.Signal();

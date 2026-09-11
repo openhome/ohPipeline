@@ -188,6 +188,7 @@ void SourceQobuzConnect::StandbyEnabled()
 
 void SourceQobuzConnect::QobuzNotifyStreamReady()
 {
+    LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyStreamReady()\n");
     EnsureActiveNoPrefetch();
     InitialiseSourceQobuzConnect();
     iProtocol->NotifySetup();
@@ -195,6 +196,7 @@ void SourceQobuzConnect::QobuzNotifyStreamReady()
 
 void SourceQobuzConnect::QobuzNotifyPlaybackInitiated(TBool aStartPaused)
 {
+    LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyPlaybackInitiated(%u)\n", aStartPaused);
     iProtocol->NotifyStart();
     if (aStartPaused) {
         iPipeline.Pause();
