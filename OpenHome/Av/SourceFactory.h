@@ -56,6 +56,19 @@ public:
         const Brx& aSerialNumber,
         const Brx& aSoftwareVersion,
         const Brx& aConfigUrl);
+    // Note: device type / max audio quality aren't parameters here, deliberately - see the
+    // anonymous namespace in SourceQobuzConnect.cpp. Qobuz Connect SDK enum types (QbzDeviceType
+    // etc) must never appear in this header's public signatures, the same way no RAAT SDK type
+    // appears in NewRaat/NewRoon above - this header is included far more widely than the
+    // QobuzConnect stlib target itself is built into, so it can only use generic types.
+    static ISource* NewQobuzConnect(
+        IMediaPlayer& aMediaPlayer,
+        Net::IMdnsProvider& aMdnsProvider,
+        const Brx& aAppId,
+        const Brx& aAppSecret,
+        const Brx& aManufacturer,
+        const Brx& aModel,
+        const Brx& aSerialNumber);
 
     static const TChar* kSourceTypePlaylist;
     static const TChar* kSourceTypeRadio;
@@ -64,6 +77,7 @@ public:
     static const TChar* kSourceTypeReceiver;
     static const TChar* kSourceTypeScd;
     static const TChar* kSourceTypeRaat;
+    static const TChar* kSourceTypeQobuzConnect;
 
     static const Brn kSourceNamePlaylist;
     static const Brn kSourceNameRadio;
@@ -72,6 +86,7 @@ public:
     static const Brn kSourceNameReceiver;
     static const Brn kSourceNameScd;
     static const Brn kSourceNameRaat;
+    static const Brn kSourceNameQobuzConnect;
 };
 
 } // namespace Av

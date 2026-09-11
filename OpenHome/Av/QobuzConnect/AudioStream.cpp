@@ -1,0 +1,356 @@
+#include <OpenHome/Av/QobuzConnect/AudioStream.h>
+#include <OpenHome/Types.h>
+#include <OpenHome/Buffer.h>
+#include <OpenHome/Private/Thread.h>
+#include <OpenHome/Debug-ohMediaPlayer.h>
+
+using namespace OpenHome;
+using namespace OpenHome::Av;
+
+// QobuzConnectStreamFormat
+
+QobuzConnectStreamFormat::QobuzConnectStreamFormat()
+    : iSampleRate(0)
+    , iNumChannels(0)
+    , iBitDepth(0)
+    , iSdkFormat(QBZ_AUDIO_SAMPLE_FORMAT_SIGNED_16_BIT_LITTLE_ENDIAN)
+    , iLock("QCSF")
+{
+}
+
+void QobuzConnectStreamFormat::Set(const QbzAudioFormat& aFormat)
+{
+    AutoMutex _(iLock);
+    iSampleRate = aFormat.sample_rate;
+    iNumChannels = aFormat.channel_count;
+    iSdkFormat = aFormat.sample_format;
+    iBitDepth = (aFormat.sample_format == QBZ_AUDIO_SAMPLE_FORMAT_SIGNED_16_BIT_LITTLE_ENDIAN) ? 16 : 32;
+}
+
+TUint QobuzConnectStreamFormat::SampleRate() const
+{
+    AutoMutex _(iLock);
+    return iSampleRate;
+}
+
+TUint QobuzConnectStreamFormat::NumChannels() const
+{
+    AutoMutex _(iLock);
+    return iNumChannels;
+}
+
+TUint QobuzConnectStreamFormat::BitDepth() const
+{
+    AutoMutex _(iLock);
+    return iBitDepth;
+}
+
+QbzAudioSampleFormat QobuzConnectStreamFormat::SdkFormat() const
+{
+    AutoMutex _(iLock);
+    return iSdkFormat;
+}
+
+
+// QobuzConnectAudioStream
+
+extern "C" {
+
+static void QobuzConnectAudioStream_StreamStarted(QbzConnectCore* aCore, QbzAudioStreamId aStreamId, QbzAudioStreamProperties aProperties, uint64_t aInitialPositionMs, void* aUserData)
+{
+    OpenHome::Av::QobuzConnectAudioStream::StreamStartedCb(aCore, aStreamId, aProperties, aInitialPositionMs, aUserData);
+}
+
+static size_t QobuzConnectAudioStream_StreamData(QbzConnectCore* aCore, QbzAudioStreamId aStreamId, const uint8_t* aData, size_t aSize, void* aUserData)
+{
+    return OpenHome::Av::QobuzConnectAudioStream::StreamDataCb(aCore, aStreamId, aData, aSize, aUserData);
+}
+
+static void QobuzConnectAudioStream_StreamMetadata(QbzConnectCore* aCore, QbzAudioStreamId aStreamId, const QbzAudioMetadata* aMetadata, void* aUserData)
+{
+    OpenHome::Av::QobuzConnectAudioStream::StreamMetadataCb(aCore, aStreamId, aMetadata, aUserData);
+}
+
+static void QobuzConnectAudioStream_StreamFinished(QbzConnectCore* aCore, QbzAudioStreamId aStreamId, void* aUserData)
+{
+    OpenHome::Av::QobuzConnectAudioStream::StreamFinishedCb(aCore, aStreamId, aUserData);
+}
+
+static void QobuzConnectAudioStream_StreamSeeked(QbzConnectCore* aCore, QbzAudioStreamId aStreamId, uint64_t aPositionMs, void* aUserData)
+{
+    OpenHome::Av::QobuzConnectAudioStream::StreamSeekedCb(aCore, aStreamId, aPositionMs, aUserData);
+}
+
+static void QobuzConnectAudioStream_StreamDispose(QbzConnectCore* aCore, QbzAudioStreamId aStreamId, void* aUserData)
+{
+    OpenHome::Av::QobuzConnectAudioStream::StreamDisposeCb(aCore, aStreamId, aUserData);
+}
+
+} // extern "C"
+
+QobuzConnectAudioStream::QobuzConnectAudioStream()
+    : iCore(nullptr)
+    , iLock("QCAS")
+    , iSemDataAvailable("QCAD", 0)
+    , iBufferedBytes(0)
+    , iActiveStreamId(0)
+    , iResumeStreamId(0)
+    , iActiveStreamFinished(false)
+    , iInterrupted(false)
+{
+}
+
+QobuzConnectAudioStream::~QobuzConnectAudioStream()
+{
+    AutoMutex _(iLock);
+    while (!iChunks.empty()) {
+        delete iChunks.front();
+        iChunks.pop_front();
+    }
+}
+
+QbzAudioStreamDelegate QobuzConnectAudioStream::Delegate()
+{
+    QbzAudioStreamDelegate delegate;
+    delegate.user_data = this;
+    delegate.stream_started_callback = &QobuzConnectAudioStream_StreamStarted;
+    delegate.stream_data_callback = &QobuzConnectAudioStream_StreamData;
+    delegate.stream_metadata_callback = &QobuzConnectAudioStream_StreamMetadata;
+    delegate.stream_finished_callback = &QobuzConnectAudioStream_StreamFinished;
+    delegate.stream_seeked_callback = &QobuzConnectAudioStream_StreamSeeked;
+    delegate.stream_dispose_callback = &QobuzConnectAudioStream_StreamDispose;
+    return delegate;
+}
+
+void QobuzConnectAudioStream::SetCore(QbzConnectCore* aCore)
+{
+    AutoMutex _(iLock);
+    iCore = aCore;
+}
+
+const QobuzConnectStreamFormat& QobuzConnectAudioStream::StreamFormat()
+{
+    return iStreamFormat;
+}
+
+void QobuzConnectAudioStream::Read(IQobuzConnectAudioWriter& aWriter)
+{
+    iSemDataAvailable.Wait();
+
+    Bwh* chunk = nullptr;
+    TBool interrupted;
+    TBool finishedNoData = false;
+    {
+        AutoMutex _(iLock);
+        interrupted = iInterrupted;
+        if (!interrupted) {
+            if (!iChunks.empty()) {
+                chunk = iChunks.front();
+                iChunks.pop_front();
+                iBufferedBytes -= chunk->Bytes();
+            }
+            else if (iActiveStreamFinished) {
+                finishedNoData = true;
+            }
+        }
+    }
+
+    if (interrupted) {
+        LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: interrupted\n");
+        delete chunk;
+        THROW(QobuzConnectAudioStreamStopped);
+    }
+    if (chunk == nullptr) {
+        if (finishedNoData) {
+            LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: stream finished, no more data\n");
+            THROW(QobuzConnectAudioStreamStopped);
+        }
+        LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: spurious wake, no chunk\n");
+        return; // spurious wake (e.g. Interrupt()/finished raced with another Read() already draining) - caller loops back in
+    }
+
+    // TEMP diagnostic - see HandleStreamData above.
+    LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: delivering %u bytes to pipeline\n", chunk->Bytes());
+    aWriter.Write(*chunk);
+    delete chunk;
+
+    QbzConnectCore* coreToResume = nullptr;
+    QbzAudioStreamId resumeStreamId = 0;
+    {
+        AutoMutex _(iLock);
+        if (iResumeStreamId != 0 && iBufferedBytes < kMaxBufferBytes) {
+            coreToResume = iCore;
+            resumeStreamId = iResumeStreamId;
+            iResumeStreamId = 0;
+        }
+    }
+    if (coreToResume != nullptr) {
+        (void)qbz_connect_resume_audio_delivery(coreToResume, resumeStreamId);
+    }
+}
+
+void QobuzConnectAudioStream::Interrupt()
+{
+    AutoMutex _(iLock);
+    iInterrupted = true;
+    iSemDataAvailable.Signal();
+}
+
+void QobuzConnectAudioStream::FlushForSeek()
+{
+    QbzConnectCore* coreToResume = nullptr;
+    QbzAudioStreamId resumeStreamId = 0;
+    {
+        AutoMutex _(iLock);
+        while (!iChunks.empty()) {
+            delete iChunks.front();
+            iChunks.pop_front();
+        }
+        iBufferedBytes = 0;
+        if (iResumeStreamId != 0) {
+            coreToResume = iCore;
+            resumeStreamId = iResumeStreamId;
+            iResumeStreamId = 0;
+        }
+    }
+    if (coreToResume != nullptr) {
+        // We just freed up the whole buffer - if the stream had been paused due to backpressure,
+        // tell it to carry on rather than leaving it stalled until (if ever) another Read() runs.
+        (void)qbz_connect_resume_audio_delivery(coreToResume, resumeStreamId);
+    }
+}
+
+void QobuzConnectAudioStream::StreamStartedCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, QbzAudioStreamProperties aProperties, uint64_t /*aInitialPositionMs*/, void* aUserData)
+{
+    reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamStarted(aStreamId, aProperties);
+}
+
+size_t QobuzConnectAudioStream::StreamDataCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, const uint8_t* aData, size_t aSize, void* aUserData)
+{
+    return reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamData(aStreamId, aData, aSize);
+}
+
+void QobuzConnectAudioStream::StreamMetadataCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId /*aStreamId*/, const QbzAudioMetadata* aMetadata, void* /*aUserData*/)
+{
+    // TODO: surface title/artist/album/album_art_url as "now playing" metadata. Not wired up in
+    // this first pass - see SourceQobuzConnect for where a DIDL-Lite equivalent to RAAT's
+    // iDefaultMetadata would need to be rebuilt and pushed via iUriProvider->SetTrack().
+    if (aMetadata != nullptr && aMetadata->title != nullptr) {
+        LOG(kQobuzConnect, "QobuzConnectAudioStream: metadata title=%s\n", aMetadata->title);
+    }
+}
+
+void QobuzConnectAudioStream::StreamFinishedCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, void* aUserData)
+{
+    reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamFinished(aStreamId);
+}
+
+void QobuzConnectAudioStream::StreamSeekedCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, uint64_t /*aPositionMs*/, void* aUserData)
+{
+    reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamSeeked(aStreamId);
+}
+
+void QobuzConnectAudioStream::StreamDisposeCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, void* aUserData)
+{
+    reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamDispose(aStreamId);
+}
+
+void QobuzConnectAudioStream::HandleStreamStarted(QbzAudioStreamId aStreamId, const QbzAudioStreamProperties& aProperties)
+{
+    LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamStarted(%llu)\n", (unsigned long long)aStreamId);
+    AutoMutex _(iLock);
+    if (iActiveStreamId != 0 && iActiveStreamId != aStreamId) {
+        // A genuinely concurrent stream (gapless/cross-fade, not supported in this v1) would
+        // arrive while the old stream is still being read normally. But if the old stream was
+        // abandoned locally (Interrupt() was called on it, e.g. Protocol::Interrupt() from a
+        // Pipeline-level teardown) rather than actually finishing/being disposed by the SDK,
+        // iActiveStreamId would otherwise stay stuck on the old id forever - the SDK has no way
+        // to know we gave up on it, so it may never send stream_dispose_callback for it, and
+        // every future stream's data would be silently discarded from here on. Treat this case
+        // as the SDK having moved on to a new stream, not a real concurrent one.
+        if (!iInterrupted) {
+            LOG(kQobuzConnect, "QobuzConnectAudioStream: ignoring concurrent stream %llu (active=%llu, gapless not supported)\n", (unsigned long long)aStreamId, (unsigned long long)iActiveStreamId);
+            return;
+        }
+        LOG(kQobuzConnect, "QobuzConnectAudioStream: replacing abandoned stream %llu with %llu (old stream was locally interrupted, never disposed)\n", (unsigned long long)iActiveStreamId, (unsigned long long)aStreamId);
+        while (!iChunks.empty()) {
+            delete iChunks.front();
+            iChunks.pop_front();
+        }
+        iBufferedBytes = 0;
+        iResumeStreamId = 0;
+    }
+    iActiveStreamId = aStreamId;
+    iActiveStreamFinished = false;
+    iInterrupted = false;
+    iStreamFormat.Set(aProperties.format);
+}
+
+size_t QobuzConnectAudioStream::HandleStreamData(QbzAudioStreamId aStreamId, const uint8_t* aData, size_t aSize)
+{
+    AutoMutex _(iLock);
+    // TEMP diagnostic: this callback previously had no logging at all - added while chasing a
+    // "Qobuz app shows playing, but no audio out" report, to confirm whether the SDK is calling
+    // in with real PCM at all.
+    LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamData(%llu, %u bytes) active=%llu\n",
+        (unsigned long long)aStreamId, (unsigned)aSize, (unsigned long long)iActiveStreamId);
+    if (aStreamId != iActiveStreamId) {
+        // Not the stream we're currently reading (see HandleStreamStarted) - accept+discard so
+        // the SDK doesn't stall waiting for us to consume it.
+        LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamData: discarding - not the active stream\n");
+        return aSize;
+    }
+    const TUint spaceAvailable = (iBufferedBytes < kMaxBufferBytes) ? (kMaxBufferBytes - iBufferedBytes) : 0;
+    const size_t consumed = (aSize < (size_t)spaceAvailable) ? aSize : (size_t)spaceAvailable;
+    if (consumed > 0) {
+        iChunks.push_back(new Bwh(aData, (TUint)consumed));
+        iBufferedBytes += (TUint)consumed;
+        iSemDataAvailable.Signal();
+    }
+    if (consumed < aSize) {
+        iResumeStreamId = aStreamId;
+    }
+    return consumed;
+}
+
+void QobuzConnectAudioStream::HandleStreamFinished(QbzAudioStreamId aStreamId)
+{
+    LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamFinished(%llu)\n", (unsigned long long)aStreamId);
+    AutoMutex _(iLock);
+    if (aStreamId != iActiveStreamId) {
+        return;
+    }
+    iActiveStreamFinished = true;
+    iSemDataAvailable.Signal(); // wake Read() in case it's blocked waiting for more data that will never come
+}
+
+void QobuzConnectAudioStream::HandleStreamSeeked(QbzAudioStreamId aStreamId)
+{
+    LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamSeeked(%llu)\n", (unsigned long long)aStreamId);
+    AutoMutex _(iLock);
+    if (aStreamId != iActiveStreamId) {
+        return;
+    }
+    // Any buffered audio predates the seek (QbzMediaSeekInProgressCallback is expected to have
+    // already flushed it - see QobuzConnectMediaControl) - reset finished/interrupted so fresh
+    // post-seek data can flow through Read() again.
+    iActiveStreamFinished = false;
+    iInterrupted = false;
+}
+
+void QobuzConnectAudioStream::HandleStreamDispose(QbzAudioStreamId aStreamId)
+{
+    LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamDispose(%llu)\n", (unsigned long long)aStreamId);
+    AutoMutex _(iLock);
+    if (aStreamId != iActiveStreamId) {
+        return;
+    }
+    while (!iChunks.empty()) {
+        delete iChunks.front();
+        iChunks.pop_front();
+    }
+    iBufferedBytes = 0;
+    iResumeStreamId = 0;
+    iActiveStreamId = 0;
+    iActiveStreamFinished = false;
+}

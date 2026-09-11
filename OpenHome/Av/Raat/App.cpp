@@ -77,7 +77,7 @@ RaatApp::~RaatApp()
         RAAT__device_stop(iDevice);
     }
     delete iTimer;
-    (void)uv_thread_join(&iThread);
+    (void)raat_uv_thread_join(&iThread);
     RAAT__device_delete(iDevice);
     delete iSourceSelection;
     delete iTransport;
@@ -90,7 +90,7 @@ void RaatApp::Start()
     if (iStarted) {
         return;
     }
-    int err = uv_thread_create(&iThread, raat_thread, this);
+    int err = raat_uv_thread_create(&iThread, raat_thread, this);
     ASSERT(err == 0);
     iStarted = true;
 }
