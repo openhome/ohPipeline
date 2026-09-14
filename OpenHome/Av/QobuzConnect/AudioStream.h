@@ -63,6 +63,13 @@ class IQobuzConnectAudioReader
 public:
     virtual ~IQobuzConnectAudioReader() {}
     virtual const QobuzConnectStreamFormat& StreamFormat() = 0;
+    // Must be called once, right before a fresh run of Read() calls begins (i.e. right before
+    // ProtocolQobuzConnect::Stream() enters its inner read loop) - captures which SDK stream is
+    // active right now so that Read() can detect, no matter how the active stream subsequently
+    // changes (disposed, or disposed-and-immediately-replaced by a new one before any Read() call
+    // gets scheduled to notice), that it should stop rather than silently keep delivering data
+    // for a stream this particular run of the read loop was never told about.
+    virtual void NotifyReading() = 0;
     virtual void Read(IQobuzConnectAudioWriter& aWriter) = 0; // blocks until data is available; throws QobuzConnectAudioStreamStopped once the active stream has finished+drained, or on Interrupt()
     virtual void Interrupt() = 0;
 };
@@ -89,6 +96,7 @@ public:
     void SetCore(QbzConnectCore* aCore);
 public: // from IQobuzConnectAudioReader
     const QobuzConnectStreamFormat& StreamFormat() override;
+    void NotifyReading() override;
     void Read(IQobuzConnectAudioWriter& aWriter) override;
     void Interrupt() override;
 public:
@@ -121,6 +129,7 @@ private:
     TUint iBufferedBytes;
     QbzAudioStreamId iActiveStreamId; // 0 == none active
     QbzAudioStreamId iResumeStreamId; // non-zero once backpressure has been applied and resume is owed
+    QbzAudioStreamId iReadingForStreamId; // snapshot of iActiveStreamId taken by NotifyReading() - see that method's doc comment
     TBool iActiveStreamFinished; // active stream has delivered all its data - Read() returns once the buffer drains
     TBool iInterrupted;
     TByte iPendingBytes[3]; // leftover bytes from the tail of a 24-in-32 frame split across HandleStreamData calls

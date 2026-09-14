@@ -98,6 +98,7 @@ QobuzConnectAudioStream::QobuzConnectAudioStream()
     , iBufferedBytes(0)
     , iActiveStreamId(0)
     , iResumeStreamId(0)
+    , iReadingForStreamId(0)
     , iActiveStreamFinished(false)
     , iInterrupted(false)
     , iPendingCount(0)
@@ -137,40 +138,54 @@ const QobuzConnectStreamFormat& QobuzConnectAudioStream::StreamFormat()
     return iStreamFormat;
 }
 
+void QobuzConnectAudioStream::NotifyReading()
+{
+    AutoMutex _(iLock);
+    iReadingForStreamId = iActiveStreamId;
+}
+
 void QobuzConnectAudioStream::Read(IQobuzConnectAudioWriter& aWriter)
 {
     iSemDataAvailable.Wait();
 
     Bwh* chunk = nullptr;
-    TBool interrupted;
-    TBool finishedNoData = false;
+    TBool stopped;
     {
         AutoMutex _(iLock);
-        interrupted = iInterrupted;
-        if (!interrupted) {
+        // iActiveStreamId != iReadingForStreamId (the stream this run of the read loop was told,
+        // via NotifyReading(), it's reading for) is checked directly here rather than via a "did
+        // something change since I started waiting" flag or a "is there any active stream at
+        // all" check, because two things can happen between a dispose and this Read() call
+        // actually running: HandleStreamData signals iSemDataAvailable once per chunk, so several
+        // signals for the disposed stream's last few chunks can already be queued up (a
+        // "changed since MY start" flag would only ever catch the first of the Read() calls those
+        // wake, since each later call recaptures its baseline fresh, after the change already
+        // happened); and the SDK's stream_started_callback for the NEXT stream can already have
+        // run by the time any of those calls execute, moving iActiveStreamId straight from the
+        // disposed id to a new nonzero one without ever visibly sitting at 0. Comparing against
+        // the snapshot taken once when this read loop began catches both: any active-stream
+        // change at all - to 0, or straight to a different id - no longer matches what this
+        // particular run of the loop was told to read for.
+        stopped = iInterrupted || (iActiveStreamId != iReadingForStreamId);
+        if (!stopped) {
             if (!iChunks.empty()) {
                 chunk = iChunks.front();
                 iChunks.pop_front();
                 iBufferedBytes -= chunk->Bytes();
             }
             else if (iActiveStreamFinished) {
-                finishedNoData = true;
+                stopped = true;
             }
         }
     }
 
-    if (interrupted) {
-        LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: interrupted\n");
-        delete chunk;
+    if (stopped) {
+        LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: stream ended (interrupted/finished/disposed)\n");
         THROW(QobuzConnectAudioStreamStopped);
     }
     if (chunk == nullptr) {
-        if (finishedNoData) {
-            LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: stream finished, no more data\n");
-            THROW(QobuzConnectAudioStreamStopped);
-        }
         LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: spurious wake, no chunk\n");
-        return; // spurious wake (e.g. Interrupt()/finished raced with another Read() already draining) - caller loops back in
+        return; // spurious wake (e.g. two Read() calls raced on the same signal) - caller loops back in
     }
 
     // TEMP diagnostic - see HandleStreamData above.
@@ -405,5 +420,26 @@ void QobuzConnectAudioStream::HandleStreamDispose(QbzAudioStreamId aStreamId)
     iBufferedBytes = 0;
     iResumeStreamId = 0;
     iActiveStreamId = 0;
-    iActiveStreamFinished = false;
+    // Disposal ends this stream just as definitively as a natural finish - e.g. skipping a track
+    // disposes the old stream directly, without stream_finished_callback ever firing for it. A
+    // Read() blocked waiting for more of THIS stream's data must be woken and told to stop, the
+    // same way HandleStreamFinished() already does - otherwise it stays blocked forever, and
+    // ProtocolQobuzConnect::Stream()'s outer loop never gets a chance to unwind and re-announce
+    // OutputStream()/format for whatever comes next. Without this, once the next stream's data
+    // does arrive, Read() silently delivers it through the SAME still-open call as if nothing
+    // happened, leaving the Pipeline's own transport state (and any flush a pending Stop queued)
+    // stuck - matching the "audio works until you skip a track" report.
+    //
+    // Setting iActiveStreamFinished here isn't actually what makes this reliable, since the
+    // SDK's own stream_started_callback for the NEXT stream can (and does, in practice - this
+    // was confirmed on hardware) run HandleStreamStarted() before a still-blocked Read() call
+    // gets scheduled to notice this dispose, and HandleStreamStarted() unconditionally resets
+    // iActiveStreamFinished for the new stream. What actually makes Read() stop reliably is its
+    // own direct check of iActiveStreamId==0 (set just above) rather than a flag that a later
+    // event can clear first - see Read()'s comment for why a "changed since I started" signal
+    // (an earlier version of this fix used iEpoch for that) isn't enough either: several
+    // HandleStreamData-driven signals for this stream's last few chunks can already be queued
+    // up, and only the first Read() call they wake would ever see a freshly-changed value.
+    iActiveStreamFinished = true;
+    iSemDataAvailable.Signal();
 }

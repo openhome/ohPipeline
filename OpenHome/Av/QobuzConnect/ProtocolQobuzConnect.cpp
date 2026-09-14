@@ -118,6 +118,7 @@ Media::ProtocolStreamResult ProtocolQobuzConnect::Stream(const Brx& aUri)
             // Stream
             LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: entering Read loop\n");
             iState.store(EStreamState::eStreaming);
+            iReader.NotifyReading(); // snapshot which stream is active now, so Read() can detect if it stops being this one, however that happens - see NotifyReading()'s doc comment
             try {
                 for (;;) {
                     iReader.Read(*this);
