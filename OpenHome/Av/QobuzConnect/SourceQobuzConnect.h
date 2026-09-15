@@ -123,6 +123,14 @@ private:
     Media::BwsTrackMetaData iDefaultMetadata;
     Timer* iTimer;
     TBool iBeginPending;
+    // Whether the DS Pipeline currently holds OUR track/mode - distinct from
+    // iProtocol->IsStreaming() (the Qobuz SDK's own stream state). Both are normally in lockstep,
+    // but Deactivate() clears this eagerly (see its comment) since DS's Pipeline interrupts
+    // whichever protocol is streaming as part of any source switch, slightly ahead of
+    // IsStreaming() reflecting that asynchronously. InitialiseSourceQobuzConnect() checks both,
+    // so a reactivation racing in during that window still re-issues Pipeline::Begin() rather
+    // than being incorrectly skipped.
+    TBool iPipelineOwned;
 };
 
 }

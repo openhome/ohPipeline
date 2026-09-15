@@ -106,6 +106,7 @@ SourceQobuzConnect::SourceQobuzConnect(
     , iMuted(false)
     , iTrack(nullptr)
     , iBeginPending(false)
+    , iPipelineOwned(false)
 {
     // Grab the device's current friendly/room name once, up front (RegisterFriendlyNameObserver
     // calls back synchronously with the current value - see FriendlyNameManager::
@@ -191,19 +192,30 @@ void SourceQobuzConnect::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
 
 void SourceQobuzConnect::Deactivate()
 {
-    // DS switched to a different source while Qobuz Connect was playing - ask the SDK to pause,
+    // DS switched to a different source while Qobuz Connect was playing - ask the SDK to stop,
     // so the Controller (phone app) reflects reality rather than continuing to show playback in
     // progress.
     //
-    // This has to be TryPause() (which properly requests a pause via qbz_connect_pause_playback,
-    // queued through the SDK's own state machine), not a direct NotifyPlaybackPaused() call -
-    // calling that "ack" out of band, without a preceding pause_playback_callback to confirm,
-    // gets rejected by the SDK ("Received unexpected 'playback paused' notification" observed on
-    // hardware). The actual confirmation back to the Controller happens once the SDK calls back
-    // pause_playback_callback asynchronously - see QobuzNotifyPlaybackPaused()'s comment for why
-    // that still works correctly even though iActive is about to become false below.
+    // This has to be a genuine stop, not a pause: DS's Pipeline unconditionally interrupts
+    // whichever protocol is currently streaming as part of any source switch (confirmed on
+    // hardware - ProtocolQobuzConnect::Stream() actually exits, via DoInterrupt()/TryStop()),
+    // regardless of what we separately tell the SDK. Telling the SDK "paused" left it believing
+    // the old stream was still alive underneath; pressing Play in the Controller then only
+    // triggered resume_playback_callback, whose Stream() re-entry immediately found nothing
+    // valid to read and gave up silently - no audio, and only actually recovered once the SDK's
+    // own inactivity handling separately stopped and restarted the stream from scratch (the same
+    // path a manual track skip takes). Calling TryStop() here instead makes the SDK's own model
+    // match DS's reality, so the Controller's Play button goes through the normal fresh-start
+    // path (QobuzNotifyStreamReady()/QobuzNotifyPlaybackInitiated()) that already works.
     LOG(kQobuzConnect, "SourceQobuzConnect::Deactivate()\n");
-    iApp->MediaControl().TryPause();
+    iApp->MediaControl().TryStop();
+    // The DS Pipeline is no longer ours - some other source is about to occupy it, and it's about
+    // to actually be interrupted regardless (see above). Clear eagerly rather than waiting for
+    // QobuzNotifyPlaybackStopped() to do the same asynchronously, so a reactivation racing in
+    // before that callback arrives still goes through InitialiseSourceQobuzConnect()'s full
+    // Pipeline::Begin() path rather than being incorrectly skipped - see iPipelineOwned's comment.
+    iPipelineOwned = false;
+    iBeginPending = false;
     SourceBase::Deactivate();
 }
 
@@ -248,11 +260,11 @@ void SourceQobuzConnect::QobuzNotifyPlaybackInitiated(TBool aStartPaused)
 
 void SourceQobuzConnect::QobuzNotifyPlaybackPaused()
 {
-    // iPipeline is only ours to touch while we're the active DS source - but the SDK still needs
-    // acknowledging regardless, since this callback can legitimately arrive after Deactivate()
-    // already flipped iActive to false (it's the async confirmation of the TryPause() request
-    // Deactivate() made while still active - see its comment). Skipping the ack in that case is
-    // what caused the Controller to keep showing "playing" after a DS-side source switch.
+    // iPipeline is only ours to touch while we're the active DS source, but the SDK still needs
+    // acknowledging regardless of iActive - this callback is the asynchronous confirmation of
+    // some earlier pause request (e.g. TryPause() via DS's own UI pause control), and iActive may
+    // have changed in the meantime. Skipping the ack in that case would leave the Controller
+    // showing stale playback state.
     if (iActive) {
         iPipeline.Pause();
     }
@@ -261,9 +273,15 @@ void SourceQobuzConnect::QobuzNotifyPlaybackPaused()
 
 void SourceQobuzConnect::QobuzNotifyPlaybackResumed()
 {
-    if (!iActive) {
-        return;
-    }
+    // Unlike QobuzNotifyPlaybackPaused(), a resume request should bring DS back onto this source
+    // if something else deactivated it - mirrors QobuzNotifyStreamReady()'s
+    // EnsureActiveNoPrefetch() call, which resume doesn't otherwise get paired with (it's a
+    // standalone callback, not one that fires alongside stream-ready the way playback-initiated
+    // does). Harmless/no-op when already active. A DS-side source switch itself now goes through
+    // TryStop() (see Deactivate()) rather than resume, since DS's Pipeline tears the stream down
+    // regardless of what we tell the SDK - but the SDK can still legitimately request a resume in
+    // other circumstances (e.g. pause via DS's own UI while remaining the active source).
+    EnsureActiveNoPrefetch();
     iPipeline.Play();
     iApp->MediaControl().NotifyPlaybackResumed();
 }
@@ -388,7 +406,7 @@ void SourceQobuzConnect::InitialiseSourceQobuzConnect()
      * the rest of the session. iBeginPending closes that window: it's set synchronously here,
      * unlike IsStreaming(), and only cleared once QobuzNotifyPlaybackStopped() confirms the
      * session has genuinely ended. */
-    if (iProtocol->IsStreaming() || iBeginPending) {
+    if ((iProtocol->IsStreaming() && iPipelineOwned) || iBeginPending) {
         return;
     }
     iBeginPending = true;
@@ -403,6 +421,7 @@ void SourceQobuzConnect::InitialiseSourceQobuzConnect()
     iPipeline.RemoveAll();
     iPipeline.Begin(iUriProvider->Mode(), iTrack->Id());
     iPipeline.Play();
+    iPipelineOwned = true;
 }
 
 void SourceQobuzConnect::Start()
