@@ -8,8 +8,13 @@
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Av/QobuzConnect/MediaControl.h>
 #include <OpenHome/Av/QobuzConnect/Metadata.h>
+#include <OpenHome/Av/VolumeManager.h>
+#include <OpenHome/Media/MuteManager.h>
+#include <OpenHome/Configuration/ConfigManager.h>
 
 #include <qobuz_connect.h>
+
+#include <atomic>
 
 namespace OpenHome {
 namespace Net {
@@ -45,12 +50,13 @@ private:
  *    works once Linn has one; nothing here can be tested against the real Qobuz service without it.
  *  - Gapless/cross-fade between tracks isn't supported (QobuzConnectAudioStream only tracks one
  *    active stream at a time - see its class comment).
- *  - Volume/mute control isn't wired up (QBZ_VOLUME_CAPABILITY_NONE is advertised).
  *  - The local config HTTP server doesn't react to network adapter changes after it starts.
  */
 class SourceQobuzConnect
     : public Source
     , public IQobuzConnectPlaybackObserver
+    , private IVolumeObserver
+    , private Media::IMuteObserver
 {
 private:
     static const TUint kStartupDelaySecs = 20; // mirrors SourceRaat's kStartupDelaySecs
@@ -79,14 +85,39 @@ private: // from IQobuzConnectPlaybackObserver
     void QobuzNotifySeekInProgress() override;
     void QobuzNotifyActiveStateChanged(TBool aActive) override;
     void QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx& aArtist, const Brx& aAlbum, const Brx& aArtworkUri) override;
+    void QobuzNotifyVolumeChanged(TUint aVolumePercent) override;
+    void QobuzNotifyMuteStateChanged(TBool aMuted) override;
+private: // from IVolumeObserver
+    void VolumeChanged(const IVolumeValue& aVolume) override;
+private: // from Media::IMuteObserver
+    void MuteChanged(TBool aValue) override;
 private:
     void InitialiseSourceQobuzConnect();
     void Start();
+    void LimitChanged(Configuration::ConfigNum::KvpNum& aKvp);
+    void PushVolume();
 private:
     UriProviderQobuzConnect* iUriProvider;
     QobuzConnectApp* iApp;
     ProtocolQobuzConnect* iProtocol;
     QobuzConnectMetadataHandler* iMetadataHandler;
+    IVolumeManager& iVolumeManager;
+    // The Controller's volume slider is always a fixed 0-100 range (see qbz_connect_set_volume),
+    // so it's scaled against the user-configured volume LIMIT (mirrors RaatVolume - see its class
+    // comment), not IVolumeProfile::VolumeMax() (the theoretical hardware max, ignoring whatever
+    // limit is currently configured) - otherwise the top of the Controller's slider range would
+    // map onto DS volume values above the configured limit, which DS's own limiter then silently
+    // clamps back down to the limit, making the last stretch of the slider a no-op.
+    Configuration::ConfigNum& iConfigLimit;
+    TUint iSubscriberIdLimit;
+    // Cached from the most recent VolumeChanged()/MuteChanged()/LimitChanged() callback (which
+    // also fire synchronously, with the current value, as soon as
+    // AddVolumeObserver()/AddMuteObserver()/ConfigNum::Subscribe() are called) - re-pushed to the
+    // SDK from QobuzNotifyActiveStateChanged() once the SDK core is guaranteed to actually exist,
+    // since those initial synchronous callbacks fire at construction time, long before it does.
+    std::atomic<TUint> iVolumeUser;
+    std::atomic<TUint> iVolumeLimit;
+    std::atomic<TBool> iMuted;
     Media::Track* iTrack;
     Media::BwsTrackMetaData iDefaultMetadata;
     Timer* iTimer;

@@ -11,6 +11,8 @@
 #include <OpenHome/Av/QobuzConnect/ProtocolQobuzConnect.h>
 #include <OpenHome/Debug-ohMediaPlayer.h>
 
+#include <algorithm>
+
 using namespace OpenHome;
 using namespace OpenHome::Av;
 using namespace OpenHome::Media;
@@ -96,6 +98,12 @@ SourceQobuzConnect::SourceQobuzConnect(
         aMediaPlayer.Pipeline(),
         false) // not visible by default, mirrors SourceRaat
     , iMetadataHandler(nullptr)
+    , iVolumeManager(aMediaPlayer.VolumeManager())
+    , iConfigLimit(aMediaPlayer.ConfigManager().GetNum(VolumeConfig::kKeyLimit))
+    , iSubscriberIdLimit(0)
+    , iVolumeUser(0)
+    , iVolumeLimit(0)
+    , iMuted(false)
     , iTrack(nullptr)
     , iBeginPending(false)
 {
@@ -144,6 +152,13 @@ SourceQobuzConnect::SourceQobuzConnect(
     iUriProvider->SetTransportStop(MakeFunctor(iApp->MediaControl(), &QobuzConnectMediaControl::TryStop));
     iPipeline.Add(iUriProvider); // transfers ownership
 
+    // Each fires synchronously, right here, with the current value - too early to reach the SDK
+    // (no core yet), but keeps iVolumeUser/iVolumeLimit/iMuted correct from construction onwards
+    // for QobuzNotifyActiveStateChanged() to push later.
+    iVolumeManager.AddVolumeObserver(*this);
+    iVolumeManager.AddMuteObserver(*this);
+    iSubscriberIdLimit = iConfigLimit.Subscribe(MakeFunctorConfigNum(*this, &SourceQobuzConnect::LimitChanged));
+
     iDefaultMetadata.Replace("<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">");
     iDefaultMetadata.Append("<item id=\"\" parentID=\"\" restricted=\"True\">");
     iDefaultMetadata.Append("<dc:title>");
@@ -159,6 +174,7 @@ SourceQobuzConnect::SourceQobuzConnect(
 
 SourceQobuzConnect::~SourceQobuzConnect()
 {
+    iConfigLimit.Unsubscribe(iSubscriberIdLimit);
     delete iTimer;
     delete iApp;
     delete iMetadataHandler; // IAsyncTrackObserver has no RemoveClient() - RAAT's equivalent handler is never unregistered either, since both live as long as the Pipeline itself
@@ -256,6 +272,12 @@ void SourceQobuzConnect::QobuzNotifyActiveStateChanged(TBool aActive)
     LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyActiveStateChanged(%u)\n", aActive);
     if (aActive) {
         EnsureActiveNoPrefetch();
+        // The SDK core is guaranteed to exist by the time any callback (including this one) can
+        // fire, unlike the AddVolumeObserver()/AddMuteObserver()/ConfigNum::Subscribe() calls in
+        // the constructor, which ran far too early to reach it - push the current values now so
+        // the Controller's volume slider/mute button start out correct rather than stale/default.
+        PushVolume();
+        iApp->MediaControl().SyncMute(iMuted.load());
     }
     // Renderer becoming inactive (aActive == false) doesn't necessarily mean playback stopped -
     // the Controller may just be switching which renderer is selected, and Qobuz Connect will
@@ -266,6 +288,67 @@ void SourceQobuzConnect::QobuzNotifyActiveStateChanged(TBool aActive)
 void SourceQobuzConnect::QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx& aArtist, const Brx& aAlbum, const Brx& aArtworkUri)
 {
     iMetadataHandler->MetadataChanged(aTitle, aArtist, aAlbum, aArtworkUri);
+}
+
+void SourceQobuzConnect::QobuzNotifyVolumeChanged(TUint aVolumePercent)
+{
+    // Controller requested a new absolute volume, in the SDK's fixed 0-100 scale - map onto DS's
+    // currently configured volume limit (not VolumeMax() - see iConfigLimit's comment), so the
+    // full width of the Controller's slider actually reaches the top of the usable range.
+    const TUint limit = iVolumeLimit.load();
+    const TUint dsVolume = (aVolumePercent * limit + 50) / 100;
+    LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyVolumeChanged(%u%%) -> %u/%u\n", aVolumePercent, dsVolume, limit);
+    try {
+        iVolumeManager.SetVolume(dsVolume);
+    }
+    catch (VolumeNotSupported&) {}
+    catch (VolumeOutOfRange&) {}
+}
+
+void SourceQobuzConnect::QobuzNotifyMuteStateChanged(TBool aMuted)
+{
+    LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyMuteStateChanged(%u)\n", aMuted);
+    if (aMuted) {
+        iVolumeManager.Mute();
+    }
+    else {
+        iVolumeManager.Unmute();
+    }
+}
+
+void SourceQobuzConnect::VolumeChanged(const IVolumeValue& aVolume)
+{
+    // DS's volume changed for some reason (Controller request, IR remote, front panel, Linn
+    // app...) - cache it and push the SDK's-scale equivalent, so the Controller's own displayed
+    // volume doesn't go stale. Cached regardless of whether it can reach the SDK yet - see
+    // QobuzNotifyActiveStateChanged().
+    iVolumeUser.store(aVolume.VolumeUser());
+    PushVolume();
+}
+
+void SourceQobuzConnect::MuteChanged(TBool aValue)
+{
+    iMuted.store(aValue);
+    iApp->MediaControl().SyncMute(aValue);
+}
+
+void SourceQobuzConnect::LimitChanged(Configuration::ConfigNum::KvpNum& aKvp)
+{
+    // The user reconfigured the volume limit - the SDK's fixed 0-100 scale now maps onto a
+    // different DS volume range, so re-derive and re-push the Controller-facing equivalent of
+    // whatever DS's current (unchanged) volume already is.
+    iVolumeLimit.store(aKvp.Value());
+    PushVolume();
+}
+
+void SourceQobuzConnect::PushVolume()
+{
+    const TUint limit = iVolumeLimit.load();
+    const TUint volUser = iVolumeUser.load();
+    // volUser can exceed limit transiently (e.g. the limit was just lowered below the current
+    // volume - DS clamps the actual output down but VolumeChanged() may not have fired yet).
+    const TUint qobuzVolume = (limit == 0) ? 0 : std::min<TUint>(100, (volUser * 100 + limit / 2) / limit);
+    iApp->MediaControl().SyncVolume(qobuzVolume);
 }
 
 void SourceQobuzConnect::InitialiseSourceQobuzConnect()

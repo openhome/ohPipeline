@@ -50,14 +50,22 @@ public:
     // "Connect" wouldn't actually connect - the user would have to manually select the source
     // on the device first, defeating the point.
     virtual void QobuzNotifyActiveStateChanged(TBool aActive) = 0;
+    // Controller (phone app) requested a new absolute volume/mute state - see
+    // QobuzConnectMediaControl::SyncVolume/SyncMute for the opposite direction (DS's own volume
+    // changing for some other reason, e.g. IR remote/front panel, needs reporting back to the SDK
+    // so the Controller's own slider stays in sync).
+    virtual void QobuzNotifyVolumeChanged(TUint aVolumePercent) = 0; // 0-100, per QbzMediaPlaybackVolumeChangedCallback
+    virtual void QobuzNotifyMuteStateChanged(TBool aMuted) = 0;
 };
 
 /**
- * Implements the SDK's Media delegate. Playback volume/mute callbacks are deliberately left
- * unset (nullptr) in the delegate struct - they're only mandatory when QbzDeviceInfo advertises
- * QBZ_VOLUME_CAPABILITY_ABSOLUTE_VOLUME, which SourceQobuzConnect doesn't (v1 scope decision:
- * wiring Qobuz Connect's volume control into DS's VolumeManager is a separate, not-yet-started
- * piece of work).
+ * Implements the SDK's Media delegate. QBZ_VOLUME_CAPABILITY_ABSOLUTE_VOLUME is advertised (see
+ * App.cpp), so playback_volume_changed_callback/playback_mute_state_changed_callback are wired up
+ * below - incoming volume/mute requests from the Controller are forwarded to
+ * IQobuzConnectPlaybackObserver (implemented by SourceQobuzConnect, which maps the SDK's 0-100
+ * scale onto DS's own VolumeManager range), and SyncVolume/SyncMute push the opposite direction
+ * (DS's current volume/mute, however it changed) back into the SDK so the Controller's displayed
+ * state doesn't go stale.
  *
  * get_playback_position_callback runs synchronously on the SDK's own uv-loop thread and must
  * return quickly (it's a direct query, not an async request like the others) - position is
@@ -86,6 +94,13 @@ public: // acks back to the SDK - called by SourceQobuzConnect once it has actua
     void NotifyPlaybackFinished(TBool aLastTrack);
     void NotifyPlaybackError();
 public:
+    // Push DS's current volume/mute (however it changed - Controller request, IR remote, front
+    // panel...) back into the SDK, so the Controller's own displayed volume stays in sync. Safe to
+    // call at any time, including before the SDK's core exists (silently dropped, matching the
+    // Notify* methods above).
+    void SyncVolume(TUint aVolumePercent); // 0-100
+    void SyncMute(TBool aMuted);
+public:
     // Wired up to DS's own UI transport controls (see UriProviderQobuzConnect in
     // SourceQobuzConnect.cpp), mirroring how UriProviderRaat's SetTransportPlay/Pause/Stop wire
     // to IRaatTransport - the SDK explicitly supports the integration layer driving these (see
@@ -105,6 +120,8 @@ public:
     static uint64_t GetPlaybackPositionCb(QbzConnectCore* aCore, void* aUserData);
     static void PlaybackStateChangedCb(QbzConnectCore* aCore, QbzPlaybackState aState, void* aUserData);
     static void ActiveStateChangedCb(QbzConnectCore* aCore, bool aActive, void* aUserData);
+    static void PlaybackVolumeChangedCb(QbzConnectCore* aCore, uint32_t aVolume, void* aUserData);
+    static void PlaybackMuteStateChangedCb(QbzConnectCore* aCore, bool aMuted, void* aUserData);
 private:
     void HandleInitiatePlayback();
     void HandlePausePlayback();
@@ -112,6 +129,8 @@ private:
     void HandleStopPlayback();
     void HandleSeekInProgress();
     void HandleActiveStateChanged();
+    void HandleVolumeChanged();
+    void HandleMuteStateChanged();
     uint64_t HandleGetPlaybackPosition();
     void ResetPositionBase(TBool aRunning);
 private:
@@ -126,8 +145,12 @@ private:
     IThreadPoolHandle* iHandleStop;
     IThreadPoolHandle* iHandleSeek;
     IThreadPoolHandle* iHandleActiveState;
+    IThreadPoolHandle* iHandleVolume;
+    IThreadPoolHandle* iHandleMute;
     QbzInitialPlaybackState iPendingInitialState;
     TBool iPendingActiveState;
+    TUint iPendingVolume;
+    TBool iPendingMuted;
     // Position tracking - see class comment.
     Mutex iLockPosition;
     uint64_t iPositionBaseMs;

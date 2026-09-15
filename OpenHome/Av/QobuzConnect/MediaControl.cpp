@@ -42,6 +42,14 @@ static void QobuzConnectMediaControl_ActiveStateChanged(QbzConnectCore* aCore, b
 {
     OpenHome::Av::QobuzConnectMediaControl::ActiveStateChangedCb(aCore, aActive, aUserData);
 }
+static void QobuzConnectMediaControl_PlaybackVolumeChanged(QbzConnectCore* aCore, uint32_t aVolume, void* aUserData)
+{
+    OpenHome::Av::QobuzConnectMediaControl::PlaybackVolumeChangedCb(aCore, aVolume, aUserData);
+}
+static void QobuzConnectMediaControl_PlaybackMuteStateChanged(QbzConnectCore* aCore, bool aMuted, void* aUserData)
+{
+    OpenHome::Av::QobuzConnectMediaControl::PlaybackMuteStateChangedCb(aCore, aMuted, aUserData);
+}
 
 } // extern "C"
 
@@ -53,6 +61,8 @@ QobuzConnectMediaControl::QobuzConnectMediaControl(IThreadPool& aThreadPool, IQo
     , iCore(nullptr)
     , iPendingInitialState(QBZ_INITIAL_PLAYBACK_STATE_PLAYING)
     , iPendingActiveState(false)
+    , iPendingVolume(0)
+    , iPendingMuted(false)
     , iLockPosition("QCM2")
     , iPositionBaseMs(0)
     , iPositionBaseTime(std::chrono::steady_clock::now())
@@ -64,6 +74,8 @@ QobuzConnectMediaControl::QobuzConnectMediaControl(IThreadPool& aThreadPool, IQo
     iHandleStop = iThreadPool.CreateHandle(MakeFunctor(*this, &QobuzConnectMediaControl::HandleStopPlayback), "QobuzConnectMediaControl-Stop", ThreadPoolPriority::High);
     iHandleSeek = iThreadPool.CreateHandle(MakeFunctor(*this, &QobuzConnectMediaControl::HandleSeekInProgress), "QobuzConnectMediaControl-Seek", ThreadPoolPriority::High);
     iHandleActiveState = iThreadPool.CreateHandle(MakeFunctor(*this, &QobuzConnectMediaControl::HandleActiveStateChanged), "QobuzConnectMediaControl-Active", ThreadPoolPriority::High);
+    iHandleVolume = iThreadPool.CreateHandle(MakeFunctor(*this, &QobuzConnectMediaControl::HandleVolumeChanged), "QobuzConnectMediaControl-Volume", ThreadPoolPriority::High);
+    iHandleMute = iThreadPool.CreateHandle(MakeFunctor(*this, &QobuzConnectMediaControl::HandleMuteStateChanged), "QobuzConnectMediaControl-Mute", ThreadPoolPriority::High);
 }
 
 QobuzConnectMediaControl::~QobuzConnectMediaControl()
@@ -74,6 +86,8 @@ QobuzConnectMediaControl::~QobuzConnectMediaControl()
     iHandleStop->Destroy();
     iHandleSeek->Destroy();
     iHandleActiveState->Destroy();
+    iHandleVolume->Destroy();
+    iHandleMute->Destroy();
 }
 
 QbzMediaDelegate QobuzConnectMediaControl::Delegate()
@@ -86,8 +100,8 @@ QbzMediaDelegate QobuzConnectMediaControl::Delegate()
     delegate.stop_playback_callback = &QobuzConnectMediaControl_StopPlayback;
     delegate.seek_in_progress_callback = &QobuzConnectMediaControl_SeekInProgress;
     delegate.get_playback_position_callback = &QobuzConnectMediaControl_GetPlaybackPosition;
-    // playback_volume_changed_callback / playback_mute_state_changed_callback deliberately left
-    // null - only mandatory if QBZ_VOLUME_CAPABILITY_ABSOLUTE_VOLUME is advertised (it isn't).
+    delegate.playback_volume_changed_callback = &QobuzConnectMediaControl_PlaybackVolumeChanged;
+    delegate.playback_mute_state_changed_callback = &QobuzConnectMediaControl_PlaybackMuteStateChanged;
     delegate.playback_state_changed_callback = &QobuzConnectMediaControl_PlaybackStateChanged;
     // maximum_audio_quality_changed_callback / playback_controls_changed_callback /
     // playback_actions_availability_changed_callback are all optional and not implemented in
@@ -205,6 +219,30 @@ void QobuzConnectMediaControl::NotifyPlaybackError()
     ResetPositionBase(false);
 }
 
+void QobuzConnectMediaControl::SyncVolume(TUint aVolumePercent)
+{
+    QbzConnectCore* core;
+    {
+        AutoMutex _(iLock);
+        core = iCore;
+    }
+    if (core != nullptr) {
+        (void)qbz_connect_set_volume(core, aVolumePercent);
+    }
+}
+
+void QobuzConnectMediaControl::SyncMute(TBool aMuted)
+{
+    QbzConnectCore* core;
+    {
+        AutoMutex _(iLock);
+        core = iCore;
+    }
+    if (core != nullptr) {
+        (void)qbz_connect_set_mute_state(core, aMuted);
+    }
+}
+
 void QobuzConnectMediaControl::TryPlay()
 {
     QbzConnectCore* core;
@@ -290,6 +328,20 @@ void QobuzConnectMediaControl::ActiveStateChangedCb(QbzConnectCore* /*aCore*/, b
     (void)self->iHandleActiveState->TrySchedule();
 }
 
+void QobuzConnectMediaControl::PlaybackVolumeChangedCb(QbzConnectCore* /*aCore*/, uint32_t aVolume, void* aUserData)
+{
+    auto* self = reinterpret_cast<QobuzConnectMediaControl*>(aUserData);
+    self->iPendingVolume = aVolume;
+    (void)self->iHandleVolume->TrySchedule();
+}
+
+void QobuzConnectMediaControl::PlaybackMuteStateChangedCb(QbzConnectCore* /*aCore*/, bool aMuted, void* aUserData)
+{
+    auto* self = reinterpret_cast<QobuzConnectMediaControl*>(aUserData);
+    self->iPendingMuted = aMuted;
+    (void)self->iHandleMute->TrySchedule();
+}
+
 void QobuzConnectMediaControl::HandleInitiatePlayback()
 {
     LOG(kQobuzConnect, "QobuzConnectMediaControl::HandleInitiatePlayback()\n");
@@ -326,6 +378,18 @@ void QobuzConnectMediaControl::HandleActiveStateChanged()
 {
     LOG(kQobuzConnect, "QobuzConnectMediaControl::HandleActiveStateChanged(%u)\n", iPendingActiveState);
     iObserver.QobuzNotifyActiveStateChanged(iPendingActiveState);
+}
+
+void QobuzConnectMediaControl::HandleVolumeChanged()
+{
+    LOG(kQobuzConnect, "QobuzConnectMediaControl::HandleVolumeChanged(%u)\n", iPendingVolume);
+    iObserver.QobuzNotifyVolumeChanged(iPendingVolume);
+}
+
+void QobuzConnectMediaControl::HandleMuteStateChanged()
+{
+    LOG(kQobuzConnect, "QobuzConnectMediaControl::HandleMuteStateChanged(%u)\n", iPendingMuted);
+    iObserver.QobuzNotifyMuteStateChanged(iPendingMuted);
 }
 
 uint64_t QobuzConnectMediaControl::HandleGetPlaybackPosition()

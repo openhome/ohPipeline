@@ -123,7 +123,7 @@ void QobuzConnectApp::QobuzThread()
     config.device_info.app_id = appId.CString();
     config.device_info.app_secret = appSecret.CString();
     config.device_info.maximum_supported_audio_quality = iMaxAudioQuality;
-    config.device_info.volume_capability = QBZ_VOLUME_CAPABILITY_NONE; // see MediaControl.h - volume wiring not implemented yet
+    config.device_info.volume_capability = QBZ_VOLUME_CAPABILITY_ABSOLUTE_VOLUME; // see MediaControl.h/SourceQobuzConnect.h for the DS VolumeManager wiring
     config.advertising_delegate = iAdvertising->Delegate();
     config.local_config_server_delegate = iLocalConfigServer->Delegate();
     config.audio_stream_delegate = iAudioStream->Delegate();
