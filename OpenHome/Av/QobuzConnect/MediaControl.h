@@ -15,17 +15,20 @@ namespace Av {
 class QobuzConnectAudioStream;
 
 /**
- * Notified when the SDK's stream_metadata_callback delivers new title/artist/album/artwork for
- * the currently playing track (see QbzAudioMetadata). Separate from IQobuzConnectPlaybackObserver
- * only so that QobuzConnectAudioStream.h (which needs this type for
- * QobuzConnectAudioStream::SetMetadataObserver()) doesn't have to depend on the rest of that
- * interface, or on this header at all - a forward declaration is enough there.
+ * Notified of QobuzConnectAudioStream-level events that need to reach QobuzConnectMediaControl/
+ * SourceQobuzConnect. Separate from IQobuzConnectPlaybackObserver only so that
+ * QobuzConnectAudioStream.h (which needs this type for QobuzConnectAudioStream::
+ * SetMetadataObserver()) doesn't have to depend on the rest of that interface, or on this header
+ * at all - a forward declaration is enough there.
  */
 class IQobuzConnectMetadataObserver
 {
 public:
     virtual ~IQobuzConnectMetadataObserver() {}
     virtual void QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx& aArtist, const Brx& aAlbum, const Brx& aArtworkUri) = 0;
+    // The SDK's stream_seeked_callback (QbzAudioStreamSeekedCallback) fired, with the new
+    // position - see QobuzConnectMediaControl::NotifySeeked().
+    virtual void QobuzNotifyStreamSeeked(uint64_t aPositionMs) = 0;
 };
 
 /**
@@ -70,10 +73,9 @@ public:
  * get_playback_position_callback runs synchronously on the SDK's own uv-loop thread and must
  * return quickly (it's a direct query, not an async request like the others) - position is
  * tracked here as a simple base value + elapsed wall-clock time since the last play/pause/stop
- * transition, recomputed on read under iLock. This is an approximation (it doesn't account for
- * actual DAC/pipeline output latency, and isn't corrected against the exact position reported by
- * QbzAudioStreamSeekedCallback after a seek - AudioStream doesn't currently thread that value
- * through here) - reasonable for a first pass, worth tightening up later.
+ * transition (or seek - see NotifySeeked()), recomputed on read under iLock. This is an
+ * approximation - it doesn't account for actual DAC/pipeline output latency - but is corrected
+ * to the exact value the SDK reports after a seek.
  */
 class QobuzConnectMediaControl
 {
@@ -93,6 +95,12 @@ public: // acks back to the SDK - called by SourceQobuzConnect once it has actua
     void NotifyPlaybackStopped();
     void NotifyPlaybackFinished(TBool aLastTrack);
     void NotifyPlaybackError();
+public:
+    // Corrects the position tracked for GetPlaybackPositionCb() to the exact value the SDK
+    // reports post-seek (QbzAudioStreamSeekedCallback), rather than leaving it wherever the
+    // pre-seek base+elapsed-time tracking left off - see SourceQobuzConnect::
+    // QobuzNotifyStreamSeeked().
+    void NotifySeeked(uint64_t aPositionMs);
 public:
     // Push DS's current volume/mute (however it changed - Controller request, IR remote, front
     // panel...) back into the SDK, so the Controller's own displayed volume stays in sync. Safe to

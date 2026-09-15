@@ -123,7 +123,7 @@ private:
     size_t HandleStreamData(QbzAudioStreamId aStreamId, const uint8_t* aData, size_t aSize);
     void HandleStreamMetadata(const QbzAudioMetadata* aMetadata);
     void HandleStreamFinished(QbzAudioStreamId aStreamId);
-    void HandleStreamSeeked(QbzAudioStreamId aStreamId);
+    void HandleStreamSeeked(QbzAudioStreamId aStreamId, uint64_t aPositionMs);
     void HandleStreamDispose(QbzAudioStreamId aStreamId);
     void AppendRepacked24In32Locked(const uint8_t* aData, TUint aSize);
 private:

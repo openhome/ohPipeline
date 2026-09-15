@@ -268,9 +268,9 @@ void QobuzConnectAudioStream::StreamFinishedCb(QbzConnectCore* /*aCore*/, QbzAud
     reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamFinished(aStreamId);
 }
 
-void QobuzConnectAudioStream::StreamSeekedCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, uint64_t /*aPositionMs*/, void* aUserData)
+void QobuzConnectAudioStream::StreamSeekedCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, uint64_t aPositionMs, void* aUserData)
 {
-    reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamSeeked(aStreamId);
+    reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamSeeked(aStreamId, aPositionMs);
 }
 
 void QobuzConnectAudioStream::StreamDisposeCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, void* aUserData)
@@ -421,19 +421,30 @@ void QobuzConnectAudioStream::HandleStreamFinished(QbzAudioStreamId aStreamId)
     iSemDataAvailable.Signal(); // wake Read() in case it's blocked waiting for more data that will never come
 }
 
-void QobuzConnectAudioStream::HandleStreamSeeked(QbzAudioStreamId aStreamId)
+void QobuzConnectAudioStream::HandleStreamSeeked(QbzAudioStreamId aStreamId, uint64_t aPositionMs)
 {
-    LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamSeeked(%llu)\n", (unsigned long long)aStreamId);
-    AutoMutex _(iLock);
-    if (aStreamId != iActiveStreamId) {
-        return;
+    LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamSeeked(%llu, %llu)\n", (unsigned long long)aStreamId, (unsigned long long)aPositionMs);
+    IQobuzConnectMetadataObserver* observer;
+    {
+        AutoMutex _(iLock);
+        if (aStreamId != iActiveStreamId) {
+            return;
+        }
+        // Any buffered audio predates the seek (QbzMediaSeekInProgressCallback is expected to
+        // have already flushed it - see QobuzConnectMediaControl) - reset finished/interrupted so
+        // fresh post-seek data can flow through Read() again.
+        iActiveStreamFinished = false;
+        iInterrupted = false;
+        iPendingCount = 0; // don't splice a leftover pre-seek partial frame onto post-seek bytes
+        observer = iMetadataObserver;
     }
-    // Any buffered audio predates the seek (QbzMediaSeekInProgressCallback is expected to have
-    // already flushed it - see QobuzConnectMediaControl) - reset finished/interrupted so fresh
-    // post-seek data can flow through Read() again.
-    iActiveStreamFinished = false;
-    iInterrupted = false;
-    iPendingCount = 0; // don't splice a leftover pre-seek partial frame onto post-seek bytes
+    if (observer != nullptr) {
+        // Without this, QobuzConnectMediaControl's position tracking (base + elapsed wall-clock
+        // time) never learns a seek happened at all - qbz_connect_get_playback_position keeps
+        // reporting the pre-seek position, so the Controller's own seek bar looked like the seek
+        // had no effect even though audio itself resumed correctly from the new position.
+        observer->QobuzNotifyStreamSeeked(aPositionMs);
+    }
 }
 
 void QobuzConnectAudioStream::HandleStreamDispose(QbzAudioStreamId aStreamId)

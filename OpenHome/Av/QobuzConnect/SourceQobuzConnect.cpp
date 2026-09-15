@@ -301,10 +301,32 @@ void SourceQobuzConnect::QobuzNotifyPlaybackStopped()
 
 void SourceQobuzConnect::QobuzNotifySeekInProgress()
 {
-    // QobuzConnectMediaControl::HandleSeekInProgress() already flushed the audio buffer
-    // (QobuzConnectAudioStream::FlushForSeek) before calling this - nothing further to do here
-    // until fresh post-seek data starts flowing and drives its own OutputStream/OutputData calls
-    // the normal way.
+    // QobuzConnectMediaControl::HandleSeekInProgress() already flushed AudioStream's own
+    // upstream buffer (QobuzConnectAudioStream::FlushForSeek) - but that alone isn't enough:
+    // ProtocolQobuzConnect::Stream()'s inner Read loop doesn't itself exit for a mid-stream seek
+    // (same stream id, no dispose/replace), so whatever audio was already handed downstream to
+    // the Pipeline (iSupply->OutputData(), before the seek was requested) stays queued there and
+    // plays out to completion before any post-seek audio does.
+    //
+    // FlushAsync() registers a flush id before interrupting the reader, so that once the
+    // interrupted Read() throws and Stream()'s Flush() section runs, it emits a proper
+    // OutputFlush() - a message-based signal that discards that queued downstream audio far
+    // faster than waiting for it to drain in real time. iPipeline.Wait(flushId) blocks until
+    // that's confirmed (mirroring QobuzNotifyPlaybackStopped()'s existing pattern) before
+    // NotifySetup()/NotifyStart() wake Stream()'s outer loop back into a fresh Read loop for the
+    // post-seek data. Skipping the flush/wait step and only interrupting+resyncing left
+    // Stream()'s subsequent OutputDrain() call with nothing to synchronise against, so it simply
+    // blocked for the full ISupply::kMaxDrainMs (5000ms - the exact delay observed on hardware)
+    // before timing out and proceeding anyway.
+    if (iActive) {
+        const TUint flushId = iProtocol->FlushAsync();
+        iApp->Reader().Interrupt();
+        if (flushId != Media::MsgFlush::kIdInvalid) {
+            iPipeline.Wait(flushId);
+        }
+        iProtocol->NotifySetup();
+        iProtocol->NotifyStart();
+    }
 }
 
 void SourceQobuzConnect::QobuzNotifyActiveStateChanged(TBool aActive)
@@ -328,6 +350,11 @@ void SourceQobuzConnect::QobuzNotifyActiveStateChanged(TBool aActive)
 void SourceQobuzConnect::QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx& aArtist, const Brx& aAlbum, const Brx& aArtworkUri)
 {
     iMetadataHandler->MetadataChanged(aTitle, aArtist, aAlbum, aArtworkUri);
+}
+
+void SourceQobuzConnect::QobuzNotifyStreamSeeked(uint64_t aPositionMs)
+{
+    iApp->MediaControl().NotifySeeked(aPositionMs);
 }
 
 void SourceQobuzConnect::QobuzNotifyVolumeChanged(TUint aVolumePercent)

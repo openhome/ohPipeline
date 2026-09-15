@@ -86,6 +86,7 @@ private: // from IQobuzConnectPlaybackObserver
     void QobuzNotifySeekInProgress() override;
     void QobuzNotifyActiveStateChanged(TBool aActive) override;
     void QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx& aArtist, const Brx& aAlbum, const Brx& aArtworkUri) override;
+    void QobuzNotifyStreamSeeked(uint64_t aPositionMs) override;
     void QobuzNotifyVolumeChanged(TUint aVolumePercent) override;
     void QobuzNotifyMuteStateChanged(TBool aMuted) override;
 private: // from IVolumeObserver

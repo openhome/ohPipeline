@@ -219,6 +219,18 @@ void QobuzConnectMediaControl::NotifyPlaybackError()
     ResetPositionBase(false);
 }
 
+void QobuzConnectMediaControl::NotifySeeked(uint64_t aPositionMs)
+{
+    // Unlike ResetPositionBase() (which accumulates elapsed time onto the existing base for a
+    // play/pause/stop transition), a seek jumps to an arbitrary new position unrelated to
+    // whatever the base/elapsed tracking previously held - it must be replaced outright, not
+    // accumulated onto. iPositionRunning is left as-is: a seek doesn't itself start or stop
+    // playback.
+    AutoMutex _(iLockPosition);
+    iPositionBaseMs = aPositionMs;
+    iPositionBaseTime = std::chrono::steady_clock::now();
+}
+
 void QobuzConnectMediaControl::SyncVolume(TUint aVolumePercent)
 {
     QbzConnectCore* core;
