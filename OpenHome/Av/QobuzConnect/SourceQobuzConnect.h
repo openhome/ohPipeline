@@ -7,6 +7,7 @@
 #include <OpenHome/Media/ClockPuller.h>
 #include <OpenHome/Av/Source.h>
 #include <OpenHome/Av/QobuzConnect/MediaControl.h>
+#include <OpenHome/Av/QobuzConnect/Metadata.h>
 
 #include <qobuz_connect.h>
 
@@ -42,8 +43,6 @@ private:
  * this is a first pass at proving the design, not a finished feature):
  *  - No real Qobuz-issued app ID/secret exists yet - whatever's passed in at construction only
  *    works once Linn has one; nothing here can be tested against the real Qobuz service without it.
- *  - "Now playing" metadata (title/artist/album/artwork) from stream_metadata_callback isn't
- *    surfaced - see the TODO in AudioStream.cpp.
  *  - Gapless/cross-fade between tracks isn't supported (QobuzConnectAudioStream only tracks one
  *    active stream at a time - see its class comment).
  *  - Volume/mute control isn't wired up (QBZ_VOLUME_CAPABILITY_NONE is advertised).
@@ -79,6 +78,7 @@ private: // from IQobuzConnectPlaybackObserver
     void QobuzNotifyPlaybackStopped() override;
     void QobuzNotifySeekInProgress() override;
     void QobuzNotifyActiveStateChanged(TBool aActive) override;
+    void QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx& aArtist, const Brx& aAlbum, const Brx& aArtworkUri) override;
 private:
     void InitialiseSourceQobuzConnect();
     void Start();
@@ -86,6 +86,7 @@ private:
     UriProviderQobuzConnect* iUriProvider;
     QobuzConnectApp* iApp;
     ProtocolQobuzConnect* iProtocol;
+    QobuzConnectMetadataHandler* iMetadataHandler;
     Media::Track* iTrack;
     Media::BwsTrackMetaData iDefaultMetadata;
     Timer* iTimer;

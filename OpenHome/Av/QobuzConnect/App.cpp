@@ -46,6 +46,7 @@ QobuzConnectApp::QobuzConnectApp(
     , iStarted(false)
 {
     iAudioStream = new QobuzConnectAudioStream();
+    iAudioStream->SetMetadataObserver(aPlaybackObserver); // IQobuzConnectPlaybackObserver derives from IQobuzConnectMetadataObserver
     iMediaControl = new QobuzConnectMediaControl(aMediaPlayer.ThreadPool(), aPlaybackObserver, *iAudioStream);
     iLocalConfigServer = new QobuzConnectLocalConfigServer(
         aMediaPlayer.Env(), iAppId, iDeviceName, iManufacturer, iModel, iSerialNumber, iDeviceType, iMaxAudioQuality);

@@ -14,6 +14,8 @@ EXCEPTION(QobuzConnectAudioStreamStopped)
 namespace OpenHome {
 namespace Av {
 
+class IQobuzConnectMetadataObserver; // see MediaControl.h - only a reference to this is needed here
+
 class IQobuzConnectAudioWriter
 {
 public:
@@ -94,6 +96,9 @@ public:
 public:
     QbzAudioStreamDelegate Delegate();
     void SetCore(QbzConnectCore* aCore);
+    // Optional - if never called, metadata callbacks are simply logged and dropped (matching
+    // this class's pre-existing behaviour). Called once by QobuzConnectApp at construction.
+    void SetMetadataObserver(IQobuzConnectMetadataObserver& aObserver);
 public: // from IQobuzConnectAudioReader
     const QobuzConnectStreamFormat& StreamFormat() override;
     void NotifyReading() override;
@@ -116,6 +121,7 @@ public:
 private:
     void HandleStreamStarted(QbzAudioStreamId aStreamId, const QbzAudioStreamProperties& aProperties);
     size_t HandleStreamData(QbzAudioStreamId aStreamId, const uint8_t* aData, size_t aSize);
+    void HandleStreamMetadata(const QbzAudioMetadata* aMetadata);
     void HandleStreamFinished(QbzAudioStreamId aStreamId);
     void HandleStreamSeeked(QbzAudioStreamId aStreamId);
     void HandleStreamDispose(QbzAudioStreamId aStreamId);
@@ -123,6 +129,7 @@ private:
 private:
     QbzConnectCore* iCore;
     QobuzConnectStreamFormat iStreamFormat;
+    IQobuzConnectMetadataObserver* iMetadataObserver; // not owned; nullptr until SetMetadataObserver() is called
     Mutex iLock;
     Semaphore iSemDataAvailable;
     std::deque<Bwh*> iChunks;

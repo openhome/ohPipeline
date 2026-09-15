@@ -15,12 +15,26 @@ namespace Av {
 class QobuzConnectAudioStream;
 
 /**
+ * Notified when the SDK's stream_metadata_callback delivers new title/artist/album/artwork for
+ * the currently playing track (see QbzAudioMetadata). Separate from IQobuzConnectPlaybackObserver
+ * only so that QobuzConnectAudioStream.h (which needs this type for
+ * QobuzConnectAudioStream::SetMetadataObserver()) doesn't have to depend on the rest of that
+ * interface, or on this header at all - a forward declaration is enough there.
+ */
+class IQobuzConnectMetadataObserver
+{
+public:
+    virtual ~IQobuzConnectMetadataObserver() {}
+    virtual void QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx& aArtist, const Brx& aAlbum, const Brx& aArtworkUri) = 0;
+};
+
+/**
  * Notified (always via IThreadPool - see QobuzConnectMediaControl/QobuzConnectAudioStream's use
  * of RaatPluginAsync-style handle scheduling) when the SDK wants playback state to change.
  * Implemented by SourceQobuzConnect, which owns the actual Pipeline/ProtocolQobuzConnect
  * objects these map onto.
  */
-class IQobuzConnectPlaybackObserver
+class IQobuzConnectPlaybackObserver : public IQobuzConnectMetadataObserver
 {
 public:
     virtual ~IQobuzConnectPlaybackObserver() {}

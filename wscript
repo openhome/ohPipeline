@@ -607,6 +607,7 @@ def build(bld):
                     'OpenHome/Av/QobuzConnect/LocalConfigServer.cpp',
                     'OpenHome/Av/QobuzConnect/AudioStream.cpp',
                     'OpenHome/Av/QobuzConnect/MediaControl.cpp',
+                    'OpenHome/Av/QobuzConnect/Metadata.cpp',
                     'OpenHome/Av/QobuzConnect/Logging.cpp',
                     'OpenHome/Av/QobuzConnect/ProtocolQobuzConnect.cpp',
                     'OpenHome/Av/QobuzConnect/SourceQobuzConnect.cpp'

@@ -95,6 +95,7 @@ SourceQobuzConnect::SourceQobuzConnect(
         SourceFactory::kSourceTypeQobuzConnect,
         aMediaPlayer.Pipeline(),
         false) // not visible by default, mirrors SourceRaat
+    , iMetadataHandler(nullptr)
     , iTrack(nullptr)
     , iBeginPending(false)
 {
@@ -114,6 +115,8 @@ SourceQobuzConnect::SourceQobuzConnect(
     }
 
     const Brx& uniqueDeviceId = aMediaPlayer.Device().Udn();
+
+    iMetadataHandler = new QobuzConnectMetadataHandler(aMediaPlayer.Pipeline().AsyncTrackObserver());
 
     iApp = new QobuzConnectApp(
         aMediaPlayer,
@@ -158,6 +161,7 @@ SourceQobuzConnect::~SourceQobuzConnect()
 {
     delete iTimer;
     delete iApp;
+    delete iMetadataHandler; // IAsyncTrackObserver has no RemoveClient() - RAAT's equivalent handler is never unregistered either, since both live as long as the Pipeline itself
     if (iTrack != nullptr) {
         iTrack->RemoveRef();
     }
@@ -257,6 +261,11 @@ void SourceQobuzConnect::QobuzNotifyActiveStateChanged(TBool aActive)
     // the Controller may just be switching which renderer is selected, and Qobuz Connect will
     // separately call stop_playback_callback if it actually wants playback to stop - so there's
     // deliberately nothing to do here in that case.
+}
+
+void SourceQobuzConnect::QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx& aArtist, const Brx& aAlbum, const Brx& aArtworkUri)
+{
+    iMetadataHandler->MetadataChanged(aTitle, aArtist, aAlbum, aArtworkUri);
 }
 
 void SourceQobuzConnect::InitialiseSourceQobuzConnect()

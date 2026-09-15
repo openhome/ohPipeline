@@ -1,4 +1,5 @@
 #include <OpenHome/Av/QobuzConnect/AudioStream.h>
+#include <OpenHome/Av/QobuzConnect/MediaControl.h>
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Thread.h>
@@ -93,6 +94,7 @@ static void QobuzConnectAudioStream_StreamDispose(QbzConnectCore* aCore, QbzAudi
 
 QobuzConnectAudioStream::QobuzConnectAudioStream()
     : iCore(nullptr)
+    , iMetadataObserver(nullptr)
     , iLock("QCAS")
     , iSemDataAvailable("QCAD", 0)
     , iBufferedBytes(0)
@@ -131,6 +133,12 @@ void QobuzConnectAudioStream::SetCore(QbzConnectCore* aCore)
 {
     AutoMutex _(iLock);
     iCore = aCore;
+}
+
+void QobuzConnectAudioStream::SetMetadataObserver(IQobuzConnectMetadataObserver& aObserver)
+{
+    AutoMutex _(iLock);
+    iMetadataObserver = &aObserver;
 }
 
 const QobuzConnectStreamFormat& QobuzConnectAudioStream::StreamFormat()
@@ -250,14 +258,9 @@ size_t QobuzConnectAudioStream::StreamDataCb(QbzConnectCore* /*aCore*/, QbzAudio
     return reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamData(aStreamId, aData, aSize);
 }
 
-void QobuzConnectAudioStream::StreamMetadataCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId /*aStreamId*/, const QbzAudioMetadata* aMetadata, void* /*aUserData*/)
+void QobuzConnectAudioStream::StreamMetadataCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId /*aStreamId*/, const QbzAudioMetadata* aMetadata, void* aUserData)
 {
-    // TODO: surface title/artist/album/album_art_url as "now playing" metadata. Not wired up in
-    // this first pass - see SourceQobuzConnect for where a DIDL-Lite equivalent to RAAT's
-    // iDefaultMetadata would need to be rebuilt and pushed via iUriProvider->SetTrack().
-    if (aMetadata != nullptr && aMetadata->title != nullptr) {
-        LOG(kQobuzConnect, "QobuzConnectAudioStream: metadata title=%s\n", aMetadata->title);
-    }
+    reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamMetadata(aMetadata);
 }
 
 void QobuzConnectAudioStream::StreamFinishedCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, void* aUserData)
@@ -378,6 +381,33 @@ void QobuzConnectAudioStream::AppendRepacked24In32Locked(const uint8_t* aData, T
     if (iPendingCount > 0) {
         memcpy(iPendingBytes, &combined[outBytes], iPendingCount);
     }
+}
+
+void QobuzConnectAudioStream::HandleStreamMetadata(const QbzAudioMetadata* aMetadata)
+{
+    if (aMetadata == nullptr) {
+        return;
+    }
+    LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamMetadata title=%s\n",
+        (aMetadata->title != nullptr) ? aMetadata->title : "");
+
+    IQobuzConnectMetadataObserver* observer;
+    {
+        AutoMutex _(iLock);
+        observer = iMetadataObserver;
+    }
+    if (observer == nullptr) {
+        return;
+    }
+    // Brn() only ever aliases the given char*'s existing storage (the SDK's own metadata struct,
+    // valid only for the duration of this callback) - safe here since the observer chain
+    // (SourceQobuzConnect::QobuzNotifyMetadataChanged -> QobuzConnectMetadataHandler::
+    // MetadataChanged) copies whatever it wants to keep before returning.
+    observer->QobuzNotifyMetadataChanged(
+        (aMetadata->title != nullptr) ? Brn(aMetadata->title) : Brx::Empty(),
+        (aMetadata->artist != nullptr) ? Brn(aMetadata->artist) : Brx::Empty(),
+        (aMetadata->album != nullptr) ? Brn(aMetadata->album) : Brx::Empty(),
+        (aMetadata->album_art_url != nullptr) ? Brn(aMetadata->album_art_url) : Brx::Empty());
 }
 
 void QobuzConnectAudioStream::HandleStreamFinished(QbzAudioStreamId aStreamId)
