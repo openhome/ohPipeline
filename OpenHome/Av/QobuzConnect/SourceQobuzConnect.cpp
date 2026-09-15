@@ -189,6 +189,24 @@ void SourceQobuzConnect::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
     InitialiseSourceQobuzConnect();
 }
 
+void SourceQobuzConnect::Deactivate()
+{
+    // DS switched to a different source while Qobuz Connect was playing - ask the SDK to pause,
+    // so the Controller (phone app) reflects reality rather than continuing to show playback in
+    // progress.
+    //
+    // This has to be TryPause() (which properly requests a pause via qbz_connect_pause_playback,
+    // queued through the SDK's own state machine), not a direct NotifyPlaybackPaused() call -
+    // calling that "ack" out of band, without a preceding pause_playback_callback to confirm,
+    // gets rejected by the SDK ("Received unexpected 'playback paused' notification" observed on
+    // hardware). The actual confirmation back to the Controller happens once the SDK calls back
+    // pause_playback_callback asynchronously - see QobuzNotifyPlaybackPaused()'s comment for why
+    // that still works correctly even though iActive is about to become false below.
+    LOG(kQobuzConnect, "SourceQobuzConnect::Deactivate()\n");
+    iApp->MediaControl().TryPause();
+    SourceBase::Deactivate();
+}
+
 void SourceQobuzConnect::PipelineStopped()
 {
 }
@@ -230,10 +248,14 @@ void SourceQobuzConnect::QobuzNotifyPlaybackInitiated(TBool aStartPaused)
 
 void SourceQobuzConnect::QobuzNotifyPlaybackPaused()
 {
-    if (!iActive) {
-        return;
+    // iPipeline is only ours to touch while we're the active DS source - but the SDK still needs
+    // acknowledging regardless, since this callback can legitimately arrive after Deactivate()
+    // already flipped iActive to false (it's the async confirmation of the TryPause() request
+    // Deactivate() made while still active - see its comment). Skipping the ack in that case is
+    // what caused the Controller to keep showing "playing" after a DS-side source switch.
+    if (iActive) {
+        iPipeline.Pause();
     }
-    iPipeline.Pause();
     iApp->MediaControl().NotifyPlaybackPaused();
 }
 

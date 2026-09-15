@@ -73,6 +73,7 @@ public:
     ~SourceQobuzConnect();
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
+    void Deactivate() override;
     void PipelineStopped() override;
     TBool TryActivateNoPrefetch(const Brx& aMode) override;
     void StandbyEnabled() override;
