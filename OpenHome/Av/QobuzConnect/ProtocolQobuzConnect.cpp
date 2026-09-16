@@ -115,6 +115,23 @@ Media::ProtocolStreamResult ProtocolQobuzConnect::Stream(const Brx& aUri)
                 continue; // wait for NotifyStart() before actually pumping audio
             }
 
+            // NotifySetup() and NotifyStart() are always signalled as a pair (see their call
+            // sites), and are meant to wake this loop twice in turn - once to announce the
+            // stream (iSetup still true, looped back above), once more to actually start reading
+            // it. But both are sent from the same calling context, moments apart - if they both
+            // land before this loop ever gets round to waiting on iSemStateChange, the single
+            // Wait() call above only consumes ONE of the two signals, yet iSetup already reads
+            // false here (NotifyStart() already ran) - leaving the other one's count still
+            // "banked" in the semaphore rather than vanishing. Left there, it doesn't stay inert:
+            // it silently satisfies some later, unrelated Wait() call instead - specifically, the
+            // very next stream transition's, which then sails through this whole block
+            // immediately using whatever format happened to be left over from the stream that
+            // was active before that, well before HandleStreamStarted() has told AudioStream
+            // about the new one's real format. Confirmed on hardware as a wrong-format/garbled
+            // (or wrong-speed) audio bug on the track after next. Clearing here discards that
+            // surplus at its actual source, rather than letting it mislead a future wait.
+            iSemStateChange.Clear();
+
             // Stream
             LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: entering Read loop\n");
             iState.store(EStreamState::eStreaming);

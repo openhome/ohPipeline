@@ -409,11 +409,25 @@ void SourceQobuzConnect::QobuzNotifyStreamStarted()
 {
     if (iAutoAdvancePending.exchange(false)) {
         // This is the auto-advanced stream QobuzNotifyStreamFinished() told the SDK to expect -
-        // audio itself is already flowing (AudioStream/ProtocolQobuzConnect need no help here,
-        // unlike a source switch or seek), but the SDK's own "now playing" state - and hence the
-        // Controller's display - won't move on from the previous track until this is
-        // acknowledged.
+        // but unlike an explicit track change, no initiate_playback_callback arrives for it, so
+        // nothing else tells ProtocolQobuzConnect to re-announce a fresh pipeline stream for it.
+        // NotifySetup()/NotifyStart() do exactly that here, mirroring QobuzNotifyStreamReady()/
+        // QobuzNotifyPlaybackInitiated()'s explicit-track-change path - safe to call this way
+        // round (both together, rather than Setup now and Start once the SDK's own ack lands)
+        // because QobuzConnectAudioStream has already updated its format to match this stream by
+        // the time this runs (HandleStreamStarted()/HandleStreamDispose()'s promotion both do
+        // that before calling this), so ProtocolQobuzConnect::Stream() is guaranteed to read the
+        // right one once it wakes - unlike relying on it merely inheriting whatever signal
+        // happened to be left over from an earlier, unrelated transition (see Stream()'s comment
+        // on iSemStateChange.Clear() for what that led to).
+        //
+        // The SDK's own "now playing" state - and hence the Controller's display - also won't
+        // move on from the previous track until the ack below is sent.
         LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyStreamStarted() - acknowledging auto-advanced stream\n");
+        if (iActive) {
+            iProtocol->NotifySetup();
+            iProtocol->NotifyStart();
+        }
         const auto& format = iApp->Reader().StreamFormat();
         iApp->MediaControl().NotifyPlaybackInitiated(format.SampleRate(), format.BitDepth(), format.NumChannels(), false, iApp->Reader().InitialPositionMs());
     }
