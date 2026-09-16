@@ -29,6 +29,22 @@ public:
     // The SDK's stream_seeked_callback (QbzAudioStreamSeekedCallback) fired, with the new
     // position - see QobuzConnectMediaControl::NotifySeeked().
     virtual void QobuzNotifyStreamSeeked(uint64_t aPositionMs) = 0;
+    // The SDK's stream_finished_callback (QbzAudioStreamFinishedCallback) fired: the active
+    // stream has delivered all its audio data (the track reached its natural end, as opposed to
+    // being paused/stopped/seeked). See QobuzConnectMediaControl::NotifyPlaybackFinished() - the
+    // SDK won't hand over the next track's audio on its own; this must be acknowledged first.
+    virtual void QobuzNotifyStreamFinished() = 0;
+    // The SDK's stream_started_callback (QbzAudioStreamStartedCallback) fired for a new stream.
+    // For a Controller/UI-initiated track change this arrives alongside an explicit
+    // initiate_playback_callback (handled via QobuzNotifyStreamReady()/
+    // QobuzNotifyPlaybackInitiated()) - but per the SDK README (4.2.2, and
+    // qbz_connect_notify_playback_finished's doc comment), when the integration layer itself
+    // continues automatically after QobuzNotifyStreamFinished(), no such callback follows: the
+    // implementation is responsible for calling qbz_connect_notify_playback_initiated once this
+    // fires for the auto-advanced stream. Without that, audio itself keeps playing correctly, but
+    // the SDK's own "now playing" state - and hence the Controller's display - never advances
+    // past the previous track.
+    virtual void QobuzNotifyStreamStarted() = 0;
 };
 
 /**

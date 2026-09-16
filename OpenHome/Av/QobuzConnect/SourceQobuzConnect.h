@@ -87,6 +87,8 @@ private: // from IQobuzConnectPlaybackObserver
     void QobuzNotifyActiveStateChanged(TBool aActive) override;
     void QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx& aArtist, const Brx& aAlbum, const Brx& aArtworkUri) override;
     void QobuzNotifyStreamSeeked(uint64_t aPositionMs) override;
+    void QobuzNotifyStreamFinished() override;
+    void QobuzNotifyStreamStarted() override;
     void QobuzNotifyVolumeChanged(TUint aVolumePercent) override;
     void QobuzNotifyMuteStateChanged(TBool aMuted) override;
 private: // from IVolumeObserver
@@ -132,6 +134,11 @@ private:
     // so a reactivation racing in during that window still re-issues Pipeline::Begin() rather
     // than being incorrectly skipped.
     TBool iPipelineOwned;
+    // Set when QobuzNotifyStreamFinished() tells the SDK it will continue automatically (no
+    // initiate_playback_callback follows for that case - see QobuzNotifyStreamStarted()'s
+    // comment); consumed (and cleared) by the next QobuzNotifyStreamStarted(), which is then
+    // responsible for acknowledging that auto-advanced stream itself.
+    std::atomic<TBool> iAutoAdvancePending;
 };
 
 }

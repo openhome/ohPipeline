@@ -107,6 +107,7 @@ SourceQobuzConnect::SourceQobuzConnect(
     , iTrack(nullptr)
     , iBeginPending(false)
     , iPipelineOwned(false)
+    , iAutoAdvancePending(false)
 {
     // Grab the device's current friendly/room name once, up front (RegisterFriendlyNameObserver
     // calls back synchronously with the current value - see FriendlyNameManager::
@@ -239,6 +240,11 @@ void SourceQobuzConnect::StandbyEnabled()
 void SourceQobuzConnect::QobuzNotifyStreamReady()
 {
     LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyStreamReady()\n");
+    // An explicit initiate_playback_callback is on its way for this transition (that's what led
+    // here), so QobuzNotifyStreamStarted() doesn't need to self-acknowledge it as an auto-advance
+    // - clear defensively in case an auto-advance signalled moments earlier hasn't been consumed
+    // yet.
+    iAutoAdvancePending.store(false);
     EnsureActiveNoPrefetch();
     InitialiseSourceQobuzConnect();
     iProtocol->NotifySetup();
@@ -312,20 +318,22 @@ void SourceQobuzConnect::QobuzNotifySeekInProgress()
     // interrupted Read() throws and Stream()'s Flush() section runs, it emits a proper
     // OutputFlush() - a message-based signal that discards that queued downstream audio far
     // faster than waiting for it to drain in real time. iPipeline.Wait(flushId) blocks until
-    // that's confirmed (mirroring QobuzNotifyPlaybackStopped()'s existing pattern) before
-    // NotifySetup()/NotifyStart() wake Stream()'s outer loop back into a fresh Read loop for the
-    // post-seek data. Skipping the flush/wait step and only interrupting+resyncing left
-    // Stream()'s subsequent OutputDrain() call with nothing to synchronise against, so it simply
-    // blocked for the full ISupply::kMaxDrainMs (5000ms - the exact delay observed on hardware)
-    // before timing out and proceeding anyway.
+    // that's confirmed (mirroring QobuzNotifyPlaybackStopped()'s existing pattern).
+    //
+    // Deliberately NOT resyncing the Read loop here (no NotifySetup()/NotifyStart()) - the seek
+    // itself is still in progress at this point, so iInterrupted won't be cleared until
+    // QobuzNotifyStreamSeeked() fires once it actually completes (see
+    // QobuzConnectAudioStream::HandleStreamSeeked). Resyncing this early raced against that: the
+    // reader kept re-entering and immediately aborting its Read loop while iInterrupted was still
+    // set, each time announcing a spurious new stream to the Pipeline (confirmed on hardware -
+    // several such cycles before the real post-seek data arrived), leaving playback silent
+    // afterwards rather than resuming cleanly - the exact symptom reported.
     if (iActive) {
         const TUint flushId = iProtocol->FlushAsync();
         iApp->Reader().Interrupt();
         if (flushId != Media::MsgFlush::kIdInvalid) {
             iPipeline.Wait(flushId);
         }
-        iProtocol->NotifySetup();
-        iProtocol->NotifyStart();
     }
 }
 
@@ -355,6 +363,60 @@ void SourceQobuzConnect::QobuzNotifyMetadataChanged(const Brx& aTitle, const Brx
 void SourceQobuzConnect::QobuzNotifyStreamSeeked(uint64_t aPositionMs)
 {
     iApp->MediaControl().NotifySeeked(aPositionMs);
+    // The seek has now actually completed - QobuzConnectAudioStream::HandleStreamSeeked() has
+    // just cleared iInterrupted (under lock, before this observer call), so it's now safe to wake
+    // ProtocolQobuzConnect::Stream()'s outer loop back into a fresh Read loop for the post-seek
+    // data. See QobuzNotifySeekInProgress()'s comment for why this can't happen any earlier.
+    if (iActive) {
+        iProtocol->NotifySetup();
+        iProtocol->NotifyStart();
+    }
+}
+
+void SourceQobuzConnect::QobuzNotifyStreamFinished()
+{
+    // Tracks reaching their natural end require this before the SDK will hand over the next
+    // one - see qbz_connect_notify_playback_finished's doc comment. aLastTrack is always false:
+    // Qobuz owns the play queue, not us, so we're never actually in a position to know this is
+    // the last track - if it genuinely is, the SDK presumably has its own way of concluding that
+    // (e.g. simply not starting a new stream) rather than needing us to predict it up front.
+    //
+    // Per the SDK README (4.2.2): when we say "not the last track", the SDK expects us to
+    // continue playing automatically and call qbz_connect_notify_playback_initiated ourselves
+    // once that next stream actually starts - no initiate_playback_callback arrives for it, since
+    // the SDK isn't the one initiating it. QobuzNotifyStreamStarted() does that once the
+    // corresponding stream_started_callback confirms the auto-advanced stream is under way.
+    //
+    // This callback means the SDK has finished DECODING/DELIVERING the track's audio, not that DS
+    // has finished PLAYING it - so the Controller's "now playing" display can move on a few
+    // seconds before the previous track's buffered tail actually finishes being heard (most
+    // noticeable after seeking near the end of a track). Tried deferring this ack to close that
+    // gap (estimating, from position+duration, how much longer the tail has left) - but hardware
+    // testing showed the SDK doesn't actually wait for this ack before moving on to the next
+    // stream's data itself (HandleStreamStarted() for the next stream was observed arriving well
+    // before a several-second-delayed ack), so delaying just left this call arriving once the SDK
+    // considered a *different* stream active, which it doesn't expect (see the "not FINISHED"
+    // QBZ_ERROR_UNEXPECTED_REQUEST behaviour mentioned in the SDK's release notes) - confirmed on
+    // hardware as a straightforward "no audio after a track finishes" regression. Acknowledging
+    // immediately, as here, is the only timing the SDK reliably accepts; the display-lag cosmetic
+    // issue is left unfixed rather than risk that again.
+    LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyStreamFinished()\n");
+    iApp->MediaControl().NotifyPlaybackFinished(false);
+    iAutoAdvancePending.store(true);
+}
+
+void SourceQobuzConnect::QobuzNotifyStreamStarted()
+{
+    if (iAutoAdvancePending.exchange(false)) {
+        // This is the auto-advanced stream QobuzNotifyStreamFinished() told the SDK to expect -
+        // audio itself is already flowing (AudioStream/ProtocolQobuzConnect need no help here,
+        // unlike a source switch or seek), but the SDK's own "now playing" state - and hence the
+        // Controller's display - won't move on from the previous track until this is
+        // acknowledged.
+        LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyStreamStarted() - acknowledging auto-advanced stream\n");
+        const auto& format = iApp->Reader().StreamFormat();
+        iApp->MediaControl().NotifyPlaybackInitiated(format.SampleRate(), format.BitDepth(), format.NumChannels(), false);
+    }
 }
 
 void SourceQobuzConnect::QobuzNotifyVolumeChanged(TUint aVolumePercent)

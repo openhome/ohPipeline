@@ -7,6 +7,7 @@
 
 #include <qobuz_connect.h>
 
+#include <chrono>
 #include <deque>
 
 EXCEPTION(QobuzConnectAudioStreamStopped)
@@ -90,6 +91,11 @@ private:
     // Bounds how much undecoded audio we'll buffer before applying backpressure (returning
     // less than the full size from the data callback, per the SDK's documented contract).
     static const TUint kMaxBufferBytes = 256 * 1024;
+    // How far ahead of real playback time Read() is allowed to hand audio to the Pipeline - see
+    // Read()'s comment. A jitter cushion, not a hard cap - just needs to comfortably absorb
+    // normal network/decode timing variance without reintroducing a large gap between the SDK's
+    // "stream finished" notion and when that stream's audio is actually audible.
+    static const TUint kPacingLookaheadMs = 1500;
 public:
     QobuzConnectAudioStream();
     ~QobuzConnectAudioStream();
@@ -136,9 +142,20 @@ private:
     TUint iBufferedBytes;
     QbzAudioStreamId iActiveStreamId; // 0 == none active
     QbzAudioStreamId iResumeStreamId; // non-zero once backpressure has been applied and resume is owed
+    // Non-zero once a stream_started_callback arrives for a stream while another is still active
+    // (the SDK's gapless-preload mechanism - see HandleStreamStarted()'s comment). Held here
+    // rather than adopted immediately, and promoted to iActiveStreamId once the current stream is
+    // disposed - see HandleStreamDispose().
+    QbzAudioStreamId iPendingStreamId;
+    QbzAudioFormat iPendingStreamFormat; // valid iff iPendingStreamId != 0
     QbzAudioStreamId iReadingForStreamId; // snapshot of iActiveStreamId taken by NotifyReading() - see that method's doc comment
     TBool iActiveStreamFinished; // active stream has delivered all its data - Read() returns once the buffer drains
     TBool iInterrupted;
+    // Real-time pacing state for the active stream - see Read()'s comment. Reset whenever the
+    // active stream (re)starts delivering data from a known point in time: a fresh stream
+    // (HandleStreamStarted) or immediately after a seek completes (HandleStreamSeeked).
+    std::chrono::steady_clock::time_point iReadStartTime;
+    double iDeliveredMs; // audio-time handed to the Pipeline so far, relative to iReadStartTime
     TByte iPendingBytes[3]; // leftover bytes from the tail of a 24-in-32 frame split across HandleStreamData calls
     TUint iPendingCount; // 0-3, how many of iPendingBytes are valid
 };

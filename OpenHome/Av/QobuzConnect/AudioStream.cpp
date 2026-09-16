@@ -100,9 +100,13 @@ QobuzConnectAudioStream::QobuzConnectAudioStream()
     , iBufferedBytes(0)
     , iActiveStreamId(0)
     , iResumeStreamId(0)
+    , iPendingStreamId(0)
+    , iPendingStreamFormat()
     , iReadingForStreamId(0)
     , iActiveStreamFinished(false)
     , iInterrupted(false)
+    , iReadStartTime(std::chrono::steady_clock::now())
+    , iDeliveredMs(0.0)
     , iPendingCount(0)
 {
 }
@@ -196,6 +200,28 @@ void QobuzConnectAudioStream::Read(IQobuzConnectAudioWriter& aWriter)
         return; // spurious wake (e.g. two Read() calls raced on the same signal) - caller loops back in
     }
 
+    // Pace hand-off to the Pipeline to roughly track real playback time. Per the SDK README
+    // (4.2.1), the integrator is "completely in control of the audio data delivery speed" -
+    // HandleStreamData's own buffer-cap backpressure only bounds how far the SDK gets ahead of
+    // US, not how far WE get ahead of the DAC. Nothing else in this chain is time-paced, so
+    // without this, a whole track's worth of audio can be (and was, confirmed on hardware) handed
+    // to the Pipeline tens of seconds before it's actually audible - well before
+    // HandleStreamFinished()/HandleStreamStarted() for the next track then tell the SDK (and
+    // hence the Controller's display) that this one is done.
+    const TUint bytesPerMs = (iStreamFormat.SampleRate() * iStreamFormat.NumChannels() * (iStreamFormat.BitDepth() / 8)) / 1000;
+    if (bytesPerMs > 0) {
+        TInt sleepMs;
+        {
+            AutoMutex _(iLock);
+            iDeliveredMs += (double)chunk->Bytes() / (double)bytesPerMs;
+            const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - iReadStartTime).count();
+            sleepMs = (TInt)(iDeliveredMs - (double)kPacingLookaheadMs) - (TInt)elapsedMs;
+        }
+        if (sleepMs > 0) {
+            Thread::Sleep((TUint)sleepMs);
+        }
+    }
+
     // TEMP diagnostic - see HandleStreamData above.
     LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: delivering %u bytes to pipeline\n", chunk->Bytes());
     aWriter.Write(*chunk);
@@ -281,33 +307,59 @@ void QobuzConnectAudioStream::StreamDisposeCb(QbzConnectCore* /*aCore*/, QbzAudi
 void QobuzConnectAudioStream::HandleStreamStarted(QbzAudioStreamId aStreamId, const QbzAudioStreamProperties& aProperties)
 {
     LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamStarted(%llu)\n", (unsigned long long)aStreamId);
-    AutoMutex _(iLock);
-    if (iActiveStreamId != 0 && iActiveStreamId != aStreamId) {
-        // A genuinely concurrent stream (gapless/cross-fade, not supported in this v1) would
-        // arrive while the old stream is still being read normally. But if the old stream was
-        // abandoned locally (Interrupt() was called on it, e.g. Protocol::Interrupt() from a
-        // Pipeline-level teardown) rather than actually finishing/being disposed by the SDK,
-        // iActiveStreamId would otherwise stay stuck on the old id forever - the SDK has no way
-        // to know we gave up on it, so it may never send stream_dispose_callback for it, and
-        // every future stream's data would be silently discarded from here on. Treat this case
-        // as the SDK having moved on to a new stream, not a real concurrent one.
-        if (!iInterrupted) {
-            LOG(kQobuzConnect, "QobuzConnectAudioStream: ignoring concurrent stream %llu (active=%llu, gapless not supported)\n", (unsigned long long)aStreamId, (unsigned long long)iActiveStreamId);
-            return;
+    IQobuzConnectMetadataObserver* observer;
+    {
+        AutoMutex _(iLock);
+        if (iActiveStreamId != 0 && iActiveStreamId != aStreamId) {
+            // A genuinely concurrent stream would arrive while the old stream is still being read
+            // normally, with more data still to come - this is the SDK's own gapless-preload
+            // mechanism (SDK README 4.2.1/4.3: "several audio streams may exist at the same time"
+            // to make gapless playback possible), which becomes more likely to be observed the
+            // more closely Read() paces itself to real playback time (see its comment) rather than
+            // racing through a track's data as fast as the SDK can produce it.
+            //
+            // Actual gapless crossfade isn't supported here (only one stream's audio is ever fed
+            // to the Pipeline at a time - see class comment) - but the concurrent stream's
+            // stream_started_callback only ever arrives ONCE: if it were ignored outright here,
+            // the SDK would never retry it, so it must be remembered (iPendingStreamId) and
+            // adopted once the current stream is disposed - see HandleStreamDispose() - rather
+            // than lost forever the moment this call returns. Confirmed on hardware as a "next
+            // track never plays" bug when this was simply ignored.
+            //
+            // This only applies while the old stream is still genuinely alive from our point of
+            // view (not already interrupted/finished) - if it isn't, there's nothing left to lose
+            // by moving on directly instead (see the "replacing stream" logging below): e.g. a
+            // track skip that disposes the old stream without ever finishing it, racing against a
+            // new one starting.
+            if (!iInterrupted && !iActiveStreamFinished) {
+                LOG(kQobuzConnect, "QobuzConnectAudioStream: stream %llu started while %llu still active (gapless not supported) - holding as pending\n", (unsigned long long)aStreamId, (unsigned long long)iActiveStreamId);
+                iPendingStreamId = aStreamId;
+                iPendingStreamFormat = aProperties.format;
+                return;
+            }
+            LOG(kQobuzConnect, "QobuzConnectAudioStream: replacing stream %llu with %llu (old stream %s)\n", (unsigned long long)iActiveStreamId, (unsigned long long)aStreamId, iInterrupted ? "was locally interrupted, never disposed" : "had already finished delivering its data");
+            while (!iChunks.empty()) {
+                delete iChunks.front();
+                iChunks.pop_front();
+            }
+            iBufferedBytes = 0;
+            iResumeStreamId = 0;
         }
-        LOG(kQobuzConnect, "QobuzConnectAudioStream: replacing abandoned stream %llu with %llu (old stream was locally interrupted, never disposed)\n", (unsigned long long)iActiveStreamId, (unsigned long long)aStreamId);
-        while (!iChunks.empty()) {
-            delete iChunks.front();
-            iChunks.pop_front();
+        if (iPendingStreamId == aStreamId) {
+            iPendingStreamId = 0; // this stream is becoming active via the path above, not via HandleStreamDispose()'s promotion - shouldn't normally happen, but don't leave a stale pending reference if it does
         }
-        iBufferedBytes = 0;
-        iResumeStreamId = 0;
+        iActiveStreamId = aStreamId;
+        iActiveStreamFinished = false;
+        iInterrupted = false;
+        iReadStartTime = std::chrono::steady_clock::now(); // see Read()'s pacing comment
+        iDeliveredMs = 0.0;
+        iPendingCount = 0; // a new stream's byte sequence never continues an old one's partial 24-in-32 frame
+        iStreamFormat.Set(aProperties.format);
+        observer = iMetadataObserver;
     }
-    iActiveStreamId = aStreamId;
-    iActiveStreamFinished = false;
-    iInterrupted = false;
-    iPendingCount = 0; // a new stream's byte sequence never continues an old one's partial 24-in-32 frame
-    iStreamFormat.Set(aProperties.format);
+    if (observer != nullptr) {
+        observer->QobuzNotifyStreamStarted();
+    }
 }
 
 size_t QobuzConnectAudioStream::HandleStreamData(QbzAudioStreamId aStreamId, const uint8_t* aData, size_t aSize)
@@ -318,9 +370,18 @@ size_t QobuzConnectAudioStream::HandleStreamData(QbzAudioStreamId aStreamId, con
     // in with real PCM at all.
     LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamData(%llu, %u bytes) active=%llu\n",
         (unsigned long long)aStreamId, (unsigned)aSize, (unsigned long long)iActiveStreamId);
+    if (aStreamId == iPendingStreamId) {
+        // Held back entirely until this stream is promoted to active (see HandleStreamStarted()/
+        // HandleStreamDispose()) - returning less than aSize (0, here) tells the SDK to stop
+        // producing more of it until we explicitly resume delivery, per the SDK README's
+        // documented backpressure contract (4.2.1). Promotion itself issues that resume call.
+        LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamData: holding back - pending, not yet active\n");
+        return 0;
+    }
     if (aStreamId != iActiveStreamId) {
-        // Not the stream we're currently reading (see HandleStreamStarted) - accept+discard so
-        // the SDK doesn't stall waiting for us to consume it.
+        // Not the stream we're currently reading, and not a pending one either - genuinely
+        // abandoned data (e.g. the SDK delivering a few final bytes for a stream we've already
+        // disposed of) - accept+discard so the SDK doesn't stall waiting for us to consume it.
         LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamData: discarding - not the active stream\n");
         return aSize;
     }
@@ -413,12 +474,22 @@ void QobuzConnectAudioStream::HandleStreamMetadata(const QbzAudioMetadata* aMeta
 void QobuzConnectAudioStream::HandleStreamFinished(QbzAudioStreamId aStreamId)
 {
     LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamFinished(%llu)\n", (unsigned long long)aStreamId);
-    AutoMutex _(iLock);
-    if (aStreamId != iActiveStreamId) {
-        return;
+    IQobuzConnectMetadataObserver* observer;
+    {
+        AutoMutex _(iLock);
+        if (aStreamId != iActiveStreamId) {
+            return;
+        }
+        iActiveStreamFinished = true;
+        iSemDataAvailable.Signal(); // wake Read() in case it's blocked waiting for more data that will never come
+        observer = iMetadataObserver;
     }
-    iActiveStreamFinished = true;
-    iSemDataAvailable.Signal(); // wake Read() in case it's blocked waiting for more data that will never come
+    if (observer != nullptr) {
+        // The SDK won't hand over the next track's audio until this is acknowledged - without
+        // it, playback just sits there once the current track ends, only continuing if the user
+        // manually skips (which drives the SDK via a different path).
+        observer->QobuzNotifyStreamFinished();
+    }
 }
 
 void QobuzConnectAudioStream::HandleStreamSeeked(QbzAudioStreamId aStreamId, uint64_t aPositionMs)
@@ -435,6 +506,8 @@ void QobuzConnectAudioStream::HandleStreamSeeked(QbzAudioStreamId aStreamId, uin
         // fresh post-seek data can flow through Read() again.
         iActiveStreamFinished = false;
         iInterrupted = false;
+        iReadStartTime = std::chrono::steady_clock::now(); // see Read()'s pacing comment - post-seek audio starts a fresh real-time reference
+        iDeliveredMs = 0.0;
         iPendingCount = 0; // don't splice a leftover pre-seek partial frame onto post-seek bytes
         observer = iMetadataObserver;
     }
@@ -450,37 +523,73 @@ void QobuzConnectAudioStream::HandleStreamSeeked(QbzAudioStreamId aStreamId, uin
 void QobuzConnectAudioStream::HandleStreamDispose(QbzAudioStreamId aStreamId)
 {
     LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamDispose(%llu)\n", (unsigned long long)aStreamId);
-    AutoMutex _(iLock);
-    if (aStreamId != iActiveStreamId) {
-        return;
+    IQobuzConnectMetadataObserver* observer = nullptr;
+    QbzConnectCore* coreToResume = nullptr;
+    QbzAudioStreamId resumeStreamId = 0;
+    {
+        AutoMutex _(iLock);
+        if (aStreamId == iPendingStreamId) {
+            // A stream that was held back as pending (see HandleStreamStarted()) got disposed
+            // before ever becoming active - don't leave a stale reference to it lying around for
+            // the active stream's eventual disposal to try to promote.
+            iPendingStreamId = 0;
+            return;
+        }
+        if (aStreamId != iActiveStreamId) {
+            return;
+        }
+        while (!iChunks.empty()) {
+            delete iChunks.front();
+            iChunks.pop_front();
+        }
+        iBufferedBytes = 0;
+        iResumeStreamId = 0;
+        if (iPendingStreamId != 0) {
+            // A concurrent/gapless-preload stream was already waiting - see
+            // HandleStreamStarted()'s comment - adopt it now rather than leaving iActiveStreamId
+            // at 0 and losing it, since the SDK never re-issues stream_started_callback for a
+            // stream once it's arrived. Resuming its delivery (below, outside the lock) is what
+            // actually gets its audio flowing - HandleStreamData() has been holding it back
+            // entirely until now (returning 0, not aSize) precisely so it wouldn't need to be
+            // buffered here in the meantime.
+            iActiveStreamId = iPendingStreamId;
+            iPendingStreamId = 0;
+            iStreamFormat.Set(iPendingStreamFormat);
+            iActiveStreamFinished = false;
+            iInterrupted = false;
+            iReadStartTime = std::chrono::steady_clock::now(); // see Read()'s pacing comment
+            iDeliveredMs = 0.0;
+            iPendingCount = 0;
+            coreToResume = iCore;
+            resumeStreamId = iActiveStreamId;
+            observer = iMetadataObserver;
+        }
+        else {
+            // Disposal ends this stream just as definitively as a natural finish - e.g. skipping
+            // a track disposes the old stream directly, without stream_finished_callback ever
+            // firing for it. A Read() blocked waiting for more of THIS stream's data must be
+            // woken and told to stop, the same way HandleStreamFinished() already does -
+            // otherwise it stays blocked forever, and ProtocolQobuzConnect::Stream()'s outer loop
+            // never gets a chance to unwind and re-announce OutputStream()/format for whatever
+            // comes next. Without this, once the next stream's data does arrive, Read() silently
+            // delivers it through the SAME still-open call as if nothing happened, leaving the
+            // Pipeline's own transport state (and any flush a pending Stop queued) stuck -
+            // matching the "audio works until you skip a track" report.
+            iActiveStreamId = 0;
+            iActiveStreamFinished = true;
+        }
+        // What actually makes a blocked Read() stop reliably (whether promoting or not) is its
+        // own direct check of iActiveStreamId having changed from iReadingForStreamId - see
+        // Read()'s comment for why a "changed since I started" signal (an earlier version of this
+        // fix used iEpoch for that) isn't enough either: several HandleStreamData-driven signals
+        // for this stream's last few chunks can already be queued up, and only the first Read()
+        // call they wake would ever see a freshly-changed value.
+        iSemDataAvailable.Signal();
     }
-    while (!iChunks.empty()) {
-        delete iChunks.front();
-        iChunks.pop_front();
+    if (coreToResume != nullptr) {
+        (void)qbz_connect_resume_audio_delivery(coreToResume, resumeStreamId);
     }
-    iBufferedBytes = 0;
-    iResumeStreamId = 0;
-    iActiveStreamId = 0;
-    // Disposal ends this stream just as definitively as a natural finish - e.g. skipping a track
-    // disposes the old stream directly, without stream_finished_callback ever firing for it. A
-    // Read() blocked waiting for more of THIS stream's data must be woken and told to stop, the
-    // same way HandleStreamFinished() already does - otherwise it stays blocked forever, and
-    // ProtocolQobuzConnect::Stream()'s outer loop never gets a chance to unwind and re-announce
-    // OutputStream()/format for whatever comes next. Without this, once the next stream's data
-    // does arrive, Read() silently delivers it through the SAME still-open call as if nothing
-    // happened, leaving the Pipeline's own transport state (and any flush a pending Stop queued)
-    // stuck - matching the "audio works until you skip a track" report.
-    //
-    // Setting iActiveStreamFinished here isn't actually what makes this reliable, since the
-    // SDK's own stream_started_callback for the NEXT stream can (and does, in practice - this
-    // was confirmed on hardware) run HandleStreamStarted() before a still-blocked Read() call
-    // gets scheduled to notice this dispose, and HandleStreamStarted() unconditionally resets
-    // iActiveStreamFinished for the new stream. What actually makes Read() stop reliably is its
-    // own direct check of iActiveStreamId==0 (set just above) rather than a flag that a later
-    // event can clear first - see Read()'s comment for why a "changed since I started" signal
-    // (an earlier version of this fix used iEpoch for that) isn't enough either: several
-    // HandleStreamData-driven signals for this stream's last few chunks can already be queued
-    // up, and only the first Read() call they wake would ever see a freshly-changed value.
-    iActiveStreamFinished = true;
-    iSemDataAvailable.Signal();
+    if (observer != nullptr) {
+        observer->QobuzNotifyStreamStarted();
+    }
 }
