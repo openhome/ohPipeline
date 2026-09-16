@@ -105,15 +105,24 @@ Media::ProtocolStreamResult ProtocolQobuzConnect::Stream(const Brx& aUri)
                 THROW(ProtocolQobuzConnectInterrupt);
             }
 
+            if (iSetup) {
+                // NotifySetup() and NotifyStart() are always signalled as a pair, back to back
+                // from the same calling context (see their call sites - nothing in this codebase
+                // ever sends one without the other following essentially immediately), so there's
+                // nothing distinct to actually do differently for "just Setup" versus "Setup then
+                // Start" - loop back and wait for the second signal before announcing anything to
+                // the Pipeline at all. Announcing (OutputStream()/OutputDrain(), below) used to
+                // happen on both this wake AND the one after, reconfiguring the Pipeline twice in
+                // quick succession for what's really one transition - confirmed on hardware as a
+                // small audible dropout at the start of every track change.
+                LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: still iSetup, looping back to wait for NotifyStart()\n");
+                continue; // wait for NotifyStart() before actually pumping audio
+            }
+
             const QobuzConnectStreamFormat& streamFormat = iReader.StreamFormat();
             OutputStream(streamFormat);
             iSupply->OutputDelay(kDefaultDelayJiffies);
             OutputDrain();
-
-            if (iSetup) {
-                LOG(kQobuzConnect, "ProtocolQobuzConnect::Stream: still iSetup, looping back to wait for NotifyStart()\n");
-                continue; // wait for NotifyStart() before actually pumping audio
-            }
 
             // NotifySetup() and NotifyStart() are always signalled as a pair (see their call
             // sites), and are meant to wake this loop twice in turn - once to announce the

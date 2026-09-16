@@ -86,17 +86,25 @@ public:
 /**
  * Implements the SDK's AudioStream delegate, and bridges it to IQobuzConnectAudioReader.
  *
- * Simplification (v1): only ever tracks one active stream at a time. Qobuz Connect's SDK
- * supports multiple concurrent streams for gapless/cross-fade transitions (lowest stream ID
- * is "active"), which isn't implemented here - a second stream_started_callback arriving
- * while one is already active is logged and its data ignored until the first is disposed.
+ * Simplification (v1): only ever feeds the Pipeline one stream's audio at a time - true gapless
+ * crossfade (the SDK supports multiple concurrent streams for this - lowest stream ID is
+ * "active") isn't implemented. A second stream_started_callback arriving while one is already
+ * active (the SDK's own gapless-preload behaviour) is held as a pending stream rather than acted
+ * on immediately, and adopted once the first is disposed - see HandleStreamStarted()/
+ * HandleStreamDispose()'s comments.
  */
 class QobuzConnectAudioStream : public IQobuzConnectAudioReader
 {
 private:
     // Bounds how much undecoded audio we'll buffer before applying backpressure (returning
-    // less than the full size from the data callback, per the SDK's documented contract).
-    static const TUint kMaxBufferBytes = 256 * 1024;
+    // less than the full size from the data callback, per the SDK's documented contract). Sized
+    // generously (comfortably a couple of seconds even at the SDK's highest supported quality -
+    // 384kHz/24-bit/2ch, ~3MB/s once repacked to 32-bit containers - see SDK README 4.4) rather
+    // than tightly, since this is the only cushion available to absorb a startup network/decode
+    // hiccup before Read()'s own real-time pacing (kPacingLookaheadMs) has had a chance to build
+    // one up of its own - too small a cushion here showed up on hardware as a Pipeline buffering/
+    // dropout a second or so into an otherwise-fine track start.
+    static const TUint kMaxBufferBytes = 2 * 1024 * 1024;
     // How far ahead of real playback time Read() is allowed to hand audio to the Pipeline - see
     // Read()'s comment. A jitter cushion, not a hard cap - just needs to comfortably absorb
     // normal network/decode timing variance without reintroducing a large gap between the SDK's
