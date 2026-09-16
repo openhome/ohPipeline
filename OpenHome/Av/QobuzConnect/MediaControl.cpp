@@ -124,7 +124,7 @@ void QobuzConnectMediaControl::SetCore(QbzConnectCore* aCore)
     iCore = aCore;
 }
 
-void QobuzConnectMediaControl::NotifyPlaybackInitiated(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels, TBool aStartedPaused)
+void QobuzConnectMediaControl::NotifyPlaybackInitiated(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels, TBool aStartedPaused, uint64_t aInitialPositionMs)
 {
     QbzConnectCore* core;
     {
@@ -146,7 +146,12 @@ void QobuzConnectMediaControl::NotifyPlaybackInitiated(TUint aSampleRate, TUint 
     }
     {
         AutoMutex _(iLockPosition);
-        iPositionBaseMs = 0; // new stream - position tracking restarts from zero
+        // Usually 0 (a fresh stream starts at its beginning), but the SDK can start a stream
+        // partway through a track (e.g. resuming a session left mid-track) - see
+        // QobuzConnectAudioStream::InitialPositionMs()'s comment. Without threading this through,
+        // the Controller's displayed position stayed at 0 even though audio itself correctly
+        // started from the real position - confirmed on hardware as exactly that mismatch.
+        iPositionBaseMs = aInitialPositionMs;
         iPositionBaseTime = std::chrono::steady_clock::now();
         iPositionRunning = !aStartedPaused;
     }

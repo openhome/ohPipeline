@@ -261,7 +261,7 @@ void SourceQobuzConnect::QobuzNotifyPlaybackInitiated(TBool aStartPaused)
         iPipeline.Play();
     }
     const auto& format = iApp->Reader().StreamFormat();
-    iApp->MediaControl().NotifyPlaybackInitiated(format.SampleRate(), format.BitDepth(), format.NumChannels(), aStartPaused);
+    iApp->MediaControl().NotifyPlaybackInitiated(format.SampleRate(), format.BitDepth(), format.NumChannels(), aStartPaused, iApp->Reader().InitialPositionMs());
 }
 
 void SourceQobuzConnect::QobuzNotifyPlaybackPaused()
@@ -415,7 +415,7 @@ void SourceQobuzConnect::QobuzNotifyStreamStarted()
         // acknowledged.
         LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyStreamStarted() - acknowledging auto-advanced stream\n");
         const auto& format = iApp->Reader().StreamFormat();
-        iApp->MediaControl().NotifyPlaybackInitiated(format.SampleRate(), format.BitDepth(), format.NumChannels(), false);
+        iApp->MediaControl().NotifyPlaybackInitiated(format.SampleRate(), format.BitDepth(), format.NumChannels(), false, iApp->Reader().InitialPositionMs());
     }
 }
 

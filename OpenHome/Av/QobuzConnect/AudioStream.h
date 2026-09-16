@@ -66,6 +66,12 @@ class IQobuzConnectAudioReader
 public:
     virtual ~IQobuzConnectAudioReader() {}
     virtual const QobuzConnectStreamFormat& StreamFormat() = 0;
+    // Where the active stream's audio actually begins (QbzAudioStreamStartedCallback's
+    // aInitialPositionMs, ms) - normally 0, but the SDK can start a stream partway through a
+    // track (e.g. resuming a session left mid-track) - see SourceQobuzConnect::
+    // QobuzNotifyPlaybackInitiated(), which feeds this into QobuzConnectMediaControl's position
+    // tracking so the Controller's displayed position matches where audio actually starts.
+    virtual uint64_t InitialPositionMs() = 0;
     // Must be called once, right before a fresh run of Read() calls begins (i.e. right before
     // ProtocolQobuzConnect::Stream() enters its inner read loop) - captures which SDK stream is
     // active right now so that Read() can detect, no matter how the active stream subsequently
@@ -107,6 +113,7 @@ public:
     void SetMetadataObserver(IQobuzConnectMetadataObserver& aObserver);
 public: // from IQobuzConnectAudioReader
     const QobuzConnectStreamFormat& StreamFormat() override;
+    uint64_t InitialPositionMs() override;
     void NotifyReading() override;
     void Read(IQobuzConnectAudioWriter& aWriter) override;
     void Interrupt() override;
@@ -125,7 +132,7 @@ public:
     static void StreamSeekedCb(QbzConnectCore* aCore, QbzAudioStreamId aStreamId, uint64_t aPositionMs, void* aUserData);
     static void StreamDisposeCb(QbzConnectCore* aCore, QbzAudioStreamId aStreamId, void* aUserData);
 private:
-    void HandleStreamStarted(QbzAudioStreamId aStreamId, const QbzAudioStreamProperties& aProperties);
+    void HandleStreamStarted(QbzAudioStreamId aStreamId, const QbzAudioStreamProperties& aProperties, uint64_t aInitialPositionMs);
     size_t HandleStreamData(QbzAudioStreamId aStreamId, const uint8_t* aData, size_t aSize);
     void HandleStreamMetadata(const QbzAudioMetadata* aMetadata);
     void HandleStreamFinished(QbzAudioStreamId aStreamId);
@@ -141,6 +148,7 @@ private:
     std::deque<Bwh*> iChunks;
     TUint iBufferedBytes;
     QbzAudioStreamId iActiveStreamId; // 0 == none active
+    uint64_t iActiveStreamInitialPositionMs; // valid iff iActiveStreamId != 0 - see InitialPositionMs()
     QbzAudioStreamId iResumeStreamId; // non-zero once backpressure has been applied and resume is owed
     // Non-zero once a stream_started_callback arrives for a stream while another is still active
     // (the SDK's gapless-preload mechanism - see HandleStreamStarted()'s comment). Held here
@@ -148,6 +156,7 @@ private:
     // disposed - see HandleStreamDispose().
     QbzAudioStreamId iPendingStreamId;
     QbzAudioFormat iPendingStreamFormat; // valid iff iPendingStreamId != 0
+    uint64_t iPendingStreamInitialPositionMs; // valid iff iPendingStreamId != 0
     QbzAudioStreamId iReadingForStreamId; // snapshot of iActiveStreamId taken by NotifyReading() - see that method's doc comment
     TBool iActiveStreamFinished; // active stream has delivered all its data - Read() returns once the buffer drains
     TBool iInterrupted;

@@ -99,9 +99,11 @@ QobuzConnectAudioStream::QobuzConnectAudioStream()
     , iSemDataAvailable("QCAD", 0)
     , iBufferedBytes(0)
     , iActiveStreamId(0)
+    , iActiveStreamInitialPositionMs(0)
     , iResumeStreamId(0)
     , iPendingStreamId(0)
     , iPendingStreamFormat()
+    , iPendingStreamInitialPositionMs(0)
     , iReadingForStreamId(0)
     , iActiveStreamFinished(false)
     , iInterrupted(false)
@@ -148,6 +150,12 @@ void QobuzConnectAudioStream::SetMetadataObserver(IQobuzConnectMetadataObserver&
 const QobuzConnectStreamFormat& QobuzConnectAudioStream::StreamFormat()
 {
     return iStreamFormat;
+}
+
+uint64_t QobuzConnectAudioStream::InitialPositionMs()
+{
+    AutoMutex _(iLock);
+    return iActiveStreamInitialPositionMs;
 }
 
 void QobuzConnectAudioStream::NotifyReading()
@@ -200,6 +208,30 @@ void QobuzConnectAudioStream::Read(IQobuzConnectAudioWriter& aWriter)
         return; // spurious wake (e.g. two Read() calls raced on the same signal) - caller loops back in
     }
 
+    // Ask the SDK to keep OUR OWN upstream buffer (iChunks/iBufferedBytes) topped up as soon as
+    // there's room for it - i.e. immediately, not after the pacing sleep below. That sleep is
+    // only meant to pace how fast already-received audio is handed to the Pipeline; delaying the
+    // resume behind it as well would serialise "wait to pace" with "wait for the SDK to actually
+    // deliver more", stacking their latencies instead of overlapping them - confirmed on hardware
+    // as exactly the kind of gap (over a second with no data at all arriving from the SDK) that
+    // starves the Pipeline into a buffering/dropout, once the pacing cushion (kPacingLookaheadMs)
+    // is trimmed down close to normal network/decode jitter. Requesting more up front instead
+    // lets iChunks keep acting as a proper jitter buffer, independent of how far ahead of real
+    // time the pacing below allows the Pipeline hand-off itself to run.
+    QbzConnectCore* coreToResume = nullptr;
+    QbzAudioStreamId resumeStreamId = 0;
+    {
+        AutoMutex _(iLock);
+        if (iResumeStreamId != 0 && iBufferedBytes < kMaxBufferBytes) {
+            coreToResume = iCore;
+            resumeStreamId = iResumeStreamId;
+            iResumeStreamId = 0;
+        }
+    }
+    if (coreToResume != nullptr) {
+        (void)qbz_connect_resume_audio_delivery(coreToResume, resumeStreamId);
+    }
+
     // Pace hand-off to the Pipeline to roughly track real playback time. Per the SDK README
     // (4.2.1), the integrator is "completely in control of the audio data delivery speed" -
     // HandleStreamData's own buffer-cap backpressure only bounds how far the SDK gets ahead of
@@ -226,20 +258,6 @@ void QobuzConnectAudioStream::Read(IQobuzConnectAudioWriter& aWriter)
     LOG(kQobuzConnect, "QobuzConnectAudioStream::Read: delivering %u bytes to pipeline\n", chunk->Bytes());
     aWriter.Write(*chunk);
     delete chunk;
-
-    QbzConnectCore* coreToResume = nullptr;
-    QbzAudioStreamId resumeStreamId = 0;
-    {
-        AutoMutex _(iLock);
-        if (iResumeStreamId != 0 && iBufferedBytes < kMaxBufferBytes) {
-            coreToResume = iCore;
-            resumeStreamId = iResumeStreamId;
-            iResumeStreamId = 0;
-        }
-    }
-    if (coreToResume != nullptr) {
-        (void)qbz_connect_resume_audio_delivery(coreToResume, resumeStreamId);
-    }
 }
 
 void QobuzConnectAudioStream::Interrupt()
@@ -274,9 +292,9 @@ void QobuzConnectAudioStream::FlushForSeek()
     }
 }
 
-void QobuzConnectAudioStream::StreamStartedCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, QbzAudioStreamProperties aProperties, uint64_t /*aInitialPositionMs*/, void* aUserData)
+void QobuzConnectAudioStream::StreamStartedCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, QbzAudioStreamProperties aProperties, uint64_t aInitialPositionMs, void* aUserData)
 {
-    reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamStarted(aStreamId, aProperties);
+    reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamStarted(aStreamId, aProperties, aInitialPositionMs);
 }
 
 size_t QobuzConnectAudioStream::StreamDataCb(QbzConnectCore* /*aCore*/, QbzAudioStreamId aStreamId, const uint8_t* aData, size_t aSize, void* aUserData)
@@ -304,7 +322,7 @@ void QobuzConnectAudioStream::StreamDisposeCb(QbzConnectCore* /*aCore*/, QbzAudi
     reinterpret_cast<QobuzConnectAudioStream*>(aUserData)->HandleStreamDispose(aStreamId);
 }
 
-void QobuzConnectAudioStream::HandleStreamStarted(QbzAudioStreamId aStreamId, const QbzAudioStreamProperties& aProperties)
+void QobuzConnectAudioStream::HandleStreamStarted(QbzAudioStreamId aStreamId, const QbzAudioStreamProperties& aProperties, uint64_t aInitialPositionMs)
 {
     LOG(kQobuzConnect, "QobuzConnectAudioStream::HandleStreamStarted(%llu)\n", (unsigned long long)aStreamId);
     IQobuzConnectMetadataObserver* observer;
@@ -335,6 +353,7 @@ void QobuzConnectAudioStream::HandleStreamStarted(QbzAudioStreamId aStreamId, co
                 LOG(kQobuzConnect, "QobuzConnectAudioStream: stream %llu started while %llu still active (gapless not supported) - holding as pending\n", (unsigned long long)aStreamId, (unsigned long long)iActiveStreamId);
                 iPendingStreamId = aStreamId;
                 iPendingStreamFormat = aProperties.format;
+                iPendingStreamInitialPositionMs = aInitialPositionMs;
                 return;
             }
             LOG(kQobuzConnect, "QobuzConnectAudioStream: replacing stream %llu with %llu (old stream %s)\n", (unsigned long long)iActiveStreamId, (unsigned long long)aStreamId, iInterrupted ? "was locally interrupted, never disposed" : "had already finished delivering its data");
@@ -349,6 +368,7 @@ void QobuzConnectAudioStream::HandleStreamStarted(QbzAudioStreamId aStreamId, co
             iPendingStreamId = 0; // this stream is becoming active via the path above, not via HandleStreamDispose()'s promotion - shouldn't normally happen, but don't leave a stale pending reference if it does
         }
         iActiveStreamId = aStreamId;
+        iActiveStreamInitialPositionMs = aInitialPositionMs;
         iActiveStreamFinished = false;
         iInterrupted = false;
         iReadStartTime = std::chrono::steady_clock::now(); // see Read()'s pacing comment
@@ -553,6 +573,7 @@ void QobuzConnectAudioStream::HandleStreamDispose(QbzAudioStreamId aStreamId)
             // entirely until now (returning 0, not aSize) precisely so it wouldn't need to be
             // buffered here in the meantime.
             iActiveStreamId = iPendingStreamId;
+            iActiveStreamInitialPositionMs = iPendingStreamInitialPositionMs;
             iPendingStreamId = 0;
             iStreamFormat.Set(iPendingStreamFormat);
             iActiveStreamFinished = false;

@@ -105,7 +105,7 @@ public:
 public: // acks back to the SDK - called by SourceQobuzConnect once it has actually made the
         // corresponding Pipeline state change (from the same ThreadPool-scheduled callback that
         // triggered it, i.e. not directly from the SDK's own uv-loop thread)
-    void NotifyPlaybackInitiated(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels, TBool aStartedPaused);
+    void NotifyPlaybackInitiated(TUint aSampleRate, TUint aBitDepth, TUint aNumChannels, TBool aStartedPaused, uint64_t aInitialPositionMs);
     void NotifyPlaybackPaused();
     void NotifyPlaybackResumed();
     void NotifyPlaybackStopped();
