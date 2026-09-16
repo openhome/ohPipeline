@@ -61,6 +61,14 @@ class SourceQobuzConnect
 private:
     static const TUint kStartupDelaySecs = 20; // mirrors SourceRaat's kStartupDelaySecs
     static const TUint kStartupDelayMs = kStartupDelaySecs * 1000;
+    // How long to wait, after a track finishes, for the SDK to auto-advance to the next one
+    // (QobuzNotifyStreamStarted() arriving with iAutoAdvancePending set) before concluding
+    // nothing more is coming and reporting that back - see QobuzNotifyStreamFinished()'s comment.
+    // Generous relative to anything seen on hardware (typically well under a couple of seconds,
+    // even accounting for the SDK's documented one retry on a failed network action) without
+    // leaving the SDK's own state - and the Controller's display - waiting indefinitely on a
+    // "transitioning" track that's actually just reached the end of the queue.
+    static const TUint kAutoAdvanceTimeoutMs = 15000;
 public:
     SourceQobuzConnect(
         IMediaPlayer& aMediaPlayer,
@@ -100,6 +108,7 @@ private:
     void Start();
     void LimitChanged(Configuration::ConfigNum::KvpNum& aKvp);
     void PushVolume();
+    void HandleAutoAdvanceTimeout();
 private:
     UriProviderQobuzConnect* iUriProvider;
     QobuzConnectApp* iApp;
@@ -125,6 +134,10 @@ private:
     Media::Track* iTrack;
     Media::BwsTrackMetaData iDefaultMetadata;
     Timer* iTimer;
+    // Started by QobuzNotifyStreamFinished() whenever it sets iAutoAdvancePending, cancelled once
+    // that's genuinely consumed by a following QobuzNotifyStreamStarted() (or superseded by an
+    // explicit QobuzNotifyStreamReady()) - see HandleAutoAdvanceTimeout()/kAutoAdvanceTimeoutMs.
+    Timer* iTimerAutoAdvanceTimeout;
     TBool iBeginPending;
     // Whether the DS Pipeline currently holds OUR track/mode - distinct from
     // iProtocol->IsStreaming() (the Qobuz SDK's own stream state). Both are normally in lockstep,

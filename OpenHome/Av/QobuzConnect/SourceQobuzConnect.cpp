@@ -172,12 +172,14 @@ SourceQobuzConnect::SourceQobuzConnect(
 
     iTimer = new Timer(aMediaPlayer.Env(), MakeFunctor(*this, &SourceQobuzConnect::Start), "SourceQobuzConnect");
     iTimer->FireIn(kStartupDelayMs); // mirrors SourceRaat's startup delay (fired from IProductObserver::Started() there; simplified to a fixed delay here rather than adding another observer)
+    iTimerAutoAdvanceTimeout = new Timer(aMediaPlayer.Env(), MakeFunctor(*this, &SourceQobuzConnect::HandleAutoAdvanceTimeout), "SourceQobuzConnectAutoAdvanceTimeout");
 }
 
 SourceQobuzConnect::~SourceQobuzConnect()
 {
     iConfigLimit.Unsubscribe(iSubscriberIdLimit);
     delete iTimer;
+    delete iTimerAutoAdvanceTimeout;
     delete iApp;
     delete iMetadataHandler; // IAsyncTrackObserver has no RemoveClient() - RAAT's equivalent handler is never unregistered either, since both live as long as the Pipeline itself
     if (iTrack != nullptr) {
@@ -209,6 +211,12 @@ void SourceQobuzConnect::Deactivate()
     // match DS's reality, so the Controller's Play button goes through the normal fresh-start
     // path (QobuzNotifyStreamReady()/QobuzNotifyPlaybackInitiated()) that already works.
     LOG(kQobuzConnect, "SourceQobuzConnect::Deactivate()\n");
+    // A pending auto-advance (see QobuzNotifyStreamFinished()/iTimerAutoAdvanceTimeout) no longer
+    // means anything once TryStop() below tells the SDK playback has stopped entirely - cancel it
+    // rather than letting it fire a stale NotifyPlaybackError() later for a transition DS itself
+    // walked away from.
+    iTimerAutoAdvanceTimeout->Cancel();
+    iAutoAdvancePending.store(false);
     iApp->MediaControl().TryStop();
     // The DS Pipeline is no longer ours - some other source is about to occupy it, and it's about
     // to actually be interrupted regardless (see above). Clear eagerly rather than waiting for
@@ -242,8 +250,9 @@ void SourceQobuzConnect::QobuzNotifyStreamReady()
     LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyStreamReady()\n");
     // An explicit initiate_playback_callback is on its way for this transition (that's what led
     // here), so QobuzNotifyStreamStarted() doesn't need to self-acknowledge it as an auto-advance
-    // - clear defensively in case an auto-advance signalled moments earlier hasn't been consumed
-    // yet.
+    // - clear defensively (and cancel its timeout, see QobuzNotifyStreamFinished()) in case an
+    // auto-advance signalled moments earlier hasn't been consumed yet.
+    iTimerAutoAdvanceTimeout->Cancel();
     iAutoAdvancePending.store(false);
     EnsureActiveNoPrefetch();
     InitialiseSourceQobuzConnect();
@@ -400,14 +409,22 @@ void SourceQobuzConnect::QobuzNotifyStreamFinished()
     // hardware as a straightforward "no audio after a track finishes" regression. Acknowledging
     // immediately, as here, is the only timing the SDK reliably accepts; the display-lag cosmetic
     // issue is left unfixed rather than risk that again.
+    //
+    // Saying "not the last track" is a commitment, not just a guess: if no next stream actually
+    // arrives, the SDK's own doc comment says to call qbz_connect_notify_playback_error instead of
+    // leaving it hanging. iTimerAutoAdvanceTimeout/HandleAutoAdvanceTimeout() is that fallback -
+    // cancelled the moment QobuzNotifyStreamStarted() confirms the auto-advance genuinely
+    // happened, or superseded by an explicit QobuzNotifyStreamReady()/Deactivate().
     LOG(kQobuzConnect, "SourceQobuzConnect::QobuzNotifyStreamFinished()\n");
     iApp->MediaControl().NotifyPlaybackFinished(false);
     iAutoAdvancePending.store(true);
+    iTimerAutoAdvanceTimeout->FireIn(kAutoAdvanceTimeoutMs);
 }
 
 void SourceQobuzConnect::QobuzNotifyStreamStarted()
 {
     if (iAutoAdvancePending.exchange(false)) {
+        iTimerAutoAdvanceTimeout->Cancel(); // genuinely arrived - see QobuzNotifyStreamFinished()'s comment
         // This is the auto-advanced stream QobuzNotifyStreamFinished() told the SDK to expect -
         // but unlike an explicit track change, no initiate_playback_callback arrives for it, so
         // nothing else tells ProtocolQobuzConnect to re-announce a fresh pipeline stream for it.
@@ -530,4 +547,22 @@ void SourceQobuzConnect::InitialiseSourceQobuzConnect()
 void SourceQobuzConnect::Start()
 {
     iApp->Start();
+}
+
+void SourceQobuzConnect::HandleAutoAdvanceTimeout()
+{
+    // Fires kAutoAdvanceTimeoutMs after QobuzNotifyStreamFinished() set iAutoAdvancePending,
+    // unless something else already cancelled it (QobuzNotifyStreamStarted() confirming the
+    // auto-advance genuinely happened, or a superseding QobuzNotifyStreamReady()/Deactivate()) -
+    // reaching here with the flag still set means none of those happened: no next stream ever
+    // arrived. Per qbz_connect_notify_playback_finished's doc comment, having already told the
+    // SDK "not the last track" commits us to eventually calling either
+    // qbz_connect_notify_playback_initiated (QobuzNotifyStreamStarted() already covers that) or
+    // qbz_connect_notify_playback_error - this is that second case, most likely because the track
+    // that just finished genuinely was the last one in the queue (something only the SDK/Qobuz's
+    // server actually knows - see QobuzNotifyStreamFinished()'s comment on aLastTrack).
+    if (iAutoAdvancePending.exchange(false)) {
+        LOG(kQobuzConnect, "SourceQobuzConnect::HandleAutoAdvanceTimeout() - no next stream arrived, reporting error\n");
+        iApp->MediaControl().NotifyPlaybackError();
+    }
 }
