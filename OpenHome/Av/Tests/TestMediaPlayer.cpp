@@ -576,6 +576,23 @@ void TestMediaPlayer::RegisterPlugins(Environment& aEnv)
 #else
     iMediaPlayer->Add(SourceFactory::NewScd(*iMediaPlayer, nullptr));
 #endif
+
+#ifdef QOBUZ_CONNECT_ENABLED
+    // TEMP (Cameron, 2026-09-09): reproducing a hard crash seen on real hardware (no serial, and
+    // the crash happens before InitialiseLoggers()/port-2323 shell logging comes up, so nothing
+    // is visible there either) - this exercises the exact same SourceFactory::NewQobuzConnect
+    // construction call as SingleCore.cpp, but via TestMediaPlayer's software-only harness
+    // (AudioTimeCpu etc, no real ALSA/hardware needed) so it can run under qemu-arm-static with
+    // full stderr/assert output, without touching a physical device again.
+    iMediaPlayer->Add(Av::SourceFactory::NewQobuzConnect(
+        *iMediaPlayer,
+        *iMediaPlayer->Env().MdnsProvider(),
+        Brn("769106729"),
+        Brn("b9f87be009ec0c635a9d5a957582fac7"),
+        Brn("Linn"),
+        Brn("TestMediaPlayer"),
+        Brn("12345")));
+#endif
 }
 
 void TestMediaPlayer::InitialiseSubsystems()
@@ -761,6 +778,9 @@ OpenHome::Net::Library* TestMediaPlayerInit::CreateLibrary(
     Debug::AddLevel(Debug::kAdapterChange);
     //Debug::AddLevel(Debug::kSongcast);
     Debug::AddLevel(Debug::kOAuth);
+#ifdef QOBUZ_CONNECT_ENABLED
+    Debug::AddLevel(Debug::kQobuzConnect);
+#endif
     Debug::SetSeverity(Debug::kSeverityInfo);
     Net::Library* lib = new Net::Library(initParams);
     //Net::DvStack* dvStack = lib->StartDv();

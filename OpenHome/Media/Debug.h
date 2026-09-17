@@ -8,6 +8,7 @@ namespace OpenHome {
 #define kCodec       kApplication2
 #define kPipeline    kApplication5
 #define kRaat        kApplication34
+#define kQobuzConnect kApplication9
 
 } // namespace OpenHome
 

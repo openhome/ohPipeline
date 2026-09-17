@@ -141,5 +141,31 @@
             "*": true
         },
         "ignore": "${platform-ignore[$platform]}"
+    },
+    {
+        "name": "QobuzConnect",
+        "type": "external",
+        "platform-specific": true,
+        "version": "1.0.0",
+        "archive-path": "s3://linn-artifacts-private/qobuz/repackaged/qobuzconnect-v${version}-${archive-platform}-Release.tar.gz",
+        "platform-ignore": {
+            "Linux-armhf": false,
+            "*": true
+        },
+        "ignore": "${platform-ignore[$platform]}"
+    },
+    {
+        "name": "QobuzConnect-armhf",
+        "type": "external",
+        "platform-specific": true,
+        "version": "1.0.0",
+        "archive-path": "s3://linn-artifacts-private/qobuz/repackaged/qobuzconnect-v${version}-Linux-armhf-Release.tar.gz",
+        "platform-ignore": {
+            "armhf-buildroot-linux": false,
+            "armhf-kirkstone-linux": false,
+            "armhf-scarthgap-linux": false,
+            "*": true
+        },
+        "ignore": "${platform-ignore[$platform]}"
     }
 ]
