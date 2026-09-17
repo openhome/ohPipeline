@@ -4,8 +4,25 @@
 #include <OpenHome/Private/Thread.h>
 
 #include <uv.h>
-#include <raat_device.h> 
-#include <raat_info.h> 
+#include <raat_device.h>
+#include <raat_info.h>
+
+// RAAT's bundled libuv is rebuilt with uv_thread_* renamed to raat_uv_thread_* only on platforms
+// where Qobuz Connect is also compiled in (QOBUZ_CONNECT_ENABLED - see ds/wscript's QOBUZ Connect
+// section for the full history), to avoid colliding with Qobuz Connect's own, unrenamed bundled
+// libuv on those platforms only. Elsewhere - anywhere Qobuz Connect isn't compiled in, so there's
+// no collision to avoid - RAAT's libuv is the standard, unrenamed build, so the plain uv_thread_*
+// names must be used instead. Confirmed as a hard platform-portability break otherwise (Windows-x86
+// release build: 'raat_uv_thread_create'/'raat_uv_thread_t' not found).
+#ifdef QOBUZ_CONNECT_ENABLED
+typedef raat_uv_thread_t OhRaatUvThreadT;
+#define OhRaatUvThreadCreate raat_uv_thread_create
+#define OhRaatUvThreadJoin raat_uv_thread_join
+#else
+typedef uv_thread_t OhRaatUvThreadT;
+#define OhRaatUvThreadCreate uv_thread_create
+#define OhRaatUvThreadJoin uv_thread_join
+#endif
 
 namespace OpenHome {
     class Environment;
@@ -52,7 +69,7 @@ private:
     void StartPlugins();
 private:
     IMediaPlayer& iMediaPlayer;
-    raat_uv_thread_t iThread;
+    OhRaatUvThreadT iThread;
     Timer* iTimer;
     RAAT__Device* iDevice;
     RAAT__Info* iInfo;
