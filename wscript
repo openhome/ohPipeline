@@ -1459,9 +1459,7 @@ def build(bld):
             use=['OHNET', 'PLATFORM', 'WebAppFrameworkTestUtils', 'WebAppFramework', 'ohMediaPlayer'],
             target='TestWebAppFramework',
             install_path=None)
-    bld.program(
-            source=['OpenHome/Web/ConfigUi/Tests/TestConfigUiMain.cpp'],
-            use=[
+    testConfigUiUse = [
                 'OHNET',
                 'PLATFORM',
                 'SSL',
@@ -1479,7 +1477,15 @@ def build(bld):
                 'SourceScd',
                 'SourceUpnpAv',
                 'ohMediaPlayer'
-                ],
+                ]
+    # TestMediaPlayer.cpp (in ohMediaPlayerTestUtils) calls SourceFactory::NewQobuzConnect
+    # under #ifdef QOBUZ_CONNECT_ENABLED, so this needs SourceQobuzConnect too on platforms
+    # where that stlib is actually built (see the QOBUZ Connect section above).
+    if 'QOBUZ_CONNECT_ENABLED' in bld.env.DEFINES:
+        testConfigUiUse.append('SourceQobuzConnect')
+    bld.program(
+            source=['OpenHome/Web/ConfigUi/Tests/TestConfigUiMain.cpp'],
+            use=testConfigUiUse,
             target='TestConfigUi',
             install_path=None)
     bld.program(
