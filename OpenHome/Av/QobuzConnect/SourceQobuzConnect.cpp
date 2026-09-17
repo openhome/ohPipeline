@@ -126,8 +126,6 @@ SourceQobuzConnect::SourceQobuzConnect(
 
     const Brx& uniqueDeviceId = aMediaPlayer.Device().Udn();
 
-    iMetadataHandler = new QobuzConnectMetadataHandler(aMediaPlayer.Pipeline().AsyncTrackObserver());
-
     iApp = new QobuzConnectApp(
         aMediaPlayer,
         aMdnsProvider,
@@ -141,6 +139,10 @@ SourceQobuzConnect::SourceQobuzConnect(
         uniqueDeviceId,
         kDeviceType,
         kMaxAudioQuality);
+
+    // Constructed after iApp (rather than before, as originally) so its track boundary can read
+    // real position/duration from iApp->Reader() - see QobuzConnectTrackBoundary's comment.
+    iMetadataHandler = new QobuzConnectMetadataHandler(aMediaPlayer.Pipeline().AsyncTrackObserver(), iApp->Reader());
 
     iProtocol = new ProtocolQobuzConnect(
         aMediaPlayer.Env(),

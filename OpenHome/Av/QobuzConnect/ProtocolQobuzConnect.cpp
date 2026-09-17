@@ -208,6 +208,16 @@ void ProtocolQobuzConnect::OutputStream(const QobuzConnectStreamFormat& aStreamF
 {
     TUint streamId = iIdProvider->NextStreamId();
     SpeakerProfile sp;
+
+    // CodecPcm::StreamInitialise() (the codec that actually handles a raw PCM stream like this
+    // one) uses aStartSample directly as this stream's starting elapsed-time offset
+    // (iTrackOffset = ToJiffies(iStartSample)) - so leaving this at 0 meant DS always reported
+    // elapsed time counting up from 0:00, even when QbzAudioStreamStartedCallback's
+    // aInitialPositionMs said the SDK was starting this stream partway through the track (e.g.
+    // resuming a session left mid-track) - confirmed on hardware as exactly that mismatch.
+    // aStartSample is a sample count, not ms, hence the conversion via this stream's sample rate.
+    const TUint64 startSample = ((TUint64)iReader.InitialPositionMs() * aStreamFormat.SampleRate()) / 1000;
+
     PcmStreamInfo streamInfo;
     streamInfo.Set(
         aStreamFormat.BitDepth(),
@@ -215,10 +225,21 @@ void ProtocolQobuzConnect::OutputStream(const QobuzConnectStreamFormat& aStreamF
         aStreamFormat.NumChannels(),
         AudioDataEndian::Little,
         sp,
-        0LL); // sample start (Qobuz Connect reports initial position separately; not currently threaded through)
+        startSample);
+
+    // ISupply::OutputPcmStream has no separate "duration" parameter - for a raw PCM stream, the
+    // Pipeline derives duration/time-remaining/progress-bar reporting (e.g. in the Linn App) from
+    // aTotalBytes and this stream's own (fixed) byte rate, the same way a WAV file's length
+    // implies its duration. Leaving this at 0 ("unknown length") meant time remaining and the
+    // progress bar had nothing to work from - confirmed on hardware. QbzAudioStreamProperties.
+    // duration (ms) is known as soon as HandleStreamStarted() fires, so convert it to the
+    // equivalent byte count using this same stream's format.
+    const uint64_t bytesPerMs = ((uint64_t)aStreamFormat.SampleRate() * aStreamFormat.NumChannels() * (aStreamFormat.BitDepth() / 8)) / 1000;
+    const uint64_t totalBytes = iReader.DurationMs() * bytesPerMs;
+
     iSupply->OutputPcmStream(
         kUri,
-        0LL, // duration - not known ahead of time; Qobuz Connect reports it via QbzAudioStreamProperties.duration but that isn't threaded through yet
+        totalBytes,
         false, // seekable - seeking is driven by the SDK's own seek_time API, not the Pipeline's
         false, // live
         Media::Multiroom::Forbidden,

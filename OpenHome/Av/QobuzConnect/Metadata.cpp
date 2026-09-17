@@ -79,6 +79,11 @@ void QobuzConnectMetadata::operator=(const QobuzConnectMetadata& aMetadata)
 
 // QobuzConnectTrackBoundary
 
+QobuzConnectTrackBoundary::QobuzConnectTrackBoundary(IQobuzConnectAudioReader& aReader)
+    : iReader(aReader)
+{
+}
+
 const Brx& QobuzConnectTrackBoundary::Mode() const
 {
     return QobuzConnectMetadataHandler::kMode;
@@ -86,12 +91,12 @@ const Brx& QobuzConnectTrackBoundary::Mode() const
 
 TUint QobuzConnectTrackBoundary::OffsetMs() const
 {
-    return 0;
+    return (TUint)iReader.InitialPositionMs();
 }
 
 TUint QobuzConnectTrackBoundary::DurationMs() const
 {
-    return 0;
+    return (TUint)iReader.DurationMs();
 }
 
 
@@ -99,9 +104,10 @@ TUint QobuzConnectTrackBoundary::DurationMs() const
 
 const Brn QobuzConnectMetadataHandler::kMode("QOBUZCONNECT");
 
-QobuzConnectMetadataHandler::QobuzConnectMetadataHandler(IAsyncTrackObserver& aTrackObserver)
+QobuzConnectMetadataHandler::QobuzConnectMetadataHandler(IAsyncTrackObserver& aTrackObserver, IQobuzConnectAudioReader& aReader)
     : iTrackObserver(aTrackObserver)
     , iLock("QCMD")
+    , iBoundary(aReader)
 {
     iTrackObserver.AddClient(*this);
 }

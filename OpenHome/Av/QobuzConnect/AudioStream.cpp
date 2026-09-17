@@ -100,10 +100,12 @@ QobuzConnectAudioStream::QobuzConnectAudioStream()
     , iBufferedBytes(0)
     , iActiveStreamId(0)
     , iActiveStreamInitialPositionMs(0)
+    , iActiveStreamDurationMs(0)
     , iResumeStreamId(0)
     , iPendingStreamId(0)
     , iPendingStreamFormat()
     , iPendingStreamInitialPositionMs(0)
+    , iPendingStreamDurationMs(0)
     , iReadingForStreamId(0)
     , iActiveStreamFinished(false)
     , iInterrupted(false)
@@ -156,6 +158,12 @@ uint64_t QobuzConnectAudioStream::InitialPositionMs()
 {
     AutoMutex _(iLock);
     return iActiveStreamInitialPositionMs;
+}
+
+uint64_t QobuzConnectAudioStream::DurationMs()
+{
+    AutoMutex _(iLock);
+    return iActiveStreamDurationMs;
 }
 
 void QobuzConnectAudioStream::NotifyReading()
@@ -354,6 +362,7 @@ void QobuzConnectAudioStream::HandleStreamStarted(QbzAudioStreamId aStreamId, co
                 iPendingStreamId = aStreamId;
                 iPendingStreamFormat = aProperties.format;
                 iPendingStreamInitialPositionMs = aInitialPositionMs;
+                iPendingStreamDurationMs = aProperties.duration;
                 return;
             }
             LOG(kQobuzConnect, "QobuzConnectAudioStream: replacing stream %llu with %llu (old stream %s)\n", (unsigned long long)iActiveStreamId, (unsigned long long)aStreamId, iInterrupted ? "was locally interrupted, never disposed" : "had already finished delivering its data");
@@ -369,6 +378,7 @@ void QobuzConnectAudioStream::HandleStreamStarted(QbzAudioStreamId aStreamId, co
         }
         iActiveStreamId = aStreamId;
         iActiveStreamInitialPositionMs = aInitialPositionMs;
+        iActiveStreamDurationMs = aProperties.duration;
         iActiveStreamFinished = false;
         iInterrupted = false;
         iReadStartTime = std::chrono::steady_clock::now(); // see Read()'s pacing comment
@@ -574,6 +584,7 @@ void QobuzConnectAudioStream::HandleStreamDispose(QbzAudioStreamId aStreamId)
             // buffered here in the meantime.
             iActiveStreamId = iPendingStreamId;
             iActiveStreamInitialPositionMs = iPendingStreamInitialPositionMs;
+            iActiveStreamDurationMs = iPendingStreamDurationMs;
             iPendingStreamId = 0;
             iStreamFormat.Set(iPendingStreamFormat);
             iActiveStreamFinished = false;

@@ -72,6 +72,13 @@ public:
     // QobuzNotifyPlaybackInitiated(), which feeds this into QobuzConnectMediaControl's position
     // tracking so the Controller's displayed position matches where audio actually starts.
     virtual uint64_t InitialPositionMs() = 0;
+    // Total duration of the active stream, in ms (QbzAudioStreamProperties.duration) - see
+    // ProtocolQobuzConnect::OutputStream(), which converts this into the byte count the Pipeline
+    // expects for a raw PCM stream's declared length, so DS's own duration/time-remaining/
+    // progress-bar reporting (e.g. in the Linn App) has something to work from - without this,
+    // elapsed time displays fine (it doesn't need a duration), but time remaining and the
+    // progress bar have nothing to divide against.
+    virtual uint64_t DurationMs() = 0;
     // Must be called once, right before a fresh run of Read() calls begins (i.e. right before
     // ProtocolQobuzConnect::Stream() enters its inner read loop) - captures which SDK stream is
     // active right now so that Read() can detect, no matter how the active stream subsequently
@@ -122,6 +129,7 @@ public:
 public: // from IQobuzConnectAudioReader
     const QobuzConnectStreamFormat& StreamFormat() override;
     uint64_t InitialPositionMs() override;
+    uint64_t DurationMs() override;
     void NotifyReading() override;
     void Read(IQobuzConnectAudioWriter& aWriter) override;
     void Interrupt() override;
@@ -157,6 +165,7 @@ private:
     TUint iBufferedBytes;
     QbzAudioStreamId iActiveStreamId; // 0 == none active
     uint64_t iActiveStreamInitialPositionMs; // valid iff iActiveStreamId != 0 - see InitialPositionMs()
+    uint64_t iActiveStreamDurationMs; // valid iff iActiveStreamId != 0 - see DurationMs()
     QbzAudioStreamId iResumeStreamId; // non-zero once backpressure has been applied and resume is owed
     // Non-zero once a stream_started_callback arrives for a stream while another is still active
     // (the SDK's gapless-preload mechanism - see HandleStreamStarted()'s comment). Held here
@@ -165,6 +174,7 @@ private:
     QbzAudioStreamId iPendingStreamId;
     QbzAudioFormat iPendingStreamFormat; // valid iff iPendingStreamId != 0
     uint64_t iPendingStreamInitialPositionMs; // valid iff iPendingStreamId != 0
+    uint64_t iPendingStreamDurationMs; // valid iff iPendingStreamId != 0
     QbzAudioStreamId iReadingForStreamId; // snapshot of iActiveStreamId taken by NotifyReading() - see that method's doc comment
     TBool iActiveStreamFinished; // active stream has delivered all its data - Read() returns once the buffer drains
     TBool iInterrupted;
