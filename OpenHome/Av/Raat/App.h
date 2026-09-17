@@ -52,7 +52,7 @@ private:
     void StartPlugins();
 private:
     IMediaPlayer& iMediaPlayer;
-    raat_uv_thread_t iThread;
+    uv_thread_t iThread;
     Timer* iTimer;
     RAAT__Device* iDevice;
     RAAT__Info* iInfo;

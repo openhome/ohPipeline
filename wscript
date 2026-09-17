@@ -68,43 +68,6 @@ def configure(conf):
     guess_ssl_location(conf)
     guess_raat_location(conf)
 
-    # QOBUZ Connect - mirrors ds/wscript's QOBUZ Connect section (see there for the fuller
-    # history/rationale - the RAAT/libuv rename that unblocked this, and the -rpath-link fix).
-    # ohMediaPlayer needs its own copy of this configuration because it independently vendors
-    # dependencies/<platform>/qobuz_connect and builds the SourceQobuzConnect stlib below.
-    qobuzConnectPlatforms = ['armhf-buildroot-linux']
-    if conf.options.dest_platform in qobuzConnectPlatforms:
-        conf.env.append_value('DEFINES', [ 'QOBUZ_CONNECT_ENABLED' ])
-        # Deliberately no 'uv' here - see product/wscript's QOBUZ Connect section for why a bare
-        # -luv for Qobuz's own copy doesn't reliably work on this toolchain (an --as-needed/
-        # -rpath-link quirk in this old Linaro ld) and LINKFLAGS_QOBUZCONNECT below instead.
-        conf.env.LIB_QOBUZCONNECT = ['qobuz_connect', 'cjson']
-        conf.env.INCLUDES_QOBUZCONNECT = [
-            os.path.join(conf.path.find_node('.').abspath(),
-                os.path.join('dependencies', conf.options.dest_platform, 'qobuz_connect', 'sdk', 'include')),
-            os.path.join(conf.path.find_node('.').abspath(),
-                os.path.join('dependencies', conf.options.dest_platform, 'qobuz_connect', 'third_party', 'libcjson', 'include')),
-            os.path.join(conf.path.find_node('.').abspath(),
-                os.path.join('dependencies', conf.options.dest_platform, 'qobuz_connect', 'third_party', 'libuv', 'include')),
-        ]
-        conf.env.LIBPATH_QOBUZCONNECT = [
-            os.path.join(conf.path.find_node('.').abspath(),
-                os.path.join('dependencies', conf.options.dest_platform, 'qobuz_connect', 'sdk', 'lib')),
-            os.path.join(conf.path.find_node('.').abspath(),
-                os.path.join('dependencies', conf.options.dest_platform, 'qobuz_connect', 'third_party', 'libcjson', 'lib')),
-            os.path.join(conf.path.find_node('.').abspath(),
-                os.path.join('dependencies', conf.options.dest_platform, 'qobuz_connect', 'third_party', 'libuv', 'lib')),
-        ]
-        conf.env.append_value('LINKFLAGS', [
-            '-Wl,-rpath-link,' + os.path.join(conf.path.find_node('.').abspath(),
-                os.path.join('dependencies', conf.options.dest_platform, 'qobuz_connect', 'third_party', 'libuv', 'lib')),
-        ])
-        conf.env.append_value('LINKFLAGS_QOBUZCONNECT', [
-            '-Wl,--no-as-needed',
-            os.path.join(conf.path.find_node('.').abspath(),
-                os.path.join('dependencies', conf.options.dest_platform, 'qobuz_connect', 'third_party', 'libuv', 'lib', 'libuv.so')),
-        ])
-
     conf.env.dest_platform = conf.options.dest_platform
     # conf.env.testharness_dir = os.path.abspath(conf.options.testharness_dir)
 
@@ -597,26 +560,6 @@ def build(bld):
                 ],
                 use=['OHNET', 'ohMediaPlayer', 'ohPipeline', 'RAAT'],
                 target='SourceRaat')
-
-    # QOBUZ Connect
-    if 'QOBUZ_CONNECT_ENABLED' in bld.env.DEFINES:
-        bld.stlib(
-                source=[
-                    'OpenHome/Av/QobuzConnect/App.cpp',
-                    'OpenHome/Av/QobuzConnect/Advertising.cpp',
-                    'OpenHome/Av/QobuzConnect/LocalConfigServer.cpp',
-                    'OpenHome/Av/QobuzConnect/AudioStream.cpp',
-                    'OpenHome/Av/QobuzConnect/MediaControl.cpp',
-                    'OpenHome/Av/QobuzConnect/Metadata.cpp',
-                    'OpenHome/Av/QobuzConnect/Logging.cpp',
-                    'OpenHome/Av/QobuzConnect/ProtocolQobuzConnect.cpp',
-                    'OpenHome/Av/QobuzConnect/SourceQobuzConnect.cpp'
-                ],
-                # Deliberately no 'RAAT' here - RAAT's own (renamed raat_uv_*) <uv.h> must never be
-                # on the include path for these translation units, which need Qobuz Connect's own
-                # real, unrenamed libuv (see App.h's class comment).
-                use=['OHNET', 'ohMediaPlayer', 'ohPipeline', 'QOBUZCONNECT'],
-                target='SourceQobuzConnect')
 
     # Podcast
     bld.stlib(
@@ -1366,7 +1309,7 @@ def build(bld):
                 'SourceScd',
                 'WebAppFramework',
                 'ConfigUi'
-                ] + (['QOBUZCONNECT', 'SourceQobuzConnect'] if 'QOBUZ_CONNECT_ENABLED' in bld.env.DEFINES else []),
+                ],
             target='TestMediaPlayer',
             install_path=os.path.join(bld.path.abspath(), 'install', 'bin'))
     bld.program(
@@ -1577,8 +1520,6 @@ def bundle(ctx):
                 ]
     if 'RAAT_ENABLE' in ctx.env.DEFINES:
         lib_names.append('SourceRaat')
-    if 'QOBUZ_CONNECT_ENABLED' in ctx.env.DEFINES:
-        lib_names.append('SourceQobuzConnect')
 
     lib_files = gather_files(ctx, '{bld}', (ctx.env.cxxstlib_PATTERN % x for x in lib_names))
     res_files = gather_files(ctx, '{top}/OpenHome/Web/ConfigUi/res', ['**/*'])
