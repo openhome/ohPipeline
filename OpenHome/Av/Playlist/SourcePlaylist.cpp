@@ -48,6 +48,7 @@ public:
 private:
     void DoSeekToTrackId(Media::Track* aTrack);
     void TracksMaxChanged(Configuration::KeyValuePair<TInt>& aKvp);
+    void DisableShuffle();
 private: // from ISource
     void Activate(TBool aAutoPlay, TBool aPrefetchAllowed) override;
     void Deactivate() override;
@@ -80,6 +81,7 @@ private: // from Media::IPipelineObserver
     void NotifyStreamInfo(const Media::DecodedStreamInfo& aStreamInfo) override;
 private:
     Mutex iLock;
+    ITransportRepeatRandom& iTransportRepeatRandom;
     TrackDatabase* iDatabase;
     Shuffler* iShuffler;
     Repeater* iRepeater;
@@ -127,6 +129,7 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
              SourceFactory::kSourceTypePlaylist,
              aMediaPlayer.Pipeline())
     , iLock("SPL1")
+    , iTransportRepeatRandom(aMediaPlayer.TransportRepeatRandom())
     , iDeviceListMediaServer(nullptr)
     , iMaxDbTracks(kTracksMax)
     , iTrackPosSeconds(0)
@@ -142,9 +145,12 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     iConfigTracksMax->Unsubscribe(id);
     auto& env = aMediaPlayer.Env();
     iDatabase = new TrackDatabase(aMediaPlayer.TrackFactory(), iMaxDbTracks);
-    iShuffler = new Shuffler(env, *iDatabase, *iDatabase, *iDatabase, iMaxDbTracks);
+    iShuffler = new Shuffler(*iDatabase, *iDatabase, *iDatabase, *iDatabase, iMaxDbTracks);
+    iShuffler->SetShuffleOffHandler(MakeFunctor(*this, &SourcePlaylist::DisableShuffle));
     iRepeater = new Repeater(*iShuffler);
-    iUriProvider = new UriProviderPlaylist(*iShuffler, *iDatabase, *iRepeater, *this, iPipeline, aPlaylistLoader);
+    /* All writes run through the Shuffler - it needs to see them to keep the shuffled and
+       unshuffled track orders consistent with each other. */
+    iUriProvider = new UriProviderPlaylist(*iShuffler, *iShuffler, *iRepeater, *this, iPipeline, aPlaylistLoader);
     iUriProvider->SetTransportPlay(MakeFunctor(*this, &SourcePlaylist::Play));
     iUriProvider->SetTransportPause(MakeFunctor(*this, &SourcePlaylist::Pause));
     iUriProvider->SetTransportStop(MakeFunctor(*this, &SourcePlaylist::Stop));
@@ -153,7 +159,7 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
     iUriProvider->SetTransportSeek(MakeFunctorGeneric<TUint>(*this, &SourcePlaylist::SeekAbsolute));
     iPipeline.Add(iUriProvider); // ownership passes to iPipeline
     auto& dvDevice = aMediaPlayer.Device();
-    iProviderPlaylist = new ProviderPlaylist(dvDevice, env, *this, *iShuffler, *iDatabase, *iRepeater, aMediaPlayer.TransportRepeatRandom());
+    iProviderPlaylist = new ProviderPlaylist(dvDevice, env, *this, *iShuffler, *iShuffler, *iRepeater, iTransportRepeatRandom);
     aMediaPlayer.MimeTypes().AddUpnpProtocolInfoObserver(MakeFunctorGeneric(*iProviderPlaylist, &ProviderPlaylist::NotifyProtocolInfo));
     iPipeline.AddObserver(*this);
     auto pinsInvocable = aMediaPlayer.PinsInvocable();
@@ -166,10 +172,10 @@ SourcePlaylist::SourcePlaylist(IMediaPlayer& aMediaPlayer, Optional<IPlaylistLoa
         pinsInvocable.Unwrap().Add(podcastPinsTuneIn);
         auto pinsKazooServer = new PinInvokerKazooServer(env, cpStack, dvDevice, aMediaPlayer.ThreadPool(), *iDeviceListMediaServer);
         pinsInvocable.Unwrap().Add(pinsKazooServer);
-        auto pinsUpnpServer = new PinInvokerUpnpServer(cpStack, dvDevice, aMediaPlayer.ThreadPool(), *iDatabase, *iDeviceListMediaServer);
+        auto pinsUpnpServer = new PinInvokerUpnpServer(cpStack, dvDevice, aMediaPlayer.ThreadPool(), *iShuffler, *iDeviceListMediaServer);
         pinsInvocable.Unwrap().Add(pinsUpnpServer);
         if (aPlaylistLoader.Ok()) {
-            auto invoker = new PinInvokerPlaylist(*iDatabase,
+            auto invoker = new PinInvokerPlaylist(*iShuffler,
                                                   aPlaylistLoader.Unwrap());
             pinsInvocable.Unwrap().Add(invoker); // passes ownership
         }
@@ -201,6 +207,13 @@ void SourcePlaylist::DoSeekToTrackId(Track* aTrack)
 void SourcePlaylist::TracksMaxChanged(Configuration::KeyValuePair<TInt>& aKvp)
 {
     iMaxDbTracks = aKvp.Value();
+}
+
+void SourcePlaylist::DisableShuffle()
+{
+    /* Called when the Shuffler decides shuffle is no longer useful.  It has already updated its
+       own state; this reports the change to control points (and any other observers). */
+    iTransportRepeatRandom.SetRandom(false);
 }
 
 void SourcePlaylist::Activate(TBool aAutoPlay, TBool aPrefetchAllowed)
@@ -400,7 +413,17 @@ TBool SourcePlaylist::SeekToTrackIndex(TUint aIndex)
 
 void SourcePlaylist::SetShuffle(TBool aShuffle)
 {
-    iShuffler->SetShuffle(aShuffle);
+    TUint currentTrackId = ITrackDatabaseReader::kTrackIdNone;
+    if (IsActive()) {
+        iLock.Wait();
+        const TBool playing = (iTransportState == EPipelinePlaying);
+        iLock.Signal();
+        if (playing) {
+            // the track we're playing carries on playing, uninterrupted, in the new order
+            currentTrackId = iUriProvider->CurrentTrackId();
+        }
+    }
+    iShuffler->SetShuffle(aShuffle, currentTrackId);
 }
 
 void SourcePlaylist::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfter)

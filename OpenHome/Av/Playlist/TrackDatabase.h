@@ -3,6 +3,7 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
+#include <OpenHome/Functor.h>
 #include <OpenHome/Private/Thread.h>
 
 #include <vector>
@@ -11,7 +12,6 @@ EXCEPTION(TrackDbIdNotFound);
 EXCEPTION(TrackDbFull);
 
 namespace OpenHome {
-    class Environment;
 namespace Media {
     class Track;
     class TrackFactory;
@@ -130,20 +130,29 @@ private:
 
 class Shuffler :
     public ITrackDatabaseReader,
+    public ITrackDatabaseWriter,
     public ITrackDatabaseTrackReader,
     private ITrackDatabaseObserver
 {
     friend class SuiteShuffler;
 public:
+    static const TUint kMinTracksForShuffle; // fewer tracks than this cannot be usefully shuffled
     Shuffler(
-        Environment& aEnv,
         ITrackDatabaseReader& aReader,
+        ITrackDatabaseWriter& aWriter,
         ITrackDatabaseTrackReader& aTrackReader,
         ITrackShuffleReporter& aReporter,
         TUint aMaxTracks);
     ~Shuffler();
     TBool Enabled() const;
-    void SetShuffle(TBool aShuffle);
+    /* aCurrentTrackId is the track (if any) which is playing as shuffle state changes.  It
+       carries on playing, uninterrupted, so is reported as the start of the new order - and is
+       moved to the start of the shuffled playlist when shuffle is enabled. */
+    void SetShuffle(TBool aShuffle, TUint aCurrentTrackId = ITrackDatabaseReader::kTrackIdNone);
+    /* Called when we decide that shuffle is no longer useful - see
+       DisableShuffleIfTooFewTracks().  Our state is already updated by the time the handler
+       runs; the handler is expected to report the change to any observers of shuffle state. */
+    void SetShuffleOffHandler(Functor aHandler);
 private: // from ITrackDatabaseReader
     void AddObserver(ITrackDatabaseObserver& aObserver) override;
     TUint IdArraySeq() const override;
@@ -152,6 +161,12 @@ private: // from ITrackDatabaseReader
     void GetTrackById(TUint aId, TUint aSeq, Media::Track*& aTrack, TUint& aIndex) const override;
     TUint TrackCount() const override;
     TUint TracksMax() const override;
+private: // from ITrackDatabaseWriter
+    void Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData, TUint& aIdInserted) override;
+    void Move(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
+    void DeleteId(TUint aId) override;
+    void DeleteIds(const std::vector<TUint32>& aIdArray) override;
+    void DeleteAll() override;
 private: // from ITrackDatabaseTrackReader
     void SetObserver(ITrackDatabaseObserver& aObserver) override;
     Media::Track* TrackRef(TUint aId) override;
@@ -165,16 +180,25 @@ private: // from ITrackDatabaseObserver
     void NotifyAllDeleted() override;
     void NotifyReordered(Media::Track* aStart) override;
 private:
+    void MoveToStartOfShuffleListLocked(TUint aId);
+    TBool IsEndOfShuffledPlaylistLocked(TUint aIdAfter) const;
+    TUint ShuffleIndexForIdAfterLocked(TUint aIdAfter) const;
+    TUint LastDbTrackIdLocked(const std::vector<TUint32>* aIgnoreIds = nullptr);
+    void ClearPendingInsert();
+    void DisableShuffleIfTooFewTracks();
     void LogIds(const TChar* aPrefix);
 private:
     mutable Mutex iLock;
-    Environment& iEnv;
+    Mutex iWriteLock;
     ITrackDatabaseReader& iDbReader;
+    ITrackDatabaseWriter& iDbWriter;
     ITrackDatabaseTrackReader& iTrackReader;
     ITrackShuffleReporter& iReporter;
     ITrackDatabaseObserver* iObserver;
+    Functor iShuffleOffHandler;
     std::vector<Media::Track*> iShuffleList;
-    TUint iPrevTrackId;
+    TUint iPendingInsertIdAfter;
+    TBool iPendingInsert;
     TBool iShuffle;
 };
 

@@ -2,7 +2,6 @@
 #include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Private/Env.h>
 #include <OpenHome/Private/Printer.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Av/Debug.h>
@@ -143,7 +142,7 @@ void TrackDatabase::Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData
         iTrackList.insert(iTrackList.begin() + index, track);
         iSeq++;
         idBefore = aIdAfter;
-        idAfter = (index == iTrackList.size()-1? kTrackIdNone : index+1);
+        idAfter = (index == iTrackList.size()-1? kTrackIdNone : iTrackList[index+1]->Id());
     }
     for (TUint i=0; i<iObservers.size(); i++) {
         iObservers[i]->NotifyTrackInserted(*track, idBefore, idAfter);
@@ -271,7 +270,7 @@ void TrackDatabase::Insert(TUint aIdAfter, Track* aTrack)
         tr.Clear();
         iSeq++;
         idBefore = aIdAfter;
-        idAfter = (index == iTrackList.size() - 1 ? kTrackIdNone : index + 1);
+        idAfter = (index == iTrackList.size() - 1 ? kTrackIdNone : iTrackList[index + 1]->Id());
     }
     for (TUint i = 0; i < iObservers.size(); i++) {
         iObservers[i]->NotifyTrackInserted(*aTrack, idBefore, idAfter);
@@ -310,19 +309,23 @@ Track* TrackDatabase::DoDeleteId(TUint aId)
 
 // Shuffler
 
+const TUint Shuffler::kMinTracksForShuffle = 2;
+
 Shuffler::Shuffler(
-    Environment& aEnv,
     ITrackDatabaseReader& aReader,
+    ITrackDatabaseWriter& aWriter,
     ITrackDatabaseTrackReader& aTrackReader,
     ITrackShuffleReporter& aReporter,
     TUint aMaxTracks)
     : iLock("TSHF")
-    , iEnv(aEnv)
+    , iWriteLock("TSHW")
     , iDbReader(aReader)
+    , iDbWriter(aWriter)
     , iTrackReader(aTrackReader)
     , iReporter(aReporter)
     , iObserver(nullptr)
-    , iPrevTrackId(ITrackDatabaseReader::kTrackIdNone)
+    , iPendingInsertIdAfter(ITrackDatabaseReader::kTrackIdNone)
+    , iPendingInsert(false)
     , iShuffle(false)
 {
     aTrackReader.SetObserver(*this);
@@ -342,15 +345,23 @@ Shuffler::~Shuffler()
     TrackListUtils::Clear(iShuffleList);
 }
 
-void Shuffler::SetShuffle(TBool aShuffle)
+void Shuffler::SetShuffle(TBool aShuffle, TUint aCurrentTrackId)
 {
     Track* track = nullptr;
     {
         AutoMutex _(iLock);
+        if (iShuffle == aShuffle) {
+            /* No change so nothing to report.  Note that DisableShuffleIfTooFewTracks() relies on
+               this - the change in shuffle state it requests is reported back to us and must not
+               be treated as a re-order. */
+            return;
+        }
         iShuffle = aShuffle;
         if (iShuffle) { // prefer re-shuffling over repeating the order of tracks if we play again
             std::random_shuffle(iShuffleList.begin(), iShuffleList.end());
-            iPrevTrackId = ITrackDatabaseReader::kTrackIdNone;
+            /* Any track playing as shuffle is enabled carries on playing so belongs at the start
+               of the new order. */
+            MoveToStartOfShuffleListLocked(aCurrentTrackId);
         }
         LogIds("SetShuffle");
 
@@ -361,11 +372,23 @@ void Shuffler::SetShuffle(TBool aShuffle)
             }
         }
         else {
-            track = iTrackReader.TrackRefByIndex(0);
+            /* The restored order starts at the track we're playing - it carries on playing and
+               the rest of the playlist follows it.  If we're not playing, it starts at the first
+               track as normal. */
+            track = iTrackReader.TrackRef(aCurrentTrackId);
+            if (track == nullptr) {
+                track = iTrackReader.TrackRefByIndex(0);
+            }
         }
     }
     AutoAllocatedRef __(track);
     iReporter.ReportReordered(track);
+}
+
+void Shuffler::SetShuffleOffHandler(Functor aHandler)
+{
+    AutoMutex _(iLock);
+    iShuffleOffHandler = aHandler;
 }
 
 void Shuffler::AddObserver(ITrackDatabaseObserver& aObserver)
@@ -408,6 +431,92 @@ TUint Shuffler::TrackCount() const
 TUint Shuffler::TracksMax() const
 {
     return iDbReader.TracksMax();
+}
+
+void Shuffler::Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData, TUint& aIdInserted)
+{
+    AutoMutex _(iWriteLock);
+    TUint idAfterDb = aIdAfter;
+    {
+        AutoMutex __(iLock);
+        /* Tracks are added in the order the user asked for in both shuffled and unshuffled lists.
+           Remember the position the user asked for - NotifyTrackInserted() applies it to the
+           shuffled list once the database has accepted the track. */
+        iPendingInsert = iShuffle;
+        iPendingInsertIdAfter = aIdAfter;
+        if (IsEndOfShuffledPlaylistLocked(aIdAfter)) {
+            /* Adding after the last track of the shuffled playlist means 'add to the end of the
+               playlist'.  Ignore aIdAfter for the unshuffled list and append there too. */
+            idAfterDb = LastDbTrackIdLocked();
+        }
+    }
+    try {
+        iDbWriter.Insert(idAfterDb, aUri, aMetaData, aIdInserted);
+    }
+    catch (...) {
+        ClearPendingInsert();
+        throw;
+    }
+    ClearPendingInsert();
+}
+
+void Shuffler::Move(const std::vector<TUint32>& aIdArray, TUint aIdAfter)
+{
+    AutoMutex _(iWriteLock);
+    TUint idAfterDb = aIdAfter;
+    {
+        AutoMutex __(iLock);
+        if (IsEndOfShuffledPlaylistLocked(aIdAfter)) {
+            /* As for Insert() - moving after the last track of the shuffled playlist means 'move
+               to the end of the playlist' so move to the end of the unshuffled list too.  The
+               anchor must be a track which isn't itself being moved; the database deletes then
+               re-inserts each track in turn so would fail to find one that had already moved. */
+            idAfterDb = LastDbTrackIdLocked(&aIdArray);
+            /* Only the first track needs its shuffled position overridden.  Later tracks are
+               inserted after their predecessor from aIdArray, which is the same in both lists. */
+            iPendingInsert = true;
+            iPendingInsertIdAfter = aIdAfter;
+        }
+    }
+    try {
+        iDbWriter.Move(aIdArray, idAfterDb);
+    }
+    catch (...) {
+        ClearPendingInsert();
+        throw;
+    }
+    ClearPendingInsert();
+}
+
+void Shuffler::DeleteId(TUint aId)
+{
+    {
+        AutoMutex _(iWriteLock);
+        iDbWriter.DeleteId(aId); // nothing is deleted if this throws
+    }
+    DisableShuffleIfTooFewTracks();
+}
+
+void Shuffler::DeleteIds(const std::vector<TUint32>& aIdArray)
+{
+    try {
+        AutoMutex _(iWriteLock);
+        iDbWriter.DeleteIds(aIdArray);
+    }
+    catch (...) { // some tracks may have been deleted before the failure
+        DisableShuffleIfTooFewTracks();
+        throw;
+    }
+    DisableShuffleIfTooFewTracks();
+}
+
+void Shuffler::DeleteAll()
+{
+    {
+        AutoMutex _(iWriteLock);
+        iDbWriter.DeleteAll();
+    }
+    DisableShuffleIfTooFewTracks();
 }
 
 void Shuffler::SetObserver(ITrackDatabaseObserver& aObserver)
@@ -462,21 +571,14 @@ void Shuffler::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfte
 {
     TUint idBefore = aIdBefore;
     TUint idAfter = aIdAfter;
-    try {
+    {
         AutoMutex a(iLock);
-        TUint index = 0;
-        if (iShuffleList.size() > 0) {
-            TUint min = 0;
-            if (iPrevTrackId != ITrackDatabaseReader::kTrackIdNone) {
-                min = TrackListUtils::IndexFromId(iShuffleList, iPrevTrackId) + 1;
-            }
-            if (min == iShuffleList.size()) {
-                index = min;
-            }
-            else {
-                index = iEnv.Random(iShuffleList.size(), min);
-            }
-        }
+        /* aIdBefore is the id the track was inserted after in the unshuffled list.  That is also
+           the position the user asked for unless we adjusted it in Insert() above, so prefer the
+           id the user gave us for any insertion which came via us. */
+        const TUint idAfterShuffle = (iPendingInsert? iPendingInsertIdAfter : aIdBefore);
+        iPendingInsert = false;
+        const TUint index = ShuffleIndexForIdAfterLocked(idAfterShuffle);
         iShuffleList.insert(iShuffleList.begin() + index, &aTrack);
         aTrack.AddRef();
         if (iShuffle) {
@@ -484,9 +586,6 @@ void Shuffler::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfte
             idAfter = (index == iShuffleList.size()-1? ITrackDatabaseReader::kTrackIdNone : iShuffleList[index+1]->Id());
             LogIds("TrackInserted");
         }
-    }
-    catch (TrackDbIdNotFound&) {
-        return;
     }
     iObserver->NotifyTrackInserted(aTrack, idBefore, idAfter);
 }
@@ -501,14 +600,6 @@ void Shuffler::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aAfter)
         if (iShuffle) {
             before = (index==0? nullptr : iShuffleList[index-1]);
             after = (index==iShuffleList.size()-1? nullptr : iShuffleList[index+1]);
-            if (iShuffleList[index]->Id() == iPrevTrackId) {
-                if (index == 0) {
-                    iPrevTrackId = ITrackDatabaseReader::kTrackIdNone;
-                }
-                else {
-                    iPrevTrackId = iShuffleList[index-1]->Id();
-                }
-            }
         }
         iShuffleList[index]->RemoveRef();
         iShuffleList.erase(iShuffleList.begin() + index);
@@ -527,7 +618,6 @@ void Shuffler::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aAfter)
 void Shuffler::NotifyAllDeleted()
 {
     iLock.Wait();
-    iPrevTrackId = ITrackDatabaseReader::kTrackIdNone;
     TrackListUtils::Clear(iShuffleList);
     iLock.Signal();
     iObserver->NotifyAllDeleted();
@@ -538,6 +628,85 @@ void Shuffler::NotifyReordered(Track* aStart)
     iObserver->NotifyReordered(aStart);
 }
 
+void Shuffler::MoveToStartOfShuffleListLocked(TUint aId)
+{
+    if (aId == ITrackDatabaseReader::kTrackIdNone) {
+        return;
+    }
+    try {
+        const TUint index = TrackListUtils::IndexFromId(iShuffleList, aId);
+        if (index > 0) {
+            Track* track = iShuffleList[index];
+            (void)iShuffleList.erase(iShuffleList.begin() + index);
+            iShuffleList.insert(iShuffleList.begin(), track); // no change in ref count
+        }
+    }
+    catch (TrackDbIdNotFound&) {} // track is no longer in the playlist
+}
+
+TBool Shuffler::IsEndOfShuffledPlaylistLocked(TUint aIdAfter) const
+{
+    return (iShuffle
+            && aIdAfter != ITrackDatabaseReader::kTrackIdNone
+            && iShuffleList.size() > 0
+            && iShuffleList[iShuffleList.size()-1]->Id() == aIdAfter);
+}
+
+TUint Shuffler::ShuffleIndexForIdAfterLocked(TUint aIdAfter) const
+{
+    if (aIdAfter == ITrackDatabaseReader::kTrackIdNone) {
+        return 0;
+    }
+    try {
+        return TrackListUtils::IndexFromId(iShuffleList, aIdAfter) + 1;
+    }
+    catch (TrackDbIdNotFound&) {
+        return iShuffleList.size(); // shouldn't happen - append rather than lose the track
+    }
+}
+
+TUint Shuffler::LastDbTrackIdLocked(const std::vector<TUint32>* aIgnoreIds)
+{
+    // returns kTrackIdNone if the unshuffled list is empty or holds only ignored tracks
+    TUint count = iDbReader.TrackCount();
+    while (count > 0) {
+        Track* track = iTrackReader.TrackRefByIndex(--count);
+        if (track == nullptr) {
+            break;
+        }
+        const TUint id = track->Id();
+        track->RemoveRef();
+        if (aIgnoreIds == nullptr
+            || std::find(aIgnoreIds->begin(), aIgnoreIds->end(), id) == aIgnoreIds->end()) {
+            return id;
+        }
+    }
+    return ITrackDatabaseReader::kTrackIdNone;
+}
+
+void Shuffler::ClearPendingInsert()
+{
+    AutoMutex _(iLock);
+    iPendingInsert = false;
+}
+
+void Shuffler::DisableShuffleIfTooFewTracks()
+{
+    /* Shuffle has no meaning for a playlist of 0 or 1 tracks.  Disable it - both track lists are
+       identical at this size so there is no re-order to report - and tell our owner so that the
+       change in shuffle state can be reported to control points. */
+    Functor handler;
+    {
+        AutoMutex _(iLock);
+        if (!iShuffle || iShuffleList.size() >= kMinTracksForShuffle) {
+            return;
+        }
+        iShuffle = false;
+        LogIds("ShuffleDisabled");
+        handler = iShuffleOffHandler;
+    }
+    handler();
+}
 
 void Shuffler::LogIds(const TChar* aPrefix)
 {

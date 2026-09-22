@@ -431,18 +431,28 @@ void UriProviderPlaylist::NotifyReordered(Track* aStart)
 {
     {
         AutoMutex a(iLock);
-        if (iPending != nullptr) {
-            iPending->RemoveRef();
-        }
-        iPending = aStart;
-        if (iPending == nullptr) {
-            iLastTrackId = ITrackDatabaseReader::kTrackIdNone;
+        if (aStart != nullptr && aStart->Id() == CurrentTrackIdLocked()) {
+            /* The track we're playing is already at the start of the new order so carries on
+               playing.  Only the tracks queued behind it need to be fetched again. */
+            iLastTrackId = aStart->Id();
+            if (iActive) {
+                iIdManager.InvalidateAfter(aStart->Id());
+            }
         }
         else {
-            iPending->AddRef();
-        }
-        if (iActive) {
-            iIdManager.InvalidateAll();
+            if (iPending != nullptr) {
+                iPending->RemoveRef();
+            }
+            iPending = aStart;
+            if (iPending == nullptr) {
+                iLastTrackId = ITrackDatabaseReader::kTrackIdNone;
+            }
+            else {
+                iPending->AddRef();
+            }
+            if (iActive) {
+                iIdManager.InvalidateAll();
+            }
         }
     }
     iDbObserver.NotifyReordered(aStart);

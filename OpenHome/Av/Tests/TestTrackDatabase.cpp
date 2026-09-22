@@ -3,7 +3,6 @@
 #include <OpenHome/Private/SuiteUnitTest.h>
 #include <OpenHome/Media/Utils/AllocatorInfoLogger.h>
 #include <OpenHome/Media/Pipeline/Msg.h>
-#include <OpenHome/Net/Private/Globals.h>
 
 #include <limits.h>
 #include <array>
@@ -40,6 +39,7 @@ private:
     void InsertAtStart();
     void InsertInMiddle();
     void InsertAtEnd();
+    void InsertAfterDeleteReportsIds();
     void DeleteValidId();
     void DeleteInvalidId();
     void DeleteAll();
@@ -125,6 +125,25 @@ private:
     void TrackRefByIndexShuffleOff();
     void TrackRefByIndexShuffleOn();
     void NextTrackBeyondEndNoReshuffle();
+    void ShuffleOffRestoresUserOrder();
+    void SetShuffleWhilePlayingPutsCurrentTrackFirst();
+    void SetShuffleWhenNotPlayingStartsAtFirstShuffledTrack();
+    void SetShuffleWithUnknownCurrentTrackShuffles();
+    void SetShuffleOffWhilePlayingKeepsCurrentTrack();
+    void SetShuffleOffWhenNotPlayingStartsAtFirstTrack();
+    void InsertShuffleOnFollowsUserOrder();
+    void InsertAfterLastShuffledTrackAppends();
+    void MoveShuffleOnFollowsUserOrder();
+    void MoveToEndOfShuffledPlaylistMovesToEnd();
+    void DeleteToSingleTrackDisablesShuffle();
+    void DeleteIdsToEmptyDisablesShuffle();
+    void DeleteIdsPartialFailureDisablesShuffle();
+    void DeleteAllDisablesShuffle();
+private:
+    void ShuffleOffRequested();
+    void ReshuffleUntilLastTracksDiffer();
+    std::vector<TUint32> ShuffledIds() const; // order the user sees (shuffled iff shuffle is on)
+    std::vector<TUint32> UnshuffledIds() const;
 private:
     static const TUint kNumTracks = 16; // gives us ~1 in 21 trillion chance of shuffling tracks into their original order
     Media::AllocatorInfoLogger iInfoAggregator;
@@ -132,7 +151,11 @@ private:
     TrackDatabase* iDb;
     Shuffler* iShuffler;
     ITrackDatabaseTrackReader* iReader;
+    ITrackDatabaseWriter* iWriter;
     std::array<TUint, kNumTracks> iIds;
+    TUint iShuffleOffCount;
+    TUint iReorderedCount;
+    TUint iIdLastReordered;
 };
 
 class SuiteRepeater : public SuiteUnitTest, private ITrackDatabaseObserver
@@ -185,6 +208,7 @@ SuiteTrackDatabase::SuiteTrackDatabase()
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::InsertAtStart), "InsertAtStart");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::InsertInMiddle), "InsertInMiddle");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::InsertAtEnd), "InsertAtEnd");
+    AddTest(MakeFunctor(*this, &SuiteTrackDatabase::InsertAfterDeleteReportsIds), "InsertAfterDeleteReportsIds");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::DeleteValidId), "DeleteValidId");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::DeleteInvalidId), "DeleteInvalidId");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::DeleteAll), "DeleteAll");
@@ -356,6 +380,21 @@ void SuiteTrackDatabase::InsertAtEnd()
     TEST(iIdLastInserted == ids[2]);
     TEST(iIdLastInsertedBefore == ids[1]);
     TEST(iIdLastInsertedAfter == ITrackDatabaseReader::kTrackIdNone);
+}
+
+void SuiteTrackDatabase::InsertAfterDeleteReportsIds()
+{
+    // ids of neighbouring tracks are only the same as their indices in a playlist which has
+    // never had a track deleted from it
+    TUint ids[4];
+    iTrackDbWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), ids[0]);
+    iTrackDbWriter->Insert(ids[0], Brx::Empty(), Brx::Empty(), ids[1]);
+    iTrackDbWriter->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[2]);
+    iTrackDbWriter->DeleteId(ids[0]); // playlist is now { ids[1], ids[2] }
+    iTrackDbWriter->Insert(ids[1], Brx::Empty(), Brx::Empty(), ids[3]);
+    TEST(iIdLastInserted == ids[3]);
+    TEST(iIdLastInsertedBefore == ids[1]);
+    TEST(iIdLastInsertedAfter == ids[2]);
 }
 
 void SuiteTrackDatabase::DeleteValidId()
@@ -777,22 +816,73 @@ SuiteShuffler::SuiteShuffler()
     AddTest(MakeFunctor(*this, &SuiteShuffler::TrackRefByIndexShuffleOff), "TrackRefByIndexShuffleOff");
     AddTest(MakeFunctor(*this, &SuiteShuffler::TrackRefByIndexShuffleOn), "TrackRefByIndexShuffleOn");
     AddTest(MakeFunctor(*this, &SuiteShuffler::NextTrackBeyondEndNoReshuffle), "NextTrackBeyondEndNoReshuffle");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::ShuffleOffRestoresUserOrder), "ShuffleOffRestoresUserOrder");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleWhilePlayingPutsCurrentTrackFirst), "SetShuffleWhilePlayingPutsCurrentTrackFirst");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleWhenNotPlayingStartsAtFirstShuffledTrack), "SetShuffleWhenNotPlayingStartsAtFirstShuffledTrack");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleWithUnknownCurrentTrackShuffles), "SetShuffleWithUnknownCurrentTrackShuffles");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleOffWhilePlayingKeepsCurrentTrack), "SetShuffleOffWhilePlayingKeepsCurrentTrack");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleOffWhenNotPlayingStartsAtFirstTrack), "SetShuffleOffWhenNotPlayingStartsAtFirstTrack");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::InsertShuffleOnFollowsUserOrder), "InsertShuffleOnFollowsUserOrder");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::InsertAfterLastShuffledTrackAppends), "InsertAfterLastShuffledTrackAppends");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::MoveShuffleOnFollowsUserOrder), "MoveShuffleOnFollowsUserOrder");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::MoveToEndOfShuffledPlaylistMovesToEnd), "MoveToEndOfShuffledPlaylistMovesToEnd");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::DeleteToSingleTrackDisablesShuffle), "DeleteToSingleTrackDisablesShuffle");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::DeleteIdsToEmptyDisablesShuffle), "DeleteIdsToEmptyDisablesShuffle");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::DeleteIdsPartialFailureDisablesShuffle), "DeleteIdsPartialFailureDisablesShuffle");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::DeleteAllDisablesShuffle), "DeleteAllDisablesShuffle");
+}
+
+static TUint IndexOfId(const std::vector<TUint32>& aIds, TUint aId)
+{
+    auto it = std::find(aIds.begin(), aIds.end(), aId);
+    TEST(it != aIds.end());
+    return (TUint)(it - aIds.begin());
 }
 
 void SuiteShuffler::Setup()
 {
     iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
     iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
-    iShuffler = new Shuffler(*gEnv, *iDb, *iDb, *iDb, kMaxTracks);
+    iShuffler = new Shuffler(*iDb, *iDb, *iDb, *iDb, kMaxTracks);
+    iShuffler->SetShuffleOffHandler(MakeFunctor(*this, &SuiteShuffler::ShuffleOffRequested));
     iReader = static_cast<ITrackDatabaseTrackReader*>(iShuffler);
+    iWriter = static_cast<ITrackDatabaseWriter*>(iShuffler);
     iReader->SetObserver(*this);
-    
-    ITrackDatabaseWriter* writer = iDb;
+    iShuffleOffCount = 0;
+    iReorderedCount = 0;
+    iIdLastReordered = ITrackDatabaseReader::kTrackIdNone;
+
     TUint insertAfter = ITrackDatabaseReader::kTrackIdNone;
     for (TUint i=0; i<kNumTracks; i++) {
-        writer->Insert(insertAfter, Brx::Empty(), Brx::Empty(), iIds[i]);
+        iWriter->Insert(insertAfter, Brx::Empty(), Brx::Empty(), iIds[i]);
         insertAfter = iIds[i];
     }
+}
+
+void SuiteShuffler::ShuffleOffRequested()
+{
+    /* Shuffler has already disabled shuffle.  In a running system, this would report the new
+       state, ending in a (no-op) call to SetShuffle(false). */
+    iShuffleOffCount++;
+    iShuffler->SetShuffle(false);
+}
+
+std::vector<TUint32> SuiteShuffler::ShuffledIds() const
+{
+    std::vector<TUint32> ids;
+    TUint seq;
+    static_cast<ITrackDatabaseReader*>(iShuffler)->GetIdArray(ids, seq);
+    ids.erase(std::remove(ids.begin(), ids.end(), (TUint32)ITrackDatabaseReader::kTrackIdNone), ids.end());
+    return ids;
+}
+
+std::vector<TUint32> SuiteShuffler::UnshuffledIds() const
+{
+    std::vector<TUint32> ids;
+    TUint seq;
+    static_cast<ITrackDatabaseReader*>(iDb)->GetIdArray(ids, seq);
+    ids.erase(std::remove(ids.begin(), ids.end(), (TUint32)ITrackDatabaseReader::kTrackIdNone), ids.end());
+    return ids;
 }
 
 void SuiteShuffler::TearDown()
@@ -814,8 +904,10 @@ void SuiteShuffler::NotifyAllDeleted()
 {
 }
 
-void SuiteShuffler::NotifyReordered(Track* /*aStart*/)
+void SuiteShuffler::NotifyReordered(Track* aStart)
 {
+    iReorderedCount++;
+    iIdLastReordered = (aStart==nullptr? ITrackDatabaseReader::kTrackIdNone : aStart->Id());
 }
 
 void SuiteShuffler::TrackRefShuffleOff()
@@ -994,6 +1086,252 @@ void SuiteShuffler::NextTrackBeyondEndNoReshuffle()
 }
 
 
+void SuiteShuffler::ShuffleOffRestoresUserOrder()
+{
+    const std::vector<TUint32> original = UnshuffledIds();
+    iShuffler->SetShuffle(true);
+    TEST(ShuffledIds() != original);
+    iShuffler->SetShuffle(false);
+    TEST(ShuffledIds() == original);
+}
+
+void SuiteShuffler::SetShuffleWhilePlayingPutsCurrentTrackFirst()
+{
+    const TUint currentId = iIds[kNumTracks/2];
+    iShuffler->SetShuffle(true, currentId);
+
+    // the playing track is first in the new order and is reported as its start
+    const std::vector<TUint32> shuffled = ShuffledIds();
+    TEST(shuffled.size() == kNumTracks);
+    TEST(shuffled[0] == currentId);
+    TEST(iReorderedCount == 1);
+    TEST(iIdLastReordered == currentId);
+    // ...and every other track is still present, in a shuffled order
+    TEST(shuffled != UnshuffledIds());
+    for (TUint i=0; i<kNumTracks; i++) {
+        TEST_QUIETLY(std::count(shuffled.begin(), shuffled.end(), iIds[i]) == 1);
+    }
+}
+
+void SuiteShuffler::SetShuffleWhenNotPlayingStartsAtFirstShuffledTrack()
+{
+    iShuffler->SetShuffle(true); // nothing playing
+    const std::vector<TUint32> shuffled = ShuffledIds();
+    TEST(shuffled.size() == kNumTracks);
+    TEST(iReorderedCount == 1);
+    TEST(iIdLastReordered == shuffled[0]);
+}
+
+void SuiteShuffler::SetShuffleWithUnknownCurrentTrackShuffles()
+{
+    // a track which has been deleted from the playlist can't be moved to the start of it
+    iShuffler->SetShuffle(true, iIds[kNumTracks-1] + 1);
+    const std::vector<TUint32> shuffled = ShuffledIds();
+    TEST(shuffled.size() == kNumTracks);
+    TEST(iReorderedCount == 1);
+    TEST(iIdLastReordered == shuffled[0]);
+}
+
+void SuiteShuffler::SetShuffleOffWhilePlayingKeepsCurrentTrack()
+{
+    const TUint currentId = iIds[kNumTracks/2];
+    iShuffler->SetShuffle(true, currentId);
+    iShuffler->SetShuffle(false, currentId);
+
+    // the user's order is restored but the playing track is reported as its start
+    TEST(ShuffledIds() == UnshuffledIds());
+    TEST(iReorderedCount == 2);
+    TEST(iIdLastReordered == currentId);
+    TEST(iIdLastReordered != UnshuffledIds()[0]);
+}
+
+void SuiteShuffler::SetShuffleOffWhenNotPlayingStartsAtFirstTrack()
+{
+    iShuffler->SetShuffle(true);
+    iShuffler->SetShuffle(false); // nothing playing
+    TEST(ShuffledIds() == UnshuffledIds());
+    TEST(iReorderedCount == 2);
+    TEST(iIdLastReordered == UnshuffledIds()[0]);
+
+    // ...as does a track which has since been deleted from the playlist
+    iShuffler->SetShuffle(true);
+    iShuffler->SetShuffle(false, iIds[kNumTracks-1] + 1);
+    TEST(iReorderedCount == 4);
+    TEST(iIdLastReordered == UnshuffledIds()[0]);
+}
+
+void SuiteShuffler::InsertShuffleOnFollowsUserOrder()
+{
+    static const TUint kNumInserts = 3;
+    iShuffler->SetShuffle(true);
+    // insert a block of tracks in the middle of the shuffled playlist
+    const TUint idAfter = ShuffledIds()[2];
+    std::array<TUint, kNumInserts> newIds;
+    TUint after = idAfter;
+    for (TUint i=0; i<kNumInserts; i++) {
+        iWriter->Insert(after, Brx::Empty(), Brx::Empty(), newIds[i]);
+        after = newIds[i];
+    }
+
+    // ...tracks appear in the order the user chose in both shuffled and unshuffled playlists
+    const std::vector<TUint32> shuffled = ShuffledIds();
+    TEST(shuffled.size() == kNumTracks + kNumInserts);
+    TUint index = IndexOfId(shuffled, idAfter);
+    for (TUint i=0; i<kNumInserts; i++) {
+        TEST(shuffled[index + 1 + i] == newIds[i]);
+    }
+    const std::vector<TUint32> unshuffled = UnshuffledIds();
+    TEST(unshuffled.size() == kNumTracks + kNumInserts);
+    index = IndexOfId(unshuffled, idAfter);
+    for (TUint i=0; i<kNumInserts; i++) {
+        TEST(unshuffled[index + 1 + i] == newIds[i]);
+    }
+}
+
+void SuiteShuffler::ReshuffleUntilLastTracksDiffer()
+{
+    /* Tests of 'add/move to the end of the shuffled playlist' are only interesting if the last
+       track of the shuffled playlist isn't also the last track of the unshuffled one. */
+    while (ShuffledIds()[kNumTracks-1] == UnshuffledIds()[kNumTracks-1]) {
+        iShuffler->SetShuffle(false);
+        iShuffler->SetShuffle(true);
+    }
+}
+
+void SuiteShuffler::InsertAfterLastShuffledTrackAppends()
+{
+    static const TUint kNumInserts = 2;
+    iShuffler->SetShuffle(true);
+    ReshuffleUntilLastTracksDiffer();
+
+    std::array<TUint, kNumInserts> newIds;
+    TUint after = ShuffledIds()[kNumTracks-1];
+    for (TUint i=0; i<kNumInserts; i++) {
+        iWriter->Insert(after, Brx::Empty(), Brx::Empty(), newIds[i]);
+        after = newIds[i];
+    }
+
+    // adding to the end of the shuffled playlist adds to the end of the unshuffled one too
+    const std::vector<TUint32> shuffled = ShuffledIds();
+    const std::vector<TUint32> unshuffled = UnshuffledIds();
+    TEST(shuffled.size() == kNumTracks + kNumInserts);
+    TEST(unshuffled.size() == kNumTracks + kNumInserts);
+    for (TUint i=0; i<kNumInserts; i++) {
+        TEST(shuffled[kNumTracks + i] == newIds[i]);
+        TEST(unshuffled[kNumTracks + i] == newIds[i]);
+    }
+}
+
+void SuiteShuffler::MoveShuffleOnFollowsUserOrder()
+{
+    iShuffler->SetShuffle(true);
+    const std::vector<TUint32> shuffled = ShuffledIds();
+    const TUint idAfter = shuffled[2]; // ...somewhere in the middle of the shuffled playlist
+    std::vector<TUint32> toMove;
+    toMove.push_back(shuffled[kNumTracks-1]);
+    toMove.push_back(shuffled[0]);
+    iWriter->Move(toMove, idAfter);
+
+    // moved tracks follow idAfter, in the order given, in both playlists
+    const std::vector<TUint32> shuffledAfter = ShuffledIds();
+    const std::vector<TUint32> unshuffledAfter = UnshuffledIds();
+    TEST(shuffledAfter.size() == kNumTracks);
+    TEST(unshuffledAfter.size() == kNumTracks);
+    TUint index = IndexOfId(shuffledAfter, idAfter);
+    TEST(shuffledAfter[index+1] == toMove[0]);
+    TEST(shuffledAfter[index+2] == toMove[1]);
+    index = IndexOfId(unshuffledAfter, idAfter);
+    TEST(unshuffledAfter[index+1] == toMove[0]);
+    TEST(unshuffledAfter[index+2] == toMove[1]);
+}
+
+void SuiteShuffler::MoveToEndOfShuffledPlaylistMovesToEnd()
+{
+    iShuffler->SetShuffle(true);
+    ReshuffleUntilLastTracksDiffer();
+    const std::vector<TUint32> shuffled = ShuffledIds();
+    const std::vector<TUint32> unshuffled = UnshuffledIds();
+    const TUint idAfter = shuffled[kNumTracks-1];
+
+    /* Move the last unshuffled track first - the database deletes then re-inserts each track in
+       turn so would fail to find its anchor if we chose one of the tracks being moved. */
+    std::vector<TUint32> toMove;
+    toMove.push_back(unshuffled[kNumTracks-1]);
+    for (TUint i=0; toMove.size()<2; i++) {
+        if (unshuffled[i] != toMove[0] && unshuffled[i] != idAfter) {
+            toMove.push_back(unshuffled[i]);
+        }
+    }
+    iWriter->Move(toMove, idAfter);
+
+    // moving to the end of the shuffled playlist moves to the end of the unshuffled one too
+    const std::vector<TUint32> shuffledAfter = ShuffledIds();
+    const std::vector<TUint32> unshuffledAfter = UnshuffledIds();
+    TEST(shuffledAfter.size() == kNumTracks);
+    TEST(unshuffledAfter.size() == kNumTracks);
+    for (TUint i=0; i<toMove.size(); i++) {
+        const TUint index = kNumTracks - (TUint)toMove.size() + i;
+        TEST(shuffledAfter[index] == toMove[i]);
+        TEST(unshuffledAfter[index] == toMove[i]);
+    }
+}
+
+void SuiteShuffler::DeleteToSingleTrackDisablesShuffle()
+{
+    iShuffler->SetShuffle(true);
+    TEST(iShuffler->Enabled());
+    for (TUint i=0; i<kNumTracks-Shuffler::kMinTracksForShuffle; i++) { // ...leaving the fewest tracks which can be shuffled
+        iWriter->DeleteId(iIds[i]);
+        TEST(iShuffler->Enabled());
+        TEST(iShuffleOffCount == 0);
+    }
+    iWriter->DeleteId(iIds[kNumTracks-Shuffler::kMinTracksForShuffle]); // ...leaving too few
+    TEST(!iShuffler->Enabled());
+    TEST(iShuffleOffCount == 1);
+    TEST(ShuffledIds() == UnshuffledIds());
+}
+
+void SuiteShuffler::DeleteIdsToEmptyDisablesShuffle()
+{
+    iShuffler->SetShuffle(true);
+    TEST(iShuffler->Enabled());
+    std::vector<TUint32> toDelete;
+    for (TUint i=0; i<kNumTracks; i++) {
+        toDelete.push_back(iIds[i]);
+    }
+    iWriter->DeleteIds(toDelete);
+    TEST(!iShuffler->Enabled());
+    TEST(iShuffleOffCount == 1);
+    TEST(ShuffledIds().size() == 0);
+}
+
+void SuiteShuffler::DeleteIdsPartialFailureDisablesShuffle()
+{
+    iShuffler->SetShuffle(true);
+    TEST(iShuffler->Enabled());
+    std::vector<TUint32> toDelete;
+    for (TUint i=0; i<kNumTracks-1; i++) { // ...leaving too few tracks to shuffle...
+        toDelete.push_back(iIds[i]);
+    }
+    toDelete.push_back(iIds[kNumTracks-1] + 1); // ...then fail
+    TEST_THROWS(iWriter->DeleteIds(toDelete), TrackDbIdNotFound);
+    // tracks deleted before the failure still count
+    TEST(!iShuffler->Enabled());
+    TEST(iShuffleOffCount == 1);
+    TEST(ShuffledIds().size() == 1);
+}
+
+void SuiteShuffler::DeleteAllDisablesShuffle()
+{
+    iShuffler->SetShuffle(true);
+    TEST(iShuffler->Enabled());
+    iWriter->DeleteAll();
+    TEST(!iShuffler->Enabled());
+    TEST(iShuffleOffCount == 1);
+    TEST(ShuffledIds().size() == 0);
+}
+
+
 // SuiteRepeater
 
 SuiteRepeater::SuiteRepeater()
@@ -1013,7 +1351,7 @@ void SuiteRepeater::Setup()
 {
     iTrackFactory = new TrackFactory(iInfoAggregator, kMaxTracks);
     iDb = new TrackDatabase(*iTrackFactory, kMaxTracks);
-    iShuffler = new Shuffler(*gEnv, *iDb, *iDb, *iDb, kMaxTracks);
+    iShuffler = new Shuffler(*iDb, *iDb, *iDb, *iDb, kMaxTracks);
     iRepeater = new Repeater(*iShuffler);
     iReader = static_cast<ITrackDatabaseTrackReader*>(iRepeater);
     iReader->SetObserver(*this);

@@ -28,6 +28,8 @@ static const TUint kIndexNotFoundCode = 802;
 static const Brn kIndexNotFoundMsg("Index not found");
 static const TUint kSeekFailureCode = 803;
 static const Brn kSeekFailureMsg("Seek failed");
+static const TUint kShuffleNotPossibleCode = 804;
+static const Brn kShuffleNotPossibleMsg("Shuffle not currently possible");
 
 // ProviderPlaylist
 
@@ -215,7 +217,13 @@ void ProviderPlaylist::Repeat(IDvInvocation& aInvocation, IDvInvocationResponseB
 
 void ProviderPlaylist::SetShuffle(IDvInvocation& aInvocation, TBool aValue)
 {
-    iTransportRepeatRandom.SetRandom(aValue);
+    if (aValue && iDatabaseReader.TrackCount() < Shuffler::kMinTracksForShuffle) {
+        // too few tracks to shuffle - leave Shuffle off and tell the control point why
+        aInvocation.Error(kShuffleNotPossibleCode, kShuffleNotPossibleMsg);
+    }
+    else {
+        iTransportRepeatRandom.SetRandom(aValue);
+    }
     aInvocation.StartResponse();
     aInvocation.EndResponse();
 }
