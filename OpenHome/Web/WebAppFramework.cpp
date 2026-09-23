@@ -149,13 +149,12 @@ void FrameworkTabHandler::WriteMessagesLocked(IWriter& aWriter)
             }
 
             msg->Send(aWriter); // May throw WriterError.
-            msg->Destroy();
-            iSemWrite.Signal();
-
             // All but last msg should be followed by "," in a JSON array.
             if (iFifo.SlotsUsed() > 0) {
                 aWriter.Write(Brn(","));
             }
+            msg->Destroy();
+            iSemWrite.Signal();
         }
         catch (const WriterError&) {
             // Destroy msg and rethrow so that higher level can take
