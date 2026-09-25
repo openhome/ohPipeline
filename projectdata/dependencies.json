@@ -68,7 +68,7 @@
             "armhf-buildroot-linux": false,
             "*": true },
         "ignore":	"${platform-ignore[$platform]}",
-        "version": "0.2.156",
+        "version": "0.2.223",
         "archive-filename": "${name}-Linux-armhf-${version}.tar.gz"
     },
     {
