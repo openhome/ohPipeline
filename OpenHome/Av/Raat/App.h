@@ -7,6 +7,11 @@
 #include <raat_device.h> 
 #include <raat_info.h> 
 
+// RAAT's bundled libuv has uv_thread_* renamed to raat_uv_thread_* on every platform it publishes for
+typedef raat_uv_thread_t OhRaatUvThreadT;
+#define OhRaatUvThreadCreate raat_uv_thread_create
+#define OhRaatUvThreadJoin raat_uv_thread_join
+
 namespace OpenHome {
     class Environment;
     class Timer;
@@ -52,7 +57,7 @@ private:
     void StartPlugins();
 private:
     IMediaPlayer& iMediaPlayer;
-    uv_thread_t iThread;
+    OhRaatUvThreadT iThread;
     Timer* iTimer;
     RAAT__Device* iDevice;
     RAAT__Info* iInfo;
