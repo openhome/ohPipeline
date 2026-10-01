@@ -3,7 +3,7 @@
         "name": "ohNet",
         "type": "openhome",
         "platform-specific": true,
-        "version": "1.42.6176",
+        "version": "1.42.6245",
         "archive-suffix": "-${debugmode}",
         "main-dir": "${dest}${name}-${platform}-${debugmode}",
         "configure-args": [
@@ -20,12 +20,21 @@
         "platform-specific": true,
         "platform-ignore": {
             "armhf-kirkstone-linux": false,
+            "armhf-scarthgap-linux": false,
             "*": true
         },
+        "platform-version": {
+            "armhf-kirkstone-linux": "0.1.8",
+            "armhf-scarthgap-linux": "0.2.64"
+        },
+        "platform-archivename": {
+            "armhf-kirkstone-linux": "5.15-kirkstone",
+            "armhf-scarthgap-linux": "6.6-scarthgap"
+        },
         "ignore": "${platform-ignore[$platform]}",
-        "version": "0.1.5",
+        "version": "${platform-version[$platform]}",
         "cross-check": false,
-        "archive-filename": "linn-wayland-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-5.15-kirkstone.sh",
+        "archive-filename": "linn-wayland-glibc-x86_64-linn-image-core-cortexa9t2hf-neon-linn-imx6dl-toolchain-${platform-archivename[$platform]}.sh",
         "archive-path": "${binary-repo}/${name}/${version}/linn-imx6dl/${archive-filename}"
     },
     {
@@ -38,8 +47,8 @@
             "*": true
         },
         "platform-version": {
-            "aarch64-kirkstone-linux": "0.1.5",
-            "aarch64-scarthgap-linux": "0.2.8"
+            "aarch64-kirkstone-linux": "0.1.8",
+            "aarch64-scarthgap-linux": "0.2.64"
         },
         "platform-archivename": {
             "aarch64-kirkstone-linux": "5.15-kirkstone",
@@ -48,8 +57,8 @@
         "ignore": "${platform-ignore[$platform]}",
         "version": "${platform-version[$platform]}",
         "cross-check": false,
-        "archive-filename": "linn-wayland-glibc-x86_64-linn-image-core-armv8a-imx8mp-lpddr4-evk-linn-toolchain-${platform-archivename[$platform]}.sh",
-        "archive-path": "${binary-repo}/${name}/${version}/imx8mp-lpddr4-evk-linn/${archive-filename}"
+        "archive-filename": "linn-wayland-glibc-x86_64-linn-image-core-armv8a-imx8mp-lpddr4-dsm-linn-toolchain-${platform-archivename[$platform]}.sh",
+        "archive-path": "${binary-repo}/${name}/${version}/imx8mp-lpddr4-dsm-linn/${archive-filename}"
     },
     {
         "name": "buildroot_core4_staging",
@@ -59,30 +68,22 @@
             "armhf-buildroot-linux": false,
             "*": true },
         "ignore":	"${platform-ignore[$platform]}",
-        "version": "0.2.156",
+        "version": "0.2.223",
         "archive-filename": "${name}-Linux-armhf-${version}.tar.gz"
     },
     {
         "name": "ohWafHelpers",
         "type": "openhome",
         "platform-specific": false,
-        "version": "0.2.173",
+        "version": "0.2.176",
         "cross-check": false,
         "archive-filename": "${name}-${version}.tar.gz",
         "source-git": "https://github.com/openhome/ohWafHelpers.git"
     },
     {
-        "name": "TestTones",
-        "type": "external",
-        "version": "1.12",
-        "cross-check": false,
-        "archive-path": "s3://linn-artifacts-private/testtones/TestTones-${version}.zip",
-        "dest": "dependencies/AnyPlatform/TestTones/"
-    },
-    {
         "name": "libplatform",
         "type": "internal",
-        "version": "0.95.1417",
+        "version": "0.97.1437",
         "cross-check": false,
         "archive-suffix": "-${debugmode}",
         "platform-ignore": {
@@ -96,7 +97,7 @@
         "name": "libplatform-host",
         "real-name": "libplatform",
         "type": "internal",
-        "version": "0.95.1417",
+        "version": "0.97.1437",
         "cross-check": false,
         "platform-specific": false,
         "archive-filename": "${real-name}-${version}-${host-platform}-${debugmode}.tar.gz",
@@ -119,13 +120,13 @@
         "name": "libressl",
         "type": "internal",
         "platform-specific": true,
-        "version": "0.2.156",
+        "version": "0.2.159",
         "archive-filename": "${name}-${version}-${archive-platform}-${debugmode}.tar.gz"
     },
     {
         "name": "raat",
         "type": "openhome",
-        "version": "1.2.78",
+        "version": "1.2.86",
         "archive-suffix": "-${debugmode}",
         "archive-directory": "${binary-repo}/raat/",
         "cross-check": false,
@@ -134,61 +135,11 @@
             "Linux-x64": false,
             "armhf-buildroot-linux": false,
             "armhf-kirkstone-linux": false,
+            "armhf-scarthgap-linux": false,
             "aarch64-kirkstone-linux": false,
             "aarch64-scarthgap-linux": false,
             "*": true
         },
         "ignore": "${platform-ignore[$platform]}"
-    },
-    {
-        "name": "testharness",
-        "version": "0.2.74",
-        "cross-check": false,
-        "type": "openhome",
-        "archive-filename": "${name}-${version}.tar.gz",
-        "dest": "dependencies/AnyPlatform/"
-    },
-    {
-        "name": "Reprog",
-        "version": "0.1.70",
-        "cross-check": false,
-        "type": "internal",
-        "archive-filename": "${name}-${version}-${host-platform}-Release.tar.gz",
-        "platform-ignore": {
-            "Core-ppc32": false,
-            "*": true
-        },
-        "ignore": "${platform-ignore[$platform]}",
-        "dest": "dependencies/${host-platform}/Reprog/"
-    },
-    {
-        "name": "hardware",
-        "version": "4.855.36595",
-        "cross-check": false,
-        "type": "internal",
-        "archive-filename": "${name}-Core1-${version}.tar.gz",
-        "dest": "dependencies/AnyPlatform/${name}/"
-    },
-    {
-        "name": "transmute",
-        "version": "0.2.91",
-        "cross-check": false,
-        "type": "internal",
-        "archive-filename": "${name}-${version}.tar.gz",
-        "platform-ignore": {
-            "Core-ppc32": false,
-            "*": true
-        },
-        "ignore": "${platform-ignore[$platform]}",
-        "dest": "dependencies/AnyPlatform/"
-    },
-    {
-        "name": "FunctionalTest",
-        "type": "openhome",
-        "version": "0.0.1263",
-        "cross-check": false,
-        "platform-specific": false,
-        "archive-filename": "FunctionalTest-${version}.zip",
-        "dest": "dependencies/AnyPlatform/FunctionalTest"
     }
 ]

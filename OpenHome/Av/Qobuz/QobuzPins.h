@@ -63,7 +63,6 @@ private:
     TUint LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, TUint aPlaylistId, TUint& aCount, TBool aPinShuffle, EShuffleMode aShuffleMode);
 private: // helpers
     TUint GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadata::EIdType aIdType, TBool aIsContainer, TBool aShouldShuffleLoadOrder, TUint& aStartIndex, TUint& aEndIndex);
-    void UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TUint& aOffset);
     TBool IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aIdType);
     void InitPlaylist(TBool aShuffle);
     void FindResponse(JsonParser& aParser);

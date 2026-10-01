@@ -1,0 +1,72 @@
+# on-commit unit test manifest for ohMediaPlayer
+#
+# Format: <test name> <test arguments>
+#   '#' marker for comments - from '#' to end-of-line
+#   Extra spaces ignored
+#   Argument macros
+#       {ws_hostname}   - substituted with address of HTTP server    
+#       {ws_port}       - substituted with port of HTTP server    
+#       {valgrind...}   - additional options for valgrind execution
+#                           NOTE - option will also be passed as test
+#                           arg as well as valgrind arg (harmless)
+
+TestFriendlyNameManager
+TestStore
+TestMsg
+TestSupply
+TestSupplyAggregator
+TestAudioReservoir
+TestVariableDelay
+TestStreamValidator
+TestSeeker
+TestSkipper
+TestStopper
+TestTrackInspector
+TestRamper
+TestReporter
+TestStarterTimed
+TestStarvationRamper
+TestMuter
+TestMuterVolume
+TestVolumeRamper
+TestDrainer
+TestPreDriver
+TestContentProcessor
+# TestPipeline          # 3519 (historically commented out)
+TestPipelineConfig
+TestProtocolHls
+TestProtocolHttp
+TestCodec               -s {ws_hostname} -p {ws_port} -t quick
+TestCodecController
+TestDecodedAudioAggregator
+TestSilencer
+TestIdProvider
+TestFiller
+# TestUpnpErrors        # 4017 - fails on Core1 (historically commented out)
+TestTrackDatabase
+TestToneGenerator
+TestMuteManager
+TestRewinder
+TestContainer
+TestUdpServer
+TestConfigManager
+TestPowerManager
+TestWaiter
+TestUriProviderRepeater
+TestJson
+TestThreadPool
+TestPins
+TestOhMetadata
+TestSenderQueue
+TestRaop
+TestSpotifyReporter
+TestVolumeManager
+TestWebAppFramework
+# TestConfigUi          (historically commented out)
+TestFlywheelRamper
+# TestPhaseAdjuster     causes Core1 device to crash
+TestOAuth
+TestAESHelpers
+# TestMPEGDash          doesnt exist for Core1
+# TestSsl               disabled - its relatively slow and exercises code that is rarely changed
+TestCredentials         {valgrind--undef-value-errors=no}

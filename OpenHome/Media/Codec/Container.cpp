@@ -176,6 +176,7 @@ Msg* MsgAudioEncodedCache::PullUpstreamMsg()
 void MsgAudioEncodedCache::Discard(TUint aBytes)
 {
     //LOG(kEssential, "MsgAudioEncodedCache::Discard %u bytes\n", aBytes);
+    AutoMutex a(iLock);
     ASSERT(iDiscardBytesRemaining == 0);
     iDiscardBytesRemaining = aBytes;
 }
@@ -183,6 +184,7 @@ void MsgAudioEncodedCache::Discard(TUint aBytes)
 void MsgAudioEncodedCache::Inspect(Bwx& aBuf, TUint aBytes)
 {
     //LOG(kEssential, "MsgAudioEncodedCache::Inspect %u bytes\n", aBytes);
+    AutoMutex a(iLock);
     ASSERT(iBuffer == nullptr);
     ASSERT(aBytes != 0);
     ASSERT(aBuf.MaxBytes() >= aBytes);
@@ -195,6 +197,7 @@ void MsgAudioEncodedCache::Inspect(Bwx& aBuf, TUint aBytes)
 void MsgAudioEncodedCache::Accumulate(TUint aBytes)
 {
     //LOG(kEssential, "MsgAudioEncodedCache::Accumulate %u bytes\n", aBytes);
+    AutoMutex a(iLock);
     ASSERT(iAccumulateBytesRemaining == 0);
     iAccumulateBytesRemaining = aBytes;
 }
@@ -203,35 +206,44 @@ Msg* MsgAudioEncodedCache::Pull()
 {
     //LOG(kEssential, ">MsgAudioEncodedCache::Pull iDiscardBytesRemaining: %u, iInspectBytesRemaining: %u, iAccumulateBytesRemaining: %u\n", iDiscardBytesRemaining, iInspectBytesRemaining, iAccumulateBytesRemaining);
 
+    // NOTE: iLock is deliberately released before PullUpstreamMsg() below.
+    // That call can block for a long time (upstream/network pull) and, for a
+    // MsgAudioEncoded, recurses into ProcessMsg(MsgAudioEncoded*) which takes
+    // iLock itself. Holding iLock across it would self-deadlock (iLock is a
+    // non-recursive Mutex) and would also block SetFlushing() - which can be
+    // called from another thread (see IStreamHandler::TryStop/TrySeek) - from
+    // ever interrupting a slow/blocked pull.
     Msg* msg = nullptr;
     while (msg == nullptr) {
 
-        msg = ProcessCache();
+        TBool needUpstreamPull = false;
+        {
+            AutoMutex a(iLock);
+            msg = ProcessCache();
 
-        if (msg == nullptr && iBuffer != nullptr && InspectionBufferFilled()) {
-            iBuffer = nullptr;
-            iInspectBufferBytes = 0;
-            return nullptr;
-        }
-        else if (msg != nullptr) {
-            return msg;
-        }
+            if (msg == nullptr && iBuffer != nullptr && InspectionBufferFilled()) {
+                iBuffer = nullptr;
+                iInspectBufferBytes = 0;
+                return nullptr;
+            }
+            else if (msg != nullptr) {
+                return msg;
+            }
 
-
-        if (iInspectBytesRemaining > 0) {
-            if (iInspectBytesRemaining > CacheBytes()) {
-                msg = PullUpstreamMsg();
+            if (iInspectBytesRemaining > 0) {
+                needUpstreamPull = (iInspectBytesRemaining > CacheBytes());
+            }
+            else if (iAccumulateBytesRemaining > 0) {
+                needUpstreamPull = (iAccumulateBytesRemaining > CacheBytes());
+            }
+            else {
+                needUpstreamPull = true;
             }
         }
-        else if (iAccumulateBytesRemaining > 0) {
-            if (iAccumulateBytesRemaining > CacheBytes()) {
-                msg = PullUpstreamMsg();
-            }
-        }
-        else {
+
+        if (needUpstreamPull) {
             msg = PullUpstreamMsg();
         }
-
     }
     return msg;
 }

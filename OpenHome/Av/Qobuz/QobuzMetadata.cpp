@@ -171,7 +171,7 @@ void QobuzMetadata::ParseQobuzMetadata(TBool aHasParentMetadata, const ParentMet
     if (parserTrack.HasKey("performer")) {
         nestedParser.Parse(parserTrack.String("performer"));
         if (nestedParser.HasKey("name")) {
-            writer.WriteArtist(nestedParser.String("name"));
+            writer.WriteArtist(UnescapeJsonInPlace(nestedParser.String("name")));
         }
     }
 

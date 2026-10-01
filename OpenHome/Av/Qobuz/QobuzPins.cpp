@@ -278,12 +278,15 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
     do {
         try {
             iJsonResponse.Reset();
-            TBool success = iQobuz.TryGetIdsByRequest(iJsonResponse, aPath, kItemLimitPerRequest, offset); // send request to Qobuz
+
+            TUint requestOffset = offset < total ? offset
+                                                 : offset - total;
+
+            TBool success = iQobuz.TryGetIdsByRequest(iJsonResponse, aPath, kItemLimitPerRequest, requestOffset); // send request to Qobuz
             if (!success) {
                 return false;
             }
-            UpdateOffset(total, end, true, offset);
-            
+
             parser.Reset();
             parser.Parse(iJsonResponse.Buffer());
             TUint idCount = 0;
@@ -295,9 +298,12 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
 
             for (TUint i = 0; i < kItemLimitPerRequest; i++) {
                 Brn obj;
+
                 if (!parserItems.TryNextObject(obj)) {
                     break;
                 }
+
+                offset++;
 
                 parserItem.Parse(obj);
                 containerIds[i].ReplaceThrow(parserItem.String(Brn("id"))); // parse response from Qobuz
@@ -323,8 +329,7 @@ TBool QobuzPins::LoadContainers(const Brx& aPath, QobuzMetadata::EIdType aIdType
             LOG_ERROR(kPipeline, "%s in QobuzPins::LoadContainers\n", ex.Message());
             return false;
         }
-    } while (shuffleLoadOrder ? offset != end
-                              : offset < end);
+    } while (offset < end);
 
     if (tracksFound == 0) {
         THROW(PinNothingToPlay);
@@ -360,17 +365,19 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
         try {
             iJsonResponse.Reset();
             TBool success = false;
+            TUint requestOffset = offset < total ? offset
+                                                 : offset - total;
+
             auto connection = aCount < iMaxPlaylistTracks - 1 ? Qobuz::Connection::KeepAlive : Qobuz::Connection::Close;
             if (aIdType == QobuzMetadata::eNone) {
-                success = iQobuz.TryGetIdsByRequest(iJsonResponse, aId, kItemLimitPerRequest, offset, connection);
+                success = iQobuz.TryGetIdsByRequest(iJsonResponse, aId, kItemLimitPerRequest, requestOffset, connection);
             }
             else {
-                success = iQobuz.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, offset, connection);
+                success = iQobuz.TryGetTracksById(iJsonResponse, aId, aIdType, kItemLimitPerRequest, requestOffset, connection);
             }
             if (!success) {
                 THROW(PinNothingToPlay);
             }
-            UpdateOffset(total, end, false, offset);
 
             parser.Reset();
             parser.Parse(iJsonResponse.Buffer());
@@ -390,6 +397,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                 auto parserItems = JsonParserArray::Create(parser.String("items"));
                 Brn obj;
                 while(parserItems.TryNextObject(obj)) {
+                    offset++;
                     track = iQobuzMetadata.TrackFromJson(hasParentMetadata, iParentMetadata, obj);
                     if (track != nullptr) {
                         aCount++;
@@ -406,6 +414,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                 }
             }
             else {
+                offset++;
                 track = iQobuzMetadata.TrackFromJson(hasParentMetadata, iParentMetadata, iJsonResponse.Buffer());
                 if (track != nullptr) {
                     aCount++;
@@ -431,8 +440,7 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
             }
             throw;
         }
-    } while (shuffleLoadOrder ? offset != end
-                              : offset < end);
+    } while (offset < end);
 
     if (!isPlayable) {
         THROW(PinNothingToPlay);
@@ -482,49 +490,17 @@ TUint QobuzPins::GetTotalItems(JsonParser& aParser, const Brx& aId, QobuzMetadat
     }
 
     // determine order for retrieving items
-    aStartIndex = 0;
-    aEndIndex = total;
+    TBool hasMoreTracksThanCanFitInThePlaylist = total > iMaxPlaylistTracks;
 
-    if (aShouldShuffleLoadOrder) {
-        if (aIsContainer) {
-            aStartIndex = iEnv.Random(total);
-            if (aStartIndex > 0) {
-                aEndIndex = aStartIndex;
-            }
-        }
-        else {
-            if (total > iMaxPlaylistTracks) {
-                aStartIndex = iEnv.Random(total);
-                if (iMaxPlaylistTracks > (total - aStartIndex)) {
-                    aEndIndex = iMaxPlaylistTracks - (total - aStartIndex);
-                }
-                else {
-                    aEndIndex = iMaxPlaylistTracks + aStartIndex;
-                }
-            }
-        }
+    aStartIndex = 0;
+
+    if (aShouldShuffleLoadOrder && (aIsContainer || hasMoreTracksThanCanFitInThePlaylist)) {
+        aStartIndex = iEnv.Random(total);
     }
+
+    aEndIndex = aStartIndex + total;
 
     return total;
-}
-
-void QobuzPins::UpdateOffset(TUint aTotalItems, TUint aEndIndex, TBool aIsContainer, TUint& aOffset)
-{
-    aOffset += kItemLimitPerRequest;
-    TBool wrap = (aOffset >= aTotalItems);
-    if (!aIsContainer) {
-        // track responses are only randomised if the track count is > MAX (1000)
-        // container responses are always randomised as they are based on total containers, not total tracks
-        wrap = wrap && (aTotalItems > iMaxPlaylistTracks);
-    }
-    if (wrap) {
-        aOffset = 0; // wrap around - only relevant to randomised case
-    }
-    else if (aOffset > aEndIndex) {
-        if (!aIsContainer) {
-            aOffset = aEndIndex; // as there can be a wrap around, this is required to exit
-        }
-    }
 }
 
 TBool QobuzPins::IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aIdType)

@@ -394,7 +394,7 @@ void CodecController::CodecThread()
                 if (iStreamId != 0  && // FIXME - hard-coded assumption about Filler's NullTrack
                     !iStreamStopped && // we wouldn't necessarily expect to recognise a track if we're told to stop
                     !streamEnded) {    // ...or reach the track end during recognition
-                    LOG(kEssential, "Failed to recognise audio format (iStreamStopped=%u, iExpectedFlushId=%u), flushing stream...\n", iStreamStopped, iExpectedFlushId);
+                    LOG(kEssential, "Failed to recognise audio format (iStreamStopped=%u, iExpectedFlushId=%u), flushing stream...\n", iStreamStopped.load(), iExpectedFlushId);
                 }
                 iLock.Wait();
                 if (iExpectedFlushId == MsgFlush::kIdInvalid) {
@@ -541,8 +541,10 @@ void CodecController::Queue(Msg* aMsg)
     }
 }
 
-TBool CodecController::QueueTrackData() const
+TBool CodecController::QueueTrackData()
 {
+    // iExpectedFlushId can be written from another thread - see TryStop().
+    AutoMutex _(iLock);
     return (iQueueTrackData && iExpectedFlushId == MsgFlush::kIdInvalid);
 }
 
@@ -690,7 +692,14 @@ TBool CodecController::TrySeekTo(TUint aStreamId, TUint64 aBytePos)
                        aStreamId, aBytePos, iStreamLength);
         LOG(kPipeline, "...skip forwards to next stream\n");
         iStreamEnded = true;
-        iExpectedFlushId = streamHandler->TryStop(iStreamId);
+        const TUint flushId = streamHandler->TryStop(iStreamId);
+        {
+            // iExpectedFlushId can also be written from another thread by TryStop() -
+            // guard this write against that, even though this call itself runs on
+            // the decode thread.
+            AutoMutex a(iLock);
+            iExpectedFlushId = flushId;
+        }
         return false;
     }
     TUint flushId = streamHandler->TrySeek(aStreamId, aBytePos);
@@ -698,8 +707,11 @@ TBool CodecController::TrySeekTo(TUint aStreamId, TUint64 aBytePos)
     if (flushId != MsgFlush::kIdInvalid) {
         ReleaseAudioEncoded();
         ReleaseAudioDecoded();
-        iExpectedFlushId = flushId;
-        iExpectedSeekFlushId = flushId;
+        {
+            AutoMutex a(iLock); // see comment above
+            iExpectedFlushId = flushId;
+        }
+        iExpectedSeekFlushId = flushId; // decode-thread-private, only read/written here and in DoOutputAudio()/CodecThread() on this same thread
         iStreamPos = aBytePos;
         return true;
     }
@@ -838,15 +850,35 @@ TUint64 CodecController::OutputAudioPcm(MsgAudioEncoded* aMsg, TUint aChannels, 
 
 TUint64 CodecController::DoOutputAudio(MsgAudio* aAudioMsg)
 {
-    if (iExpectedFlushId != MsgFlush::kIdInvalid) {
+    // iExpectedFlushId/iSeek can be written from another thread - see TryStop()/
+    // StartSeek(), which can be called via IStreamHandler::TryStop/TrySeek from a
+    // thread other than this decode thread (e.g. as part of a pipeline-wide
+    // RemoveAll() triggered by a network adapter change while acting as a Songcast
+    // Receiver). Snapshot the shared state under iLock, then release the lock
+    // before any potentially-blocking call (Queue(), NotifySeekComplete()) - iLock
+    // is non-recursive. Mirrors MsgAudioEncodedCache::Pull() in Container.cpp.
+    TUint expectedFlushId;
+    TBool seekComplete;
+    ISeekObserver* seekObserver = nullptr;
+    TUint seekHandle = 0;
+    {
+        AutoMutex _(iLock);
+        expectedFlushId = iExpectedFlushId;
+        seekComplete = iSeek && iSeekInProgress;
+        if (seekComplete) {
+            iSeek = false;
+            seekObserver = iSeekObserver;
+            seekHandle = iSeekHandle;
+        }
+    }
+    if (expectedFlushId != MsgFlush::kIdInvalid) {
         // Codec outputting audio while flush is pending
         // This audio may be cached by third party code so it's easier to ignore it here rather than tracking down all causes of it
         aAudioMsg->RemoveRef();
         return 0;
     }
-    if (iSeek && iSeekInProgress) {
-        iSeekObserver->NotifySeekComplete(iSeekHandle, iExpectedSeekFlushId);
-        iSeek = false;
+    if (seekComplete) {
+        seekObserver->NotifySeekComplete(seekHandle, iExpectedSeekFlushId);
     }
     if (iPostSeekFlush != nullptr) {
         Queue(iPostSeekFlush);
@@ -950,10 +982,19 @@ Msg* CodecController::ProcessMsg(MsgMode* aMsg)
 {
     // There should be no pending flushes by the time a MsgMode is received.
     // Accommodate any buggy protocol modules that failed to send their MsgFlush by sending a MsgFlush with the expected flush ID from here.
-    if (iExpectedFlushId != MsgFlush::kIdInvalid) {
-        LOG_WARNING(kMedia, "CodecController::ProcessMsg(MsgMode*) expected flush ID (%u) has not been received\n", iExpectedFlushId);
-        auto* flush = iMsgFactory.CreateMsgFlush(iExpectedFlushId);
-        iExpectedFlushId = MsgFlush::kIdInvalid;
+    // iExpectedFlushId can be written from another thread (see TryStop()), so the
+    // check-and-clear below must be atomic with respect to that write; release
+    // iLock before Queue(), which can block.
+    MsgFlush* flush = nullptr;
+    {
+        AutoMutex _(iLock);
+        if (iExpectedFlushId != MsgFlush::kIdInvalid) {
+            LOG_WARNING(kMedia, "CodecController::ProcessMsg(MsgMode*) expected flush ID (%u) has not been received\n", iExpectedFlushId);
+            flush = iMsgFactory.CreateMsgFlush(iExpectedFlushId);
+            iExpectedFlushId = MsgFlush::kIdInvalid;
+        }
+    }
+    if (flush != nullptr) {
         Queue(flush);
     }
     if (iRecognising) {
@@ -1188,7 +1229,7 @@ TUint CodecController::TryStop(TUint aStreamId)
         iExpectedFlushId = flushId;
     }
     LOG(kMedia, "CodecController::TryStop(%u) returning %u.  iStreamId=%u, iStreamStopped=%u\n",
-                aStreamId, flushId, iStreamId, iStreamStopped);
+                aStreamId, flushId, iStreamId, iStreamStopped.load());
 
     return flushId;
 }
