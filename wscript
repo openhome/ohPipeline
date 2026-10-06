@@ -102,7 +102,7 @@ def configure(conf):
         conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO'])
 
     if conf.options.dest_platform.startswith('Core-ppc32'):
-        conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO', 'WORDS_BIGENDIAN', 'FLAC__INTEGER_ONLY_LIBRARY'])
+        conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO', 'WORDS_BIGENDIAN'])
 
     conf.env.INCLUDES_FLAC = [
         'thirdparty/flac-1.5.0/src/libFLAC/include',
