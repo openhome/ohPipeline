@@ -636,6 +636,7 @@ def build(bld):
         'thirdparty/flac-1.5.0/src/libFLAC/cpu.c',
         'thirdparty/flac-1.5.0/src/libFLAC/crc.c',
         'thirdparty/flac-1.5.0/src/libFLAC/fixed.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/float.c',
         'thirdparty/flac-1.5.0/src/libFLAC/format.c',
         'thirdparty/flac-1.5.0/src/libFLAC/lpc.c',
         'thirdparty/flac-1.5.0/src/libFLAC/md5.c',
