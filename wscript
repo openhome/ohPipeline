@@ -93,7 +93,7 @@ def configure(conf):
         ]
 
     # Setup FLAC lib options
-    conf.env.DEFINES_FLAC = ['PACKAGE_VERSION=\"1.5.0\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG']
+    conf.env.DEFINES_FLAC = ['PACKAGE_VERSION=\"1.5.0\"', 'FLAC__NO_DLL', 'FLAC__HAS_OGG', 'NDEBUG']
 
     if not conf.options.dest_platform.startswith('Windows'):
         conf.env.append_value('DEFINES_FLAC', ['HAVE_STDINT_H', 'HAVE_LROUND'])
@@ -102,7 +102,7 @@ def configure(conf):
         conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO'])
 
     if conf.options.dest_platform.startswith('Core-ppc32'):
-        conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO', 'WORDS_BIGENDIAN'])
+        conf.env.append_value('DEFINES_FLAC', ['HAVE_FSEEKO', 'WORDS_BIGENDIAN', 'FLAC__INTEGER_ONLY_LIBRARY'])
 
     conf.env.INCLUDES_FLAC = [
         'thirdparty/flac-1.5.0/src/libFLAC/include',
@@ -637,6 +637,7 @@ def build(bld):
         'thirdparty/flac-1.5.0/src/libFLAC/cpu.c',
         'thirdparty/flac-1.5.0/src/libFLAC/crc.c',
         'thirdparty/flac-1.5.0/src/libFLAC/fixed.c',
+        'thirdparty/flac-1.5.0/src/libFLAC/float.c',
         'thirdparty/flac-1.5.0/src/libFLAC/format.c',
         'thirdparty/flac-1.5.0/src/libFLAC/lpc.c',
         'thirdparty/flac-1.5.0/src/libFLAC/md5.c',

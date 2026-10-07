@@ -12,6 +12,7 @@ class DIDLLite
 public:
     static const Brn kProtocolHttpGet;
 
+    static const Brn kTagDate;
     static const Brn kTagClass;
     static const Brn kTagTitle;
     static const Brn kTagGenre;
@@ -106,8 +107,7 @@ public:
     void WriteAlbum(const Brx& aAlbum);
     void WriteDescription(const Brx& aDescription);
     void WriteGenre(const Brx& aGenre);
-    void WriteArtist(const Brx& aArtist);
-    void WriteArtistWithRole(const Brx& aRole, const Brx& aValue);
+    void WriteDate(const Brx& aDate);
     void WriteMinimCompatibleWork(const Brx& aWorkName);
     void WriteStreamingDetails(const Brx& aProtocol, StreamingDetails& aStreamingDetails, const Brx& aUri);
     void WriteCustomMetadata(const TChar* aId, const Brx& aNamespace, const Brx& aValue); // This is used to write CP specific extensions encoded using the <desc> tag with a custom namespace
@@ -115,12 +115,15 @@ public:
 
     // The following methods can be called multiple times
     void WriteArtwork(const Brx& aUri);
+    void WriteArtist(const Brx& aArtist);
+    void WriteArtistWithRole(const Brx& aRole, const Brx& aValue);
 
 private:
     WriterDIDLXml iWriter;
     TBool iTitleWritten;
     TBool iGenreWritten;
     TBool iAlbumWritten;
+    TBool iDateWritten;
     TBool iTrackNumberWritten;
     TBool iDescriptionWritten;
     TBool iStreamingDetailsWritten;

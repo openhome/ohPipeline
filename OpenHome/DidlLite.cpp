@@ -16,6 +16,7 @@ using namespace OpenHome;
 // DIDLLite
 const Brn DIDLLite::kProtocolHttpGet("http-get:*:*:*");
 
+const Brn DIDLLite::kTagDate("dc:date");
 const Brn DIDLLite::kTagTitle("dc:title");
 const Brn DIDLLite::kTagGenre("upnp:genre");
 const Brn DIDLLite::kTagClass("upnp:class");
@@ -248,6 +249,7 @@ WriterDIDLLite::WriterDIDLLite(const Brx& aItemId, const Brx& aItemType, const B
     , iTitleWritten(false)
     , iGenreWritten(false)
     , iAlbumWritten(false)
+    , iDateWritten(false)
     , iTrackNumberWritten(false)
     , iDescriptionWritten(false)
     , iStreamingDetailsWritten(false)
@@ -274,6 +276,14 @@ void WriterDIDLLite::WriteAlbum(const Brx& aAlbum)
 void WriterDIDLLite::WriteArtist(const Brx& aArtist)
 {
     iWriter.TryWriteTag(DIDLLite::kTagArtist, aArtist);
+}
+
+void WriterDIDLLite::WriteDate(const Brx& aDate)
+{
+    ASSERT(!iDateWritten);
+    iDateWritten = true;
+
+    iWriter.TryWriteTag(DIDLLite::kTagDate, aDate);
 }
 
 void WriterDIDLLite::WriteArtistWithRole(const Brx& aRole, const Brx& aValue)
