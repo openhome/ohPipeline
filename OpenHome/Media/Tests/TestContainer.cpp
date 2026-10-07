@@ -258,6 +258,26 @@ private:
     TestDummyContainer* iDummyContainer;
 };
 
+
+// NOTE: This is largely based on TestCodecController::SuiteCodecControllerConcurrentStop
+// Stress test that attempts to simulate a Flush() & Reset() happening concurrently
+// on MsgAudioEncodedCache.
+class SuiteMsgAudioEncodedCacheConcurrentFlush : public Suite
+{
+public:
+    SuiteMsgAudioEncodedCacheConcurrentFlush();
+private: // Suite
+    void Test() override;
+private:
+    void FlushThread();
+private:
+    TUint iGo;
+    TBool iQuit;
+    Mutex iLock;
+    Semaphore iSem;
+    MsgAudioEncodedCache *iSubject;
+};
+
 } // Codec
 } // Media
 } // OpenHome
@@ -1146,10 +1166,124 @@ void SuiteContainerNull::TestNullContainer()
 }
 
 
+// SuiteMsgAudioEncodedCacheConcurrentFlush
+class TestCacheUpstream : public IPipelineElementUpstream
+                        , private INonCopyable
+{
+    static const TUint kBytes = 1024;
+public:
+    TestCacheUpstream(MsgFactory& aMsgFactory);
+public: // IPipelineElementUpstream
+    Msg* Pull() override;
+private:
+    MsgFactory& iMsgFactory;
+    Bws<kBytes> iData;
+};
+
+TestCacheUpstream::TestCacheUpstream(MsgFactory &aMsgFactory)
+    : iMsgFactory(aMsgFactory)
+{
+    memset(const_cast<TByte*>(iData.Ptr()), 0x7f, kBytes);
+    iData.SetBytes(kBytes);
+}
+
+Msg* TestCacheUpstream::Pull()
+{
+    return iMsgFactory.CreateMsgAudioEncoded(iData);
+}
+
+
+SuiteMsgAudioEncodedCacheConcurrentFlush::SuiteMsgAudioEncodedCacheConcurrentFlush()
+    : Suite("SuiteMsgAudioEncodedCacheConcurrentFlush")
+    , iGo(0)
+    , iQuit(false)
+    , iLock("SMCL")
+    , iSem("SMCF", 0)
+    , iSubject(nullptr)
+{}
+
+void SuiteMsgAudioEncodedCacheConcurrentFlush::Test()
+{
+    MsgFactoryInitParams init;
+    init.SetMsgAudioEncodedCount(10, 10);
+
+    AllocatorInfoLogger *infoAgg = new AllocatorInfoLogger();
+    MsgFactory *factory          = new MsgFactory(*infoAgg, init);
+    TestCacheUpstream *upstream  = new TestCacheUpstream(*factory);
+    ThreadFunctor *flushThread   = new ThreadFunctor("FlushThread", MakeFunctor(*this, &SuiteMsgAudioEncodedCacheConcurrentFlush::FlushThread));
+
+    iSubject = new MsgAudioEncodedCache(*upstream);
+
+    flushThread->Start();
+
+    Bws<16> buf;
+    for(TUint i = 1; i < 10000; i += 1) {
+        iSubject->Reset();
+        iSubject->Inspect(buf, buf.MaxBytes());
+
+        if (iSubject->Pull() != nullptr) {
+            TEST(false);
+            break;
+        }
+
+        if (buf.Bytes() != 16) {
+            TEST(false);
+            break;
+        }
+
+        // Signal flush asap
+        iLock.Wait();
+        iGo = i;
+        iLock.Signal();
+
+        iSubject->Reset();
+        iSem.Wait();
+    }
+
+    {
+        iLock.Wait();
+        iQuit = true;
+        iLock.Signal();
+    }
+
+    delete flushThread; // Joins...
+    delete iSubject;
+    delete upstream;
+    delete factory;
+    delete infoAgg;
+}
+
+void SuiteMsgAudioEncodedCacheConcurrentFlush::FlushThread()
+{
+    TUint seen = 0;
+
+    // Emulates ContainerController::TryStop() called from a thread other than the codec thread.
+    // We spin so that we call SetFlushing ASAP when required. Using a semphore wait/signal pair
+    // here makes this far less reliable at detecting the case
+    while(!iQuit) {
+        while(!iQuit) {
+            AutoMutex m(iLock);
+            if (iQuit) {
+                return;
+            }
+            if (iGo != seen) {
+                seen = iGo;
+                break;
+            }
+        }
+        iSubject->SetFlushing(1);
+        iSem.Signal();
+    }
+}
+
+
+
+
 void TestContainer()
 {
     Runner runner("Container tests\n");
     runner.Add(new SuiteContainerUnbuffered());
     runner.Add(new SuiteContainerNull());
+    runner.Add(new SuiteMsgAudioEncodedCacheConcurrentFlush());
     runner.Run();
 }
