@@ -21,7 +21,7 @@ namespace OpenHome {
     namespace Net {
         class CpStack;
         class CpDeviceDv;
-        class CpProxyAvOpenhomeOrgPlaylist2;
+        class CpProxyAvOpenhomeOrgPlaylist1;
         class DvDevice;
     }
 namespace Av {
@@ -83,7 +83,7 @@ private:
     DeviceListMediaServer& iDeviceList;
     IThreadPoolHandle* iThreadPoolHandle;
     Net::CpDeviceDv* iCpDeviceSelf;
-    Net::CpProxyAvOpenhomeOrgPlaylist2* iProxyPlaylist;
+    Net::CpProxyAvOpenhomeOrgPlaylist1* iProxyPlaylist;
     SocketTcpClient iSocket;
     Srs<1024> iReaderBuf;
     ReaderUntilS<1024> iReaderUntil1;

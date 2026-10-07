@@ -13,7 +13,7 @@
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
 #include <OpenHome/Av/Reactions.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist2.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Qobuz/QobuzMetadata.h>
 #include <OpenHome/Media/PipelineObserver.h>
 #include <OpenHome/Media/Pipeline/TrackInspector.h>

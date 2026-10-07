@@ -217,6 +217,7 @@ upnp_services = [
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Product4.xml',       'av.openhome.org', 'Product',           '4', 'AvOpenhomeOrgProduct4'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Radio2.xml',         'av.openhome.org', 'Radio',             '2', 'AvOpenhomeOrgRadio2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Sender2.xml',        'av.openhome.org', 'Sender',            '2', 'AvOpenhomeOrgSender2'),
+        GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Playlist1.xml',      'av.openhome.org', 'Playlist',          '1', 'AvOpenhomeOrgPlaylist1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Playlist2.xml',      'av.openhome.org', 'Playlist',          '2', 'AvOpenhomeOrgPlaylist2'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Receiver1.xml',      'av.openhome.org', 'Receiver',          '1', 'AvOpenhomeOrgReceiver1'),
         GeneratedFile('OpenHome/Av/ServiceXml/OpenHome/Time1.xml',          'av.openhome.org', 'Time',              '1', 'AvOpenhomeOrgTime1'),
@@ -440,7 +441,7 @@ def build(bld):
     bld.stlib(
             source=[
                 'Generated/DvAvOpenhomeOrgPlaylist2.cpp',
-                'Generated/CpAvOpenhomeOrgPlaylist2.cpp',
+                'Generated/CpAvOpenhomeOrgPlaylist1.cpp',
                 'OpenHome/Av/Playlist/ProviderPlaylist.cpp',
                 'OpenHome/Av/Playlist/SourcePlaylist.cpp',
                 'OpenHome/Av/Playlist/TrackDatabase.cpp',

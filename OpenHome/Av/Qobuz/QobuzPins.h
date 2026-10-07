@@ -9,7 +9,7 @@
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviStack.h>
 #include <OpenHome/Av/MediaPlayer.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist2.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Av/Pins/Pins.h>
 #include <OpenHome/Av/Qobuz/Qobuz.h>
@@ -75,7 +75,7 @@ private:
     WriterBwh iJsonResponse;
     QobuzMetadata iQobuzMetadata;
     QobuzMetadata::ParentMetadata iParentMetadata;
-    Net::CpProxyAvOpenhomeOrgPlaylist2* iCpPlaylist;
+    Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     TUint iMaxPlaylistTracks;
     Bws<128> iToken;
     Functor iCompleted;

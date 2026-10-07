@@ -32,7 +32,7 @@ namespace Configuration {
 }
 namespace Net {
     class CpProxyAvOpenhomeOrgRadio2;
-    class CpProxyAvOpenhomeOrgPlaylist2;
+    class CpProxyAvOpenhomeOrgPlaylist1;
 }
 
 namespace Av {
@@ -240,7 +240,7 @@ private:
     void Invoke();
 private:
     PodcastPinsITunes* iPodcastPins;
-    Net::CpProxyAvOpenhomeOrgPlaylist2* iCpPlaylist;
+    Net::CpProxyAvOpenhomeOrgPlaylist1* iCpPlaylist;
     TUint iLastId;
     IThreadPoolHandle* iThreadPoolHandle;
     Bws<128> iToken;

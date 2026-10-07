@@ -74,7 +74,7 @@ QobuzPins::QobuzPins(Qobuz& aQobuz,
     , iInterrupted(false)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
-    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist2(*cpDevice);
+    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &QobuzPins::Invoke),
                                                  "QobuzPins", ThreadPoolPriority::Medium);
