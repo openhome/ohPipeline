@@ -69,6 +69,7 @@ private: // from ISourcePlaylist
 private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
+    void NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
     void NotifyAllDeleted() override;
     void NotifyReordered(Media::Track* aStart) override;
 private: // from Media::IPipelineObserver
@@ -453,6 +454,20 @@ void SourcePlaylist::NotifyTrackDeleted(TUint aId, Track* /*aBefore*/, Track* aA
         iTrackId = ITrackDatabaseReader::kTrackIdNone;
     }
     iLock.Signal();
+}
+
+void SourcePlaylist::NotifyTracksMoved(const std::vector<TUint32>& /*aIdArray*/, TUint /*aIdAfter*/)
+{
+    if (!IsActive()) {
+        return;
+    }
+    iLock.Wait();
+    const TBool playing = (iTransportState == EPipelinePlaying);
+    iLock.Signal();
+    if (!playing) {
+        // re-point the prefetch at the current track in its new position
+        iPipeline.StopPrefetch(iUriProvider->Mode(), iUriProvider->CurrentTrackId());
+    }
 }
 
 void SourcePlaylist::NotifyAllDeleted()

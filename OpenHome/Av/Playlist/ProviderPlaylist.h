@@ -54,6 +54,7 @@ public:
 private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
+    void NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
     void NotifyAllDeleted() override;
     void NotifyReordered(Media::Track* aStart) override;
 private: // from ITransportRepeatRandomObserver

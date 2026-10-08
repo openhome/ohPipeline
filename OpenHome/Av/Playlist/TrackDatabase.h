@@ -24,6 +24,8 @@ public:
     virtual ~ITrackDatabaseObserver() {}
     virtual void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) = 0;
     virtual void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) = 0;
+    /* A move adds and removes no tracks so anything which is playing carries on playing. */
+    virtual void NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter) = 0;
     virtual void NotifyAllDeleted() = 0;
     virtual void NotifyReordered(Media::Track* aStart) = 0;
 };
@@ -116,7 +118,6 @@ private: // from ITrackShuffleReporter
 private:
     void GetTrackByIdLocked(TUint aId, Media::Track*& aTrack) const;
     TBool TryGetTrackById(TUint aId, Media::Track*& aTrack, TUint aStartIndex, TUint aEndIndex, TUint& aFoundIndex) const;
-    void Insert(TUint aIdAfter, Media::Track* aTrack);
     Media::Track* DoDeleteId(TUint aId);
 private:
     mutable Mutex iLock;
@@ -177,6 +178,7 @@ private: // from ITrackDatabaseTrackReader
 private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
+    void NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
     void NotifyAllDeleted() override;
     void NotifyReordered(Media::Track* aStart) override;
 private:
@@ -184,7 +186,7 @@ private:
     TBool IsEndOfShuffledPlaylistLocked(TUint aIdAfter) const;
     TUint ShuffleIndexForIdAfterLocked(TUint aIdAfter) const;
     TUint LastDbTrackIdLocked(const std::vector<TUint32>* aIgnoreIds = nullptr);
-    void ClearPendingInsert();
+    void ClearPendingIdAfter();
     void DisableShuffleIfTooFewTracks();
     void LogIds(const TChar* aPrefix);
 private:
@@ -197,8 +199,8 @@ private:
     ITrackDatabaseObserver* iObserver;
     Functor iShuffleOffHandler;
     std::vector<Media::Track*> iShuffleList;
-    TUint iPendingInsertIdAfter;
-    TBool iPendingInsert;
+    TUint iPendingIdAfter; // position the user asked for, where it differs from the one
+    TBool iPendingIdAfterValid; // ...the database was given (see Insert()/Move())
     TBool iShuffle;
 };
 
@@ -218,6 +220,7 @@ private: // from ITrackDatabaseTrackReader
 private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
+    void NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
     void NotifyAllDeleted() override;
     void NotifyReordered(Media::Track* aStart) override;
 private:
@@ -233,6 +236,10 @@ class TrackListUtils
 public:
     static TUint IndexFromId(const std::vector<Media::Track*>& aList, TUint aId);
     static void Clear(std::vector<Media::Track*>& aList);
+    /* Moves aIdArray (in the order given) to follow aIdAfter.  Throws TrackDbIdNotFound,
+       leaving aList unchanged, if any id is unknown or repeated or if aIdAfter is itself
+       being moved. */
+    static void Move(std::vector<Media::Track*>& aList, const std::vector<TUint32>& aIdArray, TUint aIdAfter);
 };
 
 class TrackReaderUtils
@@ -242,16 +249,6 @@ public:
     static Media::Track* NextTrackRef(const std::vector<Media::Track*>& aList, TUint aId);
     static Media::Track* PrevTrackRef(const std::vector<Media::Track*>& aList, TUint aId);
     static Media::Track* TrackRefByIndex(const std::vector<Media::Track*>& aList, TUint aIndex);
-};
-
-class AutoTrack
-{
-public:
-    AutoTrack(Media::Track* aTrack);
-    ~AutoTrack();
-    void Clear();
-private:
-    Media::Track* iTrack;
 };
 
 } // namespace Av

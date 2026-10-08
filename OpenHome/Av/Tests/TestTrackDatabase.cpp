@@ -27,6 +27,7 @@ private: // from SuiteUnitTest
 private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
+    void NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
     void NotifyAllDeleted() override;
     void NotifyReordered(Media::Track* aStart) override;
 private:
@@ -45,6 +46,8 @@ private:
     void DeleteAll();
     void DeleteMultiple();
     void Move();
+    void MoveReportsTracksMoved();
+    void MoveFailsLeavingPlaylistUnchanged();
     void SeqUpdatesOnChanges();
     void GetTrackByValidId();
     void GetTrackByInvalidIdFails();
@@ -67,6 +70,9 @@ private:
     TUint iIdLastDeletedBefore;
     TUint iIdLastDeletedAfter;
     TUint iAllDeletedCount;
+    TUint iMovedCount;
+    std::vector<TUint32> iIdsLastMoved;
+    TUint iIdLastMovedAfter;
 };
 
 class SuiteTrackReader : public SuiteUnitTest, private ITrackDatabaseObserver
@@ -80,6 +86,7 @@ private: // from SuiteUnitTest
 private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
+    void NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
     void NotifyAllDeleted() override;
     void NotifyReordered(Media::Track* aStart) override;
 private:
@@ -113,6 +120,7 @@ private: // from SuiteUnitTest
 private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
+    void NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
     void NotifyAllDeleted() override;
     void NotifyReordered(Media::Track* aStart) override;
 private:
@@ -169,6 +177,7 @@ private: // from SuiteUnitTest
 private: // from ITrackDatabaseObserver
     void NotifyTrackInserted(Media::Track& aTrack, TUint aIdBefore, TUint aIdAfter) override;
     void NotifyTrackDeleted(TUint aId, Media::Track* aBefore, Media::Track* aAfter) override;
+    void NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter) override;
     void NotifyAllDeleted() override;
     void NotifyReordered(Media::Track* aStart) override;
 private:
@@ -214,6 +223,8 @@ SuiteTrackDatabase::SuiteTrackDatabase()
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::DeleteAll), "DeleteAll");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::DeleteMultiple), "DeleteMultiple");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::Move), "Move");
+    AddTest(MakeFunctor(*this, &SuiteTrackDatabase::MoveReportsTracksMoved), "MoveReportsTracksMoved");
+    AddTest(MakeFunctor(*this, &SuiteTrackDatabase::MoveFailsLeavingPlaylistUnchanged), "MoveFailsLeavingPlaylistUnchanged");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::SeqUpdatesOnChanges), "SeqUpdatesOnChanges");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::GetTrackByValidId), "GetTrackByValidId");
     AddTest(MakeFunctor(*this, &SuiteTrackDatabase::GetTrackByInvalidIdFails), "GetTrackByInvalidIdFails");
@@ -231,7 +242,9 @@ void SuiteTrackDatabase::Setup()
     iTrackDbWriter = iDb;
 
     iTrackDbReader->AddObserver(*this);
-    iInsertedCount = iDeletedCount = iAllDeletedCount = 0;
+    iInsertedCount = iDeletedCount = iAllDeletedCount = iMovedCount = 0;
+    iIdsLastMoved.clear();
+    iIdLastMovedAfter = UINT_MAX;
     iIdLastInserted = iIdLastInsertedBefore = iIdLastInsertedAfter = 
         iIdLastDeleted = iIdLastDeletedBefore = iIdLastDeletedAfter = UINT_MAX;
 }
@@ -256,6 +269,13 @@ void SuiteTrackDatabase::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aA
     iIdLastDeleted = aId;
     iIdLastDeletedBefore = (aBefore==nullptr? ITrackDatabaseReader::kTrackIdNone : aBefore->Id());
     iIdLastDeletedAfter = (aAfter==nullptr? ITrackDatabaseReader::kTrackIdNone : aAfter->Id());
+}
+
+void SuiteTrackDatabase::NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter)
+{
+    iMovedCount++;
+    iIdsLastMoved = aIdArray;
+    iIdLastMovedAfter = aIdAfter;
 }
 
 void SuiteTrackDatabase::NotifyAllDeleted()
@@ -517,6 +537,68 @@ void SuiteTrackDatabase::Move()
     }
 }
 
+void SuiteTrackDatabase::MoveReportsTracksMoved()
+{
+    TUint ids[4];
+    for (TUint i=0; i<4; i++) {
+        iTrackDbWriter->Insert(i==0? ITrackDatabaseReader::kTrackIdNone : ids[i-1], Brx::Empty(), Brx::Empty(), ids[i]);
+    }
+    TUint seq;
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    const TUint seqBefore = seq;
+
+    std::vector<TUint32> toMove;
+    toMove.push_back(ids[3]);
+    toMove.push_back(ids[1]);
+    iTrackDbWriter->Move(toMove, ids[0]);
+
+    // a move is reported as a move - not as a series of deletions and insertions
+    TEST(iMovedCount == 1);
+    TEST(iIdsLastMoved == toMove);
+    TEST(iIdLastMovedAfter == ids[0]);
+    TEST(iInsertedCount == 4); // ...i.e. unchanged by the move
+    TEST(iDeletedCount == 0);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    TEST(seq == seqBefore+1); // ...and bumps the seq once
+
+    const std::vector<TUint32> expected{ ids[0], ids[3], ids[1], ids[2] };
+    for (TUint i=0; i<expected.size(); i++) {
+        TEST(iIdArray[i] == expected[i]);
+    }
+}
+
+void SuiteTrackDatabase::MoveFailsLeavingPlaylistUnchanged()
+{
+    TUint ids[3];
+    for (TUint i=0; i<3; i++) {
+        iTrackDbWriter->Insert(i==0? ITrackDatabaseReader::kTrackIdNone : ids[i-1], Brx::Empty(), Brx::Empty(), ids[i]);
+    }
+    TUint seq;
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    const TUint seqBefore = seq;
+    const std::vector<TUint32> before(iIdArray);
+
+    std::vector<TUint32> toMove;
+    toMove.push_back(ids[2]);
+    toMove.push_back(ids[2]+1); // ...an id which isn't in the playlist
+    TEST_THROWS(iTrackDbWriter->Move(toMove, ids[0]), TrackDbIdNotFound);
+
+    toMove.clear();
+    toMove.push_back(ids[2]);
+    toMove.push_back(ids[2]); // ...the same track twice
+    TEST_THROWS(iTrackDbWriter->Move(toMove, ids[0]), TrackDbIdNotFound);
+
+    toMove.clear();
+    toMove.push_back(ids[0]);
+    toMove.push_back(ids[1]);
+    TEST_THROWS(iTrackDbWriter->Move(toMove, ids[1]), TrackDbIdNotFound); // ...after itself
+
+    TEST(iMovedCount == 0);
+    iTrackDbReader->GetIdArray(iIdArray, seq);
+    TEST(seq == seqBefore);
+    TEST(iIdArray == before);
+}
+
 void SuiteTrackDatabase::SeqUpdatesOnChanges()
 {
     TUint seq;
@@ -700,6 +782,10 @@ void SuiteTrackReader::NotifyTrackInserted(Track& /*aTrack*/, TUint /*aIdBefore*
 }
 
 void SuiteTrackReader::NotifyTrackDeleted(TUint /*aId*/, Track* /*aBefore*/, Track* /*aAfter*/)
+{
+}
+
+void SuiteTrackReader::NotifyTracksMoved(const std::vector<TUint32>& /*aIdArray*/, TUint /*aIdAfter*/)
 {
 }
 
@@ -897,6 +983,10 @@ void SuiteShuffler::NotifyTrackInserted(Track& /*aTrack*/, TUint /*aIdBefore*/, 
 }
 
 void SuiteShuffler::NotifyTrackDeleted(TUint /*aId*/, Track* /*aBefore*/, Track* /*aAfter*/)
+{
+}
+
+void SuiteShuffler::NotifyTracksMoved(const std::vector<TUint32>& /*aIdArray*/, TUint /*aIdAfter*/)
 {
 }
 
@@ -1377,6 +1467,10 @@ void SuiteRepeater::NotifyTrackInserted(Track& /*aTrack*/, TUint /*aIdBefore*/, 
 }
 
 void SuiteRepeater::NotifyTrackDeleted(TUint /*aId*/, Track* /*aBefore*/, Track* /*aAfter*/)
+{
+}
+
+void SuiteRepeater::NotifyTracksMoved(const std::vector<TUint32>& /*aIdArray*/, TUint /*aIdAfter*/)
 {
 }
 

@@ -151,11 +151,14 @@ void TrackDatabase::Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData
 
 void TrackDatabase::Move(const std::vector<TUint32>& aIdArray, TUint aIdAfter)
 {
-    TUint after = aIdAfter;
-    for (auto id : aIdArray) {
-        auto track = DoDeleteId(id);
-        Insert(after, track);
-        after = id;
+    AutoMutex _(iObserverLock);
+    {
+        AutoMutex a(iLock);
+        TrackListUtils::Move(iTrackList, aIdArray, aIdAfter); // throws if the move isn't possible
+        iSeq++;
+    }
+    for (TUint i=0; i<iObservers.size(); i++) {
+        iObservers[i]->NotifyTracksMoved(aIdArray, aIdAfter);
     }
 }
 
@@ -252,31 +255,6 @@ TBool TrackDatabase::TryGetTrackById(TUint aId, Track*& aTrack, TUint aStartInde
     return false;
 }
 
-void TrackDatabase::Insert(TUint aIdAfter, Track* aTrack)
-{
-    TUint idBefore, idAfter;
-    AutoMutex _(iObserverLock);
-    {
-        AutoMutex __(iLock);
-        AutoTrack tr(aTrack);
-        if (iTrackList.size() == iMaxTracks) {
-            THROW(TrackDbFull);
-        }
-        TUint index = 0;
-        if (aIdAfter != kTrackIdNone) {
-            index = TrackListUtils::IndexFromId(iTrackList, aIdAfter) + 1;
-        }
-        iTrackList.insert(iTrackList.begin() + index, aTrack);
-        tr.Clear();
-        iSeq++;
-        idBefore = aIdAfter;
-        idAfter = (index == iTrackList.size() - 1 ? kTrackIdNone : iTrackList[index + 1]->Id());
-    }
-    for (TUint i = 0; i < iObservers.size(); i++) {
-        iObservers[i]->NotifyTrackInserted(*aTrack, idBefore, idAfter);
-    }
-}
-
 Track* TrackDatabase::DoDeleteId(TUint aId)
 {
     Track* before = nullptr;
@@ -324,8 +302,8 @@ Shuffler::Shuffler(
     , iTrackReader(aTrackReader)
     , iReporter(aReporter)
     , iObserver(nullptr)
-    , iPendingInsertIdAfter(ITrackDatabaseReader::kTrackIdNone)
-    , iPendingInsert(false)
+    , iPendingIdAfter(ITrackDatabaseReader::kTrackIdNone)
+    , iPendingIdAfterValid(false)
     , iShuffle(false)
 {
     aTrackReader.SetObserver(*this);
@@ -442,8 +420,8 @@ void Shuffler::Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData, TUi
         /* Tracks are added in the order the user asked for in both shuffled and unshuffled lists.
            Remember the position the user asked for - NotifyTrackInserted() applies it to the
            shuffled list once the database has accepted the track. */
-        iPendingInsert = iShuffle;
-        iPendingInsertIdAfter = aIdAfter;
+        iPendingIdAfterValid = iShuffle;
+        iPendingIdAfter = aIdAfter;
         if (IsEndOfShuffledPlaylistLocked(aIdAfter)) {
             /* Adding after the last track of the shuffled playlist means 'add to the end of the
                playlist'.  Ignore aIdAfter for the unshuffled list and append there too. */
@@ -454,10 +432,10 @@ void Shuffler::Insert(TUint aIdAfter, const Brx& aUri, const Brx& aMetaData, TUi
         iDbWriter.Insert(idAfterDb, aUri, aMetaData, aIdInserted);
     }
     catch (...) {
-        ClearPendingInsert();
+        ClearPendingIdAfter();
         throw;
     }
-    ClearPendingInsert();
+    ClearPendingIdAfter();
 }
 
 void Shuffler::Move(const std::vector<TUint32>& aIdArray, TUint aIdAfter)
@@ -469,23 +447,20 @@ void Shuffler::Move(const std::vector<TUint32>& aIdArray, TUint aIdAfter)
         if (IsEndOfShuffledPlaylistLocked(aIdAfter)) {
             /* As for Insert() - moving after the last track of the shuffled playlist means 'move
                to the end of the playlist' so move to the end of the unshuffled list too.  The
-               anchor must be a track which isn't itself being moved; the database deletes then
-               re-inserts each track in turn so would fail to find one that had already moved. */
+               anchor must be a track which isn't itself being moved - see TrackListUtils::Move. */
             idAfterDb = LastDbTrackIdLocked(&aIdArray);
-            /* Only the first track needs its shuffled position overridden.  Later tracks are
-               inserted after their predecessor from aIdArray, which is the same in both lists. */
-            iPendingInsert = true;
-            iPendingInsertIdAfter = aIdAfter;
+            iPendingIdAfterValid = true;
+            iPendingIdAfter = aIdAfter;
         }
     }
     try {
         iDbWriter.Move(aIdArray, idAfterDb);
     }
     catch (...) {
-        ClearPendingInsert();
+        ClearPendingIdAfter();
         throw;
     }
-    ClearPendingInsert();
+    ClearPendingIdAfter();
 }
 
 void Shuffler::DeleteId(TUint aId)
@@ -576,8 +551,8 @@ void Shuffler::NotifyTrackInserted(Track& aTrack, TUint aIdBefore, TUint aIdAfte
         /* aIdBefore is the id the track was inserted after in the unshuffled list.  That is also
            the position the user asked for unless we adjusted it in Insert() above, so prefer the
            id the user gave us for any insertion which came via us. */
-        const TUint idAfterShuffle = (iPendingInsert? iPendingInsertIdAfter : aIdBefore);
-        iPendingInsert = false;
+        const TUint idAfterShuffle = (iPendingIdAfterValid? iPendingIdAfter : aIdBefore);
+        iPendingIdAfterValid = false;
         const TUint index = ShuffleIndexForIdAfterLocked(idAfterShuffle);
         iShuffleList.insert(iShuffleList.begin() + index, &aTrack);
         aTrack.AddRef();
@@ -613,6 +588,26 @@ void Shuffler::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aAfter)
     iObserver->NotifyTrackDeleted(aId, before, after);
     RemoveRefIfNonNull(before);
     RemoveRefIfNonNull(after);
+}
+
+void Shuffler::NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter)
+{
+    TUint idAfter = aIdAfter;
+    {
+        AutoMutex a(iLock);
+        /* aIdAfter is the position the database moved to.  Where we asked it to move somewhere
+           else (see Move()), the shuffled list uses the position the user asked for. */
+        if (iPendingIdAfterValid) {
+            idAfter = iPendingIdAfter;
+            iPendingIdAfterValid = false;
+        }
+        try {
+            TrackListUtils::Move(iShuffleList, aIdArray, idAfter);
+        }
+        catch (TrackDbIdNotFound&) {} // shouldn't happen - leave the shuffled order alone
+        LogIds("TracksMoved");
+    }
+    iObserver->NotifyTracksMoved(aIdArray, idAfter);
 }
 
 void Shuffler::NotifyAllDeleted()
@@ -684,10 +679,10 @@ TUint Shuffler::LastDbTrackIdLocked(const std::vector<TUint32>* aIgnoreIds)
     return ITrackDatabaseReader::kTrackIdNone;
 }
 
-void Shuffler::ClearPendingInsert()
+void Shuffler::ClearPendingIdAfter()
 {
     AutoMutex _(iLock);
-    iPendingInsert = false;
+    iPendingIdAfterValid = false;
 }
 
 void Shuffler::DisableShuffleIfTooFewTracks()
@@ -799,6 +794,11 @@ void Repeater::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* aAfter)
     iObserver->NotifyTrackDeleted(aId, aBefore, aAfter);
 }
 
+void Repeater::NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter)
+{
+    iObserver->NotifyTracksMoved(aIdArray, aIdAfter); // track count is unchanged by a move
+}
+
 void Repeater::NotifyAllDeleted()
 {
     iLock.Wait();
@@ -831,6 +831,41 @@ void TrackListUtils::Clear(std::vector<Track*>& aList)
         aList[i]->RemoveRef();
     }
     aList.clear();
+}
+
+void TrackListUtils::Move(
+    std::vector<Track*>& aList,
+    const std::vector<TUint32>& aIdArray,
+    TUint aIdAfter)
+{ // static
+    /* Validate before changing anything - a move either happens completely or not at all. */
+    for (TUint i=0; i<aIdArray.size(); i++) {
+        (void)IndexFromId(aList, aIdArray[i]);
+        for (TUint j=0; j<i; j++) {
+            if (aIdArray[j] == aIdArray[i]) { // same track twice
+                THROW(TrackDbIdNotFound);
+            }
+        }
+    }
+    if (aIdAfter != ITrackDatabaseReader::kTrackIdNone) {
+        (void)IndexFromId(aList, aIdAfter);
+        if (std::find(aIdArray.begin(), aIdArray.end(), aIdAfter) != aIdArray.end()) {
+            THROW(TrackDbIdNotFound); // can't move tracks to follow one of themselves
+        }
+    }
+
+    std::vector<Track*> moved;
+    moved.reserve(aIdArray.size());
+    for (TUint i=0; i<aIdArray.size(); i++) {
+        const TUint index = IndexFromId(aList, aIdArray[i]);
+        moved.push_back(aList[index]);
+        (void)aList.erase(aList.begin() + index);
+    }
+    TUint index = 0;
+    if (aIdAfter != ITrackDatabaseReader::kTrackIdNone) {
+        index = IndexFromId(aList, aIdAfter) + 1;
+    }
+    (void)aList.insert(aList.begin() + index, moved.begin(), moved.end()); // no change in ref counts
 }
 
 
@@ -892,24 +927,4 @@ Track* TrackReaderUtils::TrackRefByIndex(const std::vector<Media::Track*>& aList
         track->AddRef();
     }
     return track;
-}
-
-
-// AutoTrack
-
-AutoTrack::AutoTrack(Track* aTrack)
-    : iTrack(aTrack)
-{
-}
-
-AutoTrack::~AutoTrack()
-{
-    if (iTrack != nullptr) {
-        iTrack->RemoveRef();
-    }
-}
-
-void AutoTrack::Clear()
-{
-    iTrack = nullptr;
 }

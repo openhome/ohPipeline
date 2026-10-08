@@ -411,6 +411,27 @@ void UriProviderPlaylist::NotifyTrackDeleted(TUint aId, Track* aBefore, Track* a
     iDbObserver.NotifyTrackDeleted(aId, aBefore, aAfter);
 }
 
+void UriProviderPlaylist::NotifyTracksMoved(const std::vector<TUint32>& aIdArray, TUint aIdAfter)
+{
+    {
+        AutoMutex a(iLock);
+        /* Nothing is added or removed by a move so any track we're playing carries on playing.
+           Only the tracks queued behind it need to be fetched again, from their new positions. */
+        const TUint currentId = CurrentTrackIdLocked();
+        iLastTrackId = currentId;
+        if (iActive) {
+            if (currentId == ITrackDatabaseReader::kTrackIdNone) {
+                iIdManager.InvalidateAll();
+            }
+            else {
+                iIdManager.InvalidateAfter(currentId);
+            }
+        }
+    }
+
+    iDbObserver.NotifyTracksMoved(aIdArray, aIdAfter);
+}
+
 void UriProviderPlaylist::NotifyAllDeleted()
 {
     {

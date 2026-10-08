@@ -139,6 +139,11 @@ void ProviderPlaylist::NotifyTrackDeleted(TUint /*aId*/, Track* aBefore, Track* 
     TrackDatabaseChanged();
 }
 
+void ProviderPlaylist::NotifyTracksMoved(const std::vector<TUint32>& /*aIdArray*/, TUint /*aIdAfter*/)
+{
+    TrackDatabaseChanged();
+}
+
 void ProviderPlaylist::NotifyAllDeleted()
 {
     NotifyTrack(ITrackDatabaseReader::kTrackIdNone);
