@@ -247,6 +247,8 @@ private:
     Functor iCompleted;
     PinIdProvider iPinIdProvider;
     Pin iPin;
+    TUint iInsertCount;
+    TBool iShuffle;
 };
 
 };  // namespace Av

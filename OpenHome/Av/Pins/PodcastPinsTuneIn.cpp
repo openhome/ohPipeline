@@ -119,6 +119,8 @@ TBool PodcastPinsLatestEpisodeTuneIn::SingleShot()
 PodcastPinsEpisodeListTuneIn::PodcastPinsEpisodeListTuneIn(Net::DvDeviceStandard& aDevice, Media::TrackFactory& aTrackFactory, Net::CpStack& aCpStack, Configuration::IStoreReadWrite& aStore, IThreadPool& aThreadPool)
     : iLastId(0)
     , iPin(iPinIdProvider)
+    , iInsertCount(0)
+    , iShuffle(false)
 {
     iPodcastPins = PodcastPinsTuneIn::GetInstance(aTrackFactory, aCpStack.Env(), aStore, Brx::Empty());
 
@@ -201,7 +203,8 @@ void PodcastPinsEpisodeListTuneIn::Init(TBool aShuffle)
 {
     iCpPlaylist->SyncDeleteAll();
     iLastId = 0;
-    iCpPlaylist->SyncSetShuffle(aShuffle);
+    iInsertCount = 0;
+    iShuffle = aShuffle;
 }
 
 void PodcastPinsEpisodeListTuneIn::Load(Media::Track& aTrack)
@@ -209,6 +212,9 @@ void PodcastPinsEpisodeListTuneIn::Load(Media::Track& aTrack)
     TUint newId;
     iCpPlaylist->SyncInsert(iLastId, aTrack.Uri(), aTrack.MetaData(), newId);
     iLastId = newId;
+    if (++iInsertCount == Shuffler::kMinTracksForShuffle && iShuffle) {
+        iCpPlaylist->SyncSetShuffle(iShuffle);
+    }
 }
 
 void PodcastPinsEpisodeListTuneIn::Play()

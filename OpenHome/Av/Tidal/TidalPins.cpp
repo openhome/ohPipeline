@@ -91,7 +91,9 @@ TidalPins::TidalPins(Tidal& aTidal,
     , iTidalMetadata(aTrackFactory)
     , iPin(iPinIdProvider)
     , iEnv(aEnv)
+    , iInsertCount(0)
     , iInterrupted(false)
+    , iShuffle(false)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
     iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
@@ -469,6 +471,9 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
                         track = nullptr;
                         currId = newId;
                         isPlayable = true;
+                        if (++iInsertCount == Shuffler::kMinTracksForShuffle && iShuffle) {
+                            iCpPlaylist->SyncSetShuffle(iShuffle);
+                        }
                         if (aCount >= iMaxPlaylistTracks) {
                             offset = end; // force exit as we could be part way through a group of tracks
                             break;
@@ -487,6 +492,9 @@ TUint TidalPins::LoadTracksById(const Brx& aId,
                     track = nullptr;
                     currId = newId;
                     isPlayable = true;
+                    if (++iInsertCount == Shuffler::kMinTracksForShuffle && iShuffle) {
+                        iCpPlaylist->SyncSetShuffle(iShuffle);
+                    }
                 }
             }
 
@@ -626,7 +634,8 @@ TBool TidalPins::IsValidId(const Brx& aRequest, TidalMetadata::EIdType aIdType)
 void TidalPins::InitPlaylist(TBool aShuffle)
 {
     iCpPlaylist->SyncDeleteAll();
-    iCpPlaylist->SyncSetShuffle(aShuffle);
+    iInsertCount = 0;
+    iShuffle = aShuffle;
 }
 
 TidalPins::EShuffleMode TidalPins::GetShuffleMode(PinUri& aPinUri)

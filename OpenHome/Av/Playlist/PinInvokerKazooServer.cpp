@@ -61,6 +61,7 @@ PinInvokerKazooServer::PinInvokerKazooServer(Environment& aEnv,
     , iReaderUntil2(iDechunker)
     , iResponseBody(4 * 1024)
     , iSemDeviceFound("PiKS", 0)
+    , iInsertCount(0)
     , iShuffle(false)
 {
     iReaderResponse.AddHeader(iHeaderContentLength);
@@ -182,7 +183,7 @@ void PinInvokerKazooServer::ReadFromServer()
     }
 
     iProxyPlaylist->SyncDeleteAll();
-    iProxyPlaylist->SyncSetShuffle(iShuffle);
+    iInsertCount = 0;
     TUint lastTrackId = ITrackDatabaseReader::kTrackIdNone;
     TUint playlistCapacity;
     iProxyPlaylist->SyncTracksMax(playlistCapacity);
@@ -420,6 +421,9 @@ void PinInvokerKazooServer::AddTrack(TUint& aInsertAfterId)
 
         OhMetadata::ToUriDidlLite(metadata, iTrackUri, iTrackMetadata);
         iProxyPlaylist->SyncInsert(aInsertAfterId, iTrackUri, iTrackMetadata, aInsertAfterId);
+        if (++iInsertCount == Shuffler::kMinTracksForShuffle && iShuffle) {
+            iProxyPlaylist->SyncSetShuffle(iShuffle);
+        }
         if (!iPlaying) {
             iProxyPlaylist->SyncPlay();
             iPlaying = true;

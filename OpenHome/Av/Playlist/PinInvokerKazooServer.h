@@ -102,6 +102,7 @@ private:
     Functor iCompleted;
     Media::BwsTrackUri iTrackUri;
     Media::BwsTrackMetaDataLegacy iTrackMetadata;
+    TUint iInsertCount;
     TBool iShuffle;
     TBool iPlaying;
 };

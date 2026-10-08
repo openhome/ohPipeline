@@ -82,7 +82,9 @@ private:
     PinIdProvider iPinIdProvider;
     Pin iPin;
     Environment& iEnv;
+    TUint iInsertCount;
     std::atomic<TBool> iInterrupted;
+    TBool iShuffle;
 };
 
 };  // namespace Av
