@@ -309,7 +309,6 @@ TBool PinInvokerUpnpServer::TryAddItem(const Brx& aItemDidl)
         iTrackDatabase.Insert(iTrackIdInsertAfter, trackUri, iTrackMetadata, iTrackIdInsertAfter);
         if (!iPlaying) {
             FunctorAsync empty;
-            iProxyPlaylist->BeginSetShuffle(iShuffle, empty);
             iProxyPlaylist->BeginPlay(empty);
             iPlaying = true;
         }
