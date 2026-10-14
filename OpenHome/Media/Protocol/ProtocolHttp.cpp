@@ -11,6 +11,8 @@
 #include <OpenHome/Media/Debug.h>
 #include <OpenHome/Private/Parser.h>
 #include <OpenHome/Private/Ascii.h>
+#include <OpenHome/Private/Env.h>
+#include <OpenHome/Private/NetworkAdapterList.h>
 #include <OpenHome/Media/SupplyAggregator.h>
 #include <OpenHome/Media/Protocol/Icy.h>
 
@@ -69,6 +71,7 @@ private:
     TBool Connect(const Uri& aUri);
     TInt PortFromUri(const Uri& aUri) const;
     void Close();
+    void CurrentAdapterChanged();
     void Reinitialise(const Brx& aUri);
     ProtocolStreamResult DoStream();
     ProtocolGetResult DoGet(IWriter& aWriter, TUint64 aOffset, TUint aBytes);
@@ -115,6 +118,7 @@ private:
     TUint iNextFlushId;
     Semaphore iSem;
     Optional<IServerObserver> iServerObserver;
+    TUint iNacnId;
 };
 
 };  // namespace Media
@@ -238,10 +242,12 @@ ProtocolHttp::ProtocolHttp(Environment& aEnv, SslContext& aSsl, const Brx& aUser
     if (iServerObserver.Ok()) {
         iHeaderServer.AddServerObserver(iServerObserver.Unwrap());
     }
+    iNacnId = aEnv.NetworkAdapterList().AddCurrentChangeListener(MakeFunctor(*this, &ProtocolHttp::CurrentAdapterChanged), "ProtocolHttp", false);
 }
 
 ProtocolHttp::~ProtocolHttp()
 {
+    iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iNacnId);
     delete iReaderIcy;
     delete iIcyObserverDidlLite;
     delete iSupply;
@@ -265,6 +271,18 @@ void ProtocolHttp::Interrupt(TBool aInterrupt)
             iSem.Signal(); // no need to check iLive - iSem will be cleared when this protocol is next reused anyway
         }
         iSocket.Interrupt(aInterrupt);
+    }
+}
+
+void ProtocolHttp::CurrentAdapterChanged()
+{
+    // See ProtocolNetwork::CurrentAdapterChanged (Protocol.cpp): a socket left over from the
+    // previous interface won't be torn down by the OS, so a blocking read on it can stall for
+    // the duration of the kernel's own TCP timeout. Interrupt it (without setting iStopped, as
+    // TrySeek does) so the existing recoverable-error/reconnect path fires immediately.
+    AutoMutex _(iLock);
+    if (iActive) {
+        iSocket.Interrupt(true);
     }
 }
 
