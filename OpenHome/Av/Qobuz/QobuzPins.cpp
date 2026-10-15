@@ -124,6 +124,7 @@ void QobuzPins::Invoke()
 {
     AutoFunctor _(iCompleted);
     iCpPlaylist->SyncTracksMax(iMaxPlaylistTracks);
+    iCpPlaylist->SyncSetShuffle(false);
     TBool res = false;
     try {
         PinUri pinUri(iPin);
