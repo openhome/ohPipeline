@@ -9,7 +9,7 @@
 #include <OpenHome/Av/Playlist/DeviceListMediaServer.h>
 #include <OpenHome/Av/Playlist/TrackDatabase.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist2.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Net/Private/XmlParser.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Debug.h>
@@ -61,6 +61,7 @@ PinInvokerKazooServer::PinInvokerKazooServer(Environment& aEnv,
     , iReaderUntil2(iDechunker)
     , iResponseBody(4 * 1024)
     , iSemDeviceFound("PiKS", 0)
+    , iInsertCount(0)
     , iShuffle(false)
 {
     iReaderResponse.AddHeader(iHeaderContentLength);
@@ -69,7 +70,7 @@ PinInvokerKazooServer::PinInvokerKazooServer(Environment& aEnv,
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &PinInvokerKazooServer::ReadFromServer),
                                                  "PinInvokerKazooServer", ThreadPoolPriority::Medium);
     iCpDeviceSelf = CpDeviceDv::New(aCpStack, aDevice);
-    iProxyPlaylist = new CpProxyAvOpenhomeOrgPlaylist2(*iCpDeviceSelf);
+    iProxyPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*iCpDeviceSelf);
 }
 
 PinInvokerKazooServer::~PinInvokerKazooServer()
@@ -182,7 +183,7 @@ void PinInvokerKazooServer::ReadFromServer()
     }
 
     iProxyPlaylist->SyncDeleteAll();
-    iProxyPlaylist->SyncSetShuffle(iShuffle);
+    iInsertCount = 0;
     TUint lastTrackId = ITrackDatabaseReader::kTrackIdNone;
     TUint playlistCapacity;
     iProxyPlaylist->SyncTracksMax(playlistCapacity);
@@ -420,6 +421,9 @@ void PinInvokerKazooServer::AddTrack(TUint& aInsertAfterId)
 
         OhMetadata::ToUriDidlLite(metadata, iTrackUri, iTrackMetadata);
         iProxyPlaylist->SyncInsert(aInsertAfterId, iTrackUri, iTrackMetadata, aInsertAfterId);
+        if (++iInsertCount == Shuffler::kMinTracksForShuffle && iShuffle) {
+            iProxyPlaylist->SyncSetShuffle(iShuffle);
+        }
         if (!iPlaying) {
             iProxyPlaylist->SyncPlay();
             iPlaying = true;

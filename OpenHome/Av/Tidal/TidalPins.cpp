@@ -92,9 +92,10 @@ TidalPins::TidalPins(Tidal& aTidal,
     , iPin(iPinIdProvider)
     , iEnv(aEnv)
     , iInterrupted(false)
+    , iShuffle(false)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
-    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist2(*cpDevice);
+    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &TidalPins::Invoke),
                                                  "TidalPins", ThreadPoolPriority::Medium);
@@ -145,6 +146,7 @@ void TidalPins::Invoke()
 {
     AutoFunctor _(iCompleted);
     iCpPlaylist->SyncTracksMax(iMaxPlaylistTracks);
+    iCpPlaylist->SyncSetShuffle(false);
     TBool res = false;
     try {
         PinUri pinUri(iPin);
@@ -626,7 +628,7 @@ TBool TidalPins::IsValidId(const Brx& aRequest, TidalMetadata::EIdType aIdType)
 void TidalPins::InitPlaylist(TBool aShuffle)
 {
     iCpPlaylist->SyncDeleteAll();
-    iCpPlaylist->SyncSetShuffle(aShuffle);
+    iShuffle = aShuffle;
 }
 
 TidalPins::EShuffleMode TidalPins::GetShuffleMode(PinUri& aPinUri)

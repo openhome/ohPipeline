@@ -10,7 +10,7 @@
 #include <OpenHome/Net/Core/CpDeviceUpnp.h>
 #include <OpenHome/Net/Core/FunctorCpDevice.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist2.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Net/Private/XmlParser.h>
 #include <OpenHome/Private/Ascii.h>
 #include <OpenHome/Private/Debug.h>

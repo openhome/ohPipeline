@@ -72,9 +72,10 @@ QobuzPins::QobuzPins(Qobuz& aQobuz,
     , iPin(iPinIdProvider)
     , iEnv(aEnv)
     , iInterrupted(false)
+    , iShuffle(false)
 {
     CpDeviceDv* cpDevice = CpDeviceDv::New(aCpStack, aDevice);
-    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist2(*cpDevice);
+    iCpPlaylist = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
     iThreadPoolHandle = aThreadPool.CreateHandle(MakeFunctor(*this, &QobuzPins::Invoke),
                                                  "QobuzPins", ThreadPoolPriority::Medium);
@@ -123,6 +124,7 @@ void QobuzPins::Invoke()
 {
     AutoFunctor _(iCompleted);
     iCpPlaylist->SyncTracksMax(iMaxPlaylistTracks);
+    iCpPlaylist->SyncSetShuffle(false);
     TBool res = false;
     try {
         PinUri pinUri(iPin);
@@ -521,7 +523,7 @@ TBool QobuzPins::IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aIdType)
 void QobuzPins::InitPlaylist(TBool aShuffle)
 {
     iCpPlaylist->SyncDeleteAll();
-    iCpPlaylist->SyncSetShuffle(aShuffle);
+    iShuffle = aShuffle;
 }
 
 void QobuzPins::FindResponse(JsonParser& aParser)

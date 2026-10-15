@@ -13,7 +13,7 @@
 #include <OpenHome/Media/Protocol/ProtocolFactory.h>
 #include <OpenHome/Media/Codec/CodecFactory.h>
 #include <OpenHome/Av/SourceFactory.h>
-#include <Generated/CpAvOpenhomeOrgPlaylist2.h>
+#include <Generated/CpAvOpenhomeOrgPlaylist1.h>
 #include <OpenHome/Net/Core/CpDeviceDv.h>
 #include <OpenHome/Media/Utils/ProcessorAudioUtils.h>
 #include <OpenHome/Configuration/ConfigManager.h>
@@ -139,7 +139,7 @@ private:
     MediaPlayer* iMediaPlayer;
     DummyDriver* iDriver;
     VolumeNull iDummyVolume;
-    CpProxyAvOpenhomeOrgPlaylist2* iProxy;
+    CpProxyAvOpenhomeOrgPlaylist1* iProxy;
     std::array<TUint, kNumTracks> iTrackIds;
     TUint iCurrentTrackId;
     TUint iTrackCount;
@@ -450,7 +450,7 @@ void SuitePlaylist::Setup()
 
     iDevice->SetEnabled();
     CpDeviceDv* cpDevice = CpDeviceDv::New(iCpStack, *iDevice);
-    iProxy = new CpProxyAvOpenhomeOrgPlaylist2(*cpDevice);
+    iProxy = new CpProxyAvOpenhomeOrgPlaylist1(*cpDevice);
     cpDevice->RemoveRef(); // iProxy will have claimed a reference to the device so no need for us to hang onto another
 
     iCurrentTrackId = Track::kIdNone;
