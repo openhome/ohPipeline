@@ -71,7 +71,6 @@ QobuzPins::QobuzPins(Qobuz& aQobuz,
     , iQobuzMetadata(aTrackFactory)
     , iPin(iPinIdProvider)
     , iEnv(aEnv)
-    , iInsertCount(0)
     , iInterrupted(false)
     , iShuffle(false)
 {
@@ -408,9 +407,6 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                         track = nullptr;
                         currId = newId;
                         isPlayable = true;
-                        if (++iInsertCount == Shuffler::kMinTracksForShuffle && iShuffle) {
-                            iCpPlaylist->SyncSetShuffle(iShuffle);
-                        }
                         if (aCount >= iMaxPlaylistTracks) {
                             offset = end; // force exit as we could be part way through a group of tracks
                             break;
@@ -428,9 +424,6 @@ TUint QobuzPins::LoadTracksById(const Brx& aId, QobuzMetadata::EIdType aIdType, 
                     track = nullptr;
                     currId = newId;
                     isPlayable = true;
-                    if (++iInsertCount == Shuffler::kMinTracksForShuffle && iShuffle) {
-                        iCpPlaylist->SyncSetShuffle(iShuffle);
-                    }
                 }
             }
             
@@ -529,7 +522,6 @@ TBool QobuzPins::IsValidId(const Brx& aRequest, QobuzMetadata::EIdType aIdType)
 void QobuzPins::InitPlaylist(TBool aShuffle)
 {
     iCpPlaylist->SyncDeleteAll();
-    iInsertCount = 0;
     iShuffle = aShuffle;
 }
 
