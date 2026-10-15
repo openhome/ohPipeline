@@ -277,9 +277,9 @@ void ProtocolHttp::Interrupt(TBool aInterrupt)
 void ProtocolHttp::CurrentAdapterChanged()
 {
     // See ProtocolNetwork::CurrentAdapterChanged (Protocol.cpp): a socket left over from the
-    // previous interface won't be torn down by the OS, so a blocking read on it can stall for
-    // the duration of the kernel's own TCP timeout. Interrupt it (without setting iStopped, as
-    // TrySeek does) so the existing recoverable-error/reconnect path fires immediately.
+    // previous interface won't be torn down by the OS, so a blocking read on it can stall indefinitely
+    // Interrupt it (without setting iStopped, as TrySeek does) 
+    // so the existing recoverable-error/reconnect path fires immediately.
     AutoMutex _(iLock);
     if (iActive) {
         iSocket.Interrupt(true);

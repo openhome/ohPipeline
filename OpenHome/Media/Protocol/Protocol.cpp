@@ -176,9 +176,8 @@ void ProtocolNetwork::Interrupt(TBool aInterrupt)
 void ProtocolNetwork::CurrentAdapterChanged()
 {
     // A stale socket from the previous interface won't be torn down by the OS, so a blocking
-    // read on it can stall for the duration of the kernel's own TCP timeout. Interrupt it (without
-    // flagging a stop, as TrySeek does) so the existing reconnect-on-recoverable-error path fires
-    // immediately and reconnects over the new route.
+    // read on it can stall indefinitely. Interrupt it (without flagging a stop, as TrySeek does) 
+    // so the existing reconnect-on-recoverable-error path fires immediately and reconnects over the new route.
     iLock.Wait();
     if (iActive) {
         iTcpClient.Interrupt(true);
@@ -284,9 +283,8 @@ void ProtocolNetworkSsl::Interrupt(TBool aInterrupt)
 
 void ProtocolNetworkSsl::CurrentAdapterChanged()
 {
-    // See ProtocolNetwork::CurrentAdapterChanged: interrupt the stale socket's blocking read
-    // without flagging a stop, so the stream reconnects over the new interface promptly rather
-    // than waiting out the kernel's own TCP timeout.
+    // See ProtocolNetwork::CurrentAdapterChanged: interrupt the stale socket's blocking 
+    // read without flagging a stop, so the stream reconnects over the new interface
     iLock.Wait();
     if (iActive) {
         iSocket.Interrupt(true);
