@@ -112,6 +112,7 @@ private:
     TBool InspectionBufferFilled() const;
     MsgAudioEncoded* ExtractMsgAudioEncoded(TUint aBytes);
     Msg* PullUpstreamMsg();
+    void DoReset();
 public: // from IMsgAudioEncodedCache
     void Discard(TUint aBytes) override;
     void Inspect(Bwx& aBuf, TUint aBytes) override;

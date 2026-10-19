@@ -5,6 +5,8 @@
 #include <OpenHome/SocketSsl.h>
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Private/Ascii.h>
+#include <OpenHome/Private/Env.h>
+#include <OpenHome/Private/NetworkAdapterList.h>
 #include <OpenHome/Media/Debug.h>
 
 #include <algorithm>
@@ -111,6 +113,12 @@ ProtocolNetwork::ProtocolNetwork(Environment& aEnv)
     , iLock("PRNW")
     , iSocketIsOpen(false)
 {
+    iNacnId = iEnv.NetworkAdapterList().AddCurrentChangeListener(MakeFunctor(*this, &ProtocolNetwork::CurrentAdapterChanged), "ProtocolNetwork", false);
+}
+
+ProtocolNetwork::~ProtocolNetwork()
+{
+    iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iNacnId);
 }
 
 TBool ProtocolNetwork::Connect(const Uri& aUri, TUint aDefaultPort, TUint aTimeoutMs)
@@ -165,6 +173,18 @@ void ProtocolNetwork::Interrupt(TBool aInterrupt)
     iLock.Signal();
 }
 
+void ProtocolNetwork::CurrentAdapterChanged()
+{
+    // A stale socket from the previous interface won't be torn down by the OS, so a blocking
+    // read on it can stall indefinitely. Interrupt it (without flagging a stop, as TrySeek does) 
+    // so the existing reconnect-on-recoverable-error path fires immediately and reconnects over the new route.
+    iLock.Wait();
+    if (iActive) {
+        iTcpClient.Interrupt(true);
+    }
+    iLock.Signal();
+}
+
 void ProtocolNetwork::Open()
 {
     LOG(kMedia, "ProtocolNetwork::Open\n");
@@ -197,6 +217,12 @@ ProtocolNetworkSsl::ProtocolNetworkSsl(Environment& aEnv,
     , iLock("PRNWS")
     , iSocketIsOpen(false)
 {
+    iNacnId = iEnv.NetworkAdapterList().AddCurrentChangeListener(MakeFunctor(*this, &ProtocolNetworkSsl::CurrentAdapterChanged), "ProtocolNetworkSsl", false);
+}
+
+ProtocolNetworkSsl::~ProtocolNetworkSsl()
+{
+    iEnv.NetworkAdapterList().RemoveCurrentChangeListener(iNacnId);
 }
 
 
@@ -251,6 +277,17 @@ void ProtocolNetworkSsl::Interrupt(TBool aInterrupt)
     iLock.Wait();
     if (iActive) {
         iSocket.Interrupt(aInterrupt);
+    }
+    iLock.Signal();
+}
+
+void ProtocolNetworkSsl::CurrentAdapterChanged()
+{
+    // See ProtocolNetwork::CurrentAdapterChanged: interrupt the stale socket's blocking 
+    // read without flagging a stop, so the stream reconnects over the new interface
+    iLock.Wait();
+    if (iActive) {
+        iSocket.Interrupt(true);
     }
     iLock.Signal();
 }

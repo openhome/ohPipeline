@@ -62,6 +62,12 @@ MsgAudioEncodedCache::~MsgAudioEncodedCache()
 
 void MsgAudioEncodedCache::Reset()
 {
+    AutoMutex m(iLock);
+    DoReset();
+}
+
+void MsgAudioEncodedCache::DoReset()
+{
     if (iAudioEncoded != nullptr) {
         iAudioEncoded->RemoveRef();
         iAudioEncoded = nullptr;
@@ -76,7 +82,7 @@ void MsgAudioEncodedCache::Reset()
 void MsgAudioEncodedCache::SetFlushing(TUint aFlushId)
 {
     AutoMutex a(iLock);
-    Reset();
+    DoReset();
     iExpectedFlushId = aFlushId;
 }
 

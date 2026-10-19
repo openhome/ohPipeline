@@ -161,18 +161,23 @@ protected:
     static const TUint kConnectTimeoutMs = 3000;
 protected:
     ProtocolNetwork(Environment& aEnv);
+    ~ProtocolNetwork();
     TBool Connect(const Uri& aUri, TUint aDefaultPort, TUint aTimeoutMs = kConnectTimeoutMs);
 protected: // from Protocol
     void Interrupt(TBool aInterrupt) override;
 protected:
     void Open();
     void Close();
+private:
+    void CurrentAdapterChanged();
 protected:
     SocketTcpClient iTcpClient;
     Srs<kReadBufferBytes> iReaderBuf;
     Sws<kWriteBufferBytes> iWriterBuf;
     Mutex iLock;
     TBool iSocketIsOpen;
+private:
+    TUint iNacnId;
 };
 
 class ProtocolNetworkSsl : public Protocol
@@ -185,6 +190,7 @@ class ProtocolNetworkSsl : public Protocol
     protected:
         ProtocolNetworkSsl(Environment&,
                            SslContext&);
+        ~ProtocolNetworkSsl();
         TBool Connect(const Uri& aUri, TUint aDefaultPort, TUint aTimeoutMs = kConnectTimeoutMs);
 
     protected: // from Protocol
@@ -194,12 +200,18 @@ class ProtocolNetworkSsl : public Protocol
         void Open();
         void Close();
 
+    private:
+        void CurrentAdapterChanged();
+
     protected:
         SocketSsl iSocket;
         Srs<kReadBufferBytes> iReaderBuf;
         Sws<kWriteBufferBytes> iWriterBuf;
         Mutex iLock;
         TBool iSocketIsOpen;
+
+    private:
+        TUint iNacnId;
 };
 
 
