@@ -47,15 +47,11 @@ class Builder():
             self.PublishFilesForTest()
 
     def PublishBuildOutput(self): 
-        buildNum = os.environ['TEST_TARBALL_ID'] if 'TEST_TARBALL_ID' in os.environ else os.environ['BUILD_NUMBER']
+        buildNum = os.environ['PIPELINE_JOB_NUMBER'] if 'PIPELINE_JOB_NUMBER' in os.environ else os.environ['BUILD_NUMBER']
         buildDir = os.path.abspath(os.path.join(os.path.dirname('__file__'), 'build'))                                   
         awsRoot = f's3://linn-artifacts-private/dsOncommit/ohMediaPlayer/{buildNum}/{self.platform}'
         print(f'awsCopy {os.path.join(buildDir, "ohMediaPlayer.tar.gz")} -> {awsRoot}/ohMediaPlayer_{self.variant}.tar.gz')
         build.awsCopy(os.path.join(buildDir, 'ohMediaPlayer.tar.gz'), f'{awsRoot}/ohMediaPlayer_{self.variant}.tar.gz')
-        with open(os.path.join(buildDir, 'latest.txt'), 'wt') as f:
-            f.write(buildNum)
-        print(f'awsCopy {os.path.join(buildDir, "latest.txt")} -> s3://linn-artifacts-private/dsOncommit/ohMediaPlayer/latest.txt')
-        build.awsCopy(os.path.join(buildDir, 'latest.txt'), f's3://linn-artifacts-private/dsOncommit/ohMediaPlayer/latest.txt')
 
     def PublishFilesForTest(self):
         os.environ['PLATFORM'] = self.platform  # initial env-var getting changed by VS setup on Windows ????

@@ -13,7 +13,7 @@ class TestBundler:
 
     def __init__(self):
         self.platform = os.environ['PLATFORM'] if 'PLATFORM' in os.environ else 'Unknown' 
-        self.tarballId = os.environ['TEST_TARBALL_ID'] if 'TEST_TARBALL_ID' in os.environ else '0'
+        self.tarballId = os.environ['PIPELINE_JOB_NUMBER'] if 'PIPELINE_JOB_NUMBER' in os.environ else '0'
         self.tarName = os.path.join(os.path.dirname(__file__), 'build', f'ohMediaPlayer_{self.tarballId}_{self.platform}_TESTS.tar.gz')
 
     def Bundle(self):
