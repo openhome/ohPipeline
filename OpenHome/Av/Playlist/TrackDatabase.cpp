@@ -328,6 +328,9 @@ void Shuffler::SetShuffle(TBool aShuffle, TUint aCurrentTrackId)
     Track* track = nullptr;
     {
         AutoMutex _(iLock);
+        if (aShuffle && iShuffleList.size() <= kMinTracksForShuffle) {
+            THROW(ShuffleInsufficientTracks);
+        }
         if (iShuffle == aShuffle) {
             /* No change so nothing to report.  Note that DisableShuffleIfTooFewTracks() relies on
                this - the change in shuffle state it requests is reported back to us and must not

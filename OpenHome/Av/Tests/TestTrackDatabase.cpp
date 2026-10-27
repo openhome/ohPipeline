@@ -137,6 +137,8 @@ private:
     void SetShuffleWhilePlayingPutsCurrentTrackFirst();
     void SetShuffleWhenNotPlayingStartsAtFirstShuffledTrack();
     void SetShuffleWithUnknownCurrentTrackShuffles();
+    void SetShuffleThrowsWhenTooFewTracks();
+    void SetShuffleOffNeverThrows();
     void SetShuffleOffWhilePlayingKeepsCurrentTrack();
     void SetShuffleOffWhenNotPlayingStartsAtFirstTrack();
     void InsertShuffleOnFollowsUserOrder();
@@ -906,6 +908,8 @@ SuiteShuffler::SuiteShuffler()
     AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleWhilePlayingPutsCurrentTrackFirst), "SetShuffleWhilePlayingPutsCurrentTrackFirst");
     AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleWhenNotPlayingStartsAtFirstShuffledTrack), "SetShuffleWhenNotPlayingStartsAtFirstShuffledTrack");
     AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleWithUnknownCurrentTrackShuffles), "SetShuffleWithUnknownCurrentTrackShuffles");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleThrowsWhenTooFewTracks), "SetShuffleThrowsWhenTooFewTracks");
+    AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleOffNeverThrows), "SetShuffleOffNeverThrows");
     AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleOffWhilePlayingKeepsCurrentTrack), "SetShuffleOffWhilePlayingKeepsCurrentTrack");
     AddTest(MakeFunctor(*this, &SuiteShuffler::SetShuffleOffWhenNotPlayingStartsAtFirstTrack), "SetShuffleOffWhenNotPlayingStartsAtFirstTrack");
     AddTest(MakeFunctor(*this, &SuiteShuffler::InsertShuffleOnFollowsUserOrder), "InsertShuffleOnFollowsUserOrder");
@@ -1220,6 +1224,53 @@ void SuiteShuffler::SetShuffleWithUnknownCurrentTrackShuffles()
     TEST(shuffled.size() == kNumTracks);
     TEST(iReorderedCount == 1);
     TEST(iIdLastReordered == shuffled[0]);
+}
+
+void SuiteShuffler::SetShuffleThrowsWhenTooFewTracks()
+{
+    /* Note that a playlist of exactly kMinTracksForShuffle tracks isn't tested here - SetShuffle()
+       rejects that size where DisableShuffleIfTooFewTracks() treats it as shuffleable. */
+    iWriter->DeleteAll();
+    TEST(ShuffledIds().size() == 0);
+    const TUint reorderedCount = iReorderedCount;
+
+    // an empty playlist can't be shuffled...
+    TEST_THROWS(iShuffler->SetShuffle(true), ShuffleInsufficientTracks);
+    TEST(!iShuffler->Enabled());
+    TEST(iReorderedCount == reorderedCount); // ...and nothing is reported as re-ordered
+
+    // ...nor can a playlist of one track
+    TUint id;
+    iWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    TEST_THROWS(iShuffler->SetShuffle(true, id), ShuffleInsufficientTracks);
+    TEST(!iShuffler->Enabled());
+    TEST(iReorderedCount == reorderedCount);
+    TEST(ShuffledIds() == UnshuffledIds()); // ...the order the user chose is untouched
+
+    // ...but a playlist which is long enough still can
+    for (TUint i=0; i<kNumTracks; i++) {
+        iWriter->Insert(id, Brx::Empty(), Brx::Empty(), id);
+    }
+    iShuffler->SetShuffle(true);
+    TEST(iShuffler->Enabled());
+    TEST(iReorderedCount == reorderedCount+1);
+}
+
+void SuiteShuffler::SetShuffleOffNeverThrows()
+{
+    iShuffler->SetShuffle(true);
+    TEST(iShuffler->Enabled());
+    iWriter->DeleteAll(); // ...which leaves too few tracks to shuffle
+    TEST(!iShuffler->Enabled());
+    TEST(iShuffleOffCount == 1);
+
+    // turning shuffle off must work whatever the playlist holds
+    iShuffler->SetShuffle(false);
+    TEST(!iShuffler->Enabled());
+    TUint id;
+    iWriter->Insert(ITrackDatabaseReader::kTrackIdNone, Brx::Empty(), Brx::Empty(), id);
+    iShuffler->SetShuffle(false);
+    TEST(!iShuffler->Enabled());
 }
 
 void SuiteShuffler::SetShuffleOffWhilePlayingKeepsCurrentTrack()
