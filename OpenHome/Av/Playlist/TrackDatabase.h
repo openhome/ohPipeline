@@ -10,7 +10,6 @@
 
 EXCEPTION(TrackDbIdNotFound);
 EXCEPTION(TrackDbFull);
-EXCEPTION(ShuffleInsufficientTracks);
 
 namespace OpenHome {
 namespace Media {
